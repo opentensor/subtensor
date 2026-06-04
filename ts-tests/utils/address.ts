@@ -7,7 +7,7 @@ export function convertH160ToPublicKey(ethAddress: string) {
     const prefix = "evm:";
     const prefixBytes = new TextEncoder().encode(prefix);
     const addressBytes = hexToU8a(
-        ethAddress.startsWith("0x") ? ethAddress : `0x${ethAddress}`
+        ethAddress.startsWith("0x") ? ethAddress : `0x${ethAddress}`,
     );
     const combined = new Uint8Array(prefixBytes.length + addressBytes.length);
 
