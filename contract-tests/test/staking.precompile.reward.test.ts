@@ -10,7 +10,8 @@ import {
     setMinDelegateTake, setActivityCutoff, addStake, setWeight, rootRegister,
     startCall,
     disableAdminFreezeWindowAndOwnerHyperparamRateLimit,
-    getStake
+    getStake,
+    setCommitRevealWeightsEnabled
 } from "../src/subtensor"
 
 describe("Test neuron precompile reward", () => {
@@ -47,6 +48,7 @@ describe("Test neuron precompile reward", () => {
         await setTempo(api, root_netuid, root_tempo)
         await setTempo(api, netuid, subnet_tempo)
         await setWeightsSetRateLimit(api, netuid, BigInt(0))
+        await setCommitRevealWeightsEnabled(api, netuid, false)
 
         await burnedRegister(api, netuid, convertPublicKeyToSs58(validator.publicKey), coldkey)
         await burnedRegister(api, netuid, convertPublicKeyToSs58(miner.publicKey), coldkey)

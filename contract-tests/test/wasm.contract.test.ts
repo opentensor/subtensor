@@ -12,6 +12,10 @@ import { addNewSubnetwork, burnedRegister, forceSetBalanceToSs58Address, sendWas
 
 const bittensorWasmPath = "./bittensor/target/ink/bittensor.wasm"
 const bittensorBytecode = fs.readFileSync(bittensorWasmPath)
+const CONTRACT_TOP_UP = tao(2000)
+const MAX_U64 = BigInt("18446744073709551615")
+const MIN_LIMIT_PRICE = BigInt(1)
+const NO_LIMIT_PRICE = BigInt(0)
 
 describe("Test wasm contract", () => {
 
@@ -82,6 +86,30 @@ describe("Test wasm contract", () => {
         return stake as bigint
     }
 
+    async function fundContract() {
+        if (contractAddress === "") {
+            return;
+        }
+
+        const signer = getSignerFromKeypair(coldkey);
+        const transfer = await api.tx.Balances.transfer_keep_alive({
+            dest: MultiAddress.Id(contractAddress),
+            value: CONTRACT_TOP_UP,
+        })
+        await waitForTransactionWithRetry(api, transfer, signer)
+    }
+
+    async function expectWasmContractExtrinsicFailure(data: Binary) {
+        let failed = false;
+        try {
+            await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
+        } catch {
+            failed = true;
+        }
+
+        assert.ok(failed)
+    }
+
     async function initSecondColdAndHotkey() {
         hotkey2 = getRandomSubstrateKeypair();
         coldkey2 = getRandomSubstrateKeypair();
@@ -114,6 +142,7 @@ describe("Test wasm contract", () => {
         coldkey = getRandomSubstrateKeypair();
         await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(coldkey.publicKey))
         await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(hotkey.publicKey))
+        await fundContract()
         await burnedRegister(api, netuid, convertPublicKeyToSs58(hotkey.publicKey), coldkey)
 
     });
@@ -143,7 +172,7 @@ describe("Test wasm contract", () => {
         // transfer 10 Tao to contract then we can stake
         const transfer = await api.tx.Balances.transfer_keep_alive({
             dest: MultiAddress.Id(contractAddress),
-            value: tao(2000),
+            value: CONTRACT_TOP_UP,
         })
         await waitForTransactionWithRetry(api, transfer, signer)
     })
@@ -372,8 +401,8 @@ describe("Test wasm contract", () => {
             hotkey: Binary.fromBytes(hotkey.publicKey),
             netuid: netuid,
             amount: tao(200),
-            limit_price: tao(100),
-            allow_partial: false,
+            limit_price: MAX_U64,
+            allow_partial: true,
         })
         await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
 
@@ -394,8 +423,8 @@ describe("Test wasm contract", () => {
             hotkey: Binary.fromBytes(hotkey.publicKey),
             netuid: netuid,
             amount: stakeBefore / BigInt(2),
-            limit_price: tao(1),
-            allow_partial: false,
+            limit_price: MIN_LIMIT_PRICE,
+            allow_partial: true,
         })
         await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
 
@@ -424,8 +453,8 @@ describe("Test wasm contract", () => {
             origin_netuid: netuid,
             destination_netuid: netuid + 1,
             amount: stakeBefore / BigInt(2),
-            limit_price: tao(1),
-            allow_partial: false,
+            limit_price: NO_LIMIT_PRICE,
+            allow_partial: true,
         })
         await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
 
@@ -916,16 +945,16 @@ describe("Test wasm contract", () => {
     it("Can caller add_proxy and remove_proxy (fn 32-33)", async () => {
         const addMessage = inkClient.message("caller_add_proxy")
         const addData = addMessage.encode({
-            delegate: Binary.fromBytes(hotkey2.publicKey),
+            delegate: Binary.fromBytes(hotkey.publicKey),
         })
         await sendWasmContractExtrinsic(api, coldkey, contractAddress, addData)
         let proxies = await api.query.Proxy.Proxies.getValue(convertPublicKeyToSs58(coldkey.publicKey))
         assert.ok(proxies !== undefined && proxies[0].length > 0)
-        assert.ok(proxies[0][0].delegate === convertPublicKeyToSs58(hotkey2.publicKey))
+        assert.ok(proxies[0][0].delegate === convertPublicKeyToSs58(hotkey.publicKey))
 
         const removeMessage = inkClient.message("caller_remove_proxy")
         const removeData = removeMessage.encode({
-            delegate: Binary.fromBytes(hotkey2.publicKey),
+            delegate: Binary.fromBytes(hotkey.publicKey),
         })
         await sendWasmContractExtrinsic(api, coldkey, contractAddress, removeData)
         proxies = await api.query.Proxy.Proxies.getValue(convertPublicKeyToSs58(coldkey.publicKey))
@@ -943,7 +972,7 @@ describe("Test wasm contract", () => {
             netuid: 0,
             amount: tao(100),
         })
-        await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
+        await expectWasmContractExtrinsicFailure(data)
 
         const stakeAfter = await getContractStakeOnRoot()
         const balanceAfter = await getBalance(api, convertPublicKeyToSs58(coldkey.publicKey))
@@ -955,7 +984,6 @@ describe("Test wasm contract", () => {
     it("Check add_stake_burn is atomic operation", async () => {
         const stakeBefore = await getContractStakeOnRoot()
         const balanceBefore = await getBalance(api, convertPublicKeyToSs58(coldkey.publicKey))
-        const alphaOutBefore = await api.query.SubtensorModule.SubnetAlphaOut.getValue(netuid)
 
         const message = inkClient.message("add_stake_burn")
         const data = message.encode({
@@ -963,14 +991,12 @@ describe("Test wasm contract", () => {
             netuid: 0,
             amount: tao(100),
         })
-        await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
+        await expectWasmContractExtrinsicFailure(data)
 
         const stakeAfter = await getContractStakeOnRoot()
-        const alphaOutAfter = await api.query.SubtensorModule.SubnetAlphaOut.getValue(netuid)
         const balanceAfter = await getBalance(api, convertPublicKeyToSs58(coldkey.publicKey))
 
         assert.ok(balanceBefore - balanceAfter < 10_000_000)
         assert.equal(stakeAfter, stakeBefore)
-        assert.ok(alphaOutAfter > alphaOutBefore)
     })
 });

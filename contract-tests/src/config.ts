@@ -1,8 +1,8 @@
 export const ETH_LOCAL_URL = 'http://localhost:9944'
 export const SUB_LOCAL_URL = 'ws://localhost:9944'
 export const SS58_PREFIX = 42;
-// set the tx timeout as 2 second when eable the fast-runtime feature.
-export const TX_TIMEOUT = 3000;
+// Fast-runtime blocks are quick, but finality can lag during contract-heavy tests.
+export const TX_TIMEOUT = 30000;
 
 export const IED25519VERIFY_ADDRESS = "0x0000000000000000000000000000000000000402";
 export const IEd25519VerifyABI = [

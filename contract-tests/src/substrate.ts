@@ -134,23 +134,7 @@ export async function waitForTransactionWithRetry(
     tx: Transaction<{}, string, string, void>,
     signer: PolkadotSigner,
 ) {
-    let success = false;
-    let retries = 0;
-
-    // set max retries times
-    while (!success && retries < 5) {
-        await waitForTransactionCompletion(api, tx, signer)
-            .then(() => { success = true })
-            .catch((error) => {
-                console.log(`transaction error ${error}`);
-            });
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        retries += 1;
-    }
-
-    if (!success) {
-        console.log("Transaction failed after 5 retries");
-    }
+    await waitForTransactionCompletion(api, tx, signer)
 }
 
 export async function waitForTransactionCompletion(api: TypedApi<typeof devnet>, tx: Transaction<{}, string, string, void>, signer: PolkadotSigner,) {
@@ -185,6 +169,8 @@ export async function getTransactionWatchPromise(tx: Transaction<{}, string, str
                     clearTimeout(timeoutId);
                     if (!value.ok) {
                         console.log("Transaction threw an error:", value.dispatchError)
+                        reject(new Error(`Transaction finalized with dispatch error: ${JSON.stringify(value.dispatchError)}`));
+                        return;
                     }
                     // Resolve the promise when the transaction is finalized
                     resolve();
@@ -206,7 +192,7 @@ export async function getTransactionWatchPromise(tx: Transaction<{}, string, str
         const timeoutId = setTimeout(() => {
             subscription.unsubscribe();
             console.log('unsubscribed because of timeout for tx {}', txHash);
-            reject()
+            reject(new Error(`Transaction was not finalized within ${TX_TIMEOUT}ms: ${txHash}`))
         }, TX_TIMEOUT);
     });
 }

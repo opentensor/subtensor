@@ -64,7 +64,10 @@ describe("Test the EVM chain ID", () => {
     )
 
     let tx = api.tx.AdminUtils.sudo_set_evm_chain_id({ chain_id: BigInt(100) })
-    await waitForTransactionWithRetry(api, tx, signer)
+    await assert.rejects(
+      waitForTransactionWithRetry(api, tx, signer),
+      /BadOrigin/,
+    )
 
     // extrinsic should be failed and chain ID not updated.
     chainId = await ethClient.getChainId();

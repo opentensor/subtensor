@@ -38,6 +38,12 @@ describe("Balance transfers between substrate and EVM", () => {
         await disableWhiteListCheck(api, true)
     });
 
+    async function getFundedWallet() {
+        const fundedWallet = generateRandomEthersWallet();
+        await forceSetBalanceToEthAddress(api, fundedWallet.address);
+        return fundedWallet;
+    }
+
     it("Can transfer token from EVM to EVM", async () => {
         const senderBalance = await publicClient.getBalance({ address: toViemAddress(wallet.address) })
         const receiverBalance = await publicClient.getBalance({ address: toViemAddress(wallet2.address) })
@@ -159,8 +165,10 @@ describe("Balance transfers between substrate and EVM", () => {
 
     it("Forward value in smart contract", async () => {
 
+        const forwardWallet = await getFundedWallet();
+        const forwardSigner = new ethers.NonceManager(forwardWallet);
 
-        const contractFactory = new ethers.ContractFactory(WITHDRAW_CONTRACT_ABI, WITHDRAW_CONTRACT_BYTECODE, wallet)
+        const contractFactory = new ethers.ContractFactory(WITHDRAW_CONTRACT_ABI, WITHDRAW_CONTRACT_BYTECODE, forwardSigner)
         const contract = await contractFactory.deploy()
         await contract.waitForDeployment()
 
@@ -176,13 +184,13 @@ describe("Balance transfers between substrate and EVM", () => {
             value: raoToEth(tao(2)).toString()
         }
 
-        const txResponse = await wallet.sendTransaction(ethTransfer)
+        const txResponse = await forwardSigner.sendTransaction(ethTransfer)
         await txResponse.wait();
 
         const contractBalance = await publicClient.getBalance({ address: toViemAddress(contract.target.toString()) })
-        const callerBalance = await publicClient.getBalance({ address: toViemAddress(wallet.address) })
+        const callerBalance = await publicClient.getBalance({ address: toViemAddress(forwardWallet.address) })
 
-        const contractForCall = new ethers.Contract(contract.target.toString(), WITHDRAW_CONTRACT_ABI, wallet)
+        const contractForCall = new ethers.Contract(contract.target.toString(), WITHDRAW_CONTRACT_ABI, forwardSigner)
 
         const withdrawTx = await contractForCall.withdraw(
             raoToEth(tao(1)).toString()
@@ -191,36 +199,41 @@ describe("Balance transfers between substrate and EVM", () => {
         await withdrawTx.wait();
 
         const contractBalanceAfterWithdraw = await publicClient.getBalance({ address: toViemAddress(contract.target.toString()) })
-        const callerBalanceAfterWithdraw = await publicClient.getBalance({ address: toViemAddress(wallet.address) })
+        const callerBalanceAfterWithdraw = await publicClient.getBalance({ address: toViemAddress(forwardWallet.address) })
 
         compareEthBalanceWithTxFee(callerBalanceAfterWithdraw, callerBalance + raoToEth(tao(1)))
         assert.equal(contractBalance, contractBalanceAfterWithdraw + raoToEth(tao(1)))
     });
 
     it("Transfer full balance", async () => {
-        const ethBalance = await publicClient.getBalance({ address: toViemAddress(wallet.address) })
-        const receiverBalance = await publicClient.getBalance({ address: toViemAddress(wallet2.address) })
+        const fullBalanceWallet = await getFundedWallet();
+        const fullBalanceReceiver = generateRandomEthersWallet();
+        const ethBalance = await publicClient.getBalance({ address: toViemAddress(fullBalanceWallet.address) })
+        const receiverBalance = await publicClient.getBalance({ address: toViemAddress(fullBalanceReceiver.address) })
         const tx = {
-            to: wallet2.address,
+            to: fullBalanceReceiver.address,
             value: ethBalance.toString(),
         };
         const txPrice = await estimateTransactionCost(provider, tx);
         const finalTx = {
-            to: wallet2.address,
+            to: fullBalanceReceiver.address,
             value: (ethBalance - txPrice).toString(),
         };
+        let failed = false;
         try {
             // transfer should be failed since substrate requires existial balance to keep account
-            const txResponse = await wallet.sendTransaction(finalTx)
+            const txResponse = await fullBalanceWallet.sendTransaction(finalTx)
             await txResponse.wait();
         } catch (error) {
             if (error instanceof Error) {
+                failed = true;
                 assert.equal((error as any).code, "INSUFFICIENT_FUNDS")
                 assert.equal(error.toString().includes("insufficient funds"), true)
             }
         }
+        assert.equal(failed, true)
 
-        const receiverBalanceAfterTransfer = await publicClient.getBalance({ address: toViemAddress(wallet2.address) })
+        const receiverBalanceAfterTransfer = await publicClient.getBalance({ address: toViemAddress(fullBalanceReceiver.address) })
         assert.equal(receiverBalance, receiverBalanceAfterTransfer)
     })
 
