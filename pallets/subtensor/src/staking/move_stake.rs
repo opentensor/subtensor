@@ -51,6 +51,7 @@ impl<T: Config> Pallet<T> {
             None,
             false,
             true,
+            None,
         )?;
 
         // Log the event.
@@ -142,6 +143,7 @@ impl<T: Config> Pallet<T> {
             None,
             true,
             false,
+            None,
         )?;
 
         // 9. Emit an event for logging/monitoring.
@@ -158,6 +160,53 @@ impl<T: Config> Pallet<T> {
         ));
 
         // 10. Return success.
+        Ok(())
+    }
+
+    /// Transfers either locked or unlocked stake from one coldkey to another.
+    ///
+    /// This follows `do_transfer_stake`, but caps the requested amount to the
+    /// selected lock bucket. If `locked` is true, only locked alpha can move and
+    /// the matching lock state follows the stake. If `locked` is false, only
+    /// unlocked alpha can move.
+    pub fn do_transfer_stake_lock_aware(
+        origin: OriginFor<T>,
+        destination_coldkey: T::AccountId,
+        hotkey: T::AccountId,
+        origin_netuid: NetUid,
+        destination_netuid: NetUid,
+        alpha_amount: AlphaBalance,
+        locked: bool,
+    ) -> dispatch::DispatchResult {
+        let coldkey = ensure_signed(origin)?;
+
+        let tao_moved = Self::transition_stake_internal(
+            &coldkey,
+            &destination_coldkey,
+            &hotkey,
+            &hotkey,
+            origin_netuid,
+            destination_netuid,
+            alpha_amount,
+            None,
+            None,
+            true,
+            false,
+            Some(locked),
+        )?;
+
+        log::debug!(
+            "StakeTransferred(origin_coldkey: {coldkey:?}, destination_coldkey: {destination_coldkey:?}, hotkey: {hotkey:?}, origin_netuid: {origin_netuid:?}, destination_netuid: {destination_netuid:?}, amount: {tao_moved:?})"
+        );
+        Self::deposit_event(Event::StakeTransferred(
+            coldkey,
+            destination_coldkey,
+            hotkey,
+            origin_netuid,
+            destination_netuid,
+            tao_moved,
+        ));
+
         Ok(())
     }
 
@@ -207,6 +256,7 @@ impl<T: Config> Pallet<T> {
             None,
             false,
             true,
+            None,
         )?;
 
         // Emit an event for logging.
@@ -275,6 +325,7 @@ impl<T: Config> Pallet<T> {
             Some(allow_partial),
             false,
             true,
+            None,
         )?;
 
         // Emit an event for logging.
@@ -307,6 +358,7 @@ impl<T: Config> Pallet<T> {
         maybe_allow_partial: Option<bool>,
         check_transfer_toggle: bool,
         set_limit: bool,
+        lock_aware_transfer: Option<bool>,
     ) -> Result<TaoBalance, DispatchError> {
         // Cap the alpha_amount at available Alpha because user might be paying transaxtion fees
         // in Alpha and their total is already reduced by now.
@@ -316,6 +368,15 @@ impl<T: Config> Pallet<T> {
             origin_netuid,
         );
         let alpha_amount = alpha_amount.min(alpha_available);
+        let alpha_amount = lock_aware_transfer
+            .map(|locked| {
+                alpha_amount.min(Self::lock_aware_transferable_alpha(
+                    origin_coldkey,
+                    origin_netuid,
+                    locked,
+                ))
+            })
+            .unwrap_or(alpha_amount);
 
         // Calculate the maximum amount that can be executed
         let max_amount = if origin_netuid != destination_netuid {
@@ -399,6 +460,7 @@ impl<T: Config> Pallet<T> {
                 destination_hotkey,
                 origin_netuid,
                 move_amount,
+                lock_aware_transfer,
             )
         }
     }

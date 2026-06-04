@@ -312,6 +312,7 @@ impl<T: Config> Pallet<T> {
                     &lease.hotkey,
                     lease.netuid,
                     alpha_for_contributor.into(),
+                    None,
                 )?;
                 alpha_distributed = alpha_distributed.saturating_add(alpha_for_contributor.into());
 
@@ -332,6 +333,7 @@ impl<T: Config> Pallet<T> {
                 &lease.hotkey,
                 lease.netuid,
                 beneficiary_cut_alpha.into(),
+                None,
             )?;
             Self::deposit_event(Event::SubnetLeaseDividendsDistributed {
                 lease_id,

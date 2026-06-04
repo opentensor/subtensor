@@ -1558,6 +1558,34 @@ mod dispatches {
             )
         }
 
+        /// Transfers locked or unlocked stake from one coldkey to another, optionally across subnets,
+        /// while keeping the same hotkey.
+        ///
+        /// If `locked` is true, the call transfers at most the currently locked alpha and moves
+        /// the corresponding lock state. If `locked` is false, it transfers at most the currently
+        /// unlocked alpha.
+        #[pallet::call_index(139)]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::transfer_stake())]
+        pub fn transfer_stake_lock_aware(
+            origin: OriginFor<T>,
+            destination_coldkey: T::AccountId,
+            hotkey: T::AccountId,
+            origin_netuid: NetUid,
+            destination_netuid: NetUid,
+            alpha_amount: AlphaBalance,
+            locked: bool,
+        ) -> DispatchResult {
+            Self::do_transfer_stake_lock_aware(
+                origin,
+                destination_coldkey,
+                hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+                locked,
+            )
+        }
+
         /// Swaps a specified amount of stake from one subnet to another, while keeping the same coldkey and hotkey.
         ///
         /// # Arguments

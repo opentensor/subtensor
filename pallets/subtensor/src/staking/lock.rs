@@ -680,6 +680,20 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    /// Returns the transferable alpha in either the locked or unlocked bucket.
+    pub fn lock_aware_transferable_alpha(
+        coldkey: &T::AccountId,
+        netuid: NetUid,
+        locked: bool,
+    ) -> AlphaBalance {
+        if locked {
+            Self::get_current_locked(coldkey, netuid)
+                .min(Self::total_coldkey_alpha_on_subnet(coldkey, netuid))
+        } else {
+            Self::available_to_unstake(coldkey, netuid)
+        }
+    }
+
     /// Ensures that the amount can be unstaked
     pub fn ensure_available_to_unstake(
         coldkey: &T::AccountId,
@@ -1671,6 +1685,7 @@ impl<T: Config> Pallet<T> {
         destination_coldkey: &T::AccountId,
         netuid: NetUid,
         amount: AlphaBalance,
+        lock_aware_transfer: Option<bool>,
     ) -> DispatchResult {
         let now = Self::get_current_block_as_u64();
 
@@ -1719,9 +1734,20 @@ impl<T: Config> Pallet<T> {
         let unavailable = source_lock.locked_mass;
         let available_stake = total_alpha.saturating_sub(unavailable);
 
-        // Reduce remaining_to_transfer by min(remaining_to_transfer, available stake)
-        let available_transfer = remaining_to_transfer.min(available_stake);
-        remaining_to_transfer = remaining_to_transfer.saturating_sub(available_transfer);
+        // In the default mode, transfers consume unlocked stake first. Any amount
+        // left in `remaining_to_transfer` after this subtraction must come from
+        // the lock and needs lock state moved with it. In locked-only mode, skip
+        // this subtraction so the whole capped amount is treated as locked.
+        if lock_aware_transfer != Some(true) {
+            let available_transfer = remaining_to_transfer.min(available_stake);
+            remaining_to_transfer = remaining_to_transfer.saturating_sub(available_transfer);
+        }
+
+        // In unlocked-only mode, the capped amount has already been fully covered
+        // by unlocked stake, so no lock state should be transferred.
+        if lock_aware_transfer == Some(false) {
+            remaining_to_transfer = AlphaBalance::ZERO;
+        }
 
         // If result is non-zero, check the hotkey match between source and destination coldkey locks
         // (if destination coldkey lock exists). If no match, error out with LockHotkeyMismatch, otherwise,

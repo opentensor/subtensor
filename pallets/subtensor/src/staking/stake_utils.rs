@@ -959,9 +959,16 @@ impl<T: Config> Pallet<T> {
         destination_hotkey: &T::AccountId,
         netuid: NetUid,
         alpha: AlphaBalance,
+        lock_aware_transfer: Option<bool>,
     ) -> Result<TaoBalance, DispatchError> {
         // Transfer lock (may fail if destination coldkey has a conflicting lock)
-        Self::transfer_lock(origin_coldkey, destination_coldkey, netuid, alpha)?;
+        Self::transfer_lock(
+            origin_coldkey,
+            destination_coldkey,
+            netuid,
+            alpha,
+            lock_aware_transfer,
+        )?;
 
         // Decrease alpha on origin keys
         Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
