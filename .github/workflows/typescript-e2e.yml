@@ -107,6 +107,8 @@ jobs:
             binary: fast
           - test: zombienet_subnets
             binary: fast
+          - test: zombienet_evm
+            binary: fast
 
     name: "typescript-e2e-${{ matrix.test }}"
 
