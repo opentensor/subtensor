@@ -17,7 +17,7 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  VERBOSE: ${{ github.events.input.verbose }}
+  VERBOSE: ${{ github.event.inputs.verbose }}
 
 permissions:
   contents: read
@@ -44,18 +44,21 @@ jobs:
         with:
           node-version: "22"
 
+      - name: Cache Yarn packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/yarn
+          key: contract-tests-yarn-${{ runner.os }}-${{ hashFiles('contract-tests/yarn.lock') }}
+          restore-keys: |
+            contract-tests-yarn-${{ runner.os }}-
+
       - name: Install dependencies
         run: |
           sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl libssl-dev llvm libudev-dev protobuf-compiler nodejs pkg-config
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl libssl-dev llvm libudev-dev netcat-openbsd protobuf-compiler nodejs pkg-config
 
       - name: Run tests
-        uses: nick-fields/retry@v3
-        with:
-          timeout_minutes: 120
-          max_attempts: 3
-          retry_wait_seconds: 60
-          command: |
-            cd ${{ github.workspace }}
-            npm install --global yarn
-            ./contract-tests/run-ci.sh
+        timeout-minutes: 90
+        run: |
+          npm install --global yarn
+          ./contract-tests/run-ci.sh

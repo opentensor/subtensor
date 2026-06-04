@@ -1,45 +1,74 @@
 #!/bin/bash
+set -Eeuo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+CONTRACT_TEST_DIR="$ROOT_DIR/contract-tests"
+LOCALNET_LOG="${LOCALNET_LOG:-$ROOT_DIR/contract-tests-localnet.log}"
+LOCALNET_START_TIMEOUT="${LOCALNET_START_TIMEOUT:-300}"
+CONTRACT_TEST_FILE_ATTEMPTS="${CONTRACT_TEST_FILE_ATTEMPTS:-1}"
 
 echo "start run-ci.sh"
 
-cd contract-tests
+cleanup() {
+  pkill node-subtensor >/dev/null 2>&1 || true
+}
 
-cd bittensor
+dump_localnet_log() {
+  if [ -f "$LOCALNET_LOG" ]; then
+    echo "---- last 200 localnet log lines ----"
+    tail -n 200 "$LOCALNET_LOG" || true
+    echo "-------------------------------------"
+  fi
+}
+
+trap cleanup EXIT
+
+cd "$CONTRACT_TEST_DIR/bittensor"
 
 rustup component add rust-src
-cargo install cargo-contract 
-cargo contract build --release 
+if ! command -v cargo-contract >/dev/null 2>&1; then
+  cargo install cargo-contract
+else
+  echo "cargo-contract already installed"
+fi
+cargo contract build --release
 
-cd ../..
+cd "$ROOT_DIR"
 
-scripts/localnet.sh &>/dev/null &
+scripts/localnet.sh --build-only
+BUILD_BINARY=0 scripts/localnet.sh >"$LOCALNET_LOG" 2>&1 &
 
-i=1
-while [ $i -le 2000 ]; do
+for i in $(seq 1 "$LOCALNET_START_TIMEOUT"); do
   if nc -z localhost 9944; then
     echo "node subtensor is running after $i seconds"
     break
   fi
   sleep 1
-  i=$((i + 1))
 done
 
-# port not available exit with error
-if [ "$i" -eq 2000 ]; then
-    exit 1
+if ! nc -z localhost 9944; then
+  echo "node subtensor did not start within ${LOCALNET_START_TIMEOUT}s"
+  dump_localnet_log
+  exit 1
 fi
 
 sleep 10
 
 if ! nc -z localhost 9944; then
-    echo "node subtensor exit, port not available"
-    exit 1
+  echo "node subtensor exited, port not available"
+  dump_localnet_log
+  exit 1
 fi
 
-cd contract-tests
+cd "$CONTRACT_TEST_DIR"
 
-# required for papi in get-metadata.sh, but we cannot run yarn before papi as it adds the descriptors to the package.json which won't resolve
+# Required for papi in get-metadata.sh; yarn install cannot run before papi
+# because package.json references the generated descriptors package.
 npm i -g polkadot-api
+
+if ! command -v yarn >/dev/null 2>&1; then
+  npm install --global yarn
+fi
 
 bash get-metadata.sh
 
@@ -47,15 +76,38 @@ sleep 5
 
 yarn install --frozen-lockfile
 
-yarn run test
-TEST_EXIT_CODE=$?
-
-if [ $TEST_EXIT_CODE -ne 0 ]; then
-    echo "Tests failed with exit code $TEST_EXIT_CODE"
-    pkill node-subtensor
-    exit $TEST_EXIT_CODE
+if [ "$#" -gt 0 ]; then
+  test_files=("$@")
+else
+  mapfile -t test_files < <(find test -maxdepth 1 -name "*.ts" -print | sort)
 fi
 
-pkill node-subtensor
+failed_files=()
+for test_file in "${test_files[@]}"; do
+  echo "Running $test_file"
+  passed=0
+
+  for attempt in $(seq 1 "$CONTRACT_TEST_FILE_ATTEMPTS"); do
+    if [ "$attempt" -gt 1 ]; then
+      echo "Retrying $test_file (attempt $attempt/$CONTRACT_TEST_FILE_ATTEMPTS)"
+    fi
+
+    if yarn run test:ci:file "$test_file"; then
+      passed=1
+      break
+    fi
+  done
+
+  if [ "$passed" -ne 1 ]; then
+    failed_files+=("$test_file")
+  fi
+done
+
+if [ "${#failed_files[@]}" -gt 0 ]; then
+  echo "Contract test files failed:"
+  printf ' - %s\n' "${failed_files[@]}"
+  dump_localnet_log
+  exit 1
+fi
 
 exit 0
