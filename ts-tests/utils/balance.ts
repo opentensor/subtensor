@@ -9,6 +9,11 @@ export function tao(value: number): bigint {
     return TAO * BigInt(value);
 }
 
+/** Convert RAO to the EVM native balance unit (1 RAO → 1 gwei on-chain). */
+export function raoToEth(rao: bigint): bigint {
+    return TAO * rao;
+}
+
 export async function getBalance(api: TypedApi<typeof subtensor>, ss58Address: string): Promise<bigint> {
     const account = await api.query.System.Account.getValue(ss58Address);
     return account.data.free;

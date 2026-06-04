@@ -1,7 +1,10 @@
-export * from "./transactions.js";
-export * from "./balance.js";
-export * from "./subnet.js";
-export * from "./staking.js";
-export * from "./shield_helpers.ts";
 export * from "./account.ts";
+export * from "./address.ts";
+export * from "./balance.js";
 export * from "./coldkey_swap.ts";
+export * from "./config.js";
+export * from "./shield_helpers.ts";
+export * from "./staking.js";
+export * from "./subnet.js";
+export * from "./transactions.js";
+
