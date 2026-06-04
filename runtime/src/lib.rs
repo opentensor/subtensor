@@ -84,8 +84,9 @@ use subtensor_swap_interface::{Order, SwapHandler};
 pub use frame_support::{
     StorageValue, construct_runtime, parameter_types,
     traits::{
-        ConstBool, ConstU8, ConstU32, ConstU64, ConstU128, FindAuthor, InstanceFilter,
-        KeyOwnerProofSystem, OnFinalize, OnTimestampSet, PrivilegeCmp, Randomness, StorageInfo,
+        ConstBool, ConstU8, ConstU32, ConstU64, ConstU128, FindAuthor, GetCallIndex, GetCallName,
+        InstanceFilter, KeyOwnerProofSystem, OnFinalize, OnTimestampSet, PalletInfoAccess,
+        PrivilegeCmp, Randomness, StorageInfo,
     },
     weights::{
         IdentityFee, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
@@ -276,7 +277,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 413,
+    spec_version: 416,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -619,215 +620,164 @@ parameter_types! {
     pub const AnnouncementDepositFactor: Balance = deposit(0, 68);
 }
 
+// Proxy filter definitions. This macro is the single source of truth for both
+// on-chain InstanceFilter::filter() logic and the ProxyFilterRuntimeApi response.
+//
+// Syntax:
+//   pallets { Alias => (RuntimeVariant, module_path), ... }
+//   ProxyType => allow { Pallet::call, ... }          — allowlist
+//   ProxyType => deny { Pallet::call, ... }           — denylist
+//   ProxyType => allow_all;                           — permit everything
+//   ProxyType => deny_all;                            — permit nothing
+//   ProxyType => allow { ... } except { ... }         — allowlist with exceptions
+//   ProxyType => allow_conditional { Pallet::call where (param) < LIMIT, ... }
+//   ProxyType => allow_nested { Pallet::call where nested(arg) == Target::method, ... }
+//   Pallet::* in a list means all calls in that pallet.
+//
+// To add a new extrinsic to an existing proxy type, append Pallet::call_name
+// to the relevant block. To add a new pallet, register it in the pallets {} section first.
+//
+// Human-readable descriptions of each extrinsic are available to clients via
+// runtime metadata (v14/v15) which includes doc comments from pallet call definitions.
+subtensor_macros::define_proxy_filters! {
+    pallets {
+        Balances => (Balances, pallet_balances),
+        SubtensorModule => (SubtensorModule, pallet_subtensor),
+        AdminUtils => (AdminUtils, pallet_admin_utils),
+        Sudo => (Sudo, pallet_sudo),
+        System => (System, frame_system),
+    }
+
+    Any => allow_all;
+
+    NonTransfer => deny {
+        Balances::*,
+        SubtensorModule::transfer_stake,
+        SubtensorModule::schedule_swap_coldkey,
+        SubtensorModule::swap_coldkey,
+    }
+
+    NonFungible => deny {
+        Balances::*,
+        SubtensorModule::add_stake,
+        SubtensorModule::add_stake_limit,
+        SubtensorModule::remove_stake,
+        SubtensorModule::remove_stake_limit,
+        SubtensorModule::remove_stake_full_limit,
+        SubtensorModule::unstake_all,
+        SubtensorModule::unstake_all_alpha,
+        SubtensorModule::swap_stake,
+        SubtensorModule::swap_stake_limit,
+        SubtensorModule::move_stake,
+        SubtensorModule::transfer_stake,
+        SubtensorModule::burned_register,
+        SubtensorModule::root_register,
+        SubtensorModule::schedule_swap_coldkey,
+        SubtensorModule::swap_coldkey,
+        SubtensorModule::swap_hotkey,
+    }
+
+    Transfer => allow {
+        Balances::transfer_keep_alive,
+        Balances::transfer_allow_death,
+        Balances::transfer_all,
+        SubtensorModule::transfer_stake,
+    }
+
+    SmallTransfer => allow_conditional {
+        Balances::transfer_keep_alive where (value) < SMALL_TRANSFER_LIMIT,
+        Balances::transfer_allow_death where (value) < SMALL_TRANSFER_LIMIT,
+        SubtensorModule::transfer_stake where (alpha_amount) < SMALL_ALPHA_TRANSFER_LIMIT,
+    }
+
+    Owner => allow {
+        AdminUtils::*,
+        SubtensorModule::set_subnet_identity,
+        SubtensorModule::update_symbol,
+    } except {
+        AdminUtils::sudo_set_sn_owner_hotkey,
+    }
+
+    NonCritical => deny {
+        SubtensorModule::dissolve_network,
+        SubtensorModule::root_register,
+        SubtensorModule::burned_register,
+        Sudo::*,
+    }
+
+    Triumvirate => deny_all;
+    Senate => deny_all;
+    Governance => deny_all;
+
+    Staking => allow {
+        SubtensorModule::add_stake,
+        SubtensorModule::remove_stake,
+        SubtensorModule::unstake_all,
+        SubtensorModule::unstake_all_alpha,
+        SubtensorModule::swap_stake,
+        SubtensorModule::swap_stake_limit,
+        SubtensorModule::move_stake,
+        SubtensorModule::add_stake_limit,
+        SubtensorModule::remove_stake_limit,
+        SubtensorModule::remove_stake_full_limit,
+        SubtensorModule::set_root_claim_type,
+    }
+
+    Registration => allow {
+        SubtensorModule::burned_register,
+        SubtensorModule::register,
+        SubtensorModule::register_limit,
+    }
+
+    RootWeights => deny_all;
+
+    ChildKeys => allow {
+        SubtensorModule::set_children,
+        SubtensorModule::set_childkey_take,
+    }
+
+    SudoUncheckedSetCode => allow_nested {
+        Sudo::sudo_unchecked_weight where nested(call) == System::set_code,
+    }
+
+    SwapHotkey => allow {
+        SubtensorModule::swap_hotkey,
+    }
+
+    SubnetLeaseBeneficiary => allow {
+        SubtensorModule::start_call,
+        AdminUtils::sudo_set_serving_rate_limit,
+        AdminUtils::sudo_set_min_difficulty,
+        AdminUtils::sudo_set_max_difficulty,
+        AdminUtils::sudo_set_weights_version_key,
+        AdminUtils::sudo_set_adjustment_alpha,
+        AdminUtils::sudo_set_immunity_period,
+        AdminUtils::sudo_set_min_allowed_weights,
+        AdminUtils::sudo_set_kappa,
+        AdminUtils::sudo_set_rho,
+        AdminUtils::sudo_set_activity_cutoff,
+        AdminUtils::sudo_set_network_registration_allowed,
+        AdminUtils::sudo_set_network_pow_registration_allowed,
+        AdminUtils::sudo_set_max_burn,
+        AdminUtils::sudo_set_bonds_moving_average,
+        AdminUtils::sudo_set_bonds_penalty,
+        AdminUtils::sudo_set_commit_reveal_weights_enabled,
+        AdminUtils::sudo_set_liquid_alpha_enabled,
+        AdminUtils::sudo_set_alpha_values,
+        AdminUtils::sudo_set_commit_reveal_weights_interval,
+        AdminUtils::sudo_set_toggle_transfer,
+        AdminUtils::sudo_set_subnet_emission_enabled,
+        AdminUtils::sudo_set_min_childkey_take_per_subnet,
+    }
+
+    RootClaim => allow {
+        SubtensorModule::claim_root,
+    }
+}
+
 impl InstanceFilter<RuntimeCall> for ProxyType {
     fn filter(&self, c: &RuntimeCall) -> bool {
-        match self {
-            ProxyType::Any => true,
-            ProxyType::NonTransfer => !matches!(
-                c,
-                RuntimeCall::Balances(..)
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::transfer_stake { .. })
-                    | RuntimeCall::SubtensorModule(
-                        pallet_subtensor::Call::schedule_swap_coldkey { .. }
-                    )
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_coldkey { .. })
-            ),
-            ProxyType::NonFungible => !matches!(
-                c,
-                RuntimeCall::Balances(..)
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake { .. })
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake_limit { .. })
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake { .. })
-                    | RuntimeCall::SubtensorModule(
-                        pallet_subtensor::Call::remove_stake_limit { .. }
-                    )
-                    | RuntimeCall::SubtensorModule(
-                        pallet_subtensor::Call::remove_stake_full_limit { .. }
-                    )
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::unstake_all { .. })
-                    | RuntimeCall::SubtensorModule(
-                        pallet_subtensor::Call::unstake_all_alpha { .. }
-                    )
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_stake { .. })
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_stake_limit { .. })
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::move_stake { .. })
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::transfer_stake { .. })
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register { .. })
-                    | RuntimeCall::SubtensorModule(
-                        pallet_subtensor::Call::schedule_swap_coldkey { .. }
-                    )
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_coldkey { .. })
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_hotkey { .. })
-            ),
-            ProxyType::Transfer => matches!(
-                c,
-                RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive { .. })
-                    | RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death { .. })
-                    | RuntimeCall::Balances(pallet_balances::Call::transfer_all { .. })
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::transfer_stake { .. })
-            ),
-            ProxyType::SmallTransfer => match c {
-                RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive {
-                    value, ..
-                }) => *value < SMALL_TRANSFER_LIMIT,
-                RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
-                    value,
-                    ..
-                }) => *value < SMALL_TRANSFER_LIMIT,
-                RuntimeCall::SubtensorModule(pallet_subtensor::Call::transfer_stake {
-                    alpha_amount,
-                    ..
-                }) => *alpha_amount < SMALL_ALPHA_TRANSFER_LIMIT,
-                _ => false,
-            },
-            ProxyType::Owner => {
-                matches!(
-                    c,
-                    RuntimeCall::AdminUtils(..)
-                        | RuntimeCall::SubtensorModule(
-                            pallet_subtensor::Call::set_subnet_identity { .. }
-                        )
-                        | RuntimeCall::SubtensorModule(
-                            pallet_subtensor::Call::update_symbol { .. }
-                        )
-                ) && !matches!(
-                    c,
-                    RuntimeCall::AdminUtils(
-                        pallet_admin_utils::Call::sudo_set_sn_owner_hotkey { .. }
-                    )
-                )
-            }
-            ProxyType::NonCritical => !matches!(
-                c,
-                RuntimeCall::SubtensorModule(pallet_subtensor::Call::dissolve_network { .. })
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register { .. })
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
-                    | RuntimeCall::Sudo(..)
-            ),
-            ProxyType::Triumvirate => false, // deprecated
-            ProxyType::Senate => false,      // deprecated
-            ProxyType::Governance => false,  // deprecated
-            ProxyType::Staking => matches!(
-                c,
-                RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake { .. })
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake { .. })
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::unstake_all { .. })
-                    | RuntimeCall::SubtensorModule(
-                        pallet_subtensor::Call::unstake_all_alpha { .. }
-                    )
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_stake { .. })
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_stake_limit { .. })
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::move_stake { .. })
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake_limit { .. })
-                    | RuntimeCall::SubtensorModule(
-                        pallet_subtensor::Call::remove_stake_limit { .. }
-                    )
-                    | RuntimeCall::SubtensorModule(
-                        pallet_subtensor::Call::remove_stake_full_limit { .. }
-                    )
-                    | RuntimeCall::SubtensorModule(
-                        pallet_subtensor::Call::set_root_claim_type { .. }
-                    )
-            ),
-            ProxyType::Registration => matches!(
-                c,
-                RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::register { .. })
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::register_limit { .. })
-            ),
-            ProxyType::RootWeights => false, // deprecated
-            ProxyType::ChildKeys => matches!(
-                c,
-                RuntimeCall::SubtensorModule(pallet_subtensor::Call::set_children { .. })
-                    | RuntimeCall::SubtensorModule(
-                        pallet_subtensor::Call::set_childkey_take { .. }
-                    )
-            ),
-            ProxyType::SudoUncheckedSetCode => match c {
-                RuntimeCall::Sudo(pallet_sudo::Call::sudo_unchecked_weight { call, weight: _ }) => {
-                    let inner_call: RuntimeCall = *call.clone();
-
-                    matches!(
-                        inner_call,
-                        RuntimeCall::System(frame_system::Call::set_code { .. })
-                    )
-                }
-                _ => false,
-            },
-            ProxyType::SwapHotkey => matches!(
-                c,
-                RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_hotkey { .. })
-            ),
-            ProxyType::SubnetLeaseBeneficiary => matches!(
-                c,
-                RuntimeCall::SubtensorModule(pallet_subtensor::Call::start_call { .. })
-                    | RuntimeCall::AdminUtils(
-                        pallet_admin_utils::Call::sudo_set_serving_rate_limit { .. }
-                    )
-                    | RuntimeCall::AdminUtils(
-                        pallet_admin_utils::Call::sudo_set_min_difficulty { .. }
-                    )
-                    | RuntimeCall::AdminUtils(
-                        pallet_admin_utils::Call::sudo_set_max_difficulty { .. }
-                    )
-                    | RuntimeCall::AdminUtils(
-                        pallet_admin_utils::Call::sudo_set_weights_version_key { .. }
-                    )
-                    | RuntimeCall::AdminUtils(
-                        pallet_admin_utils::Call::sudo_set_adjustment_alpha { .. }
-                    )
-                    | RuntimeCall::AdminUtils(
-                        pallet_admin_utils::Call::sudo_set_immunity_period { .. }
-                    )
-                    | RuntimeCall::AdminUtils(
-                        pallet_admin_utils::Call::sudo_set_min_allowed_weights { .. }
-                    )
-                    | RuntimeCall::AdminUtils(pallet_admin_utils::Call::sudo_set_kappa { .. })
-                    | RuntimeCall::AdminUtils(pallet_admin_utils::Call::sudo_set_rho { .. })
-                    | RuntimeCall::AdminUtils(
-                        pallet_admin_utils::Call::sudo_set_activity_cutoff { .. }
-                    )
-                    | RuntimeCall::AdminUtils(
-                        pallet_admin_utils::Call::sudo_set_network_registration_allowed { .. }
-                    )
-                    | RuntimeCall::AdminUtils(
-                        pallet_admin_utils::Call::sudo_set_network_pow_registration_allowed { .. }
-                    )
-                    | RuntimeCall::AdminUtils(pallet_admin_utils::Call::sudo_set_max_burn { .. })
-                    | RuntimeCall::AdminUtils(
-                        pallet_admin_utils::Call::sudo_set_bonds_moving_average { .. }
-                    )
-                    | RuntimeCall::AdminUtils(
-                        pallet_admin_utils::Call::sudo_set_bonds_penalty { .. }
-                    )
-                    | RuntimeCall::AdminUtils(
-                        pallet_admin_utils::Call::sudo_set_commit_reveal_weights_enabled { .. }
-                    )
-                    | RuntimeCall::AdminUtils(
-                        pallet_admin_utils::Call::sudo_set_liquid_alpha_enabled { .. }
-                    )
-                    | RuntimeCall::AdminUtils(
-                        pallet_admin_utils::Call::sudo_set_alpha_values { .. }
-                    )
-                    | RuntimeCall::AdminUtils(
-                        pallet_admin_utils::Call::sudo_set_commit_reveal_weights_interval { .. }
-                    )
-                    | RuntimeCall::AdminUtils(
-                        pallet_admin_utils::Call::sudo_set_toggle_transfer { .. }
-                    )
-                    | RuntimeCall::AdminUtils(
-                        pallet_admin_utils::Call::sudo_set_subnet_emission_enabled { .. }
-                    )
-                    | RuntimeCall::AdminUtils(
-                        pallet_admin_utils::Call::sudo_set_min_childkey_take_per_subnet { .. }
-                    )
-            ),
-            ProxyType::RootClaim => matches!(
-                c,
-                RuntimeCall::SubtensorModule(pallet_subtensor::Call::claim_root { .. })
-            ),
-        }
+        proxy_type_filter(self, c)
     }
     fn is_superset(&self, o: &Self) -> bool {
         match (self, o) {
@@ -1825,6 +1775,59 @@ fn generate_genesis_json() -> Vec<u8> {
 
 type EventRecord = frame_system::EventRecord<RuntimeEvent, Hash>;
 
+fn call_info_by_name<P: PalletInfoAccess, C: GetCallName + GetCallIndex>(name: &str) -> CallInfo {
+    let names = C::get_call_names();
+    let indices = C::get_call_indices();
+    let pos = names
+        .iter()
+        .position(|n| *n == name)
+        .unwrap_or_else(|| panic!("Call '{}' not found in pallet '{}'", name, P::name()));
+    CallInfo {
+        pallet_name: P::name().as_bytes().to_vec(),
+        pallet_index: P::index() as u8,
+        call_name: Some(name.as_bytes().to_vec()),
+        call_index: Some(
+            indices.get(pos).copied().unwrap_or_else(|| {
+                panic!("Call '{}' index out of bounds in '{}'", name, P::name())
+            }),
+        ),
+        condition: None,
+    }
+}
+
+fn call_info_by_name_conditional<P: PalletInfoAccess, C: GetCallName + GetCallIndex>(
+    name: &str,
+    condition: CallCondition,
+) -> CallInfo {
+    let mut info = call_info_by_name::<P, C>(name);
+    info.condition = Some(condition);
+    info
+}
+
+fn pallet_wildcard<P: PalletInfoAccess>() -> CallInfo {
+    CallInfo {
+        pallet_name: P::name().as_bytes().to_vec(),
+        pallet_index: P::index() as u8,
+        call_name: None,
+        call_index: None,
+        condition: None,
+    }
+}
+
+pub fn get_all_proxy_type_infos() -> Vec<ProxyTypeInfo> {
+    (0u8..=u8::MAX)
+        .filter_map(|i: u8| {
+            ProxyType::try_from(i)
+                .ok()
+                .map(|pt: ProxyType| ProxyTypeInfo {
+                    name: alloc::format!("{:?}", pt).into_bytes(),
+                    index: i,
+                    deprecated: pt.is_deprecated(),
+                })
+        })
+        .collect()
+}
+
 impl_runtime_apis! {
     impl sp_api::Core<Block> for Runtime {
         fn version() -> RuntimeVersion {
@@ -2573,6 +2576,20 @@ impl_runtime_apis! {
     impl subtensor_custom_rpc_runtime_api::SubnetRegistrationRuntimeApi<Block> for Runtime {
         fn get_network_registration_cost() -> TaoBalance {
             SubtensorModule::get_network_lock_cost()
+        }
+    }
+
+    impl subtensor_custom_rpc_runtime_api::ProxyFilterRuntimeApi<Block> for Runtime {
+        fn get_proxy_types() -> Vec<ProxyTypeInfo> {
+            get_all_proxy_type_infos()
+        }
+
+        fn get_proxy_filter(proxy_type: Option<u8>) -> Vec<ProxyFilterInfo> {
+            let all = get_all_proxy_filters();
+            match proxy_type {
+                None => all,
+                Some(idx) => all.into_iter().filter(|f| f.proxy_type == idx).collect(),
+            }
         }
     }
 

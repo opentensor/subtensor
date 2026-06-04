@@ -16,7 +16,9 @@ use pallet_subtensor::rpc_info::{
 use pallet_subtensor::staking::lock::LockState;
 use sp_runtime::AccountId32;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{AlphaBalance, MechId, NetUid, TaoBalance};
+use subtensor_runtime_common::{
+    AlphaBalance, MechId, NetUid, ProxyFilterInfo, ProxyTypeInfo, TaoBalance,
+};
 
 // Here we declare the runtime API. It is implemented it the `impl` block in
 // src/neuron_info.rs, src/subnet_info.rs, and src/delegate_info.rs
@@ -71,5 +73,10 @@ sp_api::decl_runtime_apis! {
 
     pub trait SubnetRegistrationRuntimeApi {
         fn get_network_registration_cost() -> TaoBalance;
+    }
+
+    pub trait ProxyFilterRuntimeApi {
+        fn get_proxy_types() -> Vec<ProxyTypeInfo>;
+        fn get_proxy_filter(proxy_type: Option<u8>) -> Vec<ProxyFilterInfo>;
     }
 }

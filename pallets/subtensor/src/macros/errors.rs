@@ -217,8 +217,6 @@ mod errors {
         SameNetuid,
         /// The caller does not have enough balance for the operation.
         InsufficientBalance,
-        /// Too frequent staking operations
-        StakingOperationRateLimitExceeded,
         /// Invalid lease beneficiary to register the leased network.
         InvalidLeaseBeneficiary,
         /// Lease cannot end in the past.

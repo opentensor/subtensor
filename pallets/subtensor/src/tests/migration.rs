@@ -48,6 +48,27 @@ fn close(value: u64, target: u64, eps: u64) {
 }
 
 #[test]
+fn test_migrate_tao_in_refund_deployment_block() {
+    new_test_ext(1).execute_with(|| {
+        let deployment_block: u64 = 42;
+        let migration_name = b"migrate_tao_in_refund_deployment_block".to_vec();
+
+        TaoInRefundDeploymentBlock::<Test>::put(0);
+        HasMigrationRun::<Test>::remove(&migration_name);
+
+        run_to_block(deployment_block);
+        crate::migrations::migrate_tao_in_refund_deployment_block::migrate_tao_in_refund_deployment_block::<Test>();
+
+        assert_eq!(TaoInRefundDeploymentBlock::<Test>::get(), deployment_block);
+        assert!(HasMigrationRun::<Test>::get(&migration_name));
+
+        run_to_block(deployment_block.saturating_add(1));
+        crate::migrations::migrate_tao_in_refund_deployment_block::migrate_tao_in_refund_deployment_block::<Test>();
+
+        assert_eq!(TaoInRefundDeploymentBlock::<Test>::get(), deployment_block);
+    });
+}
+#[test]
 fn test_migration_transfer_nets_to_foundation() {
     new_test_ext(1).execute_with(|| {
         // Create subnet 1
