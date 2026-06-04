@@ -1852,6 +1852,108 @@ fn test_transfer_stake_lock_aware_transfers_only_unlocked_stake() {
     });
 }
 
+#[test]
+fn test_transfer_stake_lock_aware_owner_lock_moves_all_lock_and_conviction() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey1 = U256::from(1);
+        let coldkey2 = U256::from(5);
+        let hotkey1 = U256::from(2);
+        let netuid = add_dynamic_network(&hotkey1, &coldkey1);
+        let stake_tao = 100_000_000_000u64;
+
+        setup_reserves(
+            netuid,
+            (stake_tao * 1_000_000).into(),
+            (stake_tao * 10_000_000).into(),
+        );
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &coldkey1, &hotkey1
+        ));
+        add_balance_to_coldkey_account(&coldkey1, stake_tao.into());
+        SubtensorModule::stake_into_subnet(
+            &hotkey1,
+            &coldkey1,
+            netuid,
+            stake_tao.into(),
+            <Test as Config>::SwapInterface::max_price(),
+            false,
+            false,
+        )
+        .unwrap();
+        DecayingLock::<Test>::insert(coldkey1, netuid, false);
+        DecayingLock::<Test>::insert(coldkey2, netuid, false);
+
+        let total = get_alpha(&hotkey1, &coldkey1, netuid);
+        let lock_amount = total / 2.into();
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey1,
+            netuid,
+            &hotkey1,
+            lock_amount,
+        ));
+        let coldkey1_lock_before =
+            Lock::<Test>::get((coldkey1, netuid, hotkey1)).expect("coldkey1 lock should exist");
+
+        step_block(10);
+
+        let expected_transferred_lock = roll_forward_lock(
+            coldkey1_lock_before,
+            SubtensorModule::get_current_block_as_u64(),
+            true,
+            true,
+        );
+        assert!(expected_transferred_lock.conviction > U64F64::from_num(0));
+
+        assert_ok!(SubtensorModule::transfer_stake_lock_aware(
+            RuntimeOrigin::signed(coldkey1),
+            coldkey2,
+            hotkey1,
+            netuid,
+            netuid,
+            total,
+            true,
+        ));
+
+        assert_eq!(
+            get_alpha(&hotkey1, &coldkey2, netuid),
+            expected_transferred_lock.locked_mass
+        );
+        assert_eq!(
+            get_alpha(&hotkey1, &coldkey1, netuid),
+            total.saturating_sub(expected_transferred_lock.locked_mass)
+        );
+
+        assert!(Lock::<Test>::get((coldkey1, netuid, hotkey1)).is_none());
+        assert_eq!(
+            SubtensorModule::get_current_locked(&coldkey1, netuid),
+            AlphaBalance::ZERO
+        );
+        assert_eq!(
+            SubtensorModule::get_conviction(&coldkey1, netuid),
+            U64F64::from_num(0)
+        );
+
+        let coldkey2_lock =
+            Lock::<Test>::get((coldkey2, netuid, hotkey1)).expect("coldkey2 lock should exist");
+        assert_eq!(
+            coldkey2_lock.locked_mass,
+            expected_transferred_lock.locked_mass
+        );
+        assert_eq!(
+            coldkey2_lock.conviction,
+            expected_transferred_lock.conviction
+        );
+        assert_eq!(
+            SubtensorModule::get_current_locked(&coldkey2, netuid),
+            expected_transferred_lock.locked_mass
+        );
+        assert_eq!(
+            SubtensorModule::get_conviction(&coldkey2, netuid),
+            expected_transferred_lock.conviction
+        );
+    });
+}
+
 // =========================================================================
 // GROUP 8: Multi-subnet locks
 // =========================================================================

@@ -1737,7 +1737,9 @@ impl<T: Config> Pallet<T> {
         // In the default mode, transfers consume unlocked stake first. Any amount
         // left in `remaining_to_transfer` after this subtraction must come from
         // the lock and needs lock state moved with it. In locked-only mode, skip
-        // this subtraction so the whole capped amount is treated as locked.
+        // this subtraction so the whole capped amount is treated as locked so
+        // effectively we start the transfer from the locked portion without accounting
+        // for unlocked alpha.
         if lock_aware_transfer != Some(true) {
             let available_transfer = remaining_to_transfer.min(available_stake);
             remaining_to_transfer = remaining_to_transfer.saturating_sub(available_transfer);
