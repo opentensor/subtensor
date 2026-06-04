@@ -197,6 +197,11 @@ export const ILimitOrdersABI = [
         name: "orders",
         type: "tuple[]",
       },
+      {
+        internalType: "bool",
+        name: "shouldFail",
+        type: "bool",
+      },
     ],
     name: "executeOrders",
     outputs: [],

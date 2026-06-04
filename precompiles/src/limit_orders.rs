@@ -94,15 +94,19 @@ where
     }
 
     #[precompile::public(
-        "executeOrders(((address,address,uint16,uint8,uint64,uint64,uint64,uint32,address,address[],bool,uint32,uint64,bool),bytes,bool,uint64)[])"
+        "executeOrders(((address,address,uint16,uint8,uint64,uint64,uint64,uint32,address,address[],bool,uint32,uint64,bool),bytes,bool,uint64)[],bool)"
     )]
     #[precompile::payable]
     fn execute_orders(
         handle: &mut impl PrecompileHandle,
         orders: alloc::vec::Vec<SignedOrderInput>,
+        should_fail: bool,
     ) -> EvmResult<()> {
         let batch = signed_orders_batch::<R>(orders)?;
-        let call = pallet_limit_orders::Call::<R>::execute_orders { orders: batch };
+        let call = pallet_limit_orders::Call::<R>::execute_orders {
+            orders: batch,
+            should_fail,
+        };
 
         handle.try_dispatch_runtime_call::<R, _>(
             call,

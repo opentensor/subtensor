@@ -151,7 +151,7 @@ describe("Limit orders precompile E2E smoke", () => {
   });
 
   it("accepts empty batches through executeOrders", async () => {
-    const tx = await limitOrdersContract.executeOrders([]);
+    const tx = await limitOrdersContract.executeOrders([], false);
     await tx.wait();
   });
 
@@ -168,7 +168,7 @@ describe("Limit orders precompile E2E smoke", () => {
     );
     const orderId = await limitOrdersContract.deriveOrderId(invalidOrder.order);
 
-    const tx = await limitOrdersContract.executeOrders([invalidOrder]);
+    const tx = await limitOrdersContract.executeOrders([invalidOrder], false);
     await tx.wait();
 
     assert.strictEqual(await readOrderStatus(limitOrdersContract, orderId), 0);

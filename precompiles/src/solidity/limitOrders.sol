@@ -46,8 +46,12 @@ interface ILimitOrders {
     /**
      * @dev Executes a batch of signed limit orders.
      * The EVM caller is treated as the relayer.
+     * @param shouldFail When true, the first order failure reverts the whole batch.
      */
-    function executeOrders(SignedOrderInput[] calldata orders) external payable;
+    function executeOrders(
+        SignedOrderInput[] calldata orders,
+        bool shouldFail
+    ) external payable;
 
     /**
      * @dev Executes signed limit orders for a single subnet.
