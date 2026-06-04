@@ -934,12 +934,6 @@ mod pallet_benchmarks {
 
         let _ = Subtensor::<T>::create_account_if_non_existent(&coldkey, &destination);
 
-        // Worst case for weight: the origin tuple is already rate-limited this block (e.g. a
-        // same-block `add_stake`). A same-netuid move is not rate-limited itself but propagates
-        // the limiter marker to the destination tuple, costing one extra
-        // `StakingOperationRateLimiter` write.
-        Subtensor::<T>::set_stake_operation_limit(&origin, &coldkey, netuid);
-
         #[extrinsic_call]
         _(
             RawOrigin::Signed(coldkey.clone()),
@@ -994,8 +988,6 @@ mod pallet_benchmarks {
         ));
 
         let amount_unstaked = AlphaBalance::from(30_000_000_000_u64);
-
-        StakingOperationRateLimiter::<T>::remove((hotkey.clone(), coldkey.clone(), netuid));
 
         #[extrinsic_call]
         _(
@@ -1056,8 +1048,6 @@ mod pallet_benchmarks {
             .saturating_mul(U96F32::saturating_from_num(500_000_000))
             .saturating_to_num::<u64>()
             .into();
-
-        StakingOperationRateLimiter::<T>::remove((hotkey.clone(), coldkey.clone(), netuid));
 
         #[extrinsic_call]
         _(
@@ -1122,8 +1112,6 @@ mod pallet_benchmarks {
             allow
         ));
 
-        StakingOperationRateLimiter::<T>::remove((hot.clone(), coldkey.clone(), netuid1));
-
         #[extrinsic_call]
         _(
             RawOrigin::Signed(coldkey.clone()),
@@ -1175,12 +1163,6 @@ mod pallet_benchmarks {
             Subtensor::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(&hot, &coldkey, netuid);
 
         let _ = Subtensor::<T>::create_account_if_non_existent(&dest, &hot);
-
-        // Worst case for weight: the origin tuple is already rate-limited this block (e.g. a
-        // same-block `add_stake`). A same-netuid transfer is not rate-limited itself but
-        // propagates the limiter marker to the destination tuple, costing one extra
-        // `StakingOperationRateLimiter` write.
-        Subtensor::<T>::set_stake_operation_limit(&hot, &coldkey, netuid);
 
         #[extrinsic_call]
         _(
@@ -1236,8 +1218,6 @@ mod pallet_benchmarks {
 
         let alpha_to_swap =
             Subtensor::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(&hot, &coldkey, netuid1);
-
-        StakingOperationRateLimiter::<T>::remove((hot.clone(), coldkey.clone(), netuid1));
 
         #[extrinsic_call]
         _(
@@ -1592,8 +1572,6 @@ mod pallet_benchmarks {
             staked_amt
         ));
 
-        StakingOperationRateLimiter::<T>::remove((hotkey.clone(), coldkey.clone(), netuid));
-
         #[extrinsic_call]
         _(RawOrigin::Signed(coldkey), hotkey);
     }
@@ -1647,8 +1625,6 @@ mod pallet_benchmarks {
             netuid,
             staked_amt
         ));
-
-        StakingOperationRateLimiter::<T>::remove((hotkey.clone(), coldkey.clone(), netuid));
 
         #[extrinsic_call]
         _(

@@ -309,18 +309,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `SubtensorModule::UnlockRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::MaturityRate` (r:1 w:0)
 	/// Proof: `SubtensorModule::MaturityRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `SubtensorModule::StakingOperationRateLimiter` (r:0 w:1)
-	/// Proof: `SubtensorModule::StakingOperationRateLimiter` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (r:0 w:1)
 	/// Proof: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn add_stake() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `2633`
 		//  Estimated: `8727`
-		// Minimum execution time: 459_249_000 picoseconds.
-		Weight::from_parts(476_173_000, 8727)
+		// Minimum execution time: 273_000_000 picoseconds.
+		Weight::from_parts(277_000_000, 8727)
 			.saturating_add(T::DbWeight::get().reads(38_u64))
-			.saturating_add(T::DbWeight::get().writes(18_u64))
+			.saturating_add(T::DbWeight::get().writes(17_u64))
 	}
 	/// Storage: `SubtensorModule::IsNetworkMember` (r:2 w:0)
 	/// Proof: `SubtensorModule::IsNetworkMember` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -1087,56 +1085,52 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `SubtensorModule::UnlockRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::MaturityRate` (r:1 w:0)
 	/// Proof: `SubtensorModule::MaturityRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `SubtensorModule::StakingOperationRateLimiter` (r:0 w:1)
-	/// Proof: `SubtensorModule::StakingOperationRateLimiter` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (r:0 w:1)
 	/// Proof: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn add_stake_limit() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `2633`
 		//  Estimated: `8727`
-		// Minimum execution time: 499_258_000 picoseconds.
-		Weight::from_parts(516_242_000, 8727)
+		// Minimum execution time: 328_000_000 picoseconds.
+		Weight::from_parts(385_000_000, 8727)
 			.saturating_add(T::DbWeight::get().reads(38_u64))
-			.saturating_add(T::DbWeight::get().writes(18_u64))
+			.saturating_add(T::DbWeight::get().writes(17_u64))
 	}
-    /// Storage: `SubtensorModule::Alpha` (r:2 w:0)
-    /// Proof: `SubtensorModule::Alpha` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::AlphaV2` (r:2 w:2)
-    /// Proof: `SubtensorModule::AlphaV2` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::TotalHotkeyAlpha` (r:2 w:2)
-    /// Proof: `SubtensorModule::TotalHotkeyAlpha` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::TotalHotkeyShares` (r:2 w:0)
-    /// Proof: `SubtensorModule::TotalHotkeyShares` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::TotalHotkeySharesV2` (r:2 w:2)
-    /// Proof: `SubtensorModule::TotalHotkeySharesV2` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::NetworksAdded` (r:1 w:0)
-    /// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::SubtokenEnabled` (r:1 w:0)
-    /// Proof: `SubtensorModule::SubtokenEnabled` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::Owner` (r:2 w:0)
-    /// Proof: `SubtensorModule::Owner` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::StakingHotkeys` (r:1 w:0)
-    /// Proof: `SubtensorModule::StakingHotkeys` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::SubnetMechanism` (r:1 w:0)
-    /// Proof: `SubtensorModule::SubnetMechanism` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `Swap::SwapV3Initialized` (r:1 w:0)
-    /// Proof: `Swap::SwapV3Initialized` (`max_values`: None, `max_size`: Some(11), added: 2486, mode: `MaxEncodedLen`)
-    /// Storage: `Swap::AlphaSqrtPrice` (r:1 w:0)
-    /// Proof: `Swap::AlphaSqrtPrice` (`max_values`: None, `max_size`: Some(26), added: 2501, mode: `MaxEncodedLen`)
-    /// Storage: `SubtensorModule::StakingOperationRateLimiter` (r:1 w:1)
-    /// Proof: `SubtensorModule::StakingOperationRateLimiter` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (r:0 w:1)
-    /// Proof: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    fn move_stake() -> Weight {
-        // Proof Size summary in bytes:
-        //  Measured:  `2180`
-        //  Estimated: `8120`
-        // Minimum execution time: 149_000_000 picoseconds.
-        Weight::from_parts(227_526_000, 8000)
-            .saturating_add(T::DbWeight::get().reads(19_u64))
-            .saturating_add(T::DbWeight::get().writes(8_u64))
-    }
+	/// Storage: `SubtensorModule::Alpha` (r:2 w:0)
+	/// Proof: `SubtensorModule::Alpha` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::AlphaV2` (r:2 w:2)
+	/// Proof: `SubtensorModule::AlphaV2` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::TotalHotkeyAlpha` (r:2 w:2)
+	/// Proof: `SubtensorModule::TotalHotkeyAlpha` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::TotalHotkeyShares` (r:2 w:0)
+	/// Proof: `SubtensorModule::TotalHotkeyShares` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::TotalHotkeySharesV2` (r:2 w:2)
+	/// Proof: `SubtensorModule::TotalHotkeySharesV2` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::NetworksAdded` (r:1 w:0)
+	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubtokenEnabled` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubtokenEnabled` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::Owner` (r:2 w:0)
+	/// Proof: `SubtensorModule::Owner` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::StakingHotkeys` (r:1 w:0)
+	/// Proof: `SubtensorModule::StakingHotkeys` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetMechanism` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetMechanism` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Swap::SwapV3Initialized` (r:1 w:0)
+	/// Proof: `Swap::SwapV3Initialized` (`max_values`: None, `max_size`: Some(11), added: 2486, mode: `MaxEncodedLen`)
+	/// Storage: `Swap::AlphaSqrtPrice` (r:1 w:0)
+	/// Proof: `Swap::AlphaSqrtPrice` (`max_values`: None, `max_size`: Some(26), added: 2501, mode: `MaxEncodedLen`)
+	/// Storage: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (r:0 w:1)
+	/// Proof: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn move_stake() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `2045`
+		//  Estimated: `7985`
+		// Minimum execution time: 129_000_000 picoseconds.
+		Weight::from_parts(130_000_000, 7985)
+			.saturating_add(T::DbWeight::get().reads(18_u64))
+			.saturating_add(T::DbWeight::get().writes(7_u64))
+	}
 	/// Storage: `SubtensorModule::SubtokenEnabled` (r:1 w:0)
 	/// Proof: `SubtensorModule::SubtokenEnabled` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::Alpha` (r:1 w:0)
@@ -1151,8 +1145,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `SubtensorModule::TotalHotkeySharesV2` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::NetworksAdded` (r:3 w:0)
 	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `SubtensorModule::StakingOperationRateLimiter` (r:1 w:0)
-	/// Proof: `SubtensorModule::StakingOperationRateLimiter` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::SubnetMechanism` (r:2 w:0)
 	/// Proof: `SubtensorModule::SubnetMechanism` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::SubnetTAO` (r:1 w:1)
@@ -1197,11 +1189,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn remove_stake() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `2564`
-		//  Estimated: `10979`
-		// Minimum execution time: 435_183_000 picoseconds.
-		Weight::from_parts(444_777_000, 10979)
-			.saturating_add(T::DbWeight::get().reads(35_u64))
+		//  Measured:  `2549`
+		//  Estimated: `10964`
+		// Minimum execution time: 261_000_000 picoseconds.
+		Weight::from_parts(262_000_000, 10964)
+			.saturating_add(T::DbWeight::get().reads(34_u64))
 			.saturating_add(T::DbWeight::get().writes(15_u64))
 	}
 	/// Storage: `SubtensorModule::SubnetMechanism` (r:2 w:0)
@@ -1224,8 +1216,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Swap::CurrentLiquidity` (`max_values`: None, `max_size`: Some(18), added: 2493, mode: `MaxEncodedLen`)
 	/// Storage: `SubtensorModule::NetworksAdded` (r:3 w:0)
 	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `SubtensorModule::StakingOperationRateLimiter` (r:1 w:0)
-	/// Proof: `SubtensorModule::StakingOperationRateLimiter` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::Alpha` (r:1 w:0)
 	/// Proof: `SubtensorModule::Alpha` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::AlphaV2` (r:1 w:1)
@@ -1262,11 +1252,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn remove_stake_limit() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `2598`
-		//  Estimated: `11013`
-		// Minimum execution time: 475_352_000 picoseconds.
-		Weight::from_parts(478_116_000, 11013)
-			.saturating_add(T::DbWeight::get().reads(34_u64))
+		//  Measured:  `2583`
+		//  Estimated: `10998`
+		// Minimum execution time: 277_000_000 picoseconds.
+		Weight::from_parts(280_000_000, 10998)
+			.saturating_add(T::DbWeight::get().reads(33_u64))
 			.saturating_add(T::DbWeight::get().writes(15_u64))
 	}
 	/// Storage: `SubtensorModule::Alpha` (r:2 w:0)
@@ -1297,8 +1287,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Swap::FeeRate` (`max_values`: None, `max_size`: Some(12), added: 2487, mode: `MaxEncodedLen`)
 	/// Storage: `Swap::CurrentLiquidity` (r:1 w:0)
 	/// Proof: `Swap::CurrentLiquidity` (`max_values`: None, `max_size`: Some(18), added: 2493, mode: `MaxEncodedLen`)
-	/// Storage: `SubtensorModule::StakingOperationRateLimiter` (r:1 w:1)
-	/// Proof: `SubtensorModule::StakingOperationRateLimiter` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::NetworksAdded` (r:2 w:0)
 	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::SubtokenEnabled` (r:2 w:0)
@@ -1343,54 +1331,52 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn swap_stake_limit() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `3108`
-		//  Estimated: `11523`
-		// Minimum execution time: 688_567_000 picoseconds.
-		Weight::from_parts(707_234_000, 11523)
-			.saturating_add(T::DbWeight::get().reads(54_u64))
-			.saturating_add(T::DbWeight::get().writes(26_u64))
+		//  Measured:  `3073`
+		//  Estimated: `11488`
+		// Minimum execution time: 404_000_000 picoseconds.
+		Weight::from_parts(410_000_000, 11488)
+			.saturating_add(T::DbWeight::get().reads(53_u64))
+			.saturating_add(T::DbWeight::get().writes(25_u64))
 	}
-    /// Storage: `SubtensorModule::Alpha` (r:2 w:0)
-    /// Proof: `SubtensorModule::Alpha` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::AlphaV2` (r:2 w:2)
-    /// Proof: `SubtensorModule::AlphaV2` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::TotalHotkeyAlpha` (r:1 w:1)
-    /// Proof: `SubtensorModule::TotalHotkeyAlpha` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::TotalHotkeyShares` (r:1 w:0)
-    /// Proof: `SubtensorModule::TotalHotkeyShares` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::TotalHotkeySharesV2` (r:1 w:1)
-    /// Proof: `SubtensorModule::TotalHotkeySharesV2` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::NetworksAdded` (r:1 w:0)
-    /// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::SubtokenEnabled` (r:1 w:0)
-    /// Proof: `SubtensorModule::SubtokenEnabled` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::Owner` (r:1 w:0)
-    /// Proof: `SubtensorModule::Owner` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::TransferToggle` (r:1 w:0)
-    /// Proof: `SubtensorModule::TransferToggle` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::StakingHotkeys` (r:2 w:1)
-    /// Proof: `SubtensorModule::StakingHotkeys` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::Lock` (r:1 w:0)
-    /// Proof: `SubtensorModule::Lock` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::SubnetMechanism` (r:1 w:0)
-    /// Proof: `SubtensorModule::SubnetMechanism` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `Swap::SwapV3Initialized` (r:1 w:0)
-    /// Proof: `Swap::SwapV3Initialized` (`max_values`: None, `max_size`: Some(11), added: 2486, mode: `MaxEncodedLen`)
-    /// Storage: `Swap::AlphaSqrtPrice` (r:1 w:0)
-    /// Proof: `Swap::AlphaSqrtPrice` (`max_values`: None, `max_size`: Some(26), added: 2501, mode: `MaxEncodedLen`)
-    /// Storage: `SubtensorModule::StakingOperationRateLimiter` (r:1 w:1)
-    /// Proof: `SubtensorModule::StakingOperationRateLimiter` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (r:0 w:1)
-    /// Proof: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    fn transfer_stake() -> Weight {
-        // Proof Size summary in bytes:
-        //  Measured:  `2174`
-        //  Estimated: `8114`
-        // Minimum execution time: 166_000_000 picoseconds.
-        Weight::from_parts(258_541_000, 7994)
-            .saturating_add(T::DbWeight::get().reads(18_u64))
-            .saturating_add(T::DbWeight::get().writes(7_u64))
-    }
+	/// Storage: `SubtensorModule::Alpha` (r:2 w:0)
+	/// Proof: `SubtensorModule::Alpha` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::AlphaV2` (r:2 w:2)
+	/// Proof: `SubtensorModule::AlphaV2` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::TotalHotkeyAlpha` (r:1 w:1)
+	/// Proof: `SubtensorModule::TotalHotkeyAlpha` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::TotalHotkeyShares` (r:1 w:0)
+	/// Proof: `SubtensorModule::TotalHotkeyShares` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::TotalHotkeySharesV2` (r:1 w:1)
+	/// Proof: `SubtensorModule::TotalHotkeySharesV2` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::NetworksAdded` (r:1 w:0)
+	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubtokenEnabled` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubtokenEnabled` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::Owner` (r:1 w:0)
+	/// Proof: `SubtensorModule::Owner` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::TransferToggle` (r:1 w:0)
+	/// Proof: `SubtensorModule::TransferToggle` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::StakingHotkeys` (r:2 w:1)
+	/// Proof: `SubtensorModule::StakingHotkeys` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::Lock` (r:1 w:0)
+	/// Proof: `SubtensorModule::Lock` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetMechanism` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetMechanism` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Swap::SwapV3Initialized` (r:1 w:0)
+	/// Proof: `Swap::SwapV3Initialized` (`max_values`: None, `max_size`: Some(11), added: 2486, mode: `MaxEncodedLen`)
+	/// Storage: `Swap::AlphaSqrtPrice` (r:1 w:0)
+	/// Proof: `Swap::AlphaSqrtPrice` (`max_values`: None, `max_size`: Some(26), added: 2501, mode: `MaxEncodedLen`)
+	/// Storage: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (r:0 w:1)
+	/// Proof: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn transfer_stake() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `2054`
+		//  Estimated: `7994`
+		// Minimum execution time: 161_000_000 picoseconds.
+		Weight::from_parts(164_000_000, 7994)
+			.saturating_add(T::DbWeight::get().reads(17_u64))
+			.saturating_add(T::DbWeight::get().writes(6_u64))
+	}
 	/// Storage: `SubtensorModule::Alpha` (r:2 w:0)
 	/// Proof: `SubtensorModule::Alpha` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::AlphaV2` (r:2 w:2)
@@ -1401,8 +1387,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `SubtensorModule::TotalHotkeyShares` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::TotalHotkeySharesV2` (r:2 w:2)
 	/// Proof: `SubtensorModule::TotalHotkeySharesV2` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `SubtensorModule::StakingOperationRateLimiter` (r:1 w:1)
-	/// Proof: `SubtensorModule::StakingOperationRateLimiter` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::NetworksAdded` (r:2 w:0)
 	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::SubtokenEnabled` (r:2 w:0)
@@ -1465,12 +1449,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn swap_stake() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `2951`
-		//  Estimated: `11366`
-		// Minimum execution time: 633_996_000 picoseconds.
-		Weight::from_parts(655_699_000, 11366)
-			.saturating_add(T::DbWeight::get().reads(54_u64))
-			.saturating_add(T::DbWeight::get().writes(26_u64))
+		//  Measured:  `2916`
+		//  Estimated: `11331`
+		// Minimum execution time: 370_000_000 picoseconds.
+		Weight::from_parts(382_000_000, 11331)
+			.saturating_add(T::DbWeight::get().reads(53_u64))
+			.saturating_add(T::DbWeight::get().writes(25_u64))
 	}
 	/// Storage: `SubtensorModule::NetworksAdded` (r:1 w:0)
 	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -1868,8 +1852,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `SubtensorModule::TotalHotkeyShares` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::TotalHotkeySharesV2` (r:2 w:2)
 	/// Proof: `SubtensorModule::TotalHotkeySharesV2` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `SubtensorModule::StakingOperationRateLimiter` (r:1 w:0)
-	/// Proof: `SubtensorModule::StakingOperationRateLimiter` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::SubnetMechanism` (r:2 w:0)
 	/// Proof: `SubtensorModule::SubnetMechanism` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::SubnetTAO` (r:2 w:2)
@@ -1920,9 +1902,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `2642`
 		//  Estimated: `11306`
-		// Minimum execution time: 583_803_000 picoseconds.
-		Weight::from_parts(599_485_000, 11306)
-			.saturating_add(T::DbWeight::get().reads(50_u64))
+		// Minimum execution time: 371_000_000 picoseconds.
+		Weight::from_parts(380_000_000, 11306)
+			.saturating_add(T::DbWeight::get().reads(49_u64))
 			.saturating_add(T::DbWeight::get().writes(27_u64))
 	}
 	/// Storage: `SubtensorModule::Alpha` (r:1 w:0)
@@ -1955,8 +1937,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Swap::CurrentLiquidity` (`max_values`: None, `max_size`: Some(18), added: 2493, mode: `MaxEncodedLen`)
 	/// Storage: `SubtensorModule::NetworksAdded` (r:3 w:0)
 	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `SubtensorModule::StakingOperationRateLimiter` (r:1 w:0)
-	/// Proof: `SubtensorModule::StakingOperationRateLimiter` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::Owner` (r:1 w:0)
 	/// Proof: `SubtensorModule::Owner` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::StakingHotkeys` (r:1 w:0)
@@ -1983,11 +1963,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn remove_stake_full_limit() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `2598`
-		//  Estimated: `11013`
-		// Minimum execution time: 497_956_000 picoseconds.
-		Weight::from_parts(503_033_000, 11013)
-			.saturating_add(T::DbWeight::get().reads(34_u64))
+		//  Measured:  `2583`
+		//  Estimated: `10998`
+		// Minimum execution time: 295_000_000 picoseconds.
+		Weight::from_parts(297_000_000, 10998)
+			.saturating_add(T::DbWeight::get().reads(33_u64))
 			.saturating_add(T::DbWeight::get().writes(15_u64))
 	}
 	/// Storage: `Crowdloan::CurrentCrowdloanId` (r:1 w:0)
@@ -2380,18 +2360,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `SubtensorModule::MaturityRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `AlphaAssets::AlphaBurned` (r:1 w:1)
 	/// Proof: `AlphaAssets::AlphaBurned` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `SubtensorModule::StakingOperationRateLimiter` (r:0 w:1)
-	/// Proof: `SubtensorModule::StakingOperationRateLimiter` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (r:0 w:1)
 	/// Proof: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn add_stake_burn() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `2636`
 		//  Estimated: `8727`
-		// Minimum execution time: 630_852_000 picoseconds.
-		Weight::from_parts(646_565_000, 8727)
+		// Minimum execution time: 383_000_000 picoseconds.
+		Weight::from_parts(405_000_000, 8727)
 			.saturating_add(T::DbWeight::get().reads(39_u64))
-			.saturating_add(T::DbWeight::get().writes(19_u64))
+			.saturating_add(T::DbWeight::get().writes(18_u64))
 	}
 	/// Storage: `SubtensorModule::PendingChildKeyCooldown` (r:0 w:1)
 	/// Proof: `SubtensorModule::PendingChildKeyCooldown` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
@@ -2689,18 +2667,16 @@ impl WeightInfo for () {
 	/// Proof: `SubtensorModule::UnlockRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::MaturityRate` (r:1 w:0)
 	/// Proof: `SubtensorModule::MaturityRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `SubtensorModule::StakingOperationRateLimiter` (r:0 w:1)
-	/// Proof: `SubtensorModule::StakingOperationRateLimiter` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (r:0 w:1)
 	/// Proof: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn add_stake() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `2633`
 		//  Estimated: `8727`
-		// Minimum execution time: 459_249_000 picoseconds.
-		Weight::from_parts(476_173_000, 8727)
+		// Minimum execution time: 273_000_000 picoseconds.
+		Weight::from_parts(277_000_000, 8727)
 			.saturating_add(RocksDbWeight::get().reads(38_u64))
-			.saturating_add(RocksDbWeight::get().writes(18_u64))
+			.saturating_add(RocksDbWeight::get().writes(17_u64))
 	}
 	/// Storage: `SubtensorModule::IsNetworkMember` (r:2 w:0)
 	/// Proof: `SubtensorModule::IsNetworkMember` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -3467,56 +3443,52 @@ impl WeightInfo for () {
 	/// Proof: `SubtensorModule::UnlockRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::MaturityRate` (r:1 w:0)
 	/// Proof: `SubtensorModule::MaturityRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `SubtensorModule::StakingOperationRateLimiter` (r:0 w:1)
-	/// Proof: `SubtensorModule::StakingOperationRateLimiter` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (r:0 w:1)
 	/// Proof: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn add_stake_limit() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `2633`
 		//  Estimated: `8727`
-		// Minimum execution time: 499_258_000 picoseconds.
-		Weight::from_parts(516_242_000, 8727)
+		// Minimum execution time: 328_000_000 picoseconds.
+		Weight::from_parts(385_000_000, 8727)
 			.saturating_add(RocksDbWeight::get().reads(38_u64))
-			.saturating_add(RocksDbWeight::get().writes(18_u64))
+			.saturating_add(RocksDbWeight::get().writes(17_u64))
 	}
-    /// Storage: `SubtensorModule::Alpha` (r:2 w:0)
-    /// Proof: `SubtensorModule::Alpha` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::AlphaV2` (r:2 w:2)
-    /// Proof: `SubtensorModule::AlphaV2` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::TotalHotkeyAlpha` (r:2 w:2)
-    /// Proof: `SubtensorModule::TotalHotkeyAlpha` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::TotalHotkeyShares` (r:2 w:0)
-    /// Proof: `SubtensorModule::TotalHotkeyShares` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::TotalHotkeySharesV2` (r:2 w:2)
-    /// Proof: `SubtensorModule::TotalHotkeySharesV2` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::NetworksAdded` (r:1 w:0)
-    /// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::SubtokenEnabled` (r:1 w:0)
-    /// Proof: `SubtensorModule::SubtokenEnabled` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::Owner` (r:2 w:0)
-    /// Proof: `SubtensorModule::Owner` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::StakingHotkeys` (r:1 w:0)
-    /// Proof: `SubtensorModule::StakingHotkeys` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::SubnetMechanism` (r:1 w:0)
-    /// Proof: `SubtensorModule::SubnetMechanism` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `Swap::SwapV3Initialized` (r:1 w:0)
-    /// Proof: `Swap::SwapV3Initialized` (`max_values`: None, `max_size`: Some(11), added: 2486, mode: `MaxEncodedLen`)
-    /// Storage: `Swap::AlphaSqrtPrice` (r:1 w:0)
-    /// Proof: `Swap::AlphaSqrtPrice` (`max_values`: None, `max_size`: Some(26), added: 2501, mode: `MaxEncodedLen`)
-    /// Storage: `SubtensorModule::StakingOperationRateLimiter` (r:1 w:1)
-    /// Proof: `SubtensorModule::StakingOperationRateLimiter` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (r:0 w:1)
-    /// Proof: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    fn move_stake() -> Weight {
-        // Proof Size summary in bytes:
-        //  Measured:  `2180`
-        //  Estimated: `8120`
-        // Minimum execution time: 149_000_000 picoseconds.
-        Weight::from_parts(227_526_000, 8000)
-            .saturating_add(RocksDbWeight::get().reads(19_u64))
-            .saturating_add(RocksDbWeight::get().writes(8_u64))
-    }
+	/// Storage: `SubtensorModule::Alpha` (r:2 w:0)
+	/// Proof: `SubtensorModule::Alpha` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::AlphaV2` (r:2 w:2)
+	/// Proof: `SubtensorModule::AlphaV2` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::TotalHotkeyAlpha` (r:2 w:2)
+	/// Proof: `SubtensorModule::TotalHotkeyAlpha` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::TotalHotkeyShares` (r:2 w:0)
+	/// Proof: `SubtensorModule::TotalHotkeyShares` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::TotalHotkeySharesV2` (r:2 w:2)
+	/// Proof: `SubtensorModule::TotalHotkeySharesV2` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::NetworksAdded` (r:1 w:0)
+	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubtokenEnabled` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubtokenEnabled` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::Owner` (r:2 w:0)
+	/// Proof: `SubtensorModule::Owner` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::StakingHotkeys` (r:1 w:0)
+	/// Proof: `SubtensorModule::StakingHotkeys` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetMechanism` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetMechanism` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Swap::SwapV3Initialized` (r:1 w:0)
+	/// Proof: `Swap::SwapV3Initialized` (`max_values`: None, `max_size`: Some(11), added: 2486, mode: `MaxEncodedLen`)
+	/// Storage: `Swap::AlphaSqrtPrice` (r:1 w:0)
+	/// Proof: `Swap::AlphaSqrtPrice` (`max_values`: None, `max_size`: Some(26), added: 2501, mode: `MaxEncodedLen`)
+	/// Storage: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (r:0 w:1)
+	/// Proof: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn move_stake() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `2045`
+		//  Estimated: `7985`
+		// Minimum execution time: 129_000_000 picoseconds.
+		Weight::from_parts(130_000_000, 7985)
+			.saturating_add(RocksDbWeight::get().reads(18_u64))
+			.saturating_add(RocksDbWeight::get().writes(7_u64))
+	}
 	/// Storage: `SubtensorModule::SubtokenEnabled` (r:1 w:0)
 	/// Proof: `SubtensorModule::SubtokenEnabled` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::Alpha` (r:1 w:0)
@@ -3531,8 +3503,6 @@ impl WeightInfo for () {
 	/// Proof: `SubtensorModule::TotalHotkeySharesV2` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::NetworksAdded` (r:3 w:0)
 	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `SubtensorModule::StakingOperationRateLimiter` (r:1 w:0)
-	/// Proof: `SubtensorModule::StakingOperationRateLimiter` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::SubnetMechanism` (r:2 w:0)
 	/// Proof: `SubtensorModule::SubnetMechanism` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::SubnetTAO` (r:1 w:1)
@@ -3577,11 +3547,11 @@ impl WeightInfo for () {
 	/// Proof: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn remove_stake() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `2564`
-		//  Estimated: `10979`
-		// Minimum execution time: 435_183_000 picoseconds.
-		Weight::from_parts(444_777_000, 10979)
-			.saturating_add(RocksDbWeight::get().reads(35_u64))
+		//  Measured:  `2549`
+		//  Estimated: `10964`
+		// Minimum execution time: 261_000_000 picoseconds.
+		Weight::from_parts(262_000_000, 10964)
+			.saturating_add(RocksDbWeight::get().reads(34_u64))
 			.saturating_add(RocksDbWeight::get().writes(15_u64))
 	}
 	/// Storage: `SubtensorModule::SubnetMechanism` (r:2 w:0)
@@ -3604,8 +3574,6 @@ impl WeightInfo for () {
 	/// Proof: `Swap::CurrentLiquidity` (`max_values`: None, `max_size`: Some(18), added: 2493, mode: `MaxEncodedLen`)
 	/// Storage: `SubtensorModule::NetworksAdded` (r:3 w:0)
 	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `SubtensorModule::StakingOperationRateLimiter` (r:1 w:0)
-	/// Proof: `SubtensorModule::StakingOperationRateLimiter` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::Alpha` (r:1 w:0)
 	/// Proof: `SubtensorModule::Alpha` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::AlphaV2` (r:1 w:1)
@@ -3642,11 +3610,11 @@ impl WeightInfo for () {
 	/// Proof: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn remove_stake_limit() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `2598`
-		//  Estimated: `11013`
-		// Minimum execution time: 475_352_000 picoseconds.
-		Weight::from_parts(478_116_000, 11013)
-			.saturating_add(RocksDbWeight::get().reads(34_u64))
+		//  Measured:  `2583`
+		//  Estimated: `10998`
+		// Minimum execution time: 277_000_000 picoseconds.
+		Weight::from_parts(280_000_000, 10998)
+			.saturating_add(RocksDbWeight::get().reads(33_u64))
 			.saturating_add(RocksDbWeight::get().writes(15_u64))
 	}
 	/// Storage: `SubtensorModule::Alpha` (r:2 w:0)
@@ -3677,8 +3645,6 @@ impl WeightInfo for () {
 	/// Proof: `Swap::FeeRate` (`max_values`: None, `max_size`: Some(12), added: 2487, mode: `MaxEncodedLen`)
 	/// Storage: `Swap::CurrentLiquidity` (r:1 w:0)
 	/// Proof: `Swap::CurrentLiquidity` (`max_values`: None, `max_size`: Some(18), added: 2493, mode: `MaxEncodedLen`)
-	/// Storage: `SubtensorModule::StakingOperationRateLimiter` (r:1 w:1)
-	/// Proof: `SubtensorModule::StakingOperationRateLimiter` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::NetworksAdded` (r:2 w:0)
 	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::SubtokenEnabled` (r:2 w:0)
@@ -3723,54 +3689,52 @@ impl WeightInfo for () {
 	/// Proof: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn swap_stake_limit() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `3108`
-		//  Estimated: `11523`
-		// Minimum execution time: 688_567_000 picoseconds.
-		Weight::from_parts(707_234_000, 11523)
-			.saturating_add(RocksDbWeight::get().reads(54_u64))
-			.saturating_add(RocksDbWeight::get().writes(26_u64))
+		//  Measured:  `3073`
+		//  Estimated: `11488`
+		// Minimum execution time: 404_000_000 picoseconds.
+		Weight::from_parts(410_000_000, 11488)
+			.saturating_add(RocksDbWeight::get().reads(53_u64))
+			.saturating_add(RocksDbWeight::get().writes(25_u64))
 	}
-    /// Storage: `SubtensorModule::Alpha` (r:2 w:0)
-    /// Proof: `SubtensorModule::Alpha` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::AlphaV2` (r:2 w:2)
-    /// Proof: `SubtensorModule::AlphaV2` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::TotalHotkeyAlpha` (r:1 w:1)
-    /// Proof: `SubtensorModule::TotalHotkeyAlpha` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::TotalHotkeyShares` (r:1 w:0)
-    /// Proof: `SubtensorModule::TotalHotkeyShares` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::TotalHotkeySharesV2` (r:1 w:1)
-    /// Proof: `SubtensorModule::TotalHotkeySharesV2` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::NetworksAdded` (r:1 w:0)
-    /// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::SubtokenEnabled` (r:1 w:0)
-    /// Proof: `SubtensorModule::SubtokenEnabled` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::Owner` (r:1 w:0)
-    /// Proof: `SubtensorModule::Owner` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::TransferToggle` (r:1 w:0)
-    /// Proof: `SubtensorModule::TransferToggle` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::StakingHotkeys` (r:2 w:1)
-    /// Proof: `SubtensorModule::StakingHotkeys` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::Lock` (r:1 w:0)
-    /// Proof: `SubtensorModule::Lock` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::SubnetMechanism` (r:1 w:0)
-    /// Proof: `SubtensorModule::SubnetMechanism` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `Swap::SwapV3Initialized` (r:1 w:0)
-    /// Proof: `Swap::SwapV3Initialized` (`max_values`: None, `max_size`: Some(11), added: 2486, mode: `MaxEncodedLen`)
-    /// Storage: `Swap::AlphaSqrtPrice` (r:1 w:0)
-    /// Proof: `Swap::AlphaSqrtPrice` (`max_values`: None, `max_size`: Some(26), added: 2501, mode: `MaxEncodedLen`)
-    /// Storage: `SubtensorModule::StakingOperationRateLimiter` (r:1 w:1)
-    /// Proof: `SubtensorModule::StakingOperationRateLimiter` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    /// Storage: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (r:0 w:1)
-    /// Proof: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
-    fn transfer_stake() -> Weight {
-        // Proof Size summary in bytes:
-        //  Measured:  `2174`
-        //  Estimated: `8114`
-        // Minimum execution time: 166_000_000 picoseconds.
-        Weight::from_parts(258_541_000, 7994)
-            .saturating_add(RocksDbWeight::get().reads(18_u64))
-            .saturating_add(RocksDbWeight::get().writes(7_u64))
-    }
+	/// Storage: `SubtensorModule::Alpha` (r:2 w:0)
+	/// Proof: `SubtensorModule::Alpha` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::AlphaV2` (r:2 w:2)
+	/// Proof: `SubtensorModule::AlphaV2` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::TotalHotkeyAlpha` (r:1 w:1)
+	/// Proof: `SubtensorModule::TotalHotkeyAlpha` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::TotalHotkeyShares` (r:1 w:0)
+	/// Proof: `SubtensorModule::TotalHotkeyShares` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::TotalHotkeySharesV2` (r:1 w:1)
+	/// Proof: `SubtensorModule::TotalHotkeySharesV2` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::NetworksAdded` (r:1 w:0)
+	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubtokenEnabled` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubtokenEnabled` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::Owner` (r:1 w:0)
+	/// Proof: `SubtensorModule::Owner` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::TransferToggle` (r:1 w:0)
+	/// Proof: `SubtensorModule::TransferToggle` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::StakingHotkeys` (r:2 w:1)
+	/// Proof: `SubtensorModule::StakingHotkeys` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::Lock` (r:1 w:0)
+	/// Proof: `SubtensorModule::Lock` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetMechanism` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetMechanism` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Swap::SwapV3Initialized` (r:1 w:0)
+	/// Proof: `Swap::SwapV3Initialized` (`max_values`: None, `max_size`: Some(11), added: 2486, mode: `MaxEncodedLen`)
+	/// Storage: `Swap::AlphaSqrtPrice` (r:1 w:0)
+	/// Proof: `Swap::AlphaSqrtPrice` (`max_values`: None, `max_size`: Some(26), added: 2501, mode: `MaxEncodedLen`)
+	/// Storage: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (r:0 w:1)
+	/// Proof: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn transfer_stake() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `2054`
+		//  Estimated: `7994`
+		// Minimum execution time: 161_000_000 picoseconds.
+		Weight::from_parts(164_000_000, 7994)
+			.saturating_add(RocksDbWeight::get().reads(17_u64))
+			.saturating_add(RocksDbWeight::get().writes(6_u64))
+	}
 	/// Storage: `SubtensorModule::Alpha` (r:2 w:0)
 	/// Proof: `SubtensorModule::Alpha` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::AlphaV2` (r:2 w:2)
@@ -3781,8 +3745,6 @@ impl WeightInfo for () {
 	/// Proof: `SubtensorModule::TotalHotkeyShares` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::TotalHotkeySharesV2` (r:2 w:2)
 	/// Proof: `SubtensorModule::TotalHotkeySharesV2` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `SubtensorModule::StakingOperationRateLimiter` (r:1 w:1)
-	/// Proof: `SubtensorModule::StakingOperationRateLimiter` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::NetworksAdded` (r:2 w:0)
 	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::SubtokenEnabled` (r:2 w:0)
@@ -3845,12 +3807,12 @@ impl WeightInfo for () {
 	/// Proof: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn swap_stake() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `2951`
-		//  Estimated: `11366`
-		// Minimum execution time: 633_996_000 picoseconds.
-		Weight::from_parts(655_699_000, 11366)
-			.saturating_add(RocksDbWeight::get().reads(54_u64))
-			.saturating_add(RocksDbWeight::get().writes(26_u64))
+		//  Measured:  `2916`
+		//  Estimated: `11331`
+		// Minimum execution time: 370_000_000 picoseconds.
+		Weight::from_parts(382_000_000, 11331)
+			.saturating_add(RocksDbWeight::get().reads(53_u64))
+			.saturating_add(RocksDbWeight::get().writes(25_u64))
 	}
 	/// Storage: `SubtensorModule::NetworksAdded` (r:1 w:0)
 	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -4248,8 +4210,6 @@ impl WeightInfo for () {
 	/// Proof: `SubtensorModule::TotalHotkeyShares` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::TotalHotkeySharesV2` (r:2 w:2)
 	/// Proof: `SubtensorModule::TotalHotkeySharesV2` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `SubtensorModule::StakingOperationRateLimiter` (r:1 w:0)
-	/// Proof: `SubtensorModule::StakingOperationRateLimiter` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::SubnetMechanism` (r:2 w:0)
 	/// Proof: `SubtensorModule::SubnetMechanism` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::SubnetTAO` (r:2 w:2)
@@ -4300,9 +4260,9 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `2642`
 		//  Estimated: `11306`
-		// Minimum execution time: 583_803_000 picoseconds.
-		Weight::from_parts(599_485_000, 11306)
-			.saturating_add(RocksDbWeight::get().reads(50_u64))
+		// Minimum execution time: 371_000_000 picoseconds.
+		Weight::from_parts(380_000_000, 11306)
+			.saturating_add(RocksDbWeight::get().reads(49_u64))
 			.saturating_add(RocksDbWeight::get().writes(27_u64))
 	}
 	/// Storage: `SubtensorModule::Alpha` (r:1 w:0)
@@ -4335,8 +4295,6 @@ impl WeightInfo for () {
 	/// Proof: `Swap::CurrentLiquidity` (`max_values`: None, `max_size`: Some(18), added: 2493, mode: `MaxEncodedLen`)
 	/// Storage: `SubtensorModule::NetworksAdded` (r:3 w:0)
 	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `SubtensorModule::StakingOperationRateLimiter` (r:1 w:0)
-	/// Proof: `SubtensorModule::StakingOperationRateLimiter` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::Owner` (r:1 w:0)
 	/// Proof: `SubtensorModule::Owner` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::StakingHotkeys` (r:1 w:0)
@@ -4363,11 +4321,11 @@ impl WeightInfo for () {
 	/// Proof: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn remove_stake_full_limit() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `2598`
-		//  Estimated: `11013`
-		// Minimum execution time: 497_956_000 picoseconds.
-		Weight::from_parts(503_033_000, 11013)
-			.saturating_add(RocksDbWeight::get().reads(34_u64))
+		//  Measured:  `2583`
+		//  Estimated: `10998`
+		// Minimum execution time: 295_000_000 picoseconds.
+		Weight::from_parts(297_000_000, 10998)
+			.saturating_add(RocksDbWeight::get().reads(33_u64))
 			.saturating_add(RocksDbWeight::get().writes(15_u64))
 	}
 	/// Storage: `Crowdloan::CurrentCrowdloanId` (r:1 w:0)
@@ -4760,18 +4718,16 @@ impl WeightInfo for () {
 	/// Proof: `SubtensorModule::MaturityRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `AlphaAssets::AlphaBurned` (r:1 w:1)
 	/// Proof: `AlphaAssets::AlphaBurned` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `SubtensorModule::StakingOperationRateLimiter` (r:0 w:1)
-	/// Proof: `SubtensorModule::StakingOperationRateLimiter` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (r:0 w:1)
 	/// Proof: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn add_stake_burn() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `2636`
 		//  Estimated: `8727`
-		// Minimum execution time: 630_852_000 picoseconds.
-		Weight::from_parts(646_565_000, 8727)
+		// Minimum execution time: 383_000_000 picoseconds.
+		Weight::from_parts(405_000_000, 8727)
 			.saturating_add(RocksDbWeight::get().reads(39_u64))
-			.saturating_add(RocksDbWeight::get().writes(19_u64))
+			.saturating_add(RocksDbWeight::get().writes(18_u64))
 	}
 	/// Storage: `SubtensorModule::PendingChildKeyCooldown` (r:0 w:1)
 	/// Proof: `SubtensorModule::PendingChildKeyCooldown` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)

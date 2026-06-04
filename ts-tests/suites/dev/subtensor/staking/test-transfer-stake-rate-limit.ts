@@ -77,7 +77,7 @@ async function devGetAlphaStake(
 
 describeSuite({
     id: "DEV_SUB_STAKING_TRANSFER_RATE_LIMIT",
-    title: "staking rate limiter — add_stake then transfer_stake in one block",
+    title: "staking — same-block add_stake / transfer_stake (no per-block rate limiter)",
     foundationMethods: "dev",
     testCases: ({ it, context }) => {
         let polkadotJs: ApiPromise;
@@ -109,7 +109,7 @@ describeSuite({
 
         it({
             id: "T01",
-            title: "add_stake + same-subnet transfer_stake in one block now BOTH succeed (rate limiter skipped for same-subnet)",
+            title: "add_stake + same-subnet transfer_stake in one block both succeed",
             test: async () => {
                 // Both extrinsics are signed by alice, so use explicit incrementing
                 // nonces to land them in the same block in submission order.
@@ -136,9 +136,9 @@ describeSuite({
 
         it({
             id: "T02",
-            title: "the same add_stake and transfer_stake across SEPARATE blocks both succeed — only the block boundary matters",
+            title: "add_stake then transfer_stake across SEPARATE blocks both succeed",
             test: async () => {
-                // add in its own block — limiter is set then drained on_finalize
+                // add in its own block
                 const {
                     result: [addAttempt2],
                 } = await context.createBlock([
@@ -152,7 +152,7 @@ describeSuite({
                 const transferAmount = alphaStaked / 2n;
                 expect(transferAmount > 0n).toEqual(true);
 
-                // transfer in the NEXT block — same triple, limiter cleared, succeeds
+                // transfer in the NEXT block — same triple, succeeds
                 const {
                     result: [transferAttempt2],
                 } = await context.createBlock([
@@ -166,7 +166,7 @@ describeSuite({
 
         it({
             id: "T03",
-            title: "two add_stake on the IDENTICAL (coldkey, hotkey, netuid) in the SAME block both succeed — add_stake sets the limiter but never checks it",
+            title: "two add_stake on the IDENTICAL (coldkey, hotkey, netuid) in the SAME block both succeed",
             test: async () => {
                 const aliceNonce = ((await polkadotJs.query.system.account(alice.address)) as any).nonce.toNumber();
 
@@ -188,7 +188,7 @@ describeSuite({
 
         it({
             id: "T04",
-            title: "remove_stake then transfer_stake on the IDENTICAL (coldkey, hotkey, netuid) in the SAME block both succeed — neither SETS the limiter, both only CHECK it",
+            title: "remove_stake then transfer_stake on the IDENTICAL (coldkey, hotkey, netuid) in the SAME block both succeed",
             test: async () => {
                 const {
                     result: [seedAdd],
@@ -225,7 +225,7 @@ describeSuite({
 
         it({
             id: "T05",
-            title: "add_stake + CROSS-subnet transfer_stake in one block STILL reverts with StakingOperationRateLimitExceeded",
+            title: "add_stake + CROSS-subnet transfer_stake in one block is no longer rate-limited (limiter removed) — it now falls through to the normal amount check",
             test: async () => {
                 const netuid2 = await devRegisterSubnet(polkadotJs, context, alice, aliceHotKey);
                 await devEnableSubtoken(polkadotJs, context, alice, netuid2);
@@ -236,9 +236,6 @@ describeSuite({
                     .addStake(aliceHotKey.address, netuid, tao(100))
                     .signAsync(alice, { nonce: aliceNonce });
 
-                // A tiny amount is fine: the rate-limit check runs before the
-                // min-amount / liquidity checks on the cross-subnet path, so the failure
-                // is unambiguously the limiter.
                 const transferTx = await polkadotJs.tx.subtensorModule
                     .transferStake(destinationColdkey.address, aliceHotKey.address, netuid, netuid2, 1000n)
                     .signAsync(alice, { nonce: aliceNonce + 1 });
@@ -248,7 +245,8 @@ describeSuite({
 
                 expect(addAttempt.successful).toEqual(true);
                 expect(transferAttempt.successful).toEqual(false);
-                expect(transferAttempt.error.name).toEqual("StakingOperationRateLimitExceeded");
+                expect(transferAttempt.error.name).not.toEqual("StakingOperationRateLimitExceeded");
+                expect(transferAttempt.error.name).toEqual("AmountTooLow");
             },
         });
     },

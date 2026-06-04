@@ -847,7 +847,6 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         tao: TaoBalance,
         price_limit: TaoBalance,
-        set_limit: bool,
         drop_fees: bool,
     ) -> Result<AlphaBalance, DispatchError> {
         // Transfer TAO from coldkey to the subnet account.
@@ -912,10 +911,6 @@ impl<T: Config> Pallet<T> {
         Self::cleanup_lock_if_zero(coldkey, netuid);
 
         LastColdkeyHotkeyStakeBlock::<T>::insert(coldkey, hotkey, Self::get_current_block_as_u64());
-
-        if set_limit {
-            Self::set_stake_operation_limit(hotkey, coldkey, netuid.into());
-        }
 
         // If this is a root-stake
         if netuid == NetUid::ROOT {
@@ -1040,16 +1035,6 @@ impl<T: Config> Pallet<T> {
             0_u64, // 0 fee
         ));
 
-        // Carry the per-block staking-operation limit across the transfer. Same-netuid
-        // transfers/moves are not rate-limited themselves (no AMM price impact), but if the
-        // origin tuple is already limited this block (e.g. a same-block `add_stake` set the
-        // marker), we propagate it to the destination tuple. Otherwise a same-block `add_stake`
-        // could be laundered to a fresh (hotkey, coldkey) tuple and then removed / swapped /
-        // cross-subnet transferred within the same block, bypassing the limiter.
-        if StakingOperationRateLimiter::<T>::contains_key((origin_hotkey, origin_coldkey, netuid)) {
-            Self::set_stake_operation_limit(destination_hotkey, destination_coldkey, netuid);
-        }
-
         Ok(tao_equivalent)
     }
 
@@ -1150,8 +1135,6 @@ impl<T: Config> Pallet<T> {
     ) -> Result<(), Error<T>> {
         // Ensure that the subnet exists.
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
-
-        Self::ensure_stake_operation_limit_not_exceeded(hotkey, coldkey, netuid.into())?;
 
         // Ensure that the subnet is enabled.
         // Self::ensure_subtoken_enabled(netuid)?;
@@ -1260,13 +1243,6 @@ impl<T: Config> Pallet<T> {
             Error::<T>::SubnetNotExists
         );
         if origin_netuid != destination_netuid {
-            // Only rate-limit cross-subnet transitions.
-            Self::ensure_stake_operation_limit_not_exceeded(
-                origin_hotkey,
-                origin_coldkey,
-                origin_netuid.into(),
-            )?;
-
             ensure!(
                 Self::if_subnet_exist(destination_netuid),
                 Error::<T>::SubnetNotExists
@@ -1380,27 +1356,6 @@ impl<T: Config> Pallet<T> {
                 *total = total.saturating_sub(alpha);
             });
         }
-    }
-
-    pub fn set_stake_operation_limit(
-        hotkey: &T::AccountId,
-        coldkey: &T::AccountId,
-        netuid: NetUid,
-    ) {
-        StakingOperationRateLimiter::<T>::insert((hotkey, coldkey, netuid), true);
-    }
-
-    pub fn ensure_stake_operation_limit_not_exceeded(
-        hotkey: &T::AccountId,
-        coldkey: &T::AccountId,
-        netuid: NetUid,
-    ) -> Result<(), Error<T>> {
-        ensure!(
-            !StakingOperationRateLimiter::<T>::contains_key((hotkey, coldkey, netuid)),
-            Error::<T>::StakingOperationRateLimitExceeded
-        );
-
-        Ok(())
     }
 }
 

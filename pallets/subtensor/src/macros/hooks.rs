@@ -38,17 +38,6 @@ mod hooks {
             }
         }
 
-        // ---- Called on the finalization of this pallet. The code weight must be taken into account prior to the execution of this macro.
-        //
-        // # Args:
-        // 	* 'n': (BlockNumberFor<T>):
-        // 		- The number of the block we are finalizing.
-        fn on_finalize(_block_number: BlockNumberFor<T>) {
-            for _ in StakingOperationRateLimiter::<T>::drain() {
-                // Clear all entries each block
-            }
-        }
-
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
             // --- Migrate storage
             let mut weight = frame_support::weights::Weight::from_parts(0, 0);
