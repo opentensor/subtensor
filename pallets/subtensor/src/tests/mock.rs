@@ -996,7 +996,6 @@ pub fn increase_stake_on_coldkey_hotkey_account(
         tao_staked,
         <Test as Config>::SwapInterface::max_price(),
         false,
-        false,
     )
     .unwrap();
 }
@@ -1014,10 +1013,6 @@ pub fn increase_stake_on_hotkey_account(hotkey: &U256, increment: TaoBalance, ne
         increment,
         netuid,
     );
-}
-
-pub(crate) fn remove_stake_rate_limit_for_tests(hotkey: &U256, coldkey: &U256, netuid: NetUid) {
-    StakingOperationRateLimiter::<Test>::remove((hotkey, coldkey, netuid));
 }
 
 pub(crate) fn setup_reserves(netuid: NetUid, tao: TaoBalance, alpha: AlphaBalance) {
