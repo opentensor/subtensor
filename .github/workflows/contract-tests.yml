@@ -38,6 +38,23 @@ jobs:
 
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target/fast-runtime
+            contract-tests/bittensor -> target
+
+      - name: Cache Rust build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/git
+            ~/.cargo/registry
+            target/fast-runtime
+            contract-tests/bittensor/target
+          key: contract-tests-rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock', 'contract-tests/bittensor/Cargo.lock', '**/Cargo.toml', 'node/**/*.rs', 'runtime/**/*.rs', 'pallets/**/*.rs', 'precompiles/**/*.rs', 'primitives/**/*.rs', 'common/**/*.rs', 'chain-extensions/**/*.rs', 'support/**/*.rs', 'contract-tests/bittensor/**/*.rs') }}
+          restore-keys: |
+            contract-tests-rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock', 'contract-tests/bittensor/Cargo.lock', '**/Cargo.toml') }}-
+            contract-tests-rust-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
