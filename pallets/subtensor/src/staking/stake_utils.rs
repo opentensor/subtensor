@@ -961,6 +961,21 @@ impl<T: Config> Pallet<T> {
         alpha: AlphaBalance,
         lock_aware_transfer: Option<bool>,
     ) -> Result<TaoBalance, DispatchError> {
+        // Calculate TAO equivalent based on current price (it is accurate because
+        // there's no slippage in this move) and validate it before mutating lock
+        // or stake storage.
+        let current_price =
+            <T as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
+        let tao_equivalent: TaoBalance = current_price
+            .saturating_mul(U96F32::saturating_from_num(alpha))
+            .saturating_to_num::<u64>()
+            .into();
+
+        ensure!(
+            tao_equivalent >= DefaultMinStake::<T>::get(),
+            Error::<T>::AmountTooLow
+        );
+
         // Transfer lock (may fail if destination coldkey has a conflicting lock)
         Self::transfer_lock(
             origin_coldkey,
@@ -999,21 +1014,6 @@ impl<T: Config> Pallet<T> {
                 u64::from(alpha).into(),
             );
         }
-
-        // Calculate TAO equivalent based on current price (it is accurate because
-        // there's no slippage in this move)
-        let current_price =
-            <T as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
-        let tao_equivalent: TaoBalance = current_price
-            .saturating_mul(U96F32::saturating_from_num(alpha))
-            .saturating_to_num::<u64>()
-            .into();
-
-        // Ensure tao_equivalent is above DefaultMinStake
-        ensure!(
-            tao_equivalent >= DefaultMinStake::<T>::get(),
-            Error::<T>::AmountTooLow
-        );
 
         // Step 3: Update StakingHotkeys if the hotkey's total alpha, across all subnets, is zero
         // TODO: fix.

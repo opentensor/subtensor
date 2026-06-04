@@ -1853,6 +1853,64 @@ fn test_transfer_stake_lock_aware_transfers_only_unlocked_stake() {
 }
 
 #[test]
+fn test_transfer_stake_lock_aware_sub_minimum_cap_does_not_mutate_internal_call() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey_sender = U256::from(1);
+        let coldkey_receiver = U256::from(5);
+        let hotkey = U256::from(2);
+        let netuid = setup_subnet_with_stake(coldkey_sender, hotkey, 100_000_000_000);
+        DecayingLock::<Test>::insert(coldkey_receiver, netuid, false);
+
+        let total = get_alpha(&hotkey, &coldkey_sender, netuid);
+        let tiny_lock = AlphaBalance::from(1u64);
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey_sender,
+            netuid,
+            &hotkey,
+            tiny_lock,
+        ));
+
+        let sender_alpha_before = get_alpha(&hotkey, &coldkey_sender, netuid);
+        let receiver_alpha_before = get_alpha(&hotkey, &coldkey_receiver, netuid);
+        let sender_lock_before =
+            Lock::<Test>::get((coldkey_sender, netuid, hotkey)).expect("sender lock should exist");
+        let hotkey_lock_before =
+            HotkeyLock::<Test>::get(netuid, hotkey).expect("hotkey lock should exist");
+
+        assert_noop!(
+            SubtensorModule::do_transfer_stake_lock_aware(
+                RuntimeOrigin::signed(coldkey_sender),
+                coldkey_receiver,
+                hotkey,
+                netuid,
+                netuid,
+                total,
+                true,
+            ),
+            Error::<Test>::AmountTooLow
+        );
+
+        assert_eq!(
+            get_alpha(&hotkey, &coldkey_sender, netuid),
+            sender_alpha_before
+        );
+        assert_eq!(
+            get_alpha(&hotkey, &coldkey_receiver, netuid),
+            receiver_alpha_before
+        );
+        assert_eq!(
+            Lock::<Test>::get((coldkey_sender, netuid, hotkey)),
+            Some(sender_lock_before)
+        );
+        assert!(Lock::<Test>::get((coldkey_receiver, netuid, hotkey)).is_none());
+        assert_eq!(
+            HotkeyLock::<Test>::get(netuid, hotkey),
+            Some(hotkey_lock_before)
+        );
+    });
+}
+
+#[test]
 fn test_transfer_stake_lock_aware_owner_lock_moves_all_lock_and_conviction() {
     new_test_ext(1).execute_with(|| {
         let coldkey1 = U256::from(1);
