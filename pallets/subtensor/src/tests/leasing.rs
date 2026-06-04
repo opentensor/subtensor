@@ -399,8 +399,17 @@ fn test_terminate_lease_repatriates_residual_alpha_and_lock_state() {
             beneficiary_hotkey
         );
         assert_eq!(Owner::<Test>::get(beneficiary_hotkey), beneficiary);
-        assert_eq!(Owner::<Test>::get(lease.hotkey), lease.coldkey);
+        assert!(!Owner::<Test>::contains_key(lease.hotkey));
         assert!(!OwnedHotkeys::<Test>::get(beneficiary).contains(&lease.hotkey));
+        assert!(!StakingHotkeys::<Test>::get(beneficiary).contains(&lease.hotkey));
+        assert!(!SubtensorModule::is_hotkey_registered_on_network(
+            lease.netuid,
+            &lease.hotkey
+        ));
+        assert!(SubtensorModule::is_hotkey_registered_on_network(
+            lease.netuid,
+            &beneficiary_hotkey
+        ));
         assert!(OwnedHotkeys::<Test>::get(lease.coldkey).is_empty());
         assert!(StakingHotkeys::<Test>::get(lease.coldkey).is_empty());
         assert!(DecayingLock::<Test>::get(lease.coldkey, lease.netuid).is_none());
@@ -907,6 +916,57 @@ fn test_terminate_lease_fails_if_beneficiary_does_not_own_hotkey() {
         );
     });
 }
+
+#[test]
+fn test_terminate_lease_fails_if_beneficiary_hotkey_already_registered_on_subnet() {
+    new_test_ext(1).execute_with(|| {
+        // Setup a crowdloan
+        let crowdloan_id = 0;
+        let beneficiary = U256::from(1);
+        let deposit = 10_000_000_000; // 10 TAO
+        let cap = 1_000_000_000_000; // 1000 TAO
+        let contributions = vec![(U256::from(2), 990_000_000_000)]; // 990 TAO
+        setup_crowdloan(crowdloan_id, deposit, cap, beneficiary, &contributions);
+
+        // Setup a leased network
+        let end_block = 500;
+        let tao_to_stake = 100_000_000_000; // 100 TAO
+        let emissions_share = Percent::from_percent(30);
+        let (lease_id, lease) = setup_leased_network(
+            beneficiary,
+            emissions_share,
+            Some(end_block),
+            Some(tao_to_stake),
+        );
+
+        // Run to the end of the lease
+        run_to_block(end_block);
+
+        // Create a beneficiary-owned hotkey that is already registered on the leased subnet
+        let beneficiary_hotkey = U256::from(3);
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &beneficiary,
+            &beneficiary_hotkey
+        ));
+        SubtensorModule::append_neuron(lease.netuid, &beneficiary_hotkey, 0);
+
+        // Termination requires a fresh beneficiary hotkey so it can replace the lease hotkey UID.
+        assert_err!(
+            SubtensorModule::terminate_lease(
+                RuntimeOrigin::signed(lease.beneficiary),
+                lease_id,
+                beneficiary_hotkey,
+            ),
+            Error::<Test>::HotKeyAlreadyRegisteredInSubNet,
+        );
+
+        assert!(SubnetLeases::<Test>::contains_key(lease_id));
+        assert_eq!(SubnetOwner::<Test>::get(lease.netuid), lease.coldkey);
+        assert_eq!(SubnetOwnerHotkey::<Test>::get(lease.netuid), lease.hotkey);
+        assert_eq!(Owner::<Test>::get(lease.hotkey), lease.coldkey);
+    });
+}
+
 #[test]
 fn test_distribute_lease_network_dividends_multiple_contributors_works() {
     new_test_ext(1).execute_with(|| {

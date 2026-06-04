@@ -20,6 +20,7 @@ use crate::weights::WeightInfo;
 use frame_support::{
     dispatch::RawOrigin,
     traits::{Defensive, fungible::*, tokens::Preservation},
+    weights::Weight,
 };
 use frame_system::pallet_prelude::OriginFor;
 use frame_system::pallet_prelude::*;
@@ -217,6 +218,10 @@ impl<T: Config> Pallet<T> {
             Self::coldkey_owns_hotkey(&lease.beneficiary, &hotkey),
             Error::<T>::BeneficiaryDoesNotOwnHotkey
         );
+        ensure!(
+            !Self::is_hotkey_registered_on_specific_network(&hotkey, lease.netuid),
+            Error::<T>::HotKeyAlreadyRegisteredInSubNet
+        );
 
         // Move any lease coldkey lock to the beneficiary-controlled hotkey without
         // assigning ownership of the generated lease hotkey to the beneficiary.
@@ -224,6 +229,8 @@ impl<T: Config> Pallet<T> {
 
         // Transfer ownership to the beneficiary
         SubnetOwner::<T>::insert(lease.netuid, lease.beneficiary.clone());
+        // Set the owner hotkey before moving locks so the destination lock is
+        // accounted in the subnet-owner aggregate, not the regular hotkey aggregate.
         Self::set_subnet_owner_hotkey(lease.netuid, &hotkey)?;
         Self::reassign_subnet_owner_lock_aggregates(lease.netuid, &lease.hotkey, &hotkey);
 
@@ -234,6 +241,7 @@ impl<T: Config> Pallet<T> {
             lease.netuid,
             &hotkey,
         )?;
+        Self::replace_lease_hotkey_with_beneficiary_hotkey(&lease, &hotkey)?;
         Self::remove_lease_coldkey_references(&lease);
 
         // Remove the proxy before dec_providers: its reserved deposit holds a consumer ref,
@@ -325,6 +333,23 @@ impl<T: Config> Pallet<T> {
         StakingHotkeys::<T>::remove(&lease.coldkey);
         DecayingLock::<T>::remove(&lease.coldkey, lease.netuid);
         LastColdkeyHotkeyStakeBlock::<T>::remove(&lease.coldkey, &lease.hotkey);
+    }
+
+    fn replace_lease_hotkey_with_beneficiary_hotkey(
+        lease: &SubnetLeaseOf<T>,
+        beneficiary_hotkey: &T::AccountId,
+    ) -> DispatchResult {
+        let mut weight = Weight::zero();
+        Self::perform_hotkey_swap_on_one_subnet(
+            &lease.hotkey,
+            beneficiary_hotkey,
+            &mut weight,
+            lease.netuid,
+            false,
+        )?;
+        Owner::<T>::remove(&lease.hotkey);
+        Delegates::<T>::remove(&lease.hotkey);
+        Ok(())
     }
 
     /// Hook used when the subnet owner's cut is distributed to split the amount into dividends
