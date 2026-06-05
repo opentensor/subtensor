@@ -26,14 +26,11 @@ import {
     tao,
     waitForFinalizedBlocks,
     waitForTransactionWithRetry,
-    WITHDRAW_CONTRACT_ABI, WITHDRAW_CONTRACT_BYTECODE
+    WITHDRAW_CONTRACT_ABI,
+    WITHDRAW_CONTRACT_BYTECODE,
 } from "../../utils";
 
-
-async function estimateTransactionCost(
-    provider: ethers.Provider,
-    tx: ethers.TransactionRequest,
-): Promise<bigint> {
+async function estimateTransactionCost(provider: ethers.Provider, tx: ethers.TransactionRequest): Promise<bigint> {
     const feeData = await provider.getFeeData();
     const estimatedGas = await provider.estimateGas(tx);
     const gasPrice = feeData.gasPrice ?? feeData.maxFeePerGas;
@@ -53,7 +50,7 @@ async function transferAndGetFee(
     wallet2: ethers.Wallet,
     provider: ethers.Provider,
     maxFeePerGas: bigint,
-    maxPriorityFeePerGas: bigint,
+    maxPriorityFeePerGas: bigint
 ): Promise<bigint> {
     const ethBalanceBefore = await getEthBalance(provider, wallet.address);
     const tx = {
@@ -149,11 +146,7 @@ describeSuite({
             id: "T03",
             title: "Can transfer token from EVM to Substrate",
             test: async () => {
-                const contract = new ethers.Contract(
-                    IBALANCETRANSFER_ADDRESS,
-                    IBalanceTransferABI,
-                    ethWallet,
-                );
+                const contract = new ethers.Contract(IBALANCETRANSFER_ADDRESS, IBalanceTransferABI, ethWallet);
                 const signerSs58 = convertPublicKeyToSs58(signer.publicKey);
 
                 const senderBalance = await getEthBalance(provider, ethWallet.address);
@@ -245,7 +238,7 @@ describeSuite({
                 const contractFactory = new ethers.ContractFactory(
                     WITHDRAW_CONTRACT_ABI,
                     WITHDRAW_CONTRACT_BYTECODE,
-                    ethWallet,
+                    ethWallet
                 );
                 const contract = await contractFactory.deploy();
                 await contract.waitForDeployment();
@@ -302,7 +295,7 @@ describeSuite({
                     if (error instanceof Error) {
                         expect(
                             (error as { code?: string }).code === "INSUFFICIENT_FUNDS" ||
-                            error.message.includes("insufficient funds"),
+                                error.message.includes("insufficient funds")
                         ).toBe(true);
                     }
                 }
@@ -333,7 +326,7 @@ describeSuite({
                     if (error instanceof Error) {
                         expect(
                             (error as { code?: string }).code === "INSUFFICIENT_FUNDS" ||
-                            error.message.includes("insufficient funds"),
+                                error.message.includes("insufficient funds")
                         ).toBe(true);
                     }
                 }
@@ -363,17 +356,13 @@ describeSuite({
                     if (error instanceof Error) {
                         expect(
                             (error as { code?: string }).code === "INSUFFICIENT_FUNDS" ||
-                            error.message.includes("insufficient funds"),
+                                error.message.includes("insufficient funds")
                         ).toBe(true);
                     }
                 }
                 expect(ethRejected).toBe(true);
 
-                const contract = new ethers.Contract(
-                    IBALANCETRANSFER_ADDRESS,
-                    IBalanceTransferABI,
-                    ethWallet,
-                );
+                const contract = new ethers.Contract(IBALANCETRANSFER_ADDRESS, IBalanceTransferABI, ethWallet);
                 let precompileRejected = false;
                 try {
                     const tx = await contract.transfer(signer.publicKey, { value: oversize.toString() });
@@ -381,10 +370,7 @@ describeSuite({
                 } catch (error) {
                     precompileRejected = true;
                     if (error instanceof Error) {
-                        expect(
-                            error.message.includes("revert") ||
-                            error.message.includes("CALL_EXCEPTION"),
-                        ).toBe(true);
+                        expect(error.message.includes("revert") || error.message.includes("CALL_EXCEPTION")).toBe(true);
                     }
                 }
                 expect(precompileRejected).toBe(true);
@@ -470,7 +456,7 @@ describeSuite({
                         ethWallet2,
                         provider,
                         GWEI * BigInt(maxFeeGwei),
-                        GWEI * BigInt(maxPriorityGwei),
+                        GWEI * BigInt(maxPriorityGwei)
                     );
                     expect(actualFee).toEqual(expectedFee);
                 }
@@ -483,13 +469,7 @@ describeSuite({
             test: async () => {
                 let rejected = false;
                 try {
-                    await transferAndGetFee(
-                        ethWallet,
-                        ethWallet2,
-                        provider,
-                        GWEI * BigInt(9),
-                        BigInt(0),
-                    );
+                    await transferAndGetFee(ethWallet, ethWallet2, provider, GWEI * BigInt(9), BigInt(0));
                 } catch (error) {
                     rejected = true;
                     if (error instanceof Error) {
@@ -506,13 +486,7 @@ describeSuite({
             test: async () => {
                 let rejected = false;
                 try {
-                    await transferAndGetFee(
-                        ethWallet,
-                        ethWallet2,
-                        provider,
-                        GWEI * BigInt(10),
-                        GWEI * BigInt(11),
-                    );
+                    await transferAndGetFee(ethWallet, ethWallet2, provider, GWEI * BigInt(10), GWEI * BigInt(11));
                 } catch (error) {
                     rejected = true;
                     if (error instanceof Error) {

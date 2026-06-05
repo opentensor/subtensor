@@ -3,7 +3,7 @@ import { blake2AsU8a, decodeAddress, encodeAddress } from "@polkadot/util-crypto
 import { Binary } from "polkadot-api";
 import type { Address } from "viem";
 
-const SS58_PREFIX = 42
+const SS58_PREFIX = 42;
 
 export function toViemAddress(address: string): Address {
     const addressNoPrefix = address.replace("0x", "");

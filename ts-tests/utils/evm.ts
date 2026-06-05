@@ -4,10 +4,7 @@ import { ethers } from "ethers";
 import type { TypedApi } from "polkadot-api";
 import { waitForTransactionWithRetry } from "./transactions.js";
 
-export async function disableWhiteListCheck(
-    api: TypedApi<typeof subtensor>,
-    disabled: boolean,
-): Promise<void> {
+export async function disableWhiteListCheck(api: TypedApi<typeof subtensor>, disabled: boolean): Promise<void> {
     const value = await api.query.EVM.DisableWhitelistCheck.getValue();
     if (value === disabled) {
         return;
