@@ -85,7 +85,7 @@ mod tests {
     use crate::{ColdkeySwapAnnouncements, ColdkeySwapDisputes, Error, tests::mock::*};
     use frame_support::{BoundedVec, assert_ok};
     use frame_system::Call as SystemCall;
-    use pallet_subtensor_proxy::Call as ProxyCall;
+    use pallet_proxy::Call as ProxyCall;
     use sp_core::U256;
     use sp_runtime::traits::{Dispatchable, Hash};
     use subtensor_runtime_common::{ProxyType, TaoBalance};
@@ -269,7 +269,7 @@ mod tests {
 
             // The inner call was blocked — check via LastCallResult storage.
             assert_eq!(
-                pallet_subtensor_proxy::LastCallResult::<Test>::get(real),
+                pallet_proxy::LastCallResult::<Test>::get(real),
                 Some(Err(Error::<Test>::ColdkeySwapAnnounced.into()))
             );
         });
@@ -319,7 +319,7 @@ mod tests {
 
             // The innermost call (remark as real) was blocked.
             assert_eq!(
-                pallet_subtensor_proxy::LastCallResult::<Test>::get(real),
+                pallet_proxy::LastCallResult::<Test>::get(real),
                 Some(Err(Error::<Test>::ColdkeySwapAnnounced.into()))
             );
         });

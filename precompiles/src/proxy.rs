@@ -8,7 +8,6 @@ use frame_support::dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo};
 use frame_support::traits::IsSubType;
 use frame_system::RawOrigin;
 use pallet_evm::{AddressMapping, PrecompileHandle};
-use pallet_subtensor_proxy as pallet_proxy;
 use precompile_utils::EvmResult;
 use sp_core::{H256, U256};
 use sp_runtime::{
@@ -31,7 +30,7 @@ where
         + pallet_subtensor::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_shield::Config
-        + pallet_subtensor_proxy::Config
+        + pallet_proxy::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -45,7 +44,7 @@ where
         + IsSubType<pallet_balances::Call<R>>
         + IsSubType<pallet_subtensor::Call<R>>
         + IsSubType<pallet_shield::Call<R>>
-        + IsSubType<pallet_subtensor_proxy::Call<R>>,
+        + IsSubType<pallet_proxy::Call<R>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
 {
@@ -61,7 +60,7 @@ where
         + pallet_subtensor::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_shield::Config
-        + pallet_subtensor_proxy::Config
+        + pallet_proxy::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -75,7 +74,7 @@ where
         + IsSubType<pallet_balances::Call<R>>
         + IsSubType<pallet_subtensor::Call<R>>
         + IsSubType<pallet_shield::Call<R>>
-        + IsSubType<pallet_subtensor_proxy::Call<R>>,
+        + IsSubType<pallet_proxy::Call<R>>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
 {
     #[precompile::public("createPureProxy(uint8,uint32,uint16)")]

@@ -4,8 +4,6 @@ use frame_election_provider_support::private::sp_arithmetic::traits::SaturatedCo
 use frame_support::dispatch::{DispatchClass, DispatchInfo, PostDispatchInfo};
 use frame_support::pallet_prelude::TypeInfo;
 use frame_support::traits::{Get, IsSubType, IsType};
-use pallet_subtensor_proxy as pallet_proxy;
-use pallet_subtensor_utility as pallet_utility;
 use pallet_transaction_payment::OnChargeTransaction;
 use pallet_transaction_payment::{ChargeTransactionPayment, Config, Pre, Val};
 use sp_runtime::DispatchResult;

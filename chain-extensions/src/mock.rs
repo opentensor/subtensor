@@ -17,8 +17,6 @@ use frame_system as system;
 use frame_system::{EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBase};
 use pallet_contracts::HoldReason as ContractsHoldReason;
 use pallet_subtensor::*;
-use pallet_subtensor_proxy as pallet_proxy;
-use pallet_subtensor_utility as pallet_utility;
 use sp_core::{ConstU64, H256, U256, offchain::KeyTypeId};
 use sp_runtime::Perbill;
 use sp_runtime::{

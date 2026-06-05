@@ -44,7 +44,7 @@ frame_support::construct_runtime!(
         Drand: pallet_drand::{Pallet, Call, Storage, Event<T>} = 8,
         Swap: pallet_subtensor_swap::{Pallet, Call, Storage, Event<T>} = 9,
         Crowdloan: pallet_crowdloan::{Pallet, Call, Storage, Event<T>} = 10,
-        Proxy: pallet_subtensor_proxy = 11,
+        Proxy: pallet_proxy = 11,
         Evm: pallet_evm = 12,
         AdminUtils: pallet_admin_utils = 13,
         EVMChainId: pallet_evm_chain_id = 14,
@@ -509,14 +509,14 @@ impl frame_support::traits::InstanceFilter<RuntimeCall> for ProxyType {
     }
 }
 
-impl pallet_subtensor_proxy::Config for Runtime {
+impl pallet_proxy::Config for Runtime {
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type ProxyType = ProxyType;
     type ProxyDepositBase = ProxyDepositBase;
     type ProxyDepositFactor = ProxyDepositFactor;
     type MaxProxies = MaxProxies;
-    type WeightInfo = pallet_subtensor_proxy::weights::SubstrateWeight<Runtime>;
+    type WeightInfo = pallet_proxy::weights::SubstrateWeight<Runtime>;
     type MaxPending = MaxPending;
     type CallHasher = BlakeTwo256;
     type AnnouncementDepositBase = AnnouncementDepositBase;

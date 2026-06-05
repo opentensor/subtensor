@@ -41,7 +41,6 @@ use pallet_evm::{
     AddressMapping, BalanceConverter, EvmBalance, ExitError, PrecompileFailure, PrecompileHandle,
     SubstrateBalance,
 };
-use pallet_subtensor_proxy as pallet_proxy;
 use precompile_utils::EvmResult;
 use precompile_utils::prelude::{Address, RuntimeHelper, revert};
 use sp_core::{H160, H256, U256};
@@ -90,7 +89,7 @@ where
         + pallet_subtensor::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_shield::Config
-        + pallet_subtensor_proxy::Config
+        + pallet_proxy::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -103,7 +102,7 @@ where
         + IsSubType<pallet_balances::Call<R>>
         + IsSubType<pallet_subtensor::Call<R>>
         + IsSubType<pallet_shield::Call<R>>
-        + IsSubType<pallet_subtensor_proxy::Call<R>>,
+        + IsSubType<pallet_proxy::Call<R>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
 {
@@ -119,7 +118,7 @@ where
         + pallet_subtensor::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_shield::Config
-        + pallet_subtensor_proxy::Config
+        + pallet_proxy::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -132,7 +131,7 @@ where
         + IsSubType<pallet_balances::Call<R>>
         + IsSubType<pallet_subtensor::Call<R>>
         + IsSubType<pallet_shield::Call<R>>
-        + IsSubType<pallet_subtensor_proxy::Call<R>>,
+        + IsSubType<pallet_proxy::Call<R>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
 {
@@ -679,7 +678,7 @@ where
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_balances::Config
         + pallet_shield::Config
-        + pallet_subtensor_proxy::Config
+        + pallet_proxy::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -693,7 +692,7 @@ where
         + IsSubType<pallet_balances::Call<R>>
         + IsSubType<pallet_subtensor::Call<R>>
         + IsSubType<pallet_shield::Call<R>>
-        + IsSubType<pallet_subtensor_proxy::Call<R>>,
+        + IsSubType<pallet_proxy::Call<R>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <R as pallet_balances::Config>::Balance: TryFrom<U256>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
@@ -710,7 +709,7 @@ where
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_balances::Config
         + pallet_shield::Config
-        + pallet_subtensor_proxy::Config
+        + pallet_proxy::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -724,7 +723,7 @@ where
         + IsSubType<pallet_balances::Call<R>>
         + IsSubType<pallet_subtensor::Call<R>>
         + IsSubType<pallet_shield::Call<R>>
-        + IsSubType<pallet_subtensor_proxy::Call<R>>,
+        + IsSubType<pallet_proxy::Call<R>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <R as pallet_balances::Config>::Balance: TryFrom<U256>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
@@ -1038,7 +1037,7 @@ mod tests {
 
         ensure_hotkey_exists(&hotkey);
 
-        let proxies = pallet_subtensor_proxy::Proxies::<Runtime>::get(&caller_account).0;
+        let proxies = pallet_proxy::Proxies::<Runtime>::get(&caller_account).0;
         assert_eq!(proxies.len(), 1);
         assert_eq!(proxies[0].delegate, delegate);
 
@@ -1618,7 +1617,7 @@ mod tests {
                 )
                 .execute_returns(());
 
-            let proxies = pallet_subtensor_proxy::Proxies::<Runtime>::get(&caller_account).0;
+            let proxies = pallet_proxy::Proxies::<Runtime>::get(&caller_account).0;
             assert!(proxies.is_empty());
         });
     }
@@ -1659,7 +1658,7 @@ mod tests {
                 )
                 .execute_returns(());
 
-            let proxies = pallet_subtensor_proxy::Proxies::<Runtime>::get(&caller_account).0;
+            let proxies = pallet_proxy::Proxies::<Runtime>::get(&caller_account).0;
             assert!(proxies.is_empty());
         });
     }

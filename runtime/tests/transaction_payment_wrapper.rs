@@ -9,8 +9,6 @@ use node_subtensor_runtime::{
     RuntimeCall, RuntimeGenesisConfig, RuntimeOrigin, System, SystemCall,
     transaction_payment_wrapper::ChargeTransactionPaymentWrapper,
 };
-use pallet_subtensor_proxy as pallet_proxy;
-use pallet_subtensor_utility as pallet_utility;
 use pallet_transaction_payment::Val;
 use sp_runtime::traits::{TransactionExtension, TxBaseImplication};
 use sp_runtime::transaction_validity::{

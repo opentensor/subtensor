@@ -20,7 +20,6 @@ use pallet_evm_precompile_dispatch::Dispatch;
 use pallet_evm_precompile_modexp::Modexp;
 use pallet_evm_precompile_sha3fips::Sha3FIPS256;
 use pallet_evm_precompile_simple::{ECRecover, ECRecoverPublicKey, Identity, Ripemd160, Sha256};
-use pallet_subtensor_proxy as pallet_proxy;
 use sp_core::{H160, U256, crypto::ByteArray};
 use sp_runtime::traits::{AsSystemOriginSigner, Dispatchable, StaticLookup};
 use subtensor_runtime_common::ProxyType;
@@ -77,7 +76,7 @@ where
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_crowdloan::Config
         + pallet_shield::Config
-        + pallet_subtensor_proxy::Config
+        + pallet_proxy::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -93,7 +92,7 @@ where
         + IsSubType<pallet_balances::Call<R>>
         + IsSubType<pallet_subtensor::Call<R>>
         + IsSubType<pallet_shield::Call<R>>
-        + IsSubType<pallet_subtensor_proxy::Call<R>>,
+        + IsSubType<pallet_proxy::Call<R>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <R as pallet_balances::Config>::Balance: TryFrom<U256>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
@@ -114,7 +113,7 @@ where
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_crowdloan::Config
         + pallet_shield::Config
-        + pallet_subtensor_proxy::Config
+        + pallet_proxy::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -130,7 +129,7 @@ where
         + IsSubType<pallet_balances::Call<R>>
         + IsSubType<pallet_subtensor::Call<R>>
         + IsSubType<pallet_shield::Call<R>>
-        + IsSubType<pallet_subtensor_proxy::Call<R>>,
+        + IsSubType<pallet_proxy::Call<R>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <R as pallet_balances::Config>::Balance: TryFrom<U256>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
@@ -182,7 +181,7 @@ where
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_crowdloan::Config
         + pallet_shield::Config
-        + pallet_subtensor_proxy::Config
+        + pallet_proxy::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -198,7 +197,7 @@ where
         + IsSubType<pallet_balances::Call<R>>
         + IsSubType<pallet_subtensor::Call<R>>
         + IsSubType<pallet_shield::Call<R>>
-        + IsSubType<pallet_subtensor_proxy::Call<R>>
+        + IsSubType<pallet_proxy::Call<R>>
         + Decode,
     <<R as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin:
         From<Option<pallet_evm::AccountIdOf<R>>>,
