@@ -58,7 +58,7 @@ fn net_amount_for_event_sell_dominant() {
 fn net_amount_for_event_perfectly_offset() {
     new_test_ext().execute_with(|| {
         // Buys = 200 TAO, sells TAO-equiv = 200 → net = 0 (buy-side result = 0)
-        let price = U96F32::from_num(2u32);
+        let price = U64F64::from_num(2u32);
         let net = LimitOrders::<Test>::net_amount_for_event(
             &OrderSide::Buy,
             200u128,
@@ -771,7 +771,7 @@ fn distribute_alpha_pro_rata_sell_dominant_scenario_b() {
             1_000u128, // total_buy_net (TAO)
             999u128,   // total_sell_net — doesn't matter for sell-dominant logic
             &OrderSide::Sell,
-            U96F32::from_num(2u32), // price = 2 TAO/alpha
+            U64F64::from_num(2u32), // price = 2 TAO/alpha
             &pallet_acct,
             &pallet_hk,
             netuid(),
