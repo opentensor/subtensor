@@ -1223,7 +1223,8 @@ pub mod pallet {
             if price == U64F64::from_num(0u32) {
                 return 0u128;
             }
-            (U64F64::from_num(tao).checked_div(price).unwrap_or_default()).saturating_to_num::<u128>()
+            (U64F64::from_num(tao).checked_div(price).unwrap_or_default())
+                .saturating_to_num::<u128>()
         }
 
         /// Convert an alpha amount to TAO at `price` (TAO/alpha).
