@@ -432,7 +432,6 @@ fn test_destroy_alpha_in_out_stakes_get_total_alpha_value() {
             amount,
             <Test as Config>::SwapInterface::max_price(),
             false,
-            false,
         ));
 
         // Now test the function
@@ -463,7 +462,6 @@ fn test_destroy_alpha_in_out_stakes_settle_stakes() {
             netuid,
             amount,
             <Test as Config>::SwapInterface::max_price(),
-            false,
             false,
         ));
 
