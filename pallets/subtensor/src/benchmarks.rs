@@ -934,8 +934,6 @@ mod pallet_benchmarks {
 
         let _ = Subtensor::<T>::create_account_if_non_existent(&coldkey, &destination);
 
-        StakingOperationRateLimiter::<T>::remove((origin.clone(), coldkey.clone(), netuid));
-
         #[extrinsic_call]
         _(
             RawOrigin::Signed(coldkey.clone()),
@@ -990,8 +988,6 @@ mod pallet_benchmarks {
         ));
 
         let amount_unstaked = AlphaBalance::from(30_000_000_000_u64);
-
-        StakingOperationRateLimiter::<T>::remove((hotkey.clone(), coldkey.clone(), netuid));
 
         #[extrinsic_call]
         _(
@@ -1052,8 +1048,6 @@ mod pallet_benchmarks {
             .saturating_mul(U96F32::saturating_from_num(500_000_000))
             .saturating_to_num::<u64>()
             .into();
-
-        StakingOperationRateLimiter::<T>::remove((hotkey.clone(), coldkey.clone(), netuid));
 
         #[extrinsic_call]
         _(
@@ -1118,8 +1112,6 @@ mod pallet_benchmarks {
             allow
         ));
 
-        StakingOperationRateLimiter::<T>::remove((hot.clone(), coldkey.clone(), netuid1));
-
         #[extrinsic_call]
         _(
             RawOrigin::Signed(coldkey.clone()),
@@ -1171,8 +1163,6 @@ mod pallet_benchmarks {
             Subtensor::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(&hot, &coldkey, netuid);
 
         let _ = Subtensor::<T>::create_account_if_non_existent(&dest, &hot);
-
-        StakingOperationRateLimiter::<T>::remove((hot.clone(), coldkey.clone(), netuid));
 
         #[extrinsic_call]
         _(
@@ -1228,8 +1218,6 @@ mod pallet_benchmarks {
 
         let alpha_to_swap =
             Subtensor::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(&hot, &coldkey, netuid1);
-
-        StakingOperationRateLimiter::<T>::remove((hot.clone(), coldkey.clone(), netuid1));
 
         #[extrinsic_call]
         _(
@@ -1584,8 +1572,6 @@ mod pallet_benchmarks {
             staked_amt
         ));
 
-        StakingOperationRateLimiter::<T>::remove((hotkey.clone(), coldkey.clone(), netuid));
-
         #[extrinsic_call]
         _(RawOrigin::Signed(coldkey), hotkey);
     }
@@ -1639,8 +1625,6 @@ mod pallet_benchmarks {
             netuid,
             staked_amt
         ));
-
-        StakingOperationRateLimiter::<T>::remove((hotkey.clone(), coldkey.clone(), netuid));
 
         #[extrinsic_call]
         _(

@@ -66,7 +66,6 @@ impl<T: Config> Pallet<T> {
             netuid,
             stake_to_be_added,
             T::SwapInterface::max_price(),
-            true,
             false,
         )
     }
@@ -155,7 +154,6 @@ impl<T: Config> Pallet<T> {
             netuid,
             possible_stake,
             limit_price,
-            true,
             false,
         )
     }
