@@ -77,7 +77,6 @@ fn test_remove_data_for_dissolved_networks_all_phases() {
             amount,
             <Test as Config>::SwapInterface::max_price(),
             false,
-            false,
         ));
 
         // Now add additional balance for locking
@@ -172,7 +171,6 @@ fn test_clean_up_root_claimable_for_subnet() {
             amount,
             <Test as Config>::SwapInterface::max_price(),
             false,
-            false,
         ));
 
         // Verify root dividend exists before cleanup - we'll check this by running the function
@@ -217,7 +215,6 @@ fn test_clean_up_root_claimed_for_subnet() {
             netuid,
             amount,
             <Test as Config>::SwapInterface::max_price(),
-            false,
             false,
         ));
 
@@ -307,7 +304,6 @@ fn test_clear_protocol_liquidity() {
             amount,
             <Test as Config>::SwapInterface::max_price(),
             false,
-            false,
         ));
 
         // Test the clear protocol liquidity function (through swap interface)
@@ -350,7 +346,6 @@ fn test_remove_data_for_dissolved_networks_via_on_idle() {
             netuid,
             amount,
             <Test as Config>::SwapInterface::max_price(),
-            false,
             false,
         ));
 
