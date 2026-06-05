@@ -694,6 +694,12 @@ pub mod pallet {
         0
     }
 
+    /// Default value for TAO-in refund deployment block.
+    #[pallet::type_value]
+    pub fn DefaultTaoInRefundDeploymentBlock() -> u64 {
+        0
+    }
+
     /// Default value for weights version key rate limit.
     /// In units of tempos.
     #[pallet::type_value]
@@ -1384,6 +1390,10 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> alpha_supply_in_subnet | Returns the amount of alpha in the subnet.
     #[pallet::storage]
     pub type SubnetAlphaOut<T: Config> =
+        StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
+    /// --- MAP ( netuid ) --> protocol_alpha | Returns the protocol-owned alpha cached for the subnet.
+    #[pallet::storage]
+    pub type SubnetProtocolAlpha<T: Config> =
         StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
 
     /// --- MAP ( cold ) --> Vec<hot> | Maps coldkey to hotkeys that stake to it
@@ -2462,20 +2472,6 @@ pub mod pallet {
         OptionQuery,
     >;
 
-    /// DMAP ( hot, cold, netuid ) --> rate limits for staking operations
-    /// Value contains just a marker: we use this map as a set.
-    #[pallet::storage]
-    pub type StakingOperationRateLimiter<T: Config> = StorageNMap<
-        _,
-        (
-            NMapKey<Blake2_128Concat, T::AccountId>, // hot
-            NMapKey<Blake2_128Concat, T::AccountId>, // cold
-            NMapKey<Identity, NetUid>,               // subnet
-        ),
-        bool,
-        ValueQuery,
-    >;
-
     #[pallet::storage] // --- MAP(netuid ) --> Root claim threshold
     pub type RootClaimableThreshold<T: Config> =
         StorageMap<_, Blake2_128Concat, NetUid, I96F32, ValueQuery, DefaultMinRootClaimAmount<T>>;
@@ -2567,6 +2563,11 @@ pub mod pallet {
     #[pallet::storage]
     pub type NetworkRegistrationStartBlock<T> =
         StorageValue<_, u64, ValueQuery, DefaultNetworkRegistrationStartBlock<T>>;
+
+    /// ITEM( TaoInRefundDeploymentBlock )
+    #[pallet::storage]
+    pub type TaoInRefundDeploymentBlock<T> =
+        StorageValue<_, u64, ValueQuery, DefaultTaoInRefundDeploymentBlock>;
 
     /// --- MAP ( netuid ) --> minimum required number of non-immortal & non-immune UIDs
     #[pallet::storage]
