@@ -31,8 +31,7 @@ fn net_amount_for_event_buy_dominant() {
             150u128,   // total_sell_net (alpha)  ← not used in Buy branch
             300u128,   // total_sell_tao_equiv
             price,
-        )
-        .expect("conversion does not overflow");
+        );
         assert_eq!(net, 700u64);
     });
 }
@@ -49,8 +48,7 @@ fn net_amount_for_event_sell_dominant() {
             500u128, // total_sell_net (alpha)
             400u128, // total_sell_tao_equiv (not used in Sell branch directly)
             price,
-        )
-        .expect("conversion does not overflow");
+        );
         // buy_alpha_equiv = 200 / 2 = 100; net = 500 - 100 = 400
         assert_eq!(net, 400u64);
     });
@@ -67,8 +65,7 @@ fn net_amount_for_event_perfectly_offset() {
             100u128,
             200u128,
             price,
-        )
-        .expect("conversion does not overflow");
+        );
         assert_eq!(net, 0u64);
     });
 }
