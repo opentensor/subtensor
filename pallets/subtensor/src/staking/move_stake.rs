@@ -50,7 +50,6 @@ impl<T: Config> Pallet<T> {
             None,
             None,
             false,
-            true,
             None,
         )?;
 
@@ -142,7 +141,6 @@ impl<T: Config> Pallet<T> {
             None,
             None,
             true,
-            false,
             None,
         )?;
 
@@ -191,7 +189,6 @@ impl<T: Config> Pallet<T> {
             None,
             None,
             true,
-            false,
             Some(locked),
         )?;
 
@@ -255,7 +252,6 @@ impl<T: Config> Pallet<T> {
             None,
             None,
             false,
-            true,
             None,
         )?;
 
@@ -324,7 +320,6 @@ impl<T: Config> Pallet<T> {
             Some(limit_price),
             Some(allow_partial),
             false,
-            true,
             None,
         )?;
 
@@ -357,7 +352,6 @@ impl<T: Config> Pallet<T> {
         maybe_limit_price: Option<TaoBalance>,
         maybe_allow_partial: Option<bool>,
         check_transfer_toggle: bool,
-        set_limit: bool,
         lock_aware_transfer: Option<bool>,
     ) -> Result<TaoBalance, DispatchError> {
         // Cap the alpha_amount at available Alpha because user might be paying transaxtion fees
@@ -446,7 +440,6 @@ impl<T: Config> Pallet<T> {
                     destination_netuid,
                     tao_unstaked,
                     T::SwapInterface::max_price(),
-                    set_limit,
                     drop_fee_destination,
                 )?;
             }

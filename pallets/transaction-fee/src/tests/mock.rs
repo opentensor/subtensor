@@ -822,10 +822,6 @@ pub fn setup_subnets(sncount: u16, neurons: u16) -> TestSetup {
     }
 }
 
-pub(crate) fn remove_stake_rate_limit_for_tests(hotkey: &U256, coldkey: &U256, netuid: NetUid) {
-    StakingOperationRateLimiter::<Test>::remove((hotkey, coldkey, netuid));
-}
-
 #[allow(dead_code)]
 pub fn setup_stake(
     netuid: subtensor_runtime_common::NetUid,
@@ -845,7 +841,6 @@ pub fn setup_stake(
         netuid,
         stake_amount.into(),
     ));
-    remove_stake_rate_limit_for_tests(hotkey, coldkey, netuid);
 }
 
 pub(crate) fn quote_remove_stake_after_alpha_fee(

@@ -36,7 +36,6 @@ fn test_do_move_success() {
             stake_amount,
             <Test as Config>::SwapInterface::max_price(),
             false,
-            false,
         )
         .unwrap();
         let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -114,7 +113,6 @@ fn test_do_move_different_subnets() {
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price(),
             false,
-            false,
         )
         .unwrap();
         let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -182,7 +180,6 @@ fn test_do_move_nonexistent_subnet() {
             origin_netuid,
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price(),
-            false,
             false,
         )
         .unwrap();
@@ -290,7 +287,6 @@ fn test_do_move_nonexistent_destination_hotkey() {
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price(),
             false,
-            false,
         )
         .unwrap();
 
@@ -355,7 +351,6 @@ fn test_do_move_partial_stake() {
                     netuid,
                     total_stake.into(),
                     <Test as Config>::SwapInterface::max_price(),
-                    false,
                     false,
                 )
                 .unwrap();
@@ -427,7 +422,6 @@ fn test_do_move_multiple_times() {
             initial_stake.into(),
             <Test as Config>::SwapInterface::max_price(),
             false,
-            false,
         )
         .unwrap();
         let alpha =
@@ -439,7 +433,6 @@ fn test_do_move_multiple_times() {
             let alpha1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey1, &coldkey, netuid,
             );
-            remove_stake_rate_limit_for_tests(&hotkey1, &coldkey, netuid);
             assert_ok!(SubtensorModule::do_move_stake(
                 RuntimeOrigin::signed(coldkey),
                 hotkey1,
@@ -451,7 +444,6 @@ fn test_do_move_multiple_times() {
             let alpha2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey2, &coldkey, netuid,
             );
-            remove_stake_rate_limit_for_tests(&hotkey2, &coldkey, netuid);
             assert_ok!(SubtensorModule::do_move_stake(
                 RuntimeOrigin::signed(coldkey),
                 hotkey2,
@@ -501,7 +493,6 @@ fn test_do_move_wrong_origin() {
             netuid,
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price(),
-            false,
             false,
         )
         .unwrap();
@@ -570,7 +561,6 @@ fn test_do_move_same_hotkey_fails() {
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price(),
             false,
-            false,
         )
         .unwrap();
         let alpha =
@@ -621,7 +611,6 @@ fn test_do_move_event_emission() {
             netuid,
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price(),
-            false,
             false,
         )
         .unwrap();
@@ -683,7 +672,6 @@ fn test_do_move_storage_updates() {
             origin_netuid,
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price(),
-            false,
             false,
         )
         .unwrap();
@@ -751,7 +739,6 @@ fn test_move_full_amount_same_netuid() {
             netuid,
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price(),
-            false,
             false,
         )
         .unwrap();
@@ -821,7 +808,6 @@ fn test_do_move_max_values() {
             max_stake.into(),
             <Test as Config>::SwapInterface::max_price(),
             false,
-            false,
         )
         .unwrap();
         let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -885,7 +871,6 @@ fn test_moving_too_little_unstakes() {
             (amount.to_u64() + fee * 2).into()
         ));
 
-        remove_stake_rate_limit_for_tests(&hotkey_account_id, &coldkey_account_id, netuid);
         assert_err!(
             SubtensorModule::move_stake(
                 RuntimeOrigin::signed(coldkey_account_id),
@@ -924,7 +909,6 @@ fn test_do_transfer_success() {
             netuid,
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price(),
-            false,
             false,
         )
         .unwrap();
@@ -1035,7 +1019,6 @@ fn test_do_transfer_insufficient_stake() {
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price(),
             false,
-            false,
         )
         .unwrap();
 
@@ -1076,7 +1059,6 @@ fn test_do_transfer_wrong_origin() {
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price(),
             false,
-            false,
         )
         .unwrap();
 
@@ -1114,7 +1096,6 @@ fn test_do_transfer_minimum_stake_check() {
             netuid,
             stake_amount,
             <Test as Config>::SwapInterface::max_price(),
-            false,
             false,
         )
         .unwrap();
@@ -1162,7 +1143,6 @@ fn test_do_transfer_different_subnets() {
             origin_netuid,
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price(),
-            false,
             false,
         )
         .unwrap();
@@ -1229,7 +1209,6 @@ fn test_do_swap_success() {
             origin_netuid,
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price(),
-            false,
             false,
         )
         .unwrap();
@@ -1339,7 +1318,6 @@ fn test_do_swap_insufficient_stake() {
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price(),
             false,
-            false,
         )
         .unwrap();
 
@@ -1374,7 +1352,6 @@ fn test_do_swap_wrong_origin() {
             netuid1,
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price(),
-            false,
             false,
         )
         .unwrap();
@@ -1414,7 +1391,6 @@ fn test_do_swap_minimum_stake_check() {
             total_stake,
             <Test as Config>::SwapInterface::max_price(),
             false,
-            false,
         )
         .unwrap();
 
@@ -1450,7 +1426,6 @@ fn test_do_swap_same_subnet() {
             netuid,
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price(),
-            false,
             false,
         )
         .unwrap();
@@ -1496,7 +1471,6 @@ fn test_do_swap_partial_stake() {
             origin_netuid,
             total_stake_tao.into(),
             <Test as Config>::SwapInterface::max_price(),
-            false,
             false,
         )
         .unwrap();
@@ -1549,7 +1523,6 @@ fn test_do_swap_storage_updates() {
             origin_netuid,
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price(),
-            false,
             false,
         )
         .unwrap();
@@ -1611,7 +1584,6 @@ fn test_do_swap_multiple_times() {
             initial_stake.into(),
             <Test as Config>::SwapInterface::max_price(),
             false,
-            false,
         )
         .unwrap();
 
@@ -1621,7 +1593,6 @@ fn test_do_swap_multiple_times() {
                 &hotkey, &coldkey, netuid1,
             );
             if !alpha1.is_zero() {
-                remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid1);
                 assert_ok!(SubtensorModule::do_swap_stake(
                     RuntimeOrigin::signed(coldkey),
                     hotkey,
@@ -1637,7 +1608,6 @@ fn test_do_swap_multiple_times() {
                 let (tao_equivalent, _) = mock::swap_alpha_to_tao_ext(netuid2, alpha2, true);
                 // we do this in the loop, because we need the value before the swap
                 expected_alpha = mock::swap_tao_to_alpha(netuid1, tao_equivalent).0;
-                remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid2);
                 assert_ok!(SubtensorModule::do_swap_stake(
                     RuntimeOrigin::signed(coldkey),
                     hotkey,
@@ -1682,7 +1652,6 @@ fn test_do_swap_allows_non_owned_hotkey() {
             origin_netuid,
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price(),
-            false,
             false,
         )
         .unwrap();
@@ -1775,7 +1744,6 @@ fn test_move_stake_specific_stake_into_subnet_fail() {
         // Move stake to destination subnet
         let (tao_equivalent, _) = mock::swap_alpha_to_tao_ext(origin_netuid, alpha_to_move, true);
         let (expected_value, _) = mock::swap_tao_to_alpha(netuid, tao_equivalent);
-        remove_stake_rate_limit_for_tests(&hotkey_account_id, &coldkey_account_id, origin_netuid);
         assert_ok!(SubtensorModule::move_stake(
             RuntimeOrigin::signed(coldkey_account_id),
             hotkey_account_id,
@@ -1808,7 +1776,7 @@ fn test_move_stake_specific_stake_into_subnet_fail() {
 }
 
 #[test]
-fn test_transfer_stake_rate_limited() {
+fn test_transfer_stake_same_netuid_not_rate_limited() {
     new_test_ext(1).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
@@ -1828,7 +1796,6 @@ fn test_transfer_stake_rate_limited() {
             netuid,
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price(),
-            true,
             false,
         )
         .unwrap();
@@ -1838,16 +1805,33 @@ fn test_transfer_stake_rate_limited() {
             netuid,
         );
 
-        assert_err!(
-            SubtensorModule::do_transfer_stake(
-                RuntimeOrigin::signed(origin_coldkey),
-                destination_coldkey,
-                hotkey,
-                netuid,
-                netuid,
-                alpha
+        // add_stake set the limiter for (hotkey, origin_coldkey, netuid), but a same-netuid
+        // transfer performs no AMM swap (no price impact), so it is NOT rate limited
+        assert_ok!(SubtensorModule::do_transfer_stake(
+            RuntimeOrigin::signed(origin_coldkey),
+            destination_coldkey,
+            hotkey,
+            netuid,
+            netuid,
+            alpha
+        ));
+
+        // The whole position was moved to the destination coldkey on the same subnet.
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &origin_coldkey,
+                netuid
             ),
-            Error::<Test>::StakingOperationRateLimitExceeded
+            AlphaBalance::ZERO
+        );
+        assert_ne!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &destination_coldkey,
+                netuid
+            ),
+            AlphaBalance::ZERO
         );
     });
 }
@@ -1875,7 +1859,6 @@ fn test_transfer_stake_doesnt_limit_destination_coldkey() {
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price(),
             false,
-            false,
         )
         .unwrap();
         let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -1892,63 +1875,5 @@ fn test_transfer_stake_doesnt_limit_destination_coldkey() {
             netuid2,
             alpha
         ),);
-
-        assert!(!StakingOperationRateLimiter::<Test>::contains_key((
-            hotkey,
-            destination_coldkey,
-            netuid2
-        )));
-    });
-}
-
-#[test]
-fn test_swap_stake_limits_destination_netuid() {
-    new_test_ext(1).execute_with(|| {
-        let subnet_owner_coldkey = U256::from(1001);
-        let subnet_owner_hotkey = U256::from(1002);
-        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
-        let netuid2 = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
-
-        let origin_coldkey = U256::from(1);
-        let hotkey = U256::from(3);
-        let stake_amount = DefaultMinStake::<Test>::get().to_u64() * 10;
-
-        let _ = SubtensorModule::create_account_if_non_existent(&origin_coldkey, &hotkey);
-        add_balance_to_coldkey_account(&origin_coldkey, stake_amount.into());
-        SubtensorModule::stake_into_subnet(
-            &hotkey,
-            &origin_coldkey,
-            netuid,
-            stake_amount.into(),
-            <Test as Config>::SwapInterface::max_price(),
-            false,
-            false,
-        )
-        .unwrap();
-        let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &origin_coldkey,
-            netuid,
-        );
-
-        assert_ok!(SubtensorModule::do_swap_stake(
-            RuntimeOrigin::signed(origin_coldkey),
-            hotkey,
-            netuid,
-            netuid2,
-            alpha
-        ),);
-
-        assert!(!StakingOperationRateLimiter::<Test>::contains_key((
-            hotkey,
-            origin_coldkey,
-            netuid
-        )));
-
-        assert!(StakingOperationRateLimiter::<Test>::contains_key((
-            hotkey,
-            origin_coldkey,
-            netuid2
-        )));
     });
 }
