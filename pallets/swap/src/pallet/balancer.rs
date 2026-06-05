@@ -405,6 +405,7 @@ mod tests {
     use crate::pallet::balancer::*;
     use approx::assert_abs_diff_eq;
     use sp_arithmetic::Perquintill;
+    use std::panic::{AssertUnwindSafe, catch_unwind};
 
     // Helper: convert Perquintill to f64 for comparison
     fn perquintill_to_f64(p: Perquintill) -> f64 {
@@ -415,6 +416,249 @@ mod tests {
     // Helper: convert U64F64 to f64 for comparison
     fn f(v: U64F64) -> f64 {
         v.to_num::<f64>()
+    }
+
+    fn assert_no_panic<R, F>(label: &str, f: F) -> R
+    where
+        F: FnOnce() -> R,
+    {
+        catch_unwind(AssertUnwindSafe(f)).unwrap_or_else(|_| panic!("{label} panicked"))
+    }
+
+    #[test]
+    fn test_balancer_rejects_invalid_boundary_weights_without_panicking() {
+        [
+            Perquintill::zero(),
+            Perquintill::from_parts(1),
+            MIN_WEIGHT.saturating_sub(Perquintill::from_parts(1)),
+            ONE.saturating_sub(MIN_WEIGHT)
+                .saturating_add(Perquintill::from_parts(1)),
+            ONE,
+        ]
+        .into_iter()
+        .for_each(|quote| {
+            assert_no_panic("Balancer::new invalid boundary weight", || {
+                assert!(Balancer::new(quote).is_err());
+            });
+        });
+
+        let mut balancer = Balancer::default();
+        assert_no_panic("Balancer::set_quote_weight invalid boundary weight", || {
+            assert!(balancer.set_quote_weight(Perquintill::zero()).is_err());
+        });
+        assert_eq!(
+            balancer.get_quote_weight(),
+            Perquintill::from_rational(1u128, 2u128)
+        );
+    }
+
+    #[test]
+    fn test_balancer_extreme_exp_inputs_do_not_panic() {
+        let weights = [
+            MIN_WEIGHT,
+            Perquintill::from_rational(1u128, 2u128),
+            ONE.saturating_sub(MIN_WEIGHT),
+        ];
+        let inputs = [
+            (0u64, 0u64),
+            (0u64, 1u64),
+            (1u64, 0u64),
+            (1u64, 1u64),
+            (1u64, u64::MAX),
+            (u64::MAX, 0u64),
+            (u64::MAX, 1u64),
+            (u64::MAX, u64::MAX),
+        ];
+
+        for quote in weights {
+            let balancer = Balancer::new(quote).unwrap();
+            for (reserve, delta) in inputs {
+                assert_no_panic("exp_base_quote extreme input", || {
+                    let _ = balancer.exp_base_quote(reserve, delta);
+                });
+                assert_no_panic("exp_quote_base extreme input", || {
+                    let _ = balancer.exp_quote_base(reserve, delta);
+                });
+                assert_no_panic("exp_scaled negative extreme input", || {
+                    let _ = balancer.exp_scaled(reserve, -(delta as i128), true);
+                    let _ = balancer.exp_scaled(reserve, -(delta as i128), false);
+                });
+            }
+        }
+    }
+
+    #[test]
+    fn test_balancer_price_and_limit_delta_corner_cases_do_not_panic() {
+        let balancer = Balancer::new(MIN_WEIGHT).unwrap();
+        let prices = [
+            U64F64::from_num(0),
+            U64F64::from_num(1),
+            U64F64::from_num(u64::MAX),
+        ];
+        let reserves = [0u64, 1u64, u64::MAX];
+
+        for x in reserves {
+            for y in reserves {
+                assert_no_panic("calculate_price corner reserves", || {
+                    let _ = balancer.calculate_price(x, y);
+                });
+            }
+        }
+
+        for current_price in prices {
+            for target_price in prices {
+                for reserve in reserves {
+                    assert_no_panic("calculate_quote_delta_in corner input", || {
+                        let _ =
+                            balancer.calculate_quote_delta_in(current_price, target_price, reserve);
+                    });
+                    assert_no_panic("calculate_base_delta_in corner input", || {
+                        let _ =
+                            balancer.calculate_base_delta_in(current_price, target_price, reserve);
+                    });
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_balancer_liquidity_weight_update_extremes_do_not_panic() {
+        let inputs = [
+            (0u64, 0u64, 0u64, 0u64),
+            (0u64, 0u64, u64::MAX, u64::MAX),
+            (0u64, u64::MAX, u64::MAX, 0u64),
+            (u64::MAX, 0u64, 0u64, u64::MAX),
+            (u64::MAX, u64::MAX, u64::MAX, u64::MAX),
+            (1u64, u64::MAX, u64::MAX, 1u64),
+            (u64::MAX, 1u64, 1u64, u64::MAX),
+        ];
+
+        for (tao_reserve, alpha_reserve, tao_delta, alpha_delta) in inputs {
+            let mut balancer = Balancer::default();
+            assert_no_panic("update_weights_for_added_liquidity extreme input", || {
+                let _ = balancer.update_weights_for_added_liquidity(
+                    tao_reserve,
+                    alpha_reserve,
+                    tao_delta,
+                    alpha_delta,
+                );
+            });
+        }
+    }
+
+    #[test]
+    fn test_balancer_base_needed_for_quote_extremes_do_not_panic() {
+        let balancer = Balancer::new(ONE.saturating_sub(MIN_WEIGHT)).unwrap();
+        let inputs = [
+            (0u64, 0u64, 0u64),
+            (0u64, 1u64, 1u64),
+            (1u64, 0u64, 1u64),
+            (1u64, 1u64, 0u64),
+            (1u64, 1u64, 1u64),
+            (1u64, 1u64, u64::MAX),
+            (u64::MAX, u64::MAX, 0u64),
+            (u64::MAX, u64::MAX, u64::MAX),
+        ];
+
+        for (tao_reserve, alpha_reserve, delta_tao) in inputs {
+            assert_no_panic("get_base_needed_for_quote extreme input", || {
+                let _ = balancer.get_base_needed_for_quote(tao_reserve, alpha_reserve, delta_tao);
+            });
+        }
+    }
+
+    #[test]
+    fn test_safe_bigmath_pow_ratio_internal_paths_do_not_panic() {
+        let base_num = SafeInt::from(999_999_937u64);
+        let base_den = SafeInt::from(1_000_000_003u64);
+        let scale = SafeInt::from(1_000_000u64);
+        let cases = [
+            // Exact integer/root path with exponent values at the safe-bigmath threshold.
+            (
+                SafeInt::from(1024u32),
+                SafeInt::one(),
+                "exact max numerator",
+            ),
+            (
+                SafeInt::from(999u32),
+                SafeInt::from(1024u32),
+                "exact root denominator",
+            ),
+            // One step over the threshold forces the fixed-point ln/exp fallback path.
+            (SafeInt::from(1025u32), SafeInt::one(), "fallback numerator"),
+            (
+                SafeInt::from(999u32),
+                SafeInt::from(1025u32),
+                "fallback denominator",
+            ),
+            // GCD reduction should route this back to the exact path.
+            (
+                SafeInt::from(2048u32),
+                SafeInt::from(4096u32),
+                "gcd reduced",
+            ),
+        ];
+
+        for (exp_num, exp_den, label) in cases {
+            let result = assert_no_panic(label, || {
+                SafeInt::pow_ratio_scaled(&base_num, &base_den, &exp_num, &exp_den, 64, &scale)
+            });
+            assert!(result.is_some(), "{label} should produce a result");
+        }
+    }
+
+    #[test]
+    fn test_balancer_near_equal_weights_with_tiny_delta_do_not_panic() {
+        let weights = [
+            Perquintill::from_parts(500_000_000_500_000_000),
+            Perquintill::from_parts(499_999_999_500_000_000),
+            Perquintill::from_parts(500_000_000_000_500_000),
+            Perquintill::from_parts(499_999_999_999_500_000),
+        ];
+        let reserve = 21_000_000_000_000_000u64;
+        let tiny_deltas = [1u64, 100u64, 100_000u64];
+
+        for quote in weights {
+            let balancer = Balancer::new(quote).unwrap();
+            for delta in tiny_deltas {
+                assert_no_panic("near-equal exp_base_quote tiny delta", || {
+                    let e = balancer.exp_base_quote(reserve, delta);
+                    assert!(e <= U64F64::from_num(1));
+                    assert!(e > U64F64::from_num(0));
+                });
+                assert_no_panic("near-equal exp_quote_base tiny delta", || {
+                    let e = balancer.exp_quote_base(reserve, delta);
+                    assert!(e <= U64F64::from_num(1));
+                    assert!(e > U64F64::from_num(0));
+                });
+            }
+        }
+    }
+
+    #[test]
+    fn test_balancer_log_normalization_reserve_shapes_do_not_panic() {
+        let balancer = Balancer::new(Perquintill::from_parts(500_000_000_500_000_000)).unwrap();
+        let reserves = [
+            (1u64 << 42) - 1,
+            1u64 << 42,
+            (1u64 << 42) + 1,
+            ((1u64 << 42) + (1u64 << 41)) - 1,
+            (1u64 << 42) + (1u64 << 41),
+            ((1u64 << 42) + (1u64 << 41)) + 1,
+        ];
+
+        for reserve in reserves {
+            for delta in [1u64, reserve / 1_000, reserve / 2] {
+                assert_no_panic("log-normalization exp_base_quote", || {
+                    let e = balancer.exp_base_quote(reserve, delta);
+                    assert!(e <= U64F64::from_num(1));
+                });
+                assert_no_panic("log-normalization exp_quote_base", || {
+                    let e = balancer.exp_quote_base(reserve, delta);
+                    assert!(e <= U64F64::from_num(1));
+                });
+            }
+        }
     }
 
     #[test]
