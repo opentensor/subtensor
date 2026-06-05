@@ -19,7 +19,7 @@ use sp_runtime::{
     AccountId32, BuildStorage, MultiSignature,
     traits::{AccountIdConversion, BlakeTwo256, IdentityLookup},
 };
-use substrate_fixed::types::U96F32;
+use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::OrderSwapInterface;
 
@@ -92,7 +92,7 @@ thread_local! {
     /// Log of every `OrderSwapInterface` call made during a test.
     pub static SWAP_LOG: RefCell<Vec<SwapCall>> = const { RefCell::new(Vec::new()) };
     /// Fixed price returned by `current_alpha_price` (default 1.0).
-    pub static MOCK_PRICE: RefCell<U96F32> = RefCell::new(U96F32::from_num(1u32));
+    pub static MOCK_PRICE: RefCell<U64F64> = RefCell::new(U64F64::from_num(1u32));
     /// Fixed alpha returned by `buy_alpha` (default 0 — tests override as needed).
     pub static MOCK_BUY_ALPHA_RETURN: RefCell<u64> = const { RefCell::new(0u64) };
     /// Fixed TAO returned by `sell_alpha` (default 0 — tests override as needed).
@@ -132,7 +132,7 @@ pub struct MockSwap;
 
 impl MockSwap {
     pub fn set_price(price: f64) {
-        MOCK_PRICE.with(|p| *p.borrow_mut() = U96F32::from_num(price));
+        MOCK_PRICE.with(|p| *p.borrow_mut() = U64F64::from_num(price));
     }
     pub fn set_buy_alpha_return(alpha: u64) {
         MOCK_BUY_ALPHA_RETURN.with(|v| *v.borrow_mut() = alpha);
@@ -292,7 +292,7 @@ impl OrderSwapInterface<AccountId> for MockSwap {
         if MOCK_ENFORCE_PRICE_LIMIT.with(|v| *v.borrow()) {
             let price = MOCK_PRICE.with(|p| {
                 p.borrow()
-                    .saturating_mul(U96F32::from_num(1_000_000_000u64))
+                    .saturating_mul(U64F64::from_num(1_000_000_000u64))
                     .saturating_to_num::<u64>()
             });
             if price > limit_price.to_u64() {
@@ -351,7 +351,7 @@ impl OrderSwapInterface<AccountId> for MockSwap {
         if MOCK_ENFORCE_PRICE_LIMIT.with(|v| *v.borrow()) && limit_price.to_u64() > 0 {
             let price = MOCK_PRICE.with(|p| {
                 p.borrow()
-                    .saturating_mul(U96F32::from_num(1_000_000_000u64))
+                    .saturating_mul(U64F64::from_num(1_000_000_000u64))
                     .saturating_to_num::<u64>()
             });
             if price < limit_price.to_u64() {
