@@ -1558,7 +1558,7 @@ mod dispatches {
             )
         }
 
-        /// Transfers locked or unlocked stake from one coldkey to another, optionally across subnets,
+        /// Transfers locked or unlocked stake from one coldkey to another, within one subnet,
         /// while keeping the same hotkey.
         ///
         /// If `locked` is true, the call transfers at most the currently locked alpha and moves
@@ -1570,8 +1570,7 @@ mod dispatches {
             origin: OriginFor<T>,
             destination_coldkey: T::AccountId,
             hotkey: T::AccountId,
-            origin_netuid: NetUid,
-            destination_netuid: NetUid,
+            netuid: NetUid,
             alpha_amount: AlphaBalance,
             locked: bool,
         ) -> DispatchResult {
@@ -1579,8 +1578,7 @@ mod dispatches {
                 origin,
                 destination_coldkey,
                 hotkey,
-                origin_netuid,
-                destination_netuid,
+                netuid,
                 alpha_amount,
                 locked,
             )

@@ -161,7 +161,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Transfers either locked or unlocked stake from one coldkey to another.
+    /// Transfers either locked or unlocked stake from one coldkey to another within one subnet.
     ///
     /// This follows `do_transfer_stake`, but caps the requested amount to the
     /// selected lock bucket. If `locked` is true, only locked alpha can move and
@@ -171,8 +171,7 @@ impl<T: Config> Pallet<T> {
         origin: OriginFor<T>,
         destination_coldkey: T::AccountId,
         hotkey: T::AccountId,
-        origin_netuid: NetUid,
-        destination_netuid: NetUid,
+        netuid: NetUid,
         alpha_amount: AlphaBalance,
         locked: bool,
     ) -> dispatch::DispatchResult {
@@ -183,8 +182,8 @@ impl<T: Config> Pallet<T> {
             &destination_coldkey,
             &hotkey,
             &hotkey,
-            origin_netuid,
-            destination_netuid,
+            netuid,
+            netuid,
             alpha_amount,
             None,
             None,
@@ -193,14 +192,14 @@ impl<T: Config> Pallet<T> {
         )?;
 
         log::debug!(
-            "StakeTransferred(origin_coldkey: {coldkey:?}, destination_coldkey: {destination_coldkey:?}, hotkey: {hotkey:?}, origin_netuid: {origin_netuid:?}, destination_netuid: {destination_netuid:?}, amount: {tao_moved:?})"
+            "StakeTransferred(origin_coldkey: {coldkey:?}, destination_coldkey: {destination_coldkey:?}, hotkey: {hotkey:?}, netuid: {netuid:?}, amount: {tao_moved:?})"
         );
         Self::deposit_event(Event::StakeTransferred(
             coldkey,
             destination_coldkey,
             hotkey,
-            origin_netuid,
-            destination_netuid,
+            netuid,
+            netuid,
             tao_moved,
         ));
 
