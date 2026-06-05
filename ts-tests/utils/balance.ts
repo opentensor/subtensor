@@ -1,9 +1,10 @@
-import { waitForTransactionWithRetry } from "./transactions.js";
-import type { TypedApi } from "polkadot-api";
 import type { subtensor } from "@polkadot-api/descriptors";
 import { Keyring } from "@polkadot/keyring";
-
+import type { TypedApi } from "polkadot-api";
+import { waitForTransactionWithRetry } from "./transactions.js";
 export const TAO = BigInt(1000000000); // 10^9 RAO per TAO
+export const GWEI = BigInt(1000000000);
+export const MAX_TX_FEE = BigInt(21000000) * GWEI;
 
 export function tao(value: number): bigint {
     return TAO * BigInt(value);
@@ -11,7 +12,11 @@ export function tao(value: number): bigint {
 
 /** Convert RAO to the EVM native balance unit (1 RAO → 1 gwei on-chain). */
 export function raoToEth(rao: bigint): bigint {
-    return TAO * rao;
+    return GWEI * rao;
+}
+
+export function bigintToRao(value: bigint): bigint {
+    return TAO * value;
 }
 
 export async function getBalance(api: TypedApi<typeof subtensor>, ss58Address: string): Promise<bigint> {
@@ -32,5 +37,5 @@ export async function forceSetBalance(
         new_free: amount,
     });
     const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
-    await waitForTransactionWithRetry(api, tx, alice, "force_set_balance");
+    await waitForTransactionWithRetry(api, tx, alice, "force_set_balance", 5);
 }
