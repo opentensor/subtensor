@@ -73,6 +73,23 @@ fn net_amount_for_event_perfectly_offset() {
     });
 }
 
+#[test]
+fn net_amount_for_event_sell_overflow_returns_error() {
+    new_test_ext().execute_with(|| {
+        let tiny_price = U96F32::from_bits(1);
+        assert_eq!(
+            LimitOrders::<Test>::net_amount_for_event(
+                &OrderSide::Sell,
+                u128::MAX,
+                500u128,
+                0u128,
+                tiny_price,
+            ),
+            Err(Error::<Test>::ArithmeticOverflow.into()),
+        );
+    });
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // validate_and_classify
 // ─────────────────────────────────────────────────────────────────────────────
