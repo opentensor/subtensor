@@ -576,7 +576,6 @@ fn test_destroy_alpha_in_out_stakes_clear_locks() {
             amount,
             <Test as Config>::SwapInterface::max_price(),
             false,
-            false,
         ));
 
         // Simulate the previous four steps
@@ -616,7 +615,6 @@ fn test_destroy_alpha_in_out_stakes() {
             netuid,
             amount,
             <Test as Config>::SwapInterface::max_price(),
-            false,
             false,
         ));
 
