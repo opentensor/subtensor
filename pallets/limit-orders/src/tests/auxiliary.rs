@@ -6,7 +6,7 @@
 use frame_support::{BoundedVec, assert_noop, assert_ok, traits::ConstU32};
 use sp_core::H256;
 use sp_keyring::Sr25519Keyring as AccountKeyring;
-use substrate_fixed::types::U96F32;
+use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::NetUid;
 
 use sp_runtime::Perbill;
@@ -24,7 +24,7 @@ use super::mock::*;
 fn net_amount_for_event_buy_dominant() {
     new_test_ext().execute_with(|| {
         // Buys = 1000 TAO net, sells TAO-equiv = 300 TAO → net 700 TAO buy-side
-        let price = U96F32::from_num(2u32); // 2 TAO/alpha
+        let price = U64F64::from_num(2u32); // 2 TAO/alpha
         let net = LimitOrders::<Test>::net_amount_for_event(
             &OrderSide::Buy,
             1_000u128, // total_buy_net (TAO)
