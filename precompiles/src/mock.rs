@@ -510,6 +510,7 @@ impl frame_support::traits::InstanceFilter<RuntimeCall> for ProxyType {
 }
 
 impl pallet_proxy::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type ProxyType = ProxyType;

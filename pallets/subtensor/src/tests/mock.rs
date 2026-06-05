@@ -392,6 +392,7 @@ impl pallet_scheduler::Config for Test {
 }
 
 impl pallet_utility::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type PalletsOrigin = OriginCaller;
     type WeightInfo = pallet_utility::weights::SubstrateWeight<Test>;
@@ -477,6 +478,7 @@ parameter_types! {
 }
 
 impl pallet_proxy::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type ProxyType = subtensor_runtime_common::ProxyType;

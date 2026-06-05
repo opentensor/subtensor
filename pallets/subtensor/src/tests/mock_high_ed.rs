@@ -407,6 +407,7 @@ parameter_types! {
 }
 
 impl pallet_proxy::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type ProxyType = subtensor_runtime_common::ProxyType;
