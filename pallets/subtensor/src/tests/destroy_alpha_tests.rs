@@ -28,8 +28,7 @@ fn test_destroy_alpha_in_out_stakes_get_total_alpha_value() {
             amount,
             <Test as Config>::SwapInterface::max_price(),
             false,
-            false,
-        ));
+));
 
         // Now test the function
         let w = Weight::from_parts(u64::MAX, u64::MAX);
@@ -59,7 +58,6 @@ fn test_destroy_alpha_in_out_stakes_settle_stakes() {
             netuid,
             amount,
             <Test as Config>::SwapInterface::max_price(),
-            false,
             false,
         ));
 
@@ -94,7 +92,6 @@ fn test_destroy_alpha_in_out_stakes_clean_alpha() {
             netuid,
             amount,
             <Test as Config>::SwapInterface::max_price(),
-            false,
             false,
         ));
 
@@ -131,7 +128,6 @@ fn test_destroy_alpha_in_out_stakes_clear_hotkey_totals() {
             netuid,
             amount,
             <Test as Config>::SwapInterface::max_price(),
-            false,
             false,
         ));
 
@@ -170,7 +166,6 @@ fn test_destroy_alpha_in_out_stakes_clear_locks() {
             netuid,
             amount,
             <Test as Config>::SwapInterface::max_price(),
-            false,
             false,
         ));
 
@@ -211,7 +206,6 @@ fn test_destroy_alpha_in_out_stakes() {
             netuid,
             amount,
             <Test as Config>::SwapInterface::max_price(),
-            false,
             false,
         ));
 
