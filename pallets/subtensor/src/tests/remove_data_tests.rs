@@ -500,7 +500,6 @@ fn test_destroy_alpha_in_out_stakes_clean_alpha() {
             amount,
             <Test as Config>::SwapInterface::max_price(),
             false,
-            false,
         ));
 
         // Simulate the previous two steps: get total alpha and settle stakes
@@ -536,7 +535,6 @@ fn test_destroy_alpha_in_out_stakes_clear_hotkey_totals() {
             netuid,
             amount,
             <Test as Config>::SwapInterface::max_price(),
-            false,
             false,
         ));
 
