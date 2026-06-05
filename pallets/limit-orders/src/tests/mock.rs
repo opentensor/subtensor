@@ -377,7 +377,7 @@ impl OrderSwapInterface<AccountId> for MockSwap {
         Ok(TaoBalance::from(tao_out))
     }
 
-    fn current_alpha_price(_netuid: NetUid) -> U96F32 {
+    fn current_alpha_price(_netuid: NetUid) -> U64F64 {
         MOCK_PRICE.with(|p| *p.borrow())
     }
 

@@ -161,7 +161,7 @@ fn validate_and_classify_fails_for_wrong_netuid() {
                 netuid(), // batch is for netuid 1
                 &orders,
                 1_000_000u64,
-                U96F32::from_num(1u32),
+                U64F64::from_num(1u32),
                 bob()
             ),
             crate::Error::<Test>::OrderNetUidMismatch
