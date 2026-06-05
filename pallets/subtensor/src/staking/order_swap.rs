@@ -47,10 +47,7 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
             );
         }
         let alpha_out =
-            Self::stake_into_subnet(hotkey, coldkey, netuid, tao_amount, amm_limit, false, false)?;
-        if validate {
-            Self::set_stake_operation_limit(hotkey, coldkey, netuid);
-        }
+            Self::stake_into_subnet(hotkey, coldkey, netuid, tao_amount, amm_limit, false)?;
         Ok(alpha_out)
     }
 
@@ -136,7 +133,6 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
                 TaoBalance::from(tao_equiv) >= DefaultMinStake::<T>::get(),
                 Error::<T>::AmountTooLow
             );
-            Self::ensure_stake_operation_limit_not_exceeded(from_hotkey, from_coldkey, netuid)?;
             Self::ensure_available_to_unstake(from_coldkey, netuid, amount)?;
         }
 
@@ -145,7 +141,6 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
                 Self::hotkey_account_exists(to_hotkey),
                 Error::<T>::HotKeyAccountNotExists
             );
-            Self::set_stake_operation_limit(to_hotkey, to_coldkey, netuid);
         }
 
         let available =
