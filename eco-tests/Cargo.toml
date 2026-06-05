@@ -34,8 +34,8 @@ pallet-preimage = { git = "https://github.com/opentensor/polkadot-sdk.git", rev 
 pallet-drand = { path = "../pallets/drand", default-features = false, features = ["std"] }
 pallet-subtensor-swap = { path = "../pallets/swap", default-features = false, features = ["std"] }
 pallet-crowdloan = { path = "../pallets/crowdloan", default-features = false, features = ["std"] }
-pallet-subtensor-proxy = { path = "../pallets/proxy", default-features = false, features = ["std"] }
-pallet-subtensor-utility = { path = "../pallets/utility", default-features = false, features = ["std"] }
+pallet-proxy = { path = "../pallets/proxy", default-features = false, features = ["std"] }
+pallet-utility = { path = "../pallets/utility", default-features = false, features = ["std"] }
 pallet-shield = { path = "../pallets/shield", default-features = false, features = ["std"] }
 subtensor-runtime-common = { path = "../common", default-features = false, features = ["std"] }
 subtensor-swap-interface = { path = "../primitives/swap-interface", default-features = false, features = ["std"] }

@@ -16,8 +16,6 @@ use frame_support::{parameter_types, traits::PrivilegeCmp};
 use frame_system as system;
 use frame_system::{EnsureRoot, limits, offchain::CreateTransactionBase};
 use pallet_subtensor::*;
-use pallet_subtensor_proxy as pallet_proxy;
-use pallet_subtensor_utility as pallet_utility;
 use sp_core::{ConstU64, H256, U256, offchain::KeyTypeId};
 use sp_runtime::Perbill;
 use sp_runtime::{
@@ -44,7 +42,7 @@ frame_support::construct_runtime!(
         Drand: pallet_drand = 8,
         Swap: pallet_subtensor_swap = 9,
         Crowdloan: pallet_crowdloan = 10,
-        Proxy: pallet_subtensor_proxy = 11,
+        Proxy: pallet_proxy = 11,
         AlphaAssets: pallet_alpha_assets = 12,
     }
 );

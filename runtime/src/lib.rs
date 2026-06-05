@@ -44,9 +44,7 @@ use pallet_subtensor::rpc_info::{
     },
 };
 use pallet_subtensor::{CommitmentsInterface, ProxyInterface};
-use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_swap_runtime_api::{SimSwapResult, SubnetPrice};
-use pallet_subtensor_utility as pallet_utility;
 use runtime_common::prod_or_fast;
 use safe_math::FixedExt;
 use sp_api::impl_runtime_apis;
@@ -451,6 +449,7 @@ impl pallet_timestamp::Config for Runtime {
 }
 
 impl pallet_utility::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type PalletsOrigin = OriginCaller;
     type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
@@ -796,6 +795,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 }
 
 impl pallet_proxy::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type ProxyType = ProxyType;
@@ -1757,8 +1757,8 @@ mod benches {
         [pallet_crowdloan, Crowdloan]
         [pallet_subtensor_swap, Swap]
         [pallet_shield, MevShield]
-        [pallet_subtensor_proxy, Proxy]
-        [pallet_subtensor_utility, Utility]
+        [pallet_proxy, Proxy]
+        [pallet_utility, Utility]
         [pallet_limit_orders, LimitOrders]
     );
 }
@@ -2231,8 +2231,6 @@ impl_runtime_apis! {
                     _ => (None, None),
                 };
 
-            let whitelist = pallet_evm::WhitelistedCreators::<Runtime>::get();
-            let whitelist_disabled = pallet_evm::DisableWhitelistCheck::<Runtime>::get();
             <Runtime as pallet_evm::Config>::Runner::create(
                 from,
                 data,
@@ -2242,8 +2240,6 @@ impl_runtime_apis! {
                 max_priority_fee_per_gas,
                 nonce,
                 access_list.unwrap_or_default(),
-                whitelist,
-                whitelist_disabled,
                 authorization_list.unwrap_or_default(),
                 false,
                 true,

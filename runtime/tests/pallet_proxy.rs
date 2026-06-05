@@ -6,7 +6,6 @@ use node_subtensor_runtime::{
     RuntimeOrigin, SubtensorModule, System, SystemCall, get_all_proxy_filters,
     get_all_proxy_type_infos,
 };
-use pallet_subtensor_proxy as pallet_proxy;
 use subtensor_runtime_common::{
     AccountId, CallCondition, FilterMode, NetUid, ProxyType, SMALL_ALPHA_TRANSFER_LIMIT,
     SMALL_TRANSFER_LIMIT, TaoBalance,

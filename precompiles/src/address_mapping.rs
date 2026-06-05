@@ -8,7 +8,6 @@ use sp_core::{ByteArray, H256};
 use frame_support::dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo};
 use frame_support::traits::IsSubType;
 use pallet_evm::PrecompileHandle;
-use pallet_subtensor_proxy as pallet_proxy;
 use precompile_utils::EvmResult;
 use precompile_utils::prelude::Address;
 use sp_runtime::traits::{AsSystemOriginSigner, Dispatchable};

@@ -19,8 +19,6 @@ use frame_support::{
 };
 use frame_system as system;
 use frame_system::{EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBase};
-use pallet_subtensor_proxy as pallet_proxy;
-use pallet_subtensor_utility as pallet_utility;
 use share_pool::SafeFloat;
 use sp_core::{ConstU64, Get, H256, U256, offchain::KeyTypeId};
 use sp_runtime::Perbill;
@@ -51,7 +49,7 @@ frame_support::construct_runtime!(
         Drand: pallet_drand = 9,
         Swap: pallet_subtensor_swap = 10,
         Crowdloan: pallet_crowdloan = 11,
-        Proxy: pallet_subtensor_proxy = 12,
+        Proxy: pallet_proxy = 12,
     }
 );
 
@@ -394,6 +392,7 @@ impl pallet_scheduler::Config for Test {
 }
 
 impl pallet_utility::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type PalletsOrigin = OriginCaller;
     type WeightInfo = pallet_utility::weights::SubstrateWeight<Test>;
@@ -479,6 +478,7 @@ parameter_types! {
 }
 
 impl pallet_proxy::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type ProxyType = subtensor_runtime_common::ProxyType;

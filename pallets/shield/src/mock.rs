@@ -23,7 +23,7 @@ construct_runtime!(
         Timestamp: pallet_timestamp = 1,
         Aura: pallet_aura = 2,
         MevShield: pallet_shield = 3,
-        Utility: pallet_subtensor_utility = 4,
+        Utility: pallet_utility = 4,
     }
 );
 
@@ -54,7 +54,8 @@ impl pallet_aura::Config for Test {
     type SlotDuration = SlotDuration;
 }
 
-impl pallet_subtensor_utility::Config for Test {
+impl pallet_utility::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type PalletsOrigin = OriginCaller;
     type WeightInfo = ();
@@ -135,7 +136,7 @@ pub fn set_authors(current: Option<AuraId>, next_next: Option<AuraId>) {
 
 pub fn nest_call(call: RuntimeCall, depth: usize) -> RuntimeCall {
     (0..depth).fold(call, |inner, _| {
-        RuntimeCall::Utility(pallet_subtensor_utility::Call::batch { calls: vec![inner] })
+        RuntimeCall::Utility(pallet_utility::Call::batch { calls: vec![inner] })
     })
 }
 

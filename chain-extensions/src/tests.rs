@@ -630,9 +630,7 @@ fn add_proxy_success_creates_proxy_relationship() {
         add_balance_to_coldkey_account(&delegator, 1_000_000_000.into());
 
         assert_eq!(
-            pallet_subtensor_proxy::Proxies::<mock::Test>::get(delegator)
-                .0
-                .len(),
+            pallet_proxy::Proxies::<mock::Test>::get(delegator).0.len(),
             0
         );
 
@@ -641,7 +639,7 @@ fn add_proxy_success_creates_proxy_relationship() {
         let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env).unwrap();
         assert_success(ret);
 
-        let proxies = pallet_subtensor_proxy::Proxies::<mock::Test>::get(delegator).0;
+        let proxies = pallet_proxy::Proxies::<mock::Test>::get(delegator).0;
         assert_eq!(proxies.len(), 1);
         if let Some(proxy) = proxies.first() {
             assert_eq!(proxy.delegate, delegate);
@@ -668,14 +666,14 @@ fn remove_proxy_success_removes_proxy_relationship() {
         let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut add_env).unwrap();
         assert_success(ret);
 
-        let proxies_before = pallet_subtensor_proxy::Proxies::<mock::Test>::get(delegator).0;
+        let proxies_before = pallet_proxy::Proxies::<mock::Test>::get(delegator).0;
         assert_eq!(proxies_before.len(), 1);
 
         let mut remove_env = MockEnv::new(FunctionId::RemoveProxyV1, delegator, delegate.encode());
         let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut remove_env).unwrap();
         assert_success(ret);
 
-        let proxies_after = pallet_subtensor_proxy::Proxies::<mock::Test>::get(delegator).0;
+        let proxies_after = pallet_proxy::Proxies::<mock::Test>::get(delegator).0;
         assert_eq!(proxies_after.len(), 0);
     });
 }
@@ -2371,7 +2369,7 @@ mod caller_dispatch_tests {
             let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env).unwrap();
             assert_success(ret);
 
-            let proxies = pallet_subtensor_proxy::Proxies::<mock::Test>::get(delegator).0;
+            let proxies = pallet_proxy::Proxies::<mock::Test>::get(delegator).0;
             assert_eq!(proxies.len(), 1);
         });
     }
@@ -2396,7 +2394,7 @@ mod caller_dispatch_tests {
             let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut remove_env).unwrap();
             assert_success(ret);
 
-            let proxies_after = pallet_subtensor_proxy::Proxies::<mock::Test>::get(delegator).0;
+            let proxies_after = pallet_proxy::Proxies::<mock::Test>::get(delegator).0;
             assert_eq!(proxies_after.len(), 0);
         });
     }
