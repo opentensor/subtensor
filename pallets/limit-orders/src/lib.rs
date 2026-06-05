@@ -346,6 +346,8 @@ pub mod pallet {
         /// Call on_runtime_upgrade or wait for genesis to complete registration
         /// before enabling the pallet.
         PalletHotkeyNotRegistered,
+        /// A TAO -> alpha conversion overflowed the fixed-point range.
+        ArithmeticOverflow,
     }
 
     // ── Hooks ─────────────────────────────────────────────────────────────────
@@ -867,7 +869,7 @@ pub mod pallet {
                 total_sell_net,
                 total_sell_tao_equiv,
                 current_price,
-            );
+            )?;
             Self::deposit_event(Event::GroupExecutionSummary {
                 netuid,
                 net_side,
@@ -1015,8 +1017,7 @@ pub mod pallet {
                 };
                 Ok((OrderSide::Buy, actual_alpha))
             } else {
-                let total_buy_alpha_equiv =
-                    Self::tao_to_alpha(total_buy_net, current_price).unwrap_or(u128::MAX);
+                let total_buy_alpha_equiv = Self::tao_to_alpha(total_buy_net, current_price)?;
                 let net_alpha = (total_sell_net.saturating_sub(total_buy_alpha_equiv)) as u64;
                 let actual_tao = if net_alpha > 0 {
                     let out = T::SwapInterface::sell_alpha(
@@ -1055,9 +1056,7 @@ pub mod pallet {
         ) -> DispatchResult {
             let total_alpha: u128 = match net_side {
                 OrderSide::Buy => actual_out.saturating_add(total_sell_net),
-                OrderSide::Sell => {
-                    Self::tao_to_alpha(total_buy_net, current_price).unwrap_or(0u128)
-                }
+                OrderSide::Sell => Self::tao_to_alpha(total_buy_net, current_price)?,
             };
 
             for e in buys.iter() {
@@ -1209,29 +1208,29 @@ pub mod pallet {
             total_sell_net: u128,
             total_sell_tao_equiv: u128,
             current_price: U96F32,
-        ) -> u64 {
+        ) -> Result<u64, DispatchError> {
             match net_side {
-                OrderSide::Buy => (total_buy_net.saturating_sub(total_sell_tao_equiv)) as u64,
+                OrderSide::Buy => Ok((total_buy_net.saturating_sub(total_sell_tao_equiv)) as u64),
                 OrderSide::Sell => {
-                    let buy_alpha_equiv =
-                        Self::tao_to_alpha(total_buy_net, current_price).unwrap_or(0u128) as u64;
-                    (total_sell_net as u64).saturating_sub(buy_alpha_equiv)
+                    let buy_alpha_equiv = Self::tao_to_alpha(total_buy_net, current_price)? as u64;
+                    Ok((total_sell_net as u64).saturating_sub(buy_alpha_equiv))
                 }
             }
         }
 
         /// Convert a TAO amount to alpha at `price` (TAO/alpha).
         ///
-        /// A zero `price` yields `Some(0)` (no alpha is purchasable). `None`
-        /// signals a genuine fixed-point overflow, which each caller must
-        /// saturate in the direction that fails closed for its own use.
-        fn tao_to_alpha(tao: u128, price: U96F32) -> Option<u128> {
+        /// A zero `price` yields `Ok(0)` (no alpha is purchasable). A genuine
+        /// fixed-point overflow returns `Err(ArithmeticOverflow)` so the caller
+        /// aborts the batch.
+        fn tao_to_alpha(tao: u128, price: U96F32) -> Result<u128, DispatchError> {
             if price == U96F32::from_num(0u32) {
-                return Some(0u128);
+                return Ok(0u128);
             }
             U96F32::saturating_from_num(tao)
                 .checked_div(price)
                 .map(|alpha| alpha.saturating_to_num::<u128>())
+                .ok_or(Error::<T>::ArithmeticOverflow.into())
         }
 
         /// Convert an alpha amount to TAO at `price` (TAO/alpha).
