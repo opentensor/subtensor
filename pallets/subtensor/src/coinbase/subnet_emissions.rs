@@ -145,6 +145,49 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    /// Compute the slow EMA of the raw user-flow EMA (second smoothing layer).
+    ///
+    /// Reuses the main `FlowEmaSmoothingFactor` rather than introducing a separate
+    /// maturity factor. A parameter sweep of the maturity half-life against both
+    /// manipulation resistance and honest-subnet bootstrap time found the best
+    /// balance at the same half-life as the main flow EMA: it sits at the knee of
+    /// the trade-off (shorter weakens the clamp; longer barely improves resistance
+    /// while slowing new-subnet onboarding). Equal factors also make the slow layer
+    /// a clean double-EMA of the flow, which is the simplest behaviour to reason
+    /// about and govern.
+    ///
+    /// This stores EMA(raw), NOT the clamped min(raw, slow). The clamp is applied
+    /// at read time in `get_shares_flow`. Storing the unclamped slow EMA ensures it
+    /// tracks the true long-run raw signal rather than the clamped value.
+    ///
+    /// On first access for a subnet, the slow EMA initializes to the current raw EMA,
+    /// so existing subnets do not face an emission cliff at deployment.
+    fn get_slow_ema_flow(netuid: NetUid, raw_ema: I64F64) -> I64F64 {
+        let current_block: u64 = Self::get_current_block_as_u64();
+
+        // First access: seed the slow EMA at the current raw EMA (so no emission
+        // cliff at deployment) with last_block = 0. On any normal block
+        // (current_block != 0) the update branch then runs and persists the value;
+        // the first update is a no-op (slow = raw) and subsequent blocks smooth
+        // normally. (At genuine block 0 this would skip persistence, but subnets do
+        // not emit at genesis.)
+        let (last_block, last_slow_ema) =
+            SubnetEmaSlowTaoFlow::<T>::get(netuid).unwrap_or((0, raw_ema));
+
+        if last_block != current_block {
+            let flow_alpha = I64F64::saturating_from_num(FlowEmaSmoothingFactor::<T>::get())
+                .safe_div(I64F64::saturating_from_num(i64::MAX));
+            let one = I64F64::saturating_from_num(1);
+            let slow_ema = (one.saturating_sub(flow_alpha))
+                .saturating_mul(last_slow_ema)
+                .saturating_add(flow_alpha.saturating_mul(raw_ema));
+            SubnetEmaSlowTaoFlow::<T>::insert(netuid, (current_block, slow_ema));
+            slow_ema
+        } else {
+            last_slow_ema
+        }
+    }
+
     // Either the minimal EMA flow L = min{Si}, or an artificial
     // cut off at some higher value A (TaoFlowCutoff)
     // L = max {A, min{min{S[i], 0}}}
@@ -245,20 +288,27 @@ impl<T: Config> Pallet<T> {
         let net_flow_enabled = NetTaoFlowEnabled::<T>::get();
         let zero = I64F64::saturating_from_num(0);
 
-        // Always update both EMAs (keeps protocol EMA warm for when toggled on).
+        // Always update all EMAs (keeps protocol/slow EMAs warm for when toggled on).
         // Fixes #2667: protocol EMA accumulator was only drained when enabled,
         // causing a shock on toggle.
+        //
+        // matured = min(raw, slow): a second EMA smoothing layer (slow EMA of the raw
+        // flow EMA) that delays emission credit from inflow spikes (raw rises before
+        // slow) while applying outflows immediately (raw falls below slow). This makes
+        // emission share track durable demand rather than transient flow.
         let subnet_emas: Vec<(NetUid, I64F64, I64F64)> = subnets_to_emit_to
             .iter()
             .map(|netuid| {
-                let user_ema = Self::get_ema_flow(*netuid);
+                let raw_user_ema = Self::get_ema_flow(*netuid);
+                let slow_user_ema = Self::get_slow_ema_flow(*netuid, raw_user_ema);
+                let matured_user_ema = raw_user_ema.min(slow_user_ema);
                 let protocol_ema = Self::update_ema_protocol_flow(*netuid);
-                (*netuid, user_ema, protocol_ema)
+                (*netuid, matured_user_ema, protocol_ema)
             })
             .collect();
 
         // When net flow is enabled, normalize protocol EMA so that its
-        // positive total matches the user EMA positive total. This prevents
+        // positive total matches the matured user EMA positive total. This prevents
         // subsidy concentration: as emissions concentrate on fewer subnets,
         // their protocol EMA grows, but the normalization factor shrinks to
         // compensate, keeping the deduction proportional to user demand.
@@ -287,7 +337,7 @@ impl<T: Config> Pallet<T> {
 
         let ema_flows: BTreeMap<NetUid, I64F64> = subnet_emas
             .into_iter()
-            .map(|(netuid, user_ema, protocol_ema)| {
+            .map(|(netuid, matured_user_ema, protocol_ema)| {
                 let net = if net_flow_enabled {
                     // Only scale positive protocol cost by norm_factor. Negative
                     // protocol cost (root drain > emissions) is a benefit, kept as-is.
@@ -296,9 +346,9 @@ impl<T: Config> Pallet<T> {
                     } else {
                         protocol_ema
                     };
-                    user_ema.saturating_sub(scaled_protocol)
+                    matured_user_ema.saturating_sub(scaled_protocol)
                 } else {
-                    user_ema
+                    matured_user_ema
                 };
                 (netuid, net)
             })
