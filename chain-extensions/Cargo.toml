@@ -30,8 +30,8 @@ pallet-scheduler.workspace = true
 pallet-preimage.workspace = true
 pallet-timestamp.workspace = true
 pallet-crowdloan.workspace = true
-pallet-subtensor-utility.workspace = true
-pallet-subtensor-proxy.workspace = true
+pallet-utility.workspace = true
+pallet-proxy.workspace = true
 pallet-drand.workspace = true
 subtensor-swap-interface.workspace = true
 num_enum.workspace = true
@@ -62,8 +62,8 @@ std = [
 	"pallet-preimage/std",
 	"pallet-timestamp/std",
 	"pallet-crowdloan/std",
-	"pallet-subtensor-utility/std",
-	"pallet-subtensor-proxy/std",
+	"pallet-utility/std",
+	"pallet-proxy/std",
 	"pallet-drand/std",
 	"subtensor-swap-interface/std",
 	"num_enum/std",
@@ -81,8 +81,8 @@ runtime-benchmarks = [
 	"pallet-drand/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
-	"pallet-subtensor-proxy/runtime-benchmarks",
-	"pallet-subtensor-utility/runtime-benchmarks",
+	"pallet-proxy/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"subtensor-runtime-common/runtime-benchmarks",
 	"subtensor-swap-interface/runtime-benchmarks"
