@@ -21,7 +21,7 @@ use sp_runtime::{
     AccountId32, MultiSignature, Perbill,
     traits::{ConstBool, Verify},
 };
-use substrate_fixed::types::U96F32;
+use substrate_fixed::types::U64F64;
 use subtensor_macros::freeze_struct;
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::OrderSwapInterface;
@@ -595,7 +595,7 @@ pub mod pallet {
             signed_order: &SignedOrder<T::AccountId>,
             order_id: H256,
             now_ms: u64,
-            current_price: U96F32,
+            current_price: U64F64,
             relayer: &T::AccountId,
         ) -> DispatchResult {
             let order = signed_order.order.inner();
@@ -626,7 +626,7 @@ pub mod pallet {
             // This allows sub-unity prices (e.g. 0.5 TAO/alpha = 500_000_000) to be
             // represented and compared correctly.
             let scaled_price = current_price
-                .saturating_mul(U96F32::from_num(1_000_000_000u64))
+                .saturating_mul(U64F64::from_num(1_000_000_000u64))
                 .saturating_to_num::<u64>();
             ensure!(
                 match order.order_type {
@@ -891,7 +891,7 @@ pub mod pallet {
             netuid: NetUid,
             orders: &BoundedVec<SignedOrder<T::AccountId>, T::MaxOrdersPerBatch>,
             now_ms: u64,
-            current_price: U96F32,
+            current_price: U64F64,
             relayer: T::AccountId,
         ) -> Result<
             (
@@ -992,7 +992,7 @@ pub mod pallet {
             total_buy_net: u128,
             total_sell_net: u128,
             total_sell_tao_equiv: u128,
-            current_price: U96F32,
+            current_price: U64F64,
             pallet_acct: &T::AccountId,
             pallet_hotkey: &T::AccountId,
             netuid: NetUid,
@@ -1049,7 +1049,7 @@ pub mod pallet {
             total_buy_net: u128,
             total_sell_net: u128,
             net_side: &OrderSide,
-            current_price: U96F32,
+            current_price: U64F64,
             pallet_acct: &T::AccountId,
             pallet_hotkey: &T::AccountId,
             netuid: NetUid,
@@ -1108,7 +1108,7 @@ pub mod pallet {
             total_buy_net: u128,
             total_sell_tao_equiv: u128,
             net_side: &OrderSide,
-            current_price: U96F32,
+            current_price: U64F64,
             pallet_acct: &T::AccountId,
             netuid: NetUid,
         ) -> Result<Vec<(T::AccountId, u64)>, DispatchError> {
@@ -1207,7 +1207,7 @@ pub mod pallet {
             total_buy_net: u128,
             total_sell_net: u128,
             total_sell_tao_equiv: u128,
-            current_price: U96F32,
+            current_price: U64F64,
         ) -> Result<u64, DispatchError> {
             match net_side {
                 OrderSide::Buy => Ok((total_buy_net.saturating_sub(total_sell_tao_equiv)) as u64),
@@ -1223,20 +1223,20 @@ pub mod pallet {
         /// A zero `price` yields `Ok(0)` (no alpha is purchasable). A genuine
         /// fixed-point overflow returns `Err(ArithmeticOverflow)` so the caller
         /// aborts the batch.
-        fn tao_to_alpha(tao: u128, price: U96F32) -> Result<u128, DispatchError> {
-            if price == U96F32::from_num(0u32) {
+        fn tao_to_alpha(tao: u128, price: U64F64) -> Result<u128, DispatchError> {
+            if price == U64F64::from_num(0u32) {
                 return Ok(0u128);
             }
-            U96F32::saturating_from_num(tao)
+            U64F64::saturating_from_num(tao)
                 .checked_div(price)
                 .map(|alpha| alpha.saturating_to_num::<u128>())
                 .ok_or(Error::<T>::ArithmeticOverflow.into())
         }
 
         /// Convert an alpha amount to TAO at `price` (TAO/alpha).
-        fn alpha_to_tao(alpha: u128, price: U96F32) -> u128 {
+        fn alpha_to_tao(alpha: u128, price: U64F64) -> u128 {
             price
-                .saturating_mul(U96F32::saturating_from_num(alpha))
+                .saturating_mul(U64F64::saturating_from_num(alpha))
                 .saturating_to_num::<u128>()
         }
     }
