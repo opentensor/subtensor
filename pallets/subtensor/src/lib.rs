@@ -401,11 +401,9 @@ pub mod pallet {
         RemoveNetworkTotalHotkeyAlphaLastEpoch,
         /// Phase 5.10: Remove transaction key last-block rate limit entries for this netuid.
         RemoveNetworkTransactionKeyLastBlock,
-        /// Phase 5.11: Remove staking operation rate limiter entries for this netuid.
-        RemoveNetworkStakingOperationRateLimiter,
-        /// Phase 5.12: Remove lock entries for this netuid.
+        /// Phase 5.11: Remove lock entries for this netuid.
         RemoveNetworkLock,
-        /// Phase 5.13: Remove decaying lock entries for this netuid.
+        /// Phase 5.12: Remove decaying lock entries for this netuid.
         RemoveNetworkDecayingLock,
     }
 

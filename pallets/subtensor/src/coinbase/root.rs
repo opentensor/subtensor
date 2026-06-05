@@ -820,50 +820,6 @@ impl<T: Config> Pallet<T> {
         read_all
     }
 
-    pub fn remove_network_staking_operation_rate_limiter(
-        netuid: NetUid,
-        weight_meter: &mut WeightMeter,
-    ) -> bool {
-        let r = T::DbWeight::get().reads(1);
-        let w = T::DbWeight::get().writes(1);
-        let mut read_all = true;
-
-        let mut to_rm: sp_std::vec::Vec<(T::AccountId, T::AccountId)> = sp_std::vec::Vec::new();
-        let iter = match LastKeptRawKey::<T>::get() {
-            Some(raw_key) => StakingOperationRateLimiter::<T>::iter_from(raw_key),
-            None => StakingOperationRateLimiter::<T>::iter(),
-        };
-        for ((hot, cold, nu), _) in iter {
-            if !weight_meter.can_consume(r) {
-                read_all = false;
-                LastKeptRawKey::<T>::set(Some(StakingOperationRateLimiter::<T>::hashed_key_for((
-                    &hot, &cold, nu,
-                ))));
-                break;
-            }
-            weight_meter.consume(r);
-            if nu == netuid {
-                if !weight_meter.can_consume(w) {
-                    read_all = false;
-                    LastKeptRawKey::<T>::set(Some(
-                        StakingOperationRateLimiter::<T>::hashed_key_for((&hot, &cold, nu)),
-                    ));
-                    break;
-                }
-                weight_meter.consume(w);
-                to_rm.push((hot, cold));
-            }
-        }
-        if read_all {
-            LastKeptRawKey::<T>::set(None);
-        }
-
-        for (hot, cold) in to_rm {
-            StakingOperationRateLimiter::<T>::remove((hot, cold, netuid));
-        }
-        read_all
-    }
-
     #[allow(clippy::arithmetic_side_effects)]
     /// This function calculates the lock cost for a network based on the last lock amount, minimum lock cost, last lock block, and current block.
     /// The lock cost is calculated using the formula:

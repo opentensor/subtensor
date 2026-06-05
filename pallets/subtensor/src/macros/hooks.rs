@@ -508,20 +508,6 @@ mod hooks {
                                 );
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                    DissolvedNetworksCleanupPhaseEnum::RemoveNetworkStakingOperationRateLimiter,
-                                ));
-                            }
-                            done
-                        }
-                        DissolvedNetworksCleanupPhaseEnum::RemoveNetworkStakingOperationRateLimiter => {
-                            let done =
-                                Self::remove_network_staking_operation_rate_limiter(
-                                    *netuid,
-                                    &mut weight_meter,
-                                );
-
-                            if done {
-                                DissolvedNetworksCleanupPhase::<T>::set(Some(
                                     DissolvedNetworksCleanupPhaseEnum::RemoveNetworkLock,
                                 ));
                             }

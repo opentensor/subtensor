@@ -3,11 +3,11 @@
 use core::ops::Neg;
 
 use frame_support::pallet_prelude::*;
+use frame_support::weights::WeightMeter;
+pub use order::*;
 use substrate_fixed::types::U96F32;
 use subtensor_macros::freeze_struct;
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
-
-pub use order::*;
 
 mod order;
 
