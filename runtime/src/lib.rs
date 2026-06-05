@@ -59,6 +59,7 @@ use sp_core::{
 };
 use sp_runtime::Cow;
 use sp_runtime::generic::Era;
+use sp_runtime::traits::AccountIdConversion;
 use sp_runtime::{
     AccountId32, ApplyExtrinsicResult, ConsensusEngineId, Percent, generic, impl_opaque_keys,
     traits::{
@@ -277,7 +278,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 415,
+    spec_version: 416,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1531,6 +1532,29 @@ impl pallet_crowdloan::Config for Runtime {
     type MaxContributors = MaxContributors;
 }
 
+// Limit Orders
+parameter_types! {
+    pub const LimitOrdersPalletId: PalletId = PalletId(*b"bt/limit");
+    pub const LimitOrdersMaxOrdersPerBatch: u32 = 100;
+}
+
+pub struct LimitOrdersPalletHotkey;
+impl Get<AccountId> for LimitOrdersPalletHotkey {
+    fn get() -> AccountId {
+        PalletId(*b"bt/lmhky").into_account_truncating()
+    }
+}
+
+impl pallet_limit_orders::Config for Runtime {
+    type SwapInterface = SubtensorModule;
+    type TimeProvider = Timestamp;
+    type MaxOrdersPerBatch = LimitOrdersMaxOrdersPerBatch;
+    type PalletId = LimitOrdersPalletId;
+    type PalletHotkey = LimitOrdersPalletHotkey;
+    type WeightInfo = pallet_limit_orders::weights::SubstrateWeight<Runtime>;
+    type ChainId = ConfigurableChainId;
+}
+
 fn contracts_schedule<T: pallet_contracts::Config>() -> pallet_contracts::Schedule<T> {
     pallet_contracts::Schedule {
         limits: pallet_contracts::Limits {
@@ -1653,6 +1677,7 @@ construct_runtime!(
         Contracts: pallet_contracts = 29,
         MevShield: pallet_shield = 30,
         AlphaAssets: pallet_alpha_assets = 31,
+        LimitOrders: pallet_limit_orders = 32,
     }
 );
 
@@ -1738,6 +1763,7 @@ mod benches {
         [pallet_shield, MevShield]
         [pallet_subtensor_proxy, Proxy]
         [pallet_subtensor_utility, Utility]
+        [pallet_limit_orders, LimitOrders]
     );
 }
 

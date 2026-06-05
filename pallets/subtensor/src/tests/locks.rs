@@ -49,7 +49,6 @@ fn setup_subnet_with_stake(
         amount,
         <Test as Config>::SwapInterface::max_price(),
         false,
-        false,
     )
     .unwrap();
     DecayingLock::<Test>::insert(coldkey, netuid, false);
@@ -456,7 +455,6 @@ fn test_mixed_perpetual_and_decaying_non_owner_locks_same_hotkey_update_aggregat
             netuid,
             100_000_000_000u64.into(),
             <Test as Config>::SwapInterface::max_price(),
-            false,
             false,
         )
         .unwrap();
@@ -1770,7 +1768,6 @@ fn test_lock_on_multiple_subnets() {
             100_000_000_000u64.into(),
             <Test as Config>::SwapInterface::max_price(),
             false,
-            false,
         )
         .unwrap();
         DecayingLock::<Test>::insert(coldkey, netuid_b, false);
@@ -1838,7 +1835,6 @@ fn test_unstake_one_subnet_does_not_affect_other() {
             netuid_b,
             100_000_000_000u64.into(),
             <Test as Config>::SwapInterface::max_price(),
-            false,
             false,
         )
         .unwrap();
@@ -1913,7 +1909,6 @@ fn test_hotkey_conviction_multiple_lockers() {
             50_000_000_000u64.into(),
             <Test as Config>::SwapInterface::max_price(),
             false,
-            false,
         )
         .unwrap();
 
@@ -1966,7 +1961,6 @@ fn test_mixed_perpetual_owner_and_decaying_non_owner_locks_roll_forward() {
             netuid,
             100_000_000_000u64.into(),
             <Test as Config>::SwapInterface::max_price(),
-            false,
             false,
         )
         .unwrap();
@@ -2037,7 +2031,6 @@ fn test_total_conviction_equals_sum_of_participating_aggregate_convictions() {
             100_000_000_000u64.into(),
             <Test as Config>::SwapInterface::max_price(),
             false,
-            false,
         )
         .unwrap();
 
@@ -2096,7 +2089,6 @@ fn test_total_conviction_equals_sum_of_individual_lock_convictions_for_many_lock
                 netuid,
                 50_000_000_000u64.into(),
                 <Test as Config>::SwapInterface::max_price(),
-                false,
                 false,
             )
             .unwrap();
@@ -2175,7 +2167,6 @@ fn test_subnet_king_highest_conviction_wins() {
             netuid,
             50_000_000_000u64.into(),
             <Test as Config>::SwapInterface::max_price(),
-            false,
             false,
         )
         .unwrap();
@@ -2596,7 +2587,6 @@ fn test_reduce_lock_two_coldkeys() {
             netuid,
             100_000_000_000u64.into(),
             <Test as Config>::SwapInterface::max_price(),
-            false,
             false,
         )
         .unwrap();
@@ -3226,7 +3216,6 @@ fn test_clear_small_nomination_checks_lock() {
             50_000_000_000u64.into(),
             <Test as Config>::SwapInterface::max_price(),
             false,
-            false,
         )
         .unwrap();
 
@@ -3296,7 +3285,6 @@ fn test_clear_small_nomination_reduces_only_tiny_amount_from_lock_state() {
             large_tao,
             <Test as Config>::SwapInterface::max_price(),
             false,
-            false,
         )
         .unwrap();
         SubtensorModule::stake_into_subnet(
@@ -3305,7 +3293,6 @@ fn test_clear_small_nomination_reduces_only_tiny_amount_from_lock_state() {
             netuid,
             tiny_tao,
             <Test as Config>::SwapInterface::max_price(),
-            false,
             false,
         )
         .unwrap();
@@ -3712,7 +3699,6 @@ fn test_moving_partial_lock() {
             50_000_000_000u64.into(),
             <Test as Config>::SwapInterface::max_price(),
             false,
-            false,
         )
         .unwrap();
         DecayingLock::<Test>::insert(coldkey2, netuid, false);
@@ -3796,7 +3782,6 @@ fn test_moving_partial_lock_same_owners() {
             netuid,
             50_000_000_000u64.into(),
             <Test as Config>::SwapInterface::max_price(),
-            false,
             false,
         )
         .unwrap();

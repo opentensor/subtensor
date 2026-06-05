@@ -572,9 +572,6 @@ impl<T: Config> Pallet<T> {
             LastKeptRawKey::<T>::set(None);
         }
 
-        for (uid_i, weights_i) in map.iter() {
-            Weights::<T>::insert(NetUidStorageIndex::ROOT, uid_i, weights_i.clone());
-        }
         read_all
     }
 
