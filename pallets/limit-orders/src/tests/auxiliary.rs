@@ -41,7 +41,7 @@ fn net_amount_for_event_sell_dominant() {
     new_test_ext().execute_with(|| {
         // Sells = 500 alpha net, buys TAO = 200 TAO at price 2 → buy_alpha_equiv = 100
         // net sell = 500 - 100 = 400 alpha
-        let price = U96F32::from_num(2u32); // 2 TAO/alpha → 1 alpha = 2 TAO
+        let price = U64F64::from_num(2u32); // 2 TAO/alpha → 1 alpha = 2 TAO
         let net = LimitOrders::<Test>::net_amount_for_event(
             &OrderSide::Sell,
             200u128, // total_buy_net (TAO)
@@ -112,7 +112,7 @@ fn validate_and_classify_separates_buys_and_sells() {
             netuid(),
             &orders,
             1_000_000u64,
-            U96F32::from_num(1u32),
+            U64F64::from_num(1u32),
             bob(),
         )
         .expect("validate_and_classify should succeed");
@@ -195,7 +195,7 @@ fn validate_and_classify_fails_for_expired_order() {
                 netuid(),
                 &orders,
                 2_000_001u64,
-                U96F32::from_num(1u32),
+                U64F64::from_num(1u32),
                 bob()
             ),
             crate::Error::<Test>::OrderExpired
@@ -227,7 +227,7 @@ fn validate_and_classify_fails_for_price_condition_not_met_for_buy() {
                 netuid(),
                 &orders,
                 1_000_000u64,
-                U96F32::from_num(3u32), // current price = 3 > limit 2 → fails
+                U64F64::from_num(3u32), // current price = 3 > limit 2 → fails
                 bob()
             ),
             crate::Error::<Test>::PriceConditionNotMet
@@ -263,7 +263,7 @@ fn validate_and_classify_fails_for_already_processed_order() {
                 netuid(),
                 &orders,
                 1_000_000u64,
-                U96F32::from_num(1u32),
+                U64F64::from_num(1u32),
                 bob()
             ),
             crate::Error::<Test>::OrderAlreadyProcessed
@@ -296,7 +296,7 @@ fn validate_and_classify_applies_buy_fee_to_net() {
             netuid(),
             &orders,
             1_000_000u64,
-            U96F32::from_num(1u32),
+            U64F64::from_num(1u32),
             bob(),
         )
         .expect("validate_and_classify should succeed");
@@ -427,7 +427,7 @@ fn validate_and_classify_stores_effective_swap_limit_for_buy() {
             netuid(),
             &orders,
             1_000_000u64,
-            U96F32::from_num(1u32),
+            U64F64::from_num(1u32),
             bob(),
         )
         .expect("should succeed");
@@ -470,7 +470,7 @@ fn validate_and_classify_stores_effective_swap_limit_for_sell() {
             netuid(),
             &orders,
             1_000_000u64,
-            U96F32::from_num(2u32), // current_price=2.0, scaled=2_000_000_000 >= limit_price=1_000_000_000 ✓
+            U64F64::from_num(2u32), // current_price=2.0, scaled=2_000_000_000 >= limit_price=1_000_000_000 ✓
             bob(),
         )
         .expect("should succeed");
@@ -509,7 +509,7 @@ fn validate_and_classify_fails_for_wrong_relayer() {
                 netuid(),
                 &orders,
                 1_000_000u64,
-                U96F32::from_num(1u32),
+                U64F64::from_num(1u32),
                 bob() // wrong relayer
             ),
             crate::Error::<Test>::RelayerMissMatch
@@ -542,7 +542,7 @@ fn validate_and_classify_succeeds_for_correct_relayer() {
             netuid(),
             &orders,
             1_000_000u64,
-            U96F32::from_num(1u32),
+            U64F64::from_num(1u32),
             charlie(), // correct relayer
         )
         .expect("validate_and_classify should succeed");
@@ -700,7 +700,7 @@ fn distribute_alpha_pro_rata_buy_dominant_scenario_a() {
             1_000u128, // total_buy_net (TAO)
             200u128,   // total_sell_net (alpha passthrough)
             &OrderSide::Buy,
-            U96F32::from_num(1u32),
+            U64F64::from_num(1u32),
             &pallet_acct,
             &pallet_hk,
             netuid(),
@@ -851,7 +851,7 @@ fn distribute_alpha_pro_rata_buy_dominant_scenario_c() {
             1_000u128, // total_buy_net (TAO)
             200u128,   // total_sell_net (alpha passthrough)
             &OrderSide::Buy,
-            U96F32::from_num(1u32),
+            U64F64::from_num(1u32),
             &pallet_acct,
             &pallet_hk,
             netuid(),
@@ -939,7 +939,7 @@ fn distribute_alpha_pro_rata_dust_remains_in_pallet_scenario_d() {
             3u128,  // total_buy_net (TAO) — not divisible into 10 evenly
             0u128,  // total_sell_net — no sellers
             &OrderSide::Buy,
-            U96F32::from_num(1u32),
+            U64F64::from_num(1u32),
             &pallet_acct,
             &pallet_hk,
             netuid(),
@@ -1076,7 +1076,7 @@ fn distribute_tao_pro_rata_sell_dominant_no_fee_scenario_a() {
             800u128,   // total_buy_net (buy passthrough TAO)
             2_000u128, // total_sell_tao_equiv (Alice 800 + Bob 1200)
             &OrderSide::Sell,
-            U96F32::from_num(2u32),
+            U64F64::from_num(2u32),
             &pallet_acct,
             netuid(),
         )
@@ -1137,7 +1137,7 @@ fn distribute_tao_pro_rata_sell_dominant_with_fee_scenario_b() {
             800u128,
             2_000u128,
             &OrderSide::Sell,
-            U96F32::from_num(2u32),
+            U64F64::from_num(2u32),
             &pallet_acct,
             netuid(),
         )
@@ -1198,7 +1198,7 @@ fn distribute_tao_pro_rata_buy_dominant_scenario_c() {
             0u128,     // total_buy_net unused in Buy-dominant branch
             1_000u128, // total_sell_tao_equiv (total_tao = this in Buy branch)
             &OrderSide::Buy,
-            U96F32::from_num(2u32),
+            U64F64::from_num(2u32),
             &pallet_acct,
             netuid(),
         )
@@ -1268,7 +1268,7 @@ fn distribute_tao_pro_rata_dust_remains_in_pallet_scenario_d() {
             0u128,  // total_buy_net — no buyers
             3u128,  // total_sell_tao_equiv — not divisible into 10 evenly
             &OrderSide::Sell,
-            U96F32::from_num(1u32),
+            U64F64::from_num(1u32),
             &pallet_acct,
             netuid(),
         )
