@@ -9,10 +9,7 @@ function createEthersWallet(provider: ethers.JsonRpcProvider): ethers.Wallet {
     return new ethers.Wallet(account.privateKey, provider);
 }
 
-async function estimateTransactionCost(
-    provider: ethers.Provider,
-    tx: ethers.TransactionRequest,
-): Promise<bigint> {
+async function estimateTransactionCost(provider: ethers.Provider, tx: ethers.TransactionRequest): Promise<bigint> {
     const feeData = await provider.getFeeData();
     const estimatedGas = await provider.estimateGas(tx);
     const gasPrice = feeData.gasPrice ?? feeData.maxFeePerGas;
