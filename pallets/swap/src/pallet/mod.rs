@@ -130,10 +130,6 @@ mod pallet {
     pub type HasMigrationRun<T: Config> =
         StorageMap<_, Identity, BoundedVec<u8, MigrationKeyMaxLen>, bool, ValueQuery>;
 
-    /// --- Storage for migration run status
-    // #[pallet::storage]
-    // pub type AlphaSqrtPrice<T> = StorageMap<_, Twox64Concat, NetUid, U64F64, ValueQuery>;
-
     /// Storage for the current price tick.
     #[pallet::storage]
     pub type CurrentTick<T> = StorageMap<_, Twox64Concat, NetUid, TickIndex, ValueQuery>;

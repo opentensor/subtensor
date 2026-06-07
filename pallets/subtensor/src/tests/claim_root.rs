@@ -20,7 +20,7 @@ use frame_support::{assert_err, assert_noop, assert_ok};
 use sp_core::{H256, U256};
 use sp_runtime::DispatchError;
 use std::collections::{BTreeMap, BTreeSet};
-use substrate_fixed::types::{I96F32, U64F64};
+use substrate_fixed::types::I96F32;
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::SwapHandler;
 
