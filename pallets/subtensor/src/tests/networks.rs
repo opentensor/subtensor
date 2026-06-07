@@ -331,8 +331,9 @@ fn dissolve_owner_cut_refund_logic() {
 
         // Use the current alpha price to estimate the TAO equivalent.
         let owner_emission_tao = {
-            let price: U96F32 =
-                <Test as pallet::Config>::SwapInterface::current_alpha_price(net.into());
+            let price: U96F32 = U96F32::saturating_from_num(
+                <Test as pallet::Config>::SwapInterface::current_alpha_price(net.into()),
+            );
             U96F32::from_num(owner_alpha_u64)
                 .saturating_mul(price)
                 .floor()
@@ -341,6 +342,8 @@ fn dissolve_owner_cut_refund_logic() {
         };
 
         let expected_refund: TaoBalance = lock.saturating_sub(owner_emission_tao);
+
+        println!("expected_refund = {:?}", expected_refund);
 
         let before = SubtensorModule::get_coldkey_balance(&oc);
         assert_ok!(SubtensorModule::do_dissolve_network(net));
@@ -450,8 +453,6 @@ fn dissolve_clears_all_per_subnet_storages() {
         // Token / price / provided reserves
         TokenSymbol::<Test>::insert(net, b"XX".to_vec());
         SubnetMovingPrice::<Test>::insert(net, substrate_fixed::types::I96F32::from_num(1));
-        SubnetTaoProvided::<Test>::insert(net, TaoBalance::from(1));
-        SubnetAlphaInProvided::<Test>::insert(net, AlphaBalance::from(1));
 
         // TAO Flow
         SubnetTaoFlow::<Test>::insert(net, 0i64);
@@ -614,8 +615,6 @@ fn dissolve_clears_all_per_subnet_storages() {
         // Token / price / provided reserves
         assert!(!TokenSymbol::<Test>::contains_key(net));
         assert!(!SubnetMovingPrice::<Test>::contains_key(net));
-        assert!(!SubnetTaoProvided::<Test>::contains_key(net));
-        assert!(!SubnetAlphaInProvided::<Test>::contains_key(net));
 
         // Subnet locks
         assert!(!TransferToggle::<Test>::contains_key(net));
@@ -1156,8 +1155,9 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
 
         let owner_emission_tao: u64 = {
             // Fallback matches the pallet's fallback
-            let price: U96F32 =
-                <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
+            let price: U96F32 = U96F32::from_num(
+                <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into()),
+            );
             U96F32::from_num(owner_alpha_u64)
                 .saturating_mul(price)
                 .floor()
@@ -1237,8 +1237,9 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
             .saturating_to_num::<u64>();
 
         let owner_emission_tao_u64 = {
-            let price: U96F32 =
-                <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
+            let price: U96F32 = U96F32::from_num(
+                <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into()),
+            );
             U96F32::from_num(owner_alpha_u64)
                 .saturating_mul(price)
                 .floor()
@@ -2381,8 +2382,8 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
                 "subnet {net:?} still exists"
             );
             assert!(
-                !pallet_subtensor_swap::SwapV3Initialized::<Test>::get(net),
-                "SwapV3Initialized still set"
+                !pallet_subtensor_swap::PalSwapInitialized::<Test>::get(net),
+                "PalSwapInitialized still set"
             );
         }
 
@@ -2679,13 +2680,13 @@ fn dissolve_clears_all_lock_maps_for_removed_network() {
     });
 }
 
-fn owner_alpha_from_lock_and_price(lock_cost_u64: u64, price: U96F32) -> u64 {
-    let alpha = (U96F32::from_num(lock_cost_u64)
+fn owner_alpha_from_lock_and_price(lock_cost_u64: u64, price: U64F64) -> u64 {
+    let alpha = (U64F64::from_num(lock_cost_u64)
         .checked_div(price)
         .unwrap_or_default())
     .floor();
 
-    if alpha > U96F32::from_num(u64::MAX) {
+    if alpha > U64F64::from_num(u64::MAX) {
         u64::MAX
     } else {
         alpha.to_num::<u64>()
@@ -2695,7 +2696,7 @@ fn owner_alpha_from_lock_and_price(lock_cost_u64: u64, price: U96F32) -> u64 {
 #[test]
 fn median_subnet_alpha_price_returns_one_when_no_eligible_subnet_prices() {
     new_test_ext(0).execute_with(|| {
-        let one = U96F32::from_num(1u64);
+        let one = U64F64::from_num(1u64);
 
         // Empty state.
         assert_eq!(SubtensorModule::get_median_subnet_alpha_price(), one);
@@ -2711,7 +2712,7 @@ fn median_subnet_alpha_price_returns_one_when_no_eligible_subnet_prices() {
         setup_reserves(zero_netuid, TaoBalance::ZERO, AlphaBalance::from(100u64));
         assert_eq!(
             <Test as pallet::Config>::SwapInterface::current_alpha_price(zero_netuid.into()),
-            U96F32::from_num(0u64)
+            U64F64::from_num(0u64)
         );
         assert_eq!(SubtensorModule::get_median_subnet_alpha_price(), one);
 
@@ -2886,11 +2887,6 @@ fn register_network_seeds_first_subnet_from_fallback_price_one_and_keeps_lock_in
         assert_eq!(
             RAORecycledForRegistration::<Test>::get(new_netuid),
             expected_recycled
-        );
-        assert_eq!(SubnetTaoProvided::<Test>::get(new_netuid), TaoBalance::ZERO);
-        assert_eq!(
-            SubnetAlphaInProvided::<Test>::get(new_netuid),
-            AlphaBalance::ZERO
         );
 
         assert_eq!(

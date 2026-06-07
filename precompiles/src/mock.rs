@@ -22,7 +22,7 @@ use sp_runtime::{
     testing::TestXt,
     traits::{BlakeTwo256, ConstU32, IdentityLookup},
 };
-use substrate_fixed::types::U96F32;
+use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{AuthorshipInfo, NetUid, ProxyType, TaoBalance};
 
 use crate::PrecompileExt;
@@ -286,7 +286,6 @@ impl pallet_subtensor_swap::Config for Runtime {
     type TaoReserve = pallet_subtensor::TaoBalanceReserve<Self>;
     type AlphaReserve = pallet_subtensor::AlphaBalanceReserve<Self>;
     type MaxFeeRate = SwapMaxFeeRate;
-    type MaxPositions = SwapMaxPositions;
     type MinimumLiquidity = SwapMinimumLiquidity;
     type MinimumReserve = SwapMinimumReserve;
     type WeightInfo = ();
@@ -627,8 +626,8 @@ pub(crate) fn selector_u32(signature: &str) -> u32 {
     u32::from_be_bytes([hash[0], hash[1], hash[2], hash[3]])
 }
 
-pub(crate) fn alpha_price_to_evm(price: U96F32) -> U256 {
-    let scaled_price = (price * U96F32::from_num(EVM_DECIMALS_FACTOR)).to_num::<u64>();
+pub(crate) fn alpha_price_to_evm(price: U64F64) -> U256 {
+    let scaled_price = (price * U64F64::from_num(EVM_DECIMALS_FACTOR)).to_num::<u64>();
     <Runtime as pallet_evm::Config>::BalanceConverter::into_evm_balance(scaled_price.into())
         .expect("runtime balance conversion should work for alpha price")
         .into_u256()

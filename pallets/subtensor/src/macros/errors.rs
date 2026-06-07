@@ -213,8 +213,6 @@ mod errors {
         SubtokenDisabled,
         /// Too frequent hotkey swap on subnet
         HotKeySwapOnSubnetIntervalNotPassed,
-        /// Zero max stake amount
-        ZeroMaxStakeAmount,
         /// Invalid netuid duplication
         SameNetuid,
         /// The caller does not have enough balance for the operation.

@@ -3,7 +3,7 @@ use frame_support::PalletId;
 use safe_math::FixedExt;
 use sp_core::Get;
 use sp_runtime::traits::AccountIdConversion;
-use substrate_fixed::types::U96F32;
+use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{NetUid, TaoBalance};
 impl<T: Config> Pallet<T> {
     /// Returns true if the subnetwork exists.
@@ -228,13 +228,11 @@ impl<T: Config> Pallet<T> {
             pool_initial_tao
         };
 
-        let total_pool_alpha: AlphaBalance = U96F32::saturating_from_num(total_pool_tao.to_u64())
+        let total_pool_alpha: AlphaBalance = U64F64::saturating_from_num(total_pool_tao.to_u64())
             .safe_div(median_subnet_alpha_price)
             .saturating_floor()
             .saturating_to_num::<u64>()
             .into();
-
-        let owner_alpha_stake = AlphaBalance::ZERO;
 
         // With the full lock retained in the reserve, this will normally be zero.
         let tao_recycled_for_registration = actual_tao_lock_amount.saturating_sub(total_pool_tao);
@@ -245,9 +243,7 @@ impl<T: Config> Pallet<T> {
         SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone());
         Self::set_subnet_owner_hotkey(netuid_to_register, hotkey)?;
         SubnetLocked::<T>::insert(netuid_to_register, actual_tao_lock_amount);
-        SubnetTaoProvided::<T>::insert(netuid_to_register, TaoBalance::ZERO);
-        SubnetAlphaInProvided::<T>::insert(netuid_to_register, AlphaBalance::ZERO);
-        SubnetAlphaOut::<T>::insert(netuid_to_register, owner_alpha_stake);
+        SubnetAlphaOut::<T>::insert(netuid_to_register, AlphaBalance::ZERO);
         SubnetVolume::<T>::insert(netuid_to_register, 0u128);
         RAORecycledForRegistration::<T>::insert(netuid_to_register, tao_recycled_for_registration);
 
