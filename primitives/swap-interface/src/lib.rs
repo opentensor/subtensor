@@ -42,15 +42,12 @@ pub trait SwapHandler {
     fn current_alpha_price(netuid: NetUid) -> U64F64;
     fn max_price<C: Token>() -> C;
     fn min_price<C: Token>() -> C;
-    fn is_user_liquidity_enabled(netuid: NetUid) -> bool;
-    // fn dissolve_all_liquidity_providers(netuid: NetUid) -> DispatchResultWithPostInfo;
-    fn toggle_user_liquidity(netuid: NetUid, enabled: bool);
-    fn clear_protocol_liquidity(netuid: NetUid, weight_meter: &mut WeightMeter) -> bool;
     fn adjust_protocol_liquidity(
         netuid: NetUid,
         tao_delta: TaoBalance,
         alpha_delta: AlphaBalance,
     ) -> (TaoBalance, AlphaBalance);
+    fn clear_protocol_liquidity(netuid: NetUid, weight_meter: &mut WeightMeter) -> bool;
     fn init_swap(netuid: NetUid, maybe_price: Option<U64F64>);
     fn get_alpha_amount_for_tao(netuid: NetUid, tao_amount: TaoBalance) -> AlphaBalance;
 }

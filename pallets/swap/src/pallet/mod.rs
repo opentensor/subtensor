@@ -130,28 +130,6 @@ mod pallet {
     pub type HasMigrationRun<T: Config> =
         StorageMap<_, Identity, BoundedVec<u8, MigrationKeyMaxLen>, bool, ValueQuery>;
 
-    /// Storage for the current price tick.
-    #[pallet::storage]
-    pub type CurrentTick<T> = StorageMap<_, Twox64Concat, NetUid, TickIndex, ValueQuery>;
-
-    /// Storage for the current liquidity amount for each subnet.
-    #[pallet::storage]
-    pub type CurrentLiquidity<T> = StorageMap<_, Twox64Concat, NetUid, u64, ValueQuery>;
-
-    /// Indicates whether a subnet has been switched to V3 swap from V2.
-    /// If `true`, the subnet is permanently on V3 swap mode allowing add/remove liquidity
-    /// operations. Once set to `true` for a subnet, it cannot be changed back to `false`.
-    #[pallet::storage]
-    pub type EnabledUserLiquidity<T> = StorageMap<_, Twox64Concat, NetUid, bool, ValueQuery>;
-
-    /// TAO reservoir for scraps of protocol claimed fees.
-    #[pallet::storage]
-    pub type ScrapReservoirTao<T> = StorageMap<_, Twox64Concat, NetUid, TaoBalance, ValueQuery>;
-
-    /// Alpha reservoir for scraps of protocol claimed fees.
-    #[pallet::storage]
-    pub type ScrapReservoirAlpha<T> = StorageMap<_, Twox64Concat, NetUid, AlphaBalance, ValueQuery>;
-
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
