@@ -1,7 +1,8 @@
 # Chopsticks mainnet-fork tests
 
 These tests fork **live finney** with [Chopsticks](https://github.com/AcalaNetwork/chopsticks),
-apply your locally-built runtime, and run extrinsics (currently an `addStake`) against
+apply your locally-built runtime, and run extrinsics (currently an `addStake` and a
+balance transfer) against
 real mainnet state for a single subnet.
 
 Vanilla Chopsticks forking of finney is unusably slow (~15 min) because the chain's
