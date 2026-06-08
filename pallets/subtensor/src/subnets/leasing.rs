@@ -339,9 +339,9 @@ impl<T: Config> Pallet<T> {
         lease: &SubnetLeaseOf<T>,
         beneficiary_hotkey: &T::AccountId,
     ) -> DispatchResult {
-        let mut weight = Weight::zero();
         // We don't refund any weight for the hotkey swap.
-        let _ = Self::perform_hotkey_swap_on_one_subnet(
+        let mut weight = Weight::zero();
+        Self::perform_hotkey_swap_on_one_subnet(
             &lease.hotkey,
             beneficiary_hotkey,
             &mut weight,
@@ -350,7 +350,7 @@ impl<T: Config> Pallet<T> {
         )?;
         Owner::<T>::remove(&lease.hotkey);
         Delegates::<T>::remove(&lease.hotkey);
-        Ok(weight)
+        Ok(())
     }
 
     /// Hook used when the subnet owner's cut is distributed to split the amount into dividends
