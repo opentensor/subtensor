@@ -100,7 +100,7 @@ fn test_get_subnet_hyperparams_v3_values_reflect_storage() {
         SubtensorModule::set_kappa(netuid, 12);
         SubtensorModule::set_immunity_period(netuid, 13);
         SubtensorModule::set_min_allowed_weights(netuid, 14);
-        SubtensorModule::set_tempo(netuid, 16);
+        SubtensorModule::set_tempo_unchecked(netuid, 16);
         SubtensorModule::set_weights_version_key(netuid, 19);
         SubtensorModule::set_weights_set_rate_limit(netuid, 20);
         SubtensorModule::set_activity_cutoff(netuid, 22);
