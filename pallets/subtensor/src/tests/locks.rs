@@ -3956,3 +3956,67 @@ fn test_swap_hotkey_v2_on_subnet_moves_lock_and_conviction_to_new_hotkey() {
         );
     });
 }
+
+#[test]
+fn test_swap_hotkey_v2_on_subnet_does_not_move_locks_on_other_subnets() {
+    new_test_ext(100).execute_with(|| {
+        let coldkey = U256::from(1);
+        let old_hotkey = U256::from(2);
+        let new_hotkey = U256::from(3);
+        let swapped_netuid = setup_subnet_with_stake(coldkey, old_hotkey, 100_000_000_000);
+        let untouched_netuid = setup_subnet_with_stake(coldkey, old_hotkey, 100_000_000_000);
+        let lock_amount: AlphaBalance = 5000u64.into();
+        let conviction = U64F64::from_num(1000);
+
+        for netuid in [swapped_netuid, untouched_netuid] {
+            assert_ok!(SubtensorModule::do_lock_stake(
+                &coldkey,
+                netuid,
+                &old_hotkey,
+                lock_amount,
+            ));
+
+            let mut lock = Lock::<Test>::get((coldkey, netuid, old_hotkey)).unwrap();
+            lock.conviction = conviction;
+            Lock::<Test>::insert((coldkey, netuid, old_hotkey), lock);
+
+            let mut hotkey_lock = HotkeyLock::<Test>::get(netuid, old_hotkey).unwrap();
+            hotkey_lock.conviction = conviction;
+            HotkeyLock::<Test>::insert(netuid, old_hotkey, hotkey_lock);
+        }
+
+        add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000u64.into());
+        assert_ok!(SubtensorModule::swap_hotkey_v2(
+            RuntimeOrigin::signed(coldkey),
+            old_hotkey,
+            new_hotkey,
+            Some(swapped_netuid),
+            false,
+        ));
+
+        assert!(Lock::<Test>::get((coldkey, swapped_netuid, old_hotkey)).is_none());
+        assert!(HotkeyLock::<Test>::get(swapped_netuid, old_hotkey).is_none());
+        assert_eq!(
+            Lock::<Test>::get((coldkey, swapped_netuid, new_hotkey))
+                .unwrap()
+                .conviction,
+            conviction
+        );
+        assert_eq!(
+            HotkeyLock::<Test>::get(swapped_netuid, new_hotkey)
+                .unwrap()
+                .conviction,
+            conviction
+        );
+
+        let untouched_lock = Lock::<Test>::get((coldkey, untouched_netuid, old_hotkey)).unwrap();
+        assert_eq!(untouched_lock.locked_mass, lock_amount);
+        assert_eq!(untouched_lock.conviction, conviction);
+        assert!(Lock::<Test>::get((coldkey, untouched_netuid, new_hotkey)).is_none());
+
+        let untouched_hotkey_lock = HotkeyLock::<Test>::get(untouched_netuid, old_hotkey).unwrap();
+        assert_eq!(untouched_hotkey_lock.locked_mass, lock_amount);
+        assert_eq!(untouched_hotkey_lock.conviction, conviction);
+        assert!(HotkeyLock::<Test>::get(untouched_netuid, new_hotkey).is_none());
+    });
+}
