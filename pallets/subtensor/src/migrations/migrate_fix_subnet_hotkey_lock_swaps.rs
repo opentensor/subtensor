@@ -292,9 +292,10 @@ pub fn migrate_fix_subnet_hotkey_lock_swaps<T: Config>() -> Weight {
             }
             locks
         };
+        let locks_to_fix_count = locks_to_fix.len() as u64;
         weight = weight.saturating_add(
             T::DbWeight::get()
-                .reads_writes(locks_to_fix.len() as u64 + 1, locks_to_fix.len() as u64),
+                .reads_writes(locks_to_fix_count.saturating_add(1), locks_to_fix_count),
         );
 
         if locks_to_fix.is_empty() {
