@@ -350,7 +350,11 @@ impl<T: Config> Pallet<T> {
             weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
         }
 
-        // 9. Perform the hotkey swap
+        // 9. Swap the stake locks
+        let (reads, writes) = Self::swap_hotkey_locks(old_hotkey, new_hotkey);
+        weight.saturating_accrue(T::DbWeight::get().reads_writes(reads, writes));
+
+        // 10. Perform the hotkey swap
         Self::perform_hotkey_swap_on_one_subnet(
             old_hotkey,
             new_hotkey,
@@ -359,12 +363,12 @@ impl<T: Config> Pallet<T> {
             keep_stake,
         )?;
 
-        // 10. Update the last transaction block for the coldkey
+        // 11. Update the last transaction block for the coldkey
         Self::set_last_tx_block(coldkey, block);
         LastHotkeySwapOnNetuid::<T>::insert(netuid, coldkey, block);
         weight.saturating_accrue(T::DbWeight::get().writes(2));
 
-        // 11. Emit an event for the hotkey swap
+        // 12. Emit an event for the hotkey swap
         Self::deposit_event(Event::HotkeySwappedOnSubnet {
             coldkey: coldkey.clone(),
             old_hotkey: old_hotkey.clone(),

@@ -3851,3 +3851,108 @@ fn test_moving_partial_lock_same_owners() {
         );
     });
 }
+
+#[test]
+fn test_hotkey_swap_moves_lock_and_conviction_to_new_hotkey() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let old_hotkey = U256::from(2);
+        let new_hotkey = U256::from(3);
+        let netuid = setup_subnet_with_stake(coldkey, old_hotkey, 100_000_000_000);
+        let lock_amount: AlphaBalance = 5000u64.into();
+        let conviction = U64F64::from_num(1000);
+
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey,
+            netuid,
+            &old_hotkey,
+            lock_amount,
+        ));
+
+        let mut lock = Lock::<Test>::get((coldkey, netuid, old_hotkey)).unwrap();
+        lock.conviction = conviction;
+        Lock::<Test>::insert((coldkey, netuid, old_hotkey), lock);
+
+        let mut hotkey_lock = HotkeyLock::<Test>::get(netuid, old_hotkey).unwrap();
+        hotkey_lock.conviction = conviction;
+        HotkeyLock::<Test>::insert(netuid, old_hotkey, hotkey_lock);
+
+        add_balance_to_coldkey_account(
+            &coldkey,
+            (SubtensorModule::get_key_swap_cost() + 1000.into()).into(),
+        );
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            RuntimeOrigin::signed(coldkey),
+            &old_hotkey,
+            &new_hotkey,
+            None,
+            false,
+        ));
+
+        assert!(Lock::<Test>::get((coldkey, netuid, old_hotkey)).is_none());
+        assert!(HotkeyLock::<Test>::get(netuid, old_hotkey).is_none());
+
+        let moved_lock = Lock::<Test>::get((coldkey, netuid, new_hotkey)).unwrap();
+        assert_eq!(moved_lock.locked_mass, lock_amount);
+        assert_eq!(moved_lock.conviction, conviction);
+
+        let moved_hotkey_lock = HotkeyLock::<Test>::get(netuid, new_hotkey).unwrap();
+        assert_eq!(moved_hotkey_lock.locked_mass, lock_amount);
+        assert_eq!(moved_hotkey_lock.conviction, conviction);
+        assert_eq!(
+            SubtensorModule::hotkey_conviction(&new_hotkey, netuid),
+            conviction
+        );
+    });
+}
+
+#[test]
+fn test_swap_hotkey_v2_on_subnet_moves_lock_and_conviction_to_new_hotkey() {
+    new_test_ext(100).execute_with(|| {
+        let coldkey = U256::from(1);
+        let old_hotkey = U256::from(2);
+        let new_hotkey = U256::from(3);
+        let netuid = setup_subnet_with_stake(coldkey, old_hotkey, 100_000_000_000);
+        let lock_amount: AlphaBalance = 5000u64.into();
+        let conviction = U64F64::from_num(1000);
+
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey,
+            netuid,
+            &old_hotkey,
+            lock_amount,
+        ));
+
+        let mut lock = Lock::<Test>::get((coldkey, netuid, old_hotkey)).unwrap();
+        lock.conviction = conviction;
+        Lock::<Test>::insert((coldkey, netuid, old_hotkey), lock);
+
+        let mut hotkey_lock = HotkeyLock::<Test>::get(netuid, old_hotkey).unwrap();
+        hotkey_lock.conviction = conviction;
+        HotkeyLock::<Test>::insert(netuid, old_hotkey, hotkey_lock);
+
+        add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000u64.into());
+        assert_ok!(SubtensorModule::swap_hotkey_v2(
+            RuntimeOrigin::signed(coldkey),
+            old_hotkey,
+            new_hotkey,
+            Some(netuid),
+            false,
+        ));
+
+        assert!(Lock::<Test>::get((coldkey, netuid, old_hotkey)).is_none());
+        assert!(HotkeyLock::<Test>::get(netuid, old_hotkey).is_none());
+
+        let moved_lock = Lock::<Test>::get((coldkey, netuid, new_hotkey)).unwrap();
+        assert_eq!(moved_lock.locked_mass, lock_amount);
+        assert_eq!(moved_lock.conviction, conviction);
+
+        let moved_hotkey_lock = HotkeyLock::<Test>::get(netuid, new_hotkey).unwrap();
+        assert_eq!(moved_hotkey_lock.locked_mass, lock_amount);
+        assert_eq!(moved_hotkey_lock.conviction, conviction);
+        assert_eq!(
+            SubtensorModule::hotkey_conviction(&new_hotkey, netuid),
+            conviction
+        );
+    });
+}
