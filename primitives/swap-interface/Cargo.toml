@@ -16,6 +16,10 @@ workspace = true
 
 [features]
 default = ["std"]
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"subtensor-runtime-common/runtime-benchmarks",
+]
 std = [
 	"codec/std",
 	"frame-support/std",
