@@ -1950,7 +1950,10 @@ mod dispatches {
         /// * `hotkey` (T::AccountId):
         ///     - The hotkey of the beneficiary to mark as subnet owner hotkey.
         #[pallet::call_index(111)]
-        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::terminate_lease(T::MaxContributors::get()))]
+        #[pallet::weight(
+            <T as crate::pallet::Config>::WeightInfo::terminate_lease(T::MaxContributors::get())
+            .saturating_add(<T as crate::pallet::Config>::WeightInfo::swap_hotkey())
+        )]
         pub fn terminate_lease(
             origin: OriginFor<T>,
             lease_id: LeaseId,
