@@ -2,7 +2,7 @@ use super::*;
 use safe_math::*;
 use share_pool::{SafeFloat, SharePool, SharePoolDataOperations};
 use sp_std::{collections::btree_map::BTreeMap, ops::Neg};
-use substrate_fixed::types::{I64F64, I96F32, U96F32};
+use substrate_fixed::types::{I64F64, I96F32, U64F64, U96F32};
 use subtensor_runtime_common::{AlphaBalance, AuthorshipInfo, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::{Order, SwapHandler, SwapResult};
 
@@ -21,8 +21,8 @@ impl<T: Config> Pallet<T> {
         SubnetAlphaIn::<T>::get(netuid).saturating_add(SubnetAlphaOut::<T>::get(netuid))
     }
 
-    pub fn get_moving_alpha_price(netuid: NetUid) -> U96F32 {
-        let one = U96F32::saturating_from_num(1.0);
+    pub fn get_moving_alpha_price(netuid: NetUid) -> U64F64 {
+        let one = U64F64::saturating_from_num(1.0);
         if netuid.is_root() {
             // Root.
             one
@@ -30,12 +30,12 @@ impl<T: Config> Pallet<T> {
             // Stable
             one
         } else {
-            U96F32::saturating_from_num(SubnetMovingPrice::<T>::get(netuid))
+            U64F64::saturating_from_num(SubnetMovingPrice::<T>::get(netuid))
         }
     }
 
     pub fn update_moving_price(netuid: NetUid) {
-        let blocks_since_start_call = U96F32::saturating_from_num({
+        let blocks_since_start_call = U64F64::saturating_from_num({
             // We expect FirstEmissionBlockNumber to be set earlier, and we take the block when
             // `start_call` was called (first block before FirstEmissionBlockNumber).
             let start_call_block = FirstEmissionBlockNumber::<T>::get(netuid)
@@ -50,19 +50,20 @@ impl<T: Config> Pallet<T> {
         // will take in order for the distance between current EMA of price and current price to shorten
         // by half.
         let halving_time = EMAPriceHalvingBlocks::<T>::get(netuid);
-        let current_ma_unsigned = U96F32::saturating_from_num(SubnetMovingAlpha::<T>::get());
-        let alpha: U96F32 = current_ma_unsigned.saturating_mul(blocks_since_start_call.safe_div(
-            blocks_since_start_call.saturating_add(U96F32::saturating_from_num(halving_time)),
+        let current_ma_unsigned = U64F64::saturating_from_num(SubnetMovingAlpha::<T>::get());
+        let alpha: U64F64 = current_ma_unsigned.saturating_mul(blocks_since_start_call.safe_div(
+            blocks_since_start_call.saturating_add(U64F64::saturating_from_num(halving_time)),
         ));
         // Because alpha = b / (b + h), where b and h > 0, alpha < 1, so 1 - alpha > 0.
         // We can use unsigned type here: U96F32
-        let one_minus_alpha: U96F32 = U96F32::saturating_from_num(1.0).saturating_sub(alpha);
-        let current_price: U96F32 = alpha.saturating_mul(
+        let one_minus_alpha: U64F64 = U64F64::saturating_from_num(1.0).saturating_sub(alpha);
+        let current_price: U64F64 = alpha.saturating_mul(U64F64::saturating_from_num(
             T::SwapInterface::current_alpha_price(netuid.into())
-                .min(U96F32::saturating_from_num(1.0)),
-        );
-        let current_moving: U96F32 =
-            one_minus_alpha.saturating_mul(Self::get_moving_alpha_price(netuid));
+                .min(U64F64::saturating_from_num(1.0)),
+        ));
+        let current_moving: U64F64 = one_minus_alpha.saturating_mul(U64F64::saturating_from_num(
+            Self::get_moving_alpha_price(netuid),
+        ));
         // Convert batch to signed I96F32 to avoid migration of SubnetMovingPrice for now``
         let new_moving: I96F32 =
             I96F32::saturating_from_num(current_price.saturating_add(current_moving));
@@ -70,12 +71,12 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Gets the Median Subnet Alpha Price
-    pub fn get_median_subnet_alpha_price() -> U96F32 {
-        let default_price = U96F32::saturating_from_num(1_u64);
-        let zero_price = U96F32::saturating_from_num(0_u64);
-        let two = U96F32::saturating_from_num(2_u64);
+    pub fn get_median_subnet_alpha_price() -> U64F64 {
+        let default_price = U64F64::saturating_from_num(1_u64);
+        let zero_price = U64F64::saturating_from_num(0_u64);
+        let two = U64F64::saturating_from_num(2_u64);
 
-        let mut price_counts: BTreeMap<U96F32, usize> = BTreeMap::new();
+        let mut price_counts: BTreeMap<U64F64, usize> = BTreeMap::new();
         let mut total_prices: usize = 0;
 
         for (netuid, added) in NetworksAdded::<T>::iter() {
@@ -112,8 +113,8 @@ impl<T: Config> Pallet<T> {
         };
 
         let mut cumulative: usize = 0;
-        let mut lower_price: Option<U96F32> = None;
-        let mut upper_price: Option<U96F32> = None;
+        let mut lower_price: Option<U64F64> = None;
+        let mut upper_price: Option<U64F64> = None;
 
         for (price, count) in price_counts.into_iter() {
             let next_cumulative = cumulative.saturating_add(count);
@@ -847,7 +848,6 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         tao: TaoBalance,
         price_limit: TaoBalance,
-        set_limit: bool,
         drop_fees: bool,
     ) -> Result<AlphaBalance, DispatchError> {
         // Transfer TAO from coldkey to the subnet account.
@@ -912,10 +912,6 @@ impl<T: Config> Pallet<T> {
         Self::cleanup_lock_if_zero(coldkey, netuid);
 
         LastColdkeyHotkeyStakeBlock::<T>::insert(coldkey, hotkey, Self::get_current_block_as_u64());
-
-        if set_limit {
-            Self::set_stake_operation_limit(hotkey, coldkey, netuid.into());
-        }
 
         // If this is a root-stake
         if netuid == NetUid::ROOT {
@@ -999,7 +995,7 @@ impl<T: Config> Pallet<T> {
         let current_price =
             <T as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
         let tao_equivalent: TaoBalance = current_price
-            .saturating_mul(U96F32::saturating_from_num(alpha))
+            .saturating_mul(U64F64::saturating_from_num(alpha))
             .saturating_to_num::<u64>()
             .into();
 
@@ -1143,8 +1139,6 @@ impl<T: Config> Pallet<T> {
         // Ensure that the subnet exists.
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 
-        Self::ensure_stake_operation_limit_not_exceeded(hotkey, coldkey, netuid.into())?;
-
         // Ensure that the subnet is enabled.
         // Self::ensure_subtoken_enabled(netuid)?;
 
@@ -1245,12 +1239,6 @@ impl<T: Config> Pallet<T> {
         if origin_coldkey == destination_coldkey && origin_hotkey == destination_hotkey {
             ensure!(origin_netuid != destination_netuid, Error::<T>::SameNetuid);
         }
-
-        Self::ensure_stake_operation_limit_not_exceeded(
-            origin_hotkey,
-            origin_coldkey,
-            origin_netuid.into(),
-        )?;
 
         // Ensure that both subnets exist.
         ensure!(
@@ -1371,27 +1359,6 @@ impl<T: Config> Pallet<T> {
                 *total = total.saturating_sub(alpha);
             });
         }
-    }
-
-    pub fn set_stake_operation_limit(
-        hotkey: &T::AccountId,
-        coldkey: &T::AccountId,
-        netuid: NetUid,
-    ) {
-        StakingOperationRateLimiter::<T>::insert((hotkey, coldkey, netuid), true);
-    }
-
-    pub fn ensure_stake_operation_limit_not_exceeded(
-        hotkey: &T::AccountId,
-        coldkey: &T::AccountId,
-        netuid: NetUid,
-    ) -> Result<(), Error<T>> {
-        ensure!(
-            !StakingOperationRateLimiter::<T>::contains_key((hotkey, coldkey, netuid)),
-            Error::<T>::StakingOperationRateLimitExceeded
-        );
-
-        Ok(())
     }
 }
 

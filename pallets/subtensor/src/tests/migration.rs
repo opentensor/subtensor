@@ -48,6 +48,27 @@ fn close(value: u64, target: u64, eps: u64) {
 }
 
 #[test]
+fn test_migrate_tao_in_refund_deployment_block() {
+    new_test_ext(1).execute_with(|| {
+        let deployment_block: u64 = 42;
+        let migration_name = b"migrate_tao_in_refund_deployment_block".to_vec();
+
+        TaoInRefundDeploymentBlock::<Test>::put(0);
+        HasMigrationRun::<Test>::remove(&migration_name);
+
+        run_to_block(deployment_block);
+        crate::migrations::migrate_tao_in_refund_deployment_block::migrate_tao_in_refund_deployment_block::<Test>();
+
+        assert_eq!(TaoInRefundDeploymentBlock::<Test>::get(), deployment_block);
+        assert!(HasMigrationRun::<Test>::get(&migration_name));
+
+        run_to_block(deployment_block.saturating_add(1));
+        crate::migrations::migrate_tao_in_refund_deployment_block::migrate_tao_in_refund_deployment_block::<Test>();
+
+        assert_eq!(TaoInRefundDeploymentBlock::<Test>::get(), deployment_block);
+    });
+}
+#[test]
 fn test_migration_transfer_nets_to_foundation() {
     new_test_ext(1).execute_with(|| {
         // Create subnet 1
@@ -2642,9 +2663,11 @@ fn test_migrate_reset_unactive_sn() {
                 PendingRootAlphaDivs::<Test>::get(netuid),
                 AlphaBalance::ZERO
             );
-            assert!(pallet_subtensor_swap::AlphaSqrtPrice::<Test>::contains_key(
-                netuid
-            ));
+            assert_eq!(
+                // not modified
+                RAORecycledForRegistration::<Test>::get(netuid),
+                *rao_recycled_before.get(&netuid).unwrap()
+            );
             assert_eq!(PendingOwnerCut::<Test>::get(netuid), AlphaBalance::ZERO);
             assert_ne!(SubnetTAO::<Test>::get(netuid), initial_tao);
             assert_ne!(SubnetAlphaIn::<Test>::get(netuid), initial_alpha);
@@ -2726,9 +2749,6 @@ fn test_migrate_reset_unactive_sn() {
                 SubnetAlphaOutEmission::<Test>::get(netuid),
                 AlphaBalance::ZERO
             );
-            assert!(pallet_subtensor_swap::AlphaSqrtPrice::<Test>::contains_key(
-                netuid
-            ));
             assert_ne!(PendingOwnerCut::<Test>::get(netuid), AlphaBalance::ZERO);
             assert_ne!(SubnetTAO::<Test>::get(netuid), initial_tao);
             assert_ne!(SubnetAlphaIn::<Test>::get(netuid), initial_alpha);
@@ -2892,6 +2912,54 @@ fn test_migrate_remove_unknown_neuron_axon_cert_prom() {
             assert!(!Prometheus::<Test>::contains_key(netuid, hk));
         }
     }
+}
+
+// cargo test --package pallet-subtensor --lib -- tests::migration::test_migrate_cleanup_swap_v3 --exact --nocapture
+#[test]
+fn test_migrate_cleanup_swap_v3() {
+    use crate::migrations::migrate_cleanup_swap_v3::deprecated_swap_maps;
+    use substrate_fixed::types::U64F64;
+
+    new_test_ext(1).execute_with(|| {
+        let migration = crate::migrations::migrate_cleanup_swap_v3::migrate_cleanup_swap_v3::<Test>;
+
+        const MIGRATION_NAME: &str = "migrate_cleanup_swap_v3";
+
+        let provided: u64 = 9876;
+        let reserves: u64 = 1_000_000;
+
+        SubnetTAO::<Test>::insert(NetUid::from(1), TaoBalance::from(reserves));
+        SubnetAlphaIn::<Test>::insert(NetUid::from(1), AlphaBalance::from(reserves));
+
+        // Insert deprecated maps values
+        deprecated_swap_maps::SubnetTaoProvided::<Test>::insert(
+            NetUid::from(1),
+            TaoBalance::from(provided),
+        );
+        deprecated_swap_maps::SubnetAlphaInProvided::<Test>::insert(
+            NetUid::from(1),
+            AlphaBalance::from(provided),
+        );
+
+        // Run migration
+        let weight = migration();
+
+        // Test that values are removed from state
+        assert!(!deprecated_swap_maps::SubnetTaoProvided::<Test>::contains_key(NetUid::from(1)),);
+        assert!(
+            !deprecated_swap_maps::SubnetAlphaInProvided::<Test>::contains_key(NetUid::from(1)),
+        );
+
+        // Provided got added to reserves
+        assert_eq!(
+            u64::from(SubnetTAO::<Test>::get(NetUid::from(1))),
+            reserves + provided
+        );
+        assert_eq!(
+            u64::from(SubnetAlphaIn::<Test>::get(NetUid::from(1))),
+            reserves + provided
+        );
+    });
 }
 
 #[test]

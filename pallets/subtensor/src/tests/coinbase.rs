@@ -12,8 +12,6 @@ use crate::*;
 use alloc::collections::BTreeMap;
 use approx::assert_abs_diff_eq;
 use frame_support::assert_ok;
-use pallet_subtensor_swap::position::PositionId;
-use safe_math::FixedExt;
 use sp_core::U256;
 use substrate_fixed::{
     transcendental::sqrt,
@@ -398,20 +396,8 @@ fn test_coinbase_tao_issuance_different_prices() {
         mock::setup_reserves(netuid2, initial_tao.into(), initial_alpha2.into());
 
         // Force the swap to initialize
-        SubtensorModule::swap_tao_for_alpha(
-            netuid1,
-            TaoBalance::ZERO,
-            1_000_000_000_000_u64.into(),
-            false,
-        )
-        .unwrap();
-        SubtensorModule::swap_tao_for_alpha(
-            netuid2,
-            TaoBalance::ZERO,
-            1_000_000_000_000_u64.into(),
-            false,
-        )
-        .unwrap();
+        <Test as pallet::Config>::SwapInterface::init_swap(netuid1, None);
+        <Test as pallet::Config>::SwapInterface::init_swap(netuid2, None);
 
         // Make subnets dynamic.
         SubnetMechanism::<Test>::insert(netuid1, 1);
@@ -474,20 +460,8 @@ fn test_coinbase_tao_issuance_different_prices() {
 //         mock::setup_reserves(netuid2, initial_tao.into(), initial_alpha2.into());
 
 //         // Force the swap to initialize
-//         SubtensorModule::swap_tao_for_alpha(
-//             netuid1,
-//             TaoBalance::ZERO,
-//             1_000_000_000_000.into(),
-//             false,
-//         )
-//         .unwrap();
-//         SubtensorModule::swap_tao_for_alpha(
-//             netuid2,
-//             TaoBalance::ZERO,
-//             1_000_000_000_000.into(),
-//             false,
-//         )
-//         .unwrap();
+//         <Test as pallet::Config>::SwapInterface::init_swap(netuid1);
+//         <Test as pallet::Config>::SwapInterface::init_swap(netuid2);
 
 //         // Set subnet prices to reversed proportion to ensure they don't affect emissions.
 //         SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(2));
@@ -575,7 +549,7 @@ fn test_coinbase_moving_prices() {
         // Run moving 1 times.
         SubtensorModule::update_moving_price(netuid);
         // Assert price is ~ 100% of the real price.
-        assert!(U96F32::from_num(1.0) - SubtensorModule::get_moving_alpha_price(netuid) < 0.05);
+        assert!(U64F64::from_num(1.0) - SubtensorModule::get_moving_alpha_price(netuid) < 0.05);
         // Set price to zero.
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(0));
         SubnetMovingAlpha::<Test>::set(I96F32::from_num(0.1));
@@ -796,20 +770,8 @@ fn test_coinbase_alpha_issuance_with_cap_trigger_and_block_emission() {
         SubnetTaoFlow::<Test>::insert(netuid2, 200_000_000_i64);
 
         // Force the swap to initialize
-        SubtensorModule::swap_tao_for_alpha(
-            netuid1,
-            TaoBalance::ZERO,
-            1_000_000_000_000_u64.into(),
-            false,
-        )
-        .unwrap();
-        SubtensorModule::swap_tao_for_alpha(
-            netuid2,
-            TaoBalance::ZERO,
-            1_000_000_000_000_u64.into(),
-            false,
-        )
-        .unwrap();
+        <Test as pallet::Config>::SwapInterface::init_swap(netuid1, None);
+        <Test as pallet::Config>::SwapInterface::init_swap(netuid2, None);
 
         // Get the prices before the run_coinbase
         let price_1_before = <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid1);
@@ -822,6 +784,13 @@ fn test_coinbase_alpha_issuance_with_cap_trigger_and_block_emission() {
         // Run coinbase
         SubtensorModule::run_coinbase(emission_credit);
 
+        // New behavior: chain-bought alpha is cached instead of recycled.
+        // The cached amount remains part of outstanding alpha supply.
+        assert!(
+            !SubnetProtocolAlpha::<Test>::get(netuid1).is_zero()
+                || !SubnetProtocolAlpha::<Test>::get(netuid2).is_zero()
+        );
+
         // Get the prices after the run_coinbase
         let price_1_after = <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid1);
         let price_2_after = <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid2);
@@ -831,11 +800,13 @@ fn test_coinbase_alpha_issuance_with_cap_trigger_and_block_emission() {
         assert_eq!(
             u64::from(SubnetAlphaOut::<Test>::get(netuid2)),
             21_000_000_000_000_000_u64
+                .saturating_add(u64::from(SubnetProtocolAlpha::<Test>::get(netuid2)))
         );
         assert!(u64::from(SubnetAlphaIn::<Test>::get(netuid2)) < initial_alpha);
         assert_eq!(
             u64::from(SubnetAlphaOut::<Test>::get(netuid2)),
             21_000_000_000_000_000_u64
+                .saturating_add(u64::from(SubnetProtocolAlpha::<Test>::get(netuid2)))
         );
 
         assert!(price_1_after > price_1_before);
@@ -2921,55 +2892,6 @@ fn test_run_coinbase_not_started_start_after() {
     });
 }
 
-/// Test that coinbase updates protocol position liquidity
-/// cargo test --package pallet-subtensor --lib -- tests::coinbase::test_coinbase_v3_liquidity_update --exact --show-output
-#[test]
-fn test_coinbase_v3_liquidity_update() {
-    new_test_ext(1).execute_with(|| {
-        let owner_hotkey = U256::from(1);
-        let owner_coldkey = U256::from(2);
-
-        // add network
-        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
-
-        // Force the swap to initialize
-        SubtensorModule::swap_tao_for_alpha(
-            netuid,
-            TaoBalance::ZERO,
-            1_000_000_000_000_u64.into(),
-            false,
-        )
-        .unwrap();
-
-        let protocol_account_id = pallet_subtensor_swap::Pallet::<Test>::protocol_account_id();
-        let position = pallet_subtensor_swap::Positions::<Test>::get((
-            netuid,
-            protocol_account_id,
-            PositionId::from(1),
-        ))
-        .unwrap();
-        let liquidity_before = position.liquidity;
-
-        // Enable emissions and run coinbase (which will increase position liquidity)
-        let emission: u64 = 1_234_567;
-        let emission_credit = SubtensorModule::mint_tao(emission.into());
-        // Set the TAO flow to non-zero
-        SubnetTaoFlow::<Test>::insert(netuid, 8348383_i64);
-        FirstEmissionBlockNumber::<Test>::insert(netuid, 0);
-        SubtensorModule::run_coinbase(emission_credit);
-
-        let position_after = pallet_subtensor_swap::Positions::<Test>::get((
-            netuid,
-            protocol_account_id,
-            PositionId::from(1),
-        ))
-        .unwrap();
-        let liquidity_after = position_after.liquidity;
-
-        assert!(liquidity_before < liquidity_after);
-    });
-}
-
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_drain_alpha_childkey_parentkey_with_burn --exact --show-output --nocapture
 #[test]
 fn test_drain_alpha_childkey_parentkey_with_burn() {
@@ -3263,11 +3185,8 @@ fn test_mining_emission_distribution_with_no_root_sell() {
 
         // Make root sell NOT happen
         // set price very low, e.g. a lot of alpha in
-        //SubnetAlphaIn::<Test>::insert(netuid, AlphaBalance::from(1_000_000_000_000_000));
-        pallet_subtensor_swap::AlphaSqrtPrice::<Test>::insert(
-            netuid,
-            U64F64::saturating_from_num(0.01),
-        );
+        let alpha = AlphaBalance::from(1_000_000_000_000_000_000_u64);
+        SubnetAlphaIn::<Test>::insert(netuid, alpha);
 
         // Make sure we ARE NOT root selling, so we do not have root alpha divs.
         let root_sell_flag = SubtensorModule::get_network_root_sell_flag(&[netuid]);
@@ -3459,10 +3378,8 @@ fn test_mining_emission_distribution_with_root_sell() {
         // Make root sell happen
         // Set moving price > 1.0
         // Set price > 1.0
-        pallet_subtensor_swap::AlphaSqrtPrice::<Test>::insert(
-            netuid,
-            U64F64::saturating_from_num(10.0),
-        );
+        let alpha = AlphaBalance::from(100_000_000_000_000_u64);
+        SubnetAlphaIn::<Test>::insert(netuid, alpha);
 
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(2));
 
@@ -3587,8 +3504,8 @@ fn test_coinbase_subnet_terms_with_alpha_in_gt_alpha_emission() {
             TaoBalance::from(1_000_000_000_000_000_u64),
             AlphaBalance::from(1_000_000_000_000_000_u64),
         );
-        // Initialize swap v3
-        Swap::maybe_initialize_v3(netuid0);
+        // Initialize swap
+        Swap::maybe_initialize_palswap(netuid0, None);
 
         // Set netuid0 to have price tao_emission / price > alpha_emission
         let alpha_emission = U96F32::saturating_from_num(
@@ -3599,14 +3516,19 @@ fn test_coinbase_subnet_terms_with_alpha_in_gt_alpha_emission() {
         );
         let price_to_set: U64F64 = U64F64::saturating_from_num(0.01);
         let price_to_set_fixed: U96F32 = U96F32::saturating_from_num(price_to_set);
-        let sqrt_price_to_set: U64F64 = sqrt(price_to_set).unwrap();
 
         let tao_emission: U96F32 = U96F32::saturating_from_num(alpha_emission)
             .saturating_mul(price_to_set_fixed)
             .saturating_add(U96F32::saturating_from_num(0.01));
 
         // Set the price
-        pallet_subtensor_swap::AlphaSqrtPrice::<Test>::insert(netuid0, sqrt_price_to_set);
+        let tao = TaoBalance::from(1_000_000_000_u64);
+        let alpha = AlphaBalance::from(
+            (U64F64::saturating_from_num(u64::from(tao)) / price_to_set).to_num::<u64>(),
+        );
+        SubnetTAO::<Test>::insert(netuid0, tao);
+        SubnetAlphaIn::<Test>::insert(netuid0, alpha);
+
         // Check the price is set
         assert_abs_diff_eq!(
             pallet_subtensor_swap::Pallet::<Test>::current_alpha_price(netuid0).to_num::<f64>(),
@@ -3663,8 +3585,8 @@ fn test_coinbase_subnet_terms_with_alpha_in_lte_alpha_emission() {
             TaoBalance::from(1_000_000_000_000_000_u64),
             AlphaBalance::from(1_000_000_000_000_000_u64),
         );
-        // Initialize swap v3
-        Swap::maybe_initialize_v3(netuid0);
+        // Initialize swap
+        Swap::maybe_initialize_palswap(netuid0, None);
 
         let alpha_emission = U96F32::saturating_from_num(
             SubtensorModule::get_block_emission_for_issuance(
@@ -3674,7 +3596,7 @@ fn test_coinbase_subnet_terms_with_alpha_in_lte_alpha_emission() {
         );
         let tao_emission = U96F32::saturating_from_num(34566756_u64);
 
-        let price: U96F32 = Swap::current_alpha_price(netuid0);
+        let price: U96F32 = U96F32::saturating_from_num(Swap::current_alpha_price(netuid0));
 
         let subnet_emissions = BTreeMap::from([(netuid0, tao_emission)]);
 
@@ -3726,8 +3648,8 @@ fn test_coinbase_inject_and_maybe_swap_does_not_skew_reserves() {
             TaoBalance::from(1_000_000_000_000_000_u64),
             AlphaBalance::from(1_000_000_000_000_000_u64),
         );
-        // Initialize swap v3
-        Swap::maybe_initialize_v3(netuid0);
+        // Initialize swap
+        Swap::maybe_initialize_palswap(netuid0, None);
 
         let tao_in = BTreeMap::from([(netuid0, U96F32::saturating_from_num(123))]);
         let alpha_in = BTreeMap::from([(netuid0, U96F32::saturating_from_num(456))]);
@@ -3861,8 +3783,8 @@ fn test_coinbase_emit_to_subnets_with_no_root_sell() {
             TaoBalance::from(1_000_000_000_000_000_u64),
             AlphaBalance::from(1_000_000_000_000_000_u64),
         );
-        // Initialize swap v3
-        Swap::maybe_initialize_v3(netuid0);
+        // Initialize swap
+        Swap::maybe_initialize_palswap(netuid0, None);
 
         let tao_emission = U96F32::saturating_from_num(12345678);
         let subnet_emissions = BTreeMap::from([(netuid0, tao_emission)]);
@@ -3876,7 +3798,7 @@ fn test_coinbase_emit_to_subnets_with_no_root_sell() {
             )
             .unwrap_or(0),
         );
-        let price: U96F32 = Swap::current_alpha_price(netuid0);
+        let price: U96F32 = U96F32::saturating_from_num(Swap::current_alpha_price(netuid0));
         let (tao_in, alpha_in, alpha_out, excess_tao) =
             SubtensorModule::get_subnet_terms(&subnet_emissions);
         // Based on the price, we should have NO excess TAO
@@ -3953,8 +3875,8 @@ fn test_coinbase_emit_to_subnets_with_root_sell() {
             TaoBalance::from(1_000_000_000_000_000_u64),
             AlphaBalance::from(1_000_000_000_000_000_u64),
         );
-        // Initialize swap v3
-        Swap::maybe_initialize_v3(netuid0);
+        // Initialize swap
+        Swap::maybe_initialize_palswap(netuid0, None);
 
         let tao_emission = U96F32::saturating_from_num(12345678);
         let subnet_emissions = BTreeMap::from([(netuid0, tao_emission)]);
@@ -3968,7 +3890,7 @@ fn test_coinbase_emit_to_subnets_with_root_sell() {
             )
             .unwrap_or(0),
         );
-        let price: U96F32 = Swap::current_alpha_price(netuid0);
+        let price: U96F32 = U96F32::saturating_from_num(Swap::current_alpha_price(netuid0));
         let (tao_in, alpha_in, alpha_out, excess_tao) =
             SubtensorModule::get_subnet_terms(&subnet_emissions);
         // Based on the price, we should have NO excess TAO
@@ -4201,10 +4123,10 @@ fn test_pending_emission_start_call_not_done() {
         // Make root sell happen
         // Set moving price > 1.0
         // Set price > 1.0
-        pallet_subtensor_swap::AlphaSqrtPrice::<Test>::insert(
-            netuid,
-            U64F64::saturating_from_num(10.0),
-        );
+        let tao = TaoBalance::from(10_000_000_000_u64);
+        let alpha = AlphaBalance::from(1_000_000_000_u64);
+        SubnetTAO::<Test>::insert(netuid, tao);
+        SubnetAlphaIn::<Test>::insert(netuid, alpha);
 
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(2));
 
