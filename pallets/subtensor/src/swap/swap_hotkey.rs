@@ -351,7 +351,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // 9. Swap the stake locks
-        let (reads, writes) = Self::swap_hotkey_locks(old_hotkey, new_hotkey);
+        let (reads, writes) = Self::swap_hotkey_locks_on_subnet(old_hotkey, new_hotkey, netuid);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(reads, writes));
 
         // 10. Perform the hotkey swap
