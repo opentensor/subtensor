@@ -38,6 +38,34 @@
             }
         },
         {
+            "name": "chopsticks_fork",
+            "timeout": 300000,
+            "testFileDir": ["suites/chopsticks_fork"],
+            "runScripts": [
+                "gen-chopsticks-fork.ts configs/chopsticks-fork.yml tmp/chopsticks-fork-slim.yml"
+            ],
+            "foundation": {
+                "type": "chopsticks",
+                "launchSpec": [
+                    {
+                        "name": "subtensor",
+                        "configPath": "tmp/chopsticks-fork-slim.yml",
+                        "buildBlockMode": "manual",
+                        "allowUnresolvedImports": true,
+                        "newBlockTimeout": 120000,
+                        "wasmOverride": "../target/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm"
+                    }
+                ]
+            },
+            "connections": [
+                {
+                    "name": "node",
+                    "type": "polkadotJs",
+                    "endpoints": ["ws://127.0.0.1:8000"]
+                }
+            ]
+        },
+        {
             "name": "zombienet_staking",
             "timeout": 600000,
             "testFileDir": ["suites/zombienet_staking"],

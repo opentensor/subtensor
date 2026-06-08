@@ -1,0 +1,113 @@
+# Input config for scripts/gen-chopsticks-fork.ts.
+#
+# This is NOT consumed by Chopsticks directly — the generator connects to the
+# endpoints below, fetches the `prefetch-storages` items for ONE netuid, and
+# writes a slim, self-contained config to tmp/chopsticks-fork-slim.yml that
+# Chopsticks can fork in ~1 min instead of ~15.
+
+endpoint:
+  - wss://entrypoint-finney.opentensor.ai:443
+  - wss://bittensor-finney.api.onfinality.io/public-wss
+
+mock-signature-host: true # Allows you to sign as any account.
+allow-unresolved-imports: true # Allows host functions not available in smoldot to be skipped.
+
+import-storage:
+  Sudo:
+    Key: 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY # Alice
+  System:
+    Account:
+      -
+        -
+          - 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY # Alice
+        - providers: 1
+          data:
+            free: 1000000000000000
+      -
+        -
+          - 5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty # Bob
+        - providers: 1
+          data:
+            free: 1000000000000000
+  SubtensorModule:
+    AdminFreezeWindow: "0x0000"
+    NetworkRateLimit: 0
+    NetworkLockReductionInterval: 1
+    $removePrefix: ['NetworksAdded']
+    NetworksAdded:
+      - - - 0
+        - true
+      - - - 1
+        - true
+
+prefetch-storages:
+  - SubtensorModule.MaxBurn
+  - SubtensorModule.MinBurn
+  - SubtensorModule.Burn
+  - SubtensorModule.BurnHalfLife
+  - SubtensorModule.NetworksAdded
+  - SubtensorModule.MechanismCountCurrent
+  - SubtensorModule.TimelockedWeightCommits
+  - SubtensorModule.RevealPeriodEpochs
+  - SubtensorModule.Tempo
+  - SubtensorModule.SubtokenEnabled
+  - SubtensorModule.NetworkRegistrationAllowed
+  - SubtensorModule.FirstEmissionBlockNumber
+  - SubtensorModule.SubnetTaoFlow
+  - SubtensorModule.SubnetEmaTaoFlow
+  - SubtensorModule.SubnetMovingPrice
+  - SubtensorModule.SubnetMechanism
+  - SubtensorModule.SubnetAlphaIn
+  - SubtensorModule.SubnetAlphaOut
+  - SubtensorModule.SubnetTAO
+  - SubtensorModule.SubnetVolume
+  - SubtensorModule.PendingRootAlphaDivs
+  - SubtensorModule.PendingServerEmission
+  - SubtensorModule.PendingValidatorEmission
+  - SubtensorModule.PendingOwnerCut
+  - SubtensorModule.BlocksSinceLastStep
+  - SubtensorModule.EmaPriceHalvingBlocks
+  - SubtensorModule.RootClaimableThreshold
+  - SubtensorModule.StakingColdkeys
+  - SubtensorModule.RootClaimable
+  - SubtensorModule.RootClaimType
+  - SubtensorModule.StakingColdkeysByIndex
+  - SubtensorModule.StakingHotkeys
+  - SubtensorModule.ChildkeyTake
+  - SubtensorModule.LastRateLimitedBlock
+  - SubtensorModule.AdjustmentAlpha
+  - SubtensorModule.ActivityCutoff
+  - SubtensorModule.AdjustmentInterval
+  - SubtensorModule.Kappa
+  - SubtensorModule.Rho
+  - SubtensorModule.ImmunityPeriod
+  - SubtensorModule.MaxAllowedValidators
+  - SubtensorModule.MaxWeightsLimit
+  - SubtensorModule.MinAllowedWeights
+  - SubtensorModule.MinDifficulty
+  - SubtensorModule.MaxDifficulty
+  - SubtensorModule.Difficulty
+  - SubtensorModule.TargetRegistrationsPerInterval
+  - SubtensorModule.MaxRegistrationsPerBlock
+  - SubtensorModule.RegistrationsThisInterval
+  - SubtensorModule.LastAdjustmentBlock
+  - SubtensorModule.WeightsVersionKey
+  - SubtensorModule.WeightsSetRateLimit
+  - SubtensorModule.LiquidAlphaOn
+  - SubtensorModule.CommitRevealWeightsEnabled
+  - SubtensorModule.SubnetworkN
+  - SubtensorModule.MaxAllowedUids
+  - SubtensorModule.LastUpdate
+  - SubtensorModule.Active
+  - SubtensorModule.ValidatorPermit
+  - SubtensorModule.Keys
+  - SubtensorModule.Uids
+  - Swap.ScrapReservoirAlpha
+  - Swap.SwapBalancer
+  - Swap.FeeRate
+  - Swap.PalSwapInitialized
+# Balancer-model Swap storages (SwapBalancer/FeeRate/PalSwapInitialized above) are
+# per-netuid maps (keyed by u16) read during block production. The generator skips
+# any prefetch item the live chain lacks, so items not yet present on finney are inert.
+# NOTE: keep this comment AFTER the last list item — the generator's YAML parser treats
+# a blank/comment line inside the list as its end, dropping everything after it.
