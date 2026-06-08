@@ -74,7 +74,6 @@ parameter_types! {
     pub const MaxContributors: u32 = 10;
     pub const SwapProtocolId: PalletId = PalletId(*b"ten/swap");
     pub const SwapMaxFeeRate: u16 = 10000;
-    pub const SwapMaxPositions: u32 = 100;
     pub const SwapMinimumLiquidity: u64 = 1_000;
     pub const SwapMinimumReserve: NonZeroU64 = NonZeroU64::new(1_000_000).unwrap();
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *
