@@ -5,7 +5,10 @@ use frame_support::traits::ConstU32;
 use frame_support::traits::IsSubType;
 use frame_system::RawOrigin;
 use pallet_evm::{AddressMapping, PrecompileHandle};
-use precompile_utils::{EvmResult, prelude::BoundedString};
+use precompile_utils::{
+    EvmResult,
+    prelude::{BoundedString, RuntimeHelper},
+};
 use sp_core::H256;
 use sp_runtime::traits::{AsSystemOriginSigner, Dispatchable};
 use sp_std::vec;
@@ -159,6 +162,18 @@ where
             call,
             RawOrigin::Signed(handle.caller_account_id::<R>()),
         )
+    }
+
+    #[precompile::public("getNetworkRegistrationBlock(uint16)")]
+    #[precompile::view]
+    fn get_network_registration_block(
+        handle: &mut impl PrecompileHandle,
+        netuid: u16,
+    ) -> EvmResult<u64> {
+        handle.record_cost(RuntimeHelper::<R>::db_read_gas_cost())?;
+        Ok(pallet_subtensor::NetworkRegisteredAt::<R>::get(
+            NetUid::from(netuid),
+        ))
     }
 
     #[precompile::public("getServingRateLimit(uint16)")]
@@ -1274,6 +1289,30 @@ mod tests {
                     (TEST_NETUID_U16,),
                 ),
                 U256::from(99_u64),
+            );
+        });
+    }
+
+    #[test]
+    fn subnet_precompile_gets_network_registered_block() {
+        new_test_ext().execute_with(|| {
+            let caller = addr_from_index(0x5003);
+            let netuid = setup_owner_subnet(caller);
+            let precompiles = precompiles::<SubnetPrecompile<Runtime>>();
+            let precompile_addr = addr_from_index(SubnetPrecompile::<Runtime>::INDEX);
+
+            let registration_block: u64 = 42;
+            pallet_subtensor::NetworkRegisteredAt::<Runtime>::insert(netuid, registration_block);
+
+            assert_static_call(
+                &precompiles,
+                caller,
+                precompile_addr,
+                encode_with_selector(
+                    selector_u32("getNetworkRegistrationBlock(uint16)"),
+                    (TEST_NETUID_U16,),
+                ),
+                U256::from(registration_block),
             );
         });
     }

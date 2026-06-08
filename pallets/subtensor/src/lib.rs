@@ -694,6 +694,12 @@ pub mod pallet {
         0
     }
 
+    /// Default value for TAO-in refund deployment block.
+    #[pallet::type_value]
+    pub fn DefaultTaoInRefundDeploymentBlock() -> u64 {
+        0
+    }
+
     /// Default value for weights version key rate limit.
     /// In units of tempos.
     #[pallet::type_value]
@@ -1329,11 +1335,6 @@ pub mod pallet {
     pub type SubnetTAO<T: Config> =
         StorageMap<_, Identity, NetUid, TaoBalance, ValueQuery, DefaultZeroTao<T>>;
 
-    /// --- MAP ( netuid ) --> tao_in_user_subnet | Returns the amount of TAO in the subnet reserve provided by users as liquidity.
-    #[pallet::storage]
-    pub type SubnetTaoProvided<T: Config> =
-        StorageMap<_, Identity, NetUid, TaoBalance, ValueQuery, DefaultZeroTao<T>>;
-
     /// --- MAP ( netuid ) --> alpha_in_emission | Returns the amount of alph in  emission into the pool per block.
     #[pallet::storage]
     pub type SubnetAlphaInEmission<T: Config> =
@@ -1374,11 +1375,6 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> alpha_supply_in_pool | Returns the amount of alpha in the pool.
     #[pallet::storage]
     pub type SubnetAlphaIn<T: Config> =
-        StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
-
-    /// --- MAP ( netuid ) --> alpha_supply_user_in_pool | Returns the amount of alpha in the pool provided by users as liquidity.
-    #[pallet::storage]
-    pub type SubnetAlphaInProvided<T: Config> =
         StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
 
     /// --- MAP ( netuid ) --> alpha_supply_in_subnet | Returns the amount of alpha in the subnet.
@@ -2499,20 +2495,6 @@ pub mod pallet {
         OptionQuery,
     >;
 
-    /// DMAP ( hot, cold, netuid ) --> rate limits for staking operations
-    /// Value contains just a marker: we use this map as a set.
-    #[pallet::storage]
-    pub type StakingOperationRateLimiter<T: Config> = StorageNMap<
-        _,
-        (
-            NMapKey<Blake2_128Concat, T::AccountId>, // hot
-            NMapKey<Blake2_128Concat, T::AccountId>, // cold
-            NMapKey<Identity, NetUid>,               // subnet
-        ),
-        bool,
-        ValueQuery,
-    >;
-
     #[pallet::storage] // --- MAP(netuid ) --> Root claim threshold
     pub type RootClaimableThreshold<T: Config> =
         StorageMap<_, Blake2_128Concat, NetUid, I96F32, ValueQuery, DefaultMinRootClaimAmount<T>>;
@@ -2604,6 +2586,11 @@ pub mod pallet {
     #[pallet::storage]
     pub type NetworkRegistrationStartBlock<T> =
         StorageValue<_, u64, ValueQuery, DefaultNetworkRegistrationStartBlock<T>>;
+
+    /// ITEM( TaoInRefundDeploymentBlock )
+    #[pallet::storage]
+    pub type TaoInRefundDeploymentBlock<T> =
+        StorageValue<_, u64, ValueQuery, DefaultTaoInRefundDeploymentBlock>;
 
     /// --- MAP ( netuid ) --> minimum required number of non-immortal & non-immune UIDs
     #[pallet::storage]
@@ -2780,7 +2767,7 @@ pub struct TaoBalanceReserve<T: Config>(PhantomData<T>);
 impl<T: Config> TokenReserve<TaoBalance> for TaoBalanceReserve<T> {
     #![deny(clippy::expect_used)]
     fn reserve(netuid: NetUid) -> TaoBalance {
-        SubnetTAO::<T>::get(netuid).saturating_add(SubnetTaoProvided::<T>::get(netuid))
+        SubnetTAO::<T>::get(netuid)
     }
 
     fn increase_provided(netuid: NetUid, tao: TaoBalance) {
@@ -2798,7 +2785,7 @@ pub struct AlphaBalanceReserve<T: Config>(PhantomData<T>);
 impl<T: Config> TokenReserve<AlphaBalance> for AlphaBalanceReserve<T> {
     #![deny(clippy::expect_used)]
     fn reserve(netuid: NetUid) -> AlphaBalance {
-        SubnetAlphaIn::<T>::get(netuid).saturating_add(SubnetAlphaInProvided::<T>::get(netuid))
+        SubnetAlphaIn::<T>::get(netuid)
     }
 
     fn increase_provided(netuid: NetUid, alpha: AlphaBalance) {

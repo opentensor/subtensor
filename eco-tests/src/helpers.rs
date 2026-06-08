@@ -322,10 +322,6 @@ pub fn increase_stake_on_hotkey_account(hotkey: &U256, increment: TaoBalance, ne
     );
 }
 
-pub fn remove_stake_rate_limit_for_tests(hotkey: &U256, coldkey: &U256, netuid: NetUid) {
-    StakingOperationRateLimiter::<Test>::remove((hotkey, coldkey, netuid));
-}
-
 pub fn setup_reserves(netuid: NetUid, tao: TaoBalance, alpha: AlphaBalance) {
     SubnetTAO::<Test>::set(netuid, tao);
     SubnetAlphaIn::<Test>::set(netuid, alpha);
