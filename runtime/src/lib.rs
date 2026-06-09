@@ -2784,12 +2784,13 @@ impl mev_shield_ibe_runtime_api::MevShieldIbeApi<Block> for Runtime {
                     finalized_ordering_block_hash: key.finalized_ordering_block_hash,
                 }
             }
-            RuntimeCall::MevShield(pallet_shield::Call::provide_mev_shield_inherent { ibe_block_decryption_keys, .. }) => {
+            RuntimeCall::MevShield(pallet_shield::Call::provide_mev_shield_inherent { ibe_block_decryption_key_bundles, .. }) => {
                     let mut invalid_key_count = 0u32;
-                    let finality_proofs = ibe_block_decryption_keys
+                    let finality_proofs = ibe_block_decryption_key_bundles
                         .iter()
-                        .filter_map(|key| {
-                            if MevShield::verify_ibe_block_decryption_key_material(key) {
+                        .filter_map(|bundle| {
+                            let key = &bundle.key;
+                            if MevShield::verify_ibe_block_decryption_key_release_bundle(bundle) {
                                 Some((
                                     key.target_block,
                                     key.finalized_ordering_block_number,
@@ -2873,12 +2874,13 @@ impl mev_shield_ibe_runtime_api::MevShieldIbeApi<Block> for Runtime {
                         finalized_ordering_block_number: key.finalized_ordering_block_number,
                         finalized_ordering_block_hash: key.finalized_ordering_block_hash,
                     },
-                    RuntimeCall::MevShield(pallet_shield::Call::provide_mev_shield_inherent { ibe_block_decryption_keys, .. }) => {
+                    RuntimeCall::MevShield(pallet_shield::Call::provide_mev_shield_inherent { ibe_block_decryption_key_bundles, .. }) => {
                     let mut invalid_key_count = 0u32;
-                    let finality_proofs = ibe_block_decryption_keys
+                    let finality_proofs = ibe_block_decryption_key_bundles
                         .iter()
-                        .filter_map(|key| {
-                            if MevShield::verify_ibe_block_decryption_key_material(key) {
+                        .filter_map(|bundle| {
+                            let key = &bundle.key;
+                            if MevShield::verify_ibe_block_decryption_key_release_bundle(bundle) {
                                 Some((
                                     key.target_block,
                                     key.finalized_ordering_block_number,

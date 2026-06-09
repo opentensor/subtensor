@@ -7,7 +7,10 @@ use ark_std::rand::thread_rng;
 use clap::Parser;
 use codec::Encode;
 use sp_core::H256;
-use stp_mev_shield_ibe::{BoundedMasterPublicKey, IbeEpochPublicKey, KEY_ID_LEN};
+use stp_mev_shield_ibe::{
+    BoundedDkgPublicShareAtoms, BoundedMasterPublicKey, BoundedPublicShare,
+    IbeDkgPublicShareAtomV1, IbeEpochPublicKey, KEY_ID_LEN,
+};
 use tle::curves::drand::TinyBLS381;
 use w3f_bls::EngineBLS;
 
@@ -120,16 +123,6 @@ fn main() {
         .try_into()
         .expect("compressed BLS12-381 G2 key length");
 
-    let epoch_key = IbeEpochPublicKey {
-        epoch: args.epoch,
-        key_id,
-        master_public_key,
-        total_weight,
-        threshold_weight,
-        first_block: args.first_block,
-        last_block: args.last_block,
-    };
-
     let mut all_public_atoms = Vec::<PublicShareAtom>::new();
     let mut validator_local_atoms = vec![Vec::<WeightedSecretShareAtom>::new(); args.validators];
 
@@ -170,6 +163,35 @@ fn main() {
             });
         }
     }
+
+    let epoch_public_atoms_vec = all_public_atoms
+        .iter()
+        .map(|atom| {
+            let public_share: BoundedPublicShare = atom
+                .public_share
+                .clone()
+                .try_into()
+                .expect("public DKG atom has wrong length");
+            IbeDkgPublicShareAtomV1 {
+                share_id: atom.share_id,
+                weight: atom.weight,
+                public_share,
+            }
+        })
+        .collect::<Vec<_>>();
+    let epoch_public_atoms: BoundedDkgPublicShareAtoms = epoch_public_atoms_vec
+        .try_into()
+        .expect("too many DKG public atoms");
+    let epoch_key = IbeEpochPublicKey {
+        epoch: args.epoch,
+        key_id,
+        master_public_key,
+        total_weight,
+        threshold_weight,
+        public_atoms: epoch_public_atoms,
+        first_block: args.first_block,
+        last_block: args.last_block,
+    };
 
     let public_output = EpochDkgPublicOutput {
         epoch_key: epoch_key.clone(),

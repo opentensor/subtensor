@@ -8403,6 +8403,7 @@ name = "node-subtensor-runtime"
 version = "4.0.0-dev"
 dependencies = [
  "ark-ec 0.4.2",
+ "ark-ff 0.4.2",
  "ark-serialize 0.4.2",
  "ethereum",
  "fp-account",

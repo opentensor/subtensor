@@ -70,7 +70,7 @@ impl IbeEncryptedExtrinsicV1 {
     }
 }
 
-#[subtensor_macros::freeze_struct("10aeaaf81afa6e70")]
+#[subtensor_macros::freeze_struct("92d91e8de9c05dd1")]
 #[derive(
     Clone, Eq, PartialEq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen,
 )]
@@ -83,10 +83,8 @@ pub struct IbeEpochPublicKey {
 
     /// Total active stake weight represented by this DKG.
     pub total_weight: u128,
-
-    /// Usually ceil(2/3 * total_weight).
     pub threshold_weight: u128,
-
+    pub public_atoms: BoundedDkgPublicShareAtoms,
     pub first_block: u64,
     pub last_block: u64,
 }
@@ -94,6 +92,23 @@ pub struct IbeEpochPublicKey {
 pub type BoundedMasterPublicKey = BoundedVec<u8, ConstU32<COMPRESSED_MASTER_PUBLIC_KEY_LEN_U32>>;
 
 pub type BoundedIdentityKey = BoundedVec<u8, ConstU32<COMPRESSED_IDENTITY_KEY_LEN_U32>>;
+/// Maximum stake-quantized DKG public share atoms stored in an epoch output.
+pub const MAX_DKG_PUBLIC_SHARE_ATOMS: u32 = 4096;
+/// Compressed g2^s_i public share for one weighted Shamir atom.
+pub type BoundedPublicShare = BoundedVec<u8, ConstU32<COMPRESSED_MASTER_PUBLIC_KEY_LEN_U32>>;
+
+#[subtensor_macros::freeze_struct("62d532ec790fec4c")]
+#[derive(
+    Clone, Eq, PartialEq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen,
+)]
+pub struct IbeDkgPublicShareAtomV1 {
+    pub share_id: u32,
+    pub weight: u128,
+    pub public_share: BoundedPublicShare,
+}
+
+pub type BoundedDkgPublicShareAtoms =
+    BoundedVec<IbeDkgPublicShareAtomV1, ConstU32<MAX_DKG_PUBLIC_SHARE_ATOMS>>;
 
 #[subtensor_macros::freeze_struct("8b8dbad2d6b33368")]
 #[derive(
@@ -114,10 +129,18 @@ pub struct IbeBlockDecryptionKeyV1 {
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
-pub struct IbeBlockDecryptionKeyInherentData {
-    pub keys: Vec<IbeBlockDecryptionKeyV1>,
+pub struct IbeBlockDecryptionKeyShareBundleV1 {
+    /// Runtime-combined identity decryption key for the target block.
+    pub key: IbeBlockDecryptionKeyV1,
+    /// Public partial shares used as the chain-visible threshold-release proof.
+    pub shares: Vec<IbePartialDecryptionKeyShareV1>,
 }
 
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
+pub struct IbeBlockDecryptionKeyInherentData {
+    pub keys: Vec<IbeBlockDecryptionKeyV1>,
+    pub share_bundles: Vec<IbeBlockDecryptionKeyShareBundleV1>,
+}
 #[subtensor_macros::freeze_struct("637a2b7834d1086")]
 #[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 pub struct IbePendingIdentity {

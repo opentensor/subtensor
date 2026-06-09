@@ -23,7 +23,8 @@ use mev_shield_ibe_runtime_api::DkgConsensusSource;
 use rand_core::{CryptoRng, RngCore};
 use sp_core::{H256, Pair, blake2_256};
 use stp_mev_shield_ibe::{
-    BoundedMasterPublicKey, IbeEpochPublicKey, KEY_ID_LEN, MEV_SHIELD_IBE_VERSION,
+    BoundedDkgPublicShareAtoms, BoundedMasterPublicKey, BoundedPublicShare,
+    IbeDkgPublicShareAtomV1, IbeEpochPublicKey, KEY_ID_LEN, MEV_SHIELD_IBE_VERSION,
 };
 use x25519_dalek::{PublicKey as X25519PublicKey, StaticSecret};
 
@@ -192,6 +193,7 @@ pub fn epoch_publication_payload_hash(
     master_public_key: &[u8],
     total_weight: u128,
     threshold_weight: u128,
+    public_atoms: &[IbeDkgPublicShareAtomV1],
 ) -> H256 {
     H256::from(blake2_256(
         &(
@@ -204,6 +206,7 @@ pub fn epoch_publication_payload_hash(
             master_public_key,
             total_weight,
             threshold_weight,
+            public_atoms,
         )
             .encode(),
     ))
@@ -524,12 +527,31 @@ pub fn finalize_local_output(
         public_atoms.push(public_atom);
     }
 
+    let epoch_public_atoms_vec = public_atoms
+        .iter()
+        .map(|atom| -> Result<IbeDkgPublicShareAtomV1, String> {
+            let public_share: BoundedPublicShare = atom
+                .public_share
+                .clone()
+                .try_into()
+                .map_err(|_| "public DKG atom has wrong length".to_string())?;
+            Ok(IbeDkgPublicShareAtomV1 {
+                share_id: atom.share_id,
+                weight: atom.weight,
+                public_share,
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let epoch_public_atoms: BoundedDkgPublicShareAtoms = epoch_public_atoms_vec
+        .try_into()
+        .map_err(|_| "too many DKG public atoms".to_string())?;
     let epoch_key = IbeEpochPublicKey {
         epoch: round.epoch,
         key_id: round.key_id,
         master_public_key,
         total_weight: atom_plan.total_weight,
         threshold_weight: atom_plan.threshold_weight,
+        public_atoms: epoch_public_atoms,
         first_block: round.first_block,
         last_block: round.last_block,
     };
@@ -684,6 +706,7 @@ mod mev_shield_dkg_protocol_unit_tests {
             &[8; 96],
             100,
             67,
+            &[],
         );
 
         assert_ne!(
@@ -697,6 +720,7 @@ mod mev_shield_dkg_protocol_unit_tests {
                 &[8; 96],
                 100,
                 67,
+                &[]
             )
         );
         assert_ne!(
@@ -710,6 +734,7 @@ mod mev_shield_dkg_protocol_unit_tests {
                 &[9; 96],
                 100,
                 67,
+                &[]
             )
         );
     }

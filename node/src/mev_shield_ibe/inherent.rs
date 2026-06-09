@@ -108,8 +108,8 @@ where
             return Ok(());
         };
 
-        let mut keys = share_pool.try_combine_ready_keys();
-        if keys.is_empty() {
+        let mut bundles = share_pool.try_combine_ready_key_bundles();
+        if bundles.is_empty() {
             return Ok(());
         }
 
@@ -122,16 +122,18 @@ where
             .unwrap_or_else(|| self.client.info().best_number.saturated_into::<u64>());
         let target_block = parent_number.saturating_add(1);
 
-        keys.retain(|key| key.target_block == target_block);
-        if keys.len() > MAX_IBE_BLOCK_KEYS_PER_INHERENT {
-            keys.truncate(MAX_IBE_BLOCK_KEYS_PER_INHERENT);
+        bundles.retain(|bundle| bundle.key.target_block == target_block);
+        if bundles.len() > MAX_IBE_BLOCK_KEYS_PER_INHERENT {
+            bundles.truncate(MAX_IBE_BLOCK_KEYS_PER_INHERENT);
         }
 
         let mut seen = BTreeSet::new();
-        keys.retain(|key| seen.insert((key.epoch, key.target_block, key.key_id)));
+        bundles.retain(|bundle| {
+            seen.insert((bundle.key.epoch, bundle.key.target_block, bundle.key.key_id))
+        });
 
         let api = self.client.runtime_api();
-        keys.retain(|key| {
+        bundles.retain(|bundle| { let key = &bundle.key;
             match api.has_ibe_block_key(
                 self.parent_hash,
                 key.epoch,
@@ -149,20 +151,23 @@ where
             }
         });
 
-        if keys.is_empty() {
+        if bundles.is_empty() {
             return Ok(());
         }
 
         log::debug!(
             target: LOG_TARGET,
-            "including {} threshold-IBE block decryption key(s) for target block {}",
-            keys.len(),
+            "including {} threshold-IBE block decryption quorum bundle(s) for target block {}",
+            bundles.len(),
             target_block,
         );
 
         inherent_data.put_data(
             IBE_BLOCK_DECRYPTION_KEYS_INHERENT_IDENTIFIER,
-            &IbeBlockDecryptionKeyInherentData { keys },
+            &IbeBlockDecryptionKeyInherentData {
+                keys: Vec::new(),
+                share_bundles: bundles,
+            },
         )
     }
 

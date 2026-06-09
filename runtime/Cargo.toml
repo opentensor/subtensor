@@ -145,6 +145,7 @@ hex.workspace = true
 rand_chacha.workspace = true
 w3f-bls.workspace = true
 sha2.workspace = true
+ark-ff = { workspace = true, default-features = false }
 ark-serialize = { workspace = true, features = ["derive"] }
 
 # Crowdloan
@@ -285,6 +286,7 @@ std = [
 	"sp-weights/std",
 	"stp-mev-shield-ibe/std",
 	"ark-ec/std",
+	"ark-ff/std",
 	"mev-shield-ibe-runtime-api/std",
 ]
 runtime-benchmarks = [

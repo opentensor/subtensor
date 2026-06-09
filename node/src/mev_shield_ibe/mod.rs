@@ -15,7 +15,8 @@ use futures::{StreamExt, channel::mpsc};
 use parking_lot::Mutex;
 use sp_core::H256;
 use stp_mev_shield_ibe::{
-    IbeBlockDecryptionKeyV1, IbePartialDecryptionKeyShareV1, IbePendingIdentity,
+    IbeBlockDecryptionKeyShareBundleV1, IbeBlockDecryptionKeyV1, IbePartialDecryptionKeyShareV1,
+    IbePendingIdentity,
 };
 
 use self::{
@@ -284,6 +285,28 @@ impl MevShieldIbeSharePool {
         }
 
         out
+    }
+
+    pub fn try_combine_ready_key_bundles(&self) -> Vec<IbeBlockDecryptionKeyShareBundleV1> {
+        let keys = self.try_combine_ready_keys();
+        if keys.is_empty() {
+            return Vec::new();
+        }
+        let rounds = self.inner.rounds.lock();
+        keys.into_iter()
+            .map(|key| {
+                let round = IdentityRound {
+                    epoch: key.epoch,
+                    target_block: key.target_block,
+                    key_id: key.key_id,
+                };
+                let shares = rounds
+                    .get(&round)
+                    .map(|state| state.shares.values().cloned().collect())
+                    .unwrap_or_default();
+                IbeBlockDecryptionKeyShareBundleV1 { key, shares }
+            })
+            .collect()
     }
 
     pub fn max_pending_identities(&self) -> u32 {

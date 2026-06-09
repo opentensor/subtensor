@@ -7,7 +7,7 @@ use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 use sp_core::H256;
 use sp_runtime::RuntimeDebug;
-use stp_mev_shield_ibe::{IbePendingIdentity, KEY_ID_LEN};
+use stp_mev_shield_ibe::{IbeDkgPublicShareAtomV1, IbePendingIdentity, KEY_ID_LEN};
 
 /// Runtime-side classification used by node block import.  The node must not
 /// infer this from call indexes because runtime upgrades can move pallets/calls.
@@ -139,7 +139,7 @@ pub struct DkgOutputAttestation {
 }
 
 /// Public output submitted to chain after a DKG round completes.
-#[subtensor_macros::freeze_struct("f612a13738fb1f61")]
+#[subtensor_macros::freeze_struct("83279a339a31246a")]
 #[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, TypeInfo)]
 pub struct EpochDkgPublication {
     pub epoch: u64,
@@ -150,6 +150,7 @@ pub struct EpochDkgPublication {
     pub master_public_key: Vec<u8>,
     pub total_weight: u128,
     pub threshold_weight: u128,
+    pub public_atoms: Vec<IbeDkgPublicShareAtomV1>,
     pub public_output_hash: H256,
     pub attestations: Vec<DkgOutputAttestation>,
 }

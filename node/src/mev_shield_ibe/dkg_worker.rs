@@ -512,6 +512,7 @@ where
         &master_public_key,
         bundle.public.epoch_key.total_weight,
         bundle.public.epoch_key.threshold_weight,
+        &bundle.public.epoch_key.public_atoms,
     );
     dkg_source.upsert_public_output(bundle.public.clone())?;
     dkg_source.upsert_secret_bundle(bundle.clone())?;
@@ -545,6 +546,7 @@ where
             master_public_key,
             total_weight: bundle.public.epoch_key.total_weight,
             threshold_weight: bundle.public.epoch_key.threshold_weight,
+            public_atoms: Vec::new(),
             public_output_hash: publication_hash,
             attestations: acc
                 .output_attestations
@@ -1123,6 +1125,7 @@ mod comprehensive_green_path_tests {
             &master_public_key,
             bundles[0].public.epoch_key.total_weight,
             bundles[0].public.epoch_key.threshold_weight,
+            &bundles[0].public.epoch_key.public_atoms,
         );
         let mut publication_attestations = Vec::new();
         for authority in &authorities {
@@ -1157,6 +1160,7 @@ mod comprehensive_green_path_tests {
             master_public_key,
             total_weight: bundles[0].public.epoch_key.total_weight,
             threshold_weight: bundles[0].public.epoch_key.threshold_weight,
+            public_atoms: Vec::new(),
             public_output_hash: publication_hash,
             attestations: publication_attestations,
         };

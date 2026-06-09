@@ -136,15 +136,21 @@ impl RuntimeIbeDkgAuthorityProvider {
 
     fn selected_authorities_for_epoch(epoch: u64) -> (DkgConsensusSource, Vec<DkgAuthorityInfo>) {
         let root_entries = Self::root_validator_entries();
-        let pos_ready =
+        let pos_window =
             epoch >= Self::current_epoch().saturating_add(2) && !root_entries.is_empty();
-        if pos_ready {
+        if pos_window {
             let babe_authorities = Self::registered_authorities_for_kind(
                 &root_entries,
                 DkgConsensusKeyKind::BabeSr25519,
             );
             if babe_authorities.len() == root_entries.len() {
                 return (DkgConsensusSource::PosBabeRootValidators, babe_authorities);
+            }
+            if !babe_authorities.is_empty() {
+                // POS handoff has started but is not fully registered. Do not freeze a
+                // fallback PoA plan for N+2; fail closed so the DKG worker retries and
+                // emergency key extension preserves liveness until registrations finish.
+                return (DkgConsensusSource::PosBabeRootValidators, Vec::new());
             }
         }
 

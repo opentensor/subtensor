@@ -1,6 +1,8 @@
 use ark_ec::Group;
-use ark_serialize::CanonicalDeserialize;
+use ark_ff::{Field, One, Zero};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use codec::Decode;
+use core::ops::Mul;
 use frame_support::dispatch::{DispatchInfo, GetDispatchInfo};
 use pallet_shield::{
     DecryptedExtrinsicExecutor, IbeAppliedExtrinsic, IbeDecryptOutcome, IbeEncryptedTxDecryptor,
@@ -10,7 +12,8 @@ use sp_core::H256;
 use sp_runtime::{DispatchError, traits::UniqueSaturatedInto};
 use sp_std::vec;
 use stp_mev_shield_ibe::{
-    IbeEncryptedExtrinsicV1, IbeEpochPublicKey, MEV_SHIELD_IBE_VERSION, block_identity_bytes,
+    BoundedIdentityKey, IbeEncryptedExtrinsicV1, IbeEpochPublicKey, IbePartialDecryptionKeyShareV1,
+    MEV_SHIELD_IBE_VERSION, block_identity_bytes,
 };
 use tle::{
     curves::drand::TinyBLS381,
@@ -22,6 +25,24 @@ use w3f_bls::EngineBLS;
 
 use crate::{Executive, Runtime, RuntimeCall, UncheckedExtrinsic};
 
+type IbeRuntimeScalar = <TinyBLS381 as EngineBLS>::Scalar;
+type IbeRuntimePublicShare = <TinyBLS381 as EngineBLS>::PublicKeyGroup;
+type IbeRuntimeIdentityKeyShare = <TinyBLS381 as EngineBLS>::SignatureGroup;
+
+fn ibe_lagrange_coeff_at_zero(id: u32, ids: &[u32]) -> Option<IbeRuntimeScalar> {
+    let x_i = IbeRuntimeScalar::from(id as u64);
+    let mut num = IbeRuntimeScalar::one();
+    let mut den = IbeRuntimeScalar::one();
+    for other in ids {
+        if *other == id {
+            continue;
+        }
+        let x_j = IbeRuntimeScalar::from(*other as u64);
+        num *= -x_j;
+        den *= x_i - x_j;
+    }
+    den.inverse().map(|inverse| num * inverse)
+}
 pub struct MevShieldIbeVerifier;
 
 impl<HashT> IbeKeyVerifier<HashT> for MevShieldIbeVerifier
@@ -35,38 +56,79 @@ where
         identity_decryption_key: &[u8],
     ) -> bool {
         let genesis_hash: H256 = genesis_hash.into();
-
         let identity_bytes = block_identity_bytes(
             genesis_hash,
             epoch_key.epoch,
             target_block,
             epoch_key.key_id,
         );
-
         let identity = Identity::new(stp_mev_shield_ibe::IBE_DOMAIN, vec![identity_bytes]);
-
         let Ok(master_public_key) =
-            <TinyBLS381 as EngineBLS>::PublicKeyGroup::deserialize_compressed(
-                &mut &epoch_key.master_public_key[..],
-            )
+            IbeRuntimePublicShare::deserialize_compressed(&mut &epoch_key.master_public_key[..])
         else {
             return false;
         };
+        let Ok(identity_key) =
+            IbeRuntimeIdentityKeyShare::deserialize_compressed(&mut &identity_decryption_key[..])
+        else {
+            return false;
+        };
+        let q_id = identity.public::<TinyBLS381>();
+        let g2 = <IbeRuntimePublicShare as Group>::generator();
+        TinyBLS381::pairing(master_public_key, q_id) == TinyBLS381::pairing(g2, identity_key)
+    }
 
-        let Ok(identity_key) = <TinyBLS381 as EngineBLS>::SignatureGroup::deserialize_compressed(
-            &mut &identity_decryption_key[..],
+    fn verify_partial_identity_key(
+        genesis_hash: HashT,
+        epoch_key: &IbeEpochPublicKey,
+        share: &IbePartialDecryptionKeyShareV1,
+    ) -> bool {
+        if share.epoch != epoch_key.epoch || share.key_id != epoch_key.key_id {
+            return false;
+        }
+        let genesis_hash: H256 = genesis_hash.into();
+        let identity_bytes =
+            block_identity_bytes(genesis_hash, share.epoch, share.target_block, share.key_id);
+        let identity = Identity::new(stp_mev_shield_ibe::IBE_DOMAIN, vec![identity_bytes]);
+        let Ok(public_share) =
+            IbeRuntimePublicShare::deserialize_compressed(&mut &share.public_share[..])
+        else {
+            return false;
+        };
+        let Ok(partial_key) = IbeRuntimeIdentityKeyShare::deserialize_compressed(
+            &mut &share.partial_identity_key[..],
         ) else {
             return false;
         };
-
         let q_id = identity.public::<TinyBLS381>();
-        let g2 = <<TinyBLS381 as EngineBLS>::PublicKeyGroup as Group>::generator();
+        let g2 = <IbeRuntimePublicShare as Group>::generator();
+        TinyBLS381::pairing(public_share, q_id) == TinyBLS381::pairing(g2, partial_key)
+    }
 
-        // d_id = H(identity)^msk
-        //
-        // Verify:
-        //   e(g2^msk, H(identity)) == e(g2, d_id)
-        TinyBLS381::pairing(master_public_key, q_id) == TinyBLS381::pairing(g2, identity_key)
+    fn combine_partial_identity_key_shares(
+        _epoch_key: &IbeEpochPublicKey,
+        shares: &[IbePartialDecryptionKeyShareV1],
+    ) -> Option<BoundedIdentityKey> {
+        if shares.is_empty() {
+            return None;
+        }
+        let ids = shares
+            .iter()
+            .map(|share| share.share_id)
+            .collect::<Vec<_>>();
+        let mut acc = IbeRuntimeIdentityKeyShare::zero();
+        for share in shares {
+            let partial = IbeRuntimeIdentityKeyShare::deserialize_compressed(
+                &mut &share.partial_identity_key[..],
+            )
+            .ok()?;
+            let lambda = ibe_lagrange_coeff_at_zero(share.share_id, &ids)?;
+            acc += partial.mul(lambda);
+        }
+        let mut identity_decryption_key = Vec::new();
+        acc.serialize_compressed(&mut identity_decryption_key)
+            .ok()?;
+        identity_decryption_key.try_into().ok()
     }
 }
 
