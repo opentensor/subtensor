@@ -888,10 +888,8 @@ fn test_stake_availability_for_coldkeys_filters_empty_rows() {
         let subnet_owner_hotkey = U256::from(1002);
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
 
-        let result = SubtensorModule::get_stake_availability_for_coldkeys(
-            vec![coldkey],
-            Some(vec![netuid])
-        );
+        let result =
+            SubtensorModule::get_stake_availability_for_coldkeys(vec![coldkey], Some(vec![netuid]));
 
         assert_eq!(result.len(), 1);
         assert!(result.contains_key(&coldkey));
@@ -907,10 +905,8 @@ fn test_stake_availability_for_coldkeys_stake_without_lock() {
         let netuid = setup_subnet_with_stake(coldkey, hotkey, 100_000_000_000);
         let total = SubtensorModule::total_coldkey_alpha_on_subnet(&coldkey, netuid);
 
-        let result = SubtensorModule::get_stake_availability_for_coldkeys(
-            vec![coldkey],
-            Some(vec![netuid])
-        );
+        let result =
+            SubtensorModule::get_stake_availability_for_coldkeys(vec![coldkey], Some(vec![netuid]));
 
         assert_eq!(result.len(), 1);
         let availability = result.get(&coldkey).unwrap().get(&netuid).unwrap();
@@ -936,10 +932,8 @@ fn test_stake_availability_for_coldkeys_partial_lock() {
             lock_amount,
         ));
 
-        let result = SubtensorModule::get_stake_availability_for_coldkeys(
-            vec![coldkey],
-            Some(vec![netuid])
-        );
+        let result =
+            SubtensorModule::get_stake_availability_for_coldkeys(vec![coldkey], Some(vec![netuid]));
         let availability = result.get(&coldkey).unwrap().get(&netuid).unwrap();
 
         assert_eq!(availability.total(), total);
@@ -963,10 +957,8 @@ fn test_stake_availability_for_coldkeys_fully_locked() {
             &coldkey, netuid, &hotkey, total,
         ));
 
-        let result = SubtensorModule::get_stake_availability_for_coldkeys(
-            vec![coldkey],
-            Some(vec![netuid])
-        );
+        let result =
+            SubtensorModule::get_stake_availability_for_coldkeys(vec![coldkey], Some(vec![netuid]));
         let availability = result.get(&coldkey).unwrap().get(&netuid).unwrap();
 
         assert_eq!(availability.total(), total);
@@ -1005,8 +997,7 @@ fn test_stake_availability_for_coldkeys_none_netuids_uses_all_subnets() {
         let hotkey = U256::from(2);
         let netuid = setup_subnet_with_stake(coldkey, hotkey, 100_000_000_000);
 
-        let result =
-            SubtensorModule::get_stake_availability_for_coldkeys(vec![coldkey], None);
+        let result = SubtensorModule::get_stake_availability_for_coldkeys(vec![coldkey], None);
 
         assert_eq!(result.len(), 1);
         assert!(result.get(&coldkey).unwrap().contains_key(&netuid));
@@ -1136,10 +1127,8 @@ fn test_stake_availability_for_coldkeys_rejects_oversized_netuid_list() {
         assert!(result.contains_key(&coldkey));
         assert!(result.get(&coldkey).unwrap().is_empty());
 
-        let result = SubtensorModule::get_stake_availability_for_coldkeys(
-            vec![coldkey],
-            Some(vec![netuid])
-        );
+        let result =
+            SubtensorModule::get_stake_availability_for_coldkeys(vec![coldkey], Some(vec![netuid]));
         assert_eq!(result.get(&coldkey).unwrap().len(), 1);
         assert!(result.get(&coldkey).unwrap().contains_key(&netuid));
     });
@@ -1165,10 +1154,8 @@ fn test_stake_availability_for_coldkeys_uses_rolled_forward_lock() {
 
         step_block(1000);
 
-        let result = SubtensorModule::get_stake_availability_for_coldkeys(
-            vec![coldkey],
-            Some(vec![netuid])
-        );
+        let result =
+            SubtensorModule::get_stake_availability_for_coldkeys(vec![coldkey], Some(vec![netuid]));
         let availability = result.get(&coldkey).unwrap().get(&netuid).unwrap();
         let rolled_locked = SubtensorModule::get_current_locked(&coldkey, netuid);
 
