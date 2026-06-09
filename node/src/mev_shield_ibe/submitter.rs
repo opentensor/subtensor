@@ -35,9 +35,15 @@ pub fn spawn_key_submitter(
         "mev-shield-ibe-key-submitter",
         None,
         Box::pin(async move {
+            let mut submitted_keys = std::collections::BTreeSet::new();
             loop {
                 for key in pool.try_combine_ready_keys() {
+                    let key_tag = (key.epoch, key.target_block, key.key_id.clone());
+                    if !submitted_keys.insert(key_tag.clone()) {
+                        continue;
+                    }
                     let Some(xt) = build_unsigned_submit_block_decryption_key_extrinsic(key) else {
+                        submitted_keys.remove(&key_tag);
                         continue;
                     };
 
@@ -47,6 +53,7 @@ pub fn spawn_key_submitter(
                         .submit_one(at_hash, TransactionSource::Local, xt)
                         .await
                     {
+                        submitted_keys.remove(&key_tag);
                         log::debug!(
                             target: "mev-shield-ibe",
                             "failed to submit local block decryption key transaction: {err:?}",

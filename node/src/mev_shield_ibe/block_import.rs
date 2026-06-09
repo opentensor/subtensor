@@ -9,6 +9,7 @@ use sp_consensus::Error as ConsensusError;
 use sp_core::H256;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 use std::{error::Error as StdError, marker::PhantomData, sync::Arc};
+const IBE_TARGET_LOOKAHEAD_BLOCKS: u64 = 2;
 
 pub struct MevShieldBlockImport<I, C, B> {
     inner: I,
@@ -98,14 +99,10 @@ where
 
             match class {
                 MevShieldExtrinsicClass::SubmitEncryptedV2 { target_block, .. } => {
-                    if target_block <= block_number {
+                    let expected_target = block_number.saturating_add(IBE_TARGET_LOOKAHEAD_BLOCKS);
+                    if target_block != expected_target {
                         return Err(format!(
-                            "encrypted v2 target {target_block} is not future of block {block_number}",
-                        ));
-                    }
-                    if target_block > block_number.saturating_add(2) {
-                        return Err(format!(
-                            "encrypted v2 target {target_block} exceeds +2 lookahead from block {block_number}",
+                            "encrypted v2 target {target_block} must equal block {block_number} + {IBE_TARGET_LOOKAHEAD_BLOCKS}",
                         ));
                     }
                     pending_queue_len = pending_queue_len.saturating_add(1);

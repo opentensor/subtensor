@@ -13,6 +13,7 @@ use sc_service::SpawnTaskHandle;
 use sp_api::ProvideRuntimeApi;
 use sp_core::H256;
 use sp_runtime::traits::Block as BlockT;
+use tokio::task::JoinHandle;
 use x25519_dalek::{PublicKey as X25519PublicKey, StaticSecret};
 
 use mev_shield_ibe_runtime_api::{
@@ -54,11 +55,13 @@ pub struct DkgWorkerConfig {
 
 pub struct EpochAheadDkgWorkerGuard {
     abort_handle: AbortHandle,
+    join_handle: JoinHandle<()>,
 }
 
 impl Drop for EpochAheadDkgWorkerGuard {
     fn drop(&mut self) {
         self.abort_handle.abort();
+        self.join_handle.abort();
     }
 }
 
@@ -127,16 +130,7 @@ where
             x25519_public,
         };
         let mut state = WorkerState::default();
-        let mut interval = futures_timer::Delay::new(cfg.poll_interval).fuse();
-
-        let shutdown = tokio::signal::ctrl_c().fuse();
-        futures::pin_mut!(shutdown);
-        loop {
-            futures::select! {
-                _ = shutdown => {
-                break;
-            }
-            msg = inbound.next().fuse() => {
+        let mut interval = futures_timer::Delay::new(cfg.poll_interval).fuse(); loop { futures::select! { msg = inbound.next().fuse() => {
                     let Some(msg) = msg else { break; };
                     import_dkg_wire_message(&mut state, &local_keys, msg);
                 }
@@ -153,9 +147,11 @@ where
     )
     .map(|_| ());
 
-    let _mev_shield_ibe_epoch_ahead_dkg_task = tokio::spawn(Box::pin(task));
-
-    EpochAheadDkgWorkerGuard { abort_handle }
+    let join_handle = tokio::spawn(Box::pin(task));
+    EpochAheadDkgWorkerGuard {
+        abort_handle,
+        join_handle,
+    }
 }
 
 fn import_dkg_wire_message(state: &mut WorkerState, local_keys: &LocalDkgKeys, msg: WireMessage) {
@@ -233,6 +229,16 @@ fn select_local_authority<'a>(
     }
     None
 }
+
+fn prune_worker_state_to_round(state: &mut WorkerState, active_round: &DkgRoundId) {
+    state.rounds.retain(|round, _| round == active_round);
+    state.committed.retain(|round| round == active_round);
+    state.finalized.retain(|round| round == active_round);
+    state
+        .transport_keys
+        .retain(|(round, _), _| round == active_round);
+}
+
 async fn tick<Block, Client>(
     client: &Arc<Client>,
     dkg_source: &Arc<ProductionDkgKeySource>,
@@ -285,6 +291,7 @@ where
         genesis_hash: dkg_source.genesis_hash(),
     };
 
+    prune_worker_state_to_round(state, &round);
     state.transport_keys.insert(
         (round.clone(), local_authority.authority_id.clone()),
         local_keys.x25519_public,

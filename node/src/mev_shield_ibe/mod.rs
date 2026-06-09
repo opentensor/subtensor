@@ -236,6 +236,11 @@ impl MevShieldIbeSharePool {
         }
 
         let mut rounds = self.inner.rounds.lock();
+        if !rounds.contains_key(&round)
+            && rounds.len() >= self.inner.cfg.max_pending_identities as usize
+        {
+            return false;
+        }
         let state = rounds.entry(round).or_default();
 
         state.shares.insert(share.share_id, share);
@@ -251,7 +256,7 @@ impl MevShieldIbeSharePool {
                 continue;
             }
             if let Some(key) = state.combined_key.as_ref() {
-                ready.push(key.clone());
+                out.push(key.clone());
                 continue;
             }
 
@@ -268,7 +273,7 @@ impl MevShieldIbeSharePool {
                 continue;
             };
 
-            state.combined_key = Some(key.clone());
+            state.combined_key = Some(combined.clone());
             out.push(combined);
         }
 
