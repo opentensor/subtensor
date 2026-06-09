@@ -78,6 +78,13 @@ const STORE_ENCRYPTED_WEIGHT: u64 = 20_000_000_000;
 
 pub const IBE_TARGET_LOOKAHEAD_BLOCKS: u64 = 2;
 pub const IBE_DKG_EPOCHS_AHEAD: u64 = 2;
+/// Fixed-point denominator used by the queue-depth pricing curve.
+pub const IBE_QUEUE_PRICE_SCALE: u128 = 1_000_000;
+/// Full-queue multiplier for v2 encrypted submissions.
+///
+/// The MVP curve is convex: multiplier = 1 + (FULL - 1) * fill_ratio^2.
+/// At 50% queue fill this is about 16.75x; near the hard cap it approaches 64x.
+pub const IBE_QUEUE_PRICE_FULL_MULTIPLIER: u128 = 64;
 
 pub trait IbeDkgAuthorityProvider {
     fn authorities_for_epoch(epoch: u64) -> Vec<DkgAuthorityInfo>;
@@ -107,6 +114,47 @@ impl IbeDkgAuthorityProvider for () {
 
 pub fn store_encrypted_weight() -> Weight {
     Weight::from_parts(STORE_ENCRYPTED_WEIGHT, 0)
+}
+
+/// Return the v2 encrypted-submission price multiplier in fixed-point units.
+///
+/// This is the queue-depth backpressure curve required by the v2 spec. It is
+/// intentionally convex so congestion becomes expensive well before the hard
+/// queue cap binds, while an empty queue pays the normal base weight.
+pub fn queue_depth_price_multiplier_microunits(pending_count: u32, max_pending: u32) -> u128 {
+    if max_pending == 0 {
+        return IBE_QUEUE_PRICE_SCALE;
+    }
+
+    let pending = core::cmp::min(pending_count, max_pending) as u128;
+    if pending == 0 {
+        return IBE_QUEUE_PRICE_SCALE;
+    }
+
+    let capacity = max_pending as u128;
+    let denominator = capacity.saturating_mul(capacity).max(1);
+    let max_premium = IBE_QUEUE_PRICE_FULL_MULTIPLIER
+        .saturating_sub(1)
+        .saturating_mul(IBE_QUEUE_PRICE_SCALE);
+    let premium_numerator = max_premium.saturating_mul(pending).saturating_mul(pending);
+    let premium = premium_numerator
+        .checked_div(denominator)
+        .unwrap_or(max_premium)
+        .min(max_premium);
+
+    IBE_QUEUE_PRICE_SCALE.saturating_add(premium)
+}
+
+/// Apply the queue-depth pricing multiplier to a base dispatch weight.
+pub fn queue_depth_priced_weight(base: Weight, pending_count: u32, max_pending: u32) -> Weight {
+    let multiplier = queue_depth_price_multiplier_microunits(pending_count, max_pending);
+    let ref_time = (base.ref_time() as u128)
+        .saturating_mul(multiplier)
+        .checked_div(IBE_QUEUE_PRICE_SCALE)
+        .unwrap_or(u128::MAX)
+        .min(u64::MAX as u128) as u64;
+
+    Weight::from_parts(ref_time, base.proof_size())
 }
 
 /// Trait for decrypting stored extrinsics before dispatch.
@@ -645,7 +693,7 @@ pub mod pallet {
         /// v2:
         /// ciphertext is SCALE(IbeEncryptedExtrinsicV1), prefixed with the v2 magic.
         #[pallet::call_index(1)]
-        #[pallet::weight(T::WeightInfo::submit_encrypted())]
+        #[pallet::weight(Pallet::<T>::submit_encrypted_dispatch_weight(ciphertext.as_slice()))]
         pub fn submit_encrypted(
             origin: OriginFor<T>,
             ciphertext: BoundedVec<u8, MaxEncryptedCallSize>,
@@ -663,7 +711,7 @@ pub mod pallet {
 
         /// Store an encrypted extrinsic for later execution in on_initialize.
         #[pallet::call_index(2)]
-        #[pallet::weight(store_encrypted_weight())]
+        #[pallet::weight(Pallet::<T>::store_encrypted_dispatch_weight(encrypted_call.as_slice()))]
         pub fn store_encrypted(
             origin: OriginFor<T>,
             encrypted_call: BoundedVec<u8, MaxEncryptedCallSize>,
@@ -1000,6 +1048,49 @@ impl<T: Config> Pallet<T> {
         let epoch_len = T::EpochLength::get().max(1);
         n / epoch_len
     }
+
+    /// Base charged weight for v2 submissions before queue-depth premium.
+    ///
+    /// v2 `submit_encrypted` both validates the IBE envelope and appends to the
+    /// runtime queue, so it must not be charged at the cheap v1 event-only
+    /// `submit_encrypted` weight.
+    pub fn ibe_encrypted_submission_base_weight() -> Weight {
+        store_encrypted_weight().saturating_add(T::WeightInfo::submit_encrypted())
+    }
+
+    /// Current queue-depth priced weight for a v2 encrypted submission.
+    pub fn current_ibe_queue_depth_priced_weight(base: Weight) -> Weight {
+        queue_depth_priced_weight(
+            base,
+            PendingExtrinsics::<T>::count(),
+            MaxPendingExtrinsicsLimit::<T>::get(),
+        )
+        .saturating_add(T::DbWeight::get().reads(2_u64))
+    }
+
+    /// Dispatch weight for `submit_encrypted`.
+    ///
+    /// v1 remains at its legacy flat weight. v2 pays a convex queue-depth
+    /// premium, which feeds directly into transaction-payment fees.
+    pub fn submit_encrypted_dispatch_weight(ciphertext: &[u8]) -> Weight {
+        if IbeEncryptedExtrinsicV1::is_v2_prefixed(ciphertext) {
+            Self::current_ibe_queue_depth_priced_weight(Self::ibe_encrypted_submission_base_weight())
+        } else {
+            T::WeightInfo::submit_encrypted()
+        }
+    }
+
+    /// Dispatch weight for `store_encrypted`.
+    ///
+    /// This closes the legacy `store_encrypted` bypass for v2-prefixed
+    /// envelopes while preserving the existing deferred-call weight for v1.
+    pub fn store_encrypted_dispatch_weight(encrypted_call: &[u8]) -> Weight {
+        if IbeEncryptedExtrinsicV1::is_v2_prefixed(encrypted_call) {
+            Self::current_ibe_queue_depth_priced_weight(Self::ibe_encrypted_submission_base_weight())
+        } else {
+            store_encrypted_weight()
+        }
+    }
     pub fn epoch_bounds(epoch: u64) -> (u64, u64) {
         let len = T::EpochLength::get().max(1);
         let first = epoch.saturating_mul(len);
@@ -1078,7 +1169,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn dkg_two_thirds_threshold(total_weight: u128) -> Option<u128> {
-        total_weight.checked_mul(2)?.checked_add(2).map(|x| x / 3)
+        total_weight.checked_mul(2)?.checked_add(2)?.checked_div(3)
     }
 
     pub fn dkg_threshold_atoms_for_active_stake(
@@ -1108,7 +1199,9 @@ impl<T: Config> Pallet<T> {
         if stake == 0 || total_stake == 0 || max_atoms == 0 {
             return Some(false);
         }
-        Some(stake.checked_mul(max_atoms as u128)? / total_stake > 0)
+        let scaled = stake.checked_mul(max_atoms as u128)?;
+        let atoms = scaled.checked_div(total_stake)?;
+        Some(atoms > 0)
     }
 
     pub fn expected_dkg_atom_weights(
