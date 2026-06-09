@@ -85,7 +85,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: node-subtensor-${{ matrix.variant }}
-          path: target/release/node-subtensor
+          # Include the runtime wasm so the chopsticks_fork env can wasmOverride it.
+          path: |
+            target/release/node-subtensor
+            target/release/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm
           if-no-files-found: error
 
   run-e2e-tests:
@@ -98,6 +101,8 @@ jobs:
       matrix:
         include:
           - test: dev
+            binary: release
+          - test: chopsticks_fork
             binary: release
           - test: zombienet_shield
             binary: release
