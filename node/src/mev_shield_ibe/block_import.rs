@@ -8,7 +8,7 @@ use sp_blockchain::HeaderBackend;
 use sp_consensus::Error as ConsensusError;
 use sp_core::H256;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
-use std::{error::Error as StdError, marker::PhantomData, sync::Arc};
+use std::{collections::BTreeSet, error::Error as StdError, marker::PhantomData, sync::Arc};
 const IBE_TARGET_LOOKAHEAD_BLOCKS: u64 = 2;
 
 pub struct MevShieldBlockImport<I, C, B> {
@@ -101,6 +101,48 @@ where
         Ok(())
     }
 
+    fn has_due_ibe_queue_head_without_available_key(
+        &self,
+        parent_hash: B::Hash,
+        block_number: u64,
+        inherent_key_targets: &BTreeSet<u64>,
+    ) -> Result<bool, String> {
+        let api = self.client.runtime_api();
+        let pending_len = api
+            .pending_encrypted_queue_len(parent_hash)
+            .map_err(|e| format!("pending_encrypted_queue_len runtime API failed: {e:?}"))?;
+        if pending_len == 0 {
+            return Ok(false);
+        }
+
+        let identities = api
+            .pending_ibe_identities(parent_hash, pending_len)
+            .map_err(|e| format!("pending_ibe_identities runtime API failed: {e:?}"))?;
+
+        for identity in identities {
+            if identity.target_block > block_number {
+                return Ok(false);
+            }
+
+            let key_available_at_parent = api
+                .has_ibe_block_key(
+                    parent_hash,
+                    identity.epoch,
+                    identity.target_block,
+                    identity.key_id,
+                )
+                .map_err(|e| format!("has_ibe_block_key runtime API failed: {e:?}"))?;
+
+            if key_available_at_parent || inherent_key_targets.contains(&identity.target_block) {
+                continue;
+            }
+
+            return Ok(true);
+        }
+
+        Ok(false)
+    }
+
     fn verify_mev_shield_block(&self, parent_hash: B::Hash, block: &B) -> Result<(), String> {
         let api = self.client.runtime_api();
         let encoded = block
@@ -108,12 +150,9 @@ where
             .iter()
             .map(|xt| xt.encode())
             .collect::<Vec<_>>();
-        let composition = api
-            .block_composition(parent_hash, encoded.clone())
-            .map_err(|e| format!("block_composition runtime API failed: {e:?}"))?;
 
         let block_number = Self::block_number_u64(block.header())?;
-        let mut pending_queue_len = composition.pending_queue_len_at_parent;
+        let mut inherent_key_targets = BTreeSet::new();
 
         for xt in encoded {
             let class = api
@@ -122,13 +161,13 @@ where
 
             match class {
                 MevShieldExtrinsicClass::SubmitEncryptedV2 { target_block, .. } => {
-                    let expected_target = block_number.saturating_add(IBE_TARGET_LOOKAHEAD_BLOCKS);
-                    if target_block != expected_target {
+                    let min_target = block_number.saturating_add(1);
+                    let max_target = block_number.saturating_add(IBE_TARGET_LOOKAHEAD_BLOCKS);
+                    if target_block < min_target || target_block > max_target {
                         return Err(format!(
-                            "encrypted v2 target {target_block} must equal block {block_number} + {IBE_TARGET_LOOKAHEAD_BLOCKS}",
+                            "encrypted v2 target {target_block} must be in ({block_number}, {max_target}]",
                         ));
                     }
-                    pending_queue_len = pending_queue_len.saturating_add(1);
                 }
                 MevShieldExtrinsicClass::SubmitBlockDecryptionKey {
                     target_block,
@@ -151,7 +190,6 @@ where
                             "IBE block-key inherent contains {invalid_key_count} invalid key(s)",
                         ));
                     }
-                    let mut accepted_keys = 0usize;
                     for (
                         target_block,
                         finalized_ordering_block_number,
@@ -163,34 +201,24 @@ where
                             finalized_ordering_block_number,
                             finalized_ordering_block_hash.into(),
                         )?;
-                        accepted_keys = accepted_keys.saturating_add(1);
-                    }
-                    if accepted_keys > 0 {
-                        pending_queue_len = 0;
+                        inherent_key_targets.insert(target_block);
                     }
                 }
                 MevShieldExtrinsicClass::Operational => {}
                 MevShieldExtrinsicClass::UnencryptedNonOperational => {
-                    if pending_queue_len > 0 {
+                    if self.has_due_ibe_queue_head_without_available_key(
+                        parent_hash,
+                        block_number,
+                        &inherent_key_targets,
+                    )? {
                         return Err(
-                            "plaintext non-operational extrinsic while encrypted queue is pending"
-                                .into(),
-                        );
+                        "plaintext non-operational extrinsic while due encrypted queue head lacks a block key"
+                            .into(),
+                    );
                     }
                 }
             }
         }
-
-        if composition.is_full()
-            && pending_queue_len > 0
-            && composition.contains_plaintext_non_operational
-        {
-            return Err(
-                "full block uses plaintext non-operational space while encrypted queue is pending"
-                    .into(),
-            );
-        }
-
         Ok(())
     }
 }
