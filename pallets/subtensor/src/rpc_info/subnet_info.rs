@@ -515,7 +515,7 @@ impl<T: Config> Pallet<T> {
                 .into(),
             (
                 "activity_cutoff",
-                HyperparamValue::U16(Self::get_activity_cutoff(netuid).into()),
+                HyperparamValue::U64(Self::get_activity_cutoff_blocks(netuid).into()),
             )
                 .into(),
             (
