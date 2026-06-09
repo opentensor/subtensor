@@ -37,6 +37,61 @@ impl<Block: BlockT, Client> IbeBlockDecryptionKeyInherentDataProvider<Block, Cli
     }
 }
 
+/// Combines the consensus-specific inherent data provider with the threshold-IBE
+/// block-key provider without nesting the consensus provider tuple.
+///
+/// The consensus provider returned by `CM::create_inherent_data_providers`
+/// already knows how to expose its slot through `sc_consensus_slots`. Returning
+/// `(base, ibe)` nests that provider tuple and loses the slot extension. This
+/// wrapper delegates inherent data to both providers and delegates `slot()`
+/// directly to the consensus provider.
+pub struct IbeCompositeInherentDataProvider<Base, Ibe> {
+    base: Base,
+    ibe: Ibe,
+}
+
+impl<Base, Ibe> IbeCompositeInherentDataProvider<Base, Ibe> {
+    pub fn new(base: Base, ibe: Ibe) -> Self {
+        Self { base, ibe }
+    }
+}
+
+#[async_trait]
+impl<Base, Ibe> sp_inherents::InherentDataProvider for IbeCompositeInherentDataProvider<Base, Ibe>
+where
+    Base: sp_inherents::InherentDataProvider + Send + Sync,
+    Ibe: sp_inherents::InherentDataProvider + Send + Sync,
+{
+    async fn provide_inherent_data(
+        &self,
+        inherent_data: &mut sp_inherents::InherentData,
+    ) -> Result<(), sp_inherents::Error> {
+        self.base.provide_inherent_data(inherent_data).await?;
+        self.ibe.provide_inherent_data(inherent_data).await
+    }
+
+    async fn try_handle_error(
+        &self,
+        identifier: &sp_inherents::InherentIdentifier,
+        error: &[u8],
+    ) -> Option<Result<(), sp_inherents::Error>> {
+        if let Some(result) = self.base.try_handle_error(identifier, error).await {
+            return Some(result);
+        }
+        self.ibe.try_handle_error(identifier, error).await
+    }
+}
+
+impl<Base, Ibe> sc_consensus_slots::InherentDataProviderExt
+    for IbeCompositeInherentDataProvider<Base, Ibe>
+where
+    Base: sc_consensus_slots::InherentDataProviderExt,
+{
+    fn slot(&self) -> sp_consensus_slots::Slot {
+        sc_consensus_slots::InherentDataProviderExt::slot(&self.base)
+    }
+}
+
 #[async_trait]
 impl<Block, Client> sp_inherents::InherentDataProvider
     for IbeBlockDecryptionKeyInherentDataProvider<Block, Client>

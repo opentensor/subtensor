@@ -277,6 +277,7 @@ where
     NumberFor<Block>: BlockNumberOps,
     NB: sc_network::NetworkBackend<Block, <Block as BlockT>::Hash>,
     CM: ConsensusMechanism,
+    <CM as ConsensusMechanism>::InherentDataProviders: Send + Sync,
 {
     // Substrate doesn't seem to support fast sync option in our configuration.
     if matches!(config.network.sync_mode, SyncMode::LightState { .. }) {
@@ -745,7 +746,11 @@ where
                         client,
                         parent_hash,
                     );
-                Ok((base, ibe))
+                Ok(
+                    crate::mev_shield_ibe::inherent::IbeCompositeInherentDataProvider::new(
+                        base, ibe,
+                    ),
+                )
             }
         };
 

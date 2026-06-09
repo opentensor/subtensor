@@ -17,7 +17,7 @@ use frame_support::{
 };
 use frame_system::{ensure_none, ensure_root, ensure_signed, pallet_prelude::*};
 use mev_shield_ibe_runtime_api::{
-    DkgAuthorityInfo, DkgConsensusSource, EpochDkgPlan, EpochDkgPublication,
+    DkgAuthorityInfo, DkgConsensusKeyKind, DkgConsensusSource, EpochDkgPlan, EpochDkgPublication,
 };
 use ml_kem::{
     Ciphertext, EncodedSizeUser, MlKem768, MlKem768Params,
@@ -188,6 +188,12 @@ enum PendingProcess {
     Break(Weight),
 }
 
+#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, scale_info::TypeInfo)]
+pub struct IbeDkgAuthorityRegistration {
+    pub consensus_key_kind: DkgConsensusKeyKind,
+    pub authority_id: Vec<u8>,
+    pub dkg_x25519_public_key: [u8; 32],
+}
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -366,6 +372,14 @@ pub mod pallet {
     #[pallet::storage]
     pub type IbeDkgAuthoritySnapshots<T: Config> =
         StorageMap<_, Twox64Concat, u64, Vec<DkgAuthorityInfo>, ValueQuery>;
+    #[pallet::storage]
+    pub type IbeDkgAuthorityRegistrations<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, IbeDkgAuthorityRegistration, OptionQuery>;
+    #[pallet::storage]
+    pub type IbeDkgConsensusSources<T: Config> =
+        StorageMap<_, Twox64Concat, u64, DkgConsensusSource, OptionQuery>;
+    #[pallet::storage]
+    pub type LatestPublishedIbeEpoch<T: Config> = StorageValue<_, u64, OptionQuery>;
 
     #[pallet::storage]
     pub type IbeEpochKeys<T: Config> =
@@ -464,6 +478,17 @@ pub mod pallet {
             epoch: u64,
             authority_count: u32,
         },
+        IbeDkgAuthorityRegistered {
+            hotkey: T::AccountId,
+            consensus_key_kind: DkgConsensusKeyKind,
+            authority_id: Vec<u8>,
+        },
+        IbeEpochKeyEmergencyExtended {
+            source_epoch: u64,
+            extended_epoch: u64,
+            key_id: [u8; KEY_ID_LEN],
+            new_last_block: u64,
+        },
 
         /// MEVShield v2 encrypted extrinsic was invalid after the block key became available.
         IbeEncryptedExtrinsicInvalid {
@@ -508,12 +533,14 @@ pub mod pallet {
         BadIbeDkgPublication,
         InsufficientIbeDkgAttestationWeight,
         IbeDkgPublicationAlreadyKnown,
+        BadIbeDkgAuthorityRegistration,
     }
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_initialize(_block_number: BlockNumberFor<T>) -> Weight {
             let mut weight = Self::ensure_epoch_ahead_dkg_snapshots();
+            weight = weight.saturating_add(Self::ensure_ibe_dkg_liveness());
             weight = weight.saturating_add(frame_support::weights::Weight::from_parts(
                 OnInitializeWeight::<T>::get(),
                 0,
@@ -720,14 +747,11 @@ pub mod pallet {
             epoch_key: IbeEpochPublicKey,
         ) -> DispatchResult {
             ensure_root(origin)?;
-
-            IbeEpochKeys::<T>::insert(epoch_key.epoch, epoch_key.clone());
-
-            Self::deposit_event(Event::IbeEpochPublicKeySet {
-                epoch: epoch_key.epoch,
-                key_id: epoch_key.key_id,
-            });
-
+            let epoch = epoch_key.epoch;
+            let key_id = epoch_key.key_id;
+            IbeEpochKeys::<T>::insert(epoch, epoch_key);
+            Self::update_latest_published_ibe_epoch(epoch);
+            Self::deposit_event(Event::IbeEpochPublicKeySet { epoch, key_id });
             Ok(())
         }
 
@@ -804,6 +828,55 @@ pub mod pallet {
                 let _ = Self::store_ibe_block_decryption_key_from_inherent(key)?;
             }
 
+            Ok(())
+        }
+
+        /// Register and bind a consensus authority key to this hotkey for MEV Shield DKG.
+        #[pallet::call_index(11)]
+        #[pallet::weight(T::WeightInfo::set_max_pending_extrinsics_number())]
+        pub fn register_ibe_dkg_authority_key(
+            origin: OriginFor<T>,
+            consensus_key_kind: DkgConsensusKeyKind,
+            authority_id: Vec<u8>,
+            dkg_x25519_public_key: [u8; 32],
+            proof_signature: Vec<u8>,
+        ) -> DispatchResult {
+            let hotkey = ensure_signed(origin)?;
+            ensure!(
+                authority_id.len() == 32,
+                Error::<T>::BadIbeDkgAuthorityRegistration
+            );
+            ensure!(
+                dkg_x25519_public_key != [0u8; 32],
+                Error::<T>::BadIbeDkgAuthorityRegistration
+            );
+            let payload_hash = Self::dkg_authority_registration_payload_hash(
+                &hotkey,
+                consensus_key_kind,
+                &authority_id,
+                &dkg_x25519_public_key,
+            );
+            ensure!(
+                T::IbeDkgAuthorityProvider::verify_authority_signature(
+                    &authority_id,
+                    payload_hash,
+                    &proof_signature,
+                ),
+                Error::<T>::BadIbeDkgAuthorityRegistration
+            );
+            IbeDkgAuthorityRegistrations::<T>::insert(
+                &hotkey,
+                IbeDkgAuthorityRegistration {
+                    consensus_key_kind,
+                    authority_id: authority_id.clone(),
+                    dkg_x25519_public_key,
+                },
+            );
+            Self::deposit_event(Event::IbeDkgAuthorityRegistered {
+                hotkey,
+                consensus_key_kind,
+                authority_id,
+            });
             Ok(())
         }
     }
@@ -939,23 +1012,37 @@ impl<T: Config> Pallet<T> {
         let mut writes = 0u64;
         for offset in 0..=IBE_DKG_EPOCHS_AHEAD {
             let epoch = current.saturating_add(offset);
-            reads = reads.saturating_add(1);
-            if !IbeDkgAuthoritySnapshots::<T>::get(epoch).is_empty() {
+            reads = reads.saturating_add(2);
+            let authorities_missing = IbeDkgAuthoritySnapshots::<T>::get(epoch).is_empty();
+            let source_missing = IbeDkgConsensusSources::<T>::get(epoch).is_none();
+            if !authorities_missing && !source_missing {
                 continue;
             }
-            let authorities = T::IbeDkgAuthorityProvider::authorities_for_epoch(epoch);
+            let authorities = if authorities_missing {
+                T::IbeDkgAuthorityProvider::authorities_for_epoch(epoch)
+            } else {
+                IbeDkgAuthoritySnapshots::<T>::get(epoch)
+            };
             if authorities.is_empty() {
                 continue;
             }
-            let authority_count = authorities.len() as u32;
-            IbeDkgAuthoritySnapshots::<T>::insert(epoch, authorities);
-            writes = writes.saturating_add(1);
-            Self::deposit_event(Event::IbeDkgAuthoritySnapshotStored {
-                epoch,
-                authority_count,
-            });
+            let source = Self::consensus_source_from_authorities(&authorities)
+                .unwrap_or_else(|| T::IbeDkgAuthorityProvider::consensus_source_for_epoch(epoch));
+            if authorities_missing {
+                let authority_count = authorities.len() as u32;
+                IbeDkgAuthoritySnapshots::<T>::insert(epoch, authorities);
+                writes = writes.saturating_add(1);
+                Self::deposit_event(Event::IbeDkgAuthoritySnapshotStored {
+                    epoch,
+                    authority_count,
+                });
+            }
+            if source_missing {
+                IbeDkgConsensusSources::<T>::insert(epoch, source);
+                writes = writes.saturating_add(1);
+            }
         }
-        <T as frame_system::Config>::DbWeight::get().reads_writes(reads, writes)
+        T::DbWeight::get().reads_writes(reads, writes)
     }
     pub fn dkg_authorities_for_plan(epoch: u64) -> Vec<DkgAuthorityInfo> {
         let snapshot = IbeDkgAuthoritySnapshots::<T>::get(epoch);
@@ -965,8 +1052,58 @@ impl<T: Config> Pallet<T> {
             T::IbeDkgAuthorityProvider::authorities_for_epoch(epoch)
         }
     }
-    pub fn next_epoch_dkg_plan() -> Option<EpochDkgPlan> {
-        let epoch = Self::current_ibe_epoch().saturating_add(IBE_DKG_EPOCHS_AHEAD);
+
+    pub fn ibe_dkg_authority_registration(
+        hotkey: &T::AccountId,
+    ) -> Option<IbeDkgAuthorityRegistration> {
+        IbeDkgAuthorityRegistrations::<T>::get(hotkey)
+    }
+
+    pub fn dkg_authority_registration_payload_hash(
+        hotkey: &T::AccountId,
+        consensus_key_kind: DkgConsensusKeyKind,
+        authority_id: &[u8],
+        dkg_x25519_public_key: &[u8; 32],
+    ) -> sp_core::H256 {
+        sp_core::H256::from(sp_core::hashing::blake2_256(
+            &(
+                b"bittensor.mev-shield.v2.dkg.authority-registration",
+                hotkey,
+                consensus_key_kind,
+                authority_id,
+                dkg_x25519_public_key,
+            )
+                .encode(),
+        ))
+    }
+
+    pub fn consensus_source_from_authorities(
+        authorities: &[DkgAuthorityInfo],
+    ) -> Option<DkgConsensusSource> {
+        if authorities.is_empty() {
+            return None;
+        }
+        if authorities.iter().any(|a| {
+            matches!(
+                a.consensus_key_kind,
+                DkgConsensusKeyKind::BabeSr25519 | DkgConsensusKeyKind::BabeEd25519
+            )
+        }) {
+            Some(DkgConsensusSource::PosBabeRootValidators)
+        } else {
+            Some(DkgConsensusSource::PoaAuraRootValidators)
+        }
+    }
+
+    pub fn dkg_consensus_source_for_plan(epoch: u64) -> DkgConsensusSource {
+        IbeDkgConsensusSources::<T>::get(epoch).unwrap_or_else(|| {
+            let authorities = IbeDkgAuthoritySnapshots::<T>::get(epoch);
+            Self::consensus_source_from_authorities(&authorities)
+                .unwrap_or_else(|| T::IbeDkgAuthorityProvider::consensus_source_for_epoch(epoch))
+        })
+    }
+
+    pub fn dkg_plan_for_epoch(epoch: u64) -> Option<EpochDkgPlan> {
         let authorities = Self::dkg_authorities_for_plan(epoch);
         if authorities.is_empty() {
             return None;
@@ -976,26 +1113,91 @@ impl<T: Config> Pallet<T> {
             epoch,
             first_block,
             last_block,
-            consensus_source: T::IbeDkgAuthorityProvider::consensus_source_for_epoch(epoch),
+            consensus_source: Self::dkg_consensus_source_for_plan(epoch),
             max_atoms: T::MaxDkgAtoms::get(),
             authorities,
         })
     }
-    pub fn active_epoch_dkg_plan() -> Option<EpochDkgPlan> {
-        let epoch = Self::current_ibe_epoch();
-        let authorities = Self::dkg_authorities_for_plan(epoch);
-        if authorities.is_empty() {
-            return None;
+
+    pub fn update_latest_published_ibe_epoch(epoch: u64) {
+        LatestPublishedIbeEpoch::<T>::mutate(|latest| {
+            if latest.map_or(true, |known| epoch > known) {
+                *latest = Some(epoch);
+            }
+        });
+    }
+
+    pub fn latest_extendable_ibe_epoch_key(current_epoch: u64) -> Option<IbeEpochPublicKey> {
+        let max_lookback = IBE_DKG_EPOCHS_AHEAD.saturating_add(1);
+        if let Some(epoch) = LatestPublishedIbeEpoch::<T>::get() {
+            if epoch < current_epoch && current_epoch.saturating_sub(epoch) <= max_lookback {
+                if let Some(key) = IbeEpochKeys::<T>::get(epoch) {
+                    return Some(key);
+                }
+            }
         }
-        let (first_block, last_block) = Self::epoch_bounds(epoch);
-        Some(EpochDkgPlan {
-            epoch,
-            first_block,
-            last_block,
-            consensus_source: T::IbeDkgAuthorityProvider::consensus_source_for_epoch(epoch),
-            max_atoms: T::MaxDkgAtoms::get(),
-            authorities,
-        })
+        let mut checked = 0u64;
+        let mut epoch = current_epoch;
+        while epoch > 0 && checked < max_lookback {
+            epoch = epoch.saturating_sub(1);
+            checked = checked.saturating_add(1);
+            if let Some(key) = IbeEpochKeys::<T>::get(epoch) {
+                return Some(key);
+            }
+        }
+        None
+    }
+
+    pub fn ensure_ibe_dkg_liveness() -> frame_support::weights::Weight {
+        let current = Self::current_ibe_epoch();
+        let (_, current_last_block) = Self::epoch_bounds(current);
+        let reads = 2u64;
+        let mut writes = 0u64;
+
+        if let Some(epoch_key) = IbeEpochKeys::<T>::get(current) {
+            if epoch_key.last_block >= current_last_block {
+                return T::DbWeight::get().reads_writes(reads, writes);
+            }
+        }
+
+        let Some(mut fallback_key) = Self::latest_extendable_ibe_epoch_key(current) else {
+            return T::DbWeight::get().reads_writes(reads, writes);
+        };
+
+        if fallback_key.last_block >= current_last_block {
+            return T::DbWeight::get().reads_writes(reads, writes);
+        }
+
+        let source_epoch = fallback_key.epoch;
+        fallback_key.last_block = current_last_block;
+        let key_id = fallback_key.key_id;
+        IbeEpochKeys::<T>::insert(source_epoch, fallback_key);
+        Self::update_latest_published_ibe_epoch(source_epoch);
+        writes = writes.saturating_add(2);
+        Self::deposit_event(Event::IbeEpochKeyEmergencyExtended {
+            source_epoch,
+            extended_epoch: current,
+            key_id,
+            new_last_block: current_last_block,
+        });
+        T::DbWeight::get().reads_writes(reads, writes)
+    }
+
+    pub fn next_epoch_dkg_plan() -> Option<EpochDkgPlan> {
+        let current = Self::current_ibe_epoch();
+        let target_epoch = current.saturating_add(IBE_DKG_EPOCHS_AHEAD);
+        for epoch in current..=target_epoch {
+            if IbeEpochKeys::<T>::contains_key(epoch) {
+                continue;
+            }
+            if let Some(plan) = Self::dkg_plan_for_epoch(epoch) {
+                return Some(plan);
+            }
+        }
+        None
+    }
+    pub fn active_epoch_dkg_plan() -> Option<EpochDkgPlan> {
+        Self::dkg_plan_for_epoch(Self::current_ibe_epoch())
     }
     pub fn dkg_public_output_hash(publication: &EpochDkgPublication) -> sp_core::H256 {
         sp_core::H256::from(sp_core::hashing::blake2_256(
@@ -1038,21 +1240,14 @@ impl<T: Config> Pallet<T> {
             publication.public_output_hash == expected_hash,
             Error::<T>::BadIbeDkgPublication
         );
-
-        let plan = if let Some(next) = Self::next_epoch_dkg_plan() {
-            if next.epoch == publication.epoch {
-                next
-            } else {
-                Self::active_epoch_dkg_plan().ok_or(Error::<T>::BadIbeDkgPublication)?
-            }
-        } else {
-            Self::active_epoch_dkg_plan().ok_or(Error::<T>::BadIbeDkgPublication)?
-        };
-
+        let current = Self::current_ibe_epoch();
         ensure!(
-            publication.epoch == plan.epoch,
+            publication.epoch >= current
+                && publication.epoch <= current.saturating_add(IBE_DKG_EPOCHS_AHEAD),
             Error::<T>::BadIbeDkgPublication
         );
+        let plan =
+            Self::dkg_plan_for_epoch(publication.epoch).ok_or(Error::<T>::BadIbeDkgPublication)?;
         ensure!(
             publication.consensus_source == plan.consensus_source,
             Error::<T>::BadIbeDkgPublication
@@ -1072,18 +1267,15 @@ impl<T: Config> Pallet<T> {
                 && !PublishedDkgOutputHashes::<T>::contains_key(publication.epoch),
             Error::<T>::IbeDkgPublicationAlreadyKnown
         );
-
         let mut by_authority = sp_std::collections::btree_map::BTreeMap::<Vec<u8>, u128>::new();
         for a in &plan.authorities {
             by_authority.insert(a.authority_id.clone(), a.stake);
         }
-
         let total_stake = plan
             .authorities
             .iter()
             .fold(0u128, |acc, a| acc.saturating_add(a.stake));
         let threshold_stake = total_stake.saturating_mul(2) / 3 + 1;
-
         let mut attested_stake = 0u128;
         let mut seen = sp_std::collections::btree_set::BTreeSet::<Vec<u8>>::new();
         for att in &publication.attestations {
@@ -1111,7 +1303,6 @@ impl<T: Config> Pallet<T> {
                 attested_stake = attested_stake.saturating_add(att.stake);
             }
         }
-
         ensure!(
             attested_stake >= threshold_stake,
             Error::<T>::InsufficientIbeDkgAttestationWeight
@@ -1125,7 +1316,6 @@ impl<T: Config> Pallet<T> {
             .clone()
             .try_into()
             .map_err(|_| Error::<T>::BadIbeDkgPublication)?;
-
         let epoch_key = IbeEpochPublicKey {
             epoch: publication.epoch,
             key_id: publication.key_id,
@@ -1135,12 +1325,12 @@ impl<T: Config> Pallet<T> {
             first_block: publication.first_block,
             last_block: publication.last_block,
         };
-
         IbeEpochKeys::<T>::insert(publication.epoch, epoch_key);
         PublishedDkgOutputHashes::<T>::insert(
             publication.epoch,
             Self::dkg_public_output_hash(&publication),
         );
+        Self::update_latest_published_ibe_epoch(publication.epoch);
         let attested_weight = publication
             .attestations
             .iter()
