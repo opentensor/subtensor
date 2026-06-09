@@ -78,6 +78,29 @@ where
         Ok(canonical_hash == Some(hash))
     }
 
+    fn verify_decryption_key_finality(
+        &self,
+        target_block: u64,
+        finalized_ordering_block_number: u64,
+        finalized_ordering_block_hash: B::Hash,
+    ) -> Result<(), String> {
+        let expected_finalized = target_block.saturating_sub(1);
+        if finalized_ordering_block_number != expected_finalized {
+            return Err(format!(
+                "decryption key finality point {finalized_ordering_block_number} does not match target-1 {expected_finalized} for target {target_block}",
+            ));
+        }
+        if !self.canonical_finalized_contains(
+            finalized_ordering_block_number,
+            finalized_ordering_block_hash,
+        )? {
+            return Err(format!(
+                "decryption key for target {target_block} accepted before local finality of {finalized_ordering_block_number}",
+            ));
+        }
+        Ok(())
+    }
+
     fn verify_mev_shield_block(&self, parent_hash: B::Hash, block: &B) -> Result<(), String> {
         let api = self.client.runtime_api();
         let encoded = block
@@ -113,25 +136,37 @@ where
                     finalized_ordering_block_hash,
                     ..
                 } => {
-                    let expected_finalized_ordering_block_number = target_block
-                    .checked_sub(1)
-                    .ok_or_else(|| {
-                        format!(
-                            "decryption key target {target_block} has no predecessor finality point"
-                        )
-                    })?;
-                    if finalized_ordering_block_number != expected_finalized_ordering_block_number {
-                        return Err(format!(
-                            "decryption key finality point {finalized_ordering_block_number} must equal target {target_block} - 1",
-                        ));
-                    }
-                    if !self.canonical_finalized_contains(
+                    self.verify_decryption_key_finality(
+                        target_block,
                         finalized_ordering_block_number,
                         finalized_ordering_block_hash.into(),
-                    )? {
+                    )?;
+                }
+                MevShieldExtrinsicClass::SubmitBlockDecryptionKeyInherent {
+                    finality_proofs,
+                    invalid_key_count,
+                } => {
+                    if invalid_key_count > 0 {
                         return Err(format!(
-                            "decryption key for target {target_block} accepted before local finality of {finalized_ordering_block_number}",
+                            "IBE block-key inherent contains {invalid_key_count} invalid key(s)",
                         ));
+                    }
+                    let mut accepted_keys = 0usize;
+                    for (
+                        target_block,
+                        finalized_ordering_block_number,
+                        finalized_ordering_block_hash,
+                    ) in finality_proofs
+                    {
+                        self.verify_decryption_key_finality(
+                            target_block,
+                            finalized_ordering_block_number,
+                            finalized_ordering_block_hash.into(),
+                        )?;
+                        accepted_keys = accepted_keys.saturating_add(1);
+                    }
+                    if accepted_keys > 0 {
+                        pending_queue_len = 0;
                     }
                 }
                 MevShieldExtrinsicClass::Operational => {}
@@ -147,7 +182,7 @@ where
         }
 
         if composition.is_full()
-            && composition.pending_queue_len_at_parent > 0
+            && pending_queue_len > 0
             && composition.contains_plaintext_non_operational
         {
             return Err(

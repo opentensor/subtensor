@@ -34,8 +34,10 @@ use sp_runtime::{
     },
 };
 use stp_mev_shield_ibe::{
-    BoundedMasterPublicKey, IbeBlockDecryptionKeyV1, IbeEncryptedExtrinsicV1, IbeEpochPublicKey,
-    IbePendingIdentity, KEY_ID_LEN, MEV_SHIELD_IBE_VERSION, block_key_storage_key,
+    BoundedMasterPublicKey, IBE_BLOCK_DECRYPTION_KEYS_INHERENT_IDENTIFIER,
+    IbeBlockDecryptionKeyInherentData, IbeBlockDecryptionKeyV1, IbeEncryptedExtrinsicV1,
+    IbeEpochPublicKey, IbePendingIdentity, KEY_ID_LEN, MEV_SHIELD_IBE_VERSION,
+    block_key_storage_key,
 };
 use stp_shield::{
     INHERENT_IDENTIFIER, InherentType, LOG_TARGET, MLKEM768_ENC_KEY_LEN, ShieldEncKey,
@@ -512,7 +514,10 @@ pub mod pallet {
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_initialize(_block_number: BlockNumberFor<T>) -> Weight {
             let mut weight = Self::ensure_epoch_ahead_dkg_snapshots();
-            weight = weight.saturating_add(Self::process_pending_extrinsics());
+            weight = weight.saturating_add(frame_support::weights::Weight::from_parts(
+                OnInitializeWeight::<T>::get(),
+                0,
+            ));
             weight
         }
 
@@ -524,6 +529,12 @@ pub mod pallet {
             );
 
             weight
+        }
+    }
+
+    impl<T: Config> frame_support::traits::PostInherents for Pallet<T> {
+        fn post_inherents() {
+            let _ = Self::process_pending_extrinsics();
         }
     }
 
@@ -758,6 +769,43 @@ pub mod pallet {
             ensure_none(origin)?;
             Self::publish_ibe_epoch_public_key_inner(publication)
         }
+
+        /// Composite MEV Shield inherent.
+        ///
+        /// This preserves the legacy v1 shield key-rotation inherent while also
+        /// carrying threshold-IBE block decryption keys. The keys are stored by this
+        /// mandatory inherent, then `PostInherents` drains the due encrypted queue
+        /// before ordinary user extrinsics execute.
+        #[pallet::call_index(10)]
+        #[pallet::weight((
+        frame_support::weights::Weight::from_parts(MAX_ON_INITIALIZE_WEIGHT, 0)
+            .saturating_add(T::WeightInfo::announce_next_key()),
+        frame_support::dispatch::DispatchClass::Mandatory,
+        frame_support::dispatch::Pays::No,
+    ))]
+        pub fn provide_mev_shield_inherent(
+            origin: OriginFor<T>,
+            rotate_author_key: bool,
+            enc_key: Option<ShieldEncKey>,
+            ibe_block_decryption_keys: Vec<IbeBlockDecryptionKeyV1>,
+        ) -> DispatchResult {
+            ensure_none(origin)?;
+
+            if rotate_author_key {
+                Self::announce_next_key(frame_system::RawOrigin::None.into(), enc_key)?;
+            }
+
+            ensure!(
+                ibe_block_decryption_keys.len() <= MaxPendingExtrinsicsLimit::<T>::get() as usize,
+                Error::<T>::TooManyPendingExtrinsics
+            );
+
+            for key in ibe_block_decryption_keys {
+                let _ = Self::store_ibe_block_decryption_key_from_inherent(key)?;
+            }
+
+            Ok(())
+        }
     }
 
     #[pallet::validate_unsigned]
@@ -818,18 +866,57 @@ pub mod pallet {
         const INHERENT_IDENTIFIER: InherentIdentifier = INHERENT_IDENTIFIER;
 
         fn create_inherent(data: &InherentData) -> Option<Self::Call> {
-            let enc_key = data
-                .get_data::<InherentType>(&INHERENT_IDENTIFIER)
-                .inspect_err(
-                    |e| log::debug!(target: LOG_TARGET, "Failed to get shielded enc key inherent data: {:?}", e),
-                )
-                .ok()??;
+            let enc_key_inherent = data
+            .get_data::<InherentType>(&INHERENT_IDENTIFIER)
+            .inspect_err(|e| {
+                log::debug!(target: LOG_TARGET, "Failed to get shielded enc-key inherent data: {:?}", e)
+            })
+            .ok()
+            .flatten();
 
-            Some(Call::announce_next_key { enc_key })
+            let ibe_block_decryption_keys = data
+            .get_data::<IbeBlockDecryptionKeyInherentData>(
+                &IBE_BLOCK_DECRYPTION_KEYS_INHERENT_IDENTIFIER,
+            )
+            .inspect_err(|e| {
+                log::debug!(target: LOG_TARGET, "Failed to get threshold-IBE block-key inherent data: {:?}", e)
+            })
+            .ok()
+            .flatten()
+            .map(|payload| payload.keys)
+            .unwrap_or_default();
+
+            if !ibe_block_decryption_keys.is_empty() {
+                return Some(Call::provide_mev_shield_inherent {
+                    rotate_author_key: enc_key_inherent.is_some(),
+                    enc_key: enc_key_inherent.unwrap_or(None),
+                    ibe_block_decryption_keys,
+                });
+            }
+
+            enc_key_inherent.map(|enc_key| Call::announce_next_key { enc_key })
         }
 
         fn is_inherent(call: &Self::Call) -> bool {
-            matches!(call, Call::announce_next_key { .. })
+            matches!(
+                call,
+                Call::announce_next_key { .. } | Call::provide_mev_shield_inherent { .. }
+            )
+        }
+
+        fn check_inherent(call: &Self::Call, _data: &InherentData) -> Result<(), Self::Error> {
+            if let Call::provide_mev_shield_inherent {
+                ibe_block_decryption_keys,
+                ..
+            } = call
+            {
+                for key in ibe_block_decryption_keys {
+                    if !Self::verify_ibe_block_decryption_key_material(key) {
+                        return Err(sp_inherents::MakeFatalError::from(()));
+                    }
+                }
+            }
+            Ok(())
         }
     }
 }
@@ -1122,6 +1209,59 @@ impl<T: Config> Pallet<T> {
             commitment: envelope.commitment,
         });
         Ok(())
+    }
+
+    pub fn verify_ibe_block_decryption_key_material(key: &IbeBlockDecryptionKeyV1) -> bool {
+        if key.version != MEV_SHIELD_IBE_VERSION {
+            return false;
+        }
+
+        let Some(epoch_key) = IbeEpochKeys::<T>::get(key.epoch) else {
+            return false;
+        };
+        if epoch_key.key_id != key.key_id {
+            return false;
+        }
+        if key.target_block < epoch_key.first_block || key.target_block > epoch_key.last_block {
+            return false;
+        }
+
+        let expected_finalized = key.target_block.saturating_sub(1);
+        if key.finalized_ordering_block_number != expected_finalized {
+            return false;
+        }
+
+        let genesis_hash = frame_system::Pallet::<T>::block_hash(BlockNumberFor::<T>::zero());
+        T::IbeKeyVerifier::verify_block_identity_key(
+            genesis_hash,
+            &epoch_key,
+            key.target_block,
+            key.identity_decryption_key.as_slice(),
+        )
+    }
+
+    pub fn validate_ibe_block_decryption_key_for_runtime_api(
+        key: &IbeBlockDecryptionKeyV1,
+    ) -> bool {
+        Self::verify_ibe_block_decryption_key_material(key)
+    }
+
+    pub fn store_ibe_block_decryption_key_from_inherent(
+        key: IbeBlockDecryptionKeyV1,
+    ) -> Result<bool, sp_runtime::DispatchError> {
+        let storage_key = block_key_storage_key(key.epoch, key.target_block, key.key_id);
+        if IbeBlockDecryptionKeys::<T>::contains_key(storage_key) {
+            return Ok(false);
+        }
+
+        Self::validate_ibe_block_decryption_key_for_submission(&key)?;
+        IbeBlockDecryptionKeys::<T>::insert(storage_key, key.clone());
+        Self::deposit_event(Event::IbeBlockDecryptionKeySubmitted {
+            epoch: key.epoch,
+            target_block: key.target_block,
+            key_id: key.key_id,
+        });
+        Ok(true)
     }
 
     fn store_encrypted_inner(

@@ -14,6 +14,9 @@ pub const MEV_SHIELD_IBE_MAGIC: [u8; 4] = *b"MSI2";
 
 pub const KEY_ID_LEN: usize = 16;
 pub const IBE_DOMAIN: &[u8] = b"bittensor.mev-shield.v2.block-identity";
+/// Inherent-data identifier used by block authors to deliver threshold-IBE
+/// block decryption keys before ordinary transactions in the target block.
+pub const IBE_BLOCK_DECRYPTION_KEYS_INHERENT_IDENTIFIER: [u8; 8] = *b"ibe_bkey";
 
 /// BLS12-381 compressed G1 signature / BF-IBE extracted identity secret.
 pub const COMPRESSED_IDENTITY_KEY_LEN: usize = 48;
@@ -108,6 +111,11 @@ pub struct IbeBlockDecryptionKeyV1 {
     /// Finalized block proving the encrypted ordering was locked before release.
     pub finalized_ordering_block_number: u64,
     pub finalized_ordering_block_hash: H256,
+}
+
+#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
+pub struct IbeBlockDecryptionKeyInherentData {
+    pub keys: Vec<IbeBlockDecryptionKeyV1>,
 }
 
 #[subtensor_macros::freeze_struct("637a2b7834d1086")]

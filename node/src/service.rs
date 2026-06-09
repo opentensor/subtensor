@@ -719,13 +719,6 @@ where
                 client.clone(),
                 ibe_share_pool.clone(),
             );
-
-            crate::mev_shield_ibe::submitter::spawn_key_submitter(
-                &task_manager.spawn_handle(),
-                client.clone(),
-                transaction_pool.clone(),
-                ibe_share_pool,
-            );
         }
 
         let proposer_factory = sc_basic_authorship::ProposerFactory::new(
@@ -738,10 +731,22 @@ where
         );
 
         let slot_duration = consensus_mechanism.slot_duration(&client)?;
-
-        let create_inherent_data_providers = move |_, ()| {
+        let ibe_inherent_share_pool = maybe_ibe_share_pool.clone();
+        let ibe_inherent_client = client.clone();
+        let create_inherent_data_providers = move |parent_hash, ()| {
             let keystore = shield_keystore.clone();
-            async move { CM::create_inherent_data_providers(slot_duration, keystore) }
+            let share_pool = ibe_inherent_share_pool.clone();
+            let client = ibe_inherent_client.clone();
+            async move {
+                let base = CM::create_inherent_data_providers(slot_duration, keystore)?;
+                let ibe =
+                    crate::mev_shield_ibe::inherent::IbeBlockDecryptionKeyInherentDataProvider::new(
+                        share_pool,
+                        client,
+                        parent_hash,
+                    );
+                Ok((base, ibe))
+            }
         };
 
         consensus_mechanism.start_authoring(

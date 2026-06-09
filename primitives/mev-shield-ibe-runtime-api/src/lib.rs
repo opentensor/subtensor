@@ -26,6 +26,10 @@ pub enum MevShieldExtrinsicClass {
         finalized_ordering_block_number: u64,
         finalized_ordering_block_hash: H256,
     },
+    SubmitBlockDecryptionKeyInherent {
+        finality_proofs: Vec<(u64, u64, H256)>,
+        invalid_key_count: u32,
+    },
     Operational,
     UnencryptedNonOperational,
 }

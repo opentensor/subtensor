@@ -400,7 +400,7 @@ impl frame_system::Config for Runtime {
     type SingleBlockMigrations = Migrations;
     type MultiBlockMigrator = ();
     type PreInherents = ();
-    type PostInherents = ();
+    type PostInherents = MevShield;
     type PostTransactions = ();
     type ExtensionsWeightInfo = frame_system::SubstrateExtensionsWeight<Runtime>;
     type DispatchExtension = pallet_subtensor::CheckColdkeySwap<Runtime>;
@@ -2784,7 +2784,28 @@ impl mev_shield_ibe_runtime_api::MevShieldIbeApi<Block> for Runtime {
                     finalized_ordering_block_hash: key.finalized_ordering_block_hash,
                 }
             }
-            _ => {
+            RuntimeCall::MevShield(pallet_shield::Call::provide_mev_shield_inherent { ibe_block_decryption_keys, .. }) => {
+                    let mut invalid_key_count = 0u32;
+                    let finality_proofs = ibe_block_decryption_keys
+                        .iter()
+                        .filter_map(|key| {
+                            if MevShield::verify_ibe_block_decryption_key_material(key) {
+                                Some((
+                                    key.target_block,
+                                    key.finalized_ordering_block_number,
+                                    key.finalized_ordering_block_hash,
+                                ))
+                            } else {
+                                invalid_key_count = invalid_key_count.saturating_add(1);
+                                None
+                            }
+                        })
+                        .collect();
+                    MevShieldExtrinsicClass::SubmitBlockDecryptionKeyInherent {
+                        finality_proofs,
+                        invalid_key_count,
+                    }
+                }, _ => {
                 if call.get_dispatch_info().class == DispatchClass::Operational {
                     MevShieldExtrinsicClass::Operational
                 } else {
@@ -2852,7 +2873,28 @@ impl mev_shield_ibe_runtime_api::MevShieldIbeApi<Block> for Runtime {
                         finalized_ordering_block_number: key.finalized_ordering_block_number,
                         finalized_ordering_block_hash: key.finalized_ordering_block_hash,
                     },
-                    _ => {
+                    RuntimeCall::MevShield(pallet_shield::Call::provide_mev_shield_inherent { ibe_block_decryption_keys, .. }) => {
+                    let mut invalid_key_count = 0u32;
+                    let finality_proofs = ibe_block_decryption_keys
+                        .iter()
+                        .filter_map(|key| {
+                            if MevShield::verify_ibe_block_decryption_key_material(key) {
+                                Some((
+                                    key.target_block,
+                                    key.finalized_ordering_block_number,
+                                    key.finalized_ordering_block_hash,
+                                ))
+                            } else {
+                                invalid_key_count = invalid_key_count.saturating_add(1);
+                                None
+                            }
+                        })
+                        .collect();
+                    MevShieldExtrinsicClass::SubmitBlockDecryptionKeyInherent {
+                        finality_proofs,
+                        invalid_key_count,
+                    }
+                }, _ => {
                         if call.get_dispatch_info().class == DispatchClass::Operational {
                             MevShieldExtrinsicClass::Operational
                         } else {
