@@ -277,9 +277,10 @@ impl<T: Config> Pallet<T> {
 
         if clear_result.unique < T::MaxContributors::get() {
             // We have cleared less than the max number of shareholders, so we need to refund the difference
-            Ok(Some(<T as Config>::WeightInfo::terminate_lease(
-                clear_result.unique,
-            ))
+            Ok(Some(
+                <T as Config>::WeightInfo::terminate_lease(clear_result.unique)
+                    .saturating_add(<T as Config>::WeightInfo::swap_hotkey()),
+            )
             .into())
         } else {
             // We have cleared the max number of shareholders, so we don't need to refund anything
