@@ -4,7 +4,6 @@ pub mod dkg;
 pub mod finality;
 pub mod inherent;
 pub mod network;
-pub mod submitter;
 
 use std::{
     collections::{BTreeMap, BTreeSet},
