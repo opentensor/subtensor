@@ -199,9 +199,11 @@ pub mod pallet {
         PalletId,
         pallet_prelude::*,
         traits::{Get, UnixTime},
+        transactional,
     };
     use frame_system::pallet_prelude::*;
     use sp_runtime::traits::AccountIdConversion;
+    use sp_std::collections::btree_set::BTreeSet;
     use sp_std::vec::Vec;
 
     #[pallet::pallet]
@@ -348,6 +350,8 @@ pub mod pallet {
         PalletHotkeyNotRegistered,
         /// A TAO -> alpha conversion overflowed the fixed-point range.
         ArithmeticOverflow,
+        /// The same order appears more than once in a single batch.
+        DuplicateOrderInBatch,
     }
 
     // ── Hooks ─────────────────────────────────────────────────────────────────
@@ -693,6 +697,12 @@ pub mod pallet {
 
         /// Attempt to execute one signed order. Returns an error on any
         /// validation or execution failure without panicking.
+        ///
+        /// `#[transactional]` makes the whole body a single storage layer: the
+        /// swap (`buy_alpha`/`sell_alpha`, themselves transactional), the fee
+        /// transfer, and the `Orders::insert` either all commit together or all
+        /// roll back together.
+        #[transactional]
         fn try_execute_order(
             signed_order: SignedOrder<T::AccountId>,
             order_id: H256,
@@ -903,8 +913,20 @@ pub mod pallet {
             let mut buys = BoundedVec::new();
             let mut sells = BoundedVec::new();
 
+            // Track which order_ids we have already seen in this batch. A repeated
+            // order_id is never legitimate within a single batch.
+            let mut seen_order_ids: BTreeSet<H256> = BTreeSet::new();
+
             for signed_order in orders.iter() {
                 let order_id = Self::derive_order_id(&signed_order.order);
+
+                // Hard-fail on the first duplicate order_id in the batch (covers both
+                // buys and sells). BTreeSet::insert returns false if already present.
+                ensure!(
+                    seen_order_ids.insert(order_id),
+                    Error::<T>::DuplicateOrderInBatch
+                );
+
                 let order = signed_order.order.inner();
 
                 // Hard-fail if the order targets a different subnet than the batch netuid.
