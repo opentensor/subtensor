@@ -617,6 +617,11 @@ impl<T: Config> Pallet<T> {
                 HyperparamValue::Bool(Self::get_owner_cut_auto_lock_enabled(netuid)),
             )
                 .into(),
+            (
+                "min_childkey_take_per_subnet",
+                HyperparamValue::U16(Self::get_effective_min_childkey_take(netuid).into()),
+            )
+                .into(),
         ])
     }
 }
