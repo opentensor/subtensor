@@ -24,3 +24,15 @@ export function createEthersWallet(provider: ethers.JsonRpcProvider): ethers.Wal
 export async function getEthBalance(provider: ethers.Provider, address: string): Promise<bigint> {
     return provider.getBalance(address);
 }
+
+export async function forceSetChainID(api: TypedApi<typeof subtensor>, chainId: bigint): Promise<void> {
+    const value = await api.query.EVMChainId.ChainId.getValue();
+    if (value === chainId) {
+        return;
+    }
+
+    const alice = new Keyring({ type: "sr25519" }).addFromUri("//Alice");
+    const internalCall = api.tx.AdminUtils.sudo_set_evm_chain_id({ chain_id: chainId });
+    const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
+    await waitForTransactionWithRetry(api, tx, alice, "sudo_set_evm_chain_id", 5);
+}

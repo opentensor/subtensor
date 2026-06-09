@@ -371,7 +371,7 @@ export async function sudoSetAdminFreezeWindow(api: TypedApi<typeof subtensor>, 
         window: window,
     });
     const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
-    await waitForTransactionWithRetry(api, tx, alice, "sudo_set_admin_freeze_window");
+    await waitForTransactionWithRetry(api, tx, alice, "sudo_set_admin_freeze_window", 5);
 }
 
 export async function sudoSetEmaPriceHalvingPeriod(
@@ -396,7 +396,7 @@ export async function sudoSetLockReductionInterval(api: TypedApi<typeof subtenso
         interval: BigInt(interval),
     });
     const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
-    await waitForTransactionWithRetry(api, tx, alice, "sudo_set_lock_reduction_interval");
+    await waitForTransactionWithRetry(api, tx, alice, "sudo_set_lock_reduction_interval", 5);
 }
 
 export async function sudoSetSubnetMovingAlpha(api: TypedApi<typeof subtensor>, alpha: bigint): Promise<void> {

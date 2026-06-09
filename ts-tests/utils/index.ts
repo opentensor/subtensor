@@ -8,3 +8,6 @@ export * from "./shield_helpers.ts";
 export * from "./staking.js";
 export * from "./subnet.js";
 export * from "./transactions.js";
+export * from "./contracts/index.ts";
+export * from "./proxy.ts";
+export * from "./wasm-contract.ts";

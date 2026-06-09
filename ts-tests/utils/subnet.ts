@@ -25,7 +25,7 @@ export async function addNewSubnetwork(
     const registerNetworkTx = api.tx.SubtensorModule.register_network({
         hotkey: hotkey.address,
     });
-    await waitForTransactionWithRetry(api, registerNetworkTx, coldkey, "register_network");
+    await waitForTransactionWithRetry(api, registerNetworkTx, coldkey, "register_network", 5);
 
     return totalNetworks;
 }
@@ -44,15 +44,21 @@ export async function burnedRegister(
 
     await new Promise((resolve) => setTimeout(resolve, 1000));
     const tx = api.tx.SubtensorModule.burned_register({ hotkey: hotkeyAddress, netuid: netuid });
-    await waitForTransactionWithRetry(api, tx, coldkey, "burned_register");
+    await waitForTransactionWithRetry(api, tx, coldkey, "burned_register", 5);
 }
 
 export async function startCall(api: TypedApi<typeof subtensor>, netuid: number, coldkey: KeyringPair): Promise<void> {
     const registerBlock = Number(await api.query.SubtensorModule.NetworkRegisteredAt.getValue(netuid));
     let currentBlock = await api.query.System.Number.getValue();
     const duration = Number(await api.constants.SubtensorModule.InitialStartCallDelay);
+    const deadline = Date.now() + 120_000;
 
     while (currentBlock - registerBlock <= duration) {
+        if (Date.now() > deadline) {
+            throw new Error(
+                `startCall timed out for netuid ${netuid} (registerBlock=${registerBlock}, currentBlock=${currentBlock}, duration=${duration})`
+            );
+        }
         await new Promise((resolve) => setTimeout(resolve, 2000));
         currentBlock = await api.query.System.Number.getValue();
     }
@@ -60,7 +66,7 @@ export async function startCall(api: TypedApi<typeof subtensor>, netuid: number,
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
     const tx = api.tx.SubtensorModule.start_call({ netuid: netuid });
-    await waitForTransactionWithRetry(api, tx, coldkey, "start_call");
+    await waitForTransactionWithRetry(api, tx, coldkey, "start_call", 5);
 
     await new Promise((resolve) => setTimeout(resolve, 1000));
 }
