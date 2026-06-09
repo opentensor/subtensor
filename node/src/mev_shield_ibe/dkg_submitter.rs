@@ -1,6 +1,6 @@
 //! Local unsigned submission of finalized epoch DKG public outputs.
 
-use std::{sync::Arc, time::Duration};
+use std::{collections::VecDeque, sync::Arc, time::Duration};
 
 use codec::Encode;
 use node_subtensor_runtime::{
@@ -37,22 +37,36 @@ pub fn spawn_dkg_publication_submitter(
         "mev-shield-ibe-dkg-publication-submitter",
         None,
         Box::pin(async move {
-            while let Some(publication) = rx.next().await {
-                let Some(xt) = build_unsigned_publish_epoch_key_extrinsic(publication) else {
-                    continue;
-                };
-                let at_hash = client.info().best_hash;
-                if let Err(err) = transaction_pool
-                    .submit_one(at_hash, TransactionSource::Local, xt)
-                    .await
-                {
-                    log::debug!(
-                        target: "mev-shield-ibe",
-                        "failed to submit local epoch DKG public-key publication: {err:?}",
-                    );
-                }
-                tokio::time::sleep(Duration::from_millis(250)).await;
-            }
+            let mut pending_publications: VecDeque<EpochDkgPublication> = VecDeque::new();
+		loop {
+			tokio::select! {
+				publication = rx.next() => {
+					let Some(publication) = publication else { break; };
+					pending_publications.push_back(publication);
+				},
+				_ = tokio::time::sleep(Duration::from_millis(250)) => {},
+			}
+
+			let attempts = pending_publications.len();
+			for _ in 0..attempts {
+				let Some(publication) = pending_publications.pop_front() else { break; };
+				let Some(xt) = build_unsigned_publish_epoch_key_extrinsic(publication.clone()) else {
+					pending_publications.push_back(publication);
+					continue;
+				};
+				let at_hash = client.info().best_hash;
+				if let Err(err) = transaction_pool
+					.submit_one(at_hash, TransactionSource::Local, xt)
+					.await
+				{
+					log::debug!(
+						target: "mev-shield-ibe",
+						"failed to submit local epoch DKG public-key publication; retrying: {err:?}",
+					);
+					pending_publications.push_back(publication);
+				}
+			}
+		}
         }),
     );
 }

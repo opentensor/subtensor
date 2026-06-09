@@ -60,7 +60,7 @@ impl From<&IdentityRound> for IdentityRoundKey {
 #[derive(Default)]
 struct RoundState {
     shares: BTreeMap<u32, IbePartialDecryptionKeyShareV1>,
-    combined_submitted: bool,
+    combined_key: Option<IbeBlockDecryptionKeyV1>,
 }
 
 #[derive(Clone)]
@@ -219,9 +219,7 @@ impl MevShieldIbeSharePool {
             key_id: share.key_id,
         };
 
-        if !self.inner.finalized_unlocked.lock().contains(&round) {
-            return false;
-        }
+        // Keep early shares; they become eligible once the identity is finalized/unlocked.
 
         let dkg_round = IdentityRoundKey::from(&round);
 
@@ -246,10 +244,14 @@ impl MevShieldIbeSharePool {
 
     pub fn try_combine_ready_keys(&self) -> Vec<IbeBlockDecryptionKeyV1> {
         let mut out = Vec::new();
+        let finalized_unlocked_snapshot = self.inner.finalized_unlocked.lock().clone();
         let mut rounds = self.inner.rounds.lock();
-
         for (round, state) in rounds.iter_mut() {
-            if state.combined_submitted {
+            if !finalized_unlocked_snapshot.contains(round) {
+                continue;
+            }
+            if let Some(key) = state.combined_key.as_ref() {
+                ready.push(key.clone());
                 continue;
             }
 
@@ -266,7 +268,7 @@ impl MevShieldIbeSharePool {
                 continue;
             };
 
-            state.combined_submitted = true;
+            state.combined_key = Some(key.clone());
             out.push(combined);
         }
 

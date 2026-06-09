@@ -145,7 +145,6 @@ where
         if composition.is_full()
             && composition.pending_queue_len_at_parent > 0
             && composition.contains_plaintext_non_operational
-            && !composition.contains_encrypted_v2
         {
             return Err(
                 "full block uses plaintext non-operational space while encrypted queue is pending"
