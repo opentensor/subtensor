@@ -126,6 +126,7 @@
             "testFileDir": ["suites/zombienet_evm"],
             "runScripts": [
                 "generate-types.sh",
+                "generate-ink-types.sh",
                 "build-spec.sh"
             ],
             "foundation": {
@@ -136,7 +137,8 @@
                 }
             },
             "vitestArgs": {
-                "bail": 1
+                "hookTimeout": 900000,
+                "testTimeout": 300000
             },
             "connections": [
                 {
