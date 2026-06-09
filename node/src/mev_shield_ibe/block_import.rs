@@ -113,9 +113,16 @@ where
                     finalized_ordering_block_hash,
                     ..
                 } => {
-                    if finalized_ordering_block_number < target_block {
+                    let expected_finalized_ordering_block_number = target_block
+                    .checked_sub(1)
+                    .ok_or_else(|| {
+                        format!(
+                            "decryption key target {target_block} has no predecessor finality point"
+                        )
+                    })?;
+                    if finalized_ordering_block_number != expected_finalized_ordering_block_number {
                         return Err(format!(
-                            "decryption key finality point {finalized_ordering_block_number} precedes target {target_block}",
+                            "decryption key finality point {finalized_ordering_block_number} must equal target {target_block} - 1",
                         ));
                     }
                     if !self.canonical_finalized_contains(

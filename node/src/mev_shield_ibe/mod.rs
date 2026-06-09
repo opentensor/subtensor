@@ -75,8 +75,7 @@ struct Inner {
 
     rounds: Mutex<BTreeMap<IdentityRound, RoundState>>,
 
-    /// Identities whose encrypted ordering has finalized and whose target block
-    /// has arrived. Shares are accepted only for these identities.
+    /// Identities whose encrypted ordering predecessor has finalized. Shares are accepted only for these identities.
     finalized_unlocked: Mutex<BTreeSet<IdentityRound>>,
 
     outbound: mpsc::UnboundedSender<WireMessage>,
@@ -148,7 +147,14 @@ impl MevShieldIbeSharePool {
         finalized_ordering_block_hash: H256,
         current_best_block: u64,
     ) {
-        if current_best_block < identity.target_block {
+        let Some(expected_finalized_ordering_block_number) = identity.target_block.checked_sub(1)
+        else {
+            return;
+        };
+        if finalized_ordering_block_number != expected_finalized_ordering_block_number {
+            return;
+        }
+        if current_best_block < expected_finalized_ordering_block_number {
             return;
         }
 

@@ -1155,8 +1155,9 @@ impl<T: Config> Pallet<T> {
         );
         let current_block_u64: u64 =
             frame_system::Pallet::<T>::block_number().saturated_into::<u64>();
+        let max_target_block = current_block_u64.saturating_add(IBE_TARGET_LOOKAHEAD_BLOCKS);
         ensure!(
-            envelope.target_block == current_block_u64.saturating_add(IBE_TARGET_LOOKAHEAD_BLOCKS),
+            envelope.target_block > current_block_u64 && envelope.target_block <= max_target_block,
             Error::<T>::InvalidIbeTargetWindow
         );
         ensure!(
@@ -1201,12 +1202,16 @@ impl<T: Config> Pallet<T> {
         );
         let current_block_u64: u64 =
             frame_system::Pallet::<T>::block_number().saturated_into::<u64>();
+        let expected_finalized_ordering_block_number = key
+            .target_block
+            .checked_sub(1)
+            .ok_or(Error::<T>::InvalidIbeFinalityPoint)?;
         ensure!(
-            current_block_u64 >= key.target_block,
+            current_block_u64 >= expected_finalized_ordering_block_number,
             Error::<T>::IbeKeyTooEarly
         );
         ensure!(
-            key.finalized_ordering_block_number >= key.target_block,
+            key.finalized_ordering_block_number == expected_finalized_ordering_block_number,
             Error::<T>::InvalidIbeFinalityPoint
         );
         ensure!(

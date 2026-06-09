@@ -199,6 +199,9 @@ pub fn combine_identity_key(
     shares: &[IbePartialDecryptionKeyShareV1],
 ) -> Result<IbeBlockDecryptionKeyV1, String> {
     let epoch_key = &public_output.epoch_key;
+    let expected_finalized_ordering_block_number = target_block
+        .checked_sub(1)
+        .ok_or_else(|| "target block has no predecessor ordering block".to_string())?;
     let mut grouped =
         BTreeMap::<(u64, H256), BTreeMap<u32, &IbePartialDecryptionKeyShareV1>>::new();
 
@@ -207,7 +210,7 @@ pub fn combine_identity_key(
             || share.epoch != epoch_key.epoch
             || share.target_block != target_block
             || share.key_id != epoch_key.key_id
-            || share.finalized_ordering_block_number < target_block
+            || share.finalized_ordering_block_number != expected_finalized_ordering_block_number
         {
             continue;
         }

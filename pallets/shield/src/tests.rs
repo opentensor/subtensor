@@ -1201,7 +1201,7 @@ fn test_ibe_envelope(
 }
 
 #[test]
-fn ibe_v2_submit_requires_exact_current_plus_two_target() {
+fn ibe_v2_submit_accepts_future_target_within_lookahead_window() {
     new_test_ext().execute_with(|| {
         System::set_block_number(10);
         let key_id = [1; stp_mev_shield_ibe::KEY_ID_LEN];
@@ -1210,24 +1210,34 @@ fn ibe_v2_submit_requires_exact_current_plus_two_target() {
             test_ibe_epoch_key(1, key_id, 1, 100),
         ));
 
+        // Same-block targets are too late: their decryption key may already be
+        // available before this wrapper is ordered into the queue.
         frame_support::assert_noop!(
             MevShield::submit_encrypted(
                 RuntimeOrigin::signed(1),
-                test_ibe_envelope(1, 11, key_id, 1)
+                test_ibe_envelope(1, 10, key_id, 1)
             ),
             Error::<Test>::InvalidIbeTargetWindow
         );
-        frame_support::assert_noop!(
-            MevShield::submit_encrypted(
-                RuntimeOrigin::signed(1),
-                test_ibe_envelope(1, 13, key_id, 2)
-            ),
-            Error::<Test>::InvalidIbeTargetWindow
-        );
+
+        // A transaction encrypted during block B for B+2 may be included either
+        // in B or B+1, so runtime admission must accept current+2 and current+1.
         frame_support::assert_ok!(MevShield::submit_encrypted(
             RuntimeOrigin::signed(1),
+            test_ibe_envelope(1, 11, key_id, 2),
+        ));
+        frame_support::assert_ok!(MevShield::submit_encrypted(
+            RuntimeOrigin::signed(2),
             test_ibe_envelope(1, 12, key_id, 3),
         ));
+
+        frame_support::assert_noop!(
+            MevShield::submit_encrypted(
+                RuntimeOrigin::signed(3),
+                test_ibe_envelope(1, 13, key_id, 4)
+            ),
+            Error::<Test>::InvalidIbeTargetWindow
+        );
     });
 }
 
@@ -1320,7 +1330,7 @@ fn ibe_v2_pending_identities_group_by_epoch_target_and_key() {
 }
 
 #[test]
-fn ibe_block_key_rejects_finality_point_before_target_before_verifier() {
+fn ibe_block_key_requires_exact_predecessor_finality_point_before_verifier() {
     new_test_ext().execute_with(|| {
         System::set_block_number(20);
         let key_id = [6; stp_mev_shield_ibe::KEY_ID_LEN];
@@ -1328,22 +1338,38 @@ fn ibe_block_key_rejects_finality_point_before_target_before_verifier() {
             RuntimeOrigin::root(),
             test_ibe_epoch_key(10, key_id, 1, 100),
         ));
-
-        let key = stp_mev_shield_ibe::IbeBlockDecryptionKeyV1 {
+        let base_key = stp_mev_shield_ibe::IbeBlockDecryptionKeyV1 {
             version: stp_mev_shield_ibe::MEV_SHIELD_IBE_VERSION,
             epoch: 10,
             target_block: 20,
             key_id,
-            identity_decryption_key: BoundedVec::truncate_from(
-                vec![0x77; stp_mev_shield_ibe::COMPRESSED_IDENTITY_KEY_LEN],
-            ),
+            identity_decryption_key: BoundedVec::truncate_from(vec![
+                0x77;
+                stp_mev_shield_ibe::COMPRESSED_IDENTITY_KEY_LEN
+            ]),
             finalized_ordering_block_number: 19,
             finalized_ordering_block_hash: sp_core::H256::repeat_byte(1),
         };
 
+        let mut too_old = base_key.clone();
+        too_old.finalized_ordering_block_number = 18;
         frame_support::assert_noop!(
-            MevShield::submit_block_decryption_key(RuntimeOrigin::none(), key),
+            MevShield::submit_block_decryption_key(RuntimeOrigin::none(), too_old),
             Error::<Test>::InvalidIbeFinalityPoint
+        );
+
+        let mut too_late = base_key.clone();
+        too_late.finalized_ordering_block_number = 20;
+        frame_support::assert_noop!(
+            MevShield::submit_block_decryption_key(RuntimeOrigin::none(), too_late),
+            Error::<Test>::InvalidIbeFinalityPoint
+        );
+
+        // The exact predecessor finality point passes timing validation and then
+        // reaches the mock verifier, which is deliberately configured to fail.
+        frame_support::assert_noop!(
+            MevShield::submit_block_decryption_key(RuntimeOrigin::none(), base_key),
+            Error::<Test>::InvalidIbeBlockDecryptionKey
         );
     });
 }
