@@ -18,6 +18,7 @@ pub mod transaction_payment_wrapper;
 
 extern crate alloc;
 
+use alloc::collections::BTreeMap;
 use codec::{Compact, Decode, Encode};
 use ethereum::AuthorizationList;
 use frame_support::{
@@ -38,7 +39,7 @@ use pallet_subtensor::rpc_info::{
     metagraph::{Metagraph, SelectiveMetagraph},
     neuron_info::{NeuronInfo, NeuronInfoLite},
     show_subnet::SubnetState,
-    stake_info::StakeInfo,
+    stake_info::{StakeAvailability, StakeInfo},
     subnet_info::{
         SubnetHyperparams, SubnetHyperparamsV2, SubnetHyperparamsV3, SubnetInfo, SubnetInfov2,
     },
@@ -278,7 +279,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 417,
+    spec_version: 418,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -2580,6 +2581,10 @@ impl_runtime_apis! {
 
         fn get_stake_info_for_hotkey_coldkey_netuid( hotkey_account: AccountId32, coldkey_account: AccountId32, netuid: NetUid ) -> Option<StakeInfo<AccountId32>> {
             SubtensorModule::get_stake_info_for_hotkey_coldkey_netuid( hotkey_account, coldkey_account, netuid )
+        }
+
+        fn get_stake_availability_for_coldkeys( coldkey_accounts: Vec<AccountId32>, netuids: Option<Vec<NetUid>> ) -> BTreeMap<AccountId32, BTreeMap<NetUid, StakeAvailability>> {
+            SubtensorModule::get_stake_availability_for_coldkeys( coldkey_accounts, netuids )
         }
 
         fn get_stake_fee( origin: Option<(AccountId32, NetUid)>, origin_coldkey_account: AccountId32, destination: Option<(AccountId32, NetUid)>, destination_coldkey_account: AccountId32, amount: u64 ) -> u64 {
