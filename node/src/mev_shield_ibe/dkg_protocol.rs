@@ -31,9 +31,7 @@ use super::crypto::{
     EpochDkgPublicOutput, EpochSecretShareBundle, PublicShare, PublicShareAtom, Scalar,
     WeightedSecretShareAtom,
 };
-use super::dkg_weighting::{
-    ActiveValidatorStake, DkgAtomPlan, plan_stake_weighted_atoms, two_thirds_plus_one,
-};
+use super::dkg_weighting::{ActiveValidatorStake, DkgAtomPlan, plan_stake_weighted_atoms};
 
 #[subtensor_macros::freeze_struct("4acb8cefc65d3547")]
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, Decode)]
@@ -562,11 +560,11 @@ pub fn plan_from_runtime_authorities(
         .collect::<Vec<_>>();
     let plan = plan_stake_weighted_atoms(&validators, max_atoms)
         .map_err(|e| format!("stake-weighted DKG plan failed: {e:?}"))?;
-    if plan.threshold_weight
-        != two_thirds_plus_one(plan.total_weight)
-            .map_err(|e| format!("threshold calculation failed: {e:?}"))?
-    {
-        return Err("bad DKG threshold".into());
+    if plan.threshold_weight == 0 || plan.threshold_weight > plan.total_weight {
+        return Err(format!(
+            "bad DKG threshold {} for total weight {}",
+            plan.threshold_weight, plan.total_weight
+        ));
     }
     Ok(plan)
 }

@@ -362,8 +362,14 @@ where
     let atom_plan = plan_from_runtime_authorities(authorities, plan.max_atoms)?;
     let local_share_ids = local_share_ids_for_authority(&atom_plan, &local_authority.authority_id);
     if local_share_ids.is_empty() {
-        return Err("local DKG authority has no share atoms in runtime plan".into());
+        log::debug!(
+            target: "mev-shield-ibe",
+            "local DKG authority is below the stake-weighted zero-share cutoff for epoch {}",
+            plan.epoch
+        );
+        return Ok(());
     }
+    let eligible_dealer_ids = eligible_authority_ids(&atom_plan);
 
     let active_local_keys = LocalDkgKeys {
         authority_id: local_authority.authority_id.clone(),
@@ -427,6 +433,9 @@ where
 
     let acc = state.rounds.entry(round.clone()).or_default();
     for (dealer_id, commitment) in acc.commitments.clone() {
+        if !eligible_dealer_ids.contains(&dealer_id) {
+            continue;
+        }
         let vote_key = (local_authority.authority_id.clone(), dealer_id.clone());
         if acc.accepted_votes.contains_key(&vote_key) {
             continue;
@@ -467,7 +476,11 @@ where
         return Ok(());
     }
 
-    let accepted_dealers = select_threshold_accepted_dealers(&plan.authorities, acc)?;
+    let accepted_dealers = select_threshold_accepted_dealers_with_eligible(
+        &plan.authorities,
+        &eligible_dealer_ids,
+        acc,
+    )?;
     if accepted_dealers.is_empty() {
         return Ok(());
     }
@@ -563,6 +576,16 @@ fn local_share_ids_for_authority(
         .collect()
 }
 
+fn eligible_authority_ids(
+    atom_plan: &super::dkg_weighting::DkgAtomPlan<Vec<u8>>,
+) -> BTreeSet<Vec<u8>> {
+    atom_plan
+        .atoms
+        .iter()
+        .map(|atom| atom.authority_id.clone())
+        .collect()
+}
+
 fn all_local_atom_shares_verified_for_dealer(
     local_share_ids: &BTreeSet<u32>,
     dealer_id: &[u8],
@@ -575,8 +598,21 @@ fn all_local_atom_shares_verified_for_dealer(
         })
 }
 
+#[cfg(test)]
 fn select_threshold_accepted_dealers(
     authorities: &[DkgAuthorityInfo],
+    acc: &DkgRoundAccumulator,
+) -> Result<Vec<DkgDealerCommitmentV1>, String> {
+    let eligible_dealer_ids = authorities
+        .iter()
+        .map(|a| a.authority_id.clone())
+        .collect::<BTreeSet<_>>();
+    select_threshold_accepted_dealers_with_eligible(authorities, &eligible_dealer_ids, acc)
+}
+
+fn select_threshold_accepted_dealers_with_eligible(
+    authorities: &[DkgAuthorityInfo],
+    eligible_dealer_ids: &BTreeSet<Vec<u8>>,
     acc: &DkgRoundAccumulator,
 ) -> Result<Vec<DkgDealerCommitmentV1>, String> {
     let by_stake: BTreeMap<Vec<u8>, u128> = authorities
@@ -586,11 +622,14 @@ fn select_threshold_accepted_dealers(
     let total_stake = authorities
         .iter()
         .fold(0u128, |s, a| s.saturating_add(a.stake));
-    let threshold = total_stake.saturating_mul(2) / 3 + 1;
-
+    let threshold = super::dkg_weighting::two_thirds_plus_one(total_stake)
+        .map_err(|e| format!("DKG dealer threshold calculation failed: {e:?}"))?;
     let mut valid_commitments = BTreeMap::<Vec<u8>, DkgDealerCommitmentV1>::new();
     let mut commitment_hashes = BTreeMap::<Vec<u8>, H256>::new();
     for (dealer_id, commitment) in acc.commitments.iter() {
+        if !eligible_dealer_ids.contains(dealer_id) {
+            continue;
+        }
         let Some(expected_stake) = by_stake.get(dealer_id).copied() else {
             continue;
         };
@@ -605,10 +644,12 @@ fn select_threshold_accepted_dealers(
             commitment_hashes.insert(dealer_id.clone(), hash);
         }
     }
-
     let mut valid_votes_for_dealer = BTreeMap::<Vec<u8>, BTreeSet<Vec<u8>>>::new();
     for ((voter_id, dealer_id), vote) in acc.accepted_votes.iter() {
-        if !by_stake.contains_key(voter_id) || !valid_commitments.contains_key(dealer_id) {
+        if !eligible_dealer_ids.contains(voter_id)
+            || !valid_commitments.contains_key(dealer_id)
+            || !by_stake.contains_key(voter_id)
+        {
             continue;
         }
         let Some(expected_hash) = commitment_hashes.get(dealer_id) else {
@@ -630,7 +671,6 @@ fn select_threshold_accepted_dealers(
                 .insert(voter_id.clone());
         }
     }
-
     let mut accepted = Vec::new();
     let mut accepted_dealer_weight = 0u128;
     for (dealer_id, commitment) in valid_commitments.iter() {
@@ -808,7 +848,7 @@ mod comprehensive_green_path_tests {
             TestAuthority::new(22, 25),
             TestAuthority::new(33, 14),
             TestAuthority::new(44, 7),
-            TestAuthority::new(55, 1),
+            TestAuthority::new(55, 4),
         ];
         let runtime_authorities = authorities
             .iter()
@@ -981,7 +1021,9 @@ mod comprehensive_green_path_tests {
         let total_stake = runtime_authorities
             .iter()
             .fold(0u128, |sum, authority| sum.saturating_add(authority.stake));
-        let stake_threshold = total_stake.saturating_mul(2) / 3 + 1;
+        let stake_threshold =
+            crate::mev_shield_ibe::dkg_weighting::two_thirds_plus_one(total_stake)
+                .expect("stake threshold computes");
         let accepted_stake = accepted_dealers.iter().fold(0u128, |sum, dealer| {
             sum.saturating_add(*by_stake.get(&dealer.dealer_authority_id).unwrap())
         });

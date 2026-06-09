@@ -1077,6 +1077,66 @@ impl<T: Config> Pallet<T> {
         ))
     }
 
+    pub fn dkg_two_thirds_threshold(total_weight: u128) -> Option<u128> {
+        total_weight.checked_mul(2)?.checked_add(2).map(|x| x / 3)
+    }
+
+    pub fn dkg_threshold_atoms_for_active_stake(
+        total_stake: u128,
+        eligible_stake: u128,
+        total_atoms: u128,
+    ) -> Option<u128> {
+        if total_stake == 0 || eligible_stake == 0 || total_atoms == 0 {
+            return None;
+        }
+        let numerator = total_stake.checked_mul(2)?.checked_mul(total_atoms)?;
+        let denominator = eligible_stake.checked_mul(3)?;
+        let threshold = numerator
+            .checked_add(denominator.saturating_sub(1))?
+            .checked_div(denominator)?;
+        if threshold == 0 || threshold > total_atoms {
+            return None;
+        }
+        Some(threshold)
+    }
+
+    pub fn dkg_authority_is_atom_eligible(
+        stake: u128,
+        total_stake: u128,
+        max_atoms: u32,
+    ) -> Option<bool> {
+        if stake == 0 || total_stake == 0 || max_atoms == 0 {
+            return Some(false);
+        }
+        Some(stake.checked_mul(max_atoms as u128)? / total_stake > 0)
+    }
+
+    pub fn expected_dkg_atom_weights(
+        authorities: &[DkgAuthorityInfo],
+        max_atoms: u32,
+    ) -> Option<(u128, u128)> {
+        if max_atoms == 0 {
+            return None;
+        }
+        let total_stake = authorities
+            .iter()
+            .filter(|a| a.stake > 0)
+            .try_fold(0u128, |acc, a| acc.checked_add(a.stake))?;
+        if total_stake == 0 {
+            return None;
+        }
+        let total_atoms = max_atoms as u128;
+        let mut eligible_stake = 0u128;
+        for authority in authorities.iter().filter(|a| a.stake > 0) {
+            if Self::dkg_authority_is_atom_eligible(authority.stake, total_stake, max_atoms)? {
+                eligible_stake = eligible_stake.checked_add(authority.stake)?;
+            }
+        }
+        let threshold_weight =
+            Self::dkg_threshold_atoms_for_active_stake(total_stake, eligible_stake, total_atoms)?;
+        Some((total_atoms, threshold_weight))
+    }
+
     pub fn consensus_source_from_authorities(
         authorities: &[DkgAuthorityInfo],
     ) -> Option<DkgConsensusSource> {
@@ -1257,6 +1317,14 @@ impl<T: Config> Pallet<T> {
                 && publication.last_block == plan.last_block,
             Error::<T>::BadIbeDkgPublication
         );
+        let (expected_total_weight, expected_threshold_weight) =
+            Self::expected_dkg_atom_weights(&plan.authorities, plan.max_atoms)
+                .ok_or(Error::<T>::BadIbeDkgPublication)?;
+        ensure!(
+            publication.total_weight == expected_total_weight
+                && publication.threshold_weight == expected_threshold_weight,
+            Error::<T>::BadIbeDkgPublication
+        );
         ensure!(
             publication.total_weight >= publication.threshold_weight
                 && publication.threshold_weight > 0,
@@ -1267,15 +1335,21 @@ impl<T: Config> Pallet<T> {
                 && !PublishedDkgOutputHashes::<T>::contains_key(publication.epoch),
             Error::<T>::IbeDkgPublicationAlreadyKnown
         );
-        let mut by_authority = sp_std::collections::btree_map::BTreeMap::<Vec<u8>, u128>::new();
-        for a in &plan.authorities {
-            by_authority.insert(a.authority_id.clone(), a.stake);
-        }
         let total_stake = plan
             .authorities
             .iter()
-            .fold(0u128, |acc, a| acc.saturating_add(a.stake));
-        let threshold_stake = total_stake.saturating_mul(2) / 3 + 1;
+            .try_fold(0u128, |acc, a| acc.checked_add(a.stake))
+            .ok_or(Error::<T>::BadIbeDkgPublication)?;
+        let threshold_stake =
+            Self::dkg_two_thirds_threshold(total_stake).ok_or(Error::<T>::BadIbeDkgPublication)?;
+        let mut by_authority = sp_std::collections::btree_map::BTreeMap::<Vec<u8>, u128>::new();
+        for a in &plan.authorities {
+            if Self::dkg_authority_is_atom_eligible(a.stake, total_stake, plan.max_atoms)
+                .ok_or(Error::<T>::BadIbeDkgPublication)?
+            {
+                by_authority.insert(a.authority_id.clone(), a.stake);
+            }
+        }
         let mut attested_stake = 0u128;
         let mut seen = sp_std::collections::btree_set::BTreeSet::<Vec<u8>>::new();
         for att in &publication.attestations {

@@ -29,92 +29,142 @@ pub struct DkgAtomPlan<AuthorityId> {
 #[derive(Clone, Eq, PartialEq, RuntimeDebug)]
 pub enum DkgWeightingError {
     NoActiveValidators,
-    TooManyValidatorsForAtomBudget,
+    NoEligibleValidators,
+    ExcludedStakeTooLarge,
     TooManyAtoms,
     ArithmeticOverflow,
+}
+
+fn ceil_div_u128(numerator: u128, denominator: u128) -> Result<u128, DkgWeightingError> {
+    if denominator == 0 {
+        return Err(DkgWeightingError::ArithmeticOverflow);
+    }
+    numerator
+        .checked_add(denominator.saturating_sub(1))
+        .ok_or(DkgWeightingError::ArithmeticOverflow)
+        .map(|x| x / denominator)
+}
+
+fn threshold_atoms_for_active_stake(
+    total_stake: u128,
+    eligible_stake: u128,
+    total_atoms: u128,
+) -> Result<u128, DkgWeightingError> {
+    if total_stake == 0 || eligible_stake == 0 || total_atoms == 0 {
+        return Err(DkgWeightingError::NoEligibleValidators);
+    }
+    let numerator = total_stake
+        .checked_mul(2)
+        .and_then(|x| x.checked_mul(total_atoms))
+        .ok_or(DkgWeightingError::ArithmeticOverflow)?;
+    let denominator = eligible_stake
+        .checked_mul(3)
+        .ok_or(DkgWeightingError::ArithmeticOverflow)?;
+    let threshold = ceil_div_u128(numerator, denominator)?;
+    if threshold == 0 {
+        return Err(DkgWeightingError::NoEligibleValidators);
+    }
+    if threshold > total_atoms {
+        return Err(DkgWeightingError::ExcludedStakeTooLarge);
+    }
+    Ok(threshold)
 }
 
 pub fn two_thirds_plus_one(total_weight: u128) -> Result<u128, DkgWeightingError> {
     total_weight
         .checked_mul(2)
+        .and_then(|x| x.checked_add(2))
+        .map(|x| x / 3)
         .ok_or(DkgWeightingError::ArithmeticOverflow)
-        .map(|x| x / 3 + 1)
 }
 
 pub fn plan_stake_weighted_atoms<AuthorityId: Clone + Ord>(
     validators: &[ActiveValidatorStake<AuthorityId>],
     max_atoms: u32,
 ) -> Result<DkgAtomPlan<AuthorityId>, DkgWeightingError> {
+    if max_atoms == 0 {
+        return Err(DkgWeightingError::TooManyAtoms);
+    }
+
     let mut active: Vec<_> = validators.iter().filter(|v| v.stake > 0).cloned().collect();
     active.sort_by(|a, b| a.authority_id.cmp(&b.authority_id));
-
     if active.is_empty() {
         return Err(DkgWeightingError::NoActiveValidators);
-    }
-    if active.len() > max_atoms as usize {
-        return Err(DkgWeightingError::TooManyValidatorsForAtomBudget);
     }
 
     let total_stake = active
         .iter()
         .try_fold(0u128, |acc, v| acc.checked_add(v.stake))
         .ok_or(DkgWeightingError::ArithmeticOverflow)?;
+    let total_atoms = max_atoms as u128;
 
-    let mut allocation: Vec<(AuthorityId, [u8; 32], u32, u128)> = Vec::with_capacity(active.len());
+    let mut allocation: Vec<(AuthorityId, [u8; 32], u32, u128, u128)> = Vec::new();
     let mut assigned = 0u32;
-
+    let mut eligible_stake = 0u128;
     for validator in &active {
         let scaled = validator
             .stake
-            .checked_mul(max_atoms as u128)
+            .checked_mul(total_atoms)
             .ok_or(DkgWeightingError::ArithmeticOverflow)?;
-        let base = (scaled / total_stake) as u32;
+        let base_u128 = scaled / total_stake;
+        if base_u128 == 0 {
+            continue;
+        }
+        let base: u32 = base_u128
+            .try_into()
+            .map_err(|_| DkgWeightingError::TooManyAtoms)?;
         let remainder = scaled % total_stake;
-        let count = base.max(1);
         assigned = assigned
-            .checked_add(count)
+            .checked_add(base)
+            .ok_or(DkgWeightingError::ArithmeticOverflow)?;
+        eligible_stake = eligible_stake
+            .checked_add(validator.stake)
             .ok_or(DkgWeightingError::ArithmeticOverflow)?;
         allocation.push((
             validator.authority_id.clone(),
             validator.dkg_x25519_public_key,
-            count,
+            base,
             remainder,
+            validator.stake,
         ));
     }
 
-    while assigned > max_atoms {
-        let Some(pos) = allocation
-            .iter()
-            .enumerate()
-            .filter(|(_, (_, _, atoms, _))| *atoms > 1)
-            .max_by_key(|(_, (_, _, atoms, _))| *atoms)
-            .map(|(idx, _)| idx)
-        else {
-            return Err(DkgWeightingError::TooManyValidatorsForAtomBudget);
-        };
-        allocation[pos].2 -= 1;
-        assigned -= 1;
+    if allocation.is_empty() {
+        return Err(DkgWeightingError::NoEligibleValidators);
     }
 
-    while assigned < max_atoms {
-        let Some(pos) = allocation
-            .iter()
-            .enumerate()
-            .max_by_key(|(_, (_, _, _, rem))| *rem)
-            .map(|(idx, _)| idx)
-        else {
+    let threshold_weight =
+        threshold_atoms_for_active_stake(total_stake, eligible_stake, total_atoms)?;
+
+    let mut extra_order: Vec<usize> = (0..allocation.len()).collect();
+    extra_order.sort_by(|a, b| {
+        let left = &allocation[*a];
+        let right = &allocation[*b];
+        right
+            .3
+            .cmp(&left.3)
+            .then_with(|| right.4.cmp(&left.4))
+            .then_with(|| left.0.cmp(&right.0))
+    });
+    for pos in extra_order {
+        if assigned >= max_atoms {
             break;
-        };
+        }
         allocation[pos].2 = allocation[pos]
             .2
             .checked_add(1)
             .ok_or(DkgWeightingError::ArithmeticOverflow)?;
-        assigned += 1;
+        assigned = assigned
+            .checked_add(1)
+            .ok_or(DkgWeightingError::ArithmeticOverflow)?;
+    }
+    if assigned != max_atoms {
+        return Err(DkgWeightingError::ArithmeticOverflow);
     }
 
     let mut atoms = Vec::with_capacity(assigned as usize);
     let mut share_id = 1u32;
-    for (authority_id, dkg_x25519_public_key, count, _) in allocation {
+    for (authority_id, dkg_x25519_public_key, count, _, _) in allocation {
         for _ in 0..count {
             atoms.push(DkgShareAtom {
                 authority_id: authority_id.clone(),
@@ -128,13 +178,9 @@ pub fn plan_stake_weighted_atoms<AuthorityId: Clone + Ord>(
         }
     }
 
-    let total_weight = atoms
-        .iter()
-        .fold(0u128, |acc, a| acc.saturating_add(a.weight));
-    let threshold_weight = two_thirds_plus_one(total_weight)?;
     Ok(DkgAtomPlan {
         atoms,
-        total_weight,
+        total_weight: total_atoms,
         threshold_weight,
     })
 }
@@ -161,12 +207,13 @@ mod mev_shield_dkg_weighting_unit_tests {
     }
 
     #[test]
-    fn threshold_is_floor_two_thirds_plus_one() {
+    fn threshold_is_exact_ceil_two_thirds() {
         assert_eq!(two_thirds_plus_one(1).unwrap(), 1);
         assert_eq!(two_thirds_plus_one(2).unwrap(), 2);
-        assert_eq!(two_thirds_plus_one(3).unwrap(), 3);
+        assert_eq!(two_thirds_plus_one(3).unwrap(), 2);
         assert_eq!(two_thirds_plus_one(4).unwrap(), 3);
         assert_eq!(two_thirds_plus_one(10).unwrap(), 7);
+        assert_eq!(two_thirds_plus_one(12).unwrap(), 8);
     }
 
     #[test]
@@ -182,29 +229,31 @@ mod mev_shield_dkg_weighting_unit_tests {
     }
 
     #[test]
-    fn plan_rejects_more_active_validators_than_atom_budget() {
-        let validators = vec![validator(1, 1), validator(2, 1), validator(3, 1)];
-        assert_eq!(
-            plan_stake_weighted_atoms(&validators, 2).unwrap_err(),
-            DkgWeightingError::TooManyValidatorsForAtomBudget
-        );
+    fn plan_allows_sparse_quantization_without_minimum_one() {
+        let validators = vec![validator(1, 1), validator(2, 1), validator(3, 1_000)];
+        let plan = plan_stake_weighted_atoms(&validators, 12).unwrap();
+        let counts = atom_counts(&plan);
+        assert_eq!(counts.get(&vec![1]).copied().unwrap_or_default(), 0);
+        assert_eq!(counts.get(&vec![2]).copied().unwrap_or_default(), 0);
+        assert_eq!(counts.get(&vec![3]).copied().unwrap_or_default(), 12);
+        assert_eq!(plan.total_weight, 12);
+        assert_eq!(plan.threshold_weight, 9);
     }
 
     #[test]
-    fn plan_assigns_minimum_one_atom_and_consecutive_share_ids() {
-        let plan =
-            plan_stake_weighted_atoms(&[validator(1, 1), validator(2, 1_000), validator(3, 1)], 12)
-                .unwrap();
-
+    fn plan_applies_zero_share_cutoff_and_consecutive_share_ids() {
+        let plan = plan_stake_weighted_atoms(
+            &[validator(1, 100), validator(2, 200), validator(3, 300)],
+            12,
+        )
+        .unwrap();
         assert_eq!(plan.atoms.len(), 12);
         assert_eq!(plan.total_weight, 12);
-        assert_eq!(plan.threshold_weight, 9);
-
+        assert_eq!(plan.threshold_weight, 8);
         let counts = atom_counts(&plan);
-        assert!(counts.get(&vec![1]).copied().unwrap_or_default() >= 1);
-        assert!(counts.get(&vec![2]).copied().unwrap_or_default() >= 1);
-        assert!(counts.get(&vec![3]).copied().unwrap_or_default() >= 1);
-
+        assert_eq!(counts.get(&vec![1]).copied().unwrap_or_default(), 2);
+        assert_eq!(counts.get(&vec![2]).copied().unwrap_or_default(), 4);
+        assert_eq!(counts.get(&vec![3]).copied().unwrap_or_default(), 6);
         let ids = plan.atoms.iter().map(|a| a.share_id).collect::<Vec<_>>();
         assert_eq!(ids, (1..=12).collect::<Vec<_>>());
         assert!(plan.atoms.iter().all(|a| a.weight == 1));
@@ -238,6 +287,16 @@ mod mev_shield_dkg_weighting_unit_tests {
             plan_stake_weighted_atoms(&[validator(1, u128::MAX), validator(2, u128::MAX)], 4)
                 .unwrap_err(),
             DkgWeightingError::ArithmeticOverflow
+        );
+    }
+
+    #[test]
+    fn plan_rejects_excessive_excluded_stake() {
+        let mut validators = vec![validator(1, 60)];
+        validators.extend((2u8..=41).map(|id| validator(id, 1)));
+        assert_eq!(
+            plan_stake_weighted_atoms(&validators, 10).unwrap_err(),
+            DkgWeightingError::ExcludedStakeTooLarge
         );
     }
 }
