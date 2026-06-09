@@ -20,6 +20,7 @@ const EXPECTED_V3_NAMES: &[&[u8]] = &[
     b"weights_version",
     b"weights_rate_limit",
     b"activity_cutoff",
+    b"activity_cutoff_factor",
     b"registration_allowed",
     b"target_regs_per_interval",
     b"min_burn",
@@ -103,7 +104,9 @@ fn test_get_subnet_hyperparams_v3_values_reflect_storage() {
         SubtensorModule::set_tempo_unchecked(netuid, 16);
         SubtensorModule::set_weights_version_key(netuid, 19);
         SubtensorModule::set_weights_set_rate_limit(netuid, 20);
-        SubtensorModule::set_activity_cutoff(netuid, 22);
+        // `activity_cutoff` is derived: factor_milli * tempo / 1000. With tempo=16,
+        // factor 1375 yields 1375 * 16 / 1000 = 22 effective cutoff blocks.
+        SubtensorModule::set_activity_cutoff_factor_milli(netuid, 1375);
         SubtensorModule::set_network_registration_allowed(netuid, false);
         SubtensorModule::set_target_registrations_per_interval(netuid, 24);
         SubtensorModule::set_min_burn(netuid, TaoBalance::from(25u64));
@@ -161,7 +164,11 @@ fn test_get_subnet_hyperparams_v3_values_reflect_storage() {
         assert_eq!(find(p, b"tempo"), &HyperparamValue::U16(Compact(16)));
         assert_eq!(
             find(p, b"activity_cutoff"),
-            &HyperparamValue::U16(Compact(22))
+            &HyperparamValue::U64(Compact(22))
+        );
+        assert_eq!(
+            find(p, b"activity_cutoff_factor"),
+            &HyperparamValue::U32(Compact(1375))
         );
         assert_eq!(
             find(p, b"target_regs_per_interval"),

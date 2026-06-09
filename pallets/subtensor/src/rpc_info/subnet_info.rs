@@ -519,6 +519,11 @@ impl<T: Config> Pallet<T> {
             )
                 .into(),
             (
+                "activity_cutoff_factor",
+                HyperparamValue::U32(Self::get_activity_cutoff_factor_milli(netuid).into()),
+            )
+                .into(),
+            (
                 "registration_allowed",
                 HyperparamValue::Bool(Self::get_network_registration_allowed(netuid)),
             )
