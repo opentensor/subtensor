@@ -147,6 +147,9 @@ impl<T: Config> Pallet<T> {
     ///
     /// `netuids: None` scans every subnet; `Some(vec)` limits the scan.
     /// Subnets with zero stake and zero lock are left out of the response.
+    ///
+    /// Invalid `Some(vec)` requests (empty or longer than the number of subnets on chain)
+    /// return each coldkey with an empty inner map. Non-existent netuids are omitted.
     pub fn get_stake_availability_for_coldkeys(
         coldkey_accounts: Vec<T::AccountId>,
         netuids: Option<Vec<NetUid>>,
@@ -155,10 +158,24 @@ impl<T: Config> Pallet<T> {
             return BTreeMap::new();
         }
 
-        let mut netuids = netuids.unwrap_or_else(Self::get_all_subnet_netuids);
-        // Same netuid may appear more than once in the request — keep one row per subnet.
-        netuids.sort();
-        netuids.dedup();
+        let existing_netuids = Self::get_all_subnet_netuids();
+
+        let netuids = match netuids {
+            None => existing_netuids,
+            Some(mut requested) => {
+                // Same netuid may appear more than once in the request — keep one row per subnet.
+                requested.sort();
+                requested.dedup();
+                if requested.is_empty() || requested.len() > existing_netuids.len() {
+                    return coldkey_accounts
+                        .into_iter()
+                        .map(|coldkey| (coldkey, BTreeMap::new()))
+                        .collect();
+                }
+                requested.retain(|n| Self::if_subnet_exist(*n));
+                requested
+            }
+        };
 
         coldkey_accounts
             .into_iter()
