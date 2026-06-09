@@ -681,9 +681,7 @@ fn batched_buy_dominant_executes_correctly() {
 /// appearing twice in one batch must hard-fail with `DuplicateOrderInBatch` and
 /// leave the signer's balances completely untouched.
 ///
-/// Pre-fix, `validate_and_classify` had no in-batch tracking, so the signer was
-/// debited once per occurrence — submitting `[order, order]` drained 2× the
-/// signed TAO amount. Here balances are real substrate storage, so the
+/// Balances are real substrate storage, so the
 /// all-or-nothing rollback is faithfully observable: free TAO and staked alpha
 /// must match their pre-call values exactly, and the order must never be
 /// recorded in `Orders`.
@@ -2535,14 +2533,10 @@ fn batched_sell_order_fails_when_alpha_is_conviction_locked() {
     });
 }
 
-/// Regression test for the missing `#[transactional]` on `try_execute_order`.
+/// Regression test for `#[transactional]` on `try_execute_order`.
 ///
 /// Invariant: a single buy order is **atomic** — either the TAO→alpha swap AND
 /// the fee transfer both commit (and the order is recorded), or neither does.
-/// There must never be an intermediate state where `buy_alpha` has committed
-/// (signer debited TAO, credited alpha) but the subsequent `forward_fee` failed,
-/// leaving the order un-recorded in `Orders` (and therefore replayable) while the
-/// fee recipient received nothing.
 ///
 /// ## Trigger (buy path)
 /// `buy_alpha` only checks the signer can remove `tao_after_fee`, NOT the full
@@ -2564,9 +2558,6 @@ fn batched_sell_order_fails_when_alpha_is_conviction_locked() {
 ///       `stake_into_subnet` debits the full `18_000_000` because
 ///       `B - ED = 18_999_500 ≥ 18_000_000` (no ED clamp).  Balance → 1_000_000.
 ///     * `forward_fee` of `fee_tao (2_000_000)` then fails: only 1_000_000 left.
-///
-/// This test FAILS before the fix (signer debited 18_000_000, alpha credited,
-/// order un-recorded) and PASSES after it (everything rolled back).
 #[test]
 fn fee_failure_after_buy_rolls_back_swap() {
     new_test_ext().execute_with(|| {
