@@ -2,6 +2,7 @@ use super::*;
 pub mod leasing;
 pub mod mechanism;
 pub mod registration;
+pub mod sale_offer;
 pub mod serving;
 pub mod subnet;
 pub mod symbols;
