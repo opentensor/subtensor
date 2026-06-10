@@ -1393,14 +1393,29 @@ impl<T: Config> Pallet<T> {
     /// Conviction is not reset because the hotkey ownership does not change, it's still
     /// the same hotkey owner who will own the new hotkey.
     pub fn swap_hotkey_locks(old_hotkey: &T::AccountId, new_hotkey: &T::AccountId) -> (u64, u64) {
+        Self::swap_hotkey_locks_for_netuids(old_hotkey, new_hotkey, Self::get_all_subnet_netuids())
+    }
+
+    /// Swap locks made to the old_hotkey to new_hotkey on one netuid.
+    pub fn swap_hotkey_locks_on_subnet(
+        old_hotkey: &T::AccountId,
+        new_hotkey: &T::AccountId,
+        netuid: NetUid,
+    ) -> (u64, u64) {
+        Self::swap_hotkey_locks_for_netuids(old_hotkey, new_hotkey, vec![netuid])
+    }
+
+    fn swap_hotkey_locks_for_netuids(
+        old_hotkey: &T::AccountId,
+        new_hotkey: &T::AccountId,
+        netuids: Vec<NetUid>,
+    ) -> (u64, u64) {
         let mut locks_to_transfer: Vec<(T::AccountId, NetUid, LockState)> = Vec::new();
         let mut netuids_to_transfer: Vec<(NetUid, bool, bool)> = Vec::new();
         let mut reads: u64 = 0;
         let mut writes: u64 = 0;
 
-        let netuids = Self::get_all_subnet_netuids();
-
-        for netuid in netuids {
+        for netuid in netuids.iter().copied() {
             let old_is_owner_hotkey = Self::is_subnet_owner_hotkey(netuid, old_hotkey);
             let new_is_owner_hotkey = Self::is_subnet_owner_hotkey(netuid, new_hotkey);
             let has_hotkey_lock = HotkeyLock::<T>::contains_key(netuid, old_hotkey);
@@ -1428,7 +1443,11 @@ impl<T: Config> Pallet<T> {
 
         if !netuids_to_transfer.is_empty() {
             for ((coldkey, netuid, hotkey), lock) in Lock::<T>::iter() {
-                if hotkey == *old_hotkey {
+                if hotkey == *old_hotkey
+                    && netuids_to_transfer
+                        .iter()
+                        .any(|(rebuild_netuid, _, _)| *rebuild_netuid == netuid)
+                {
                     locks_to_transfer.push((coldkey, netuid, lock));
                 }
                 reads = reads.saturating_add(1);
