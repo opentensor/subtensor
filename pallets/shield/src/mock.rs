@@ -61,6 +61,7 @@ impl pallet_subtensor_utility::Config for Test {
 }
 
 thread_local! {
+    static MOCK_DKG_AUTHORITIES: RefCell<Vec<mev_shield_ibe_runtime_api::DkgAuthorityInfo>> = RefCell::new(Vec::new());
     static MOCK_CURRENT: RefCell<Option<AuraId>> = const { RefCell::new(None) };
     static MOCK_NEXT_NEXT: RefCell<Option<Option<AuraId>>> = const { RefCell::new(None) };
 }
@@ -99,7 +100,7 @@ impl pallet_shield::ExtrinsicDecryptor<RuntimeCall> for MockDecryptor {
 pub struct MockIbeDkgAuthorityProvider;
 impl pallet_shield::IbeDkgAuthorityProvider for MockIbeDkgAuthorityProvider {
     fn authorities_for_epoch(_epoch: u64) -> Vec<mev_shield_ibe_runtime_api::DkgAuthorityInfo> {
-        Vec::new()
+        MOCK_DKG_AUTHORITIES.with(|authorities| authorities.borrow().clone())
     }
     fn consensus_source_for_epoch(_epoch: u64) -> mev_shield_ibe_runtime_api::DkgConsensusSource {
         mev_shield_ibe_runtime_api::DkgConsensusSource::PoaAuraRootValidators
@@ -137,6 +138,7 @@ impl pallet_shield::Config for Test {
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
+    MOCK_DKG_AUTHORITIES.with(|slot| slot.borrow_mut().clear());
     let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig::default()
         .build_storage()
         .expect("valid genesis")
@@ -160,6 +162,9 @@ pub fn author(n: u8) -> AuraId {
     AuraId::from(sr25519::Public::from_raw([n; 32]))
 }
 
+pub fn set_dkg_authorities(authorities: Vec<mev_shield_ibe_runtime_api::DkgAuthorityInfo>) {
+    MOCK_DKG_AUTHORITIES.with(|slot| *slot.borrow_mut() = authorities);
+}
 pub fn set_authors(current: Option<AuraId>, next_next: Option<AuraId>) {
     MOCK_CURRENT.with(|c| *c.borrow_mut() = current);
     MOCK_NEXT_NEXT.with(|n| *n.borrow_mut() = Some(next_next));

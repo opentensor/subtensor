@@ -387,6 +387,86 @@ fn try_unshield_tx_decrypts_extrinsic() {
 // Migration tests
 // ---------------------------------------------------------------------------
 
+#[test]
+fn publish_ibe_epoch_public_key_requires_worker_public_atoms() {
+    use mev_shield_ibe_runtime_api::{
+        DkgAuthorityInfo, DkgConsensusKeyKind, DkgConsensusSource, DkgOutputAttestation,
+        EpochDkgPublication,
+    };
+    use stp_mev_shield_ibe::IbeDkgPublicShareAtomV1;
+
+    new_test_ext().execute_with(|| {
+        System::set_block_number(1);
+        let authority_id = vec![7u8; 32];
+        set_dkg_authorities(vec![DkgAuthorityInfo {
+            hotkey_account_id: vec![8u8; 32],
+            consensus_key_kind: DkgConsensusKeyKind::AuraSr25519,
+            authority_id: authority_id.clone(),
+            stake: 1,
+            dkg_x25519_public_key: [9u8; 32],
+        }]);
+
+        let public_atom = IbeDkgPublicShareAtomV1 {
+            share_id: 1,
+            weight: 64,
+            public_share: BoundedVec::truncate_from(vec![0x44; 48]),
+        };
+        let mut publication = EpochDkgPublication {
+            epoch: 0,
+            key_id: [3u8; stp_mev_shield_ibe::KEY_ID_LEN],
+            first_block: 0,
+            last_block: 99,
+            consensus_source: DkgConsensusSource::PoaAuraRootValidators,
+            master_public_key: vec![0x55; 48],
+            total_weight: 64,
+            threshold_weight: 43,
+            public_atoms: vec![public_atom],
+            public_output_hash: sp_core::H256::default(),
+            attestations: Vec::new(),
+        };
+        let hash_publication = |publication: &EpochDkgPublication| {
+            sp_core::H256::from(sp_core::hashing::blake2_256(
+                &(
+                    b"bittensor.mev-shield.v2.dkg.public-output",
+                    publication.epoch,
+                    publication.key_id,
+                    publication.first_block,
+                    publication.last_block,
+                    publication.consensus_source,
+                    &publication.master_public_key,
+                    publication.total_weight,
+                    publication.threshold_weight,
+                    &publication.public_atoms,
+                )
+                    .encode(),
+            ))
+        };
+        publication.public_output_hash = hash_publication(&publication);
+        publication.attestations = vec![DkgOutputAttestation {
+            authority_id: authority_id.clone(),
+            stake: 1,
+            public_output_hash: publication.public_output_hash,
+            signature: Vec::new(),
+        }];
+
+        let mut missing_atoms = publication.clone();
+        missing_atoms.public_atoms = Vec::new();
+        missing_atoms.public_output_hash = hash_publication(&missing_atoms);
+        missing_atoms.attestations[0].public_output_hash = missing_atoms.public_output_hash;
+        assert_noop!(
+            MevShield::publish_ibe_epoch_public_key(RuntimeOrigin::none(), missing_atoms),
+            Error::<Test>::BadIbeDkgPublication
+        );
+
+        assert_ok!(MevShield::publish_ibe_epoch_public_key(
+            RuntimeOrigin::none(),
+            publication
+        ));
+        let stored = crate::IbeEpochKeys::<Test>::get(0).expect("epoch key stored");
+        assert_eq!(stored.public_atoms.len(), 1);
+    });
+}
+
 mod migration_tests {
     use super::*;
     use crate::migrations::migrate_clear_v1_storage::migrate_clear_v1_storage;

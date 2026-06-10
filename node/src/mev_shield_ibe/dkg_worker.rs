@@ -546,7 +546,13 @@ where
             master_public_key,
             total_weight: bundle.public.epoch_key.total_weight,
             threshold_weight: bundle.public.epoch_key.threshold_weight,
-            public_atoms: Vec::new(),
+            public_atoms: bundle
+                .public
+                .epoch_key
+                .public_atoms
+                .iter()
+                .cloned()
+                .collect(),
             public_output_hash: publication_hash,
             attestations: acc
                 .output_attestations
@@ -1160,7 +1166,13 @@ mod comprehensive_green_path_tests {
             master_public_key,
             total_weight: bundles[0].public.epoch_key.total_weight,
             threshold_weight: bundles[0].public.epoch_key.threshold_weight,
-            public_atoms: Vec::new(),
+            public_atoms: bundles[0]
+                .public
+                .epoch_key
+                .public_atoms
+                .iter()
+                .cloned()
+                .collect(),
             public_output_hash: publication_hash,
             attestations: publication_attestations,
         };
@@ -1172,6 +1184,19 @@ mod comprehensive_green_path_tests {
                 .iter()
                 .fold(0u128, |sum, att| sum.saturating_add(att.stake))
                 >= stake_threshold
+        );
+    }
+}
+
+#[cfg(test)]
+mod epoch_publication_public_atoms_regression {
+    #[test]
+    fn epoch_dkg_publication_never_uses_empty_public_atoms() {
+        let source = include_str!("dkg_worker.rs");
+        let forbidden = ["public_atoms", ": ", "Vec", "::new()"].concat();
+        assert!(
+            !source.contains(&forbidden),
+            "EpochDkgPublication must publish the public share atoms bound by its output hash",
         );
     }
 }
