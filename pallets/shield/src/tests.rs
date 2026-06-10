@@ -6,7 +6,7 @@ use crate::{
     PendingKey, PendingKeyExpiresAt,
 };
 use codec::Encode;
-use frame_support::{BoundedVec, assert_noop, assert_ok};
+use frame_support::{BoundedVec, assert_noop, assert_ok, traits::Hooks};
 use sp_runtime::testing::TestSignature;
 use sp_runtime::traits::{Block as BlockT, Hash};
 use stp_shield::{MLKEM768_ENC_KEY_LEN, ShieldEncKey, ShieldKeystore, ShieldedTransaction};
@@ -1286,7 +1286,7 @@ fn test_ibe_envelope(
 }
 
 #[test]
-fn ibe_v2_submit_accepts_future_target_within_lookahead_window() {
+fn ibe_v2_submit_requires_exact_b_plus_two_target() {
     new_test_ext().execute_with(|| {
         System::set_block_number(10);
         let key_id = [1; stp_mev_shield_ibe::KEY_ID_LEN];
@@ -1295,8 +1295,9 @@ fn ibe_v2_submit_accepts_future_target_within_lookahead_window() {
             test_ibe_epoch_key(1, key_id, 1, 100),
         ));
 
-        // Same-block targets are too late: their decryption key may already be
-        // available before this wrapper is ordered into the queue.
+        // Same-block and B+1 targets are rejected. The spec's MVP timing is
+        // exact B+2 so block B+1 can finalize the ordering boundary and
+        // validators can release threshold shares before block B+2 drains.
         frame_support::assert_noop!(
             MevShield::submit_encrypted(
                 RuntimeOrigin::signed(1),
@@ -1304,13 +1305,14 @@ fn ibe_v2_submit_accepts_future_target_within_lookahead_window() {
             ),
             Error::<Test>::InvalidIbeTargetWindow
         );
+        frame_support::assert_noop!(
+            MevShield::submit_encrypted(
+                RuntimeOrigin::signed(1),
+                test_ibe_envelope(1, 11, key_id, 2)
+            ),
+            Error::<Test>::InvalidIbeTargetWindow
+        );
 
-        // A transaction encrypted during block B for B+2 may be included either
-        // in B or B+1, so runtime admission must accept current+2 and current+1.
-        frame_support::assert_ok!(MevShield::submit_encrypted(
-            RuntimeOrigin::signed(1),
-            test_ibe_envelope(1, 11, key_id, 2),
-        ));
         frame_support::assert_ok!(MevShield::submit_encrypted(
             RuntimeOrigin::signed(2),
             test_ibe_envelope(1, 12, key_id, 3),

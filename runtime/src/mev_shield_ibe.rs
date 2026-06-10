@@ -10,7 +10,7 @@ use pallet_shield::{
 };
 use sp_core::H256;
 use sp_runtime::{DispatchError, traits::UniqueSaturatedInto};
-use sp_std::vec;
+use sp_std::{vec, vec::Vec};
 use stp_mev_shield_ibe::{
     BoundedIdentityKey, IbeEncryptedExtrinsicV1, IbeEpochPublicKey, IbePartialDecryptionKeyShareV1,
     MEV_SHIELD_IBE_VERSION, block_identity_bytes,

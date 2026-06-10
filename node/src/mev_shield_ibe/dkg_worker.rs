@@ -1079,7 +1079,9 @@ mod comprehensive_green_path_tests {
         }
 
         let target_block = round.first_block + 2;
-        let finalized_number = target_block + 12;
+        let finalized_number = target_block
+            .checked_sub(1)
+            .expect("target block has a finalized ordering predecessor");
         let finalized_hash = H256::repeat_byte(88);
         let mut partial_identity_shares = Vec::new();
         for bundle in &bundles {

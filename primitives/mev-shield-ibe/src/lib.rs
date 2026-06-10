@@ -13,6 +13,20 @@ pub const MEV_SHIELD_IBE_VERSION: u16 = 1;
 pub const MEV_SHIELD_IBE_MAGIC: [u8; 4] = *b"MSI2";
 
 pub const KEY_ID_LEN: usize = 16;
+/// Exact MEV Shield v2 target-block lookahead.
+///
+/// A client submitting an encrypted v2 transaction while the best
+/// runtime block is `B` must build the IBE identity for `B + 2`.
+/// This extra block is load-bearing: block `B + 1` finalizes the
+/// ordering boundary, validators release partial keys after that
+/// finality point, and block `B + 2` drains the queue.
+pub const IBE_TARGET_LOOKAHEAD_BLOCKS: u64 = 2;
+
+/// Client/helper constructor for the exact v2 target block.
+pub fn target_block_for_submission(current_block: u64) -> u64 {
+    current_block.saturating_add(IBE_TARGET_LOOKAHEAD_BLOCKS)
+}
+
 pub const IBE_DOMAIN: &[u8] = b"bittensor.mev-shield.v2.block-identity";
 
 /// Inherent-data identifier retained for compatibility with older block-key
@@ -217,6 +231,12 @@ mod mev_shield_ibe_primitive_unit_tests {
             commitment: H256::repeat_byte(9),
             ciphertext: vec![1, 2, 3, 4],
         }
+    }
+
+    #[test]
+    fn target_block_helper_is_exact_b_plus_two() {
+        assert_eq!(IBE_TARGET_LOOKAHEAD_BLOCKS, 2);
+        assert_eq!(target_block_for_submission(40), 42);
     }
 
     #[test]

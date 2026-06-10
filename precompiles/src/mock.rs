@@ -151,7 +151,7 @@ parameter_types! {
     pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
     pub const EvmKeyAssociateRateLimit: u64 = 0;
     pub const SubtensorPalletId: PalletId = PalletId(*b"subtensr");
-    pub const BurnAccountId: PalletId = PalletId(*b"burntnsr");
+    pub const BurnAccountId: PalletId = PalletId(*b"burntnsr"); pub const ShieldSubmissionDeposit: TaoBalance = TaoBalance::new(0);
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -192,6 +192,8 @@ impl pallet_timestamp::Config for Runtime {
 }
 
 impl pallet_shield::Config for Runtime {
+    type Currency = Balances;
+    type SubmissionDeposit = ShieldSubmissionDeposit;
     type EpochLength = frame_support::traits::ConstU64<100>;
     type MaxDkgAtoms = frame_support::traits::ConstU32<16>;
     type MaxPendingIbePerSender = frame_support::traits::ConstU32<16>;

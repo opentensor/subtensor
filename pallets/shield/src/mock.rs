@@ -38,6 +38,7 @@ parameter_types! {
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
     type Block = Block;
+    type AccountData = pallet_balances::AccountData<u64>;
 }
 
 impl pallet_timestamp::Config for Test {
@@ -212,6 +213,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
             (100, 1_000_000_000),
             (200, 1_000_000_000),
         ],
+        dev_accounts: None,
     }
     .assimilate_storage(&mut storage)
     .expect("balances genesis");

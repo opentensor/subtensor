@@ -1963,9 +1963,9 @@ impl<T: Config> Pallet<T> {
         );
         let current_block_u64: u64 =
             frame_system::Pallet::<T>::block_number().saturated_into::<u64>();
-        let max_target_block = current_block_u64.saturating_add(IBE_TARGET_LOOKAHEAD_BLOCKS);
+        let expected_target_block = current_block_u64.saturating_add(IBE_TARGET_LOOKAHEAD_BLOCKS);
         ensure!(
-            envelope.target_block > current_block_u64 && envelope.target_block <= max_target_block,
+            envelope.target_block == expected_target_block,
             Error::<T>::InvalidIbeTargetWindow
         );
         ensure!(

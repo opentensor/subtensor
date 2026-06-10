@@ -103,6 +103,8 @@ impl pallet_shield::Config for Test {
     type EpochLength = frame_support::traits::ConstU64<100>;
     type MaxDkgAtoms = frame_support::traits::ConstU32<16>;
     type MaxPendingIbePerSender = frame_support::traits::ConstU32<16>;
+    type Currency = Balances;
+    type SubmissionDeposit = ShieldSubmissionDeposit;
     type IbeDkgAuthorityProvider = ();
 
     type AuthorityId = sp_core::sr25519::Public;
@@ -190,6 +192,7 @@ parameter_types! {
     );
     pub const ExistentialDeposit: Balance = TaoBalance::new(1);
     pub const TransactionByteFee: Balance = TaoBalance::new(100);
+    pub const ShieldSubmissionDeposit: Balance = TaoBalance::new(0);
     pub const SDebug:u64 = 1;
     pub const InitialRho: u16 = 30;
     pub const InitialAlphaSigmoidSteepness: i16 = 1000;
