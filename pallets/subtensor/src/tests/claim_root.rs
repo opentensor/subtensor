@@ -4,7 +4,7 @@ use super::mock::run_block_idle;
 use crate::RootAlphaDividendsPerSubnet;
 use crate::tests::mock::*;
 use crate::{
-    DefaultMinRootClaimAmount, DissolveCleanupQueue, Error, LastKeptRawKey, MAX_NUM_ROOT_CLAIMS,
+    DefaultMinRootClaimAmount, DissolveCleanupQueue, Error, MAX_NUM_ROOT_CLAIMS,
     MAX_ROOT_CLAIM_THRESHOLD, NetworksAdded, NumRootClaim, NumStakingColdkeys,
     PendingRootAlphaDivs, RootClaimable, RootClaimableThreshold, RootClaimed, StakingColdkeys,
     StakingColdkeysByIndex, SubnetAlphaIn, SubnetAlphaOut, SubnetMechanism, SubnetMovingPrice,
@@ -1547,7 +1547,6 @@ fn clean_up_root_claimable_for_subnet_removes_only_that_netuid_per_hotkey() {
 
         RootClaimable::<Test>::insert(hk1, m1);
         RootClaimable::<Test>::insert(hk2, m2);
-        LastKeptRawKey::<Test>::kill();
 
         let mut weight_meter =
             frame_support::weights::WeightMeter::with_limit(Weight::from_parts(u64::MAX, u64::MAX));

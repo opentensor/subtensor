@@ -490,7 +490,7 @@ impl<T: Config> Pallet<T> {
             |(_, _)| true,
             |(hotkey, claimable)| (hotkey.clone(), claimable.clone()),
             |(hotkey, claimable)| {
-                RootClaimable::<T>::insert(hotkey, filter_claimable(&claimable, netuid))
+                RootClaimable::<T>::insert(hotkey, filter_claimable(claimable, netuid))
             },
             1,
         );

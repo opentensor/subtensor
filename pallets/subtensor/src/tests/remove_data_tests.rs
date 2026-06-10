@@ -433,8 +433,14 @@ fn test_destroy_alpha_in_out_stakes_get_total_alpha_value() {
         // Now test the function
         let w = Weight::from_parts(u64::MAX, u64::MAX);
         let mut weight_meter = frame_support::weights::WeightMeter::with_limit(w);
-        let result = SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value(netuid, &mut weight_meter);
-        assert!(result, "destroy_alpha_in_out_stakes_get_total_alpha_value should return true when there is alpha to process");
+        assert!(
+            run_resumable_netuid_cleanup(
+                netuid,
+                &mut weight_meter,
+                SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value,
+            ),
+            "destroy_alpha_in_out_stakes_get_total_alpha_value should return true when there is alpha to process"
+        );
     });
 }
 
@@ -464,12 +470,21 @@ fn test_destroy_alpha_in_out_stakes_settle_stakes() {
         // First, we need to get the total alpha value (simulate the previous step)
         let w = Weight::from_parts(u64::MAX, u64::MAX);
         let mut weight_meter = frame_support::weights::WeightMeter::with_limit(w);
-        let result_get_total = SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value(netuid, &mut weight_meter);
-        assert!(result_get_total, "destroy_alpha_in_out_stakes_get_total_alpha_value should return true when there is alpha to process");
-        // Now test the settle_stakes function
+        assert!(run_resumable_netuid_cleanup(
+            netuid,
+            &mut weight_meter,
+            SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value,
+        ));
+        DissolvedSubnetDistributedTao::<Test>::set(Some(0));
         let mut weight_meter2 = frame_support::weights::WeightMeter::with_limit(w);
-        let result_settle = SubtensorModule::destroy_alpha_in_out_stakes_settle_stakes(netuid, &mut weight_meter2);
-        assert!(result_settle, "destroy_alpha_in_out_stakes_settle_stakes should return true when there is alpha to settle");
+        assert!(
+            run_resumable_netuid_cleanup(
+                netuid,
+                &mut weight_meter2,
+                SubtensorModule::destroy_alpha_in_out_stakes_settle_stakes,
+            ),
+            "destroy_alpha_in_out_stakes_settle_stakes should return true when there is alpha to settle"
+        );
     });
 }
 
@@ -499,13 +514,28 @@ fn test_destroy_alpha_in_out_stakes_clean_alpha() {
         // Simulate the previous two steps: get total alpha and settle stakes
         let w = Weight::from_parts(u64::MAX, u64::MAX);
         let mut weight_meter = frame_support::weights::WeightMeter::with_limit(w);
-        let _ = SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value(netuid, &mut weight_meter);
+        assert!(run_resumable_netuid_cleanup(
+            netuid,
+            &mut weight_meter,
+            SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value,
+        ));
+        DissolvedSubnetDistributedTao::<Test>::set(Some(0));
         let mut weight_meter2 = frame_support::weights::WeightMeter::with_limit(w);
-        let _ = SubtensorModule::destroy_alpha_in_out_stakes_settle_stakes(netuid, &mut weight_meter2);
+        assert!(run_resumable_netuid_cleanup(
+            netuid,
+            &mut weight_meter2,
+            SubtensorModule::destroy_alpha_in_out_stakes_settle_stakes,
+        ));
         // Now test the clean_alpha function
         let mut weight_meter3 = frame_support::weights::WeightMeter::with_limit(w);
-        let result = SubtensorModule::destroy_alpha_in_out_stakes_clean_alpha(netuid, &mut weight_meter3);
-        assert!(result, "destroy_alpha_in_out_stakes_clean_alpha should return true when there is alpha to clean");
+        assert!(
+            run_resumable_netuid_cleanup(
+                netuid,
+                &mut weight_meter3,
+                SubtensorModule::destroy_alpha_in_out_stakes_clean_alpha,
+            ),
+            "destroy_alpha_in_out_stakes_clean_alpha should return true when there is alpha to clean"
+        );
     });
 }
 
@@ -535,15 +565,34 @@ fn test_destroy_alpha_in_out_stakes_clear_hotkey_totals() {
         // Simulate the previous three steps
         let w = Weight::from_parts(u64::MAX, u64::MAX);
         let mut weight_meter = frame_support::weights::WeightMeter::with_limit(w);
-        let _ = SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value(netuid, &mut weight_meter);
+        assert!(run_resumable_netuid_cleanup(
+            netuid,
+            &mut weight_meter,
+            SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value,
+        ));
+        DissolvedSubnetDistributedTao::<Test>::set(Some(0));
         let mut weight_meter2 = frame_support::weights::WeightMeter::with_limit(w);
-        let _ = SubtensorModule::destroy_alpha_in_out_stakes_settle_stakes(netuid, &mut weight_meter2);
+        assert!(run_resumable_netuid_cleanup(
+            netuid,
+            &mut weight_meter2,
+            SubtensorModule::destroy_alpha_in_out_stakes_settle_stakes,
+        ));
         let mut weight_meter3 = frame_support::weights::WeightMeter::with_limit(w);
-        let _ = SubtensorModule::destroy_alpha_in_out_stakes_clean_alpha(netuid, &mut weight_meter3);
+        assert!(run_resumable_netuid_cleanup(
+            netuid,
+            &mut weight_meter3,
+            SubtensorModule::destroy_alpha_in_out_stakes_clean_alpha,
+        ));
         // Now test the clear_hotkey_totals function
         let mut weight_meter4 = frame_support::weights::WeightMeter::with_limit(w);
-        let result = SubtensorModule::destroy_alpha_in_out_stakes_clear_hotkey_totals(netuid, &mut weight_meter4);
-        assert!(result, "destroy_alpha_in_out_stakes_clear_hotkey_totals should return true when there are hotkey totals to clear");
+        assert!(
+            run_resumable_netuid_cleanup(
+                netuid,
+                &mut weight_meter4,
+                SubtensorModule::destroy_alpha_in_out_stakes_clear_hotkey_totals,
+            ),
+            "destroy_alpha_in_out_stakes_clear_hotkey_totals should return true when there are hotkey totals to clear"
+        );
     });
 }
 
@@ -573,17 +622,40 @@ fn test_destroy_alpha_in_out_stakes_clear_locks() {
         // Simulate the previous four steps
         let w = Weight::from_parts(u64::MAX, u64::MAX);
         let mut weight_meter = frame_support::weights::WeightMeter::with_limit(w);
-        let _ = SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value(netuid, &mut weight_meter);
+        assert!(run_resumable_netuid_cleanup(
+            netuid,
+            &mut weight_meter,
+            SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value,
+        ));
+        DissolvedSubnetDistributedTao::<Test>::set(Some(0));
         let mut weight_meter2 = frame_support::weights::WeightMeter::with_limit(w);
-        let _ = SubtensorModule::destroy_alpha_in_out_stakes_settle_stakes(netuid, &mut weight_meter2);
+        assert!(run_resumable_netuid_cleanup(
+            netuid,
+            &mut weight_meter2,
+            SubtensorModule::destroy_alpha_in_out_stakes_settle_stakes,
+        ));
         let mut weight_meter3 = frame_support::weights::WeightMeter::with_limit(w);
-        let _ = SubtensorModule::destroy_alpha_in_out_stakes_clean_alpha(netuid, &mut weight_meter3);
+        assert!(run_resumable_netuid_cleanup(
+            netuid,
+            &mut weight_meter3,
+            SubtensorModule::destroy_alpha_in_out_stakes_clean_alpha,
+        ));
         let mut weight_meter4 = frame_support::weights::WeightMeter::with_limit(w);
-        let _ = SubtensorModule::destroy_alpha_in_out_stakes_clear_hotkey_totals(netuid, &mut weight_meter4);
+        assert!(run_resumable_netuid_cleanup(
+            netuid,
+            &mut weight_meter4,
+            SubtensorModule::destroy_alpha_in_out_stakes_clear_hotkey_totals,
+        ));
         // Now test the clear_locks function
         let mut weight_meter5 = frame_support::weights::WeightMeter::with_limit(w);
-        let result = SubtensorModule::destroy_alpha_in_out_stakes_clear_locks(netuid, &mut weight_meter5);
-        assert!(result, "destroy_alpha_in_out_stakes_clear_locks should return true when there are locks to clear");
+        assert!(
+            run_resumable_netuid_cleanup(
+                netuid,
+                &mut weight_meter5,
+                SubtensorModule::destroy_alpha_in_out_stakes_clear_locks,
+            ),
+            "destroy_alpha_in_out_stakes_clear_locks should return true when there are locks to clear"
+        );
     });
 }
 
@@ -737,7 +809,11 @@ fn test_remove_network_lock() {
         let w = Weight::from_parts(u64::MAX, u64::MAX);
         let mut weight_meter = frame_support::weights::WeightMeter::with_limit(w);
         assert!(
-            SubtensorModule::remove_network_lock(netuid, &mut weight_meter, None).0
+            run_resumable_netuid_cleanup(
+                netuid,
+                &mut weight_meter,
+                SubtensorModule::remove_network_lock,
+            )
         );
 
         assert!(!Lock::<Test>::contains_key((cold_1, netuid, hot_1)));
@@ -761,7 +837,11 @@ fn test_remove_network_decaying_lock() {
         let w = Weight::from_parts(u64::MAX, u64::MAX);
         let mut weight_meter = frame_support::weights::WeightMeter::with_limit(w);
         assert!(
-            SubtensorModule::remove_network_decaying_lock(netuid, &mut weight_meter, None).0
+            run_resumable_netuid_cleanup(
+                netuid,
+                &mut weight_meter,
+                SubtensorModule::remove_network_decaying_lock,
+            )
         );
 
         assert!(!DecayingLock::<Test>::contains_key(cold_1, netuid));
@@ -854,6 +934,46 @@ fn test_remove_network_decaying_lock_resumes_with_limited_weight() {
         }
         assert_eq!(
             DecayingLock::<Test>::iter()
+                .filter(|(_, n, _)| *n == netuid)
+                .count(),
+            0
+        );
+    });
+}
+
+#[test]
+fn test_remove_network_childkeys_resumes_with_limited_weight() {
+    new_test_ext(0).execute_with(|| {
+        let netuid = NetUid::from(1);
+        for i in 0..5 {
+            ChildKeys::<Test>::insert(U256::from(20_000 + i), netuid, vec![(1, U256::from(1))]);
+        }
+
+        let read_weight = <Test as frame_system::Config>::DbWeight::get().reads(1);
+        let mut weight_meter = WeightMeter::with_limit(read_weight);
+        let (done, mut last_key) =
+            SubtensorModule::remove_network_childkeys(netuid, &mut weight_meter, None);
+        assert!(!done);
+
+        let mut iterations = 0;
+        while ChildKeys::<Test>::iter().any(|(_, n, _)| n == netuid) {
+            let mut weight_meter =
+                WeightMeter::with_limit(Weight::from_parts(u64::MAX, u64::MAX));
+            let (done, new_key) =
+                SubtensorModule::remove_network_childkeys(netuid, &mut weight_meter, last_key);
+            last_key = new_key;
+            assert!(
+                done,
+                "remove_network_childkeys should finish once all entries are removed"
+            );
+            iterations += 1;
+            assert!(
+                iterations < 10,
+                "cleanup should complete within a few passes"
+            );
+        }
+        assert_eq!(
+            ChildKeys::<Test>::iter()
                 .filter(|(_, n, _)| *n == netuid)
                 .count(),
             0

@@ -14,35 +14,7 @@ use subtensor_swap_interface::{Order, SwapHandler};
 
 /// Run the same α-out destroy steps as `remove_data_for_dissolved_networks` (post-root-cleanup).
 fn destroy_alpha_in_out_stakes_full_pipeline_for_test(netuid: NetUid) {
-    let w = Weight::from_parts(u64::MAX, u64::MAX);
-    let mut weight_meter = frame_support::weights::WeightMeter::with_limit(w);
-    assert!(
-        SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value(
-            netuid,
-            &mut weight_meter
-        ),
-        "destroy_alpha_in_out_stakes_get_total_alpha_value incomplete"
-    );
-    assert!(
-        SubtensorModule::destroy_alpha_in_out_stakes_settle_stakes(netuid, &mut weight_meter),
-        "destroy_alpha_in_out_stakes_settle_stakes incomplete"
-    );
-    assert!(
-        SubtensorModule::destroy_alpha_in_out_stakes_clean_alpha(netuid, &mut weight_meter),
-        "destroy_alpha_in_out_stakes_clean_alpha incomplete"
-    );
-    assert!(
-        SubtensorModule::destroy_alpha_in_out_stakes_clear_hotkey_totals(netuid, &mut weight_meter),
-        "destroy_alpha_in_out_stakes_clear_hotkey_totals incomplete"
-    );
-    assert!(
-        SubtensorModule::destroy_alpha_in_out_stakes_clear_locks(netuid, &mut weight_meter),
-        "destroy_alpha_in_out_stakes_clear_locks incomplete"
-    );
-    assert!(
-        SubtensorModule::destroy_alpha_in_out_stakes(netuid, &mut weight_meter),
-        "destroy_alpha_in_out_stakes incomplete"
-    );
+    run_destroy_alpha_in_out_stakes_full_pipeline(netuid);
 }
 
 #[test]

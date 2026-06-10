@@ -1860,7 +1860,7 @@ impl<T: Config> Pallet<T> {
             iter,
             |(_, nu, _)| *nu == netuid,
             |(cold, nu, _)| (cold, nu),
-            |(cold, netuid)| DecayingLock::<T>::remove(&cold, netuid),
+            |(cold, netuid)| DecayingLock::<T>::remove(cold, netuid),
             1,
         );
 

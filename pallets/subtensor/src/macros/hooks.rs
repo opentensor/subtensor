@@ -312,9 +312,10 @@ mod hooks {
                                     last_key,
                                 );
                             if done {
+                                DissolvedSubnetDistributedTao::<T>::set(Some(0));
                                 DissolvedNetworksCleanupPhase::<T>::set(Some(
                                     DissolveCleanupPhase::DestroyAlphaInOutStakesSettleStakes {
-                                        last_key: new_key,
+                                        last_key: None,
                                     },
                                 ));
                             } else {

@@ -7,214 +7,253 @@ use sp_core::U256;
 use subtensor_runtime_common::TaoBalance;
 use subtensor_swap_interface::SwapHandler;
 
+fn setup_staked_subnet() -> (U256, U256, NetUid) {
+    let owner_cold = U256::from(1001);
+    let owner_hot = U256::from(1002);
+    let netuid = add_dynamic_network(&owner_hot, &owner_cold);
+
+    let stake_tao: u64 = 1000;
+    setup_reserves(netuid, (stake_tao * 1_000_000).into(), (stake_tao * 10_000_000).into());
+    let amount: TaoBalance = stake_tao.into();
+    assert_ok!(SubtensorModule::create_account_if_non_existent(
+        &owner_cold,
+        &owner_hot
+    ));
+    add_balance_to_coldkey_account(&owner_cold, amount);
+    assert_ok!(SubtensorModule::stake_into_subnet(
+        &owner_hot,
+        &owner_cold,
+        netuid,
+        amount,
+        <Test as Config>::SwapInterface::max_price(),
+        false,
+    ));
+
+    (owner_cold, owner_hot, netuid)
+}
+
 #[test]
 fn test_destroy_alpha_in_out_stakes_get_total_alpha_value() {
     new_test_ext(0).execute_with(|| {
-        let owner_cold = U256::from(1001);
-        let owner_hot = U256::from(1002);
-        let netuid = add_dynamic_network(&owner_hot, &owner_cold);
-
-        // Add some stake to have alpha value
-        let stake_tao: u64 = 1000;
-        setup_reserves(netuid, (stake_tao * 1_000_000).into(), (stake_tao * 10_000_000).into());
-        let amount: TaoBalance = (stake_tao).into();
-        assert_ok!(SubtensorModule::create_account_if_non_existent(&owner_cold, &owner_hot));
-        add_balance_to_coldkey_account(&owner_cold, amount);
-        // Stake into subnet to create some alpha
-        assert_ok!(SubtensorModule::stake_into_subnet(
-            &owner_hot,
-            &owner_cold,
-            netuid,
-            amount,
-            <Test as Config>::SwapInterface::max_price(),
-            false,
-));
-
-        // Now test the function
+        let (_, _, netuid) = setup_staked_subnet();
         let w = Weight::from_parts(u64::MAX, u64::MAX);
-        let mut weight_meter = frame_support::weights::WeightMeter::with_limit(w);
-        let result = SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value(netuid, &mut weight_meter);
-        assert!(result, "destroy_alpha_in_out_stakes_get_total_alpha_value should return true when there is alpha to process");
+        let mut weight_meter = WeightMeter::with_limit(w);
+        assert!(
+            run_resumable_netuid_cleanup(
+                netuid,
+                &mut weight_meter,
+                SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value,
+            ),
+            "destroy_alpha_in_out_stakes_get_total_alpha_value should complete"
+        );
+        assert!(DissolvedSubnetTotalAlphaValue::<Test>::get().is_some());
     });
 }
 
 #[test]
 fn test_destroy_alpha_in_out_stakes_settle_stakes() {
     new_test_ext(0).execute_with(|| {
-        let owner_cold = U256::from(1001);
-        let owner_hot = U256::from(1002);
-        let netuid = add_dynamic_network(&owner_hot, &owner_cold);
-
-        // Add some stake to have alpha value
-        let stake_tao: u64 = 1000;
-        setup_reserves(netuid, (stake_tao * 1_000_000).into(), (stake_tao * 10_000_000).into());
-        let amount: TaoBalance = (stake_tao).into();
-        assert_ok!(SubtensorModule::create_account_if_non_existent(&owner_cold, &owner_hot));
-        add_balance_to_coldkey_account(&owner_cold, amount);
-        // Stake into subnet to create some alpha
-        assert_ok!(SubtensorModule::stake_into_subnet(
-            &owner_hot,
-            &owner_cold,
-            netuid,
-            amount,
-            <Test as Config>::SwapInterface::max_price(),
-            false,
-        ));
-
-        // First, we need to get the total alpha value (simulate the previous step)
+        let (_, _, netuid) = setup_staked_subnet();
         let w = Weight::from_parts(u64::MAX, u64::MAX);
-        let mut weight_meter = frame_support::weights::WeightMeter::with_limit(w);
-        let _ = SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value(netuid, &mut weight_meter);
-        // Now test the settle_stakes function
-        let mut weight_meter2 = frame_support::weights::WeightMeter::with_limit(w);
-        let result = SubtensorModule::destroy_alpha_in_out_stakes_settle_stakes(netuid, &mut weight_meter2);
-        assert!(result, "destroy_alpha_in_out_stakes_settle_stakes should return true when there is alpha to settle");
+        let mut weight_meter = WeightMeter::with_limit(w);
+        assert!(run_resumable_netuid_cleanup(
+            netuid,
+            &mut weight_meter,
+            SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value,
+        ));
+        DissolvedSubnetDistributedTao::<Test>::set(Some(0));
+        let mut weight_meter2 = WeightMeter::with_limit(w);
+        assert!(
+            run_resumable_netuid_cleanup(
+                netuid,
+                &mut weight_meter2,
+                SubtensorModule::destroy_alpha_in_out_stakes_settle_stakes,
+            ),
+            "destroy_alpha_in_out_stakes_settle_stakes should complete"
+        );
     });
 }
 
 #[test]
 fn test_destroy_alpha_in_out_stakes_clean_alpha() {
     new_test_ext(0).execute_with(|| {
-        let owner_cold = U256::from(1001);
-        let owner_hot = U256::from(1002);
-        let netuid = add_dynamic_network(&owner_hot, &owner_cold);
-
-        // Add some stake to have alpha value
-        let stake_tao: u64 = 1000;
-        setup_reserves(netuid, (stake_tao * 1_000_000).into(), (stake_tao * 10_000_000).into());
-        let amount: TaoBalance = (stake_tao).into();
-        assert_ok!(SubtensorModule::create_account_if_non_existent(&owner_cold, &owner_hot));
-        add_balance_to_coldkey_account(&owner_cold, amount);
-        // Stake into subnet to create some alpha
-        assert_ok!(SubtensorModule::stake_into_subnet(
-            &owner_hot,
-            &owner_cold,
-            netuid,
-            amount,
-            <Test as Config>::SwapInterface::max_price(),
-            false,
-        ));
-
-        // Simulate the previous two steps: get total alpha and settle stakes
+        let (_, owner_hot, netuid) = setup_staked_subnet();
         let w = Weight::from_parts(u64::MAX, u64::MAX);
-        let mut weight_meter = frame_support::weights::WeightMeter::with_limit(w);
-        let _ = SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value(netuid, &mut weight_meter);
-        let mut weight_meter2 = frame_support::weights::WeightMeter::with_limit(w);
-        let _ = SubtensorModule::destroy_alpha_in_out_stakes_settle_stakes(netuid, &mut weight_meter2);
-        // Now test the clean_alpha function
-        let mut weight_meter3 = frame_support::weights::WeightMeter::with_limit(w);
-        let result = SubtensorModule::destroy_alpha_in_out_stakes_clean_alpha(netuid, &mut weight_meter3);
-        assert!(result, "destroy_alpha_in_out_stakes_clean_alpha should return true when there is alpha to clean");
+        let mut weight_meter = WeightMeter::with_limit(w);
+        assert!(run_resumable_netuid_cleanup(
+            netuid,
+            &mut weight_meter,
+            SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value,
+        ));
+        DissolvedSubnetDistributedTao::<Test>::set(Some(0));
+        let mut weight_meter2 = WeightMeter::with_limit(w);
+        assert!(run_resumable_netuid_cleanup(
+            netuid,
+            &mut weight_meter2,
+            SubtensorModule::destroy_alpha_in_out_stakes_settle_stakes,
+        ));
+        let mut weight_meter3 = WeightMeter::with_limit(w);
+        assert!(
+            run_resumable_netuid_cleanup(
+                netuid,
+                &mut weight_meter3,
+                SubtensorModule::destroy_alpha_in_out_stakes_clean_alpha,
+            ),
+            "destroy_alpha_in_out_stakes_clean_alpha should complete"
+        );
+        assert_eq!(
+            Alpha::<Test>::iter()
+                .filter(|((_, _, nu), _)| *nu == netuid)
+                .count(),
+            0
+        );
+        assert!(TotalHotkeyAlpha::<Test>::contains_key(&owner_hot, netuid));
     });
 }
 
 #[test]
 fn test_destroy_alpha_in_out_stakes_clear_hotkey_totals() {
     new_test_ext(0).execute_with(|| {
-        let owner_cold = U256::from(1001);
-        let owner_hot = U256::from(1002);
-        let netuid = add_dynamic_network(&owner_hot, &owner_cold);
-
-        // Add some stake to have alpha value and hotkey totals
-        let stake_tao: u64 = 1000;
-        setup_reserves(netuid, (stake_tao * 1_000_000).into(), (stake_tao * 10_000_000).into());
-        let amount: TaoBalance = (stake_tao).into();
-        assert_ok!(SubtensorModule::create_account_if_non_existent(&owner_cold, &owner_hot));
-        add_balance_to_coldkey_account(&owner_cold, amount);
-        // Stake into subnet to create some alpha and hotkey totals
-        assert_ok!(SubtensorModule::stake_into_subnet(
-            &owner_hot,
-            &owner_cold,
-            netuid,
-            amount,
-            <Test as Config>::SwapInterface::max_price(),
-            false,
-        ));
-
-        // Simulate the previous three steps
+        let (_, owner_hot, netuid) = setup_staked_subnet();
         let w = Weight::from_parts(u64::MAX, u64::MAX);
-        let mut weight_meter = frame_support::weights::WeightMeter::with_limit(w);
-        let _ = SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value(netuid, &mut weight_meter);
-        let mut weight_meter2 = frame_support::weights::WeightMeter::with_limit(w);
-        let _ = SubtensorModule::destroy_alpha_in_out_stakes_settle_stakes(netuid, &mut weight_meter2);
-        let mut weight_meter3 = frame_support::weights::WeightMeter::with_limit(w);
-        let _ = SubtensorModule::destroy_alpha_in_out_stakes_clean_alpha(netuid, &mut weight_meter3);
-        // Now test the clear_hotkey_totals function
-        let mut weight_meter4 = frame_support::weights::WeightMeter::with_limit(w);
-        let result = SubtensorModule::destroy_alpha_in_out_stakes_clear_hotkey_totals(netuid, &mut weight_meter4);
-        assert!(result, "destroy_alpha_in_out_stakes_clear_hotkey_totals should return true when there are hotkey totals to clear");
+        let mut weight_meter = WeightMeter::with_limit(w);
+        assert!(run_resumable_netuid_cleanup(
+            netuid,
+            &mut weight_meter,
+            SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value,
+        ));
+        DissolvedSubnetDistributedTao::<Test>::set(Some(0));
+        let mut weight_meter2 = WeightMeter::with_limit(w);
+        assert!(run_resumable_netuid_cleanup(
+            netuid,
+            &mut weight_meter2,
+            SubtensorModule::destroy_alpha_in_out_stakes_settle_stakes,
+        ));
+        let mut weight_meter3 = WeightMeter::with_limit(w);
+        assert!(run_resumable_netuid_cleanup(
+            netuid,
+            &mut weight_meter3,
+            SubtensorModule::destroy_alpha_in_out_stakes_clean_alpha,
+        ));
+        let mut weight_meter4 = WeightMeter::with_limit(w);
+        assert!(
+            run_resumable_netuid_cleanup(
+                netuid,
+                &mut weight_meter4,
+                SubtensorModule::destroy_alpha_in_out_stakes_clear_hotkey_totals,
+            ),
+            "destroy_alpha_in_out_stakes_clear_hotkey_totals should complete"
+        );
+        assert!(!TotalHotkeyAlpha::<Test>::contains_key(&owner_hot, netuid));
     });
 }
 
 #[test]
 fn test_destroy_alpha_in_out_stakes_clear_locks() {
     new_test_ext(0).execute_with(|| {
-        let owner_cold = U256::from(1001);
-        let owner_hot = U256::from(1002);
-        let netuid = add_dynamic_network(&owner_hot, &owner_cold);
-
-        // Add some stake to have alpha value and create locks
-        let stake_tao: u64 = 1000;
-        setup_reserves(netuid, (stake_tao * 1_000_000).into(), (stake_tao * 10_000_000).into());
-        let amount: TaoBalance = (stake_tao).into();
-        assert_ok!(SubtensorModule::create_account_if_non_existent(&owner_cold, &owner_hot));
-        add_balance_to_coldkey_account(&owner_cold, amount);
-        // Stake into subnet to create some alpha and locks
-        assert_ok!(SubtensorModule::stake_into_subnet(
-            &owner_hot,
-            &owner_cold,
+        let (owner_cold, owner_hot, netuid) = setup_staked_subnet();
+        let w = Weight::from_parts(u64::MAX, u64::MAX);
+        let mut weight_meter = WeightMeter::with_limit(w);
+        assert!(run_resumable_netuid_cleanup(
             netuid,
-            amount,
-            <Test as Config>::SwapInterface::max_price(),
-            false,
+            &mut weight_meter,
+            SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value,
+        ));
+        DissolvedSubnetDistributedTao::<Test>::set(Some(0));
+        let mut weight_meter2 = WeightMeter::with_limit(w);
+        assert!(run_resumable_netuid_cleanup(
+            netuid,
+            &mut weight_meter2,
+            SubtensorModule::destroy_alpha_in_out_stakes_settle_stakes,
+        ));
+        let mut weight_meter3 = WeightMeter::with_limit(w);
+        assert!(run_resumable_netuid_cleanup(
+            netuid,
+            &mut weight_meter3,
+            SubtensorModule::destroy_alpha_in_out_stakes_clean_alpha,
+        ));
+        let mut weight_meter4 = WeightMeter::with_limit(w);
+        assert!(run_resumable_netuid_cleanup(
+            netuid,
+            &mut weight_meter4,
+            SubtensorModule::destroy_alpha_in_out_stakes_clear_hotkey_totals,
         ));
 
-        // Simulate the previous four steps
-        let w = Weight::from_parts(u64::MAX, u64::MAX);
-        let mut weight_meter = frame_support::weights::WeightMeter::with_limit(w);
-        let _ = SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value(netuid, &mut weight_meter);
-        let mut weight_meter2 = frame_support::weights::WeightMeter::with_limit(w);
-        let _ = SubtensorModule::destroy_alpha_in_out_stakes_settle_stakes(netuid, &mut weight_meter2);
-        let mut weight_meter3 = frame_support::weights::WeightMeter::with_limit(w);
-        let _ = SubtensorModule::destroy_alpha_in_out_stakes_clean_alpha(netuid, &mut weight_meter3);
-        let mut weight_meter4 = frame_support::weights::WeightMeter::with_limit(w);
-        let _ = SubtensorModule::destroy_alpha_in_out_stakes_clear_hotkey_totals(netuid, &mut weight_meter4);
-        // Now test the clear_locks function
-        let mut weight_meter5 = frame_support::weights::WeightMeter::with_limit(w);
-        let result = SubtensorModule::destroy_alpha_in_out_stakes_clear_locks(netuid, &mut weight_meter5);
-        assert!(result, "destroy_alpha_in_out_stakes_clear_locks should return true when there are locks to clear");
+        Lock::<Test>::insert(
+            (owner_cold, netuid, owner_hot),
+            crate::staking::lock::LockState {
+                locked_mass: 10u64.into(),
+                conviction: substrate_fixed::types::U64F64::from_num(1.5),
+                last_update: 1,
+            },
+        );
+
+        let mut weight_meter5 = WeightMeter::with_limit(w);
+        assert!(
+            run_resumable_netuid_cleanup(
+                netuid,
+                &mut weight_meter5,
+                SubtensorModule::destroy_alpha_in_out_stakes_clear_locks,
+            ),
+            "destroy_alpha_in_out_stakes_clear_locks should complete"
+        );
+        assert!(!Lock::<Test>::contains_key((owner_cold, netuid, owner_hot)));
     });
 }
 
 #[test]
 fn test_destroy_alpha_in_out_stakes() {
     new_test_ext(0).execute_with(|| {
-        let owner_cold = U256::from(1001);
-        let owner_hot = U256::from(1002);
-        let netuid = add_dynamic_network(&owner_hot, &owner_cold);
-
-        // Add some stake to have alpha value and create locks, etc.
-        let stake_tao: u64 = 1000;
-        setup_reserves(netuid, (stake_tao * 1_000_000).into(), (stake_tao * 10_000_000).into());
-        let amount: TaoBalance = (stake_tao).into();
-        assert_ok!(SubtensorModule::create_account_if_non_existent(&owner_cold, &owner_hot));
-        add_balance_to_coldkey_account(&owner_cold, amount);
-        // Stake into subnet to create some alpha and locks
-        assert_ok!(SubtensorModule::stake_into_subnet(
-            &owner_hot,
-            &owner_cold,
-            netuid,
-            amount,
-            <Test as Config>::SwapInterface::max_price(),
-            false,
-        ));
-
-        // Now test the main destroy function (which should call all the steps internally)
-        let w = Weight::from_parts(u64::MAX, u64::MAX);
-        let mut weight_meter = frame_support::weights::WeightMeter::with_limit(w);
+        let (_, _, netuid) = setup_staked_subnet();
         DissolvedSubnetTotalAlphaValue::<Test>::set(Some(0));
         DissolvedSubnetDistributedTao::<Test>::set(Some(0));
-        let result = SubtensorModule::destroy_alpha_in_out_stakes(netuid, &mut weight_meter);
-        assert!(result, "destroy_alpha_in_out_stakes should return true when it successfully processes the netuid");
+        let w = Weight::from_parts(u64::MAX, u64::MAX);
+        let mut weight_meter = WeightMeter::with_limit(w);
+        assert!(
+            SubtensorModule::destroy_alpha_in_out_stakes(netuid, &mut weight_meter),
+            "destroy_alpha_in_out_stakes should complete"
+        );
+    });
+}
+
+#[test]
+fn test_destroy_alpha_clean_alpha_resumes_with_limited_weight() {
+    new_test_ext(0).execute_with(|| {
+        let (_, _, netuid) = setup_staked_subnet();
+        let w = Weight::from_parts(u64::MAX, u64::MAX);
+        let mut weight_meter = WeightMeter::with_limit(w);
+        assert!(run_resumable_netuid_cleanup(
+            netuid,
+            &mut weight_meter,
+            SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value,
+        ));
+        DissolvedSubnetDistributedTao::<Test>::set(Some(0));
+        let mut weight_meter2 = WeightMeter::with_limit(w);
+        assert!(run_resumable_netuid_cleanup(
+            netuid,
+            &mut weight_meter2,
+            SubtensorModule::destroy_alpha_in_out_stakes_settle_stakes,
+        ));
+
+        let read_weight = <Test as frame_system::Config>::DbWeight::get().reads(1);
+        let mut weight_meter3 = WeightMeter::with_limit(read_weight);
+        let (done, mut last_key) =
+            SubtensorModule::destroy_alpha_in_out_stakes_clean_alpha(netuid, &mut weight_meter3, None);
+        assert!(!done);
+
+        let mut iterations = 0;
+        while Alpha::<Test>::iter().any(|((_, _, nu), _)| nu == netuid) {
+            let mut weight_meter =
+                WeightMeter::with_limit(Weight::from_parts(u64::MAX, u64::MAX));
+            let (done, new_key) = SubtensorModule::destroy_alpha_in_out_stakes_clean_alpha(
+                netuid,
+                &mut weight_meter,
+                last_key,
+            );
+            last_key = new_key;
+            assert!(done, "clean_alpha should finish once all alpha entries are removed");
+            iterations += 1;
+            assert!(iterations < 10, "clean_alpha should complete within a few passes");
+        }
     });
 }
