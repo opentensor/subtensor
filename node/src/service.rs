@@ -461,10 +461,10 @@ where
                         crate::mev_shield_ibe::dkg_worker::DkgWorkerConfig {
                             poll_interval: std::time::Duration::from_secs(12),
                             max_atoms: 4096,
-                            local_authorities,
+                            local_authorities: local_authorities.clone(),
                             x25519_static_secret_bytes: x25519_secret,
                         },
-                        authority_signer,
+                        authority_signer.clone(),
                         dkg_inbound_rx,
                         wire_outbound_tx.clone(),
                         Some(dkg_publication_tx),
@@ -478,6 +478,15 @@ where
                     client.clone(),
                     transaction_pool.clone(),
                     dkg_publication_rx,
+                );
+
+                crate::mev_shield_ibe::dkg_submitter::spawn_dkg_authority_registration_submitter(
+                    &task_manager.spawn_handle(),
+                    client.clone(),
+                    transaction_pool.clone(),
+                    local_authorities.clone(),
+                    x25519_secret,
+                    authority_signer.clone(),
                 );
             }
         } else {

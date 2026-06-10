@@ -77,7 +77,7 @@ pub trait AuthoritySigner: Send + Sync + 'static {
 struct WorkerState {
     rounds: BTreeMap<DkgRoundId, DkgRoundAccumulator>,
     committed: BTreeSet<DkgRoundId>,
-    finalized: BTreeSet<DkgRoundId>,
+    last_publication_attestation_weight: BTreeMap<DkgRoundId, u128>,
     transport_keys: BTreeMap<(DkgRoundId, Vec<u8>), [u8; 32]>,
     pending_transport_keys: BTreeMap<Vec<u8>, DkgTransportKeyRegistration>,
 }
@@ -87,7 +87,7 @@ impl Default for WorkerState {
         Self {
             rounds: BTreeMap::new(),
             committed: BTreeSet::new(),
-            finalized: BTreeSet::new(),
+            last_publication_attestation_weight: BTreeMap::new(),
             transport_keys: BTreeMap::new(),
             pending_transport_keys: BTreeMap::new(),
         }
@@ -233,7 +233,9 @@ fn select_local_authority<'a>(
 fn prune_worker_state_to_round(state: &mut WorkerState, active_round: &DkgRoundId) {
     state.rounds.retain(|round, _| round == active_round);
     state.committed.retain(|round| round == active_round);
-    state.finalized.retain(|round| round == active_round);
+    state
+        .last_publication_attestation_weight
+        .retain(|round, _| round == active_round);
     state
         .transport_keys
         .retain(|(round, _), _| round == active_round);
@@ -472,10 +474,6 @@ where
         acc.accepted_votes.insert(vote_key, vote);
     }
 
-    if state.finalized.contains(&round) {
-        return Ok(());
-    }
-
     let accepted_dealers = select_threshold_accepted_dealers_with_eligible(
         &plan.authorities,
         &eligible_dealer_ids,
@@ -536,6 +534,33 @@ where
     acc.output_attestations
         .insert(local_authority.authority_id.clone(), att.clone());
 
+    let (attestation_weight, attestation_threshold, attestations) =
+        verified_output_attestations_for_publication(
+            &plan.authorities,
+            &eligible_dealer_ids,
+            acc,
+            publication_hash,
+        )?;
+    if attestation_weight < attestation_threshold {
+        log::debug!(
+            target: "mev-shield-ibe",
+            "DKG output for epoch {} finalized locally but has only {} attested stake; waiting for threshold {}",
+            plan.epoch,
+            attestation_weight,
+            attestation_threshold,
+        );
+        return Ok(());
+    }
+
+    let previous_publication_weight = state
+        .last_publication_attestation_weight
+        .get(&round)
+        .copied()
+        .unwrap_or(0);
+    if attestation_weight <= previous_publication_weight {
+        return Ok(());
+    }
+
     if let Some(tx) = epoch_publication_tx {
         let publication = EpochDkgPublication {
             epoch: plan.epoch,
@@ -554,22 +579,81 @@ where
                 .cloned()
                 .collect(),
             public_output_hash: publication_hash,
-            attestations: acc
-                .output_attestations
-                .values()
-                .map(|a| mev_shield_ibe_runtime_api::DkgOutputAttestation {
-                    authority_id: a.authority_id.clone(),
-                    stake: a.stake,
-                    public_output_hash: a.public_output_hash,
-                    signature: a.authority_signature.clone(),
-                })
-                .collect(),
+            attestations,
         };
-        let _ = tx.unbounded_send(publication);
+        if tx.unbounded_send(publication).is_ok() {
+            state
+                .last_publication_attestation_weight
+                .insert(round.clone(), attestation_weight);
+        }
     }
 
-    state.finalized.insert(round);
     Ok(())
+}
+
+fn verified_output_attestations_for_publication(
+    authorities: &[DkgAuthorityInfo],
+    eligible_authority_ids: &BTreeSet<Vec<u8>>,
+    acc: &DkgRoundAccumulator,
+    publication_hash: H256,
+) -> Result<
+    (
+        u128,
+        u128,
+        Vec<mev_shield_ibe_runtime_api::DkgOutputAttestation>,
+    ),
+    String,
+> {
+    let total_stake = authorities.iter().try_fold(0u128, |sum, authority| {
+        sum.checked_add(authority.stake)
+            .ok_or_else(|| "DKG output attestation total stake overflow".to_string())
+    })?;
+    let threshold_stake = super::dkg_weighting::two_thirds_plus_one(total_stake)
+        .map_err(|err| format!("DKG output attestation threshold calculation failed: {err:?}"))?;
+
+    let by_authority: BTreeMap<Vec<u8>, u128> = authorities
+        .iter()
+        .map(|authority| (authority.authority_id.clone(), authority.stake))
+        .collect();
+
+    let mut seen = BTreeSet::<Vec<u8>>::new();
+    let mut attested_stake = 0u128;
+    let mut attestations = Vec::new();
+
+    for attestation in acc.output_attestations.values() {
+        if attestation.version != stp_mev_shield_ibe::MEV_SHIELD_IBE_VERSION
+            || attestation.public_output_hash != publication_hash
+            || !eligible_authority_ids.contains(&attestation.authority_id)
+            || !seen.insert(attestation.authority_id.clone())
+        {
+            continue;
+        }
+
+        let Some(expected_stake) = by_authority.get(&attestation.authority_id).copied() else {
+            continue;
+        };
+        if attestation.stake != expected_stake {
+            continue;
+        }
+
+        if !verify_sr25519_authority_signature(
+            &attestation.authority_id,
+            output_attestation_payload_hash(attestation),
+            &attestation.authority_signature,
+        ) {
+            continue;
+        }
+
+        attested_stake = attested_stake.saturating_add(expected_stake);
+        attestations.push(mev_shield_ibe_runtime_api::DkgOutputAttestation {
+            authority_id: attestation.authority_id.clone(),
+            stake: expected_stake,
+            public_output_hash: attestation.public_output_hash,
+            signature: attestation.authority_signature.clone(),
+        });
+    }
+
+    Ok((attested_stake, threshold_stake, attestations))
 }
 
 fn local_share_ids_for_authority(

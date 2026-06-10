@@ -954,6 +954,40 @@ pub mod pallet {
             });
             Ok(())
         }
+
+        #[pallet::call_index(12)]
+        #[pallet::weight(T::WeightInfo::set_max_pending_extrinsics_number())]
+        pub fn register_ibe_dkg_authority_key_unsigned(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            consensus_key_kind: DkgConsensusKeyKind,
+            authority_id: Vec<u8>,
+            dkg_x25519_public_key: [u8; 32],
+            proof_signature: Vec<u8>,
+        ) -> DispatchResult {
+            ensure_none(origin)?;
+            Self::verify_ibe_dkg_authority_registration(
+                &hotkey,
+                consensus_key_kind,
+                &authority_id,
+                &dkg_x25519_public_key,
+                &proof_signature,
+            )?;
+            IbeDkgAuthorityRegistrations::<T>::insert(
+                &hotkey,
+                IbeDkgAuthorityRegistration {
+                    consensus_key_kind,
+                    authority_id: authority_id.clone(),
+                    dkg_x25519_public_key,
+                },
+            );
+            Self::deposit_event(Event::IbeDkgAuthorityRegistered {
+                hotkey,
+                consensus_key_kind,
+                authority_id,
+            });
+            Ok(())
+        }
     }
 
     #[pallet::validate_unsigned]
@@ -966,6 +1000,44 @@ pub mod pallet {
                     TransactionSource::InBlock => Ok(ValidTransaction::default()),
                     _ => InvalidTransaction::Call.into(),
                 };
+            }
+
+            if let Call::register_ibe_dkg_authority_key_unsigned {
+                hotkey,
+                consensus_key_kind,
+                authority_id,
+                dkg_x25519_public_key,
+                proof_signature,
+            } = call
+            {
+                if !matches!(
+                    source,
+                    TransactionSource::Local | TransactionSource::InBlock
+                ) {
+                    return InvalidTransaction::Call.into();
+                }
+                if Self::verify_ibe_dkg_authority_registration(
+                    hotkey,
+                    *consensus_key_kind,
+                    authority_id,
+                    dkg_x25519_public_key,
+                    proof_signature,
+                )
+                .is_err()
+                {
+                    return InvalidTransaction::BadProof.into();
+                }
+                return ValidTransaction::with_tag_prefix("MevShieldIbeDkgAuthorityRegistration")
+                    .priority(1_750_000)
+                    .and_provides((
+                        b"mev-shield-ibe-dkg-authority-registration".as_slice(),
+                        hotkey,
+                        consensus_key_kind,
+                        authority_id,
+                    ))
+                    .longevity(1024)
+                    .propagate(true)
+                    .build();
             }
 
             if let Call::publish_ibe_epoch_public_key { publication } = call {
@@ -1199,6 +1271,38 @@ impl<T: Config> Pallet<T> {
             )
                 .encode(),
         ))
+    }
+
+    pub fn verify_ibe_dkg_authority_registration(
+        hotkey: &T::AccountId,
+        consensus_key_kind: DkgConsensusKeyKind,
+        authority_id: &[u8],
+        dkg_x25519_public_key: &[u8; 32],
+        proof_signature: &[u8],
+    ) -> DispatchResult {
+        ensure!(
+            authority_id.len() == 32,
+            Error::<T>::BadIbeDkgAuthorityRegistration
+        );
+        ensure!(
+            *dkg_x25519_public_key != [0u8; 32],
+            Error::<T>::BadIbeDkgAuthorityRegistration
+        );
+        let payload_hash = Self::dkg_authority_registration_payload_hash(
+            hotkey,
+            consensus_key_kind,
+            authority_id,
+            dkg_x25519_public_key,
+        );
+        ensure!(
+            T::IbeDkgAuthorityProvider::verify_authority_signature(
+                authority_id,
+                payload_hash,
+                proof_signature,
+            ),
+            Error::<T>::BadIbeDkgAuthorityRegistration
+        );
+        Ok(())
     }
 
     pub fn dkg_two_thirds_threshold(total_weight: u128) -> Option<u128> {
