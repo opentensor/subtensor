@@ -200,7 +200,7 @@ where
                 )
                 .map(|tao_amount| (alpha_fee, tao_amount, *netuid))
                 .map_err(|err| {
-                    log::error!("Error withdrawing transaction fee in alpha: {err:?}");
+                    log::warn!("Error withdrawing transaction fee in alpha: {err:?}");
                     InvalidTransaction::Payment.into()
                 })
             } else {

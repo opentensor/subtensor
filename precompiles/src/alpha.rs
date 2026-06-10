@@ -5,7 +5,7 @@ use pallet_evm::{BalanceConverter, PrecompileHandle, SubstrateBalance};
 use precompile_utils::EvmResult;
 use sp_core::U256;
 use sp_std::vec::Vec;
-use substrate_fixed::types::U96F32;
+use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{NetUid, Token};
 use subtensor_swap_interface::{Order, SwapHandler};
 
@@ -37,7 +37,7 @@ where
     fn get_alpha_price(_handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<U256> {
         let current_alpha_price =
             <pallet_subtensor_swap::Pallet<R> as SwapHandler>::current_alpha_price(netuid.into());
-        let price = current_alpha_price.saturating_mul(U96F32::from_num(1_000_000_000));
+        let price = current_alpha_price.saturating_mul(U64F64::from_num(1_000_000_000));
         let price: SubstrateBalance = price.saturating_to_num::<u64>().into();
         let price_eth = <R as pallet_evm::Config>::BalanceConverter::into_evm_balance(price)
             .map(|amount| amount.into_u256())
@@ -49,9 +49,9 @@ where
     #[precompile::public("getMovingAlphaPrice(uint16)")]
     #[precompile::view]
     fn get_moving_alpha_price(_handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<U256> {
-        let moving_alpha_price: U96F32 =
+        let moving_alpha_price: U64F64 =
             pallet_subtensor::Pallet::<R>::get_moving_alpha_price(netuid.into());
-        let price = moving_alpha_price.saturating_mul(U96F32::from_num(1_000_000_000));
+        let price = moving_alpha_price.saturating_mul(U64F64::from_num(1_000_000_000));
         let price: SubstrateBalance = price.saturating_to_num::<u64>().into();
         let price_eth = <R as pallet_evm::Config>::BalanceConverter::into_evm_balance(price)
             .map(|amount| amount.into_u256())
@@ -194,18 +194,18 @@ where
             .filter(|(netuid, _)| *netuid != NetUid::ROOT)
             .collect::<Vec<_>>();
 
-        let mut sum_alpha_price: U96F32 = U96F32::from_num(0);
+        let mut sum_alpha_price: U64F64 = U64F64::from_num(0);
         for (netuid, _) in netuids {
             let price = <pallet_subtensor_swap::Pallet<R> as SwapHandler>::current_alpha_price(
                 netuid.into(),
             );
 
-            if price < U96F32::from_num(1) {
+            if price < U64F64::from_num(1) {
                 sum_alpha_price = sum_alpha_price.saturating_add(price);
             }
         }
 
-        let price = sum_alpha_price.saturating_mul(U96F32::from_num(1_000_000_000));
+        let price = sum_alpha_price.saturating_mul(U64F64::from_num(1_000_000_000));
         let price: SubstrateBalance = price.saturating_to_num::<u64>().into();
         let price_eth = <R as pallet_evm::Config>::BalanceConverter::into_evm_balance(price)
             .map(|amount| amount.into_u256())
@@ -311,8 +311,8 @@ mod tests {
             let moving_alpha_price =
                 pallet_subtensor::Pallet::<Runtime>::get_moving_alpha_price(dynamic_netuid);
 
-            assert!(alpha_price > U96F32::from_num(1));
-            assert!(moving_alpha_price > U96F32::from_num(1));
+            assert!(alpha_price > U64F64::from_num(1));
+            assert!(moving_alpha_price > U64F64::from_num(1));
 
             assert_static_call(
                 &precompiles,
@@ -457,7 +457,7 @@ mod tests {
             let caller = addr_from_index(1);
             let precompile_addr = addr_from_index(AlphaPrecompile::<Runtime>::INDEX);
 
-            let mut sum_alpha_price = U96F32::from_num(0);
+            let mut sum_alpha_price = U64F64::from_num(0);
             for (netuid, _) in pallet_subtensor::NetworksAdded::<Runtime>::iter() {
                 if netuid.is_root() {
                     continue;
@@ -466,12 +466,12 @@ mod tests {
                     <pallet_subtensor_swap::Pallet<Runtime> as SwapHandler>::current_alpha_price(
                         netuid,
                     );
-                if price < U96F32::from_num(1) {
+                if price < U64F64::from_num(1) {
                     sum_alpha_price += price;
                 }
             }
 
-            assert!(sum_alpha_price > U96F32::from_num(0));
+            assert!(sum_alpha_price > U64F64::from_num(0));
 
             assert_static_call(
                 &precompiles,
