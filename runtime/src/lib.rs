@@ -1538,8 +1538,25 @@ impl Get<AccountId> for LimitOrdersPalletHotkey {
     }
 }
 
+/// Reads `pallet_timestamp::Now` directly instead of using `Timestamp: UnixTime`.
+///
+/// `pallet_timestamp`'s `UnixTime` implementation logs an error when `Now == 0`
+/// (genesis / before the first timestamp inherent). Limit orders only needs the
+/// stored moment; this wrapper is safe to call from any block.
+pub struct LimitOrdersUnixTime;
+
+impl UnixTime for LimitOrdersUnixTime {
+    fn now() -> core::time::Duration {
+        let ms: u64 = pallet_timestamp::Pallet::<Runtime>::get().saturated_into();
+        core::time::Duration::from_millis(ms)
+    }
+}
+
 impl pallet_limit_orders::Config for Runtime {
     type SwapInterface = SubtensorModule;
+    #[cfg(feature = "runtime-benchmarks")]
+    type TimeProvider = LimitOrdersUnixTime;
+    #[cfg(not(feature = "runtime-benchmarks"))]
     type TimeProvider = Timestamp;
     type MaxOrdersPerBatch = LimitOrdersMaxOrdersPerBatch;
     type PalletId = LimitOrdersPalletId;
