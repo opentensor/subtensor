@@ -2376,10 +2376,18 @@ impl<T: Config> Pallet<T> {
 
     /// Same as `has_due_ibe_queue_head`, but evaluated at an explicit block number.
     pub fn has_due_ibe_queue_head_at(block_number: u64) -> bool {
+        Self::due_ibe_queue_head_at(block_number).is_some()
+    }
+
+    /// Return the canonical threshold-IBE queue head when it is due at
+    /// `block_number`. This is stricter than scanning for any due identity:
+    /// queue order is load-bearing for MEV Shield, so block import must make
+    /// key-release liveness decisions from the actual queue head only.
+    pub fn due_ibe_queue_head_at(block_number: u64) -> Option<IbePendingIdentity> {
         let next_index = NextPendingExtrinsicIndex::<T>::get();
         let count: u32 = PendingExtrinsics::<T>::count();
         if count == 0 {
-            return false;
+            return None;
         }
 
         let start_index = next_index.saturating_sub(count);
@@ -2387,15 +2395,28 @@ impl<T: Config> Pallet<T> {
             if !PendingExtrinsics::<T>::contains_key(index) {
                 continue;
             }
+
             let Some(meta) = PendingIbeMetadata::<T>::get(index) else {
                 // The queue head exists but is not a threshold-IBE entry.
-                return false;
+                return None;
             };
-            return meta.target_block <= block_number;
+
+            if meta.target_block > block_number {
+                return None;
+            }
+
+            return Some(IbePendingIdentity {
+                epoch: meta.epoch,
+                target_block: meta.target_block,
+                key_id: meta.key_id,
+                first_queue_index: index,
+                last_queue_index: index,
+            });
         }
 
-        false
+        None
     }
+
     pub fn has_ibe_block_key(epoch: u64, target_block: u64, key_id: [u8; KEY_ID_LEN]) -> bool {
         Self::ibe_block_decryption_key(epoch, target_block, key_id).is_some()
     }

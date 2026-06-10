@@ -167,6 +167,7 @@ pub struct DkgTransportKeyRegistration {
 sp_api::decl_runtime_apis! {
     pub trait MevShieldIbeApi {
         fn pending_ibe_identities(limit: u32) -> Vec<IbePendingIdentity>;
+        fn due_ibe_queue_head(block_number: u64) -> Option<IbePendingIdentity>;
         fn has_ibe_block_key(epoch: u64, target_block: u64, key_id: [u8; KEY_ID_LEN]) -> bool;
         fn pending_encrypted_queue_len() -> u32;
         fn classify_extrinsic(encoded_xt: Vec<u8>) -> MevShieldExtrinsicClass;

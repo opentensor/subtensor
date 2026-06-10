@@ -2736,10 +2736,14 @@ impl mev_shield_ibe_runtime_api::MevShieldDkgApi<Block> for Runtime {
 
 impl mev_shield_ibe_runtime_api::MevShieldIbeApi<Block> for Runtime {
     fn pending_ibe_identities(limit: u32) -> Vec<stp_mev_shield_ibe::IbePendingIdentity> {
-        MevShield::pending_ibe_identities(limit)
-    }
+            MevShield::pending_ibe_identities(limit)
+        }
 
-    fn has_ibe_block_key(
+        fn due_ibe_queue_head(block_number: u64) -> Option<stp_mev_shield_ibe::IbePendingIdentity> {
+            MevShield::due_ibe_queue_head_at(block_number)
+        }
+
+        fn has_ibe_block_key(
         epoch: u64,
         target_block: u64,
         key_id: [u8; stp_mev_shield_ibe::KEY_ID_LEN],

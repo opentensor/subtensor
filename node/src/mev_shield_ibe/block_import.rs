@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use codec::Encode;
+use codec::{Decode, Encode};
 use mev_shield_ibe_runtime_api::{MevShieldExtrinsicClass, MevShieldIbeApi};
 use sc_client_api::BlockBackend;
 use sc_consensus::{BlockCheckParams, BlockImport, BlockImportParams, ImportResult};
@@ -12,7 +12,9 @@ use sp_runtime::{
     traits::{Block as BlockT, Header as HeaderT},
 };
 use std::{collections::BTreeSet, error::Error as StdError, marker::PhantomData, sync::Arc};
-use stp_mev_shield_ibe::IBE_BLOCK_DECRYPTION_KEYS_ENGINE_ID;
+use stp_mev_shield_ibe::{
+    IBE_BLOCK_DECRYPTION_KEYS_ENGINE_ID, IbeBlockDecryptionKeyInherentData, KEY_ID_LEN,
+};
 
 const IBE_TARGET_LOOKAHEAD_BLOCKS: u64 = 2;
 
@@ -107,9 +109,13 @@ where
     fn accept_block_key_payload_class(
         &self,
         block_number: u64,
+        payload: &[u8],
         class: MevShieldExtrinsicClass,
-        preruntime_key_targets: &mut BTreeSet<u64>,
+        preruntime_key_identities: &mut BTreeSet<(u64, u64, [u8; KEY_ID_LEN])>,
     ) -> Result<(), String> {
+        let data = IbeBlockDecryptionKeyInherentData::decode(&mut &payload[..])
+            .map_err(|_| "IBE pre-runtime digest payload failed to decode".to_string())?;
+
         let MevShieldExtrinsicClass::SubmitBlockDecryptionKeyInherent {
             finality_proofs,
             invalid_key_count,
@@ -124,21 +130,49 @@ where
             ));
         }
 
-        for (target_block, finalized_ordering_block_number, finalized_ordering_block_hash) in
-            finality_proofs
+        if !data.keys.is_empty() {
+            return Err(
+                "IBE pre-runtime digest contains obsolete reconstructed-key payloads".into(),
+            );
+        }
+
+        if finality_proofs.len() != data.share_bundles.len() {
+            return Err(format!(
+                "IBE pre-runtime digest validation mismatch: {} proof(s) for {} bundle(s)",
+                finality_proofs.len(),
+                data.share_bundles.len(),
+            ));
+        }
+
+        for (
+            bundle,
+            (target_block, finalized_ordering_block_number, finalized_ordering_block_hash),
+        ) in data.share_bundles.iter().zip(finality_proofs.iter())
         {
-            if target_block != block_number {
+            let key = &bundle.key;
+            if *target_block != key.target_block
+                || *finalized_ordering_block_number != key.finalized_ordering_block_number
+                || *finalized_ordering_block_hash != key.finalized_ordering_block_hash
+            {
+                return Err("IBE pre-runtime digest proof does not match bundle key".into());
+            }
+
+            if key.target_block != block_number {
                 return Err(format!(
-                    "IBE pre-runtime digest target {target_block} does not match block {block_number}",
+                    "IBE pre-runtime digest target {} does not match block {block_number}",
+                    key.target_block,
                 ));
             }
+
             self.verify_decryption_key_finality(
-                target_block,
-                finalized_ordering_block_number,
-                finalized_ordering_block_hash.into(),
+                key.target_block,
+                key.finalized_ordering_block_number,
+                key.finalized_ordering_block_hash.into(),
             )?;
-            preruntime_key_targets.insert(target_block);
+
+            preruntime_key_identities.insert((key.epoch, key.target_block, key.key_id));
         }
+
         Ok(())
     }
 
@@ -146,42 +180,37 @@ where
         &self,
         parent_hash: B::Hash,
         block_number: u64,
-        preruntime_key_targets: &BTreeSet<u64>,
+        preruntime_key_identities: &BTreeSet<(u64, u64, [u8; KEY_ID_LEN])>,
     ) -> Result<bool, String> {
         let api = self.client.runtime_api();
-        let pending_len = api
-            .pending_encrypted_queue_len(parent_hash)
-            .map_err(|e| format!("pending_encrypted_queue_len runtime API failed: {e:?}"))?;
-        if pending_len == 0 {
+        let Some(identity) = api
+            .due_ibe_queue_head(parent_hash, block_number)
+            .map_err(|e| format!("due_ibe_queue_head runtime API failed: {e:?}"))?
+        else {
             return Ok(false);
-        }
-        let identities = api
-            .pending_ibe_identities(parent_hash, pending_len)
-            .map_err(|e| format!("pending_ibe_identities runtime API failed: {e:?}"))?;
-        for identity in identities {
-            if identity.target_block > block_number {
-                return Ok(false);
-            }
-            let key_available_at_parent = api
-                .has_ibe_block_key(
-                    parent_hash,
-                    identity.epoch,
-                    identity.target_block,
-                    identity.key_id,
-                )
-                .map_err(|e| format!("has_ibe_block_key runtime API failed: {e:?}"))?;
-            if key_available_at_parent || preruntime_key_targets.contains(&identity.target_block) {
-                continue;
-            }
-            return Ok(true);
-        }
-        Ok(false)
+        };
+
+        let key_available_at_parent = api
+            .has_ibe_block_key(
+                parent_hash,
+                identity.epoch,
+                identity.target_block,
+                identity.key_id,
+            )
+            .map_err(|e| format!("has_ibe_block_key runtime API failed: {e:?}"))?;
+
+        Ok(!key_available_at_parent
+            && !preruntime_key_identities.contains(&(
+                identity.epoch,
+                identity.target_block,
+                identity.key_id,
+            )))
     }
 
     fn verify_mev_shield_block(&self, parent_hash: B::Hash, block: &B) -> Result<(), String> {
         let api = self.client.runtime_api();
         let block_number = Self::block_number_u64(block.header())?;
-        let mut preruntime_key_targets = BTreeSet::new();
+        let mut preruntime_key_identities = BTreeSet::new();
 
         for log in block.header().digest().logs().iter() {
             let DigestItem::PreRuntime(engine_id, payload) = log else {
@@ -195,7 +224,23 @@ where
                 .map_err(|e| {
                     format!("classify_ibe_block_key_preruntime_digest runtime API failed: {e:?}")
                 })?;
-            self.accept_block_key_payload_class(block_number, class, &mut preruntime_key_targets)?;
+            self.accept_block_key_payload_class(
+                block_number,
+                payload.as_slice(),
+                class,
+                &mut preruntime_key_identities,
+            )?;
+        }
+
+        if self.has_due_ibe_queue_head_without_available_key(
+            parent_hash,
+            block_number,
+            &preruntime_key_identities,
+        )? {
+            return Err(
+                "due encrypted queue head requires a valid threshold-IBE pre-runtime key bundle"
+                    .into(),
+            );
         }
 
         let encoded = block
@@ -241,7 +286,7 @@ where
                     if self.has_due_ibe_queue_head_without_available_key(
                         parent_hash,
                         block_number,
-                        &preruntime_key_targets,
+                        &preruntime_key_identities,
                     )? {
                         return Err(
                             "plaintext non-operational extrinsic while due encrypted queue head lacks a block key"
