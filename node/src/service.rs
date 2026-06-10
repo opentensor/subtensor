@@ -698,6 +698,7 @@ where
                 telemetry.as_ref(),
                 commands_stream,
                 shield_keystore.clone(),
+                maybe_ibe_share_pool.clone(),
             )?;
             log::info!("Manual Seal Ready");
             return Ok(task_manager);
@@ -891,6 +892,8 @@ fn run_manual_seal_authorship(
         sc_consensus_manual_seal::rpc::EngineCommand<<Block as BlockT>::Hash>,
     >,
     shield_keystore: ShieldKeystorePtr,
+
+    maybe_ibe_share_pool: Option<crate::mev_shield_ibe::MevShieldIbeSharePool>,
 ) -> Result<(), ServiceError> {
     let proposer_factory = sc_basic_authorship::ProposerFactory::new(
         task_manager.spawn_handle(),
@@ -900,6 +903,12 @@ fn run_manual_seal_authorship(
         telemetry.as_ref().map(|x| x.handle()),
         shield_keystore,
     );
+    let proposer_factory =
+        crate::mev_shield_ibe::preruntime_digest::IbePreRuntimeDigestProposerFactory::new(
+            proposer_factory,
+            maybe_ibe_share_pool,
+            client.clone(),
+        );
 
     thread_local!(static TIMESTAMP: RefCell<u64> = const { RefCell::new(0) });
 

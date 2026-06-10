@@ -2761,7 +2761,7 @@ impl mev_shield_ibe_runtime_api::MevShieldIbeApi<Block> for Runtime {
                 use codec::Decode;
                 use mev_shield_ibe_runtime_api::MevShieldExtrinsicClass;
 
-                let Ok(data) = stp_mev_shield_ibe::IbeBlockDecryptionKeyInherentData::decode(
+                let Ok(data) = stp_mev_shield_ibe::IbeBlockDecryptionKeyPreRuntimeDigestData::decode(
                     &mut encoded_payload.as_slice(),
                 ) else {
                     return MevShieldExtrinsicClass::SubmitBlockDecryptionKeyInherent {
@@ -2771,10 +2771,7 @@ impl mev_shield_ibe_runtime_api::MevShieldIbeApi<Block> for Runtime {
                 };
 
                 let mut finality_proofs = Vec::new();
-                let mut invalid_key_count = match u32::try_from(data.keys.len()) {
-                    Ok(count) => count,
-                    Err(_) => u32::MAX,
-                };
+                let mut invalid_key_count = 0u32;
 
                 for bundle in data.share_bundles.iter() {
                     if !MevShield::verify_ibe_block_decryption_key_release_bundle(bundle) {
@@ -2822,38 +2819,7 @@ impl mev_shield_ibe_runtime_api::MevShieldIbeApi<Block> for Runtime {
                 }
                 MevShieldExtrinsicClass::UnencryptedNonOperational
             }
-            RuntimeCall::MevShield(pallet_shield::Call::submit_block_decryption_key { key }) => {
-                MevShieldExtrinsicClass::SubmitBlockDecryptionKey {
-                    epoch: key.epoch,
-                    target_block: key.target_block,
-                    key_id: key.key_id,
-                    finalized_ordering_block_number: key.finalized_ordering_block_number,
-                    finalized_ordering_block_hash: key.finalized_ordering_block_hash,
-                }
-            }
-            RuntimeCall::MevShield(pallet_shield::Call::provide_mev_shield_inherent { ibe_block_decryption_key_bundles, .. }) => {
-                    let mut invalid_key_count = 0u32;
-                    let finality_proofs = ibe_block_decryption_key_bundles
-                        .iter()
-                        .filter_map(|bundle| {
-                            let key = &bundle.key;
-                            if MevShield::verify_ibe_block_decryption_key_release_bundle(bundle) {
-                                Some((
-                                    key.target_block,
-                                    key.finalized_ordering_block_number,
-                                    key.finalized_ordering_block_hash,
-                                ))
-                            } else {
-                                invalid_key_count = invalid_key_count.saturating_add(1);
-                                None
-                            }
-                        })
-                        .collect();
-                    MevShieldExtrinsicClass::SubmitBlockDecryptionKeyInherent {
-                        finality_proofs,
-                        invalid_key_count,
-                    }
-                }, _ => {
+            RuntimeCall::MevShield(pallet_shield::Call::provide_mev_shield_inherent { .. }) => MevShieldExtrinsicClass::Operational, _ => {
                 if call.get_dispatch_info().class == DispatchClass::Operational {
                     MevShieldExtrinsicClass::Operational
                 } else {
@@ -2912,38 +2878,7 @@ impl mev_shield_ibe_runtime_api::MevShieldIbeApi<Block> for Runtime {
                             MevShieldExtrinsicClass::UnencryptedNonOperational
                         }
                     }
-                    RuntimeCall::MevShield(
-                        pallet_shield::Call::submit_block_decryption_key { key },
-                    ) => MevShieldExtrinsicClass::SubmitBlockDecryptionKey {
-                        epoch: key.epoch,
-                        target_block: key.target_block,
-                        key_id: key.key_id,
-                        finalized_ordering_block_number: key.finalized_ordering_block_number,
-                        finalized_ordering_block_hash: key.finalized_ordering_block_hash,
-                    },
-                    RuntimeCall::MevShield(pallet_shield::Call::provide_mev_shield_inherent { ibe_block_decryption_key_bundles, .. }) => {
-                    let mut invalid_key_count = 0u32;
-                    let finality_proofs = ibe_block_decryption_key_bundles
-                        .iter()
-                        .filter_map(|bundle| {
-                            let key = &bundle.key;
-                            if MevShield::verify_ibe_block_decryption_key_release_bundle(bundle) {
-                                Some((
-                                    key.target_block,
-                                    key.finalized_ordering_block_number,
-                                    key.finalized_ordering_block_hash,
-                                ))
-                            } else {
-                                invalid_key_count = invalid_key_count.saturating_add(1);
-                                None
-                            }
-                        })
-                        .collect();
-                    MevShieldExtrinsicClass::SubmitBlockDecryptionKeyInherent {
-                        finality_proofs,
-                        invalid_key_count,
-                    }
-                }, _ => {
+                    RuntimeCall::MevShield(pallet_shield::Call::provide_mev_shield_inherent { .. }) => MevShieldExtrinsicClass::Operational, _ => {
                         if call.get_dispatch_info().class == DispatchClass::Operational {
                             MevShieldExtrinsicClass::Operational
                         } else {

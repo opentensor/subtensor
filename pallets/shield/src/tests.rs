@@ -1487,7 +1487,7 @@ fn ibe_v2_submission_forfeits_deposit_on_invalid_or_failed_inner() {
 }
 
 #[test]
-fn ibe_block_key_requires_exact_predecessor_finality_point_before_verifier() {
+fn ibe_block_key_release_bundle_requires_exact_predecessor_finality_point_before_verifier() {
     new_test_ext().execute_with(|| {
         System::set_block_number(20);
         let key_id = [6; stp_mev_shield_ibe::KEY_ID_LEN];
@@ -1510,23 +1510,38 @@ fn ibe_block_key_requires_exact_predecessor_finality_point_before_verifier() {
 
         let mut too_old = base_key.clone();
         too_old.finalized_ordering_block_number = 18;
-        frame_support::assert_noop!(
-            MevShield::submit_block_decryption_key(RuntimeOrigin::none(), too_old),
-            Error::<Test>::InvalidIbeFinalityPoint
-        );
+        assert!(matches!(
+            MevShield::validate_ibe_block_decryption_key_release_bundle(
+                &stp_mev_shield_ibe::IbeBlockDecryptionKeyShareBundleV1 {
+                    key: too_old,
+                    shares: Vec::new(),
+                },
+            ),
+            Err(Error::<Test>::InvalidIbeFinalityPoint)
+        ));
 
         let mut too_late = base_key.clone();
         too_late.finalized_ordering_block_number = 20;
-        frame_support::assert_noop!(
-            MevShield::submit_block_decryption_key(RuntimeOrigin::none(), too_late),
-            Error::<Test>::InvalidIbeFinalityPoint
-        );
+        assert!(matches!(
+            MevShield::validate_ibe_block_decryption_key_release_bundle(
+                &stp_mev_shield_ibe::IbeBlockDecryptionKeyShareBundleV1 {
+                    key: too_late,
+                    shares: Vec::new(),
+                },
+            ),
+            Err(Error::<Test>::InvalidIbeFinalityPoint)
+        ));
 
         // The exact predecessor finality point passes timing validation and then
         // reaches the mock verifier, which is deliberately configured to fail.
-        frame_support::assert_noop!(
-            MevShield::submit_block_decryption_key(RuntimeOrigin::none(), base_key),
-            Error::<Test>::InvalidIbeBlockDecryptionKey
-        );
+        assert!(matches!(
+            MevShield::validate_ibe_block_decryption_key_release_bundle(
+                &stp_mev_shield_ibe::IbeBlockDecryptionKeyShareBundleV1 {
+                    key: base_key,
+                    shares: Vec::new(),
+                },
+            ),
+            Err(Error::<Test>::InvalidIbeBlockDecryptionKey)
+        ));
     });
 }

@@ -12,7 +12,7 @@ use std::{
     collections::BTreeSet, future::Future, marker::PhantomData, pin::Pin, sync::Arc, time::Duration,
 };
 use stp_mev_shield_ibe::{
-    IBE_BLOCK_DECRYPTION_KEYS_ENGINE_ID, IbeBlockDecryptionKeyInherentData,
+    IBE_BLOCK_DECRYPTION_KEYS_ENGINE_ID, IbeBlockDecryptionKeyPreRuntimeDigestData,
     IbeBlockDecryptionKeyShareBundleV1,
 };
 
@@ -154,8 +154,7 @@ where
         return None;
     }
 
-    let payload = IbeBlockDecryptionKeyInherentData {
-        keys: Vec::new(),
+    let payload = IbeBlockDecryptionKeyPreRuntimeDigestData {
         share_bundles: bundles,
     }
     .encode();

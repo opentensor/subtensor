@@ -13,7 +13,7 @@ use sp_runtime::{
 };
 use std::{collections::BTreeSet, error::Error as StdError, marker::PhantomData, sync::Arc};
 use stp_mev_shield_ibe::{
-    IBE_BLOCK_DECRYPTION_KEYS_ENGINE_ID, IbeBlockDecryptionKeyInherentData, KEY_ID_LEN,
+    IBE_BLOCK_DECRYPTION_KEYS_ENGINE_ID, IbeBlockDecryptionKeyPreRuntimeDigestData, KEY_ID_LEN,
 };
 
 const IBE_TARGET_LOOKAHEAD_BLOCKS: u64 = 2;
@@ -113,7 +113,7 @@ where
         class: MevShieldExtrinsicClass,
         preruntime_key_identities: &mut BTreeSet<(u64, u64, [u8; KEY_ID_LEN])>,
     ) -> Result<(), String> {
-        let data = IbeBlockDecryptionKeyInherentData::decode(&mut &payload[..])
+        let data = IbeBlockDecryptionKeyPreRuntimeDigestData::decode(&mut &payload[..])
             .map_err(|_| "IBE pre-runtime digest payload failed to decode".to_string())?;
 
         let MevShieldExtrinsicClass::SubmitBlockDecryptionKeyInherent {
@@ -128,12 +128,6 @@ where
             return Err(format!(
                 "IBE pre-runtime digest contains {invalid_key_count} invalid key bundle(s)",
             ));
-        }
-
-        if !data.keys.is_empty() {
-            return Err(
-                "IBE pre-runtime digest contains obsolete reconstructed-key payloads".into(),
-            );
         }
 
         if finality_proofs.len() != data.share_bundles.len() {
@@ -255,24 +249,12 @@ where
                 .map_err(|e| format!("classify_extrinsic runtime API failed: {e:?}"))?;
             match class {
                 MevShieldExtrinsicClass::SubmitEncryptedV2 { target_block, .. } => {
-                    let expected_target = block_number.saturating_add(IBE_TARGET_LOOKAHEAD_BLOCKS);
-                    if target_block != expected_target {
+                    let expected = block_number.saturating_add(IBE_TARGET_LOOKAHEAD_BLOCKS);
+                    if target_block != expected {
                         return Err(format!(
-                            "encrypted v2 target {target_block} must equal block {block_number} + {IBE_TARGET_LOOKAHEAD_BLOCKS} ({expected_target})",
+                            "encrypted v2 target {target_block} must equal block {block_number} + {IBE_TARGET_LOOKAHEAD_BLOCKS} ({expected})",
                         ));
                     }
-                }
-                MevShieldExtrinsicClass::SubmitBlockDecryptionKey {
-                    target_block,
-                    finalized_ordering_block_number,
-                    finalized_ordering_block_hash,
-                    ..
-                } => {
-                    self.verify_decryption_key_finality(
-                        target_block,
-                        finalized_ordering_block_number,
-                        finalized_ordering_block_hash.into(),
-                    )?;
                 }
                 MevShieldExtrinsicClass::SubmitBlockDecryptionKeyInherent { .. } => {
                     return Err(

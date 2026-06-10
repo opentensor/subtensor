@@ -35,7 +35,7 @@ use sp_runtime::{
 };
 use stp_mev_shield_ibe::{
     BoundedDkgPublicShareAtoms, BoundedIdentityKey, BoundedMasterPublicKey,
-    IBE_BLOCK_DECRYPTION_KEYS_ENGINE_ID, IbeBlockDecryptionKeyInherentData,
+    IBE_BLOCK_DECRYPTION_KEYS_ENGINE_ID, IbeBlockDecryptionKeyPreRuntimeDigestData,
     IbeBlockDecryptionKeyShareBundleV1, IbeBlockDecryptionKeyV1, IbeEncryptedExtrinsicV1,
     IbeEpochPublicKey, IbePendingIdentity, KEY_ID_LEN, MEV_SHIELD_IBE_VERSION,
     block_key_storage_key,
@@ -418,7 +418,7 @@ pub mod pallet {
         pub submitted_at: BlockNumberFor<T>,
     }
 
-    /// Storage map for encrypted extrinsics drained in PostInherents before user extrinsics.
+    /// Storage map for encrypted extrinsics drained in on_initialize before user extrinsics.
     /// Uses u32 index for O(1) insertion and removal. Count is maintained automatically.
     #[pallet::storage]
     pub type PendingExtrinsics<T: Config> =
@@ -872,35 +872,6 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Submit a reconstructed MEVShield v2 block identity decryption key.
-        ///
-        /// This accepts either:
-        /// - signed origin, for manual/operator submission;
-        /// - unsigned origin, for local node submission produced by the v2 share pool.
-        ///
-        /// Unsigned transaction-pool validity is provided by `ValidateUnsigned` below.
-        #[pallet::call_index(8)]
-        #[pallet::weight(T::WeightInfo::submit_encrypted())]
-        pub fn submit_block_decryption_key(
-            origin: OriginFor<T>,
-            key: IbeBlockDecryptionKeyV1,
-        ) -> DispatchResult {
-            if ensure_signed(origin.clone()).is_err() {
-                ensure_none(origin)?;
-            }
-            Self::validate_ibe_block_decryption_key_for_submission(&key)?;
-            IbeBlockDecryptionKeys::<T>::insert(
-                block_key_storage_key(key.epoch, key.target_block, key.key_id),
-                key.clone(),
-            );
-            Self::deposit_event(Event::IbeBlockDecryptionKeySubmitted {
-                epoch: key.epoch,
-                target_block: key.target_block,
-                key_id: key.key_id,
-            });
-            Ok(())
-        }
-
         #[pallet::call_index(9)]
         #[pallet::weight(T::WeightInfo::set_max_pending_extrinsics_number())]
         pub fn publish_ibe_epoch_public_key(
@@ -911,16 +882,15 @@ pub mod pallet {
             Self::publish_ibe_epoch_public_key_inner(publication)
         }
 
-        /// Composite MEV Shield inherent.
+        /// Mandatory MEV Shield v1 key-rotation inherent.
         ///
-        /// This preserves the legacy v1 shield key-rotation inherent while also
-        /// carrying threshold-IBE block decryption keys. The keys are stored by this
-        /// mandatory inherent, then `PostInherents` drains the due encrypted queue
-        /// before ordinary user extrinsics execute.
+        /// Threshold-IBE block-key release bundles are deliberately not accepted
+        /// through this call. They are delivered only through the header
+        /// pre-runtime digest so `on_initialize` can verify the key material and
+        /// drain the encrypted queue before any ordinary user extrinsic.
         #[pallet::call_index(10)]
         #[pallet::weight((
-            frame_support::weights::Weight::from_parts(MAX_ON_INITIALIZE_WEIGHT, 0)
-                .saturating_add(T::WeightInfo::announce_next_key()),
+            T::WeightInfo::announce_next_key(),
             frame_support::dispatch::DispatchClass::Mandatory,
             frame_support::dispatch::Pays::No,
         ))]
@@ -928,13 +898,8 @@ pub mod pallet {
             origin: OriginFor<T>,
             rotate_author_key: bool,
             enc_key: Option<ShieldEncKey>,
-            ibe_block_decryption_key_bundles: Vec<IbeBlockDecryptionKeyShareBundleV1>,
         ) -> DispatchResult {
             ensure_none(origin)?;
-            ensure!(
-                ibe_block_decryption_key_bundles.is_empty(),
-                Error::<T>::BadIbeEnvelope
-            );
             if rotate_author_key {
                 Self::announce_next_key(frame_system::RawOrigin::None.into(), enc_key)?;
             }
@@ -996,7 +961,7 @@ pub mod pallet {
         type Call = Call<T>;
 
         fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-            if <Self as frame_support::pallet_prelude::ProvideInherent>::is_inherent(call) {
+            if <Self as ProvideInherent>::is_inherent(call) {
                 return match source {
                     TransactionSource::InBlock => Ok(ValidTransaction::default()),
                     _ => InvalidTransaction::Call.into(),
@@ -1019,25 +984,11 @@ pub mod pallet {
                     .build();
             }
 
-            let Call::submit_block_decryption_key { key } = call else {
-                return InvalidTransaction::Call.into();
-            };
-
-            if Self::validate_ibe_block_decryption_key_for_submission(key).is_err() {
-                return InvalidTransaction::BadProof.into();
-            }
-
-            ValidTransaction::with_tag_prefix("MevShieldIbeBlockKey")
-                .priority(1_000_000)
-                .and_provides((
-                    b"mev-shield-ibe-block-key".as_slice(),
-                    key.epoch,
-                    key.target_block,
-                    key.key_id,
-                ))
-                .longevity(64)
-                .propagate(true)
-                .build()
+            // Block decryption keys are not valid unsigned/body transactions in
+            // the MVP. Authors must put threshold-release bundles in the header
+            // pre-runtime digest, where `on_initialize` can see them before
+            // queue drainage.
+            InvalidTransaction::Call.into()
         }
     }
 
@@ -1057,7 +1008,6 @@ pub mod pallet {
                 .map(|enc_key| Call::provide_mev_shield_inherent {
                     rotate_author_key: true,
                     enc_key,
-                    ibe_block_decryption_key_bundles: Vec::new(),
                 })
         }
 
@@ -1897,7 +1847,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn store_ibe_block_decryption_key_bundle_from_inherent(
+    pub fn store_ibe_block_decryption_key_bundle_from_preruntime_digest(
         bundle: IbeBlockDecryptionKeyShareBundleV1,
     ) -> Result<bool, Error<T>> {
         let key = bundle.key.clone();
@@ -1920,25 +1870,6 @@ impl<T: Config> Pallet<T> {
     ) -> bool {
         Self::verify_ibe_block_decryption_key_material(key)
     }
-
-    pub fn store_ibe_block_decryption_key_from_inherent(
-        key: IbeBlockDecryptionKeyV1,
-    ) -> Result<bool, sp_runtime::DispatchError> {
-        let storage_key = block_key_storage_key(key.epoch, key.target_block, key.key_id);
-        if IbeBlockDecryptionKeys::<T>::contains_key(storage_key) {
-            return Ok(false);
-        }
-
-        Self::validate_ibe_block_decryption_key_for_submission(&key)?;
-        IbeBlockDecryptionKeys::<T>::insert(storage_key, key.clone());
-        Self::deposit_event(Event::IbeBlockDecryptionKeySubmitted {
-            epoch: key.epoch,
-            target_block: key.target_block,
-            key_id: key.key_id,
-        });
-        Ok(true)
-    }
-
     fn store_encrypted_inner(
         who: T::AccountId,
         encrypted_call: BoundedVec<u8, MaxEncryptedCallSize>,
@@ -2092,23 +2023,17 @@ impl<T: Config> Pallet<T> {
                 continue;
             }
 
-            let Ok(data) = IbeBlockDecryptionKeyInherentData::decode(&mut &payload[..]) else {
+            let Ok(data) = IbeBlockDecryptionKeyPreRuntimeDigestData::decode(&mut &payload[..])
+            else {
                 log::debug!(target: LOG_TARGET, "ignoring malformed IBE block-key pre-runtime digest");
                 continue;
             };
-
-            if !data.keys.is_empty() {
-                log::debug!(
-                    target: LOG_TARGET,
-                    "ignoring legacy final-key entries in IBE block-key pre-runtime digest",
-                );
-            }
 
             for bundle in data.share_bundles {
                 if bundle.key.target_block != now {
                     continue;
                 }
-                match Self::store_ibe_block_decryption_key_bundle_from_inherent(bundle) {
+                match Self::store_ibe_block_decryption_key_bundle_from_preruntime_digest(bundle) {
                     Ok(true) => imported = imported.saturating_add(1),
                     Ok(false) => {}
                     Err(error) => {
