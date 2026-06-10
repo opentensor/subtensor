@@ -1286,18 +1286,17 @@ fn test_ibe_envelope(
 }
 
 #[test]
-fn ibe_v2_submit_requires_exact_b_plus_two_target() {
+fn ibe_v2_submit_accepts_built_target_in_build_block_or_next_block() {
     new_test_ext().execute_with(|| {
-        System::set_block_number(10);
         let key_id = [1; stp_mev_shield_ibe::KEY_ID_LEN];
         frame_support::assert_ok!(MevShield::set_ibe_epoch_public_key(
             RuntimeOrigin::root(),
             test_ibe_epoch_key(1, key_id, 1, 100),
         ));
 
-        // Same-block and B+1 targets are rejected. The spec's MVP timing is
-        // exact B+2 so block B+1 can finalize the ordering boundary and
-        // validators can release threshold shares before block B+2 drains.
+        // At build block B=10, the client-built target B+2 is accepted, and
+        // the runtime also accepts the one-block-later inclusion window.
+        System::set_block_number(10);
         frame_support::assert_noop!(
             MevShield::submit_encrypted(
                 RuntimeOrigin::signed(1),
@@ -1305,23 +1304,34 @@ fn ibe_v2_submit_requires_exact_b_plus_two_target() {
             ),
             Error::<Test>::InvalidIbeTargetWindow
         );
-        frame_support::assert_noop!(
-            MevShield::submit_encrypted(
-                RuntimeOrigin::signed(1),
-                test_ibe_envelope(1, 11, key_id, 2)
-            ),
-            Error::<Test>::InvalidIbeTargetWindow
-        );
-
+        frame_support::assert_ok!(MevShield::submit_encrypted(
+            RuntimeOrigin::signed(1),
+            test_ibe_envelope(1, 11, key_id, 2),
+        ));
         frame_support::assert_ok!(MevShield::submit_encrypted(
             RuntimeOrigin::signed(2),
             test_ibe_envelope(1, 12, key_id, 3),
         ));
-
         frame_support::assert_noop!(
             MevShield::submit_encrypted(
                 RuntimeOrigin::signed(3),
                 test_ibe_envelope(1, 13, key_id, 4)
+            ),
+            Error::<Test>::InvalidIbeTargetWindow
+        );
+
+        // The same transaction target B+2 is still valid if the outer
+        // submit_encrypted lands in B+1, then stale once B+2 begins.
+        System::set_block_number(11);
+        frame_support::assert_ok!(MevShield::submit_encrypted(
+            RuntimeOrigin::signed(3),
+            test_ibe_envelope(1, 12, key_id, 5),
+        ));
+        System::set_block_number(12);
+        frame_support::assert_noop!(
+            MevShield::submit_encrypted(
+                RuntimeOrigin::signed(4),
+                test_ibe_envelope(1, 12, key_id, 6)
             ),
             Error::<Test>::InvalidIbeTargetWindow
         );

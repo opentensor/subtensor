@@ -249,10 +249,10 @@ where
                 .map_err(|e| format!("classify_extrinsic runtime API failed: {e:?}"))?;
             match class {
                 MevShieldExtrinsicClass::SubmitEncryptedV2 { target_block, .. } => {
-                    let expected = block_number.saturating_add(IBE_TARGET_LOOKAHEAD_BLOCKS);
-                    if target_block != expected {
+                    let max_target = block_number.saturating_add(IBE_TARGET_LOOKAHEAD_BLOCKS);
+                    if target_block <= block_number || target_block > max_target {
                         return Err(format!(
-                            "encrypted v2 target {target_block} must equal block {block_number} + {IBE_TARGET_LOOKAHEAD_BLOCKS} ({expected})",
+                            "encrypted v2 target {target_block} must be in ({block_number}, {max_target}]",
                         ));
                     }
                 }
