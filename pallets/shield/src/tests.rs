@@ -20,6 +20,10 @@ use ml_kem::{
 };
 use rand_chacha::{ChaChaRng, rand_core::SeedableRng};
 use stc_shield::MemoryShieldKeystore;
+fn run_mev_shield_on_initialize_at(block: u64) {
+    System::set_block_number(block);
+    MevShield::on_initialize(System::block_number());
+}
 
 /// Simulates a 3-validator round-robin (authors 1, 2, 3) over 5 blocks.
 /// Each block calls `announce_next_key` and verifies the full pipeline:
@@ -547,7 +551,6 @@ mod migration_tests {
 
 mod encrypted_extrinsics_tests {
     use super::*;
-    use frame_support::traits::Hooks;
 
     #[test]
     fn store_encrypted_works() {
@@ -604,7 +607,7 @@ mod encrypted_extrinsics_tests {
             assert!(PendingExtrinsics::<Test>::get(0).is_some());
 
             // Run on_initialize
-            MevShield::on_initialize(2);
+            run_mev_shield_on_initialize_at(2);
 
             // Verify storage was cleared but NextPendingExtrinsicIndex stays (unique auto-increment)
             assert!(PendingExtrinsics::<Test>::get(0).is_none());
@@ -630,7 +633,7 @@ mod encrypted_extrinsics_tests {
             ));
 
             // Run on_initialize
-            MevShield::on_initialize(2);
+            run_mev_shield_on_initialize_at(2);
 
             // Verify storage was cleared
             assert!(PendingExtrinsics::<Test>::get(0).is_none());
@@ -662,7 +665,7 @@ mod encrypted_extrinsics_tests {
             assert!(PendingExtrinsics::<Test>::get(0).is_some());
 
             // Run on_initialize
-            MevShield::on_initialize(2);
+            run_mev_shield_on_initialize_at(2);
 
             // Verify storage was cleared
             assert!(PendingExtrinsics::<Test>::get(0).is_none());
@@ -733,7 +736,7 @@ mod encrypted_extrinsics_tests {
             ));
 
             // Run on_initialize
-            MevShield::on_initialize(2);
+            run_mev_shield_on_initialize_at(2);
 
             // Verify storage was cleared
             assert!(PendingExtrinsics::<Test>::get(0).is_none());
@@ -770,7 +773,7 @@ mod encrypted_extrinsics_tests {
             // Run on_initialize at block 12 (1 + 10 + 1 = 12, which is > MAX_EXTRINSIC_LIFETIME)
             // MAX_EXTRINSIC_LIFETIME is 10, so at block 12, age is 11 which exceeds the limit
             System::set_block_number(12);
-            MevShield::on_initialize(12);
+            run_mev_shield_on_initialize_at(12);
 
             // Verify storage was cleared
             assert!(PendingExtrinsics::<Test>::get(0).is_none());
@@ -798,7 +801,7 @@ mod encrypted_extrinsics_tests {
             // Run on_initialize at block 11 (age is 10, which equals MAX_EXTRINSIC_LIFETIME)
             // Should NOT expire since we check age > MAX, not age >=
             System::set_block_number(11);
-            MevShield::on_initialize(11);
+            run_mev_shield_on_initialize_at(11);
 
             // Verify storage was cleared (extrinsic was dispatched, not expired)
             assert!(PendingExtrinsics::<Test>::get(0).is_none());
@@ -821,7 +824,7 @@ mod encrypted_extrinsics_tests {
             ));
 
             // Run on_initialize
-            MevShield::on_initialize(2);
+            run_mev_shield_on_initialize_at(2);
 
             // Verify storage was cleared
             assert!(PendingExtrinsics::<Test>::get(0).is_none());
@@ -858,7 +861,7 @@ mod encrypted_extrinsics_tests {
             NextPendingExtrinsicIndex::<Test>::put(6);
 
             // Run on_initialize - should handle the gap and process index 5
-            MevShield::on_initialize(2);
+            run_mev_shield_on_initialize_at(2);
 
             // Verify the extrinsic at index 5 was processed
             assert!(PendingExtrinsics::<Test>::get(5).is_none());
@@ -894,7 +897,7 @@ mod encrypted_extrinsics_tests {
             ));
 
             // Run on_initialize
-            MevShield::on_initialize(2);
+            run_mev_shield_on_initialize_at(2);
 
             // Verify both events have correct senders
             let hash_a = <Test as frame_system::Config>::Hashing::hash(&[0xAAu8]);
@@ -940,7 +943,7 @@ mod encrypted_extrinsics_tests {
             // First extrinsic: age = 12 - 1 = 11 > 10, should expire
             // Second extrinsic: age = 12 - 10 = 2 <= 10, should dispatch
             System::set_block_number(12);
-            MevShield::on_initialize(12);
+            run_mev_shield_on_initialize_at(12);
 
             // Verify both were removed from storage
             assert!(PendingExtrinsics::<Test>::get(0).is_none());
@@ -1088,7 +1091,7 @@ mod encrypted_extrinsics_tests {
             assert_eq!(PendingExtrinsics::<Test>::count(), 1);
 
             // Run on_initialize — should postpone due to weight limit
-            MevShield::on_initialize(2);
+            run_mev_shield_on_initialize_at(2);
 
             // Extrinsic should still be pending (postponed)
             assert_eq!(PendingExtrinsics::<Test>::count(), 1);
@@ -1149,7 +1152,7 @@ mod encrypted_extrinsics_tests {
 
             // At block 4: age = 4 - 1 = 3 > 2, should expire
             System::set_block_number(4);
-            MevShield::on_initialize(4);
+            run_mev_shield_on_initialize_at(4);
 
             assert!(PendingExtrinsics::<Test>::get(0).is_none());
             assert_eq!(PendingExtrinsics::<Test>::count(), 0);
@@ -1231,7 +1234,7 @@ mod encrypted_extrinsics_tests {
             assert_eq!(PendingExtrinsics::<Test>::count(), 1);
 
             // Run on_initialize — should remove the extrinsic (weight exceeded)
-            MevShield::on_initialize(2);
+            run_mev_shield_on_initialize_at(2);
 
             // Extrinsic should be removed (not postponed)
             assert_eq!(PendingExtrinsics::<Test>::count(), 0);
@@ -1257,6 +1260,7 @@ fn test_ibe_epoch_key(
         ),
         total_weight: 100,
         threshold_weight: 67,
+        public_atoms: Default::default(),
         first_block,
         last_block,
     }

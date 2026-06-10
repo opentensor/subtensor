@@ -2,8 +2,8 @@ pub mod block_import;
 pub mod crypto;
 pub mod dkg;
 pub mod finality;
-pub mod inherent;
 pub mod network;
+pub mod preruntime_digest;
 
 use std::{
     collections::{BTreeMap, BTreeSet},

@@ -14,11 +14,17 @@ pub const MEV_SHIELD_IBE_MAGIC: [u8; 4] = *b"MSI2";
 
 pub const KEY_ID_LEN: usize = 16;
 pub const IBE_DOMAIN: &[u8] = b"bittensor.mev-shield.v2.block-identity";
-/// Inherent-data identifier used by block authors to deliver threshold-IBE
-/// block decryption keys before ordinary transactions in the target block.
+
+/// Inherent-data identifier retained for compatibility with older block-key
+/// inherent payloads. New threshold-IBE block-key release bundles are delivered
+/// through the `IBE_BLOCK_DECRYPTION_KEYS_ENGINE_ID` pre-runtime digest so they
+/// are visible to `on_initialize`.
 pub const IBE_BLOCK_DECRYPTION_KEYS_INHERENT_IDENTIFIER: [u8; 8] = *b"ibe_bkey";
 
-/// BLS12-381 compressed G1 signature / BF-IBE extracted identity secret.
+/// Pre-runtime digest engine id used to deliver threshold-IBE block-key release
+/// bundles before runtime initialization.
+pub const IBE_BLOCK_DECRYPTION_KEYS_ENGINE_ID: [u8; 4] = *b"ibek";
+
 pub const COMPRESSED_IDENTITY_KEY_LEN: usize = 48;
 
 /// BLS12-381 compressed G2 master public key.

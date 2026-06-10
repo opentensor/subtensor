@@ -35,7 +35,7 @@ use sp_runtime::{
 };
 use stp_mev_shield_ibe::{
     BoundedDkgPublicShareAtoms, BoundedIdentityKey, BoundedMasterPublicKey,
-    IBE_BLOCK_DECRYPTION_KEYS_INHERENT_IDENTIFIER, IbeBlockDecryptionKeyInherentData,
+    IBE_BLOCK_DECRYPTION_KEYS_ENGINE_ID, IbeBlockDecryptionKeyInherentData,
     IbeBlockDecryptionKeyShareBundleV1, IbeBlockDecryptionKeyV1, IbeEncryptedExtrinsicV1,
     IbeEpochPublicKey, IbePendingIdentity, KEY_ID_LEN, MEV_SHIELD_IBE_VERSION,
     block_key_storage_key,
@@ -371,13 +371,13 @@ pub mod pallet {
     pub type ExtrinsicLifetime<T: Config> =
         StorageValue<_, u32, ValueQuery, ConstU32<DEFAULT_EXTRINSIC_LIFETIME>>;
 
-    /// Default maximum weight allowed for on_initialize processing.
+    /// Default maximum weight reserved for pre-user encrypted-queue drainage.
     pub const DEFAULT_ON_INITIALIZE_WEIGHT: u64 = 500_000_000_000;
 
     /// Absolute maximum weight for on_initialize: half the total block weight (2s of 4s).
     pub const MAX_ON_INITIALIZE_WEIGHT: u64 = 2_000_000_000_000;
 
-    /// Configurable maximum weight for on_initialize processing.
+    /// Configurable maximum weight reserved for pre-user encrypted-queue drainage.
     /// Defaults to 500_000_000_000 ref_time if not explicitly set.
     #[pallet::storage]
     pub type OnInitializeWeight<T: Config> =
@@ -386,7 +386,7 @@ pub mod pallet {
     /// Default maximum weight for a single extrinsic.
     pub const DEFAULT_MAX_EXTRINSIC_WEIGHT: u64 = 50_000_000_000;
 
-    /// Configurable maximum weight for a single extrinsic dispatched during on_initialize.
+    /// Configurable maximum weight for a single extrinsic dispatched during pre-user drainage.
     /// Extrinsics exceeding this limit are removed from the queue.
     #[pallet::storage]
     pub type MaxExtrinsicWeight<T: Config> =
@@ -407,7 +407,7 @@ pub mod pallet {
         pub submitted_at: BlockNumberFor<T>,
     }
 
-    /// Storage map for encrypted extrinsics to be executed in on_initialize.
+    /// Storage map for encrypted extrinsics drained in PostInherents before user extrinsics.
     /// Uses u32 index for O(1) insertion and removal. Count is maintained automatically.
     #[pallet::storage]
     pub type PendingExtrinsics<T: Config> =
@@ -616,10 +616,8 @@ pub mod pallet {
         fn on_initialize(_block_number: BlockNumberFor<T>) -> Weight {
             let mut weight = Self::ensure_epoch_ahead_dkg_snapshots();
             weight = weight.saturating_add(Self::ensure_ibe_dkg_liveness());
-            weight = weight.saturating_add(frame_support::weights::Weight::from_parts(
-                OnInitializeWeight::<T>::get(),
-                0,
-            ));
+            weight = weight.saturating_add(Self::ingest_ibe_block_key_preruntime_digests());
+            weight = weight.saturating_add(Self::process_pending_extrinsics());
             weight
         }
 
@@ -631,12 +629,6 @@ pub mod pallet {
             );
 
             weight
-        }
-    }
-
-    impl<T: Config> frame_support::traits::PostInherents for Pallet<T> {
-        fn post_inherents() {
-            let _ = Self::process_pending_extrinsics();
         }
     }
 
@@ -889,18 +881,13 @@ pub mod pallet {
             ibe_block_decryption_key_bundles: Vec<IbeBlockDecryptionKeyShareBundleV1>,
         ) -> DispatchResult {
             ensure_none(origin)?;
+            ensure!(
+                ibe_block_decryption_key_bundles.is_empty(),
+                Error::<T>::BadIbeEnvelope
+            );
             if rotate_author_key {
                 Self::announce_next_key(frame_system::RawOrigin::None.into(), enc_key)?;
             }
-            ensure!(
-                ibe_block_decryption_key_bundles.len()
-                    <= MaxPendingExtrinsicsLimit::<T>::get() as usize,
-                Error::<T>::TooManyPendingExtrinsics
-            );
-            for bundle in ibe_block_decryption_key_bundles {
-                let _ = Self::store_ibe_block_decryption_key_bundle_from_inherent(bundle)?;
-            }
-            let _ = Self::process_pending_extrinsics();
             Ok(())
         }
 
@@ -1008,36 +995,20 @@ pub mod pallet {
     impl<T: Config> ProvideInherent for Pallet<T> {
         type Call = Call<T>;
         type Error = sp_inherents::MakeFatalError<()>;
-
         const INHERENT_IDENTIFIER: InherentIdentifier = INHERENT_IDENTIFIER;
 
         fn create_inherent(data: &InherentData) -> Option<Self::Call> {
-            let enc_key_inherent = data
-                .get_data::<InherentType>(&INHERENT_IDENTIFIER)
+            data.get_data::<InherentType>(&INHERENT_IDENTIFIER)
                 .inspect_err(|e| {
-                    log::debug!(target: LOG_TARGET, "Failed to get shielded enc-key inherent data: {:?}", e)
-                })
-                .ok()
-                .flatten();
-            let ibe_block_decryption_key_bundles = data
-                .get_data::<IbeBlockDecryptionKeyInherentData>(
-                    &IBE_BLOCK_DECRYPTION_KEYS_INHERENT_IDENTIFIER,
-                )
-                .inspect_err(|e| {
-                    log::debug!(target: LOG_TARGET, "Failed to get threshold-IBE block-key inherent data: {:?}", e)
+                    log::debug!(target: LOG_TARGET, "failed to read MEV Shield key-rotation inherent data: {:?}", e);
                 })
                 .ok()
                 .flatten()
-                .map(|payload| payload.share_bundles)
-                .unwrap_or_default();
-            if !ibe_block_decryption_key_bundles.is_empty() {
-                return Some(Call::provide_mev_shield_inherent {
-                    rotate_author_key: enc_key_inherent.is_some(),
-                    enc_key: enc_key_inherent.unwrap_or(None),
-                    ibe_block_decryption_key_bundles,
-                });
-            }
-            enc_key_inherent.map(|enc_key| Call::announce_next_key { enc_key })
+                .map(|enc_key| Call::provide_mev_shield_inherent {
+                    rotate_author_key: true,
+                    enc_key,
+                    ibe_block_decryption_key_bundles: Vec::new(),
+                })
         }
 
         fn is_inherent(call: &Self::Call) -> bool {
@@ -1047,18 +1018,7 @@ pub mod pallet {
             )
         }
 
-        fn check_inherent(call: &Self::Call, _data: &InherentData) -> Result<(), Self::Error> {
-            if let Call::provide_mev_shield_inherent {
-                ibe_block_decryption_key_bundles,
-                ..
-            } = call
-            {
-                for bundle in ibe_block_decryption_key_bundles {
-                    if !Self::verify_ibe_block_decryption_key_release_bundle(bundle) {
-                        return Err(sp_inherents::MakeFatalError::from(()));
-                    }
-                }
-            }
+        fn check_inherent(_call: &Self::Call, _data: &InherentData) -> Result<(), Self::Error> {
             Ok(())
         }
     }
@@ -1938,6 +1898,59 @@ impl<T: Config> Pallet<T> {
 
     /// Process pending encrypted extrinsics up to the weight limit.
     /// Returns the total weight consumed.
+    /// Drain pending encrypted work after mandatory inherents and before user extrinsics.
+
+    /// Import threshold-IBE block-key release bundles from pre-runtime digests.
+    ///
+    /// This is the spec-compatible delivery path: the block author puts
+    /// threshold-share release bundles in the header, so `on_initialize` can
+    /// verify/store keys before draining the encrypted queue.
+    fn ingest_ibe_block_key_preruntime_digests() -> Weight {
+        let mut imported = 0u64;
+        let now: u64 = frame_system::Pallet::<T>::block_number().saturated_into();
+
+        for log_item in frame_system::Pallet::<T>::digest().logs().iter() {
+            let sp_runtime::DigestItem::PreRuntime(engine_id, payload) = log_item else {
+                continue;
+            };
+
+            if engine_id != &IBE_BLOCK_DECRYPTION_KEYS_ENGINE_ID {
+                continue;
+            }
+
+            let Ok(data) = IbeBlockDecryptionKeyInherentData::decode(&mut &payload[..]) else {
+                log::debug!(target: LOG_TARGET, "ignoring malformed IBE block-key pre-runtime digest");
+                continue;
+            };
+
+            if !data.keys.is_empty() {
+                log::debug!(
+                    target: LOG_TARGET,
+                    "ignoring legacy final-key entries in IBE block-key pre-runtime digest",
+                );
+            }
+
+            for bundle in data.share_bundles {
+                if bundle.key.target_block != now {
+                    continue;
+                }
+                match Self::store_ibe_block_decryption_key_bundle_from_inherent(bundle) {
+                    Ok(true) => imported = imported.saturating_add(1),
+                    Ok(false) => {}
+                    Err(error) => {
+                        log::debug!(
+                            target: LOG_TARGET,
+                            "ignoring invalid IBE block-key pre-runtime release bundle: {:?}",
+                            error,
+                        );
+                    }
+                }
+            }
+        }
+
+        T::DbWeight::get().reads_writes(1u64, imported)
+    }
+
     pub fn process_pending_extrinsics() -> Weight {
         let next_index = NextPendingExtrinsicIndex::<T>::get();
         let count: u32 = PendingExtrinsics::<T>::count();

@@ -730,28 +730,17 @@ where
             telemetry.as_ref().map(|x| x.handle()),
             shield_keystore.clone(),
         );
+        let proposer_factory =
+            crate::mev_shield_ibe::preruntime_digest::IbePreRuntimeDigestProposerFactory::new(
+                proposer_factory,
+                maybe_ibe_share_pool.clone(),
+                client.clone(),
+            );
 
         let slot_duration = consensus_mechanism.slot_duration(&client)?;
-        let ibe_inherent_share_pool = maybe_ibe_share_pool.clone();
-        let ibe_inherent_client = client.clone();
-        let create_inherent_data_providers = move |parent_hash, ()| {
+        let create_inherent_data_providers = move |_parent_hash, ()| {
             let keystore = shield_keystore.clone();
-            let share_pool = ibe_inherent_share_pool.clone();
-            let client = ibe_inherent_client.clone();
-            async move {
-                let base = CM::create_inherent_data_providers(slot_duration, keystore)?;
-                let ibe =
-                    crate::mev_shield_ibe::inherent::IbeBlockDecryptionKeyInherentDataProvider::new(
-                        share_pool,
-                        client,
-                        parent_hash,
-                    );
-                Ok(
-                    crate::mev_shield_ibe::inherent::IbeCompositeInherentDataProvider::new(
-                        base, ibe,
-                    ),
-                )
-            }
+            async move { CM::create_inherent_data_providers(slot_duration, keystore) }
         };
 
         consensus_mechanism.start_authoring(

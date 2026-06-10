@@ -7,8 +7,13 @@ use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::Error as ConsensusError;
 use sp_core::H256;
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
+use sp_runtime::{
+    DigestItem,
+    traits::{Block as BlockT, Header as HeaderT},
+};
 use std::{collections::BTreeSet, error::Error as StdError, marker::PhantomData, sync::Arc};
+use stp_mev_shield_ibe::IBE_BLOCK_DECRYPTION_KEYS_ENGINE_ID;
+
 const IBE_TARGET_LOOKAHEAD_BLOCKS: u64 = 2;
 
 pub struct MevShieldBlockImport<I, C, B> {
@@ -45,7 +50,7 @@ where
     C: ProvideRuntimeApi<B> + HeaderBackend<B> + BlockBackend<B> + Send + Sync + 'static,
     C::Api: MevShieldIbeApi<B>,
     B: BlockT,
-    B::Hash: From<H256>,
+    B::Hash: From<H256> + Copy,
 {
     fn block_number_u64(header: &B::Header) -> Result<u64, String> {
         (*header.number())
@@ -60,14 +65,12 @@ where
             .header(finalized_hash)
             .map_err(|e| format!("read finalized header failed: {e:?}"))?
             .ok_or_else(|| "missing finalized header".to_string())?;
-
         let finalized_number: u64 = (*finalized_header.number())
             .try_into()
             .map_err(|_| "finalized number does not fit u64".to_string())?;
         if number > finalized_number {
             return Ok(false);
         }
-
         let header_number = number
             .try_into()
             .map_err(|_| "finality number does not fit header number type".to_string())?;
@@ -101,11 +104,49 @@ where
         Ok(())
     }
 
+    fn accept_block_key_payload_class(
+        &self,
+        block_number: u64,
+        class: MevShieldExtrinsicClass,
+        preruntime_key_targets: &mut BTreeSet<u64>,
+    ) -> Result<(), String> {
+        let MevShieldExtrinsicClass::SubmitBlockDecryptionKeyInherent {
+            finality_proofs,
+            invalid_key_count,
+        } = class
+        else {
+            return Err("IBE pre-runtime digest did not classify as block-key material".into());
+        };
+
+        if invalid_key_count > 0 {
+            return Err(format!(
+                "IBE pre-runtime digest contains {invalid_key_count} invalid key bundle(s)",
+            ));
+        }
+
+        for (target_block, finalized_ordering_block_number, finalized_ordering_block_hash) in
+            finality_proofs
+        {
+            if target_block != block_number {
+                return Err(format!(
+                    "IBE pre-runtime digest target {target_block} does not match block {block_number}",
+                ));
+            }
+            self.verify_decryption_key_finality(
+                target_block,
+                finalized_ordering_block_number,
+                finalized_ordering_block_hash.into(),
+            )?;
+            preruntime_key_targets.insert(target_block);
+        }
+        Ok(())
+    }
+
     fn has_due_ibe_queue_head_without_available_key(
         &self,
         parent_hash: B::Hash,
         block_number: u64,
-        inherent_key_targets: &BTreeSet<u64>,
+        preruntime_key_targets: &BTreeSet<u64>,
     ) -> Result<bool, String> {
         let api = self.client.runtime_api();
         let pending_len = api
@@ -114,16 +155,13 @@ where
         if pending_len == 0 {
             return Ok(false);
         }
-
         let identities = api
             .pending_ibe_identities(parent_hash, pending_len)
             .map_err(|e| format!("pending_ibe_identities runtime API failed: {e:?}"))?;
-
         for identity in identities {
             if identity.target_block > block_number {
                 return Ok(false);
             }
-
             let key_available_at_parent = api
                 .has_ibe_block_key(
                     parent_hash,
@@ -132,33 +170,44 @@ where
                     identity.key_id,
                 )
                 .map_err(|e| format!("has_ibe_block_key runtime API failed: {e:?}"))?;
-
-            if key_available_at_parent || inherent_key_targets.contains(&identity.target_block) {
+            if key_available_at_parent || preruntime_key_targets.contains(&identity.target_block) {
                 continue;
             }
-
             return Ok(true);
         }
-
         Ok(false)
     }
 
     fn verify_mev_shield_block(&self, parent_hash: B::Hash, block: &B) -> Result<(), String> {
         let api = self.client.runtime_api();
+        let block_number = Self::block_number_u64(block.header())?;
+        let mut preruntime_key_targets = BTreeSet::new();
+
+        for log in block.header().digest().logs().iter() {
+            let DigestItem::PreRuntime(engine_id, payload) = log else {
+                continue;
+            };
+            if engine_id != &IBE_BLOCK_DECRYPTION_KEYS_ENGINE_ID {
+                continue;
+            }
+            let class = api
+                .classify_ibe_block_key_preruntime_digest(parent_hash, payload.clone())
+                .map_err(|e| {
+                    format!("classify_ibe_block_key_preruntime_digest runtime API failed: {e:?}")
+                })?;
+            self.accept_block_key_payload_class(block_number, class, &mut preruntime_key_targets)?;
+        }
+
         let encoded = block
             .extrinsics()
             .iter()
             .map(|xt| xt.encode())
             .collect::<Vec<_>>();
 
-        let block_number = Self::block_number_u64(block.header())?;
-        let mut inherent_key_targets = BTreeSet::new();
-
         for xt in encoded {
             let class = api
                 .classify_extrinsic(parent_hash, xt)
                 .map_err(|e| format!("classify_extrinsic runtime API failed: {e:?}"))?;
-
             match class {
                 MevShieldExtrinsicClass::SubmitEncryptedV2 { target_block, .. } => {
                     let min_target = block_number.saturating_add(1);
@@ -181,40 +230,23 @@ where
                         finalized_ordering_block_hash.into(),
                     )?;
                 }
-                MevShieldExtrinsicClass::SubmitBlockDecryptionKeyInherent {
-                    finality_proofs,
-                    invalid_key_count,
-                } => {
-                    if invalid_key_count > 0 {
-                        return Err(format!(
-                            "IBE block-key inherent contains {invalid_key_count} invalid key(s)",
-                        ));
-                    }
-                    for (
-                        target_block,
-                        finalized_ordering_block_number,
-                        finalized_ordering_block_hash,
-                    ) in finality_proofs
-                    {
-                        self.verify_decryption_key_finality(
-                            target_block,
-                            finalized_ordering_block_number,
-                            finalized_ordering_block_hash.into(),
-                        )?;
-                        inherent_key_targets.insert(target_block);
-                    }
+                MevShieldExtrinsicClass::SubmitBlockDecryptionKeyInherent { .. } => {
+                    return Err(
+                        "threshold-IBE block-key inherent extrinsic is obsolete; use the pre-runtime digest"
+                            .into(),
+                    );
                 }
                 MevShieldExtrinsicClass::Operational => {}
                 MevShieldExtrinsicClass::UnencryptedNonOperational => {
                     if self.has_due_ibe_queue_head_without_available_key(
                         parent_hash,
                         block_number,
-                        &inherent_key_targets,
+                        &preruntime_key_targets,
                     )? {
                         return Err(
-                        "plaintext non-operational extrinsic while due encrypted queue head lacks a block key"
-                            .into(),
-                    );
+                            "plaintext non-operational extrinsic while due encrypted queue head lacks a block key"
+                                .into(),
+                        );
                     }
                 }
             }
@@ -231,7 +263,7 @@ where
     C: ProvideRuntimeApi<B> + HeaderBackend<B> + BlockBackend<B> + Send + Sync + 'static,
     C::Api: MevShieldIbeApi<B>,
     B: BlockT,
-    B::Hash: From<H256>,
+    B::Hash: From<H256> + Copy,
 {
     type Error = I::Error;
 

@@ -400,7 +400,7 @@ impl frame_system::Config for Runtime {
     type SingleBlockMigrations = Migrations;
     type MultiBlockMigrator = ();
     type PreInherents = ();
-    type PostInherents = MevShield;
+    type PostInherents = ();
     type PostTransactions = ();
     type ExtensionsWeightInfo = frame_system::SubstrateExtensionsWeight<Runtime>;
     type DispatchExtension = pallet_subtensor::CheckColdkeySwap<Runtime>;
@@ -2747,6 +2747,46 @@ impl mev_shield_ibe_runtime_api::MevShieldIbeApi<Block> for Runtime {
     fn pending_encrypted_queue_len() -> u32 {
         MevShield::pending_encrypted_queue_len()
     }
+
+            fn classify_ibe_block_key_preruntime_digest(
+                encoded_payload: Vec<u8>,
+            ) -> mev_shield_ibe_runtime_api::MevShieldExtrinsicClass {
+                use codec::Decode;
+                use mev_shield_ibe_runtime_api::MevShieldExtrinsicClass;
+
+                let Ok(data) = stp_mev_shield_ibe::IbeBlockDecryptionKeyInherentData::decode(
+                    &mut encoded_payload.as_slice(),
+                ) else {
+                    return MevShieldExtrinsicClass::SubmitBlockDecryptionKeyInherent {
+                        finality_proofs: Vec::new(),
+                        invalid_key_count: 1,
+                    };
+                };
+
+                let mut finality_proofs = Vec::new();
+                let mut invalid_key_count = match u32::try_from(data.keys.len()) {
+                    Ok(count) => count,
+                    Err(_) => u32::MAX,
+                };
+
+                for bundle in data.share_bundles.iter() {
+                    if !MevShield::verify_ibe_block_decryption_key_release_bundle(bundle) {
+                        invalid_key_count = invalid_key_count.saturating_add(1);
+                        continue;
+                    }
+                    let key = &bundle.key;
+                    finality_proofs.push((
+                        key.target_block,
+                        key.finalized_ordering_block_number,
+                        key.finalized_ordering_block_hash,
+                    ));
+                }
+
+                MevShieldExtrinsicClass::SubmitBlockDecryptionKeyInherent {
+                    finality_proofs,
+                    invalid_key_count,
+                }
+            }
 
     fn classify_extrinsic(
         encoded_xt: Vec<u8>,
