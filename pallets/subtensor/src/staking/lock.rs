@@ -214,6 +214,19 @@ impl ConvictionModel {
         }
     }
 
+    pub fn roll_forward_individual(&mut self, now: u64, unlock_rate: u64, maturity_rate: u64) {
+        self.individual_lock = Self::roll_forward_lock(
+            self.individual_lock.clone(),
+            now,
+            unlock_rate,
+            maturity_rate,
+            self.owner_lock,
+            self.perpetual_lock,
+        )
+        .0;
+        self.individual_lock_dirty = true;
+    }
+
     pub fn roll_forward_aggregate(&mut self, now: u64, unlock_rate: u64, maturity_rate: u64) {
         let owner_lock = self.owner_lock;
         let perpetual_lock = self.perpetual_lock;
@@ -1272,10 +1285,10 @@ impl<T: Config> Pallet<T> {
                     LockState {
                         locked_mass: current
                             .locked_mass
-                            .saturating_add(moved_king_lock.0.locked_mass),
+                            .saturating_add(moved_new_owner_lock.0.locked_mass),
                         conviction: current
                             .conviction
-                            .saturating_add(moved_king_lock.0.conviction),
+                            .saturating_add(moved_new_owner_lock.0.conviction),
                         last_update: now,
                     },
                     now,
@@ -1316,10 +1329,10 @@ impl<T: Config> Pallet<T> {
                     LockState {
                         locked_mass: current
                             .locked_mass
-                            .saturating_add(moved_king_lock.0.locked_mass),
+                            .saturating_add(moved_new_owner_lock.0.locked_mass),
                         conviction: current
                             .conviction
-                            .saturating_add(moved_king_lock.0.conviction),
+                            .saturating_add(moved_new_owner_lock.0.conviction),
                         last_update: now,
                     },
                     now,
@@ -1939,7 +1952,7 @@ impl<T: Config> Pallet<T> {
             Self::is_perpetual_lock(destination_coldkey, netuid),
         );
         let destination_lock =
-            ConvictionModel::merge_lock(&destination_lock, &moved_lock_for_destination);
+            ConvictionModel::merge_lock(&destination_lock, &moved_lock_for_destination.0);
 
         Lock::<T>::remove((origin_coldkey.clone(), netuid, source_hotkey.clone()));
         Self::reduce_aggregate_lock(
@@ -1959,7 +1972,7 @@ impl<T: Config> Pallet<T> {
             destination_coldkey,
             destination_hotkey,
             netuid,
-            moved_lock_for_destination,
+            moved_lock_for_destination.0,
         );
 
         Ok(())
