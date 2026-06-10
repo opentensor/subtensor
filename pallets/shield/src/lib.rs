@@ -1133,25 +1133,73 @@ impl<T: Config> Pallet<T> {
         let current = Self::current_ibe_epoch();
         let mut reads = 0u64;
         let mut writes = 0u64;
+
         for offset in 0..=IBE_DKG_EPOCHS_AHEAD {
             let epoch = current.saturating_add(offset);
-            reads = reads.saturating_add(2);
-            let authorities_missing = IbeDkgAuthoritySnapshots::<T>::get(epoch).is_empty();
-            let source_missing = IbeDkgConsensusSources::<T>::get(epoch).is_none();
-            if !authorities_missing && !source_missing {
+            reads = reads.saturating_add(4);
+
+            let stored_authorities = IbeDkgAuthoritySnapshots::<T>::get(epoch);
+            let stored_source = IbeDkgConsensusSources::<T>::get(epoch);
+            let authorities_missing = stored_authorities.is_empty();
+            let source_missing = stored_source.is_none();
+
+            // The N+2 snapshot is the handoff point. If it was frozen as PoA
+            // before BABE registrations were available, allow exactly that
+            // future snapshot to be promoted to PoS before a DKG output exists.
+            // Current and N+1 snapshots are left immutable so in-flight DKG
+            // plans never drift.
+            let may_refresh_future_handoff = offset == IBE_DKG_EPOCHS_AHEAD
+                && matches!(
+                    stored_source.as_ref(),
+                    Some(DkgConsensusSource::PoaAuraRootValidators)
+                )
+                && !IbeEpochKeys::<T>::contains_key(epoch)
+                && !PublishedDkgOutputHashes::<T>::contains_key(epoch);
+
+            if !authorities_missing && !source_missing && !may_refresh_future_handoff {
                 continue;
             }
-            let authorities = if authorities_missing {
-                T::IbeDkgAuthorityProvider::authorities_for_epoch(epoch)
+
+            let provider_authorities = T::IbeDkgAuthorityProvider::authorities_for_epoch(epoch);
+            let provider_source = Self::consensus_source_from_authorities(&provider_authorities)
+                .unwrap_or_else(|| T::IbeDkgAuthorityProvider::consensus_source_for_epoch(epoch));
+
+            if provider_authorities.is_empty() {
+                if may_refresh_future_handoff
+                    && matches!(provider_source, DkgConsensusSource::PosBabeRootValidators)
+                {
+                    // Handoff has begun but the full PoA cohort has not finished
+                    // BABE/X25519 registration. Remove the stale future PoA plan
+                    // and store the PoS source marker so workers retry instead
+                    // of producing a key for the wrong consensus authority set.
+                    IbeDkgAuthoritySnapshots::<T>::remove(epoch);
+                    IbeDkgConsensusSources::<T>::insert(epoch, provider_source);
+                    writes = writes.saturating_add(2);
+                }
+                continue;
+            }
+
+            let should_promote_to_pos = may_refresh_future_handoff
+                && matches!(provider_source, DkgConsensusSource::PosBabeRootValidators);
+
+            let authorities = if authorities_missing || should_promote_to_pos {
+                provider_authorities
             } else {
-                IbeDkgAuthoritySnapshots::<T>::get(epoch)
+                stored_authorities
             };
             if authorities.is_empty() {
                 continue;
             }
-            let source = Self::consensus_source_from_authorities(&authorities)
-                .unwrap_or_else(|| T::IbeDkgAuthorityProvider::consensus_source_for_epoch(epoch));
-            if authorities_missing {
+
+            let source = if source_missing || should_promote_to_pos {
+                provider_source
+            } else {
+                stored_source.unwrap_or_else(|| {
+                    T::IbeDkgAuthorityProvider::consensus_source_for_epoch(epoch)
+                })
+            };
+
+            if authorities_missing || should_promote_to_pos {
                 let authority_count = authorities.len() as u32;
                 IbeDkgAuthoritySnapshots::<T>::insert(epoch, authorities);
                 writes = writes.saturating_add(1);
@@ -1160,13 +1208,16 @@ impl<T: Config> Pallet<T> {
                     authority_count,
                 });
             }
-            if source_missing {
+
+            if source_missing || should_promote_to_pos {
                 IbeDkgConsensusSources::<T>::insert(epoch, source);
                 writes = writes.saturating_add(1);
             }
         }
+
         T::DbWeight::get().reads_writes(reads, writes)
     }
+
     pub fn dkg_authorities_for_plan(epoch: u64) -> Vec<DkgAuthorityInfo> {
         let snapshot = IbeDkgAuthoritySnapshots::<T>::get(epoch);
         if !snapshot.is_empty() {

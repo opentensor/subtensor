@@ -13,6 +13,7 @@ pub struct RuntimeIbeDkgAuthorityProvider;
 
 #[derive(Clone)]
 struct RootValidatorEntry {
+    uid: u16,
     hotkey: AccountId32,
     hotkey_id: Vec<u8>,
     stake: u128,
@@ -46,15 +47,18 @@ impl RuntimeIbeDkgAuthorityProvider {
             if !permits.get(uid as usize).copied().unwrap_or(false) {
                 continue;
             }
+
             let stake: u128 =
                 pallet_subtensor::Pallet::<Runtime>::get_total_stake_for_hotkey(&hotkey)
                     .unique_saturated_into();
             if stake == 0 {
                 continue;
             }
+
             let hotkey_id: Vec<u8> =
                 <AccountId32 as core::convert::AsRef<[u8]>>::as_ref(&hotkey).to_vec();
             out.push(RootValidatorEntry {
+                uid,
                 hotkey,
                 hotkey_id,
                 stake,
@@ -73,12 +77,66 @@ impl RuntimeIbeDkgAuthorityProvider {
         authority_ids
     }
 
+    /// Return the root-validator cohort that corresponds to the current PoA/Aura
+    /// authority set.
+    ///
+    /// During the PoA -> PoS transition the first BABE DKG epoch must use the
+    /// exact same validator cohort that was authoring under PoA. New root
+    /// validators can exist in Subtensor storage before they are meant to join
+    /// MEV Shield DKG, so the handoff cohort is capped to the current Aura
+    /// authority count. If explicit Aura DKG registrations exist, use them to
+    /// identify the cohort; otherwise preserve the existing UID-ordered PoA
+    /// compatibility mapping.
+    fn poa_handoff_root_entries(
+        root_entries: &[RootValidatorEntry],
+        aura_authority_ids: &[Vec<u8>],
+    ) -> Vec<RootValidatorEntry> {
+        if root_entries.is_empty() || aura_authority_ids.is_empty() {
+            return Vec::new();
+        }
+
+        let mut aura_ids = aura_authority_ids.to_vec();
+        aura_ids.sort();
+
+        let mut registered_aura_roots = Vec::new();
+        for root in root_entries {
+            let Some(registration) =
+                pallet_shield::IbeDkgAuthorityRegistrations::<Runtime>::get(&root.hotkey)
+            else {
+                continue;
+            };
+            if registration.consensus_key_kind == DkgConsensusKeyKind::AuraSr25519
+                && aura_ids.binary_search(&registration.authority_id).is_ok()
+            {
+                registered_aura_roots.push(root.clone());
+            }
+        }
+
+        if registered_aura_roots.len() == aura_authority_ids.len() {
+            registered_aura_roots.sort_by_key(|entry| entry.uid);
+            return registered_aura_roots;
+        }
+
+        if root_entries.len() <= aura_authority_ids.len() {
+            return root_entries.to_vec();
+        }
+
+        root_entries
+            .iter()
+            .take(aura_authority_ids.len())
+            .cloned()
+            .collect()
+    }
+
     fn poa_aura_authorities(root_entries: &[RootValidatorEntry]) -> Vec<DkgAuthorityInfo> {
         let authority_ids = Self::aura_authority_ids();
-        let mut out = if !root_entries.is_empty() && root_entries.len() == authority_ids.len() {
+        let handoff_entries = Self::poa_handoff_root_entries(root_entries, &authority_ids);
+
+        let mut out = if !handoff_entries.is_empty() && handoff_entries.len() == authority_ids.len()
+        {
             authority_ids
                 .into_iter()
-                .zip(root_entries.iter())
+                .zip(handoff_entries.iter())
                 .map(|(authority_id, root)| DkgAuthorityInfo {
                     hotkey_account_id: root.hotkey_id.clone(),
                     consensus_key_kind: DkgConsensusKeyKind::AuraSr25519,
@@ -110,7 +168,7 @@ impl RuntimeIbeDkgAuthorityProvider {
         let mut out = Vec::new();
         for root in root_entries {
             let Some(registration) =
-                pallet_shield::Pallet::<Runtime>::ibe_dkg_authority_registration(&root.hotkey)
+                pallet_shield::IbeDkgAuthorityRegistrations::<Runtime>::get(&root.hotkey)
             else {
                 continue;
             };
@@ -134,23 +192,65 @@ impl RuntimeIbeDkgAuthorityProvider {
         out
     }
 
+    fn pos_babe_snapshot_exists() -> bool {
+        pallet_shield::IbeDkgConsensusSources::<Runtime>::iter()
+            .any(|(_, source)| matches!(source, DkgConsensusSource::PosBabeRootValidators))
+    }
+
     fn selected_authorities_for_epoch(epoch: u64) -> (DkgConsensusSource, Vec<DkgAuthorityInfo>) {
         let root_entries = Self::root_validator_entries();
+        let aura_authority_ids = Self::aura_authority_ids();
         let pos_window =
             epoch >= Self::current_epoch().saturating_add(2) && !root_entries.is_empty();
+
         if pos_window {
-            let babe_authorities = Self::registered_authorities_for_kind(
-                &root_entries,
+            let handoff_entries =
+                Self::poa_handoff_root_entries(&root_entries, &aura_authority_ids);
+            let handoff_babe_authorities = Self::registered_authorities_for_kind(
+                &handoff_entries,
                 DkgConsensusKeyKind::BabeSr25519,
             );
-            if babe_authorities.len() == root_entries.len() {
-                return (DkgConsensusSource::PosBabeRootValidators, babe_authorities);
-            }
-            if !babe_authorities.is_empty() {
-                // POS handoff has started but is not fully registered. Do not freeze a
-                // fallback PoA plan for N+2; fail closed so the DKG worker retries and
-                // emergency key extension preserves liveness until registrations finish.
-                return (DkgConsensusSource::PosBabeRootValidators, Vec::new());
+            let handoff_complete =
+                !handoff_entries.is_empty() && handoff_entries.len() == aura_authority_ids.len();
+
+            if !Self::pos_babe_snapshot_exists() {
+                if handoff_complete
+                    && !handoff_babe_authorities.is_empty()
+                    && handoff_babe_authorities.len() == handoff_entries.len()
+                {
+                    // First PoS DKG plan: exact same validator cohort as PoA,
+                    // but using their registered BABE + X25519 DKG keys.
+                    return (
+                        DkgConsensusSource::PosBabeRootValidators,
+                        handoff_babe_authorities,
+                    );
+                }
+                if !handoff_babe_authorities.is_empty() {
+                    // The handoff has started but the complete PoA cohort has
+                    // not registered BABE/X25519 keys yet. Fail closed instead
+                    // of freezing a mixed or partial future validator set.
+                    return (DkgConsensusSource::PosBabeRootValidators, Vec::new());
+                }
+            } else {
+                if !handoff_complete || handoff_babe_authorities.len() != handoff_entries.len() {
+                    // Once the PoS handoff is active, never fall back to PoA for
+                    // future DKG. Missing registration for an existing handoff
+                    // validator is a liveness problem handled by DKG retry/key
+                    // extension, not by silently changing trust assumptions.
+                    return (DkgConsensusSource::PosBabeRootValidators, Vec::new());
+                }
+
+                let babe_authorities = Self::registered_authorities_for_kind(
+                    &root_entries,
+                    DkgConsensusKeyKind::BabeSr25519,
+                );
+                if !babe_authorities.is_empty() {
+                    // After the first PoS snapshot, new root validators join MEV
+                    // Shield DKG automatically once they have stake, permit, and
+                    // registered BABE/X25519 DKG material. Existing frozen
+                    // N..N+2 snapshots provide the slow-addition delay.
+                    return (DkgConsensusSource::PosBabeRootValidators, babe_authorities);
+                }
             }
         }
 
