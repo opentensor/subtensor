@@ -1,22 +1,8 @@
 use super::*;
 use frame_support::weights::WeightMeter;
-use sp_std::collections::btree_map::BTreeMap;
 use subtensor_runtime_common::{NetUid, NetUidStorageIndex};
 
 impl<T: Config> Pallet<T> {
-    fn remove_account_entries_for_netuid<I>(
-        weight_meter: &mut WeightMeter,
-        netuid: NetUid,
-        iter: I,
-        raw_key_for: impl Fn(&T::AccountId, NetUid) -> Vec<u8>,
-        remove: impl Fn(T::AccountId, NetUid),
-    ) -> bool
-    where
-        I: Iterator<Item = (T::AccountId, NetUid)>,
-    {
-        true
-    }
-
     /// Facilitates the removal of a user's subnetwork.
     ///
     /// # Args:
@@ -308,342 +294,222 @@ impl<T: Config> Pallet<T> {
     pub fn remove_network_is_network_member(
         netuid: NetUid,
         weight_meter: &mut WeightMeter,
-    ) -> bool {
-        let r = T::DbWeight::get().reads(1);
-        let w = T::DbWeight::get().writes(1);
-        let mut read_all = true;
-
-        let mut to_rm: sp_std::vec::Vec<T::AccountId> = sp_std::vec::Vec::new();
-        let iter = match LastKeptRawKey::<T>::get() {
+        last_key: Option<Vec<u8>>,
+    ) -> (bool, Option<Vec<u8>>) {
+        let iter = match last_key {
             Some(raw_key) => Keys::<T>::iter_from(raw_key),
             None => Keys::<T>::iter(),
         };
-        for (nu, uid, hotkey) in iter {
-            if !weight_meter.can_consume(r) {
-                read_all = false;
-                LastKeptRawKey::<T>::set(Some(Keys::<T>::hashed_key_for(nu, uid)));
-                break;
-            }
-            weight_meter.consume(r);
-            if nu == netuid {
-                if !weight_meter.can_consume(w) {
-                    read_all = false;
-                    LastKeptRawKey::<T>::set(Some(Keys::<T>::hashed_key_for(nu, uid)));
-                    break;
-                }
-                weight_meter.consume(w);
-                to_rm.push(hotkey);
-            }
-        }
-        if read_all {
-            LastKeptRawKey::<T>::set(None);
-        }
 
-        for hot in to_rm {
-            IsNetworkMember::<T>::remove(&hot, netuid);
-        }
-        read_all
+        let (read_all, last_item) = Self::remove_storage_entries_for_netuid(
+            weight_meter,
+            iter,
+            |(nu, _, _)| *nu == netuid,
+            |(_, _, hotkey)| hotkey,
+            |hotkey| IsNetworkMember::<T>::remove(hotkey, netuid),
+            1,
+        );
+
+        (
+            read_all,
+            last_item.map(|(nu, uid, _)| Keys::<T>::hashed_key_for(nu, uid)),
+        )
     }
 
     pub fn remove_network_update_weights_on_root(
         netuid: NetUid,
         weight_meter: &mut WeightMeter,
-    ) -> bool {
-        let mut map = BTreeMap::new();
-        let mut read_all = true;
+        last_key: Option<Vec<u8>>,
+    ) -> (bool, Option<Vec<u8>>) {
         let netuid_u16 = u16::from(netuid);
 
         let root = NetUidStorageIndex::ROOT;
-        let iter = match LastKeptRawKey::<T>::get() {
+        let iter = match last_key {
             Some(raw_key) => Weights::<T>::iter_prefix_from(root, raw_key),
             None => Weights::<T>::iter_prefix(root),
         };
 
-        // --- Iterate over stored weights and zero root weights pointing at this netuid.
-        for (uid_i, weights_i) in iter {
-            let can_consume = weight_meter.can_consume(T::DbWeight::get().reads(1));
-            weight_meter.consume(T::DbWeight::get().reads(1));
-            if !can_consume {
-                read_all = false;
-                LastKeptRawKey::<T>::set(Some(Weights::<T>::hashed_key_for(root, uid_i)));
-                break;
-            }
-
-            // Create a new vector to hold modified weights.
-            let mut modified_weights = weights_i.clone();
+        fn filter_weights(netuid_u16: u16, weights: &[(u16, u16)]) -> (bool, Vec<(u16, u16)>) {
             let mut need_update = false;
-            for (subnet_id, weight) in modified_weights.iter_mut() {
-                // If the root network had a weight pointing to this netuid, set it to 0
-                if *subnet_id == netuid_u16 {
-                    if *weight != 0 {
-                        need_update = true;
-                    }
-
+            let mut filtered_weights = weights.to_vec();
+            for (subnet_id, weight) in filtered_weights.iter_mut() {
+                if *subnet_id == netuid_u16 && *weight != 0 {
+                    need_update = true;
                     *weight = 0;
                 }
             }
+            (need_update, filtered_weights)
+        }
 
-            if need_update {
-                let can_consume = weight_meter.can_consume(T::DbWeight::get().writes(1));
-                if !can_consume {
-                    read_all = false;
-                    LastKeptRawKey::<T>::set(Some(Weights::<T>::hashed_key_for(root, uid_i)));
-                    break;
+        let (read_all, last_item) = Self::remove_storage_entries_for_netuid(
+            weight_meter,
+            iter,
+            |_| true,
+            |(uid, weights)| (uid, weights),
+            |(uid, weights)| {
+                let (update, filtered_weights) = filter_weights(netuid_u16, weights);
+                if update {
+                    Weights::<T>::insert(root, *uid, filtered_weights);
                 }
-                weight_meter.consume(T::DbWeight::get().writes(1));
-                map.insert(uid_i, modified_weights);
-            }
-        }
+            },
+            1,
+        );
 
-        if read_all {
-            LastKeptRawKey::<T>::set(None);
-        }
-
-        read_all
+        (
+            read_all,
+            last_item.map(|key| Weights::<T>::hashed_key_for(root, key.0)),
+        )
     }
 
-    pub fn remove_network_childkey_take(netuid: NetUid, weight_meter: &mut WeightMeter) -> bool {
-        let r = T::DbWeight::get().reads(1);
-        let w = T::DbWeight::get().writes(1);
-        let mut read_all = true;
-
-        let mut to_rm: sp_std::vec::Vec<T::AccountId> = sp_std::vec::Vec::new();
-        let iter = match LastKeptRawKey::<T>::get() {
+    pub fn remove_network_childkey_take(
+        netuid: NetUid,
+        weight_meter: &mut WeightMeter,
+        last_key: Option<Vec<u8>>,
+    ) -> (bool, Option<Vec<u8>>) {
+        let iter = match last_key {
             Some(raw_key) => ChildkeyTake::<T>::iter_from(raw_key),
             None => ChildkeyTake::<T>::iter(),
         };
-        for (hot, nu, _) in iter {
-            if !weight_meter.can_consume(r) {
-                read_all = false;
-                LastKeptRawKey::<T>::set(Some(ChildkeyTake::<T>::hashed_key_for(&hot, nu)));
-                break;
-            }
-            weight_meter.consume(r);
-            if nu == netuid {
-                if !weight_meter.can_consume(w) {
-                    read_all = false;
-                    LastKeptRawKey::<T>::set(Some(ChildkeyTake::<T>::hashed_key_for(&hot, nu)));
-                    break;
-                }
-                weight_meter.consume(w);
-                to_rm.push(hot);
-            }
-        }
-        if read_all {
-            LastKeptRawKey::<T>::set(None);
-        }
 
-        for hot in to_rm {
-            ChildkeyTake::<T>::remove(&hot, netuid);
-        }
-        read_all
+        let (read_all, last_item) = Self::remove_storage_entries_for_netuid(
+            weight_meter,
+            iter,
+            |(_, nu, _)| *nu == netuid,
+            |(hot, _, _)| hot,
+            |hot| ChildkeyTake::<T>::remove(hot, netuid),
+            1,
+        );
+
+        (
+            read_all,
+            last_item.map(|(hot, nu, _)| ChildkeyTake::<T>::hashed_key_for(&hot, nu)),
+        )
     }
 
-    pub fn remove_network_childkeys(netuid: NetUid, weight_meter: &mut WeightMeter) -> bool {
-        let r = T::DbWeight::get().reads(1);
-        let w = T::DbWeight::get().writes(1);
-        let mut read_all = true;
-
-        let mut to_rm: sp_std::vec::Vec<T::AccountId> = sp_std::vec::Vec::new();
-        let iter = match LastKeptRawKey::<T>::get() {
+    pub fn remove_network_childkeys(
+        netuid: NetUid,
+        weight_meter: &mut WeightMeter,
+        last_key: Option<Vec<u8>>,
+    ) -> (bool, Option<Vec<u8>>) {
+        let iter = match last_key {
             Some(raw_key) => ChildKeys::<T>::iter_from(raw_key),
             None => ChildKeys::<T>::iter(),
         };
-        for (hot, nu, _) in iter {
-            if !weight_meter.can_consume(r) {
-                read_all = false;
-                LastKeptRawKey::<T>::set(Some(ChildKeys::<T>::hashed_key_for(&hot, nu)));
-                break;
-            }
-            weight_meter.consume(r);
-            if nu == netuid {
-                if !weight_meter.can_consume(w) {
-                    read_all = false;
-                    LastKeptRawKey::<T>::set(Some(ChildKeys::<T>::hashed_key_for(&hot, nu)));
-                    break;
-                }
-                weight_meter.consume(w);
-                to_rm.push(hot);
-            }
-        }
-        if read_all {
-            LastKeptRawKey::<T>::set(None);
-        }
 
-        for hot in to_rm {
-            ChildKeys::<T>::remove(&hot, netuid);
-        }
-        read_all
+        let (read_all, last_item) = Self::remove_storage_entries_for_netuid(
+            weight_meter,
+            iter,
+            |(_, nu, _)| *nu == netuid,
+            |(hot, _, _)| hot,
+            |hot| ChildKeys::<T>::remove(hot, netuid),
+            1,
+        );
+
+        (
+            read_all,
+            last_item.map(|key| ChildKeys::<T>::hashed_key_for(&key.0, key.1)),
+        )
     }
 
-    pub fn remove_network_parentkeys(netuid: NetUid, weight_meter: &mut WeightMeter) -> bool {
-        let r = T::DbWeight::get().reads(1);
-        let w = T::DbWeight::get().writes(1);
-        let mut read_all = true;
-
-        let mut to_rm: sp_std::vec::Vec<T::AccountId> = sp_std::vec::Vec::new();
-        let iter = match LastKeptRawKey::<T>::get() {
+    pub fn remove_network_parentkeys(
+        netuid: NetUid,
+        weight_meter: &mut WeightMeter,
+        last_key: Option<Vec<u8>>,
+    ) -> (bool, Option<Vec<u8>>) {
+        let iter = match last_key {
             Some(raw_key) => ParentKeys::<T>::iter_from(raw_key),
             None => ParentKeys::<T>::iter(),
         };
-        for (hot, nu, _) in iter {
-            if !weight_meter.can_consume(r) {
-                read_all = false;
-                LastKeptRawKey::<T>::set(Some(ParentKeys::<T>::hashed_key_for(&hot, nu)));
-                break;
-            }
-            weight_meter.consume(r);
-            if nu == netuid {
-                if !weight_meter.can_consume(w) {
-                    read_all = false;
-                    LastKeptRawKey::<T>::set(Some(ParentKeys::<T>::hashed_key_for(&hot, nu)));
-                    break;
-                }
-                weight_meter.consume(w);
-                to_rm.push(hot);
-            }
-        }
-        if read_all {
-            LastKeptRawKey::<T>::set(None);
-        }
 
-        for hot in to_rm {
-            ParentKeys::<T>::remove(&hot, netuid);
-        }
-        read_all
+        let (read_all, last_item) = Self::remove_storage_entries_for_netuid(
+            weight_meter,
+            iter,
+            |(_, nu, _)| *nu == netuid,
+            |(hot, _, _)| hot,
+            |hot| ParentKeys::<T>::remove(hot, netuid),
+            1,
+        );
+
+        (
+            read_all,
+            last_item.map(|key| ParentKeys::<T>::hashed_key_for(&key.0, key.1)),
+        )
     }
 
     pub fn remove_network_last_hotkey_emission_on_netuid(
         netuid: NetUid,
         weight_meter: &mut WeightMeter,
-    ) -> bool {
-        let r = T::DbWeight::get().reads(1);
-        let w = T::DbWeight::get().writes(1);
-        let mut read_all = true;
-
-        let mut to_rm: sp_std::vec::Vec<T::AccountId> = sp_std::vec::Vec::new();
-        let iter = match LastKeptRawKey::<T>::get() {
+        last_key: Option<Vec<u8>>,
+    ) -> (bool, Option<Vec<u8>>) {
+        let iter = match last_key {
             Some(raw_key) => LastHotkeyEmissionOnNetuid::<T>::iter_from(raw_key),
             None => LastHotkeyEmissionOnNetuid::<T>::iter(),
         };
-        for (hot, nu, _) in iter {
-            if !weight_meter.can_consume(r) {
-                read_all = false;
-                LastKeptRawKey::<T>::set(Some(LastHotkeyEmissionOnNetuid::<T>::hashed_key_for(
-                    &hot, nu,
-                )));
-                break;
-            }
-            weight_meter.consume(r);
-            if nu == netuid {
-                if !weight_meter.can_consume(w) {
-                    read_all = false;
-                    LastKeptRawKey::<T>::set(Some(
-                        LastHotkeyEmissionOnNetuid::<T>::hashed_key_for(&hot, nu),
-                    ));
-                    break;
-                }
-                weight_meter.consume(w);
-                to_rm.push(hot);
-            }
-        }
-        if read_all {
-            LastKeptRawKey::<T>::set(None);
-        }
 
-        for hot in to_rm {
-            LastHotkeyEmissionOnNetuid::<T>::remove(&hot, netuid);
-        }
-        read_all
+        let (read_all, last_item) = Self::remove_storage_entries_for_netuid(
+            weight_meter,
+            iter,
+            |(_, nu, _)| *nu == netuid,
+            |(hot, _, _)| hot,
+            |hot| LastHotkeyEmissionOnNetuid::<T>::remove(hot, netuid),
+            1,
+        );
+
+        (
+            read_all,
+            last_item.map(|key| LastHotkeyEmissionOnNetuid::<T>::hashed_key_for(&key.0, key.1)),
+        )
     }
 
     pub fn remove_network_total_hotkey_alpha_last_epoch(
         netuid: NetUid,
         weight_meter: &mut WeightMeter,
-    ) -> bool {
-        let r = T::DbWeight::get().reads(1);
-        let w = T::DbWeight::get().writes(1);
-        let mut read_all = true;
-
-        let mut to_rm: sp_std::vec::Vec<T::AccountId> = sp_std::vec::Vec::new();
-        let iter = match LastKeptRawKey::<T>::get() {
+        last_key: Option<Vec<u8>>,
+    ) -> (bool, Option<Vec<u8>>) {
+        let iter = match last_key {
             Some(raw_key) => TotalHotkeyAlphaLastEpoch::<T>::iter_from(raw_key),
             None => TotalHotkeyAlphaLastEpoch::<T>::iter(),
         };
 
-        for (hot, nu, _) in iter {
-            if !weight_meter.can_consume(r) {
-                read_all = false;
-                LastKeptRawKey::<T>::set(Some(TotalHotkeyAlphaLastEpoch::<T>::hashed_key_for(
-                    &hot, nu,
-                )));
-                break;
-            }
-            weight_meter.consume(r);
-            if nu == netuid {
-                if !weight_meter.can_consume(w) {
-                    read_all = false;
-                    LastKeptRawKey::<T>::set(Some(TotalHotkeyAlphaLastEpoch::<T>::hashed_key_for(
-                        &hot, nu,
-                    )));
-                    break;
-                }
-                weight_meter.consume(w);
-                to_rm.push(hot);
-            }
-        }
+        let (read_all, last_item) = Self::remove_storage_entries_for_netuid(
+            weight_meter,
+            iter,
+            |(_, nu, _)| *nu == netuid,
+            |(hot, _, _)| hot,
+            |hot| TotalHotkeyAlphaLastEpoch::<T>::remove(hot, netuid),
+            1,
+        );
 
-        if read_all {
-            LastKeptRawKey::<T>::set(None);
-        }
-
-        for hot in to_rm {
-            TotalHotkeyAlphaLastEpoch::<T>::remove(&hot, netuid);
-        }
-        read_all
+        (
+            read_all,
+            last_item.map(|(hot, nu, _)| TotalHotkeyAlphaLastEpoch::<T>::hashed_key_for(&hot, nu)),
+        )
     }
 
     pub fn remove_network_transaction_key_last_block(
         netuid: NetUid,
         weight_meter: &mut WeightMeter,
-    ) -> bool {
-        let r = T::DbWeight::get().reads(1);
-        let w = T::DbWeight::get().writes(1);
-        let mut read_all = true;
-
-        let mut to_rm: sp_std::vec::Vec<(T::AccountId, u16)> = sp_std::vec::Vec::new();
-        let iter = match LastKeptRawKey::<T>::get() {
+        last_key: Option<Vec<u8>>,
+    ) -> (bool, Option<Vec<u8>>) {
+        let iter = match last_key {
             Some(raw_key) => TransactionKeyLastBlock::<T>::iter_from(raw_key),
             None => TransactionKeyLastBlock::<T>::iter(),
         };
-        for ((hot, nu, name), _) in iter {
-            if !weight_meter.can_consume(r) {
-                read_all = false;
-                LastKeptRawKey::<T>::set(Some(TransactionKeyLastBlock::<T>::hashed_key_for((
-                    &hot, nu, name,
-                ))));
-                break;
-            }
-            weight_meter.consume(r);
-            if nu == netuid {
-                if !weight_meter.can_consume(w) {
-                    read_all = false;
-                    LastKeptRawKey::<T>::set(Some(TransactionKeyLastBlock::<T>::hashed_key_for((
-                        &hot, nu, name,
-                    ))));
-                    break;
-                }
-                weight_meter.consume(w);
-                to_rm.push((hot, name));
-            }
-        }
-        if read_all {
-            LastKeptRawKey::<T>::set(None);
-        }
 
-        for (hot, name) in to_rm {
-            TransactionKeyLastBlock::<T>::remove((hot, netuid, name));
-        }
-        read_all
+        let (read_all, last_item) = Self::remove_storage_entries_for_netuid(
+            weight_meter,
+            iter,
+            |((_, nu, _), _)| *nu == netuid,
+            |((hot, _, name), _)| (hot, name),
+            |(hot, name)| TransactionKeyLastBlock::<T>::remove((hot.clone(), netuid, *name)),
+            1,
+        );
+
+        (
+            read_all,
+            last_item.map(|((hot, _, name), _)| {
+                TransactionKeyLastBlock::<T>::hashed_key_for((&hot, netuid, name))
+            }),
+        )
     }
 }

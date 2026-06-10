@@ -462,50 +462,43 @@ impl<T: Config> Pallet<T> {
     pub fn clean_up_root_claimable_for_subnet(
         netuid: NetUid,
         weight_meter: &mut WeightMeter,
-    ) -> bool {
-        let mut to_remove_map = BTreeMap::<T::AccountId, BTreeMap<NetUid, I96F32>>::new();
+        last_key: Option<Vec<u8>>,
+    ) -> (bool, Option<Vec<u8>>) {
+        // let mut to_remove_map = BTreeMap::<T::AccountId, BTreeMap<NetUid, I96F32>>::new();
 
-        let mut read_all = true;
+        // let mut read_all = true;
 
-        let iter = match LastKeptRawKey::<T>::get() {
+        let iter = match last_key {
             Some(raw_key) => RootClaimable::<T>::iter_from(raw_key),
             None => RootClaimable::<T>::iter(),
         };
 
-        // Iterate directly without collecting to avoid unnecessary allocation
-        for (hotkey, _) in iter {
-            let can_consume = weight_meter.can_consume(T::DbWeight::get().reads(2));
-            if !can_consume {
-                read_all = false;
-                LastKeptRawKey::<T>::set(Some(RootClaimable::<T>::hashed_key_for(&hotkey)));
-                break;
+        fn filter_claimable(
+            claimable: &BTreeMap<NetUid, I96F32>,
+            netuid: NetUid,
+        ) -> BTreeMap<NetUid, I96F32> {
+            let mut result = claimable.clone();
+            if result.contains_key(&netuid) {
+                result.remove(&netuid);
             }
-            weight_meter.consume(T::DbWeight::get().reads(2));
-
-            let mut claimable = RootClaimable::<T>::get(&hotkey);
-            if claimable.contains_key(&netuid) {
-                let can_consume = weight_meter.can_consume(T::DbWeight::get().writes(1));
-                if !can_consume {
-                    read_all = false;
-                    LastKeptRawKey::<T>::set(Some(RootClaimable::<T>::hashed_key_for(&hotkey)));
-                    break;
-                }
-
-                claimable.remove(&netuid);
-                to_remove_map.insert(hotkey.clone(), claimable);
-            }
+            result
         }
 
-        if read_all {
-            LastKeptRawKey::<T>::set(None);
-        }
+        let (read_all, last_item) = Self::remove_storage_entries_for_netuid(
+            weight_meter,
+            iter,
+            |(_, _)| true,
+            |(hotkey, claimable)| (hotkey.clone(), claimable.clone()),
+            |(hotkey, claimable)| {
+                RootClaimable::<T>::insert(hotkey, filter_claimable(&claimable, netuid))
+            },
+            1,
+        );
 
-        // write weight already consumed in advance
-        for (hotkey, claimable) in to_remove_map.iter() {
-            RootClaimable::<T>::insert(hotkey, claimable);
-        }
-
-        read_all
+        (
+            read_all,
+            last_item.map(|(hotkey, _)| RootClaimable::<T>::hashed_key_for(&hotkey)),
+        )
     }
 
     pub fn clean_up_root_claimed_for_subnet(

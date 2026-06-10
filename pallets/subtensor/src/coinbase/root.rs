@@ -16,11 +16,9 @@
 // DEALINGS IN THE SOFTWARE.
 
 use super::*;
-use frame_support::weights::WeightMeter;
 use safe_math::*;
-use sp_std::collections::btree_map::BTreeMap;
 use substrate_fixed::types::{I64F64, U64F64};
-use subtensor_runtime_common::{AlphaBalance, NetUid, NetUidStorageIndex, TaoBalance, Token};
+use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 impl<T: Config> Pallet<T> {
     /// Fetches the total count of root network validators
     ///

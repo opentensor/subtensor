@@ -537,7 +537,6 @@ impl<T: Config> Pallet<T> {
         }
 
         DissolvedSubnetTotalAlphaValue::<T>::set(None);
-        LastKeptRawKey::<T>::set(None);
         DissolvedSubnetDistributedTao::<T>::set(None);
         SubnetTAO::<T>::remove(netuid);
 
@@ -562,11 +561,13 @@ impl<T: Config> Pallet<T> {
     pub fn destroy_alpha_in_out_stakes_get_total_alpha_value(
         netuid: NetUid,
         weight_meter: &mut WeightMeter,
-    ) -> bool {
+        last_key: Option<Vec<u8>>,
+    ) -> (bool, Option<Vec<u8>>) {
         let r = T::DbWeight::get().reads(1);
         let mut read_all = true;
 
         let mut total_alpha_value_u128: u128;
+
         if let Some(value) = DissolvedSubnetTotalAlphaValue::<T>::get() {
             total_alpha_value_u128 = value;
         } else {
@@ -585,18 +586,18 @@ impl<T: Config> Pallet<T> {
             total_alpha_value_u128 = protocol_alpha_value_u128;
         }
 
-        let iter = match LastKeptRawKey::<T>::get() {
+        let iter = match last_key {
             Some(key) => TotalHotkeyAlpha::<T>::iter_from(key),
             None => TotalHotkeyAlpha::<T>::iter(),
         };
 
+        let mut last_hot = None;
+
         for (hot, this_netuid, _) in iter {
             if !weight_meter.can_consume(r) {
                 read_all = false;
-                LastKeptRawKey::<T>::set(Some(TotalHotkeyAlpha::<T>::hashed_key_for(
-                    &hot,
-                    this_netuid,
-                )));
+                last_hot = Some(hot);
+
                 break;
             }
             weight_meter.consume(r);
@@ -609,10 +610,8 @@ impl<T: Config> Pallet<T> {
             for (cold, this_netuid, share_u64f64) in Self::alpha_iter_single_prefix(&hot) {
                 if !weight_meter.can_consume(r) {
                     iterate_all = false;
-                    LastKeptRawKey::<T>::set(Some(TotalHotkeyAlpha::<T>::hashed_key_for(
-                        &hot,
-                        this_netuid,
-                    )));
+                    last_hot = Some(hot.clone());
+
                     break;
                 }
                 weight_meter.consume(r);
@@ -646,48 +645,45 @@ impl<T: Config> Pallet<T> {
 
         DissolvedSubnetTotalAlphaValue::<T>::set(Some(total_alpha_value_u128));
 
-        if read_all {
-            LastKeptRawKey::<T>::set(None);
-        }
-
-        read_all
+        (
+            read_all,
+            last_hot.map(|hot| TotalHotkeyAlpha::<T>::hashed_key_for(&hot, netuid)),
+        )
     }
 
     pub fn destroy_alpha_in_out_stakes_settle_stakes(
         netuid: NetUid,
         weight_meter: &mut WeightMeter,
-    ) -> bool {
+        last_key: Option<Vec<u8>>,
+    ) -> (bool, Option<Vec<u8>>) {
         let r = T::DbWeight::get().reads(1);
         let w = T::DbWeight::get().writes(1);
         let weight_for_tansfer_tao = T::DbWeight::get().reads_writes(11, 3);
         let mut read_all = true;
 
         let mut stakers: Vec<(T::AccountId, T::AccountId, u128)> = Vec::new();
-        let total_alpha_value_u128: u128 = match DissolvedSubnetTotalAlphaValue::<T>::get() {
-            Some(value) => value,
-            None => {
-                log::warn!("DissolvedSubnetTotalAlphaValue not set");
-                return false;
-            }
+        let Some(total_alpha_value_u128) = DissolvedSubnetTotalAlphaValue::<T>::get() else {
+            log::warn!("DissolvedSubnetTotalAlphaValue not set");
+            return (false, None);
         };
-        let mut distributed_tao_value_u128 = DissolvedSubnetDistributedTao::<T>::get().unwrap_or(0);
+        let Some(mut distributed_tao_value_u128) = DissolvedSubnetDistributedTao::<T>::get() else {
+            log::warn!("DissolvedSubnetDistributedTao not set");
+            return (false, None);
+        };
 
         let mut hotkeys_in_subnet: Vec<T::AccountId> = Vec::new();
         let mut coldkeys = BTreeSet::<T::AccountId>::new();
+        let mut last_hot = None;
 
-        let iter = match LastKeptRawKey::<T>::get() {
+        let iter = match last_key {
             Some(key) => TotalHotkeyAlpha::<T>::iter_from(key),
             None => TotalHotkeyAlpha::<T>::iter(),
         };
 
         for (hot, this_netuid, _) in iter {
-            // let mut coldkeys: Vec<T::AccountId> = Vec::new();
             if !weight_meter.can_consume(r) {
                 read_all = false;
-                LastKeptRawKey::<T>::set(Some(TotalHotkeyAlpha::<T>::hashed_key_for(
-                    &hot,
-                    this_netuid,
-                )));
+                last_hot = Some(hot);
                 break;
             }
             weight_meter.consume(r);
@@ -705,10 +701,7 @@ impl<T: Config> Pallet<T> {
             for (cold, this_netuid, share_u64f64) in Self::alpha_iter_single_prefix(&hot) {
                 if !weight_meter.can_consume(r.saturating_mul(2_u64)) {
                     inner_read_all = false;
-                    LastKeptRawKey::<T>::set(Some(TotalHotkeyAlpha::<T>::hashed_key_for(
-                        &hot,
-                        this_netuid,
-                    )));
+                    last_hot = Some(hot.clone());
                     break;
                 }
 
@@ -742,10 +735,7 @@ impl<T: Config> Pallet<T> {
                     // reserve the weight for the add_balance_to_coldkey_account function call later
                     if !weight_meter.can_consume(need_to_consume_weight) {
                         inner_read_all = false;
-                        LastKeptRawKey::<T>::set(Some(TotalHotkeyAlpha::<T>::hashed_key_for(
-                            &hot,
-                            this_netuid,
-                        )));
+                        last_hot = Some(hot.clone());
                         break;
                     }
                     weight_meter.consume(need_to_consume_weight);
@@ -841,35 +831,36 @@ impl<T: Config> Pallet<T> {
         }
 
         // ignore the weight for handling the final operation, we must set the correct status for the next run
-        if read_all {
-            LastKeptRawKey::<T>::set(None);
-        }
         DissolvedSubnetDistributedTao::<T>::set(Some(distributed_tao_value_u128));
 
-        read_all
+        (
+            read_all,
+            last_hot.map(|hot| TotalHotkeyAlpha::<T>::hashed_key_for(&hot, netuid)),
+        )
     }
 
     pub fn destroy_alpha_in_out_stakes_clean_alpha(
         netuid: NetUid,
         weight_meter: &mut WeightMeter,
-    ) -> bool {
+        last_key: Option<Vec<u8>>,
+    ) -> (bool, Option<Vec<u8>>) {
         let r = T::DbWeight::get().reads(1);
         let w = T::DbWeight::get().writes(1);
         let mut read_all = true;
 
-        let iter = match LastKeptRawKey::<T>::get() {
+        let iter = match last_key {
             Some(key) => TotalHotkeyAlpha::<T>::iter_from(key),
             None => TotalHotkeyAlpha::<T>::iter(),
         };
+
+        let mut last_hot = None;
 
         for (hot, this_netuid, _) in iter {
             let mut coldkeys: Vec<T::AccountId> = Vec::new();
             if !weight_meter.can_consume(r) {
                 read_all = false;
-                LastKeptRawKey::<T>::set(Some(TotalHotkeyAlpha::<T>::hashed_key_for(
-                    &hot,
-                    this_netuid,
-                )));
+                last_hot = Some(hot.clone());
+
                 break;
             }
             weight_meter.consume(r);
@@ -882,11 +873,9 @@ impl<T: Config> Pallet<T> {
             for (cold, this_netuid, _) in Self::alpha_iter_single_prefix(&hot) {
                 if !weight_meter.can_consume(r) {
                     read_all = false;
-                    LastKeptRawKey::<T>::set(Some(TotalHotkeyAlpha::<T>::hashed_key_for(
-                        &hot,
-                        this_netuid,
-                    )));
+                    last_hot = Some(hot.clone());
                     iterate_all = false;
+
                     break;
                 }
                 weight_meter.consume(r);
@@ -905,10 +894,7 @@ impl<T: Config> Pallet<T> {
 
             if !weight_meter.can_consume(weight_for_all_remove) {
                 read_all = false;
-                LastKeptRawKey::<T>::set(Some(TotalHotkeyAlpha::<T>::hashed_key_for(
-                    &hot,
-                    this_netuid,
-                )));
+                last_hot = Some(hot.clone());
                 break;
             }
             weight_meter.consume(weight_for_all_remove);
@@ -919,115 +905,65 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        if read_all {
-            LastKeptRawKey::<T>::set(None);
-        }
-
-        read_all
+        (
+            read_all,
+            last_hot.map(|hot| TotalHotkeyAlpha::<T>::hashed_key_for(&hot, netuid)),
+        )
     }
 
     pub fn destroy_alpha_in_out_stakes_clear_hotkey_totals(
         netuid: NetUid,
         weight_meter: &mut WeightMeter,
-    ) -> bool {
-        let r = T::DbWeight::get().reads(1);
-        let w = T::DbWeight::get().writes(1);
-        let mut read_all = true;
-        let mut hotkeys_to_remove: Vec<T::AccountId> = Vec::new();
-
-        let iter = match LastKeptRawKey::<T>::get() {
+        last_key: Option<Vec<u8>>,
+    ) -> (bool, Option<Vec<u8>>) {
+        let iter = match last_key {
             Some(key) => TotalHotkeyAlpha::<T>::iter_from(key),
             None => TotalHotkeyAlpha::<T>::iter(),
         };
 
-        // get all hotkeys in the subnet
-        for (hotkey, nu, _) in iter {
-            if !weight_meter.can_consume(r) {
-                read_all = false;
-                LastKeptRawKey::<T>::set(Some(TotalHotkeyAlpha::<T>::hashed_key_for(&hotkey, nu)));
-                break;
-            }
-            weight_meter.consume(r);
-            if nu != netuid {
-                continue;
-            }
+        let (read_all, last_item) = Self::remove_storage_entries_for_netuid(
+            weight_meter,
+            iter,
+            |(_, nu, _)| *nu == netuid,
+            |(hotkey, _, _)| hotkey,
+            |hotkey| {
+                TotalHotkeyAlpha::<T>::remove(hotkey, netuid);
+                TotalHotkeyShares::<T>::remove(hotkey, netuid);
+                TotalHotkeySharesV2::<T>::remove(hotkey, netuid);
+            },
+            3,
+        );
 
-            let weight_for_all_remove = w.saturating_mul(3_u64);
-            if !weight_meter.can_consume(weight_for_all_remove) {
-                read_all = false;
-                LastKeptRawKey::<T>::set(Some(TotalHotkeyAlpha::<T>::hashed_key_for(&hotkey, nu)));
-                break;
-            }
-            weight_meter.consume(weight_for_all_remove);
-
-            hotkeys_to_remove.push(hotkey.clone());
-        }
-
-        if read_all {
-            LastKeptRawKey::<T>::set(None);
-        }
-
-        for hotkey in hotkeys_to_remove {
-            TotalHotkeyAlpha::<T>::remove(&hotkey, netuid);
-            TotalHotkeyShares::<T>::remove(&hotkey, netuid);
-            TotalHotkeySharesV2::<T>::remove(&hotkey, netuid);
-        }
-
-        read_all
+        (
+            read_all,
+            last_item.map(|(hotkey, nu, _)| TotalHotkeyAlpha::<T>::hashed_key_for(&hotkey, nu)),
+        )
     }
 
     pub fn destroy_alpha_in_out_stakes_clear_locks(
         netuid: NetUid,
         weight_meter: &mut WeightMeter,
-    ) -> bool {
-        let r = T::DbWeight::get().reads(1);
-        let w = T::DbWeight::get().writes(1);
-        let mut keys_to_remove: Vec<(T::AccountId, T::AccountId)> = Vec::new();
-        let mut read_all = true;
-
-        let iter = match LastKeptRawKey::<T>::get() {
+        last_key: Option<Vec<u8>>,
+    ) -> (bool, Option<Vec<u8>>) {
+        let iter = match last_key {
             Some(key) => Lock::<T>::iter_from(key),
             None => Lock::<T>::iter(),
         };
 
-        for ((coldkey, this_netuid, hotkey), _) in iter {
-            if !weight_meter.can_consume(r) {
-                read_all = false;
-                LastKeptRawKey::<T>::set(Some(Lock::<T>::hashed_key_for((
-                    &coldkey,
-                    this_netuid,
-                    &hotkey,
-                ))));
-                break;
-            }
-            weight_meter.consume(r);
+        let (read_all, last_item) = Self::remove_storage_entries_for_netuid(
+            weight_meter,
+            iter,
+            |((_, this_netuid, _), _)| *this_netuid == netuid,
+            |((coldkey, _this_netuid, hotkey), _)| (coldkey, hotkey),
+            |(coldkey, hotkey)| Lock::<T>::remove((coldkey.clone(), netuid, hotkey.clone())),
+            1,
+        );
 
-            if this_netuid != netuid {
-                continue;
-            }
-
-            if !weight_meter.can_consume(w) {
-                read_all = false;
-                LastKeptRawKey::<T>::set(Some(Lock::<T>::hashed_key_for((
-                    &coldkey,
-                    this_netuid,
-                    &hotkey,
-                ))));
-                break;
-            }
-            weight_meter.consume(w);
-
-            keys_to_remove.push((coldkey, hotkey));
-        }
-
-        for (coldkey, hotkey) in keys_to_remove {
-            Lock::<T>::remove((coldkey, netuid, hotkey));
-        }
-
-        if read_all {
-            LastKeptRawKey::<T>::set(None);
-        }
-
-        read_all
+        (
+            read_all,
+            last_item.map(|((coldkey, _, hotkey), _)| {
+                Lock::<T>::hashed_key_for((&coldkey, netuid, &hotkey))
+            }),
+        )
     }
 }

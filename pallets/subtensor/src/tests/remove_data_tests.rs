@@ -22,7 +22,7 @@ fn call_remove_single_value(weight_meter: &mut WeightMeter, weight: Weight) -> b
 fn test_remove_single_value() {
     new_test_ext(0).execute_with(|| {
         DissolvedNetworksCleanupPhase::<Test>::set(Some(
-            DissolveCleanupPhase::CleanSubnetRootDividendsRootClaimable,
+            DissolveCleanupPhase::CleanSubnetRootDividendsRootClaimable { last_key: None },
         ));
         let w = Weight::from_parts(100_u64, 100_u64);
 
@@ -36,7 +36,7 @@ fn test_remove_single_value() {
 fn test_remove_single_value_failed() {
     new_test_ext(0).execute_with(|| {
         DissolvedNetworksCleanupPhase::<Test>::set(Some(
-            DissolveCleanupPhase::CleanSubnetRootDividendsRootClaimable,
+            DissolveCleanupPhase::CleanSubnetRootDividendsRootClaimable { last_key: None },
         ));
         let w = Weight::from_parts(100_u64, 100_u64);
 
@@ -178,7 +178,8 @@ fn test_clean_up_root_claimable_for_subnet() {
         // Test the cleanup function
         let w = Weight::from_parts(u64::MAX, u64::MAX);
         let mut weight_meter = frame_support::weights::WeightMeter::with_limit(w);
-        let result = SubtensorModule::clean_up_root_claimable_for_subnet(netuid, &mut weight_meter);
+        let (result, _) =
+            SubtensorModule::clean_up_root_claimable_for_subnet(netuid, &mut weight_meter, None);
         // This function should return true when it completes its work (or false if weight limited)
         // In our test case with generous weight limit, it should complete
         assert!(
@@ -735,10 +736,9 @@ fn test_remove_network_lock() {
 
         let w = Weight::from_parts(u64::MAX, u64::MAX);
         let mut weight_meter = frame_support::weights::WeightMeter::with_limit(w);
-        assert!(SubtensorModule::remove_network_lock(
-            netuid,
-            &mut weight_meter
-        ));
+        assert!(
+            SubtensorModule::remove_network_lock(netuid, &mut weight_meter, None).0
+        );
 
         assert!(!Lock::<Test>::contains_key((cold_1, netuid, hot_1)));
         assert!(!Lock::<Test>::contains_key((cold_2, netuid, hot_2)));
@@ -760,10 +760,9 @@ fn test_remove_network_decaying_lock() {
 
         let w = Weight::from_parts(u64::MAX, u64::MAX);
         let mut weight_meter = frame_support::weights::WeightMeter::with_limit(w);
-        assert!(SubtensorModule::remove_network_decaying_lock(
-            netuid,
-            &mut weight_meter
-        ));
+        assert!(
+            SubtensorModule::remove_network_decaying_lock(netuid, &mut weight_meter, None).0
+        );
 
         assert!(!DecayingLock::<Test>::contains_key(cold_1, netuid));
         assert!(!DecayingLock::<Test>::contains_key(cold_2, netuid));
@@ -832,17 +831,19 @@ fn test_remove_network_decaying_lock_resumes_with_limited_weight() {
 
         let read_weight = <Test as frame_system::Config>::DbWeight::get().reads(1);
         let mut weight_meter = frame_support::weights::WeightMeter::with_limit(read_weight);
-        assert!(!SubtensorModule::remove_network_decaying_lock(
-            netuid,
-            &mut weight_meter
-        ));
+        let (done, mut last_key) =
+            SubtensorModule::remove_network_decaying_lock(netuid, &mut weight_meter, None);
+        assert!(!done);
 
         let mut iterations = 0;
         while DecayingLock::<Test>::iter().any(|(_, n, _)| n == netuid) {
             let mut weight_meter =
                 frame_support::weights::WeightMeter::with_limit(Weight::from_parts(u64::MAX, 0));
+            let (done, new_key) =
+                SubtensorModule::remove_network_decaying_lock(netuid, &mut weight_meter, last_key);
+            last_key = new_key;
             assert!(
-                SubtensorModule::remove_network_decaying_lock(netuid, &mut weight_meter),
+                done,
                 "remove_network_decaying_lock should finish once all entries are removed"
             );
             iterations += 1;
@@ -851,7 +852,6 @@ fn test_remove_network_decaying_lock_resumes_with_limited_weight() {
                 "cleanup should complete within a few passes"
             );
         }
-        assert!(LastKeptRawKey::<Test>::get().is_none());
         assert_eq!(
             DecayingLock::<Test>::iter()
                 .filter(|(_, n, _)| *n == netuid)

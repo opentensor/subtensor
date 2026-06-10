@@ -1817,94 +1817,56 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Removes `Lock` entries for `netuid`, resuming from `LastKeptRawKey` when weight is limited.
-    pub fn remove_network_lock(netuid: NetUid, weight_meter: &mut WeightMeter) -> bool {
-        let r = T::DbWeight::get().reads(1);
-        let w = T::DbWeight::get().writes(1);
-        let mut keys_to_remove: sp_std::vec::Vec<(T::AccountId, T::AccountId)> =
-            sp_std::vec::Vec::new();
-        let mut read_all = true;
-
-        let iter = match LastKeptRawKey::<T>::get() {
+    pub fn remove_network_lock(
+        netuid: NetUid,
+        weight_meter: &mut WeightMeter,
+        last_key: Option<Vec<u8>>,
+    ) -> (bool, Option<Vec<u8>>) {
+        let iter = match last_key {
             Some(key) => Lock::<T>::iter_from(key),
             None => Lock::<T>::iter(),
         };
 
-        for ((coldkey, this_netuid, hotkey), _) in iter {
-            if !weight_meter.can_consume(r) {
-                read_all = false;
-                LastKeptRawKey::<T>::set(Some(Lock::<T>::hashed_key_for((
-                    &coldkey,
-                    this_netuid,
-                    &hotkey,
-                ))));
-                break;
-            }
-            weight_meter.consume(r);
+        let (read_all, last_item) = Self::remove_storage_entries_for_netuid(
+            weight_meter,
+            iter,
+            |((_, this_netuid, _), _)| *this_netuid == netuid,
+            |((coldkey, _this_netuid, hotkey), _)| (coldkey, hotkey),
+            |(coldkey, hotkey)| Lock::<T>::remove((coldkey.clone(), netuid, hotkey.clone())),
+            1,
+        );
 
-            if this_netuid != netuid {
-                continue;
-            }
-
-            if !weight_meter.can_consume(w) {
-                read_all = false;
-                LastKeptRawKey::<T>::set(Some(Lock::<T>::hashed_key_for((
-                    &coldkey,
-                    this_netuid,
-                    &hotkey,
-                ))));
-                break;
-            }
-            weight_meter.consume(w);
-
-            keys_to_remove.push((coldkey, hotkey));
-        }
-
-        for (coldkey, hotkey) in keys_to_remove {
-            Lock::<T>::remove((coldkey, netuid, hotkey));
-        }
-
-        if read_all {
-            LastKeptRawKey::<T>::set(None);
-        }
-        read_all
+        (
+            read_all,
+            last_item.map(|((coldkey, _, hotkey), _)| {
+                Lock::<T>::hashed_key_for((&coldkey, netuid, &hotkey))
+            }),
+        )
     }
 
     /// Removes `DecayingLock` entries for `netuid`, resuming from `LastKeptRawKey` when weight is limited.
-    pub fn remove_network_decaying_lock(netuid: NetUid, weight_meter: &mut WeightMeter) -> bool {
-        let r = T::DbWeight::get().reads(1);
-        let w = T::DbWeight::get().writes(1);
-        let mut read_all = true;
-
-        let mut to_rm: sp_std::vec::Vec<T::AccountId> = sp_std::vec::Vec::new();
-        let iter = match LastKeptRawKey::<T>::get() {
+    pub fn remove_network_decaying_lock(
+        netuid: NetUid,
+        weight_meter: &mut WeightMeter,
+        last_key: Option<Vec<u8>>,
+    ) -> (bool, Option<Vec<u8>>) {
+        let iter = match last_key {
             Some(raw_key) => DecayingLock::<T>::iter_from(raw_key),
             None => DecayingLock::<T>::iter(),
         };
-        for (cold, nu, _) in iter {
-            if !weight_meter.can_consume(r) {
-                read_all = false;
-                LastKeptRawKey::<T>::set(Some(DecayingLock::<T>::hashed_key_for(&cold, nu)));
-                break;
-            }
-            weight_meter.consume(r);
-            if nu == netuid {
-                if !weight_meter.can_consume(w) {
-                    read_all = false;
-                    LastKeptRawKey::<T>::set(Some(DecayingLock::<T>::hashed_key_for(&cold, nu)));
-                    break;
-                }
-                weight_meter.consume(w);
-                to_rm.push(cold);
-            }
-        }
-        if read_all {
-            LastKeptRawKey::<T>::set(None);
-        }
 
-        for cold in to_rm {
-            DecayingLock::<T>::remove(&cold, netuid);
-        }
+        let (read_all, last_item) = Self::remove_storage_entries_for_netuid(
+            weight_meter,
+            iter,
+            |(_, nu, _)| *nu == netuid,
+            |(cold, nu, _)| (cold, nu),
+            |(cold, netuid)| DecayingLock::<T>::remove(&cold, netuid),
+            1,
+        );
 
-        read_all
+        (
+            read_all,
+            last_item.map(|(cold, nu, _)| DecayingLock::<T>::hashed_key_for(&cold, nu)),
+        )
     }
 }

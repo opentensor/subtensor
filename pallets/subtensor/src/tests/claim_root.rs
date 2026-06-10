@@ -1551,7 +1551,8 @@ fn clean_up_root_claimable_for_subnet_removes_only_that_netuid_per_hotkey() {
 
         let mut weight_meter =
             frame_support::weights::WeightMeter::with_limit(Weight::from_parts(u64::MAX, u64::MAX));
-        let done = SubtensorModule::clean_up_root_claimable_for_subnet(net, &mut weight_meter);
+        let (done, _) =
+            SubtensorModule::clean_up_root_claimable_for_subnet(net, &mut weight_meter, None);
         assert!(
             done,
             "full weight should scan and update all claimable maps"
