@@ -2,7 +2,7 @@ use super::*;
 use frame_support::PalletId;
 use safe_math::FixedExt;
 use sp_core::Get;
-use sp_runtime::traits::AccountIdConversion;
+use sp_runtime::{SaturatedConversion, traits::AccountIdConversion};
 use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{NetUid, TaoBalance};
 impl<T: Config> Pallet<T> {
@@ -160,12 +160,24 @@ impl<T: Config> Pallet<T> {
             .filter(|(netuid, added)| *added && *netuid != NetUid::ROOT)
             .count() as u16;
 
+        let subnets_in_cleanup_queue: u16 = DissolveCleanupQueue::<T>::get()
+            .len()
+            .saturated_into::<u16>();
+
         let mut prune_netuid: Option<NetUid> = None;
-        if current_count >= subnet_limit {
-            if let Some(netuid) = Self::get_network_to_prune() {
-                prune_netuid = Some(netuid);
-            } else {
-                return Err(Error::<T>::SubnetLimitReached.into());
+
+        if subnets_in_cleanup_queue > 0 {
+            if current_count.saturating_add(subnets_in_cleanup_queue) >= subnet_limit {
+                return Err(Error::<T>::WaitingForDissolvedSubnetCleanup.into());
+            }
+        } else {
+            if current_count >= subnet_limit {
+                // TODO we can't prune here becaause the prune_netuid will be in the cleanup queue.
+                if let Some(netuid) = Self::get_network_to_prune() {
+                    prune_netuid = Some(netuid);
+                } else {
+                    return Err(Error::<T>::SubnetLimitReached.into());
+                }
             }
         }
 

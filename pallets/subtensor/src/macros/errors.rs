@@ -305,5 +305,7 @@ mod errors {
         CannotUseSystemAccount,
         /// Trying to unlock more than locked
         UnlockAmountTooHigh,
+        /// Waiting for dissolved subnet cleanup.
+        WaitingForDissolvedSubnetCleanup,
     }
 }
