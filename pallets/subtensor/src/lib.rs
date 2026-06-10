@@ -1535,6 +1535,19 @@ pub mod pallet {
         OptionQuery,
     >;
 
+    /// --- NMAP ( netuid, hotkey, coldkey ) --> () | Reverse index for non-zero locks targeting this hotkey on this subnet.
+    #[pallet::storage]
+    pub type LockingColdkeys<T: Config> = StorageNMap<
+        _,
+        (
+            NMapKey<Identity, NetUid>,               // subnet
+            NMapKey<Blake2_128Concat, T::AccountId>, // hotkey
+            NMapKey<Blake2_128Concat, T::AccountId>, // coldkey
+        ),
+        (),
+        OptionQuery,
+    >;
+
     /// --- DMAP ( netuid, hotkey ) --> LockState | Total lock per hotkey per subnet.
     #[pallet::storage]
     pub type HotkeyLock<T: Config> = StorageDoubleMap<
