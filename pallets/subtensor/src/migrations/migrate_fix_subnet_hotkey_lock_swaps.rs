@@ -273,37 +273,51 @@ pub fn migrate_fix_subnet_hotkey_lock_swaps<T: Config>() -> Weight {
         };
         let netuid = NetUid::from(fix.netuid);
 
-        let indexed_coldkeys: u64;
+        let index_reads: u64;
+        let index_writes: u64;
+        let lock_take_reads: u64;
+        let lock_take_writes: u64;
         let locks_to_fix: Vec<(T::AccountId, LockState)> = if let Some(coldkey) = fix.coldkey {
             let Some(coldkey) = decode_account_id32::<T>(coldkey) else {
                 log::error!("Failed to decode coldkey: {}", coldkey);
                 continue;
             };
-            indexed_coldkeys = 1;
+            index_reads = 0;
+            index_writes = 1;
+            lock_take_reads = 1;
             LockingColdkeys::<T>::remove((netuid, old_hotkey.clone(), coldkey.clone()));
-            Lock::<T>::take((coldkey.clone(), netuid, old_hotkey.clone()))
-                .map(|lock| vec![(coldkey, lock)])
-                .unwrap_or_default()
+            if let Some(lock) = Lock::<T>::take((coldkey.clone(), netuid, old_hotkey.clone())) {
+                lock_take_writes = 1;
+                vec![(coldkey, lock)]
+            } else {
+                lock_take_writes = 0;
+                Vec::new()
+            }
         } else {
             let coldkeys: Vec<T::AccountId> =
                 LockingColdkeys::<T>::iter_prefix((netuid, old_hotkey.clone()))
                     .map(|(coldkey, ())| coldkey)
                     .collect();
-            indexed_coldkeys = coldkeys.len() as u64;
+            let indexed_coldkeys = coldkeys.len() as u64;
+            index_reads = indexed_coldkeys;
+            index_writes = indexed_coldkeys;
+            lock_take_reads = indexed_coldkeys;
 
-            coldkeys
+            let locks: Vec<(T::AccountId, LockState)> = coldkeys
                 .into_iter()
                 .filter_map(|coldkey| {
                     LockingColdkeys::<T>::remove((netuid, old_hotkey.clone(), coldkey.clone()));
                     Lock::<T>::take((coldkey.clone(), netuid, old_hotkey.clone()))
                         .map(|lock| (coldkey, lock))
                 })
-                .collect()
+                .collect();
+            lock_take_writes = locks.len() as u64;
+            locks
         };
-        let locks_to_fix_count = locks_to_fix.len() as u64;
-        weight = weight.saturating_add(
-            T::DbWeight::get().reads_writes(locks_to_fix_count.saturating_add(1), indexed_coldkeys),
-        );
+        weight = weight.saturating_add(T::DbWeight::get().reads_writes(
+            index_reads.saturating_add(lock_take_reads),
+            index_writes.saturating_add(lock_take_writes),
+        ));
 
         if locks_to_fix.is_empty() {
             missing_locks = missing_locks.saturating_add(1);
