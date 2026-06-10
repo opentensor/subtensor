@@ -273,29 +273,36 @@ pub fn migrate_fix_subnet_hotkey_lock_swaps<T: Config>() -> Weight {
         };
         let netuid = NetUid::from(fix.netuid);
 
+        let indexed_coldkeys: u64;
         let locks_to_fix: Vec<(T::AccountId, LockState)> = if let Some(coldkey) = fix.coldkey {
             let Some(coldkey) = decode_account_id32::<T>(coldkey) else {
                 log::error!("Failed to decode coldkey: {}", coldkey);
                 continue;
             };
+            indexed_coldkeys = 1;
+            LockingColdkeys::<T>::remove((netuid, old_hotkey.clone(), coldkey.clone()));
             Lock::<T>::take((coldkey.clone(), netuid, old_hotkey.clone()))
                 .map(|lock| vec![(coldkey, lock)])
                 .unwrap_or_default()
         } else {
-            let locks: Vec<(T::AccountId, LockState)> = Lock::<T>::iter()
-                .filter_map(|((coldkey, lock_netuid, hotkey), lock)| {
-                    (lock_netuid == netuid && hotkey == old_hotkey).then_some((coldkey, lock))
+            let coldkeys: Vec<T::AccountId> =
+                LockingColdkeys::<T>::iter_prefix((netuid, old_hotkey.clone()))
+                    .map(|(coldkey, ())| coldkey)
+                    .collect();
+            indexed_coldkeys = coldkeys.len() as u64;
+
+            coldkeys
+                .into_iter()
+                .filter_map(|coldkey| {
+                    LockingColdkeys::<T>::remove((netuid, old_hotkey.clone(), coldkey.clone()));
+                    Lock::<T>::take((coldkey.clone(), netuid, old_hotkey.clone()))
+                        .map(|lock| (coldkey, lock))
                 })
-                .collect();
-            for (coldkey, _) in &locks {
-                Lock::<T>::remove((coldkey.clone(), netuid, old_hotkey.clone()));
-            }
-            locks
+                .collect()
         };
         let locks_to_fix_count = locks_to_fix.len() as u64;
         weight = weight.saturating_add(
-            T::DbWeight::get()
-                .reads_writes(locks_to_fix_count.saturating_add(1), locks_to_fix_count),
+            T::DbWeight::get().reads_writes(locks_to_fix_count.saturating_add(1), indexed_coldkeys),
         );
 
         if locks_to_fix.is_empty() {
@@ -323,7 +330,8 @@ pub fn migrate_fix_subnet_hotkey_lock_swaps<T: Config>() -> Weight {
             }
 
             Lock::<T>::insert((coldkey.clone(), netuid, new_hotkey.clone()), lock.clone());
-            weight = weight.saturating_add(T::DbWeight::get().writes(1));
+            LockingColdkeys::<T>::insert((netuid, new_hotkey.clone(), coldkey.clone()), ());
+            weight = weight.saturating_add(T::DbWeight::get().writes(2));
 
             if !new_hotkey_is_owner {
                 add_to_aggregate::<T>(&coldkey, netuid, &new_hotkey, &lock);
