@@ -83,7 +83,7 @@ where
 #[allow(clippy::expect_used, clippy::unwrap_used)]
 mod tests {
     use crate::{ColdkeySwapAnnouncements, ColdkeySwapDisputes, Error, tests::mock::*};
-    use frame_support::{BoundedVec, assert_ok};
+    use frame_support::{BoundedVec, assert_noop, assert_ok};
     use frame_system::Call as SystemCall;
     use pallet_subtensor_proxy::Call as ProxyCall;
     use sp_core::U256;
@@ -114,6 +114,11 @@ mod tests {
             }),
             RuntimeCall::SubtensorModule(crate::Call::register_network {
                 hotkey: U256::from(1),
+            }),
+            RuntimeCall::SubtensorModule(crate::Call::create_sale_offer {
+                netuid: 1u16.into(),
+                price: TaoBalance::from(1_000_u64),
+                authorized_buyer: None,
             }),
         ]
     }
@@ -189,9 +194,9 @@ mod tests {
             setup_swap_announced(&who);
 
             for call in forbidden_calls() {
-                assert_eq!(
-                    call.dispatch(RuntimeOrigin::signed(who)).unwrap_err().error,
-                    Error::<Test>::ColdkeySwapAnnounced.into()
+                assert_noop!(
+                    call.dispatch(RuntimeOrigin::signed(who)),
+                    Error::<Test>::ColdkeySwapAnnounced
                 );
             }
         });
@@ -228,9 +233,9 @@ mod tests {
                 .collect::<Vec<_>>();
 
             for call in all_calls {
-                assert_eq!(
-                    call.dispatch(RuntimeOrigin::signed(who)).unwrap_err().error,
-                    Error::<Test>::ColdkeySwapDisputed.into()
+                assert_noop!(
+                    call.dispatch(RuntimeOrigin::signed(who)),
+                    Error::<Test>::ColdkeySwapDisputed
                 );
             }
         });
