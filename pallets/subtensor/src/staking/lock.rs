@@ -1350,10 +1350,16 @@ impl<T: Config> Pallet<T> {
         Self::ensure_no_active_locks(new_coldkey)?;
 
         let mut locks_to_transfer: Vec<(NetUid, T::AccountId, LockState)> = Vec::new();
+        let decaying_locks_to_transfer: Vec<(NetUid, bool)> =
+            DecayingLock::<T>::iter_prefix(old_coldkey).collect();
 
         // Gather locks for old coldkey
         for ((netuid, hotkey), lock) in Lock::<T>::iter_prefix((old_coldkey,)) {
             locks_to_transfer.push((netuid, hotkey, lock));
+        }
+
+        for (netuid, decaying) in decaying_locks_to_transfer.iter() {
+            DecayingLock::<T>::insert(new_coldkey, *netuid, *decaying);
         }
 
         // Remove locks for old coldkey and insert for new
@@ -1361,13 +1367,16 @@ impl<T: Config> Pallet<T> {
             let now = Self::get_current_block_as_u64();
             let unlock_rate = UnlockRate::<T>::get();
             let maturity_rate = MaturityRate::<T>::get();
+            let perpetual_lock = decaying_locks_to_transfer
+                .iter()
+                .any(|(decaying_netuid, decaying)| *decaying_netuid == netuid && !*decaying);
             let old_lock = ConvictionModel::roll_forward_lock(
                 lock,
                 now,
                 unlock_rate,
                 maturity_rate,
                 Self::is_subnet_owner_hotkey(netuid, &hotkey),
-                Self::is_perpetual_lock(old_coldkey, netuid),
+                perpetual_lock,
             );
             let new_lock = ConvictionModel::roll_forward_lock(
                 old_lock.0.clone(),
@@ -1375,7 +1384,7 @@ impl<T: Config> Pallet<T> {
                 unlock_rate,
                 maturity_rate,
                 Self::is_subnet_owner_hotkey(netuid, &hotkey),
-                Self::is_perpetual_lock(new_coldkey, netuid),
+                perpetual_lock,
             )
             .0;
             Lock::<T>::remove((old_coldkey.clone(), netuid, hotkey.clone()));
@@ -1389,6 +1398,10 @@ impl<T: Config> Pallet<T> {
             );
             Self::insert_lock_state(new_coldkey, netuid, &hotkey, new_lock.clone());
             Self::add_aggregate_lock(new_coldkey, &hotkey, netuid, new_lock);
+        }
+
+        for (netuid, _) in decaying_locks_to_transfer {
+            DecayingLock::<T>::remove(old_coldkey, netuid);
         }
 
         Ok(())
