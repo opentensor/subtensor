@@ -429,6 +429,36 @@ impl ConvictionModel {
     ) -> (LockState, RollDelta) {
         let previous_locked_mass = lock.locked_mass;
         let previous_conviction = lock.conviction;
+        let mut rolled = Self::roll_forward_lock_unpruned(
+            lock,
+            now,
+            unlock_rate,
+            maturity_rate,
+            owner_lock,
+            perpetual_lock,
+        );
+
+        if rolled.is_zero() {
+            rolled.locked_mass = AlphaBalance::ZERO;
+            rolled.conviction = U64F64::saturating_from_num(0);
+        }
+
+        let roll_delta = RollDelta {
+            locked_mass_delta: previous_locked_mass.saturating_sub(rolled.locked_mass),
+            conviction_delta: previous_conviction.saturating_sub(rolled.conviction),
+        };
+
+        (rolled, roll_delta)
+    }
+
+    fn roll_forward_lock_unpruned(
+        lock: LockState,
+        now: u64,
+        unlock_rate: u64,
+        maturity_rate: u64,
+        owner_lock: bool,
+        perpetual_lock: bool,
+    ) -> LockState {
         let mut rolled = if now > lock.last_update {
             let dt = now.saturating_sub(lock.last_update);
             let (new_locked_mass, new_conviction) = Self::calculate_decayed_mass_and_conviction(
@@ -453,17 +483,7 @@ impl ConvictionModel {
             rolled.conviction = U64F64::saturating_from_num(u64::from(rolled.locked_mass));
         }
 
-        if rolled.is_zero() {
-            rolled.locked_mass = AlphaBalance::ZERO;
-            rolled.conviction = U64F64::saturating_from_num(0);
-        }
-
-        let roll_delta = RollDelta {
-            locked_mass_delta: previous_locked_mass.saturating_sub(rolled.locked_mass),
-            conviction_delta: previous_conviction.saturating_sub(rolled.conviction),
-        };
-
-        (rolled, roll_delta)
+        rolled
     }
 }
 
@@ -1184,7 +1204,7 @@ impl<T: Config> Pallet<T> {
         let maturity_rate = MaturityRate::<T>::get();
 
         if let Some(owner_lock) = OwnerLock::<T>::take(netuid) {
-            let moved_owner_lock = ConvictionModel::roll_forward_lock(
+            let moved_owner_lock = ConvictionModel::roll_forward_lock_unpruned(
                 owner_lock,
                 now,
                 unlock_rate,
@@ -1194,7 +1214,7 @@ impl<T: Config> Pallet<T> {
             );
             let current = HotkeyLock::<T>::get(netuid, old_owner_hotkey)
                 .map(|lock| {
-                    ConvictionModel::roll_forward_lock(
+                    ConvictionModel::roll_forward_lock_unpruned(
                         lock,
                         now,
                         unlock_rate,
@@ -1202,7 +1222,6 @@ impl<T: Config> Pallet<T> {
                         false,
                         true,
                     )
-                    .0
                 })
                 .unwrap_or_else(|| Self::empty_lock(now));
             Self::insert_hotkey_lock_state(
@@ -1211,17 +1230,17 @@ impl<T: Config> Pallet<T> {
                 LockState {
                     locked_mass: current
                         .locked_mass
-                        .saturating_add(moved_owner_lock.0.locked_mass),
+                        .saturating_add(moved_owner_lock.locked_mass),
                     conviction: current
                         .conviction
-                        .saturating_add(moved_owner_lock.0.conviction),
+                        .saturating_add(moved_owner_lock.conviction),
                     last_update: now,
                 },
             );
         }
 
         if let Some(owner_lock) = DecayingOwnerLock::<T>::take(netuid) {
-            let moved_owner_lock = ConvictionModel::roll_forward_lock(
+            let moved_owner_lock = ConvictionModel::roll_forward_lock_unpruned(
                 owner_lock,
                 now,
                 unlock_rate,
@@ -1231,7 +1250,7 @@ impl<T: Config> Pallet<T> {
             );
             let current = DecayingHotkeyLock::<T>::get(netuid, old_owner_hotkey)
                 .map(|lock| {
-                    ConvictionModel::roll_forward_lock(
+                    ConvictionModel::roll_forward_lock_unpruned(
                         lock,
                         now,
                         unlock_rate,
@@ -1239,7 +1258,6 @@ impl<T: Config> Pallet<T> {
                         false,
                         false,
                     )
-                    .0
                 })
                 .unwrap_or_else(|| Self::empty_lock(now));
             Self::insert_decaying_hotkey_lock_state(
@@ -1248,17 +1266,17 @@ impl<T: Config> Pallet<T> {
                 LockState {
                     locked_mass: current
                         .locked_mass
-                        .saturating_add(moved_owner_lock.0.locked_mass),
+                        .saturating_add(moved_owner_lock.locked_mass),
                     conviction: current
                         .conviction
-                        .saturating_add(moved_owner_lock.0.conviction),
+                        .saturating_add(moved_owner_lock.conviction),
                     last_update: now,
                 },
             );
         }
 
         if let Some(new_owner_lock) = HotkeyLock::<T>::take(netuid, new_owner_hotkey) {
-            let moved_new_owner_lock = ConvictionModel::roll_forward_lock(
+            let moved_new_owner_lock = ConvictionModel::roll_forward_lock_unpruned(
                 new_owner_lock,
                 now,
                 unlock_rate,
@@ -1268,7 +1286,7 @@ impl<T: Config> Pallet<T> {
             );
             let current = OwnerLock::<T>::get(netuid)
                 .map(|lock| {
-                    ConvictionModel::roll_forward_lock(
+                    ConvictionModel::roll_forward_lock_unpruned(
                         lock,
                         now,
                         unlock_rate,
@@ -1276,7 +1294,6 @@ impl<T: Config> Pallet<T> {
                         true,
                         true,
                     )
-                    .0
                 })
                 .unwrap_or_else(|| Self::empty_lock(now));
             Self::insert_owner_lock_state(
@@ -1285,10 +1302,10 @@ impl<T: Config> Pallet<T> {
                     LockState {
                         locked_mass: current
                             .locked_mass
-                            .saturating_add(moved_new_owner_lock.0.locked_mass),
+                            .saturating_add(moved_new_owner_lock.locked_mass),
                         conviction: current
                             .conviction
-                            .saturating_add(moved_new_owner_lock.0.conviction),
+                            .saturating_add(moved_new_owner_lock.conviction),
                         last_update: now,
                     },
                     now,
@@ -1302,7 +1319,7 @@ impl<T: Config> Pallet<T> {
         }
 
         if let Some(new_owner_lock) = DecayingHotkeyLock::<T>::take(netuid, new_owner_hotkey) {
-            let moved_new_owner_lock = ConvictionModel::roll_forward_lock(
+            let moved_new_owner_lock = ConvictionModel::roll_forward_lock_unpruned(
                 new_owner_lock,
                 now,
                 unlock_rate,
@@ -1312,7 +1329,7 @@ impl<T: Config> Pallet<T> {
             );
             let current = DecayingOwnerLock::<T>::get(netuid)
                 .map(|lock| {
-                    ConvictionModel::roll_forward_lock(
+                    ConvictionModel::roll_forward_lock_unpruned(
                         lock,
                         now,
                         unlock_rate,
@@ -1320,7 +1337,6 @@ impl<T: Config> Pallet<T> {
                         true,
                         false,
                     )
-                    .0
                 })
                 .unwrap_or_else(|| Self::empty_lock(now));
             Self::insert_decaying_owner_lock_state(
@@ -1329,10 +1345,10 @@ impl<T: Config> Pallet<T> {
                     LockState {
                         locked_mass: current
                             .locked_mass
-                            .saturating_add(moved_new_owner_lock.0.locked_mass),
+                            .saturating_add(moved_new_owner_lock.locked_mass),
                         conviction: current
                             .conviction
-                            .saturating_add(moved_new_owner_lock.0.conviction),
+                            .saturating_add(moved_new_owner_lock.conviction),
                         last_update: now,
                     },
                     now,
