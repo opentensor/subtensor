@@ -13,7 +13,7 @@ use codec::{Decode, Encode};
 use frame_support::{
     dispatch::{GetDispatchInfo, PostDispatchInfo},
     pallet_prelude::*,
-    traits::{ConstU64, IsSubType},
+    traits::{ConstU64, Currency, IsSubType, ReservableCurrency},
 };
 use frame_system::{ensure_none, ensure_root, ensure_signed, pallet_prelude::*};
 use mev_shield_ibe_runtime_api::{
@@ -274,6 +274,9 @@ pub mod pallet {
     use super::*;
     use crate::weights::WeightInfo;
 
+    pub type BalanceOf<T> =
+        <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+
     #[pallet::config]
     pub trait Config: frame_system::Config {
         /// The identifier type for an authority.
@@ -311,6 +314,14 @@ pub mod pallet {
         type MaxDkgAtoms: frame_support::traits::Get<u32>;
         #[pallet::constant]
         type MaxPendingIbePerSender: frame_support::traits::Get<u32>;
+
+        /// Currency used to reserve v2 encrypted-submission deposits.
+        type Currency: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
+
+        /// Deposit reserved for every queued threshold-IBE encrypted transaction.
+        #[pallet::constant]
+        type SubmissionDeposit: Get<BalanceOf<Self>>;
+
         type IbeDkgAuthorityProvider: crate::IbeDkgAuthorityProvider;
     }
 
@@ -441,6 +452,17 @@ pub mod pallet {
     #[pallet::storage]
     pub type PendingIbeBySubmitter<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, u32, ValueQuery>;
+
+    /// Reserved deposits keyed by pending queue index.
+    ///
+    /// Each v2 encrypted queue entry reserves `SubmissionDeposit` from the
+    /// submitter while the ciphertext waits for its scheduled block identity.
+    /// The reserve is refunded only after a successful decrypted inner call and
+    /// forfeited for decryptable invalid payloads or failed inner execution.
+    #[pallet::storage]
+    pub type PendingIbeSubmissionDeposits<T: Config> =
+        StorageMap<_, Identity, u32, (T::AccountId, BalanceOf<T>), OptionQuery>;
+
     #[pallet::storage]
     pub type PublishedDkgOutputHashes<T: Config> =
         StorageMap<_, Twox64Concat, u64, sp_core::H256, OptionQuery>;
@@ -469,6 +491,15 @@ pub mod pallet {
         IbeBlockDecryptionKeyV1,
         OptionQuery,
     >;
+
+    /// True only while the pallet is applying decrypted MEV Shield v2 queue entries.
+    ///
+    /// The transaction extension uses this guard to distinguish encrypted-queue
+    /// execution from ordinary plaintext user transactions. Without it, a
+    /// queued encrypted inner extrinsic would be rejected whenever another due
+    /// encrypted entry remains behind it in the queue.
+    #[pallet::storage]
+    pub type IbeQueueDrainInProgress<T: Config> = StorageValue<_, bool, ValueQuery>;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -523,6 +554,25 @@ pub mod pallet {
         /// Extrinsic exceeded the per-extrinsic weight limit and was removed.
         ExtrinsicWeightExceeded {
             index: u32,
+        },
+
+        /// A v2 encrypted-submission deposit was reserved.
+        IbeSubmissionDepositReserved {
+            index: u32,
+            who: T::AccountId,
+            amount: BalanceOf<T>,
+        },
+        /// A v2 encrypted-submission deposit was refunded after successful inner execution.
+        IbeSubmissionDepositRefunded {
+            index: u32,
+            who: T::AccountId,
+            amount: BalanceOf<T>,
+        },
+        /// A v2 encrypted-submission deposit was forfeited after invalid or failed inner execution.
+        IbeSubmissionDepositForfeited {
+            index: u32,
+            who: T::AccountId,
+            amount: BalanceOf<T>,
         },
         /// MEVShield v2 IBE encrypted extrinsic accepted into the pending queue.
         IbeEncryptedSubmitted {
@@ -1549,6 +1599,62 @@ impl<T: Config> Pallet<T> {
         PendingIbeBySubmitter::<T>::mutate(who, |n| *n = n.saturating_add(1));
         Ok(())
     }
+    pub fn ibe_submission_deposit() -> BalanceOf<T> {
+        T::SubmissionDeposit::get()
+    }
+
+    fn reserve_ibe_submission_deposit(
+        index: u32,
+        who: &T::AccountId,
+        amount: BalanceOf<T>,
+    ) -> DispatchResult {
+        if amount.is_zero() {
+            return Ok(());
+        }
+
+        T::Currency::reserve(who, amount)?;
+        PendingIbeSubmissionDeposits::<T>::insert(index, (who.clone(), amount));
+        Self::deposit_event(Event::IbeSubmissionDepositReserved {
+            index,
+            who: who.clone(),
+            amount,
+        });
+        Ok(())
+    }
+
+    pub fn refund_ibe_submission_deposit(index: u32) {
+        let Some((who, amount)) = PendingIbeSubmissionDeposits::<T>::take(index) else {
+            return;
+        };
+        if amount.is_zero() {
+            return;
+        }
+        let _ = T::Currency::unreserve(&who, amount);
+        Self::deposit_event(Event::IbeSubmissionDepositRefunded { index, who, amount });
+    }
+
+    pub fn forfeit_ibe_submission_deposit(index: u32) {
+        let Some((who, amount)) = PendingIbeSubmissionDeposits::<T>::take(index) else {
+            return;
+        };
+        if amount.is_zero() {
+            return;
+        }
+        let (_slashed, unslashed) = T::Currency::slash_reserved(&who, amount);
+        if !unslashed.is_zero() {
+            let _ = T::Currency::unreserve(&who, unslashed);
+        }
+        Self::deposit_event(Event::IbeSubmissionDepositForfeited { index, who, amount });
+    }
+
+    fn rollback_pending_insert(index: u32) {
+        PendingExtrinsics::<T>::remove(index);
+        let next = NextPendingExtrinsicIndex::<T>::get();
+        if next == index.saturating_add(1) {
+            NextPendingExtrinsicIndex::<T>::put(index);
+        }
+    }
+
     pub fn remove_pending_index(index: u32) {
         PendingExtrinsics::<T>::remove(index);
         if let Some(meta) = PendingIbeMetadata::<T>::take(index) {
@@ -1557,10 +1663,10 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    fn submit_encrypted_v2_inner(
+    fn enqueue_ibe_encrypted(
         who: T::AccountId,
         encrypted_call: BoundedVec<u8, MaxEncryptedCallSize>,
-    ) -> DispatchResult {
+    ) -> Result<(u32, IbeEncryptedExtrinsicV1), DispatchError> {
         let envelope = IbeEncryptedExtrinsicV1::decode_v2(encrypted_call.as_slice())
             .map_err(|_| Error::<T>::BadIbeEnvelope)?;
         Self::validate_v2_envelope_for_submission(&envelope)?;
@@ -1568,8 +1674,32 @@ impl<T: Config> Pallet<T> {
             PendingIbeBySubmitter::<T>::get(&who) < T::MaxPendingIbePerSender::get(),
             Error::<T>::TooManyPendingIbeForSender
         );
-        let index = Self::store_pending_encrypted(who.clone(), encrypted_call)?;
-        Self::after_v2_pending_push(&who, index, &envelope)?;
+
+        let index = match Self::store_pending_encrypted(who.clone(), encrypted_call) {
+            Ok(index) => index,
+            Err(error) => return Err(error.into()),
+        };
+
+        let submission_deposit = Self::ibe_submission_deposit();
+        if let Err(error) = Self::reserve_ibe_submission_deposit(index, &who, submission_deposit) {
+            Self::rollback_pending_insert(index);
+            return Err(error);
+        }
+
+        if let Err(error) = Self::after_v2_pending_push(&who, index, &envelope) {
+            Self::refund_ibe_submission_deposit(index);
+            Self::rollback_pending_insert(index);
+            return Err(error);
+        }
+
+        Ok((index, envelope))
+    }
+
+    fn submit_encrypted_v2_inner(
+        who: T::AccountId,
+        encrypted_call: BoundedVec<u8, MaxEncryptedCallSize>,
+    ) -> DispatchResult {
+        let (index, envelope) = Self::enqueue_ibe_encrypted(who.clone(), encrypted_call)?;
         Self::deposit_event(Event::IbeEncryptedSubmitted {
             index,
             who,
@@ -1763,18 +1893,11 @@ impl<T: Config> Pallet<T> {
         encrypted_call: BoundedVec<u8, MaxEncryptedCallSize>,
     ) -> DispatchResult {
         if IbeEncryptedExtrinsicV1::is_v2_prefixed(encrypted_call.as_slice()) {
-            let envelope = IbeEncryptedExtrinsicV1::decode_v2(encrypted_call.as_slice())
-                .map_err(|_| Error::<T>::BadIbeEnvelope)?;
-            Self::validate_v2_envelope_for_submission(&envelope)?;
-            ensure!(
-                PendingIbeBySubmitter::<T>::get(&who) < T::MaxPendingIbePerSender::get(),
-                Error::<T>::TooManyPendingIbeForSender
-            );
-            let index = Self::store_pending_encrypted(who.clone(), encrypted_call)?;
-            Self::after_v2_pending_push(&who, index, &envelope)?;
+            let (index, _) = Self::enqueue_ibe_encrypted(who.clone(), encrypted_call)?;
             Self::deposit_event(Event::ExtrinsicStored { index, who });
             return Ok(());
         }
+
         let index = Self::store_pending_encrypted(who.clone(), encrypted_call)?;
         Self::deposit_event(Event::ExtrinsicStored { index, who });
         Ok(())
@@ -2058,16 +2181,15 @@ impl<T: Config> Pallet<T> {
         remove_weight: Weight,
     ) -> PendingProcess {
         let outcome = T::IbeEncryptedTxDecryptor::decrypt(pending.encrypted_call.as_slice());
-
         let inner = match outcome {
             IbeDecryptOutcome::NotReady => {
                 Self::deposit_event(Event::ExtrinsicPostponed { index });
                 return PendingProcess::Break(weight);
             }
             IbeDecryptOutcome::InvalidAfterKeyAvailable => {
+                Self::forfeit_ibe_submission_deposit(index);
                 Self::remove_pending_index(index);
                 weight = weight.saturating_add(remove_weight);
-
                 Self::deposit_event(Event::IbeEncryptedExtrinsicInvalid { index });
                 return PendingProcess::Continue(weight);
             }
@@ -2075,9 +2197,9 @@ impl<T: Config> Pallet<T> {
         };
 
         let Some(info) = T::DecryptedExtrinsicExecutor::dispatch_info(&inner) else {
+            Self::forfeit_ibe_submission_deposit(index);
             Self::remove_pending_index(index);
             weight = weight.saturating_add(remove_weight);
-
             Self::deposit_event(Event::IbeEncryptedExtrinsicInvalid { index });
             return PendingProcess::Continue(weight);
         };
@@ -2085,24 +2207,20 @@ impl<T: Config> Pallet<T> {
         let dispatch_weight = T::DbWeight::get()
             .writes(2)
             .saturating_add(info.call_weight);
-
         let max_extrinsic_weight = Weight::from_parts(MaxExtrinsicWeight::<T>::get(), 0);
-
         if info.call_weight.any_gt(max_extrinsic_weight) {
+            Self::forfeit_ibe_submission_deposit(index);
             Self::remove_pending_index(index);
             weight = weight.saturating_add(remove_weight);
-
             Self::deposit_event(Event::ExtrinsicWeightExceeded { index });
             Self::deposit_event(Event::IbeEncryptedExtrinsicExecuted {
                 index,
                 success: false,
             });
-
             return PendingProcess::Continue(weight);
         }
 
         let max_weight = Weight::from_parts(OnInitializeWeight::<T>::get(), 0);
-
         if weight.saturating_add(dispatch_weight).any_gt(max_weight) {
             Self::deposit_event(Event::ExtrinsicPostponed { index });
             return PendingProcess::Break(weight);
@@ -2111,15 +2229,22 @@ impl<T: Config> Pallet<T> {
         Self::remove_pending_index(index);
         weight = weight.saturating_add(remove_weight);
 
+        IbeQueueDrainInProgress::<T>::put(true);
+        weight = weight.saturating_add(T::DbWeight::get().writes(1));
         let applied = T::DecryptedExtrinsicExecutor::apply(inner);
 
+        IbeQueueDrainInProgress::<T>::kill();
+        weight = weight.saturating_add(T::DbWeight::get().writes(1));
         weight = weight.saturating_add(applied.consumed_weight);
-
+        if applied.success {
+            Self::refund_ibe_submission_deposit(index);
+        } else {
+            Self::forfeit_ibe_submission_deposit(index);
+        }
         Self::deposit_event(Event::IbeEncryptedExtrinsicExecuted {
             index,
             success: applied.success,
         });
-
         PendingProcess::Continue(weight)
     }
 
@@ -2180,6 +2305,46 @@ impl<T: Config> Pallet<T> {
         PendingExtrinsics::<T>::count()
     }
 
+    /// Whether the runtime is currently applying decrypted threshold-IBE queue entries.
+    pub fn is_ibe_queue_drain_in_progress() -> bool {
+        IbeQueueDrainInProgress::<T>::get()
+    }
+
+    /// Returns true when the canonical queue head is a MEV Shield v2 entry whose
+    /// target identity is due at the current block.
+    ///
+    /// This is the runtime-enforced no-preemption guard: if on_initialize cannot
+    /// fully drain due encrypted work because a key is missing, an entry is not
+    /// ready, or the configured weight budget is exhausted, ordinary
+    /// non-operational plaintext extrinsics must not execute later in the same
+    /// block.
+    pub fn has_due_ibe_queue_head() -> bool {
+        let current_block: u64 = frame_system::Pallet::<T>::block_number().saturated_into();
+        Self::has_due_ibe_queue_head_at(current_block)
+    }
+
+    /// Same as `has_due_ibe_queue_head`, but evaluated at an explicit block number.
+    pub fn has_due_ibe_queue_head_at(block_number: u64) -> bool {
+        let next_index = NextPendingExtrinsicIndex::<T>::get();
+        let count: u32 = PendingExtrinsics::<T>::count();
+        if count == 0 {
+            return false;
+        }
+
+        let start_index = next_index.saturating_sub(count);
+        for index in start_index..next_index {
+            if !PendingExtrinsics::<T>::contains_key(index) {
+                continue;
+            }
+            let Some(meta) = PendingIbeMetadata::<T>::get(index) else {
+                // The queue head exists but is not a threshold-IBE entry.
+                return false;
+            };
+            return meta.target_block <= block_number;
+        }
+
+        false
+    }
     pub fn has_ibe_block_key(epoch: u64, target_block: u64, key_id: [u8; KEY_ID_LEN]) -> bool {
         Self::ibe_block_decryption_key(epoch, target_block, key_id).is_some()
     }

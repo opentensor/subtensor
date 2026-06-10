@@ -2,7 +2,8 @@ use crate::mock::*;
 use crate::{
     AuthorKeys, CurrentKey, Error, ExtrinsicLifetime, HasMigrationRun, MaxExtrinsicWeight,
     MaxPendingExtrinsicsLimit, NextKey, NextKeyExpiresAt, NextPendingExtrinsicIndex,
-    OnInitializeWeight, PendingExtrinsic, PendingExtrinsics, PendingKey, PendingKeyExpiresAt,
+    OnInitializeWeight, PendingExtrinsic, PendingExtrinsics, PendingIbeSubmissionDeposits,
+    PendingKey, PendingKeyExpiresAt,
 };
 use codec::Encode;
 use frame_support::{BoundedVec, assert_noop, assert_ok};
@@ -1410,6 +1411,76 @@ fn ibe_v2_pending_identities_group_by_epoch_target_and_key() {
         assert_eq!(identities[0].first_queue_index, 0);
         assert_eq!(identities[0].last_queue_index, 1);
         assert_eq!(MevShield::pending_encrypted_queue_len(), 2);
+    });
+}
+
+#[test]
+fn ibe_v2_submission_reserves_deposit_and_refunds_on_success() {
+    new_test_ext().execute_with(|| {
+        System::set_block_number(10);
+        let key_id = [7; stp_mev_shield_ibe::KEY_ID_LEN];
+        frame_support::assert_ok!(MevShield::set_ibe_epoch_public_key(
+            RuntimeOrigin::root(),
+            test_ibe_epoch_key(11, key_id, 1, 100),
+        ));
+
+        let deposit = 10u64;
+        let initial = Balances::free_balance(1);
+        frame_support::assert_ok!(MevShield::submit_encrypted(
+            RuntimeOrigin::signed(1),
+            test_ibe_envelope(11, 12, key_id, 0xAA),
+        ));
+        assert_eq!(Balances::reserved_balance(1), deposit);
+        assert_eq!(Balances::free_balance(1), initial.saturating_sub(deposit));
+        assert!(PendingIbeSubmissionDeposits::<Test>::get(0).is_some());
+
+        run_mev_shield_on_initialize_at(12);
+
+        assert_eq!(Balances::reserved_balance(1), 0);
+        assert_eq!(Balances::free_balance(1), initial);
+        assert!(PendingIbeSubmissionDeposits::<Test>::get(0).is_none());
+        System::assert_has_event(
+            crate::Event::<Test>::IbeSubmissionDepositRefunded {
+                index: 0,
+                who: 1,
+                amount: deposit,
+            }
+            .into(),
+        );
+    });
+}
+
+#[test]
+fn ibe_v2_submission_forfeits_deposit_on_invalid_or_failed_inner() {
+    new_test_ext().execute_with(|| {
+        System::set_block_number(10);
+        let key_id = [8; stp_mev_shield_ibe::KEY_ID_LEN];
+        frame_support::assert_ok!(MevShield::set_ibe_epoch_public_key(
+            RuntimeOrigin::root(),
+            test_ibe_epoch_key(12, key_id, 1, 100),
+        ));
+
+        let deposit = 10u64;
+        let initial = Balances::free_balance(1);
+        frame_support::assert_ok!(MevShield::submit_encrypted(
+            RuntimeOrigin::signed(1),
+            test_ibe_envelope(12, 12, key_id, 0xBB),
+        ));
+        assert_eq!(Balances::reserved_balance(1), deposit);
+
+        run_mev_shield_on_initialize_at(12);
+
+        assert_eq!(Balances::reserved_balance(1), 0);
+        assert_eq!(Balances::free_balance(1), initial.saturating_sub(deposit));
+        assert!(PendingIbeSubmissionDeposits::<Test>::get(0).is_none());
+        System::assert_has_event(
+            crate::Event::<Test>::IbeSubmissionDepositForfeited {
+                index: 0,
+                who: 1,
+                amount: deposit,
+            }
+            .into(),
+        );
     });
 }
 

@@ -153,6 +153,7 @@ parameter_types! {
     pub const MevShieldIbeEpochLength: u64 = EPOCH_DURATION_IN_SLOTS;
     pub const MevShieldIbeMaxDkgAtoms: u32 = 4096;
     pub const MevShieldIbeMaxPendingPerSender: u32 = 8;
+    pub const MevShieldIbeSubmissionDeposit: Balance = deposit(1, 8192);
 }
 
 impl pallet_shield::Config for Runtime {
@@ -169,6 +170,8 @@ impl pallet_shield::Config for Runtime {
     type EpochLength = MevShieldIbeEpochLength;
     type MaxDkgAtoms = MevShieldIbeMaxDkgAtoms;
     type MaxPendingIbePerSender = MevShieldIbeMaxPendingPerSender;
+    type Currency = Balances;
+    type SubmissionDeposit = MevShieldIbeSubmissionDeposit;
     type IbeDkgAuthorityProvider =
         mev_shield_dkg_authority_provider::RuntimeIbeDkgAuthorityProvider;
 }

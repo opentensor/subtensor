@@ -51,6 +51,7 @@ stc-shield.workspace = true
 pallet-subtensor-utility.workspace = true
 rand_chacha.workspace = true
 pallet-timestamp.workspace = true
+pallet-balances.workspace = true
 pallet-aura.workspace = true
 sp-consensus-aura.workspace = true
 sp-keystore.workspace = true

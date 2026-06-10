@@ -3,7 +3,7 @@ use stp_shield::MLKEM768_ENC_KEY_LEN;
 
 use codec::Decode;
 use frame_support::pallet_prelude::DispatchError;
-use frame_support::traits::{ConstBool, ConstU64};
+use frame_support::traits::{ConstBool, ConstU32, ConstU64};
 use frame_support::{BoundedVec, construct_runtime, derive_impl, parameter_types};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::sr25519;
@@ -24,6 +24,7 @@ construct_runtime!(
         Aura: pallet_aura = 2,
         MevShield: pallet_shield = 3,
         Utility: pallet_subtensor_utility = 4,
+        Balances: pallet_balances = 5,
     }
 );
 
@@ -52,6 +53,23 @@ impl pallet_aura::Config for Test {
     type MaxAuthorities = MaxAuthorities;
     type AllowMultipleBlocksPerSlot = ConstBool<false>;
     type SlotDuration = SlotDuration;
+}
+
+impl pallet_balances::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type Balance = u64;
+    type DustRemoval = ();
+    type ExistentialDeposit = ConstU64<1>;
+    type AccountStore = System;
+    type WeightInfo = ();
+    type MaxLocks = ConstU32<50>;
+    type MaxReserves = ConstU32<50>;
+    type ReserveIdentifier = [u8; 8];
+    type RuntimeHoldReason = RuntimeHoldReason;
+    type RuntimeFreezeReason = RuntimeFreezeReason;
+    type FreezeIdentifier = RuntimeFreezeReason;
+    type MaxFreezes = ConstU32<50>;
+    type DoneSlashHandler = ();
 }
 
 impl pallet_subtensor_utility::Config for Test {
@@ -97,6 +115,47 @@ impl pallet_shield::ExtrinsicDecryptor<RuntimeCall> for MockDecryptor {
     }
 }
 
+pub struct MockIbeEncryptedTxDecryptor;
+impl pallet_shield::IbeEncryptedTxDecryptor<RuntimeCall> for MockIbeEncryptedTxDecryptor {
+    fn decrypt(data: &[u8]) -> pallet_shield::IbeDecryptOutcome<RuntimeCall> {
+        let Ok(envelope) = stp_mev_shield_ibe::IbeEncryptedExtrinsicV1::decode_v2(data) else {
+            return pallet_shield::IbeDecryptOutcome::InvalidAfterKeyAvailable;
+        };
+        match envelope.ciphertext.first().copied() {
+            Some(0xAA) => pallet_shield::IbeDecryptOutcome::Ready(RuntimeCall::System(
+                frame_system::Call::remark { remark: vec![0xAA] },
+            )),
+            Some(0xBB) => pallet_shield::IbeDecryptOutcome::Ready(RuntimeCall::System(
+                frame_system::Call::set_heap_pages { pages: 64 },
+            )),
+            Some(0xCC) => pallet_shield::IbeDecryptOutcome::NotReady,
+            _ => pallet_shield::IbeDecryptOutcome::InvalidAfterKeyAvailable,
+        }
+    }
+}
+
+pub struct MockDecryptedExtrinsicExecutor;
+impl pallet_shield::DecryptedExtrinsicExecutor<RuntimeCall> for MockDecryptedExtrinsicExecutor {
+    fn dispatch_info(inner: &RuntimeCall) -> Option<frame_support::dispatch::DispatchInfo> {
+        Some(frame_support::dispatch::GetDispatchInfo::get_dispatch_info(
+            inner,
+        ))
+    }
+
+    fn apply(inner: RuntimeCall) -> pallet_shield::IbeAppliedExtrinsic {
+        let info = frame_support::dispatch::GetDispatchInfo::get_dispatch_info(&inner);
+        let result = sp_runtime::traits::Dispatchable::dispatch(inner, RuntimeOrigin::signed(1));
+        let success = result.is_ok();
+        let consumed_weight = result
+            .map(|post_info| post_info.actual_weight.unwrap_or(info.call_weight))
+            .unwrap_or(info.call_weight);
+        pallet_shield::IbeAppliedExtrinsic {
+            consumed_weight,
+            success,
+        }
+    }
+}
+
 pub struct MockIbeDkgAuthorityProvider;
 impl pallet_shield::IbeDkgAuthorityProvider for MockIbeDkgAuthorityProvider {
     fn authorities_for_epoch(_epoch: u64) -> Vec<mev_shield_ibe_runtime_api::DkgAuthorityInfo> {
@@ -118,6 +177,7 @@ frame_support::parameter_types! {
     pub const TestIbeEpochLength: u64 = 100;
     pub const TestMaxDkgAtoms: u32 = 64;
     pub const TestMaxPendingIbePerSender: u32 = 8;
+    pub const TestIbeSubmissionDeposit: u64 = 10;
 }
 
 impl pallet_shield::Config for Test {
@@ -126,23 +186,36 @@ impl pallet_shield::Config for Test {
     type RuntimeCall = RuntimeCall;
     type ExtrinsicDecryptor = MockDecryptor;
     type InnerExtrinsic = RuntimeCall;
-    type IbeEncryptedTxDecryptor = ();
-    type DecryptedExtrinsicExecutor = ();
+    type IbeEncryptedTxDecryptor = MockIbeEncryptedTxDecryptor;
+    type DecryptedExtrinsicExecutor = MockDecryptedExtrinsicExecutor;
     type IbeKeyVerifier = ();
     type WeightInfo = ();
 
     type EpochLength = TestIbeEpochLength;
     type MaxDkgAtoms = TestMaxDkgAtoms;
     type MaxPendingIbePerSender = TestMaxPendingIbePerSender;
+    type Currency = Balances;
+    type SubmissionDeposit = TestIbeSubmissionDeposit;
     type IbeDkgAuthorityProvider = MockIbeDkgAuthorityProvider;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
     MOCK_DKG_AUTHORITIES.with(|slot| slot.borrow_mut().clear());
-    let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig::default()
+    let mut storage = RuntimeGenesisConfig::default()
         .build_storage()
-        .expect("valid genesis")
-        .into();
+        .expect("valid genesis");
+    pallet_balances::GenesisConfig::<Test> {
+        balances: vec![
+            (1, 1_000_000_000),
+            (2, 1_000_000_000),
+            (3, 1_000_000_000),
+            (100, 1_000_000_000),
+            (200, 1_000_000_000),
+        ],
+    }
+    .assimilate_storage(&mut storage)
+    .expect("balances genesis");
+    let mut ext: sp_io::TestExternalities = storage.into();
     ext.register_extension(sp_keystore::KeystoreExt::new(
         sp_keystore::testing::MemoryKeystore::new(),
     ));
