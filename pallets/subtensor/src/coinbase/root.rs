@@ -304,7 +304,7 @@ impl<T: Config> Pallet<T> {
         // --- 13. Token / mechanism / registration toggles.
         TokenSymbol::<T>::remove(netuid);
         SubnetMechanism::<T>::remove(netuid);
-        SubnetOwnerHotkey::<T>::remove(netuid);
+        let owner_hotkey = SubnetOwnerHotkey::<T>::take(netuid);
         NetworkRegistrationAllowed::<T>::remove(netuid);
         NetworkPowRegistrationAllowed::<T>::remove(netuid);
 
@@ -464,6 +464,12 @@ impl<T: Config> Pallet<T> {
             SubnetLeases::<T>::remove(lease_id);
             let _ = SubnetLeaseShares::<T>::clear_prefix(lease_id, u32::MAX, None);
             AccumulatedLeaseDividends::<T>::remove(lease_id);
+        }
+
+        // --- 23. Subnet sale offers: release sale locks.
+        if let Some(offer) = SubnetSaleOffers::<T>::take(netuid) {
+            SubnetSaleFrozenColdkeys::<T>::remove(&offer.seller);
+            SubnetSaleFrozenHotkeys::<T>::remove(&owner_hotkey);
         }
 
         // --- 23: Locks cleanup
