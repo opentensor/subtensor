@@ -107,7 +107,7 @@ fn test_destroy_alpha_in_out_stakes_clean_alpha() {
                 .count(),
             0
         );
-        assert!(TotalHotkeyAlpha::<Test>::contains_key(&owner_hot, netuid));
+        assert!(TotalHotkeyAlpha::<Test>::contains_key(owner_hot, netuid));
     });
 }
 
@@ -144,7 +144,7 @@ fn test_destroy_alpha_in_out_stakes_clear_hotkey_totals() {
             ),
             "destroy_alpha_in_out_stakes_clear_hotkey_totals should complete"
         );
-        assert!(!TotalHotkeyAlpha::<Test>::contains_key(&owner_hot, netuid));
+        assert!(!TotalHotkeyAlpha::<Test>::contains_key(owner_hot, netuid));
     });
 }
 
