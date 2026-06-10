@@ -13,7 +13,11 @@ fn setup_staked_subnet() -> (U256, U256, NetUid) {
     let netuid = add_dynamic_network(&owner_hot, &owner_cold);
 
     let stake_tao: u64 = 1000;
-    setup_reserves(netuid, (stake_tao * 1_000_000).into(), (stake_tao * 10_000_000).into());
+    setup_reserves(
+        netuid,
+        (stake_tao * 1_000_000).into(),
+        (stake_tao * 10_000_000).into(),
+    );
     let amount: TaoBalance = stake_tao.into();
     assert_ok!(SubtensorModule::create_account_if_non_existent(
         &owner_cold,
@@ -237,23 +241,31 @@ fn test_destroy_alpha_clean_alpha_resumes_with_limited_weight() {
 
         let read_weight = <Test as frame_system::Config>::DbWeight::get().reads(1);
         let mut weight_meter3 = WeightMeter::with_limit(read_weight);
-        let (done, mut last_key) =
-            SubtensorModule::destroy_alpha_in_out_stakes_clean_alpha(netuid, &mut weight_meter3, None);
+        let (done, mut last_key) = SubtensorModule::destroy_alpha_in_out_stakes_clean_alpha(
+            netuid,
+            &mut weight_meter3,
+            None,
+        );
         assert!(!done);
 
         let mut iterations = 0;
         while Alpha::<Test>::iter().any(|((_, _, nu), _)| nu == netuid) {
-            let mut weight_meter =
-                WeightMeter::with_limit(Weight::from_parts(u64::MAX, u64::MAX));
+            let mut weight_meter = WeightMeter::with_limit(Weight::from_parts(u64::MAX, u64::MAX));
             let (done, new_key) = SubtensorModule::destroy_alpha_in_out_stakes_clean_alpha(
                 netuid,
                 &mut weight_meter,
                 last_key,
             );
             last_key = new_key;
-            assert!(done, "clean_alpha should finish once all alpha entries are removed");
+            assert!(
+                done,
+                "clean_alpha should finish once all alpha entries are removed"
+            );
             iterations += 1;
-            assert!(iterations < 10, "clean_alpha should complete within a few passes");
+            assert!(
+                iterations < 10,
+                "clean_alpha should complete within a few passes"
+            );
         }
     });
 }

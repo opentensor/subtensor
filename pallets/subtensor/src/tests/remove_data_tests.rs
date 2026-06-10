@@ -808,13 +808,11 @@ fn test_remove_network_lock() {
 
         let w = Weight::from_parts(u64::MAX, u64::MAX);
         let mut weight_meter = frame_support::weights::WeightMeter::with_limit(w);
-        assert!(
-            run_resumable_netuid_cleanup(
-                netuid,
-                &mut weight_meter,
-                SubtensorModule::remove_network_lock,
-            )
-        );
+        assert!(run_resumable_netuid_cleanup(
+            netuid,
+            &mut weight_meter,
+            SubtensorModule::remove_network_lock,
+        ));
 
         assert!(!Lock::<Test>::contains_key((cold_1, netuid, hot_1)));
         assert!(!Lock::<Test>::contains_key((cold_2, netuid, hot_2)));
@@ -836,13 +834,11 @@ fn test_remove_network_decaying_lock() {
 
         let w = Weight::from_parts(u64::MAX, u64::MAX);
         let mut weight_meter = frame_support::weights::WeightMeter::with_limit(w);
-        assert!(
-            run_resumable_netuid_cleanup(
-                netuid,
-                &mut weight_meter,
-                SubtensorModule::remove_network_decaying_lock,
-            )
-        );
+        assert!(run_resumable_netuid_cleanup(
+            netuid,
+            &mut weight_meter,
+            SubtensorModule::remove_network_decaying_lock,
+        ));
 
         assert!(!DecayingLock::<Test>::contains_key(cold_1, netuid));
         assert!(!DecayingLock::<Test>::contains_key(cold_2, netuid));
@@ -957,8 +953,7 @@ fn test_remove_network_childkeys_resumes_with_limited_weight() {
 
         let mut iterations = 0;
         while ChildKeys::<Test>::iter().any(|(_, n, _)| n == netuid) {
-            let mut weight_meter =
-                WeightMeter::with_limit(Weight::from_parts(u64::MAX, u64::MAX));
+            let mut weight_meter = WeightMeter::with_limit(Weight::from_parts(u64::MAX, u64::MAX));
             let (done, new_key) =
                 SubtensorModule::remove_network_childkeys(netuid, &mut weight_meter, last_key);
             last_key = new_key;
