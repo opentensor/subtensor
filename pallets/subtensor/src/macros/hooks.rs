@@ -173,7 +173,9 @@ mod hooks {
                 // Populate locking reverse map.
                 .saturating_add(migrations::migrate_populate_locking_coldkeys::migrate_populate_locking_coldkeys::<T>())
                 // Capture the runtime-upgrade block for TAO-in refund cutover.
-                .saturating_add(migrations::migrate_tao_in_refund_deployment_block::migrate_tao_in_refund_deployment_block::<T>());
+                .saturating_add(migrations::migrate_tao_in_refund_deployment_block::migrate_tao_in_refund_deployment_block::<T>())
+                // Fix lock state left behind by subnet-scoped hotkey swaps.
+                .saturating_add(migrations::migrate_fix_subnet_hotkey_lock_swaps::migrate_fix_subnet_hotkey_lock_swaps::<T>());
             weight
         }
 
