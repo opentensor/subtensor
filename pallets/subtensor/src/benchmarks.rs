@@ -1805,6 +1805,7 @@ mod pallet_benchmarks {
         assert_eq!(offer.seller, seller);
         assert_eq!(offer.authorized_buyer, Some(authorized_buyer));
         assert_eq!(offer.price, price.into());
+        assert_eq!(offer.created_at, frame_system::Pallet::<T>::block_number());
         assert!(SubnetSaleFrozenColdkeys::<T>::contains_key(&offer.seller));
         assert!(SubnetSaleFrozenHotkeys::<T>::contains_key(&owner_hotkey));
     }

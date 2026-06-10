@@ -46,6 +46,7 @@ fn create_sale_offer_stores_offer_and_freezes_keys() {
         assert_eq!(offer.seller, seller);
         assert_eq!(offer.authorized_buyer, Some(buyer));
         assert_eq!(offer.price, price);
+        assert_eq!(offer.created_at, System::block_number());
         assert!(SubnetSaleFrozenColdkeys::<Test>::contains_key(seller));
         assert!(SubnetSaleFrozenHotkeys::<Test>::contains_key(owner_hotkey));
         assert_eq!(

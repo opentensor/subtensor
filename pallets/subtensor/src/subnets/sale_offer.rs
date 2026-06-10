@@ -6,6 +6,7 @@
 
 use super::*;
 use frame_support::traits::fungible;
+use frame_system::pallet_prelude::BlockNumberFor;
 use subtensor_runtime_common::{NetUid, TaoBalance};
 
 pub type CurrencyOf<T> = <T as Config>::Currency;
@@ -13,9 +14,9 @@ pub type CurrencyOf<T> = <T as Config>::Currency;
 pub type BalanceOf<T> =
     <CurrencyOf<T> as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
-#[freeze_struct("7e8727dabcea5026")]
+#[freeze_struct("801dda6b57266829")]
 #[derive(Encode, Decode, Eq, PartialEq, Ord, PartialOrd, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub struct SubnetSaleOffer<AccountId, Balance> {
+pub struct SubnetSaleOffer<AccountId, Balance, BlockNumber> {
     /// The subnet being sold.
     pub netuid: NetUid,
     /// The subnet owner coldkey that created the offer.
@@ -24,9 +25,11 @@ pub struct SubnetSaleOffer<AccountId, Balance> {
     pub authorized_buyer: Option<AccountId>,
     /// Sale price expected by the seller.
     pub price: Balance,
+    /// Block at which the sale offer was created.
+    pub created_at: BlockNumber,
 }
 
-pub type SubnetSaleOfferOf<T> = SubnetSaleOffer<AccountIdOf<T>, BalanceOf<T>>;
+pub type SubnetSaleOfferOf<T> = SubnetSaleOffer<AccountIdOf<T>, BalanceOf<T>, BlockNumberFor<T>>;
 
 impl<T: Config> Pallet<T> {
     pub fn do_create_sale_offer(
@@ -63,6 +66,7 @@ impl<T: Config> Pallet<T> {
                 seller: seller.clone(),
                 authorized_buyer: authorized_buyer.clone(),
                 price: price.into(),
+                created_at: frame_system::Pallet::<T>::block_number(),
             },
         );
         SubnetSaleFrozenColdkeys::<T>::insert(&seller, ());
