@@ -335,6 +335,11 @@ impl Contains<RuntimeCall> for NoNestingCallFilter {
     }
 }
 
+pub type DispatchExtension = (
+    pallet_subtensor::CheckColdkeySwap<Runtime>,
+    pallet_subtensor::CheckSubnetSale<Runtime>,
+);
+
 // Configure FRAME pallets to include in runtime.
 
 impl frame_system::Config for Runtime {
@@ -391,7 +396,7 @@ impl frame_system::Config for Runtime {
     type PostInherents = ();
     type PostTransactions = ();
     type ExtensionsWeightInfo = frame_system::SubstrateExtensionsWeight<Runtime>;
-    type DispatchExtension = pallet_subtensor::CheckColdkeySwap<Runtime>;
+    type DispatchExtension = DispatchExtension;
 }
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}

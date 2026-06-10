@@ -16,7 +16,6 @@ mod math;
 mod mechanism;
 mod migration;
 pub(crate) mod mock;
-pub(crate) mod mock_high_ed;
 mod move_stake;
 mod networks;
 mod neuron_info;
