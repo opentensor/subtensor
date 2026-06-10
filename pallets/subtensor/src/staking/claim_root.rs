@@ -135,7 +135,7 @@ impl<T: Config> Pallet<T> {
         root_claim_type: RootClaimTypeEnum,
         ignore_minimum_condition: bool,
     ) -> DispatchResult {
-        if DissolvedNetworks::<T>::get().contains(&netuid) {
+        if DissolveCleanupQueue::<T>::get().contains(&netuid) {
             log::debug!("root claim on subnet {netuid} is skipped, network is dissolved");
             return Ok(());
         }

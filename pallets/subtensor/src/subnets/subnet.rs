@@ -57,7 +57,7 @@ impl<T: Config> Pallet<T> {
         let mut next_netuid = NetUid::from(1); // do not allow creation of root
         let netuids = Self::get_all_subnet_netuids();
         loop {
-            if DissolvedNetworks::<T>::get().contains(&next_netuid) {
+            if DissolveCleanupQueue::<T>::get().contains(&next_netuid) {
                 next_netuid = next_netuid.next();
                 continue;
             }
@@ -462,7 +462,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_subnet_account_id(netuid: NetUid) -> Option<T::AccountId> {
         if NetworksAdded::<T>::contains_key(netuid)
             || netuid == NetUid::ROOT
-            || DissolvedNetworks::<T>::get().contains(&netuid)
+            || DissolveCleanupQueue::<T>::get().contains(&netuid)
         {
             Some(T::SubtensorPalletId::get().into_sub_account_truncating(u16::from(netuid)))
         } else {

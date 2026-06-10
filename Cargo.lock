@@ -10995,7 +10995,6 @@ dependencies = [
  "sha2 0.10.9",
  "share-pool",
  "sp-core",
- "sp-debug-derive",
  "sp-io",
  "sp-keyring",
  "sp-runtime",

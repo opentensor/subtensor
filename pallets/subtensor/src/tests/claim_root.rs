@@ -4,7 +4,7 @@ use super::mock::run_block_idle;
 use crate::RootAlphaDividendsPerSubnet;
 use crate::tests::mock::*;
 use crate::{
-    DefaultMinRootClaimAmount, DissolvedNetworks, Error, LastKeptRawKey, MAX_NUM_ROOT_CLAIMS,
+    DefaultMinRootClaimAmount, DissolveCleanupQueue, Error, LastKeptRawKey, MAX_NUM_ROOT_CLAIMS,
     MAX_ROOT_CLAIM_THRESHOLD, NetworksAdded, NumRootClaim, NumStakingColdkeys,
     PendingRootAlphaDivs, RootClaimable, RootClaimableThreshold, RootClaimed, StakingColdkeys,
     StakingColdkeysByIndex, SubnetAlphaIn, SubnetAlphaOut, SubnetMechanism, SubnetMovingPrice,
@@ -1487,7 +1487,7 @@ fn test_claim_root_on_network_deregistration() {
 
         assert_ok!(SubtensorModule::do_dissolve_network(netuid));
 
-        DissolvedNetworks::<Test>::set(vec![netuid]);
+        DissolveCleanupQueue::<Test>::set(vec![netuid]);
 
         run_block_idle();
 
@@ -1512,7 +1512,7 @@ fn root_claim_on_subnet_is_noop_when_subnet_is_dissolved_queue() {
         claimable.insert(netuid, I96F32::from(9_000_000i32));
         RootClaimable::<Test>::insert(hotkey, claimable);
 
-        DissolvedNetworks::<Test>::put(vec![netuid]);
+        DissolveCleanupQueue::<Test>::put(vec![netuid]);
 
         let before = RootClaimable::<Test>::get(hotkey).clone();
         let _ = SubtensorModule::root_claim_on_subnet(

@@ -92,6 +92,7 @@ pub trait WeightInfo {
 	fn set_pending_childkey_cooldown() -> Weight;
 	fn lock_stake() -> Weight;
 	fn move_lock() -> Weight;
+	fn dissolve_network() -> Weight;
 }
 
 /// Weights for `pallet_subtensor` using the Substrate node and recommended hardware.
@@ -1717,6 +1718,19 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+
+	/// Storage: `SubtensorModule::DissolvedSubnetDistributedTao` (r:0 w:1)
+	/// Proof: `SubtensorModule::DissolvedSubnetDistributedTao` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn dissolve_network() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 0 picoseconds.
+		Weight::from_parts(0, 0)
+			.saturating_add(T::DbWeight::get().reads(0_u64))
+			.saturating_add(T::DbWeight::get().writes(0_u64))
+	}
+
 	/// Storage: `SubtensorModule::SubnetOwner` (r:1 w:0)
 	/// Proof: `SubtensorModule::SubnetOwner` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::SubnetIdentitiesV3` (r:0 w:1)
@@ -4808,5 +4822,14 @@ impl WeightInfo for () {
 		Weight::from_parts(140_653_000, 7306)
 			.saturating_add(RocksDbWeight::get().reads(14_u64))
 			.saturating_add(RocksDbWeight::get().writes(4_u64))
+	}
+	fn dissolve_network() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 0 picoseconds.
+		Weight::from_parts(0, 0)
+			.saturating_add(RocksDbWeight::get().reads(0_u64))
+			.saturating_add(RocksDbWeight::get().writes(0_u64))
 	}
 }

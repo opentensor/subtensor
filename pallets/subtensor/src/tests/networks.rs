@@ -121,13 +121,13 @@ fn dissolve_defers_cleanup_until_on_idle() {
 
         assert!(SubnetOwner::<Test>::contains_key(net));
         assert!(NetworkRegisteredAt::<Test>::contains_key(net));
-        assert!(!DissolvedNetworks::<Test>::get().contains(&net));
+        assert!(!DissolveCleanupQueue::<Test>::get().contains(&net));
 
         assert_ok!(SubtensorModule::do_dissolve_network(net));
 
         // Network is no longer considered "existing" but data is not cleaned yet.
         assert!(!SubtensorModule::if_subnet_exist(net));
-        assert!(DissolvedNetworks::<Test>::get().contains(&net));
+        assert!(DissolveCleanupQueue::<Test>::get().contains(&net));
         assert!(SubnetOwner::<Test>::contains_key(net));
         assert!(NetworkRegisteredAt::<Test>::contains_key(net));
 
@@ -136,7 +136,7 @@ fn dissolve_defers_cleanup_until_on_idle() {
 
         assert!(!SubnetOwner::<Test>::contains_key(net));
         assert!(!NetworkRegisteredAt::<Test>::contains_key(net));
-        assert!(!DissolvedNetworks::<Test>::get().contains(&net));
+        assert!(!DissolveCleanupQueue::<Test>::get().contains(&net));
     });
 }
 
@@ -1687,7 +1687,7 @@ fn register_network_prunes_and_netuid_not_reused() {
 
         assert_ne!(new_netuid, NetUid::from(0));
         assert_eq!(TotalNetworks::<Test>::get(), 2);
-        assert!(DissolvedNetworks::<Test>::get().contains(&n1));
+        assert!(DissolveCleanupQueue::<Test>::get().contains(&n1));
         assert!(!NetworksAdded::<Test>::get(n1));
         assert!(NetworksAdded::<Test>::get(n2));
         assert_eq!(SubnetOwner::<Test>::get(n2), n2_cold);
@@ -1703,7 +1703,7 @@ fn get_subnet_account_id_some_while_dissolved_cleanup_pending() {
         let net = add_dynamic_network(&hot, &cold);
         assert_ok!(SubtensorModule::do_dissolve_network(net));
         assert!(!SubtensorModule::if_subnet_exist(net));
-        assert!(DissolvedNetworks::<Test>::get().contains(&net));
+        assert!(DissolveCleanupQueue::<Test>::get().contains(&net));
         assert!(
             SubtensorModule::get_subnet_account_id(net).is_some(),
             "subnet TAO account must stay derivable during async dissolve cleanup"
@@ -1715,7 +1715,7 @@ fn get_subnet_account_id_some_while_dissolved_cleanup_pending() {
 fn register_network_skips_dissolved_netuid() {
     new_test_ext(0).execute_with(|| {
         let dissolved = NetUid::from(1);
-        DissolvedNetworks::<Test>::put(vec![dissolved]);
+        DissolveCleanupQueue::<Test>::put(vec![dissolved]);
 
         let cold = U256::from(60);
         let hot = U256::from(61);
@@ -3182,7 +3182,7 @@ fn dissolve_async_cleanup_leaves_phase_unset_until_idle_finishes() {
 
         assert_ok!(SubtensorModule::do_dissolve_network(net));
         assert!(
-            DissolvedNetworks::<Test>::get().contains(&net),
+            DissolveCleanupQueue::<Test>::get().contains(&net),
             "dissolved netuid should be queued for on_idle cleanup"
         );
         assert!(
@@ -3193,7 +3193,7 @@ fn dissolve_async_cleanup_leaves_phase_unset_until_idle_finishes() {
         run_block_idle();
 
         assert!(
-            !DissolvedNetworks::<Test>::get().contains(&net),
+            !DissolveCleanupQueue::<Test>::get().contains(&net),
             "idle cleanup should drain the dissolved net from the queue"
         );
         assert!(
@@ -3237,11 +3237,11 @@ fn dissolve_full_on_idle_emits_dissolved_network_data_cleaned_and_clears_phase()
             System::events().iter().any(|e| {
                 matches!(
                     &e.event,
-                    RuntimeEvent::SubtensorModule(Event::DissolvedNetworkDataCleaned { netuid: n })
+                    RuntimeEvent::SubtensorModule(Event::NetworkDissolveCleanupCompleted { netuid: n })
                         if *n == net
                 )
             }),
-            "expected DissolvedNetworkDataCleaned after async dissolve pipeline"
+            "expected NetworkDissolveCleanupCompleted after async dissolve pipeline"
         );
         assert!(
             DissolvedNetworksCleanupPhase::<Test>::get().is_none(),
@@ -3258,10 +3258,10 @@ fn dissolve_two_networks_fifo_cleanup_drains_queue() {
 
         assert_ok!(SubtensorModule::do_dissolve_network(n1));
         assert_ok!(SubtensorModule::do_dissolve_network(n2));
-        assert_eq!(DissolvedNetworks::<Test>::get(), vec![n1, n2]);
+        assert_eq!(DissolveCleanupQueue::<Test>::get(), vec![n1, n2]);
 
         let mut guard = 0u32;
-        while !DissolvedNetworks::<Test>::get().is_empty() {
+        while !DissolveCleanupQueue::<Test>::get().is_empty() {
             guard = guard.saturating_add(1);
             assert!(
                 guard < 256,

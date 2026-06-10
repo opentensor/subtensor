@@ -1231,9 +1231,7 @@ mod dispatches {
         /// Remove a user's subnetwork
         /// The caller must be the owner of the network
         #[pallet::call_index(61)]
-        #[pallet::weight(Weight::from_parts(28_560_000, 0)
-		.saturating_add(T::DbWeight::get().reads(3))
-		.saturating_add(T::DbWeight::get().writes(3)))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::dissolve_network())]
         pub fn dissolve_network(
             origin: OriginFor<T>,
             _coldkey: T::AccountId,

@@ -22,7 +22,7 @@ fn call_remove_single_value(weight_meter: &mut WeightMeter, weight: Weight) -> b
 fn test_remove_single_value() {
     new_test_ext(0).execute_with(|| {
         DissolvedNetworksCleanupPhase::<Test>::set(Some(
-            DissolvedNetworksCleanupPhaseEnum::CleanSubnetRootDividendsRootClaimable,
+            DissolveCleanupPhase::CleanSubnetRootDividendsRootClaimable,
         ));
         let w = Weight::from_parts(100_u64, 100_u64);
 
@@ -36,7 +36,7 @@ fn test_remove_single_value() {
 fn test_remove_single_value_failed() {
     new_test_ext(0).execute_with(|| {
         DissolvedNetworksCleanupPhase::<Test>::set(Some(
-            DissolvedNetworksCleanupPhaseEnum::CleanSubnetRootDividendsRootClaimable,
+            DissolveCleanupPhase::CleanSubnetRootDividendsRootClaimable,
         ));
         let w = Weight::from_parts(100_u64, 100_u64);
 
@@ -114,13 +114,13 @@ fn test_remove_data_for_dissolved_networks_all_phases() {
         assert_ok!(SubtensorModule::do_dissolve_network(netuid));
 
         // Verify it's in the dissolved networks queue
-        assert!(DissolvedNetworks::<Test>::get().contains(&netuid));
+        assert!(DissolveCleanupQueue::<Test>::get().contains(&netuid));
 
         // Run cleanup phases until completion
         let mut iterations = 0;
         let max_iterations = 30; // Should be enough to go through all phases
 
-        while !DissolvedNetworks::<Test>::get().is_empty() && iterations < max_iterations {
+        while !DissolveCleanupQueue::<Test>::get().is_empty() && iterations < max_iterations {
             let used_weight = SubtensorModule::on_idle(0, remaining_weight);
             remaining_weight = remaining_weight.saturating_sub(used_weight);
             iterations += 1;
@@ -132,7 +132,7 @@ fn test_remove_data_for_dissolved_networks_all_phases() {
         }
 
         // Verify the network has been fully removed
-        assert!(!DissolvedNetworks::<Test>::get().contains(&netuid));
+        assert!(!DissolveCleanupQueue::<Test>::get().contains(&netuid));
         assert_eq!(
             DissolvedNetworksCleanupPhase::<Test>::get(),
             None,
@@ -372,13 +372,13 @@ fn test_remove_data_for_dissolved_networks_via_on_idle() {
         assert_ok!(SubtensorModule::do_dissolve_network(netuid));
 
         // Verify it's in the dissolved networks queue
-        assert!(DissolvedNetworks::<Test>::get().contains(&netuid));
+        assert!(DissolveCleanupQueue::<Test>::get().contains(&netuid));
 
         // Run cleanup phases until completion
         let mut iterations = 0;
         let max_iterations = 30; // Should be enough to go through all phases
 
-        while !DissolvedNetworks::<Test>::get().is_empty() && iterations < max_iterations {
+        while !DissolveCleanupQueue::<Test>::get().is_empty() && iterations < max_iterations {
             let used_weight = SubtensorModule::on_idle(0, remaining_weight);
             remaining_weight = remaining_weight.saturating_sub(used_weight);
             iterations += 1;
@@ -390,7 +390,7 @@ fn test_remove_data_for_dissolved_networks_via_on_idle() {
         }
 
         // Verify the network has been fully removed
-        assert!(!DissolvedNetworks::<Test>::get().contains(&netuid));
+        assert!(!DissolveCleanupQueue::<Test>::get().contains(&netuid));
         assert_eq!(
             DissolvedNetworksCleanupPhase::<Test>::get(),
             None,
@@ -784,7 +784,7 @@ fn test_remove_network_hotkey_and_owner_lock_maps() {
             last_update: 1,
         };
 
-        DissolvedNetworks::<Test>::set(vec![netuid]);
+        DissolveCleanupQueue::<Test>::set(vec![netuid]);
 
         HotkeyLock::<Test>::insert(netuid, hot_1, lock_state.clone());
         HotkeyLock::<Test>::insert(netuid, hot_2, lock_state.clone());

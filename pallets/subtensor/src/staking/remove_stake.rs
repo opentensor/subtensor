@@ -425,20 +425,14 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn destroy_alpha_in_out_stakes(netuid: NetUid, weight_meter: &mut WeightMeter) -> bool {
-        let total_alpha_value_u128: u128 = match DissolvedSubnetTotalAlphaValue::<T>::get() {
-            Some(value) => value,
-            None => {
-                log::warn!("DissolvedSubnetTotalAlphaValue not set");
-                return false;
-            }
+        let Some(total_alpha_value_u128) = DissolvedSubnetTotalAlphaValue::<T>::get() else {
+            log::warn!("DissolvedSubnetTotalAlphaValue not set");
+            return false;
         };
 
-        let mut distributed_tao_value_u128: u128 = match DissolvedSubnetDistributedTao::<T>::get() {
-            Some(value) => value,
-            None => {
-                log::warn!("DissolvedSubnetDistributedTao not set");
-                return false;
-            }
+        let Some(mut distributed_tao_value_u128) = DissolvedSubnetDistributedTao::<T>::get() else {
+            log::warn!("DissolvedSubnetDistributedTao not set");
+            return false;
         };
 
         // Check if there is enought weight to complete all the operations in this function

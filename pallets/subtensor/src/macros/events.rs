@@ -533,7 +533,7 @@ mod events {
         },
 
         /// data for a dissolved network has been cleaned up.
-        DissolvedNetworkDataCleaned {
+        NetworkDissolveCleanupCompleted {
             /// The subnet ID
             netuid: NetUid,
         },

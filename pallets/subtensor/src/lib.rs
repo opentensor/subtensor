@@ -355,18 +355,23 @@ pub mod pallet {
             subnets: BTreeSet<NetUid>,
         },
     }
-    /// Enum for the dissolved networks cleanup phase.
-    #[derive(
-        Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug, DecodeWithMemTracking,
-    )]
-    pub enum DissolvedNetworksCleanupPhaseEnum {
-        #[default]
+    /// Enum for the dissolve cleanup phase.
+    #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, DecodeWithMemTracking)]
+    pub enum DissolveCleanupPhase {
         /// Phase 1.1: Remove root dividend claimable entries for the subnet.
-        CleanSubnetRootDividendsRootClaimable,
+        CleanSubnetRootDividendsRootClaimable {
+            /// Last key of the root dividend claimable entries.
+            last_key: Option<Vec<u8>>,
+        },
         /// Phase 1.2: Remove root dividend claimed entries for the subnet.
         CleanSubnetRootDividendsRootClaimed,
         /// Phase 2.1: Get the total alpha value for the subnet.
-        DestroyAlphaInOutStakesGetTotalAlphaValue,
+        DestroyAlphaInOutStakesGetTotalAlphaValue {
+            /// Last key of the alpha in and out stakes entries.
+            last_key: Option<Vec<u8>>,
+            /// Total alpha value for the subnet.
+            total_alpha_value: u128,
+        },
         /// Phase 2.2: Destroy alpha in and out stakes for the subnet.
         DestroyAlphaInOutStakesSettleStakes,
         /// Phase 2.3: Clean alpha entries for the subnet.
@@ -405,6 +410,12 @@ pub mod pallet {
         RemoveNetworkLock,
         /// Phase 5.12: Remove decaying lock entries for this netuid.
         RemoveNetworkDecayingLock,
+    }
+
+    impl Default for DissolveCleanupPhase {
+        fn default() -> Self {
+            Self::CleanSubnetRootDividendsRootClaimable { last_key: None }
+        }
     }
 
     /// The Max Burn HalfLife Settable
@@ -2163,14 +2174,13 @@ pub mod pallet {
     pub type SubtokenEnabled<T> =
         StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultFalse<T>>;
 
-    /// --- ITEM ( dissolved_networks ) Networks dissolved but some storage not removed yet
+    /// --- ITEM ( dissolve_cleanup_queue ) Networks dissolved but some storage not removed yet
     #[pallet::storage]
-    pub type DissolvedNetworks<T> = StorageValue<_, Vec<NetUid>, ValueQuery>;
+    pub type DissolveCleanupQueue<T> = StorageValue<_, Vec<NetUid>, ValueQuery>;
 
     /// --- ITEM ( dissolved_networks_cleanup_phase ) Networks dissolved data cleanup phase.
     #[pallet::storage]
-    pub type DissolvedNetworksCleanupPhase<T> =
-        StorageValue<_, DissolvedNetworksCleanupPhaseEnum, OptionQuery>;
+    pub type DissolvedNetworksCleanupPhase<T> = StorageValue<_, DissolveCleanupPhase, OptionQuery>;
 
     /// --- ITEM ( last_kept_raw_key ) Last kept raw key for the next iteration.
     /// It is only used during clean the data for dissolved networks.
