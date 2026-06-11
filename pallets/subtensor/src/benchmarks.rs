@@ -6,11 +6,11 @@ use crate::Pallet as Subtensor;
 use crate::staking::lock::LockState;
 use crate::*;
 use codec::{Compact, Encode};
-use sp_core::{ecdsa, H160, H256, Pair};
 use frame_benchmarking::v2::*;
 use frame_support::{StorageDoubleMap, assert_ok};
 use frame_system::{RawOrigin, pallet_prelude::BlockNumberFor};
 pub use pallet::*;
+use sp_core::{H160, H256, Pair, ecdsa};
 use sp_runtime::{
     BoundedVec, Percent,
     traits::{BlakeTwo256, Hash},
@@ -2201,8 +2201,7 @@ mod pallet_benchmarks {
         let evm_pair = ecdsa::Pair::from_seed(&[42u8; 32]);
         let evm_key = evm_key_from_ecdsa_pair(&evm_pair);
 
-        let signature =
-            signature_for_associate_evm_key::<T>(&hotkey, block_number, &evm_pair);
+        let signature = signature_for_associate_evm_key::<T>(&hotkey, block_number, &evm_pair);
 
         #[extrinsic_call]
         _(
