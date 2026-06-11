@@ -3121,8 +3121,12 @@ fn test_coldkey_swap_swaps_lock() {
                 .next()
                 .is_none()
         );
+        assert!(!DecayingLock::<Test>::contains_key(old_coldkey, netuid));
         // New coldkey now has the lock
         assert!(Lock::<Test>::get((new_coldkey, netuid, hotkey)).is_some());
+        assert_eq!(DecayingLock::<Test>::get(new_coldkey, netuid), Some(false));
+        assert!(HotkeyLock::<Test>::contains_key(netuid, hotkey));
+        assert!(!DecayingHotkeyLock::<Test>::contains_key(netuid, hotkey));
     });
 }
 
