@@ -7,10 +7,10 @@ use core::{marker::PhantomData, num::NonZeroU64};
 use fp_evm::{Context, PrecompileResult};
 use frame_support::{
     PalletId, derive_impl, parameter_types,
-    traits::{Everything, InherentBuilder, PrivilegeCmp},
+    traits::{Everything, PrivilegeCmp},
     weights::Weight,
 };
-use frame_system::{EnsureRoot, limits, offchain::CreateTransactionBase};
+use frame_system::{EnsureRoot, limits};
 use pallet_evm::{
     AddressMapping, BalanceConverter, EnsureAddressNever, EnsureAddressRoot, EvmBalance,
     PrecompileHandle, PrecompileSet, SubstrateBalance,
@@ -22,7 +22,7 @@ use sp_runtime::{
     testing::TestXt,
     traits::{BlakeTwo256, ConstU32, IdentityLookup},
 };
-use substrate_fixed::types::U96F32;
+use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{AuthorshipInfo, NetUid, ProxyType, TaoBalance};
 
 use crate::PrecompileExt;
@@ -74,7 +74,6 @@ parameter_types! {
     pub const MaxContributors: u32 = 10;
     pub const SwapProtocolId: PalletId = PalletId(*b"ten/swap");
     pub const SwapMaxFeeRate: u16 = 10000;
-    pub const SwapMaxPositions: u32 = 100;
     pub const SwapMinimumLiquidity: u64 = 1_000;
     pub const SwapMinimumReserve: NonZeroU64 = NonZeroU64::new(1_000_000).unwrap();
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *
@@ -286,7 +285,6 @@ impl pallet_subtensor_swap::Config for Runtime {
     type TaoReserve = pallet_subtensor::TaoBalanceReserve<Self>;
     type AlphaReserve = pallet_subtensor::AlphaBalanceReserve<Self>;
     type MaxFeeRate = SwapMaxFeeRate;
-    type MaxPositions = SwapMaxPositions;
     type MinimumLiquidity = SwapMinimumLiquidity;
     type MinimumReserve = SwapMinimumReserve;
     type WeightInfo = ();
@@ -370,7 +368,7 @@ impl frame_system::offchain::SigningTypes for Runtime {
     type Signature = test_crypto::Signature;
 }
 
-impl<LocalCall> CreateTransactionBase<LocalCall> for Runtime
+impl<LocalCall> frame_system::offchain::CreateTransactionBase<LocalCall> for Runtime
 where
     RuntimeCall: From<LocalCall>,
 {
@@ -378,28 +376,12 @@ where
     type RuntimeCall = RuntimeCall;
 }
 
-impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Runtime
+impl<LocalCall> frame_system::offchain::CreateBare<LocalCall> for Runtime
 where
     RuntimeCall: From<LocalCall>,
 {
     fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
-        UncheckedExtrinsic::new_inherent(call)
-    }
-}
-
-impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
-where
-    RuntimeCall: From<LocalCall>,
-{
-    fn create_signed_transaction<
-        C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>,
-    >(
-        call: <Self as CreateTransactionBase<LocalCall>>::RuntimeCall,
-        _public: Self::Public,
-        _account: Self::AccountId,
-        nonce: Self::Nonce,
-    ) -> Option<Self::Extrinsic> {
-        Some(UncheckedExtrinsic::new_signed(call, nonce, (), ()))
+        UncheckedExtrinsic::new_bare(call)
     }
 }
 
@@ -622,8 +604,8 @@ pub(crate) fn selector_u32(signature: &str) -> u32 {
     u32::from_be_bytes([hash[0], hash[1], hash[2], hash[3]])
 }
 
-pub(crate) fn alpha_price_to_evm(price: U96F32) -> U256 {
-    let scaled_price = (price * U96F32::from_num(EVM_DECIMALS_FACTOR)).to_num::<u64>();
+pub(crate) fn alpha_price_to_evm(price: U64F64) -> U256 {
+    let scaled_price = (price * U64F64::from_num(EVM_DECIMALS_FACTOR)).to_num::<u64>();
     <Runtime as pallet_evm::Config>::BalanceConverter::into_evm_balance(scaled_price.into())
         .expect("runtime balance conversion should work for alpha price")
         .into_u256()

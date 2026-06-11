@@ -261,6 +261,11 @@ impl<T: Config> Pallet<T> {
         credit: CreditOf<T>,
         part: BalanceOf<T>,
     ) -> Result<CreditOf<T>, CreditOf<T>> {
+        // Reject overspending.
+        if credit.peek() < part {
+            return Err(credit);
+        }
+
         let (to_spend, remainder) = credit.split(part);
 
         match <T as Config>::Currency::resolve(coldkey, to_spend) {

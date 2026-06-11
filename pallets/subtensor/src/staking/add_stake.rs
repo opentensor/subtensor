@@ -66,7 +66,6 @@ impl<T: Config> Pallet<T> {
             netuid,
             stake_to_be_added,
             T::SwapInterface::max_price(),
-            true,
             false,
         )
     }
@@ -155,7 +154,6 @@ impl<T: Config> Pallet<T> {
             netuid,
             possible_stake,
             limit_price,
-            true,
             false,
         )
     }
@@ -172,7 +170,8 @@ impl<T: Config> Pallet<T> {
             if limit_price >= 1_000_000_000.into() {
                 return Ok(u64::MAX);
             } else {
-                return Err(Error::<T>::ZeroMaxStakeAmount.into());
+                // Price will never move down, so maximum amount that can be staked is zero
+                return Ok(0_u64);
             }
         }
 
@@ -181,10 +180,6 @@ impl<T: Config> Pallet<T> {
         let result = T::SwapInterface::swap(netuid.into(), order, limit_price, false, true)
             .map(|r| r.amount_paid_in.saturating_add(r.fee_paid))?;
 
-        if !result.is_zero() {
-            Ok(result.into())
-        } else {
-            Err(Error::<T>::ZeroMaxStakeAmount.into())
-        }
+        Ok(result.into())
     }
 }
