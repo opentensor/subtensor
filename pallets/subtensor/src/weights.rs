@@ -92,6 +92,7 @@ pub trait WeightInfo {
 	fn set_pending_childkey_cooldown() -> Weight;
 	fn lock_stake() -> Weight;
 	fn move_lock() -> Weight;
+	fn associate_evm_key() -> Weight;
 }
 
 /// Weights for `pallet_subtensor` using the Substrate node and recommended hardware.
@@ -2451,6 +2452,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(14_u64))
 			.saturating_add(T::DbWeight::get().writes(4_u64))
 	}
+
+	fn associate_evm_key() -> Weight {
+		Weight::from_parts(1, 0)
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -4808,5 +4815,11 @@ impl WeightInfo for () {
 		Weight::from_parts(140_653_000, 7306)
 			.saturating_add(RocksDbWeight::get().reads(14_u64))
 			.saturating_add(RocksDbWeight::get().writes(4_u64))
+	}
+
+	fn associate_evm_key() -> Weight {
+		Weight::from_parts(1, 0)
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }
