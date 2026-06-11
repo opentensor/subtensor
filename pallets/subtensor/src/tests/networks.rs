@@ -1042,7 +1042,7 @@ fn destroy_alpha_in_out_stakes_cleans_locking_coldkeys() {
         Lock::<Test>::insert((coldkey, other_netuid, hotkey), lock);
         LockingColdkeys::<Test>::insert((other_netuid, hotkey, coldkey), ());
 
-        assert_ok!(SubtensorModule::destroy_alpha_in_out_stakes(
+        assert!(SubtensorModule::destroy_alpha_in_out_stakes(
             netuid,
             &mut WeightMeter::with_limit(Weight::from_parts(u64::MAX, u64::MAX))
         ));
@@ -1089,9 +1089,9 @@ fn destroy_alpha_in_out_stakes_cleans_all_lock_aggregates() {
         DecayingOwnerLock::<Test>::insert(other_netuid, lock);
         DecayingLock::<Test>::insert(coldkey, other_netuid, false);
 
-        assert_ok!(SubtensorModule::destroy_alpha_in_out_stakes(
+        assert!(SubtensorModule::destroy_alpha_in_out_stakes(
             netuid,
-            WeightMeter::new(Weight::from_parts(u64::MAX, u64::MAX))
+            &mut WeightMeter::with_limit(Weight::from_parts(u64::MAX, u64::MAX))
         ));
 
         assert!(!HotkeyLock::<Test>::contains_key(netuid, hotkey));
