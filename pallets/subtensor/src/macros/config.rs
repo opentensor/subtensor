@@ -120,6 +120,18 @@ mod config {
         /// Max burn lower bound.
         #[pallet::constant]
         type MaxBurnLowerBound: Get<TaoBalance>;
+        /// Lower bound for owner-set tempo.
+        #[pallet::constant]
+        type MinTempo: Get<u16>;
+        /// Upper bound for owner-set tempo.
+        #[pallet::constant]
+        type MaxTempo: Get<u16>;
+        /// Lower bound for the activity-cutoff factor (per-mille).
+        #[pallet::constant]
+        type MinActivityCutoffFactorMilli: Get<u32>;
+        /// Upper bound for the activity-cutoff factor (per-mille).
+        #[pallet::constant]
+        type MaxActivityCutoffFactorMilli: Get<u32>;
         /// Initial adjustment interval.
         #[pallet::constant]
         type InitialAdjustmentInterval: Get<u16>;

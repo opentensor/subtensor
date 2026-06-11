@@ -174,6 +174,10 @@ parameter_types! {
     pub const InitialMaxBurn: u64 = 1_000_000_000;
     pub const MinBurnUpperBound: TaoBalance = TaoBalance::new(1_000_000_000); // 1 TAO
     pub const MaxBurnLowerBound: TaoBalance = TaoBalance::new(100_000_000); // 0.1 TAO
+    pub const MinTempo: u16 = crate::MIN_TEMPO;
+    pub const MaxTempo: u16 = crate::MAX_TEMPO;
+    pub const MinActivityCutoffFactorMilli: u32 = crate::MIN_ACTIVITY_CUTOFF_FACTOR_MILLI;
+    pub const MaxActivityCutoffFactorMilli: u32 = crate::MAX_ACTIVITY_CUTOFF_FACTOR_MILLI;
     pub const InitialValidatorPruneLen: u64 = 0;
     pub const InitialScalingLawPower: u16 = 50;
     pub const InitialMaxAllowedValidators: u16 = 100;
@@ -262,6 +266,10 @@ impl crate::Config for Test {
     type InitialMinStake = InitialMinStake;
     type MinBurnUpperBound = MinBurnUpperBound;
     type MaxBurnLowerBound = MaxBurnLowerBound;
+    type MinTempo = MinTempo;
+    type MaxTempo = MaxTempo;
+    type MinActivityCutoffFactorMilli = MinActivityCutoffFactorMilli;
+    type MaxActivityCutoffFactorMilli = MaxActivityCutoffFactorMilli;
     type InitialRAORecycledForRegistration = InitialRAORecycledForRegistration;
     type InitialNetworkImmunityPeriod = InitialNetworkImmunityPeriod;
     type InitialNetworkMinLockCost = InitialNetworkMinLockCost;

@@ -1018,6 +1018,12 @@ parameter_types! {
     pub const SubtensorInitialMaxBurn: TaoBalance = TaoBalance::new(100_000_000_000); // 100 tao
     pub const MinBurnUpperBound: TaoBalance = TaoBalance::new(1_000_000_000); // 1 TAO
     pub const MaxBurnLowerBound: TaoBalance = TaoBalance::new(100_000_000); // 0.1 TAO
+    pub const SubtensorMinTempo: u16 = pallet_subtensor::MIN_TEMPO;
+    pub const SubtensorMaxTempo: u16 = pallet_subtensor::MAX_TEMPO;
+    pub const SubtensorMinActivityCutoffFactorMilli: u32 =
+        pallet_subtensor::MIN_ACTIVITY_CUTOFF_FACTOR_MILLI;
+    pub const SubtensorMaxActivityCutoffFactorMilli: u32 =
+        pallet_subtensor::MAX_ACTIVITY_CUTOFF_FACTOR_MILLI;
     pub const SubtensorInitialTxRateLimit: u64 = 1000;
     pub const SubtensorInitialTxDelegateTakeRateLimit: u64 = 216000; // 30 days at 12 seconds per block
     pub const SubtensorInitialTxChildKeyTakeRateLimit: u64 = INITIAL_CHILDKEY_TAKE_RATELIMIT;
@@ -1093,6 +1099,10 @@ impl pallet_subtensor::Config for Runtime {
     type InitialMinStake = SubtensorInitialMinStake;
     type MinBurnUpperBound = MinBurnUpperBound;
     type MaxBurnLowerBound = MaxBurnLowerBound;
+    type MinTempo = SubtensorMinTempo;
+    type MaxTempo = SubtensorMaxTempo;
+    type MinActivityCutoffFactorMilli = SubtensorMinActivityCutoffFactorMilli;
+    type MaxActivityCutoffFactorMilli = SubtensorMaxActivityCutoffFactorMilli;
     type InitialTxRateLimit = SubtensorInitialTxRateLimit;
     type InitialTxDelegateTakeRateLimit = SubtensorInitialTxDelegateTakeRateLimit;
     type InitialTxChildKeyTakeRateLimit = SubtensorInitialTxChildKeyTakeRateLimit;
