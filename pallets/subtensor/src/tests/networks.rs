@@ -1657,7 +1657,11 @@ fn register_network_prunes_and_netuid_not_reused() {
             }
         }
 
-        assert_ne!(new_netuid, NetUid::from(0), "expected a newly registered netuid");
+        assert_ne!(
+            new_netuid,
+            NetUid::from(0),
+            "expected a newly registered netuid"
+        );
         assert_eq!(TotalNetworks::<Test>::get(), 2);
         assert!(DissolveCleanupQueue::<Test>::get().contains(&n1));
         assert!(!NetworksAdded::<Test>::get(n1));
@@ -3309,10 +3313,7 @@ fn register_network_queues_when_waiting_for_dissolve_cleanup() {
         ));
 
         assert_eq!(NetworkRegistrationQueue::<Test>::get().len(), 1);
-        assert_eq!(
-            NetworkRegistrationQueue::<Test>::get()[0].coldkey,
-            cold
-        );
+        assert_eq!(NetworkRegistrationQueue::<Test>::get()[0].coldkey, cold);
         assert_eq!(TotalNetworks::<Test>::get(), 1);
         assert!(!SubtensorModule::hotkey_account_exists(&hot));
     });
