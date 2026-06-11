@@ -249,12 +249,11 @@ impl<T: Config> Pallet<T> {
             .filter(|(netuid, added)| *added && *netuid != NetUid::ROOT)
             .count() as u16;
 
-        let netuid_to_register;
-        if current_count >= subnet_limit {
+        let netuid_to_register = if current_count >= subnet_limit {
             return Err(Error::<T>::SubnetLimitReached.into());
         } else {
-            netuid_to_register = Self::get_next_netuid();
-        }
+            Self::get_next_netuid()
+        };
 
         if fund_locked {
             Self::unlock_network_registration_cost(coldkey)?;
