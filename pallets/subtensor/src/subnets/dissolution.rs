@@ -121,6 +121,13 @@ impl<T: Config> Pallet<T> {
             netuid
         );
 
+        LoopRemovePrefixWithWeightMeter!(
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            LockingColdkeys<T>,
+            (netuid,)
+        );
+
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
         let mechanisms: u8 = MechanismCountCurrent::<T>::get(netuid).into();
 

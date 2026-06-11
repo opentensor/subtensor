@@ -966,4 +966,29 @@ impl<T: Config> Pallet<T> {
             }),
         )
     }
+
+    pub fn destroy_alpha_in_out_stakes_clear_decaying_locks(
+        netuid: NetUid,
+        weight_meter: &mut WeightMeter,
+        last_key: Option<Vec<u8>>,
+    ) -> (bool, Option<Vec<u8>>) {
+        let iter = match last_key {
+            Some(key) => DecayingLock::<T>::iter_from(key),
+            None => DecayingLock::<T>::iter(),
+        };
+
+        let (read_all, last_item) = Self::remove_storage_entries_for_netuid(
+            weight_meter,
+            iter,
+            |(_, this_netuid, _)| *this_netuid == netuid,
+            |(coldkey, _, _)| coldkey,
+            |coldkey| DecayingLock::<T>::remove(coldkey, netuid),
+            1,
+        );
+
+        (
+            read_all,
+            last_item.map(|(coldkey, nu, _)| DecayingLock::<T>::hashed_key_for(&coldkey, nu)),
+        )
+    }
 }

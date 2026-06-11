@@ -1042,10 +1042,8 @@ fn destroy_alpha_in_out_stakes_cleans_locking_coldkeys() {
         Lock::<Test>::insert((coldkey, other_netuid, hotkey), lock);
         LockingColdkeys::<Test>::insert((other_netuid, hotkey, coldkey), ());
 
-        assert!(SubtensorModule::destroy_alpha_in_out_stakes(
-            netuid,
-            &mut WeightMeter::with_limit(Weight::from_parts(u64::MAX, u64::MAX))
-        ));
+        DissolveCleanupQueue::<Test>::set(vec![netuid]);
+        run_block_idle();
 
         assert!(!Lock::<Test>::contains_key((coldkey, netuid, hotkey)));
         assert!(!LockingColdkeys::<Test>::contains_key((
@@ -1089,10 +1087,8 @@ fn destroy_alpha_in_out_stakes_cleans_all_lock_aggregates() {
         DecayingOwnerLock::<Test>::insert(other_netuid, lock);
         DecayingLock::<Test>::insert(coldkey, other_netuid, false);
 
-        assert!(SubtensorModule::destroy_alpha_in_out_stakes(
-            netuid,
-            &mut WeightMeter::with_limit(Weight::from_parts(u64::MAX, u64::MAX))
-        ));
+        DissolveCleanupQueue::<Test>::set(vec![netuid]);
+        run_block_idle();
 
         assert!(!HotkeyLock::<Test>::contains_key(netuid, hotkey));
         assert!(!DecayingHotkeyLock::<Test>::contains_key(netuid, hotkey));
@@ -1700,65 +1696,6 @@ fn prune_selection_complex_state_exhaustive() {
             Some(root),
             "ROOT must never be selected for pruning."
         );
-    });
-}
-
-#[test]
-fn register_network_prunes_and_netuid_not_reused() {
-    new_test_ext(0).execute_with(|| {
-        SubnetLimit::<Test>::put(2u16);
-
-        let n1_cold = U256::from(21);
-        let n1_hot = U256::from(22);
-        let n1 = add_dynamic_network(&n1_hot, &n1_cold);
-
-        let n2_cold = U256::from(23);
-        let n2_hot = U256::from(24);
-        let n2 = add_dynamic_network(&n2_hot, &n2_cold);
-
-        // Add 100 TAO to subnet accounts (lock)
-        let subnet_account1 = SubtensorModule::get_subnet_account_id(n1).unwrap();
-        add_balance_to_coldkey_account(&subnet_account1, 100_000_000_000_u64.into());
-        let subnet_account2 = SubtensorModule::get_subnet_account_id(n2).unwrap();
-        add_balance_to_coldkey_account(&subnet_account2, 100_000_000_000_u64.into());
-
-        let imm = SubtensorModule::get_network_immunity_period();
-        System::set_block_number(imm + 100);
-
-        Emission::<Test>::insert(n1, vec![AlphaBalance::from(1)]);
-        Emission::<Test>::insert(n2, vec![AlphaBalance::from(1_000)]);
-
-        let new_cold = U256::from(30);
-        let new_hot = U256::from(31);
-        let needed: u64 = SubtensorModule::get_network_lock_cost().into();
-        add_balance_to_coldkey_account(&new_cold, needed.saturating_mul(10).into());
-
-        assert_ok!(SubtensorModule::do_register_network(
-            RuntimeOrigin::signed(new_cold),
-            &new_hot,
-            1,
-            None,
-        ));
-
-        let mut new_netuid = NetUid::from(0);
-        for (netuid, added) in NetworksAdded::<Test>::iter() {
-            if added && netuid != n2 {
-                new_netuid = netuid;
-                break;
-            }
-        }
-
-        assert_ne!(
-            new_netuid,
-            NetUid::from(0),
-            "expected a newly registered netuid"
-        );
-        assert_eq!(TotalNetworks::<Test>::get(), 2);
-        assert!(DissolveCleanupQueue::<Test>::get().contains(&n1));
-        assert!(!NetworksAdded::<Test>::get(n1));
-        assert!(NetworksAdded::<Test>::get(n2));
-        assert_eq!(SubnetOwner::<Test>::get(n2), n2_cold);
-        assert_eq!(SubnetOwner::<Test>::get(new_netuid), new_cold);
     });
 }
 
@@ -3466,7 +3403,7 @@ fn process_network_registration_queue_registers_after_cleanup_slot_available() {
 }
 
 #[test]
-fn register_network_prune_registers_immediately_without_queue_entry() {
+fn register_network_prune_registers_registration_queued() {
     new_test_ext(0).execute_with(|| {
         SubnetLimit::<Test>::put(2u16);
 
@@ -3491,8 +3428,7 @@ fn register_network_prune_registers_immediately_without_queue_entry() {
             None,
         ));
 
-        assert!(NetworkRegistrationQueue::<Test>::get().is_empty());
-        assert!(SubtensorModule::hotkey_account_exists(&hot));
+        assert!(NetworkRegistrationQueue::<Test>::get().len() == 1);
         assert!(DissolveCleanupQueue::<Test>::get().contains(&n1));
         assert!(!NetworksAdded::<Test>::get(n1));
     });

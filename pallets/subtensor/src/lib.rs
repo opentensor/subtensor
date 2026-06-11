@@ -410,7 +410,12 @@ pub mod pallet {
             /// Last key of the lock entries.
             last_key: Option<Vec<u8>>,
         },
-        /// Phase 2.6: Destroy alpha in and out stakes for the subnet.
+        /// Phase 2.6: Clear locks for the subnet.
+        DestroyAlphaInOutStakesClearDecayingLocks {
+            /// Last key of the decaying lock entries.
+            last_key: Option<Vec<u8>>,
+        },
+        /// Phase 2.7: Destroy alpha in and out stakes for the subnet.
         DestroyAlphaInOutStakes,
         /// Phase 3: Clear protocol liquidity for the subnet on the swap layer.
         ClearProtocolLiquidity,

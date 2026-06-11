@@ -1,4 +1,5 @@
 use frame_support::pallet_macros::pallet_section;
+
 /// A [`pallet_section`] that defines the events for a pallet.
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
@@ -186,6 +187,7 @@ mod hooks {
         }
 
         fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
+            log::error!("===================  on_idle");
             let dissolved_networks = DissolveCleanupQueue::<T>::get();
             let weight = match dissolved_networks.get(0) {
                 Some(netuid) => Self::remove_data_for_dissolved_networks(limit, netuid),
@@ -411,11 +413,33 @@ mod hooks {
                             );
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                    DissolveCleanupPhase::DestroyAlphaInOutStakes,
+                                    DissolveCleanupPhase::DestroyAlphaInOutStakesClearDecayingLocks { last_key: None },
                                 ));
                             } else {
                                 DissolvedNetworksCleanupPhase::<T>::set(Some(
                                     DissolveCleanupPhase::DestroyAlphaInOutStakesClearLocks {
+                                        last_key: new_key,
+                                    },
+                                ));
+                            }
+                            done
+                        }
+                        DissolveCleanupPhase::DestroyAlphaInOutStakesClearDecayingLocks {
+                            last_key,
+                        } => {
+                            let (done, new_key) =
+                                Self::destroy_alpha_in_out_stakes_clear_decaying_locks(
+                                    *netuid,
+                                    &mut weight_meter,
+                                    last_key,
+                                );
+                            if done {
+                                DissolvedNetworksCleanupPhase::<T>::set(Some(
+                                    DissolveCleanupPhase::DestroyAlphaInOutStakes,
+                                ));
+                            } else {
+                                DissolvedNetworksCleanupPhase::<T>::set(Some(
+                                    DissolveCleanupPhase::DestroyAlphaInOutStakesClearDecayingLocks {
                                         last_key: new_key,
                                     },
                                 ));
