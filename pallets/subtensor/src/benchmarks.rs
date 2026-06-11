@@ -143,7 +143,7 @@ mod pallet_benchmarks {
         };
         *recovery_id_byte = recovery_id.serialize();
 
-        ecdsa::Signature(signature)
+        ecdsa::Signature::from_raw(signature)
     }
 
     #[benchmark]
