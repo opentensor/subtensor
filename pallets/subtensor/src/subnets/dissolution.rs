@@ -1,6 +1,6 @@
 use super::*;
 use frame_support::weights::WeightMeter;
-use subtensor_runtime_common::{NetUid, NetUidStorageIndex};
+use subtensor_runtime_common::{NetUid, NetUidStorageIndex, clear_prefix_with_meter};
 
 impl<T: Config> Pallet<T> {
     /// Facilitates the removal of a user's subnetwork.
@@ -50,156 +50,161 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn remove_network_map_parameters(netuid: NetUid, weight_meter: &mut WeightMeter) -> bool {
-        LoopRemovePrefixWithWeightMeter!(
-            weight_meter,
-            T::DbWeight::get().writes(1),
-            Keys<T>,
-            netuid
-        );
+        let write_weight = T::DbWeight::get().writes(1);
 
-        LoopRemovePrefixWithWeightMeter!(
-            weight_meter,
-            T::DbWeight::get().writes(1),
-            Uids<T>,
-            netuid
-        );
+        if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+            Keys::<T>::clear_prefix(netuid, limit, None)
+        }) {
+            return false;
+        }
 
-        LoopRemovePrefixWithWeightMeter!(
-            weight_meter,
-            T::DbWeight::get().writes(1),
-            BlockAtRegistration<T>,
-            netuid
-        );
-        LoopRemovePrefixWithWeightMeter!(
-            weight_meter,
-            T::DbWeight::get().writes(1),
-            Axons<T>,
-            netuid
-        );
-        LoopRemovePrefixWithWeightMeter!(
-            weight_meter,
-            T::DbWeight::get().writes(1),
-            NeuronCertificates<T>,
-            netuid
-        );
-        LoopRemovePrefixWithWeightMeter!(
-            weight_meter,
-            T::DbWeight::get().writes(1),
-            Prometheus<T>,
-            netuid
-        );
-        LoopRemovePrefixWithWeightMeter!(
-            weight_meter,
-            T::DbWeight::get().writes(1),
-            AlphaDividendsPerSubnet<T>,
-            netuid
-        );
-        LoopRemovePrefixWithWeightMeter!(
-            weight_meter,
-            T::DbWeight::get().writes(1),
-            PendingChildKeys<T>,
-            netuid
-        );
-        LoopRemovePrefixWithWeightMeter!(
-            weight_meter,
-            T::DbWeight::get().writes(1),
-            AssociatedEvmAddress<T>,
-            netuid
-        );
+        if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+            Uids::<T>::clear_prefix(netuid, limit, None)
+        }) {
+            return false;
+        }
 
-        LoopRemovePrefixWithWeightMeter!(
-            weight_meter,
-            T::DbWeight::get().writes(1),
-            HotkeyLock<T>,
-            netuid
-        );
+        if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+            BlockAtRegistration::<T>::clear_prefix(netuid, limit, None)
+        }) {
+            return false;
+        }
 
-        LoopRemovePrefixWithWeightMeter!(
-            weight_meter,
-            T::DbWeight::get().writes(1),
-            DecayingHotkeyLock<T>,
-            netuid
-        );
+        if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+            Axons::<T>::clear_prefix(netuid, limit, None)
+        }) {
+            return false;
+        }
 
-        LoopRemovePrefixWithWeightMeter!(
-            weight_meter,
-            T::DbWeight::get().writes(1),
-            LockingColdkeys<T>,
-            (netuid,)
-        );
+        if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+            NeuronCertificates::<T>::clear_prefix(netuid, limit, None)
+        }) {
+            return false;
+        }
 
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
+        if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+            Prometheus::<T>::clear_prefix(netuid, limit, None)
+        }) {
+            return false;
+        }
+
+        if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+            AlphaDividendsPerSubnet::<T>::clear_prefix(netuid, limit, None)
+        }) {
+            return false;
+        }
+
+        if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+            PendingChildKeys::<T>::clear_prefix(netuid, limit, None)
+        }) {
+            return false;
+        }
+
+        if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+            AssociatedEvmAddress::<T>::clear_prefix(netuid, limit, None)
+        }) {
+            return false;
+        }
+
+        if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+            HotkeyLock::<T>::clear_prefix(netuid, limit, None)
+        }) {
+            return false;
+        }
+
+        if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+            DecayingHotkeyLock::<T>::clear_prefix(netuid, limit, None)
+        }) {
+            return false;
+        }
+
+        if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+            LockingColdkeys::<T>::clear_prefix((netuid,), limit, None)
+        }) {
+            return false;
+        }
+
+        let read_weight = T::DbWeight::get().reads(1);
+        if !weight_meter.can_consume(read_weight) {
+            return false;
+        }
+        weight_meter.consume(read_weight);
         let mechanisms: u8 = MechanismCountCurrent::<T>::get(netuid).into();
 
         for subid in 0..mechanisms {
-            WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads_writes(1, 2));
+            let mechanism_weight = T::DbWeight::get().reads_writes(1, 2);
+            if !weight_meter.can_consume(mechanism_weight) {
+                return false;
+            }
+            weight_meter.consume(mechanism_weight);
             let netuid_index = Self::get_mechanism_storage_index(netuid, subid.into());
 
             LastUpdate::<T>::remove(netuid_index);
             Incentive::<T>::remove(netuid_index);
 
-            LoopRemovePrefixWithWeightMeter!(
-                weight_meter,
-                T::DbWeight::get().writes(1),
-                WeightCommits<T>,
-                netuid_index
-            );
-            LoopRemovePrefixWithWeightMeter!(
-                weight_meter,
-                T::DbWeight::get().writes(1),
-                TimelockedWeightCommits<T>,
-                netuid_index
-            );
+            if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+                WeightCommits::<T>::clear_prefix(netuid_index, limit, None)
+            }) {
+                return false;
+            }
 
-            LoopRemovePrefixWithWeightMeter!(
-                weight_meter,
-                T::DbWeight::get().writes(1),
-                CRV3WeightCommits<T>,
-                netuid_index
-            );
+            if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+                TimelockedWeightCommits::<T>::clear_prefix(netuid_index, limit, None)
+            }) {
+                return false;
+            }
 
-            LoopRemovePrefixWithWeightMeter!(
-                weight_meter,
-                T::DbWeight::get().writes(1),
-                CRV3WeightCommitsV2<T>,
-                netuid_index
-            );
+            if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+                CRV3WeightCommits::<T>::clear_prefix(netuid_index, limit, None)
+            }) {
+                return false;
+            }
 
-            LoopRemovePrefixWithWeightMeter!(
-                weight_meter,
-                T::DbWeight::get().writes(1),
-                Bonds<T>,
-                netuid_index
-            );
+            if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+                CRV3WeightCommitsV2::<T>::clear_prefix(netuid_index, limit, None)
+            }) {
+                return false;
+            }
 
-            LoopRemovePrefixWithWeightMeter!(
-                weight_meter,
-                T::DbWeight::get().writes(1),
-                Weights<T>,
-                netuid_index
-            );
+            if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+                Bonds::<T>::clear_prefix(netuid_index, limit, None)
+            }) {
+                return false;
+            }
+
+            if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+                Weights::<T>::clear_prefix(netuid_index, limit, None)
+            }) {
+                return false;
+            }
         }
 
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(3));
+        let removal_weight = T::DbWeight::get().writes(3);
+        if !weight_meter.can_consume(removal_weight) {
+            return false;
+        }
+        weight_meter.consume(removal_weight);
         RevealPeriodEpochs::<T>::remove(netuid);
         MechanismCountCurrent::<T>::remove(netuid);
         MechanismEmissionSplit::<T>::remove(netuid);
 
-        LoopRemovePrefixWithWeightMeter!(
-            weight_meter,
-            T::DbWeight::get().writes(1),
-            LastHotkeySwapOnNetuid<T>,
-            netuid
-        );
+        if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+            LastHotkeySwapOnNetuid::<T>::clear_prefix(netuid, limit, None)
+        }) {
+            return false;
+        }
 
         if let Some(lease_id) = SubnetUidToLeaseId::<T>::get(netuid) {
-            LoopRemovePrefixWithWeightMeter!(
-                weight_meter,
-                T::DbWeight::get().writes(1),
-                SubnetLeaseShares<T>,
-                lease_id
-            );
-            WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(3));
+            if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+                SubnetLeaseShares::<T>::clear_prefix(lease_id, limit, None)
+            }) {
+                return false;
+            }
+            let lease_weight = T::DbWeight::get().writes(3);
+            if !weight_meter.can_consume(lease_weight) {
+                return false;
+            }
+            weight_meter.consume(lease_weight);
             SubnetLeases::<T>::remove(lease_id);
             AccumulatedLeaseDividends::<T>::remove(lease_id);
             SubnetUidToLeaseId::<T>::remove(netuid);
@@ -209,7 +214,11 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn remove_network_parameters(netuid: NetUid, weight_meter: &mut WeightMeter) -> bool {
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(80));
+        let removal_weight = T::DbWeight::get().writes(80);
+        if !weight_meter.can_consume(removal_weight) {
+            return false;
+        }
+        weight_meter.consume(removal_weight);
         SubnetOwner::<T>::remove(netuid);
         SubnetworkN::<T>::remove(netuid);
         NetworkRegisteredAt::<T>::remove(netuid);

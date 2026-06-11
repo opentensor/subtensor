@@ -21,6 +21,8 @@ pub use evm_context::*;
 pub use traits::*;
 pub use transaction_error::*;
 
+use frame_support::weights::WeightMeter;
+
 mod currency;
 mod evm_context;
 mod traits;
@@ -527,39 +529,27 @@ impl TypeInfo for NetUidStorageIndex {
     }
 }
 
-#[macro_export]
-macro_rules! WeightMeterWrapper {
-    ( $meter:expr, $weight:expr ) => {{
-        if !$meter.can_consume($weight.clone()) {
-            return false;
-        }
-        $meter.consume($weight.clone());
-    }};
-}
+/// Clears as many entries as the weight budget allows via `clear_prefix`, charging
+/// `per_item` for each removed entry. Returns `true` once the prefix is fully cleared.
+pub fn clear_prefix_with_meter(
+    meter: &mut WeightMeter,
+    per_item: Weight,
+    clear_prefix: impl FnOnce(u32) -> MultiRemovalResults,
+) -> bool {
+    let Some(limit) = meter.remaining().checked_div_per_component(&per_item) else {
+        return false;
+    };
+    // Saturate: a budget allowing more than u32::MAX removals is capped, not rejected.
+    let limit = u32::try_from(limit).unwrap_or(u32::MAX);
 
-#[macro_export]
-macro_rules! LoopRemovePrefixWithWeightMeter {
-    ( $meter:expr, $weight:expr, $storage:ty, $netuid:expr ) => {{
-        let weight = $weight.clone();
-        let limit = if weight.is_zero() {
-            u32::MAX
-        } else {
-            match $meter.remaining().checked_div_per_component(&weight) {
-                Some(limit) => u32::try_from(limit).unwrap_or(u32::MAX),
-                None => return false,
-            }
-        };
-        if limit == 0 {
-            return false;
-        }
+    if limit == 0 {
+        return false;
+    }
 
-        let result: $crate::MultiRemovalResults = <$storage>::clear_prefix($netuid, limit, None);
-        $meter.consume(weight.saturating_mul(result.backend.into()));
+    let result = clear_prefix(limit);
+    meter.consume(per_item.saturating_mul(result.unique.max(result.loops).into()));
 
-        if !result.maybe_cursor.is_none() {
-            return false;
-        }
-    }};
+    result.maybe_cursor.is_none()
 }
 
 #[cfg(test)]
@@ -572,81 +562,100 @@ mod tests {
     const REF_TIME_WEIGHT: u64 = 100;
     const PROOF_SIZE_WEIGHT: u64 = 100;
 
-    struct LoopRemovePrefixTestStorage;
+    struct ClearPrefixTestStorage;
 
-    impl StorageInstance for LoopRemovePrefixTestStorage {
+    impl StorageInstance for ClearPrefixTestStorage {
         fn pallet_prefix() -> &'static str {
-            "CommonMacroTests"
+            "CommonTests"
         }
 
-        const STORAGE_PREFIX: &'static str = "LoopRemovePrefixTestStorage";
+        const STORAGE_PREFIX: &'static str = "ClearPrefixTestStorage";
     }
 
-    type LoopRemovePrefixTestMap =
-        StorageDoubleMap<LoopRemovePrefixTestStorage, Identity, NetUid, Blake2_128Concat, u16, u32>;
+    type ClearPrefixTestMap =
+        StorageDoubleMap<ClearPrefixTestStorage, Identity, NetUid, Blake2_128Concat, u16, u32>;
 
     #[test]
     fn netuid_has_u16_bin_repr() {
         assert_eq!(NetUid(5).encode(), 5u16.encode());
     }
 
-    fn test_weight(weight_meter: &mut WeightMeter, weight: Weight) -> bool {
-        WeightMeterWrapper!(weight_meter, weight);
-        true
-    }
-
-    fn test_loop_remove_prefix_with_weight_meter(
-        weight_meter: &mut WeightMeter,
-        weight: Weight,
-        netuid: NetUid,
-    ) -> bool {
-        LoopRemovePrefixWithWeightMeter!(weight_meter, weight, LoopRemovePrefixTestMap, netuid);
-        true
-    }
-
     #[test]
-    fn test_weight_meter_wrapper() {
-        // Enough budget for one (ref, proof) unit of `weight`.
-        let remaining_weight = Weight::from_parts(REF_TIME_WEIGHT * 2, PROOF_SIZE_WEIGHT * 2);
-        let weight = Weight::from_parts(REF_TIME_WEIGHT, PROOF_SIZE_WEIGHT);
-        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
-        assert!(test_weight(&mut weight_meter, weight));
-
-        // Not enough to consume 3x ref and 3x proof in one step.
-        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
-        let consumed = test_weight(
-            &mut weight_meter,
-            Weight::from_parts(REF_TIME_WEIGHT * 3, PROOF_SIZE_WEIGHT * 3),
-        );
-        assert!(!consumed);
-    }
-
-    #[test]
-    fn test_loop_remove_prefix_with_weight_meter_respects_backend_limit() {
+    fn test_clear_prefix_with_meter_respects_budget() {
         let netuid = NetUid::from(42);
         let entry_weight = Weight::from_parts(REF_TIME_WEIGHT, PROOF_SIZE_WEIGHT);
         let mut ext = sp_io::TestExternalities::default();
 
         ext.execute_with(|| {
             for key in 0..3 {
-                LoopRemovePrefixTestMap::insert(netuid, key, key as u32);
+                ClearPrefixTestMap::insert(netuid, key, key as u32);
             }
         });
 
         let _ = ext.commit_all();
 
         ext.execute_with(|| {
-            assert_eq!(LoopRemovePrefixTestMap::iter_prefix(netuid).count(), 3);
+            assert_eq!(ClearPrefixTestMap::iter_prefix(netuid).count(), 3);
 
+            // Budget for exactly one entry: one entry is removed, not done yet.
             let mut weight_meter = WeightMeter::with_limit(entry_weight);
-            assert!(!test_loop_remove_prefix_with_weight_meter(
+            assert!(!clear_prefix_with_meter(
                 &mut weight_meter,
                 entry_weight,
-                netuid
+                |limit| ClearPrefixTestMap::clear_prefix(netuid, limit, None),
             ));
 
-            assert_eq!(LoopRemovePrefixTestMap::iter_prefix(netuid).count(), 2);
+            assert_eq!(ClearPrefixTestMap::iter_prefix(netuid).count(), 2);
             assert_eq!(weight_meter.consumed(), entry_weight);
+        });
+    }
+
+    #[test]
+    fn test_clear_prefix_with_meter_zero_budget_is_noop() {
+        let netuid = NetUid::from(43);
+        let entry_weight = Weight::from_parts(REF_TIME_WEIGHT, PROOF_SIZE_WEIGHT);
+        let mut ext = sp_io::TestExternalities::default();
+
+        ext.execute_with(|| {
+            ClearPrefixTestMap::insert(netuid, 0, 0u32);
+
+            let mut weight_meter = WeightMeter::with_limit(Weight::zero());
+            assert!(!clear_prefix_with_meter(
+                &mut weight_meter,
+                entry_weight,
+                |limit| ClearPrefixTestMap::clear_prefix(netuid, limit, None),
+            ));
+
+            assert_eq!(ClearPrefixTestMap::iter_prefix(netuid).count(), 1);
+            assert!(weight_meter.consumed().is_zero());
+        });
+    }
+
+    #[test]
+    fn test_clear_prefix_with_meter_completes_with_enough_budget() {
+        let netuid = NetUid::from(44);
+        let entry_weight = Weight::from_parts(REF_TIME_WEIGHT, PROOF_SIZE_WEIGHT);
+        let mut ext = sp_io::TestExternalities::default();
+
+        ext.execute_with(|| {
+            for key in 0..3 {
+                ClearPrefixTestMap::insert(netuid, key, key as u32);
+            }
+        });
+
+        let _ = ext.commit_all();
+
+        ext.execute_with(|| {
+            // Budget for more entries than exist: everything is cleared in one call.
+            let mut weight_meter = WeightMeter::with_limit(entry_weight.saturating_mul(10));
+            assert!(clear_prefix_with_meter(
+                &mut weight_meter,
+                entry_weight,
+                |limit| ClearPrefixTestMap::clear_prefix(netuid, limit, None),
+            ));
+
+            assert_eq!(ClearPrefixTestMap::iter_prefix(netuid).count(), 0);
+            assert_eq!(weight_meter.consumed(), entry_weight.saturating_mul(3));
         });
     }
 }

@@ -187,7 +187,6 @@ mod hooks {
         }
 
         fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
-            log::error!("===================  on_idle");
             let dissolved_networks = DissolveCleanupQueue::<T>::get();
             let weight = match dissolved_networks.get(0) {
                 Some(netuid) => Self::remove_data_for_dissolved_networks(limit, netuid),

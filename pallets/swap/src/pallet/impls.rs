@@ -9,9 +9,7 @@ use safe_math::*;
 use sp_arithmetic::Perquintill;
 use sp_runtime::traits::AccountIdConversion;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{
-    AlphaBalance, NetUid, SubnetInfo, TaoBalance, Token, TokenReserve, WeightMeterWrapper,
-};
+use subtensor_runtime_common::{AlphaBalance, NetUid, SubnetInfo, TaoBalance, Token, TokenReserve};
 use subtensor_swap_interface::{
     DefaultPriceLimit, Order as OrderT, SwapEngine, SwapHandler, SwapResult,
 };
@@ -268,7 +266,11 @@ impl<T: Config> Pallet<T> {
 
     /// Clear **protocol-owned** liquidity and wipe all swap state for `netuid`.
     pub fn do_clear_protocol_liquidity(netuid: NetUid, weight_meter: &mut WeightMeter) -> bool {
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads_writes(4, 5));
+        let clear_weight = T::DbWeight::get().reads_writes(4, 5);
+        if !weight_meter.can_consume(clear_weight) {
+            return false;
+        }
+        weight_meter.consume(clear_weight);
         // / 1) Force-close protocol liquidity, burning proceeds.
         let burned_tao = T::TaoReserve::reserve(netuid.into());
         let burned_alpha = T::AlphaReserve::reserve(netuid.into());

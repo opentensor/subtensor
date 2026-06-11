@@ -13,7 +13,10 @@ use pallet_commitments::{CommitmentInfo, Data};
 use sp_runtime::BoundedVec;
 
 fn call_remove_single_value(weight_meter: &mut WeightMeter, weight: Weight) -> bool {
-    WeightMeterWrapper!(weight_meter, weight);
+    if !weight_meter.can_consume(weight) {
+        return false;
+    }
+    weight_meter.consume(weight);
     DissolvedNetworksCleanupPhase::<Test>::set(None);
     true
 }

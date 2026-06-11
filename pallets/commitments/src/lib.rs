@@ -24,7 +24,7 @@ use scale_info::prelude::collections::BTreeSet;
 use sp_runtime::SaturatedConversion;
 use sp_runtime::{Saturating, Weight, traits::Zero};
 use sp_std::{boxed::Box, vec::Vec};
-use subtensor_runtime_common::{LoopRemovePrefixWithWeightMeter, NetUid};
+use subtensor_runtime_common::{NetUid, clear_prefix_with_meter};
 use tle::{
     curves::drand::TinyBLS381,
     stream_ciphers::AESGCMStreamCipherProvider,
@@ -561,40 +561,37 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn purge_netuid(netuid: NetUid, weight_meter: &mut WeightMeter) -> bool {
-        LoopRemovePrefixWithWeightMeter!(
-            weight_meter,
-            T::DbWeight::get().writes(1),
-            CommitmentOf<T>,
-            netuid
-        );
+        let write_weight = T::DbWeight::get().writes(1);
 
-        LoopRemovePrefixWithWeightMeter!(
-            weight_meter,
-            T::DbWeight::get().writes(1),
-            LastCommitment<T>,
-            netuid
-        );
+        if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+            CommitmentOf::<T>::clear_prefix(netuid, limit, None)
+        }) {
+            return false;
+        }
 
-        LoopRemovePrefixWithWeightMeter!(
-            weight_meter,
-            T::DbWeight::get().writes(1),
-            LastBondsReset<T>,
-            netuid
-        );
+        if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+            LastCommitment::<T>::clear_prefix(netuid, limit, None)
+        }) {
+            return false;
+        }
 
-        LoopRemovePrefixWithWeightMeter!(
-            weight_meter,
-            T::DbWeight::get().writes(1),
-            RevealedCommitments<T>,
-            netuid
-        );
+        if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+            LastBondsReset::<T>::clear_prefix(netuid, limit, None)
+        }) {
+            return false;
+        }
 
-        LoopRemovePrefixWithWeightMeter!(
-            weight_meter,
-            T::DbWeight::get().writes(1),
-            UsedSpaceOf<T>,
-            netuid
-        );
+        if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+            RevealedCommitments::<T>::clear_prefix(netuid, limit, None)
+        }) {
+            return false;
+        }
+
+        if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+            UsedSpaceOf::<T>::clear_prefix(netuid, limit, None)
+        }) {
+            return false;
+        }
 
         // Ignore the weight for a single value update
         TimelockedIndex::<T>::mutate(|index| {

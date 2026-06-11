@@ -437,7 +437,11 @@ impl<T: Config> Pallet<T> {
 
         // Check if there is enought weight to complete all the operations in this function
         // It is the maximum weight that can be consumed by the function. including all potential reads and writes.
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads_writes(20, 12));
+        let max_weight = T::DbWeight::get().reads_writes(20, 12);
+        if !weight_meter.can_consume(max_weight) {
+            return false;
+        }
+        weight_meter.consume(max_weight);
         let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);
         let lock_cost: TaoBalance = Self::get_subnet_locked_balance(netuid);
 

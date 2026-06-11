@@ -2312,7 +2312,7 @@ fn purge_netuid_clears_only_that_netuid() {
 
 /// `purge_netuid` runs weighted prefix clears **before** the timelock-index update. The macro batch
 /// sizing uses the meter's **limit** (not accumulated consumption), so maps may already be empty
-/// when the final `WeightMeterWrapper!` fails; `done == false` must still mean the timelock index
+/// when the weight budget runs out; `done == false` must still mean the timelock index
 /// row for this netuid survives until a later call with enough budget.
 #[test]
 fn purge_netuid_under_budget_may_skip_timelock_update_while_clearing_maps() {
@@ -2348,14 +2348,14 @@ fn purge_netuid_under_budget_may_skip_timelock_update_while_clearing_maps() {
         });
 
         let write1 = <Test as frame_system::Config>::DbWeight::get().writes(1);
-        // Budget is strictly below one DB write: prefix loops do not debit `WeightMeter` today, so
-        // this reliably fails at the final `WeightMeterWrapper!` inside `purge_netuid`.
+        // Budget is strictly below one DB write, so the weighted prefix clears inside
+        // `purge_netuid` reliably run out of budget and report `done == false`.
         let budget = write1.saturating_sub(Weight::from_parts(1, 1));
 
         let done = purge_netuid_with_meter(net_a, budget);
         assert!(
             !done,
-            "final timelock-index write uses WeightMeterWrapper and must fail when under-budget"
+            "purge_netuid must report not-done when under-budget"
         );
         assert!(
             TimelockedIndex::<Test>::get().contains(&(net_a, who_a)),

@@ -7,6 +7,7 @@ use sp_runtime::DispatchError;
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
 use substrate_fixed::types::I96F32;
+use subtensor_runtime_common::clear_prefix_with_meter;
 use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
@@ -505,13 +506,8 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         weight_meter: &mut WeightMeter,
     ) -> bool {
-        LoopRemovePrefixWithWeightMeter!(
-            weight_meter,
-            T::DbWeight::get().writes(1),
-            RootClaimed::<T>,
-            (netuid,)
-        );
-
-        true
+        clear_prefix_with_meter(weight_meter, T::DbWeight::get().writes(1), |limit| {
+            RootClaimed::<T>::clear_prefix((netuid,), limit, None)
+        })
     }
 }
