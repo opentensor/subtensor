@@ -199,6 +199,7 @@ impl<T: Config> Pallet<T> {
             Self::do_dissolve_network(prune_netuid)?;
         }
 
+        // can't get a netuid to register, so queue the registration
         if wait_to_cleanup || prune_netuid.is_some() {
             Self::lock_network_registration_cost(&coldkey, lock_amount.into())?;
             let median_subnet_alpha_price = Self::get_median_subnet_alpha_price();
@@ -224,6 +225,7 @@ impl<T: Config> Pallet<T> {
             return Ok(());
         }
 
+        // --- 8. Set the new network state.
         Self::set_new_network_state(
             &coldkey,
             hotkey,
@@ -244,6 +246,8 @@ impl<T: Config> Pallet<T> {
         median_subnet_alpha_price: U64F64,
         fund_locked: bool,
     ) -> DispatchResult {
+        // --- 1. Determine netuid to register.
+        let current_block = Self::get_current_block_as_u64();
         let subnet_limit = Self::get_max_subnets();
         let current_count: u16 = NetworksAdded::<T>::iter()
             .filter(|(netuid, added)| *added && *netuid != NetUid::ROOT)
@@ -257,11 +261,10 @@ impl<T: Config> Pallet<T> {
             Self::get_next_netuid()
         };
 
+        // --- 2. Unlock the registration cost if the fund is locked.
         if fund_locked {
             Self::unlock_network_registration_cost(coldkey)?;
         }
-
-        let current_block = Self::get_current_block_as_u64();
 
         let default_tempo = DefaultTempo::<T>::get();
         Self::init_new_network(netuid_to_register, default_tempo);
@@ -271,24 +274,24 @@ impl<T: Config> Pallet<T> {
             Self::transfer_tao_to_subnet(netuid_to_register, coldkey, lock_amount.into())?;
         log::debug!("actual_tao_lock_amount: {actual_tao_lock_amount:?}");
 
-        // --- 12. Set the lock amount for use to determine pricing.
+        // --- 3. Set the lock amount for use to determine pricing.
         Self::set_network_last_lock(actual_tao_lock_amount);
         Self::set_network_last_lock_block(current_block);
 
-        // --- 13. Add the caller to the neuron set.
+        // --- 4. Add the caller to the neuron set.
         Self::create_account_if_non_existent(coldkey, hotkey)?;
         Self::append_neuron(netuid_to_register, hotkey, current_block);
         log::debug!("Appended neuron for netuid {netuid_to_register:?}, hotkey: {hotkey:?}");
 
-        // --- 14. Set the mechanism.
+        // --- 5. Set the mechanism.
         SubnetMechanism::<T>::insert(netuid_to_register, mechid);
         log::debug!("SubnetMechanism for netuid {netuid_to_register:?} set to: {mechid:?}");
 
-        // --- 15. Set the creation terms.
+        // --- 6. Set the creation terms.
         NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block);
         RegisteredSubnetCounter::<T>::mutate(netuid_to_register, |c| *c = c.saturating_add(1));
 
-        // --- 16. Set the symbol.
+        // --- 7. Set the symbol.
         let symbol = Self::get_next_available_symbol(netuid_to_register);
         TokenSymbol::<T>::insert(netuid_to_register, symbol);
 
@@ -333,13 +336,13 @@ impl<T: Config> Pallet<T> {
             Self::increase_total_stake(total_pool_tao);
         }
 
-        // --- 17. Add the identity if it exists
+        // --- 8. Add the identity if it exists
         if let Some(identity_value) = identity {
             SubnetIdentitiesV3::<T>::insert(netuid_to_register, identity_value);
             Self::deposit_event(Event::SubnetIdentitySet(netuid_to_register));
         }
 
-        // --- 18. Schedule root validators as parents of the subnet owner hotkey.
+        // --- 9. Schedule root validators as parents of the subnet owner hotkey.
         if let Err(e) = Self::do_set_root_validators_for_subnet(netuid_to_register) {
             log::warn!(
                 "Failed to set root validators for netuid {:?}: {:?}",
@@ -348,7 +351,7 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        // --- 19. Emit the NetworkAdded event.
+        // --- 10. Emit the NetworkAdded event.
         log::info!("NetworkAdded( netuid:{netuid_to_register:?}, mechanism:{mechid:?} )");
         Self::deposit_event(Event::NetworkAdded(netuid_to_register, mechid));
 
