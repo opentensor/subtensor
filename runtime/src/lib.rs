@@ -30,7 +30,6 @@ use frame_support::{
 use frame_system::{EnsureRoot, EnsureRootWithSuccess, EnsureSigned};
 use pallet_commitments::{CanCommit, OnMetadataCommitment};
 use pallet_grandpa::{AuthorityId as GrandpaId, fg_primitives};
-use pallet_registry::CanRegisterIdentity;
 pub use pallet_shield;
 use pallet_subtensor::rpc_info::{
     delegate_info::DelegateInfo,
@@ -857,43 +856,6 @@ impl pallet_preimage::Config for Runtime {
     >;
 }
 
-pub struct AllowIdentityReg;
-
-impl CanRegisterIdentity<AccountId> for AllowIdentityReg {
-    #[cfg(not(feature = "runtime-benchmarks"))]
-    fn can_register(address: &AccountId, identified: &AccountId) -> bool {
-        if address != identified {
-            SubtensorModule::coldkey_owns_hotkey(address, identified)
-                && SubtensorModule::is_hotkey_registered_on_network(NetUid::ROOT, identified)
-        } else {
-            SubtensorModule::is_subnet_owner(address)
-        }
-    }
-
-    #[cfg(feature = "runtime-benchmarks")]
-    fn can_register(_: &AccountId, _: &AccountId) -> bool {
-        true
-    }
-}
-
-// Configure registry pallet.
-parameter_types! {
-    pub const MaxAdditionalFields: u32 = 1;
-    pub const InitialDeposit: Balance = TaoBalance::new(100_000_000); // 0.1 TAO
-    pub const FieldDeposit: Balance = TaoBalance::new(100_000_000); // 0.1 TAO
-}
-
-impl pallet_registry::Config for Runtime {
-    type RuntimeHoldReason = RuntimeHoldReason;
-    type Currency = Balances;
-    type CanRegister = AllowIdentityReg;
-    type WeightInfo = pallet_registry::weights::SubstrateWeight<Runtime>;
-
-    type MaxAdditionalFields = MaxAdditionalFields;
-    type InitialDeposit = InitialDeposit;
-    type FieldDeposit = FieldDeposit;
-}
-
 parameter_types! {
     pub const MaxCommitFieldsInner: u32 = 3;
     pub const CommitmentInitialDeposit: Balance = TaoBalance::ZERO; // Free
@@ -1608,7 +1570,7 @@ construct_runtime!(
         Preimage: pallet_preimage = 14,
         Scheduler: pallet_scheduler = 15,
         Proxy: pallet_proxy = 16,
-        Registry: pallet_registry = 17,
+        // pallet_registry was 17
         Commitments: pallet_commitments = 18,
         AdminUtils: pallet_admin_utils = 19,
         SafeMode: pallet_safe_mode = 20,
@@ -1702,7 +1664,6 @@ mod benches {
         [pallet_balances, Balances]
         [pallet_timestamp, Timestamp]
         [pallet_sudo, Sudo]
-        [pallet_registry, Registry]
         [pallet_commitments, Commitments]
         [pallet_admin_utils, AdminUtils]
         [pallet_subtensor, SubtensorModule]
