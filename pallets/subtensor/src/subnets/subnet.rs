@@ -179,12 +179,10 @@ impl<T: Config> Pallet<T> {
             // unnecessary to prune now, we need to wait to cleanup
             if cleanup_queue_len > registration_queue_len {
                 wait_to_cleanup = true;
+            } else if let Some(netuid) = Self::get_network_to_prune() {
+                prune_netuid = Some(netuid);
             } else {
-                if let Some(netuid) = Self::get_network_to_prune() {
-                    prune_netuid = Some(netuid);
-                } else {
-                    return Err(Error::<T>::SubnetLimitReached.into());
-                }
+                return Err(Error::<T>::SubnetLimitReached.into());
             }
         }
 
@@ -277,7 +275,7 @@ impl<T: Config> Pallet<T> {
         Self::set_network_last_lock_block(current_block);
 
         // --- 13. Add the caller to the neuron set.
-        Self::create_account_if_non_existent(&coldkey, hotkey)?;
+        Self::create_account_if_non_existent(coldkey, hotkey)?;
         Self::append_neuron(netuid_to_register, hotkey, current_block);
         log::debug!("Appended neuron for netuid {netuid_to_register:?}, hotkey: {hotkey:?}");
 
