@@ -165,13 +165,6 @@ impl pallet_shield::IbeDkgAuthorityProvider for MockIbeDkgAuthorityProvider {
     fn consensus_source_for_epoch(_epoch: u64) -> mev_shield_ibe_runtime_api::DkgConsensusSource {
         mev_shield_ibe_runtime_api::DkgConsensusSource::PoaAuraRootValidators
     }
-    fn verify_authority_signature(
-        _authority_id: &[u8],
-        _payload_hash: sp_core::H256,
-        _signature: &[u8],
-    ) -> bool {
-        true
-    }
 }
 
 frame_support::parameter_types! {

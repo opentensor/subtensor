@@ -93,7 +93,7 @@ pub enum DkgConsensusSource {
 }
 
 /// One consensus authority eligible for an epoch-ahead DKG round.
-#[subtensor_macros::freeze_struct("ac25806ef271a94d")]
+#[subtensor_macros::freeze_struct("b4a40e834dbf1f85")]
 #[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, TypeInfo)]
 pub struct DkgAuthorityInfo {
     /// Subtensor hotkey/account bytes whose stake is being used for threshold
@@ -107,7 +107,9 @@ pub struct DkgAuthorityInfo {
     pub authority_id: Vec<u8>,
     /// Stake weight at the runtime snapshot used by the epoch plan.
     pub stake: u128,
-    /// Runtime authority plans leave this zeroed; nodes overlay signed P2P transport keys before DKG.
+    /// Runtime authority plans leave this zeroed; nodes overlay signed P2P
+    /// transport-key announcements before DKG. No on-chain registration extrinsic
+    /// is required for validator participation.
     pub dkg_x25519_public_key: [u8; 32],
 }
 

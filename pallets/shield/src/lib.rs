@@ -90,6 +90,7 @@ pub const IBE_QUEUE_PRICE_FULL_MULTIPLIER: u128 = 64;
 pub trait IbeDkgAuthorityProvider {
     fn authorities_for_epoch(epoch: u64) -> Vec<DkgAuthorityInfo>;
     fn consensus_source_for_epoch(epoch: u64) -> DkgConsensusSource;
+
     fn verify_authority_signature(
         authority_id: &[u8],
         payload_hash: sp_core::H256,
@@ -98,12 +99,13 @@ pub trait IbeDkgAuthorityProvider {
 }
 
 impl IbeDkgAuthorityProvider for () {
-    fn authorities_for_epoch(_epoch: u64) -> Vec<DkgAuthorityInfo> {
+    fn authorities_for_epoch(_: u64) -> Vec<DkgAuthorityInfo> {
         Vec::new()
     }
-    fn consensus_source_for_epoch(_epoch: u64) -> DkgConsensusSource {
+    fn consensus_source_for_epoch(_: u64) -> DkgConsensusSource {
         DkgConsensusSource::PoaAuraRootValidators
     }
+
     fn verify_authority_signature(
         _authority_id: &[u8],
         _payload_hash: sp_core::H256,
@@ -158,13 +160,13 @@ pub fn queue_depth_priced_weight(base: Weight, pending_count: u32, max_pending: 
     Weight::from_parts(ref_time, base.proof_size())
 }
 
+/// Default implementation that always returns an error.
 /// Trait for decrypting stored extrinsics before dispatch.
 pub trait ExtrinsicDecryptor<RuntimeCall> {
     /// Decrypt the stored bytes and return the decoded RuntimeCall.
     fn decrypt(data: &[u8]) -> Result<RuntimeCall, DispatchError>;
 }
 
-/// Default implementation that always returns an error.
 impl<RuntimeCall> ExtrinsicDecryptor<RuntimeCall> for () {
     fn decrypt(_data: &[u8]) -> Result<RuntimeCall, DispatchError> {
         Err(DispatchError::Other("ExtrinsicDecryptor not implemented"))
@@ -261,13 +263,6 @@ impl<HashT> IbeKeyVerifier<HashT> for () {
 enum PendingProcess {
     Continue(Weight),
     Break(Weight),
-}
-
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, scale_info::TypeInfo)]
-pub struct IbeDkgAuthorityRegistration {
-    pub consensus_key_kind: DkgConsensusKeyKind,
-    pub authority_id: Vec<u8>,
-    pub dkg_x25519_public_key: [u8; 32],
 }
 #[frame_support::pallet]
 pub mod pallet {
@@ -470,9 +465,6 @@ pub mod pallet {
     pub type IbeDkgAuthoritySnapshots<T: Config> =
         StorageMap<_, Twox64Concat, u64, Vec<DkgAuthorityInfo>, ValueQuery>;
     #[pallet::storage]
-    pub type IbeDkgAuthorityRegistrations<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, IbeDkgAuthorityRegistration, OptionQuery>;
-    #[pallet::storage]
     pub type IbeDkgConsensusSources<T: Config> =
         StorageMap<_, Twox64Concat, u64, DkgConsensusSource, OptionQuery>;
     #[pallet::storage]
@@ -603,11 +595,6 @@ pub mod pallet {
             epoch: u64,
             authority_count: u32,
         },
-        IbeDkgAuthorityRegistered {
-            hotkey: T::AccountId,
-            consensus_key_kind: DkgConsensusKeyKind,
-            authority_id: Vec<u8>,
-        },
         IbeEpochKeyEmergencyExtended {
             source_epoch: u64,
             extended_epoch: u64,
@@ -658,7 +645,6 @@ pub mod pallet {
         BadIbeDkgPublication,
         InsufficientIbeDkgAttestationWeight,
         IbeDkgPublicationAlreadyKnown,
-        BadIbeDkgAuthorityRegistration,
     }
 
     #[pallet::hooks]
@@ -905,89 +891,6 @@ pub mod pallet {
             }
             Ok(())
         }
-
-        /// Register and bind a consensus authority key to this hotkey for MEV Shield DKG.
-        #[pallet::call_index(11)]
-        #[pallet::weight(T::WeightInfo::set_max_pending_extrinsics_number())]
-        pub fn register_ibe_dkg_authority_key(
-            origin: OriginFor<T>,
-            consensus_key_kind: DkgConsensusKeyKind,
-            authority_id: Vec<u8>,
-            dkg_x25519_public_key: [u8; 32],
-            proof_signature: Vec<u8>,
-        ) -> DispatchResult {
-            let hotkey = ensure_signed(origin)?;
-            ensure!(
-                authority_id.len() == 32,
-                Error::<T>::BadIbeDkgAuthorityRegistration
-            );
-            ensure!(
-                dkg_x25519_public_key != [0u8; 32],
-                Error::<T>::BadIbeDkgAuthorityRegistration
-            );
-            let payload_hash = Self::dkg_authority_registration_payload_hash(
-                &hotkey,
-                consensus_key_kind,
-                &authority_id,
-                &dkg_x25519_public_key,
-            );
-            ensure!(
-                T::IbeDkgAuthorityProvider::verify_authority_signature(
-                    &authority_id,
-                    payload_hash,
-                    &proof_signature,
-                ),
-                Error::<T>::BadIbeDkgAuthorityRegistration
-            );
-            IbeDkgAuthorityRegistrations::<T>::insert(
-                &hotkey,
-                IbeDkgAuthorityRegistration {
-                    consensus_key_kind,
-                    authority_id: authority_id.clone(),
-                    dkg_x25519_public_key,
-                },
-            );
-            Self::deposit_event(Event::IbeDkgAuthorityRegistered {
-                hotkey,
-                consensus_key_kind,
-                authority_id,
-            });
-            Ok(())
-        }
-
-        #[pallet::call_index(12)]
-        #[pallet::weight(T::WeightInfo::set_max_pending_extrinsics_number())]
-        pub fn register_ibe_dkg_authority_key_unsigned(
-            origin: OriginFor<T>,
-            hotkey: T::AccountId,
-            consensus_key_kind: DkgConsensusKeyKind,
-            authority_id: Vec<u8>,
-            dkg_x25519_public_key: [u8; 32],
-            proof_signature: Vec<u8>,
-        ) -> DispatchResult {
-            ensure_none(origin)?;
-            Self::verify_ibe_dkg_authority_registration(
-                &hotkey,
-                consensus_key_kind,
-                &authority_id,
-                &dkg_x25519_public_key,
-                &proof_signature,
-            )?;
-            IbeDkgAuthorityRegistrations::<T>::insert(
-                &hotkey,
-                IbeDkgAuthorityRegistration {
-                    consensus_key_kind,
-                    authority_id: authority_id.clone(),
-                    dkg_x25519_public_key,
-                },
-            );
-            Self::deposit_event(Event::IbeDkgAuthorityRegistered {
-                hotkey,
-                consensus_key_kind,
-                authority_id,
-            });
-            Ok(())
-        }
     }
 
     #[pallet::validate_unsigned]
@@ -1000,44 +903,6 @@ pub mod pallet {
                     TransactionSource::InBlock => Ok(ValidTransaction::default()),
                     _ => InvalidTransaction::Call.into(),
                 };
-            }
-
-            if let Call::register_ibe_dkg_authority_key_unsigned {
-                hotkey,
-                consensus_key_kind,
-                authority_id,
-                dkg_x25519_public_key,
-                proof_signature,
-            } = call
-            {
-                if !matches!(
-                    source,
-                    TransactionSource::Local | TransactionSource::InBlock
-                ) {
-                    return InvalidTransaction::Call.into();
-                }
-                if Self::verify_ibe_dkg_authority_registration(
-                    hotkey,
-                    *consensus_key_kind,
-                    authority_id,
-                    dkg_x25519_public_key,
-                    proof_signature,
-                )
-                .is_err()
-                {
-                    return InvalidTransaction::BadProof.into();
-                }
-                return ValidTransaction::with_tag_prefix("MevShieldIbeDkgAuthorityRegistration")
-                    .priority(1_750_000)
-                    .and_provides((
-                        b"mev-shield-ibe-dkg-authority-registration".as_slice(),
-                        hotkey,
-                        consensus_key_kind,
-                        authority_id,
-                    ))
-                    .longevity(1024)
-                    .propagate(true)
-                    .build();
             }
 
             if let Call::publish_ibe_epoch_public_key { publication } = call {
@@ -1247,62 +1112,6 @@ impl<T: Config> Pallet<T> {
         } else {
             T::IbeDkgAuthorityProvider::authorities_for_epoch(epoch)
         }
-    }
-
-    pub fn ibe_dkg_authority_registration(
-        hotkey: &T::AccountId,
-    ) -> Option<IbeDkgAuthorityRegistration> {
-        IbeDkgAuthorityRegistrations::<T>::get(hotkey)
-    }
-
-    pub fn dkg_authority_registration_payload_hash(
-        hotkey: &T::AccountId,
-        consensus_key_kind: DkgConsensusKeyKind,
-        authority_id: &[u8],
-        dkg_x25519_public_key: &[u8; 32],
-    ) -> sp_core::H256 {
-        sp_core::H256::from(sp_core::hashing::blake2_256(
-            &(
-                b"bittensor.mev-shield.v2.dkg.authority-registration",
-                hotkey,
-                consensus_key_kind,
-                authority_id,
-                dkg_x25519_public_key,
-            )
-                .encode(),
-        ))
-    }
-
-    pub fn verify_ibe_dkg_authority_registration(
-        hotkey: &T::AccountId,
-        consensus_key_kind: DkgConsensusKeyKind,
-        authority_id: &[u8],
-        dkg_x25519_public_key: &[u8; 32],
-        proof_signature: &[u8],
-    ) -> DispatchResult {
-        ensure!(
-            authority_id.len() == 32,
-            Error::<T>::BadIbeDkgAuthorityRegistration
-        );
-        ensure!(
-            *dkg_x25519_public_key != [0u8; 32],
-            Error::<T>::BadIbeDkgAuthorityRegistration
-        );
-        let payload_hash = Self::dkg_authority_registration_payload_hash(
-            hotkey,
-            consensus_key_kind,
-            authority_id,
-            dkg_x25519_public_key,
-        );
-        ensure!(
-            T::IbeDkgAuthorityProvider::verify_authority_signature(
-                authority_id,
-                payload_hash,
-                proof_signature,
-            ),
-            Error::<T>::BadIbeDkgAuthorityRegistration
-        );
-        Ok(())
     }
 
     pub fn dkg_two_thirds_threshold(total_weight: u128) -> Option<u128> {

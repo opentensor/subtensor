@@ -385,7 +385,6 @@ where
     // DevFileDkgKeySource and spawns the share network.
     //
     // This version is POS-hybrid aware: it discovers all local Aura and BABE
-    // authoring keys, registers each consensus key with the DKG transport key, and
     // lets the runtime plan decide which key kind is active for an epoch.  No service
     // change is required at the POA->POS transition.
 
@@ -435,7 +434,7 @@ where
         if !has_mev_shield_dkg_consensus_keys {
             log::warn!(
                 target: "mev-shield-ibe",
-                "authority node has no local Aura or BABE keys visible to MeV Shield DKG; skipping MeV Shield DKG registration and epoch-ahead DKG worker"
+                "authority node has no local Aura or BABE keys visible to MeV Shield DKG; skipping the epoch-ahead DKG worker"
             );
         }
 
@@ -444,8 +443,6 @@ where
                 keystore_container.keystore(),
             ),
         );
-        // consensus key and the durable X25519 DKG transport key.  The runtime will
-        // select Aura registrations while POA is active and automatically switch to
         if has_mev_shield_dkg_consensus_keys {
             // It is no longer the authority source of truth; it is retained to keep
             // older share-pool consumers operational during the transition.
@@ -478,15 +475,6 @@ where
                     client.clone(),
                     transaction_pool.clone(),
                     dkg_publication_rx,
-                );
-
-                crate::mev_shield_ibe::dkg_submitter::spawn_dkg_authority_registration_submitter(
-                    &task_manager.spawn_handle(),
-                    client.clone(),
-                    transaction_pool.clone(),
-                    local_authorities.clone(),
-                    x25519_secret,
-                    authority_signer.clone(),
                 );
             }
         } else {
