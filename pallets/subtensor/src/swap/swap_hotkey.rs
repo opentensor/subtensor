@@ -52,7 +52,7 @@ impl<T: Config> Pallet<T> {
 
         // 4. If the new hotkey already exists globally, ensure the coldkey owns it
         if Self::hotkey_account_exists(new_hotkey) {
-weight.saturating_accrue(T::DbWeight::get().reads(3));
+            weight.saturating_accrue(T::DbWeight::get().reads(3));
             ensure!(
                 Self::coldkey_owns_hotkey(&coldkey, new_hotkey),
                 Error::<T>::NonAssociatedColdKey
