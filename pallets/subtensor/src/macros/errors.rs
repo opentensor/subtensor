@@ -301,11 +301,19 @@ mod errors {
         CannotUseSystemAccount,
         /// Trying to unlock more than locked
         UnlockAmountTooHigh,
-        /// Destination account blocks receiving TAO transfers.
+        /// Destination account has set `BlockReceivingTao = true`; the cross-coldkey TAO
+        /// transfer was rejected. The recipient must call `set_block_receiving_tao(false)`
+        /// before TAO can be sent to that address through the subtensor pallet.
         ReceivingTaoBlocked,
-        /// Destination account blocks receiving Alpha (staked) transfers.
+        /// Destination account has set `BlockReceivingAlpha = true`; the user-facing stake
+        /// operation (add_stake or cross-coldkey stake transfer) was rejected. The recipient
+        /// must call `set_block_receiving_alpha(false)` before Alpha can be staked to that
+        /// address.
         ReceivingAlphaBlocked,
-        /// Destination account blocks receiving locked Alpha transfers.
+        /// Destination account has set `BlockReceivingLockedAlpha = true`; the locked-Alpha
+        /// portion of a `transfer_lock` call was rejected. The recipient must call
+        /// `set_block_receiving_locked_alpha(false)` before locked Alpha can be transferred
+        /// to that address.
         ReceivingLockedAlphaBlocked,
     }
 }

@@ -856,12 +856,6 @@ impl<T: Config> Pallet<T> {
         price_limit: TaoBalance,
         drop_fees: bool,
     ) -> Result<AlphaBalance, DispatchError> {
-        // Reject if the coldkey (alpha recipient) has opted out of receiving Alpha.
-        ensure!(
-            !BlockReceivingAlpha::<T>::get(coldkey),
-            Error::<T>::ReceivingAlphaBlocked
-        );
-
         // Transfer TAO from coldkey to the subnet account.
         // Actual transfered may be different within ED amount.
         let tao_staked = Self::transfer_tao_to_subnet(netuid, coldkey, tao)?;
@@ -1068,6 +1062,12 @@ impl<T: Config> Pallet<T> {
         max_amount: TaoBalance,
         allow_partial: bool,
     ) -> Result<(), Error<T>> {
+        // Reject if the coldkey (alpha recipient) has opted out of receiving Alpha.
+        ensure!(
+            !BlockReceivingAlpha::<T>::get(coldkey),
+            Error::<T>::ReceivingAlphaBlocked
+        );
+
         // Ensure that the subnet exists.
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 

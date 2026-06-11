@@ -72,12 +72,6 @@ impl<T: Config> Pallet<T> {
         destination_coldkey: &T::AccountId,
         amount: BalanceOf<T>,
     ) -> DispatchResult {
-        // Reject the transfer if the destination has opted out of receiving TAO.
-        ensure!(
-            !BlockReceivingTao::<T>::get(destination_coldkey),
-            Error::<T>::ReceivingTaoBlocked
-        );
-
         // Get full balance including ED
         let max_transferrable = Self::get_coldkey_balance(origin_coldkey);
         ensure!(amount <= max_transferrable, Error::<T>::InsufficientBalance);

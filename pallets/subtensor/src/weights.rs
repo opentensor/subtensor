@@ -93,6 +93,9 @@ pub trait WeightInfo {
 	fn lock_stake() -> Weight;
 	fn move_lock() -> Weight;
 	fn associate_evm_key() -> Weight;
+	fn set_block_receiving_tao() -> Weight;
+	fn set_receiving_alpha_enabled() -> Weight;
+	fn set_block_receiving_locked_alpha() -> Weight;
 }
 
 /// Weights for `pallet_subtensor` using the Substrate node and recommended hardware.
@@ -2365,6 +2368,21 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	fn set_block_receiving_tao() -> Weight {
+		Weight::from_parts(10_000_000, 0)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	fn set_receiving_alpha_enabled() -> Weight {
+		Weight::from_parts(10_000_000, 0)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	fn set_block_receiving_locked_alpha() -> Weight {
+		Weight::from_parts(10_000_000, 0)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -4634,6 +4652,21 @@ impl WeightInfo for () {
 		// Minimum execution time: 697_391_000 picoseconds.
 		Weight::from_parts(712_594_000, 4415)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	fn set_block_receiving_tao() -> Weight {
+		Weight::from_parts(10_000_000, 0)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	fn set_receiving_alpha_enabled() -> Weight {
+		Weight::from_parts(10_000_000, 0)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	fn set_block_receiving_locked_alpha() -> Weight {
+		Weight::from_parts(10_000_000, 0)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }

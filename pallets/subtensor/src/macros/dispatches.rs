@@ -2604,10 +2604,14 @@ mod dispatches {
         /// * `origin` - Must be signed by the account that wishes to set the flag.
         /// * `enabled` - `true` to block incoming TAO; `false` to allow it.
         #[pallet::call_index(139)]
-        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(1, 1))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::set_block_receiving_tao())]
         pub fn set_block_receiving_tao(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
             let account = ensure_signed(origin)?;
-            BlockReceivingTao::<T>::set(&account, enabled);
+            if enabled {
+                BlockReceivingTao::<T>::insert(&account, true);
+            } else {
+                BlockReceivingTao::<T>::remove(&account);
+            }
             Self::deposit_event(Event::BlockReceivingTaoSet { account, enabled });
             Ok(())
         }
@@ -2616,37 +2620,50 @@ mod dispatches {
         ///
         /// When enabled, any attempt to stake Alpha (staked tokens) to this account
         /// through the subtensor pallet will be rejected with `ReceivingAlphaBlocked`.
+        /// This flag is checked at user-facing stake entry points only; internal system
+        /// operations (such as re-staking into root during unstake) are unaffected.
         /// The default is `false` (Alpha transfers are allowed).
         ///
         /// # Arguments
         /// * `origin` - Must be signed by the account that wishes to set the flag.
         /// * `enabled` - `true` to block incoming Alpha; `false` to allow it.
         #[pallet::call_index(140)]
-        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(1, 1))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::set_block_receiving_alpha())]
         pub fn set_block_receiving_alpha(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
             let account = ensure_signed(origin)?;
-            BlockReceivingAlpha::<T>::set(&account, enabled);
+            if enabled {
+                BlockReceivingAlpha::<T>::insert(&account, true);
+            } else {
+                BlockReceivingAlpha::<T>::remove(&account);
+            }
             Self::deposit_event(Event::BlockReceivingAlphaSet { account, enabled });
             Ok(())
         }
 
         /// Sets or clears the caller's block-receiving-locked-Alpha flag.
         ///
-        /// When enabled, any attempt to transfer locked Alpha to this account
-        /// through the subtensor pallet will be rejected with `ReceivingLockedAlphaBlocked`.
+        /// When enabled, any attempt to transfer locked Alpha to this account via
+        /// [`transfer_lock`](crate::Pallet::transfer_lock) will be rejected with
+        /// `ReceivingLockedAlphaBlocked`. Only the locked portion of a stake transfer
+        /// is gated; unlocked Alpha transfers are governed by the separate
+        /// `BlockReceivingAlpha` flag.
         /// The default is `false` (locked Alpha transfers are allowed).
         ///
         /// # Arguments
         /// * `origin` - Must be signed by the account that wishes to set the flag.
         /// * `enabled` - `true` to block incoming locked Alpha; `false` to allow it.
         #[pallet::call_index(141)]
-        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(1, 1))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::set_block_receiving_locked_alpha())]
         pub fn set_block_receiving_locked_alpha(
             origin: OriginFor<T>,
             enabled: bool,
         ) -> DispatchResult {
             let account = ensure_signed(origin)?;
-            BlockReceivingLockedAlpha::<T>::set(&account, enabled);
+            if enabled {
+                BlockReceivingLockedAlpha::<T>::insert(&account, true);
+            } else {
+                BlockReceivingLockedAlpha::<T>::remove(&account);
+            }
             Self::deposit_event(Event::BlockReceivingLockedAlphaSet { account, enabled });
             Ok(())
         }

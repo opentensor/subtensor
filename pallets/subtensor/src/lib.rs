@@ -2651,16 +2651,31 @@ pub mod pallet {
         StorageValue<_, u64, ValueQuery, DefaultPendingChildKeyCooldown<T>>;
 
     /// --- Map ( account_id ) --> bool | Whether this account blocks receiving TAO transfers.
+    ///
+    /// When `true`, any cross-coldkey TAO transfer within the subtensor pallet (e.g. during
+    /// a cross-subnet stake move to a different coldkey) is rejected with `ReceivingTaoBlocked`.
+    /// Internal system paths (unstaking TAO back to the user, coldkey swaps, emission) are NOT
+    /// gated. Absent key is treated as `false` (receiving allowed).
     #[pallet::storage]
     pub type BlockReceivingTao<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, bool, ValueQuery>;
 
     /// --- Map ( account_id ) --> bool | Whether this account blocks receiving Alpha (staked) transfers.
+    ///
+    /// When `true`, user-facing stake entry points (`add_stake`, `add_stake_limit`, and
+    /// cross-coldkey stake transfers) are rejected with `ReceivingAlphaBlocked`. Internal
+    /// re-staking paths (e.g. re-staking TAO into root during a non-root unstake) are NOT
+    /// gated. Absent key is treated as `false` (receiving allowed).
     #[pallet::storage]
     pub type BlockReceivingAlpha<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, bool, ValueQuery>;
 
     /// --- Map ( account_id ) --> bool | Whether this account blocks receiving locked Alpha transfers.
+    ///
+    /// When `true`, any call to `transfer_lock` that would move a non-zero locked-Alpha amount
+    /// to this account is rejected with `ReceivingLockedAlphaBlocked`. Only the locked portion
+    /// of a transfer is gated; unlocked Alpha is governed separately by `BlockReceivingAlpha`.
+    /// Absent key is treated as `false` (receiving allowed).
     #[pallet::storage]
     pub type BlockReceivingLockedAlpha<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, bool, ValueQuery>;
