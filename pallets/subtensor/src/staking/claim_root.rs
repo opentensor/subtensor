@@ -431,10 +431,7 @@ impl<T: Config> Pallet<T> {
         RootClaimed::<T>::remove((netuid, old_hotkey, old_coldkey));
 
         RootClaimed::<T>::mutate((netuid, new_hotkey, new_coldkey), |new_root_claimed| {
-            // Take the maximum rather than summing so that a stale residual watermark
-            // already present on the destination cannot inflate the merged value past
-            // the correct claimable high-water mark (GHSA-2026-010).
-            *new_root_claimed = old_root_claimed.max(*new_root_claimed);
+            *new_root_claimed = old_root_claimed.saturating_add(*new_root_claimed);
         });
     }
     pub fn transfer_root_claimable_for_new_hotkey(
