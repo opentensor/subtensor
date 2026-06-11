@@ -199,7 +199,7 @@ impl<T: Config> Pallet<T> {
             Self::do_dissolve_network(prune_netuid)?;
         }
 
-        if wait_to_cleanup {
+        if wait_to_cleanup || prune_netuid.is_some() {
             Self::lock_network_registration_cost(&coldkey, lock_amount.into())?;
             let median_subnet_alpha_price = Self::get_median_subnet_alpha_price();
             let info = NetworkRegistrationInfo::<T::AccountId> {
@@ -248,8 +248,10 @@ impl<T: Config> Pallet<T> {
         let current_count: u16 = NetworksAdded::<T>::iter()
             .filter(|(netuid, added)| *added && *netuid != NetUid::ROOT)
             .count() as u16;
+        let cleanup_queue_len: u16 = DissolveCleanupQueue::<T>::get().len() as u16;
 
-        let netuid_to_register = if current_count >= subnet_limit {
+        let netuid_to_register = if current_count.saturating_add(cleanup_queue_len) >= subnet_limit
+        {
             return Err(Error::<T>::SubnetLimitReached.into());
         } else {
             Self::get_next_netuid()

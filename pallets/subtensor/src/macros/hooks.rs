@@ -717,18 +717,6 @@ mod hooks {
                 return;
             }
 
-            // Only release a queued registration once dissolve cleanup has actually
-            // freed a slot; mirrors the queueing condition in `do_register_network`.
-            let subnet_limit = u64::from(Self::get_max_subnets());
-            let current_count = NetworksAdded::<T>::iter()
-                .filter(|(netuid, added)| *added && *netuid != NetUid::ROOT)
-                .count() as u64;
-            let cleanup_queue_len = DissolveCleanupQueue::<T>::get().len() as u64;
-
-            if current_count.saturating_add(cleanup_queue_len) >= subnet_limit {
-                return;
-            }
-
             for (index, info) in queue.iter().enumerate() {
                 let result = Self::set_new_network_state(
                     &info.coldkey,
@@ -739,6 +727,8 @@ mod hooks {
                     info.median_subnet_alpha_price,
                     true,
                 );
+                // just complete one registration at a time since on_idle just complete one network dissolve cleanup
+                // if one registration fails, then try next one. it could be not align with the order of registration in the queue
                 if result.is_ok() {
                     NetworkRegistrationQueue::<T>::mutate(|queue| queue.remove(index));
                     break;
