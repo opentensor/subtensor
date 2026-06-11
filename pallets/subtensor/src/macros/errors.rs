@@ -307,5 +307,7 @@ mod errors {
         UnlockAmountTooHigh,
         /// Waiting for dissolved subnet cleanup.
         WaitingForDissolvedSubnetCleanup,
+        /// Internal data inconsistency.
+        InternalDataInconsistency,
     }
 }

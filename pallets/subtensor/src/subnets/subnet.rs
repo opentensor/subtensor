@@ -1,4 +1,5 @@
 use super::*;
+use crate::pallet::NetworkRegistrationInfo;
 use frame_support::PalletId;
 use safe_math::FixedExt;
 use sp_core::Get;
@@ -56,12 +57,12 @@ impl<T: Config> Pallet<T> {
     pub fn get_next_netuid() -> NetUid {
         let mut next_netuid = NetUid::from(1); // do not allow creation of root
         let netuids = Self::get_all_subnet_netuids();
+        let netuids_in_cleanup: Vec<NetUid> = DissolveCleanupQueue::<T>::get()
+            .iter()
+            .map(|netuid| NetUid::from(netuid.inner()))
+            .collect();
         loop {
-            if DissolveCleanupQueue::<T>::get().contains(&next_netuid) {
-                next_netuid = next_netuid.next();
-                continue;
-            }
-            if !netuids.contains(&next_netuid) {
+            if !netuids.contains(&next_netuid) && !netuids_in_cleanup.contains(&next_netuid) {
                 break next_netuid;
             }
             next_netuid = next_netuid.next();
@@ -153,6 +154,13 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NetworkTxRateLimitExceeded
         );
 
+        if let Some(identity_value) = identity.clone() {
+            ensure!(
+                Self::is_valid_subnet_identity(&identity_value),
+                Error::<T>::InvalidIdentity
+            );
+        }
+
         // --- 5. Check if we need to prune a subnet (if at SubnetLimit).
         //         But do not prune yet; we only do it after all checks pass.
         let subnet_limit = Self::get_max_subnets();
@@ -160,19 +168,18 @@ impl<T: Config> Pallet<T> {
             .filter(|(netuid, added)| *added && *netuid != NetUid::ROOT)
             .count() as u16;
 
-        let subnets_in_cleanup_queue: u16 = DissolveCleanupQueue::<T>::get()
-            .len()
-            .saturated_into::<u16>();
+        let cleanup_queue_len = DissolveCleanupQueue::<T>::get().len();
+        let registration_queue_len = NetworkRegistrationQueue::<T>::get().len();
 
         let mut prune_netuid: Option<NetUid> = None;
+        let mut wait_to_cleanup = false;
 
-        if subnets_in_cleanup_queue > 0 {
-            if current_count.saturating_add(subnets_in_cleanup_queue) >= subnet_limit {
-                return Err(Error::<T>::WaitingForDissolvedSubnetCleanup.into());
-            }
-        } else {
-            if current_count >= subnet_limit {
-                // TODO we can't prune here becaause the prune_netuid will be in the cleanup queue.
+        if current_count.saturating_add(cleanup_queue_len.saturated_into::<u16>()) >= subnet_limit {
+            // no netuid available now, but enough netuids in the cleanup queue
+            // unnecessary to prune now, we need to wait to cleanup
+            if cleanup_queue_len > registration_queue_len {
+                wait_to_cleanup = true;
+            } else {
                 if let Some(netuid) = Self::get_network_to_prune() {
                     prune_netuid = Some(netuid);
                 } else {
@@ -194,11 +201,79 @@ impl<T: Config> Pallet<T> {
             Self::do_dissolve_network(prune_netuid)?;
         }
 
-        // --- 8. Determine netuid to register.
-        let netuid_to_register: NetUid = Self::get_next_netuid();
+        if wait_to_cleanup || prune_netuid.is_some() {
+            Self::lock_network_registration_cost(&coldkey, lock_amount.into())?;
+            let info = NetworkRegistrationInfo::<T::AccountId> {
+                coldkey: coldkey.clone(),
+                hotkey: hotkey.clone(),
+                mechid,
+                identity: identity.clone(),
+                lock_amount,
+                median_subnet_alpha_price: Self::get_median_subnet_alpha_price(),
+                registration_block: current_block,
+            };
+            NetworkRegistrationQueue::<T>::mutate(|queue| queue.push(info));
+            Self::deposit_event(Event::NetworkRegistrationQueued {
+                coldkey: coldkey.clone(),
+                hotkey: hotkey.clone(),
+                mechid,
+                identity: identity.clone(),
+                lock_amount,
+                median_subnet_alpha_price: Self::get_median_subnet_alpha_price(),
+                registration_block: current_block,
+            });
+        }
 
+        Self::set_new_network_state(
+            &coldkey,
+            hotkey,
+            mechid,
+            identity,
+            lock_amount,
+            Self::get_median_subnet_alpha_price(),
+            false,
+        )?;
+
+        Ok(())
+    }
+
+    pub fn set_new_network_state(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+        mechid: u16,
+        identity: Option<SubnetIdentityOfV3>,
+        lock_amount: TaoBalance,
+        median_subnet_alpha_price: U64F64,
+        fund_locked: bool,
+    ) -> DispatchResult {
+        let subnet_limit = Self::get_max_subnets();
+        let current_count: u16 = NetworksAdded::<T>::iter()
+            .filter(|(netuid, added)| *added && *netuid != NetUid::ROOT)
+            .count() as u16;
+
+        let cleanup_queue_len: u16 = DissolveCleanupQueue::<T>::get()
+            .len()
+            .saturated_into::<u16>();
+
+        let netuid_to_register;
+        if current_count.saturating_add(cleanup_queue_len) >= subnet_limit {
+            return Err(Error::<T>::SubnetLimitReached.into());
+        } else {
+            netuid_to_register = Self::get_next_netuid();
+        }
+
+        if fund_locked {
+            Self::unlock_network_registration_cost(&coldkey)?;
+        }
+
+        let current_block = Self::get_current_block_as_u64();
         // --- 9. Snapshot the current median subnet alpha price before creating the new subnet.
-        let median_subnet_alpha_price = Self::get_median_subnet_alpha_price();
+        // let median_subnet_alpha_price = Self::get_median_subnet_alpha_price();
+
+        // --- 10. Perform the lock operation (transfer TAO from owner's coldkey to subnet account).
+        let actual_tao_lock_amount =
+            Self::transfer_tao_to_subnet(netuid_to_register, &coldkey, lock_amount.into())?;
+        log::debug!("actual_tao_lock_amount: {actual_tao_lock_amount:?}");
 
         // --- 10. Set initial and custom parameters for the network.
         let default_tempo = DefaultTempo::<T>::get();
@@ -246,7 +321,7 @@ impl<T: Config> Pallet<T> {
             .saturating_to_num::<u64>()
             .into();
 
-        // With the full lock retained in the reserve, this will normally be zero.
+        // // With the full lock retained in the reserve, this will normally be zero.
         let tao_recycled_for_registration = actual_tao_lock_amount.saturating_sub(total_pool_tao);
 
         // Core pool + ownership
@@ -274,11 +349,6 @@ impl<T: Config> Pallet<T> {
 
         // --- 17. Add the identity if it exists
         if let Some(identity_value) = identity {
-            ensure!(
-                Self::is_valid_subnet_identity(&identity_value),
-                Error::<T>::InvalidIdentity
-            );
-
             SubnetIdentitiesV3::<T>::insert(netuid_to_register, identity_value);
             Self::deposit_event(Event::SubnetIdentitySet(netuid_to_register));
         }
@@ -296,7 +366,6 @@ impl<T: Config> Pallet<T> {
         log::info!("NetworkAdded( netuid:{netuid_to_register:?}, mechanism:{mechid:?} )");
         Self::deposit_event(Event::NetworkAdded(netuid_to_register, mechid));
 
-        // --- 20. Return success.
         Ok(())
     }
 

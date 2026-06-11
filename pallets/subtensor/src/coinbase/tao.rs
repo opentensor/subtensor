@@ -5,7 +5,7 @@
 ///   - Access to subnet TAO reserves
 ///
 use frame_support::traits::{
-    Imbalance,
+    Imbalance, LockableCurrency, WithdrawReasons,
     fungible::Mutate,
     tokens::{
         Fortitude, Precision, Preservation,
@@ -24,6 +24,9 @@ pub type BalanceOf<T> =
 pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
 
 pub const MAX_TAO_ISSUANCE: u64 = 21_000_000_000_000_000_u64;
+
+/// Balances lock id for TAO locked during network registration.
+const TAO_REGISTRATION_LOCK: frame_support::traits::LockIdentifier = *b"subnetlk";
 
 impl<T: Config> Pallet<T> {
     /// Returns Subnet TAO reserve using SubnetTAO map.
@@ -304,5 +307,33 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_total_issuance() -> TaoBalance {
         TotalIssuance::<T>::get()
+    }
+
+    pub fn lock_network_registration_cost(
+        coldkey: &T::AccountId,
+        amount: BalanceOf<T>,
+    ) -> DispatchResult {
+        ensure!(
+            Self::can_remove_balance_from_coldkey_account(coldkey, amount),
+            Error::<T>::InsufficientBalance
+        );
+
+        <<T as Config>::Currency as LockableCurrency<<T as frame_system::Config>::AccountId>>::set_lock(
+            TAO_REGISTRATION_LOCK,
+            coldkey,
+            amount,
+            WithdrawReasons::all(),
+        );
+
+        Ok(())
+    }
+
+    pub fn unlock_network_registration_cost(coldkey: &T::AccountId) -> DispatchResult {
+        <<T as Config>::Currency as LockableCurrency<<T as frame_system::Config>::AccountId>>::remove_lock(
+            TAO_REGISTRATION_LOCK,
+            coldkey,
+        );
+
+        Ok(())
     }
 }

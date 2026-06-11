@@ -326,6 +326,26 @@ pub mod pallet {
         pub additional: Vec<u8>,
     }
 
+    /// Data structure for a pending network registration in the execution queue.
+    #[crate::freeze_struct("93f81374b91abeff")]
+    #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
+    pub struct NetworkRegistrationInfo<AccountId> {
+        /// The account that registered the network.
+        pub coldkey: AccountId,
+        /// The account that registered the network.
+        pub hotkey: AccountId,
+        /// The mechanism that registered the network.
+        pub mechid: u16,
+        /// The identity that registered the network.
+        pub identity: Option<SubnetIdentityOfV3>,
+        /// The lock amount that registered the network.
+        pub lock_amount: TaoBalance,
+        /// The median subnet alpha price that registered the network.
+        pub median_subnet_alpha_price: U64F64,
+        /// The block at which the network was registered.
+        pub registration_block: u64,
+    }
+
     /// Enum for recycle or burn for the owner_uid(s)
     #[derive(TypeInfo, Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug)]
     pub enum RecycleOrBurnEnum {
@@ -2235,6 +2255,11 @@ pub mod pallet {
     /// --- ITEM ( last_kept_raw_key ) Resume key for weight-limited cleanup within a phase.
     #[pallet::storage]
     pub type LastKeptRawKey<T> = StorageValue<_, Vec<u8>, OptionQuery>;
+
+    /// --- ITEM ( network_registration_queue ) Network registrations waiting to be executed.
+    #[pallet::storage]
+    pub type NetworkRegistrationQueue<T> =
+        StorageValue<_, Vec<NetworkRegistrationInfo<AccountIdOf<T>>>, ValueQuery>;
 
     // =======================================
     // ==== VotingPower Storage  ====
