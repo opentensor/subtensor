@@ -2593,5 +2593,62 @@ mod dispatches {
             let coldkey = ensure_signed(origin)?;
             Self::do_set_perpetual_lock(&coldkey, netuid, enabled)
         }
+
+        /// Sets or clears the caller's block-receiving-TAO flag.
+        ///
+        /// When enabled, any attempt to transfer TAO to this account through the
+        /// subtensor pallet will be rejected with `ReceivingTaoBlocked`. The default
+        /// is `false` (TAO transfers are allowed).
+        ///
+        /// # Arguments
+        /// * `origin` - Must be signed by the account that wishes to set the flag.
+        /// * `enabled` - `true` to block incoming TAO; `false` to allow it.
+        #[pallet::call_index(139)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(1, 1))]
+        pub fn set_block_receiving_tao(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
+            let account = ensure_signed(origin)?;
+            BlockReceivingTao::<T>::set(&account, enabled);
+            Self::deposit_event(Event::BlockReceivingTaoSet { account, enabled });
+            Ok(())
+        }
+
+        /// Sets or clears the caller's block-receiving-Alpha flag.
+        ///
+        /// When enabled, any attempt to stake Alpha (staked tokens) to this account
+        /// through the subtensor pallet will be rejected with `ReceivingAlphaBlocked`.
+        /// The default is `false` (Alpha transfers are allowed).
+        ///
+        /// # Arguments
+        /// * `origin` - Must be signed by the account that wishes to set the flag.
+        /// * `enabled` - `true` to block incoming Alpha; `false` to allow it.
+        #[pallet::call_index(140)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(1, 1))]
+        pub fn set_block_receiving_alpha(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
+            let account = ensure_signed(origin)?;
+            BlockReceivingAlpha::<T>::set(&account, enabled);
+            Self::deposit_event(Event::BlockReceivingAlphaSet { account, enabled });
+            Ok(())
+        }
+
+        /// Sets or clears the caller's block-receiving-locked-Alpha flag.
+        ///
+        /// When enabled, any attempt to transfer locked Alpha to this account
+        /// through the subtensor pallet will be rejected with `ReceivingLockedAlphaBlocked`.
+        /// The default is `false` (locked Alpha transfers are allowed).
+        ///
+        /// # Arguments
+        /// * `origin` - Must be signed by the account that wishes to set the flag.
+        /// * `enabled` - `true` to block incoming locked Alpha; `false` to allow it.
+        #[pallet::call_index(141)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(1, 1))]
+        pub fn set_block_receiving_locked_alpha(
+            origin: OriginFor<T>,
+            enabled: bool,
+        ) -> DispatchResult {
+            let account = ensure_signed(origin)?;
+            BlockReceivingLockedAlpha::<T>::set(&account, enabled);
+            Self::deposit_event(Event::BlockReceivingLockedAlphaSet { account, enabled });
+            Ok(())
+        }
     }
 }

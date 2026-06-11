@@ -301,5 +301,11 @@ mod errors {
         CannotUseSystemAccount,
         /// Trying to unlock more than locked
         UnlockAmountTooHigh,
+        /// Destination account blocks receiving TAO transfers.
+        ReceivingTaoBlocked,
+        /// Destination account blocks receiving Alpha (staked) transfers.
+        ReceivingAlphaBlocked,
+        /// Destination account blocks receiving locked Alpha transfers.
+        ReceivingLockedAlphaBlocked,
     }
 }

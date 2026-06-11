@@ -631,5 +631,29 @@ mod events {
             /// Whether this coldkey's locks are now perpetual.
             enabled: bool,
         },
+
+        /// An account's block-receiving-TAO flag was updated.
+        BlockReceivingTaoSet {
+            /// The account whose flag changed.
+            account: T::AccountId,
+            /// Whether this account now blocks receiving TAO.
+            enabled: bool,
+        },
+
+        /// An account's block-receiving-Alpha flag was updated.
+        BlockReceivingAlphaSet {
+            /// The account whose flag changed.
+            account: T::AccountId,
+            /// Whether this account now blocks receiving Alpha.
+            enabled: bool,
+        },
+
+        /// An account's block-receiving-locked-Alpha flag was updated.
+        BlockReceivingLockedAlphaSet {
+            /// The account whose flag changed.
+            account: T::AccountId,
+            /// Whether this account now blocks receiving locked Alpha.
+            enabled: bool,
+        },
     }
 }

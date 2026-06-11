@@ -1818,6 +1818,15 @@ impl<T: Config> Pallet<T> {
             }
 
             locked_transfer = remaining_to_transfer.min(source_lock.locked_mass);
+
+            // Reject if the destination has opted out of receiving locked Alpha.
+            if !locked_transfer.is_zero() {
+                ensure!(
+                    !BlockReceivingLockedAlpha::<T>::get(destination_coldkey),
+                    Error::<T>::ReceivingLockedAlphaBlocked
+                );
+            }
+
             conviction_transfer = if locked_transfer.is_zero() || source_lock.locked_mass.is_zero()
             {
                 U64F64::saturating_from_num(0)

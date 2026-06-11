@@ -66,12 +66,18 @@ impl<T: Config> Pallet<T> {
     /// Transfer TAO from one coldkey account to another.
     ///
     /// This is a plain transfer and may reap the origin account if `amount` reduces
-    /// its balance below the existential deposit (ED).    
+    /// its balance below the existential deposit (ED).
     pub fn transfer_tao(
         origin_coldkey: &T::AccountId,
         destination_coldkey: &T::AccountId,
         amount: BalanceOf<T>,
     ) -> DispatchResult {
+        // Reject the transfer if the destination has opted out of receiving TAO.
+        ensure!(
+            !BlockReceivingTao::<T>::get(destination_coldkey),
+            Error::<T>::ReceivingTaoBlocked
+        );
+
         // Get full balance including ED
         let max_transferrable = Self::get_coldkey_balance(origin_coldkey);
         ensure!(amount <= max_transferrable, Error::<T>::InsufficientBalance);

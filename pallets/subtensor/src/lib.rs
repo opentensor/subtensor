@@ -2650,6 +2650,21 @@ pub mod pallet {
     pub type PendingChildKeyCooldown<T: Config> =
         StorageValue<_, u64, ValueQuery, DefaultPendingChildKeyCooldown<T>>;
 
+    /// --- Map ( account_id ) --> bool | Whether this account blocks receiving TAO transfers.
+    #[pallet::storage]
+    pub type BlockReceivingTao<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, bool, ValueQuery>;
+
+    /// --- Map ( account_id ) --> bool | Whether this account blocks receiving Alpha (staked) transfers.
+    #[pallet::storage]
+    pub type BlockReceivingAlpha<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, bool, ValueQuery>;
+
+    /// --- Map ( account_id ) --> bool | Whether this account blocks receiving locked Alpha transfers.
+    #[pallet::storage]
+    pub type BlockReceivingLockedAlpha<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, bool, ValueQuery>;
+
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         /// Stakes record in genesis.
