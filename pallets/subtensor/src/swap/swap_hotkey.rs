@@ -99,7 +99,10 @@ impl<T: Config> Pallet<T> {
         if touches_root {
             ensure!(
                 RootClaimable::<T>::get(new_hotkey).is_empty()
-                    && Self::get_stake_for_hotkey_on_subnet(new_hotkey, NetUid::ROOT).is_zero(),
+                    && Self::get_stake_for_hotkey_on_subnet(new_hotkey, NetUid::ROOT).is_zero()
+                    && RootClaimed::<T>::iter_prefix((NetUid::ROOT, new_hotkey))
+                        .next()
+                        .is_none(),
                 Error::<T>::NewHotKeyNotCleanForRootSwap
             );
         }
