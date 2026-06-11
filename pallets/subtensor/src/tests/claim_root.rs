@@ -2151,3 +2151,94 @@ fn test_claim_root_with_moved_stake() {
         assert_abs_diff_eq!(bob_stake_diff2, estimated_stake as u64, epsilon = 100u64,);
     });
 }
+
+
+// ============================================================
+// GHSA-2026-012 regression test — security audit (June 2026)
+// Fails on the vulnerable code; passes with the fix in this PR.
+// ============================================================
+
+#[test]
+fn ghsa_2026_012_staking_coldkey_index_never_decremented() {
+    // GHSA-2026-012 (regression): the staking-coldkey index must be pruned when a coldkey
+    // ceases to hold root stake. After a full root unstake and a coldkey swap, the old,
+    // now-zero-stake coldkey must be removed from StakingColdkeys / StakingColdkeysByIndex
+    // and NumStakingColdkeys must be decremented (swap-last-into-gap compaction).
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let coldkey = U256::from(1003);
+        let new_coldkey = U256::from(10030);
+        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+        remove_owner_registration_stake(netuid);
+
+        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
+
+        // Index starts empty.
+        assert_eq!(NumStakingColdkeys::<Test>::get(), 0);
+
+        // Give `coldkey` root stake and index it via the exact path this file's
+        // claim-root tests use (see test_claim_root_with_block_emissions line ~995).
+        let root_stake = 2_000_000u64;
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            root_stake.into(),
+        );
+        SubtensorModule::maybe_add_coldkey_index(&coldkey);
+
+        // Index now contains the coldkey: NumStakingColdkeys 0 -> 1.
+        assert_eq!(NumStakingColdkeys::<Test>::get(), 1);
+        assert!(StakingColdkeys::<Test>::contains_key(coldkey));
+        assert!(StakingColdkeysByIndex::<Test>::contains_key(0));
+        assert_eq!(StakingColdkeysByIndex::<Test>::get(0), Some(coldkey));
+
+        // Fully remove the coldkey's root stake (now a dead, zero-stake entry).
+        let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+        );
+        SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            alpha,
+        );
+        assert_eq!(
+            u64::from(SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &coldkey,
+                NetUid::ROOT,
+            )),
+            0u64,
+            "precondition: coldkey now has zero root stake"
+        );
+
+        // Swap the coldkey via the real extrinsic helper.
+        assert_ok!(SubtensorModule::do_swap_coldkey(&coldkey, &new_coldkey));
+
+        // FIXED (GHSA-2026-012): the swap prunes the now-zero-stake old coldkey from the
+        // index and decrements the counter. The index is empty again.
+        assert_eq!(
+            NumStakingColdkeys::<Test>::get(),
+            0,
+            "NumStakingColdkeys must be decremented on full unstake + coldkey swap"
+        );
+        assert!(
+            !StakingColdkeysByIndex::<Test>::contains_key(0),
+            "dead index slot must be removed"
+        );
+        assert!(
+            !StakingColdkeys::<Test>::contains_key(coldkey),
+            "stale coldkey->index mapping must be removed after swap"
+        );
+        // The swapped-away new coldkey had no root stake transferred (the old coldkey was
+        // fully unstaked first), so it must not occupy the index either.
+        assert!(
+            !StakingColdkeys::<Test>::contains_key(new_coldkey),
+            "new coldkey with no root stake must not be indexed"
+        );
+    });
+}

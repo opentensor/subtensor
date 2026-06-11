@@ -388,6 +388,35 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    /// Returns true if `coldkey` still holds any root (netuid 0) stake on any of its
+    /// staking hotkeys. Used to decide whether the coldkey should remain indexed in the
+    /// auto-claim staking-coldkey index.
+    pub fn coldkey_has_root_stake(coldkey: &T::AccountId) -> bool {
+        StakingHotkeys::<T>::get(coldkey).iter().any(|hotkey| {
+            !Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, NetUid::ROOT)
+                .is_zero()
+        })
+    }
+
+    /// Remove `coldkey` from the staking-coldkey index, compacting by moving the last
+    /// entry into the freed slot so the index stays dense in `[0, n)`. This is the inverse
+    /// of `maybe_add_coldkey_index` and keeps the
+    /// `StakingColdkeys[c] == i <=> StakingColdkeysByIndex[i] == c` bijection consistent.
+    pub fn maybe_remove_coldkey_index(coldkey: &T::AccountId) {
+        if let Some(idx) = StakingColdkeys::<T>::take(coldkey) {
+            let last = NumStakingColdkeys::<T>::get().saturating_sub(1);
+            if idx != last
+                && let Some(moved) = StakingColdkeysByIndex::<T>::take(last)
+            {
+                StakingColdkeysByIndex::<T>::insert(idx, moved.clone());
+                StakingColdkeys::<T>::insert(moved, idx);
+            } else {
+                StakingColdkeysByIndex::<T>::remove(idx);
+            }
+            NumStakingColdkeys::<T>::put(last);
+        }
+    }
+
     pub fn run_auto_claim_root_divs(last_block_hash: T::Hash) -> Weight {
         let mut weight: Weight = Weight::default();
 
