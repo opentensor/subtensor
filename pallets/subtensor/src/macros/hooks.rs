@@ -713,9 +713,6 @@ mod hooks {
 
         pub(crate) fn process_network_registration_queue() {
             let queue = NetworkRegistrationQueue::<T>::get();
-            if queue.is_empty() {
-                return;
-            }
 
             for (index, info) in queue.iter().enumerate() {
                 let result = Self::set_new_network_state(
