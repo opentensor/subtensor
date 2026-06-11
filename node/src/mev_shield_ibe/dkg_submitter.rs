@@ -26,6 +26,37 @@ fn build_unsigned_publish_epoch_key_extrinsic(
     SpOpaqueExtrinsic::from_bytes(&unchecked.encode()).ok()
 }
 
+fn publication_attestation_weight(publication: &EpochDkgPublication) -> u128 {
+    publication
+        .attestations
+        .iter()
+        .fold(0u128, |acc, att| acc.saturating_add(att.stake))
+}
+
+fn queue_epoch_publication(
+    pending_publications: &mut VecDeque<EpochDkgPublication>,
+    publication: EpochDkgPublication,
+) {
+    let new_weight = publication_attestation_weight(&publication);
+    let mut already_have_at_least_as_good = false;
+    pending_publications.retain(|queued| {
+        let same_key = queued.epoch == publication.epoch && queued.key_id == publication.key_id;
+        if !same_key {
+            return true;
+        }
+        let queued_weight = publication_attestation_weight(queued);
+        if queued_weight >= new_weight {
+            already_have_at_least_as_good = true;
+            true
+        } else {
+            false
+        }
+    });
+    if !already_have_at_least_as_good {
+        pending_publications.push_back(publication);
+    }
+}
+
 fn dkg_authority_registration_payload_hash(
     hotkey: &subtensor_runtime_common::AccountId,
     consensus_key_kind: DkgConsensusKeyKind,
@@ -171,7 +202,7 @@ pub fn spawn_dkg_publication_submitter(
 			tokio::select! {
 				publication = rx.next() => {
 					let Some(publication) = publication else { break; };
-					pending_publications.push_back(publication);
+					queue_epoch_publication(&mut pending_publications, publication);
 				},
 				_ = tokio::time::sleep(Duration::from_millis(250)) => {},
 			}

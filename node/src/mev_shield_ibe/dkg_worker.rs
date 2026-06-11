@@ -561,6 +561,33 @@ where
         return Ok(());
     }
 
+    let (attestation_weight, attestation_threshold, attestations) =
+        verified_output_attestations_for_publication(
+            &plan.authorities,
+            &eligible_dealer_ids,
+            acc,
+            publication_hash,
+        )?;
+    if attestation_weight < attestation_threshold {
+        log::debug!(
+            target: "mev-shield-ibe",
+            "DKG output for epoch {} finalized locally but has only {} attested stake; waiting for threshold {}",
+            plan.epoch,
+            attestation_weight,
+            attestation_threshold,
+        );
+        return Ok(());
+    }
+
+    let previous_publication_weight = state
+        .last_publication_attestation_weight
+        .get(&round)
+        .copied()
+        .unwrap_or(0);
+    if attestation_weight <= previous_publication_weight {
+        return Ok(());
+    }
+
     if let Some(tx) = epoch_publication_tx {
         let publication = EpochDkgPublication {
             epoch: plan.epoch,

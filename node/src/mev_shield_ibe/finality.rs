@@ -32,39 +32,52 @@ pub fn spawn_finality_gate<Block, Client>(
             use futures::StreamExt;
 
             let mut finality_stream = client.finality_notification_stream();
-
-            while let Some(notification) = finality_stream.next().await {
+        let mut retry_tick = tokio::time::interval(std::time::Duration::from_secs(6));
+        loop {
+            let notification = tokio::select! {
+                notification = finality_stream.next() => notification,
+                _ = retry_tick.tick() => None,
+            };
+            let (finalized_head_hash, finalized_head_number) = if let Some(notification) = notification {
                 let finalized_head_hash = notification.hash;
                 let finalized_head_number: u64 = (*notification.header.number()).saturated_into();
-                let best_number: u64 = client.info().best_number.saturated_into();
-                let Ok(identities) = client
-                    .runtime_api()
-                    .pending_ibe_identities(finalized_head_hash, pool.max_pending_identities())
-                else {
+                (finalized_head_hash, finalized_head_number)
+            } else {
+                let info = client.info();
+                (info.finalized_hash, info.finalized_number.saturated_into())
+            };
+            let best_number: u64 = client.info().best_number.saturated_into();
+            let Ok(identities) = client
+                .runtime_api()
+                .pending_ibe_identities(finalized_head_hash, pool.max_pending_identities())
+            else {
+                continue;
+            };
+            for identity in identities {
+                let Some(ordering_block_number) = identity.target_block.checked_sub(1) else {
                     continue;
                 };
-
-                for identity in identities {
-                    let Some(ordering_block_number) = identity.target_block.checked_sub(1) else {
-                        continue;
-                    };
-                    if ordering_block_number > finalized_head_number {
-                        continue;
-                    }
-                    let Ok(ordering_number) = <sp_runtime::traits::NumberFor<Block> as core::convert::TryFrom<u64>>::try_from(ordering_block_number) else {
-                        continue;
-                    };
-                    let Ok(Some(ordering_hash)) = client.hash(ordering_number) else {
-                        continue;
-                    };
-                    pool.mark_finalized_identity_unlocked(
-                        identity,
-                        ordering_block_number,
-                        ordering_hash.into(),
-                        best_number,
-                    );
+                if ordering_block_number > finalized_head_number {
+                    continue;
                 }
+                let Ok(ordering_number) = <sp_runtime::traits::NumberFor<Block> as core::convert::TryFrom<u64>>::try_from(ordering_block_number) else {
+                    continue;
+                };
+                let Ok(Some(ordering_hash)) = client.hash(ordering_number) else {
+                    continue;
+                };
+                // This call intentionally republishes even for identities that were
+                // already unlocked.  It gives late/rotated proposers and peers a
+                // durable catch-up path until the runtime queue entry drains and the
+                // identity disappears from pending_ibe_identities().
+                pool.mark_finalized_identity_unlocked(
+                    identity,
+                    ordering_block_number,
+                    ordering_hash.into(),
+                    best_number,
+                );
             }
+        }
         }),
     );
 }

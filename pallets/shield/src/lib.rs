@@ -1487,6 +1487,28 @@ impl<T: Config> Pallet<T> {
         None
     }
 
+    /// True when the chain has enough active IBE epoch-key coverage to safely
+    /// enable ordinary v2 encrypted submissions at `current_block`.
+    ///
+    /// The MVP bootstrap contract is intentionally conservative: validators
+    /// must have already published/extended active keys for the current block
+    /// and for the full B/B+1 inclusion window through B+2.  This avoids a
+    /// devnet or PoA->PoS handoff accepting user ciphertext that cannot be
+    /// targeted or released because epoch keys are still missing.
+    pub fn ibe_v2_submission_bootstrap_ready(current_block: u64) -> bool {
+        let mut offset = 0u64;
+        while offset <= IBE_TARGET_LOOKAHEAD_BLOCKS {
+            let Some(target) = current_block.checked_add(offset) else {
+                return false;
+            };
+            if Self::active_ibe_key_for_target_block(target).is_none() {
+                return false;
+            }
+            offset = offset.saturating_add(1);
+        }
+        true
+    }
+
     pub fn ensure_ibe_dkg_liveness() -> frame_support::weights::Weight {
         let current = Self::current_ibe_epoch();
         let (_, current_last_block) = Self::epoch_bounds(current);
@@ -2073,6 +2095,10 @@ impl<T: Config> Pallet<T> {
             .is_none(),
             Error::<T>::IbeKeyAlreadyPublished
         );
+        ensure!(
+            Self::ibe_v2_submission_bootstrap_ready(current_block_u64),
+            Error::<T>::UnknownIbeEpoch
+        );
         Ok(())
     }
 
@@ -2180,7 +2206,7 @@ impl<T: Config> Pallet<T> {
             };
 
             for bundle in data.share_bundles {
-                if bundle.key.target_block != now {
+                if bundle.key.target_block > now {
                     continue;
                 }
                 match Self::store_ibe_block_decryption_key_bundle_from_preruntime_digest(bundle) {

@@ -2742,6 +2742,9 @@ impl mev_shield_ibe_runtime_api::MevShieldIbeApi<Block> for Runtime {
         fn active_ibe_key_for_target_block(target_block: u64) -> Option<stp_mev_shield_ibe::IbeEpochPublicKey> {
         MevShield::active_ibe_key_for_target_block(target_block)
     }
+    fn ibe_v2_submission_bootstrap_ready(current_block: u64) -> bool {
+        MevShield::ibe_v2_submission_bootstrap_ready(current_block)
+    }
     fn due_ibe_queue_head(block_number: u64) -> Option<stp_mev_shield_ibe::IbePendingIdentity> {
             MevShield::due_ibe_queue_head_at(block_number)
         }
