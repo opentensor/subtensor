@@ -1044,7 +1044,7 @@ fn destroy_alpha_in_out_stakes_cleans_locking_coldkeys() {
 
         assert_ok!(SubtensorModule::destroy_alpha_in_out_stakes(
             netuid,
-            WeightMeter::new(Weight::from_parts(u64::MAX, u64::MAX))
+            &mut WeightMeter::new(Weight::from_parts(u64::MAX, u64::MAX))
         ));
 
         assert!(!Lock::<Test>::contains_key((coldkey, netuid, hotkey)));
