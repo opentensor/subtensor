@@ -926,7 +926,7 @@ fn test_swap_owner_new_hotkey_already_exists() {
                 Some(netuid),
                 false
             ),
-            Error::<Test>::HotKeyAlreadyRegisteredInSubNet
+            Error::<Test>::NonAssociatedColdKey
         );
 
         // Verify the swap
