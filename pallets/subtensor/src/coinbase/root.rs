@@ -18,7 +18,7 @@
 use super::*;
 use crate::CommitmentsInterface;
 use safe_math::*;
-use substrate_fixed::types::{I64F64, U96F32};
+use substrate_fixed::types::{I64F64, U64F64};
 use subtensor_runtime_common::{AlphaBalance, NetUid, NetUidStorageIndex, TaoBalance, Token};
 use subtensor_swap_interface::SwapHandler;
 
@@ -213,8 +213,6 @@ impl<T: Config> Pallet<T> {
         Self::finalize_all_subnet_root_dividends(netuid);
 
         // --- Perform the cleanup before removing the network.
-        // Will handle it in dissolve network PR.
-        T::SwapInterface::dissolve_all_liquidity_providers(netuid).map_err(|e| e.error)?;
         Self::destroy_alpha_in_out_stakes(netuid)?;
         T::SwapInterface::clear_protocol_liquidity(netuid)?;
         T::CommitmentsInterface::purge_netuid(netuid);
@@ -302,7 +300,6 @@ impl<T: Config> Pallet<T> {
         SubnetEmaProtocolFlow::<T>::remove(netuid);
         SubnetExcessTao::<T>::remove(netuid);
         SubnetRootSellTao::<T>::remove(netuid);
-        SubnetTaoProvided::<T>::remove(netuid);
 
         // --- 13. Token / mechanism / registration toggles.
         TokenSymbol::<T>::remove(netuid);
@@ -592,7 +589,7 @@ impl<T: Config> Pallet<T> {
         let current_block: u64 = Self::get_current_block_as_u64();
 
         let mut candidate_netuid: Option<NetUid> = None;
-        let mut candidate_price: U96F32 = U96F32::saturating_from_num(u128::MAX);
+        let mut candidate_price: U64F64 = U64F64::saturating_from_num(u128::MAX);
         let mut candidate_timestamp: u64 = u64::MAX;
 
         for (netuid, added) in NetworksAdded::<T>::iter() {
@@ -607,7 +604,7 @@ impl<T: Config> Pallet<T> {
                 continue;
             }
 
-            let price: U96F32 = Self::get_moving_alpha_price(netuid);
+            let price: U64F64 = Self::get_moving_alpha_price(netuid);
 
             // If tie on price, earliest registration wins.
             if price < candidate_price

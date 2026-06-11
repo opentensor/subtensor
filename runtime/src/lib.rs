@@ -57,14 +57,11 @@ use sp_core::{
     H160, H256, OpaqueMetadata, U256,
     crypto::{ByteArray, KeyTypeId},
 };
-use sp_runtime::Cow;
-use sp_runtime::generic::Era;
-use sp_runtime::traits::AccountIdConversion;
 use sp_runtime::{
-    AccountId32, ApplyExtrinsicResult, ConsensusEngineId, Percent, generic, impl_opaque_keys,
+    AccountId32, ApplyExtrinsicResult, ConsensusEngineId, Cow, Percent, generic, impl_opaque_keys,
     traits::{
-        AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, One,
-        PostDispatchInfoOf, UniqueSaturatedInto, Verify,
+        AccountIdConversion, AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf,
+        Dispatchable, One, PostDispatchInfoOf, UniqueSaturatedInto, Verify,
     },
     transaction_validity::{
         TransactionPriority, TransactionSource, TransactionValidity, TransactionValidityError,
@@ -76,7 +73,7 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use stp_shield::ShieldedTransaction;
-use substrate_fixed::types::{U64F64, U96F32};
+use substrate_fixed::types::U64F64;
 use subtensor_precompiles::Precompiles;
 use subtensor_runtime_common::{AlphaBalance, AuthorshipInfo, TaoBalance, time::*, *};
 use subtensor_swap_interface::{Order, SwapHandler};
@@ -186,47 +183,6 @@ impl frame_system::offchain::CreateBare<pallet_drand::Call<Runtime>> for Runtime
     }
 }
 
-impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>> for Runtime {
-    fn create_signed_transaction<
-        S: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>,
-    >(
-        call: RuntimeCall,
-        public: Self::Public,
-        account: Self::AccountId,
-        nonce: Self::Nonce,
-    ) -> Option<Self::Extrinsic> {
-        use sp_runtime::traits::StaticLookup;
-
-        let address = <Runtime as frame_system::Config>::Lookup::unlookup(account.clone());
-        let extra: TxExtension = (
-            (
-                frame_system::CheckNonZeroSender::<Runtime>::new(),
-                frame_system::CheckSpecVersion::<Runtime>::new(),
-                frame_system::CheckTxVersion::<Runtime>::new(),
-                frame_system::CheckGenesis::<Runtime>::new(),
-                check_mortality::CheckMortality::<Runtime>::from(Era::Immortal),
-                check_nonce::CheckNonce::<Runtime>::from(nonce).into(),
-                frame_system::CheckWeight::<Runtime>::new(),
-            ),
-            (
-                ChargeTransactionPaymentWrapper::new(TaoBalance::new(0)),
-                SudoTransactionExtension::<Runtime>::new(),
-                pallet_shield::CheckShieldedTxValidity::<Runtime>::new(),
-                pallet_subtensor::SubtensorTransactionExtension::<Runtime>::new(),
-                pallet_drand::drand_priority::DrandPriority::<Runtime>::new(),
-            ),
-            frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
-        );
-
-        let raw_payload = SignedPayload::new(call.clone(), extra.clone()).ok()?;
-        let signature = raw_payload.using_encoded(|payload| S::sign(payload, public))?;
-
-        Some(UncheckedExtrinsic::new_signed(
-            call, address, signature, extra,
-        ))
-    }
-}
-
 // Subtensor module
 pub use pallet_scheduler;
 pub use pallet_subtensor;
@@ -278,7 +234,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 416,
+    spec_version: 417,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1177,7 +1133,6 @@ impl pallet_subtensor::Config for Runtime {
 parameter_types! {
     pub const SwapProtocolId: PalletId = PalletId(*b"ten/swap");
     pub const SwapMaxFeeRate: u16 = 10000; // 15.26%
-    pub const SwapMaxPositions: u32 = 100;
     pub const SwapMinimumLiquidity: u64 = 1_000;
     pub const SwapMinimumReserve: NonZeroU64 = unsafe { NonZeroU64::new_unchecked(1_000_000) };
 }
@@ -1189,11 +1144,9 @@ impl pallet_subtensor_swap::Config for Runtime {
     type TaoReserve = pallet_subtensor::TaoBalanceReserve<Self>;
     type AlphaReserve = pallet_subtensor::AlphaBalanceReserve<Self>;
     type MaxFeeRate = SwapMaxFeeRate;
-    type MaxPositions = SwapMaxPositions;
     type MinimumLiquidity = SwapMinimumLiquidity;
     type MinimumReserve = SwapMinimumReserve;
-    // TODO: set measured weights when the pallet been benchmarked and the type is generated
-    type WeightInfo = pallet_subtensor_swap::weights::SubstrateWeight<Runtime>;
+    type WeightInfo = pallet_subtensor_swap::weights::DefaultWeight<Runtime>;
     #[cfg(feature = "runtime-benchmarks")]
     type BenchmarkHelper = SwapBenchmarkHelper;
 }
@@ -2680,7 +2633,7 @@ impl_runtime_apis! {
     impl pallet_subtensor_swap_runtime_api::SwapRuntimeApi<Block> for Runtime {
         fn current_alpha_price(netuid: NetUid) -> u64 {
             pallet_subtensor_swap::Pallet::<Runtime>::current_price(netuid.into())
-                .saturating_mul(U96F32::from_num(1_000_000_000))
+                .saturating_mul(U64F64::from_num(1_000_000_000))
                 .saturating_to_num()
         }
 
@@ -2699,7 +2652,7 @@ impl_runtime_apis! {
         fn sim_swap_tao_for_alpha(netuid: NetUid, tao: TaoBalance) -> SimSwapResult {
             let price = pallet_subtensor_swap::Pallet::<Runtime>::current_price(netuid.into());
             let tao_u64: u64 = tao.into();
-            let no_slippage_alpha = U96F32::saturating_from_num(tao_u64).safe_div(price).saturating_to_num::<u64>();
+            let no_slippage_alpha = U64F64::saturating_from_num(tao_u64).safe_div(price).saturating_to_num::<u64>();
             let order = pallet_subtensor::GetAlphaForTao::<Runtime>::with_amount(tao);
             // fee_to_block_author is included in sr.fee_paid, so it is absent in this calculation
             pallet_subtensor_swap::Pallet::<Runtime>::sim_swap(
@@ -2729,7 +2682,7 @@ impl_runtime_apis! {
         fn sim_swap_alpha_for_tao(netuid: NetUid, alpha: AlphaBalance) -> SimSwapResult {
             let price = pallet_subtensor_swap::Pallet::<Runtime>::current_price(netuid.into());
             let alpha_u64: u64 = alpha.into();
-            let no_slippage_tao = U96F32::saturating_from_num(alpha_u64).saturating_mul(price).saturating_to_num::<u64>();
+            let no_slippage_tao = U64F64::saturating_from_num(alpha_u64).saturating_mul(price).saturating_to_num::<u64>();
             let order = pallet_subtensor::GetTaoForAlpha::<Runtime>::with_amount(alpha);
             // fee_to_block_author is included in sr.fee_paid, so it is absent in this calculation
             pallet_subtensor_swap::Pallet::<Runtime>::sim_swap(

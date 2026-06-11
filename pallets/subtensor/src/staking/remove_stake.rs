@@ -390,7 +390,7 @@ impl<T: Config> Pallet<T> {
             if limit_price <= 1_000_000_000.into() {
                 return Ok(AlphaBalance::MAX);
             } else {
-                return Err(Error::<T>::ZeroMaxStakeAmount.into());
+                return Ok(AlphaBalance::ZERO);
             }
         }
 
@@ -399,11 +399,7 @@ impl<T: Config> Pallet<T> {
         let result = T::SwapInterface::swap(netuid.into(), order, limit_price.into(), false, true)
             .map(|r| r.amount_paid_in.saturating_add(r.fee_paid))?;
 
-        if !result.is_zero() {
-            Ok(result)
-        } else {
-            Err(Error::<T>::ZeroMaxStakeAmount.into())
-        }
+        Ok(result)
     }
 
     pub fn do_remove_stake_full_limit(
@@ -454,7 +450,9 @@ impl<T: Config> Pallet<T> {
                     .saturating_to_num::<u64>();
 
                 owner_emission_tao = if owner_alpha_u64 > 0 {
-                    let cur_price: U96F32 = T::SwapInterface::current_alpha_price(netuid.into());
+                    let cur_price: U96F32 = U96F32::saturating_from_num(
+                        T::SwapInterface::current_alpha_price(netuid.into()),
+                    );
                     let val_u64 = U96F32::from_num(owner_alpha_u64)
                         .saturating_mul(cur_price)
                         .floor()
@@ -609,7 +607,6 @@ impl<T: Config> Pallet<T> {
         }
         // 7.c) Remove α‑in/α‑out counters (fully destroyed).
         SubnetAlphaIn::<T>::remove(netuid);
-        SubnetAlphaInProvided::<T>::remove(netuid);
         SubnetAlphaOut::<T>::remove(netuid);
         SubnetProtocolAlpha::<T>::remove(netuid);
 
@@ -645,21 +642,8 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // 9) Cleanup all subnet stake locks if any.
-        let lock_keys: Vec<(T::AccountId, NetUid, T::AccountId)> = Lock::<T>::iter_keys()
-            .filter(|(_, this_netuid, _)| *this_netuid == netuid)
-            .collect();
-        for (coldkey, netuid, hotkey) in lock_keys {
-            Lock::<T>::remove((coldkey, netuid, hotkey));
-        }
-
-        // 10) Cleanup all subnet hotkey locks if any.
-        let hotkey_lock_keys: Vec<(NetUid, T::AccountId)> = HotkeyLock::<T>::iter_keys()
-            .filter(|(this_netuid, _)| *this_netuid == netuid)
-            .collect();
-        for (netuid, hotkey) in hotkey_lock_keys {
-            HotkeyLock::<T>::remove(netuid, hotkey);
-        }
+        // 10) Cleanup all subnet stake locks and lock aggregates if any.
+        Self::destroy_lock_maps(netuid);
 
         Ok(())
     }
