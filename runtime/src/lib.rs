@@ -1494,8 +1494,21 @@ impl Get<AccountId> for LimitOrdersPalletHotkey {
     }
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+pub struct LimitOrdersUnixTime;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl frame_support::traits::UnixTime for LimitOrdersUnixTime {
+    fn now() -> core::time::Duration {
+        core::time::Duration::from_millis(pallet_timestamp::Pallet::<Runtime>::get())
+    }
+}
+
 impl pallet_limit_orders::Config for Runtime {
     type SwapInterface = SubtensorModule;
+    #[cfg(feature = "runtime-benchmarks")]
+    type TimeProvider = LimitOrdersUnixTime;
+    #[cfg(not(feature = "runtime-benchmarks"))]
     type TimeProvider = Timestamp;
     type MaxOrdersPerBatch = LimitOrdersMaxOrdersPerBatch;
     type PalletId = LimitOrdersPalletId;
