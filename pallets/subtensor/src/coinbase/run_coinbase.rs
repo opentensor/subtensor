@@ -1,6 +1,6 @@
 use super::*;
 use crate::coinbase::tao::CreditOf;
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, BTreeSet};
 use frame_support::traits::Imbalance;
 use safe_math::*;
 use substrate_fixed::types::{U64F64, U96F32};
@@ -317,6 +317,29 @@ impl<T: Config> Pallet<T> {
                 Self::recycle_subnet_alpha(*netuid_i, AlphaBalance::from(tou64!(root_alpha)));
             }
         }
+    }
+
+    /// Subnets whose epoch slot is due *this* block but is deferred by the per-block
+    /// cap (`MaxEpochsPerBlock`).
+    pub fn epochs_deferred_this_block(subnets: &[NetUid], current_block: u64) -> BTreeSet<NetUid> {
+        let cap = T::MaxEpochsPerBlock::get();
+        let mut deferred: BTreeSet<NetUid> = BTreeSet::new();
+        let mut epochs_run_this_block: u32 = 0;
+
+        for &netuid in subnets.iter() {
+            if !Self::should_run_epoch(netuid, current_block) {
+                continue;
+            }
+            // Per-block cap — due subnets beyond the limit are deferred.
+            if epochs_run_this_block >= cap {
+                deferred.insert(netuid);
+                continue;
+            }
+            if Self::is_epoch_input_state_consistent(netuid) {
+                epochs_run_this_block = epochs_run_this_block.saturating_add(1);
+            }
+        }
+        deferred
     }
 
     pub fn drain_pending(
