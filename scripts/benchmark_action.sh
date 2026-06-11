@@ -40,7 +40,16 @@ PATCHED=()
 SUMMARY=()
 FAILED=0
 
+# Pallets discovered by discover_pallets.sh but not yet wired into the runtime
+# benchmark registry (define_benchmarks!); skip until governance wiring lands.
+SKIP_PALLETS=(pallet_multi_collective)
+
 for pallet in "${!OUTPUTS[@]}"; do
+  if [[ " ${SKIP_PALLETS[*]} " == *" $pallet "* ]]; then
+    SUMMARY+=("$pallet: SKIPPED")
+    continue
+  fi
+
   output="${OUTPUTS[$pallet]}"
   committed="$ROOT_DIR/$output"
   tmp=$(mktemp)
