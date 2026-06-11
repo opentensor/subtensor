@@ -311,5 +311,9 @@ mod errors {
         /// The next automatic epoch is already imminent; a manual trigger would have
         /// no effect.
         AutoEpochAlreadyImminent,
+        /// `trigger_epoch` is blocked because commit-reveal is enabled for this subnet:
+        /// an out-of-band epoch would desync the CRv3 reveal window from the wall-clock
+        /// Drand schedule and silently drop committed weights.
+        DynamicTempoBlockedByCommitReveal,
     }
 }

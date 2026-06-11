@@ -4346,7 +4346,11 @@ fn test_reveal_crv3_defers_with_capped_epoch() {
             "only cap-deferred subnets keep their commit (their reveal was skipped)"
         );
 
-        let deferred: Vec<NetUid> = subnets.iter().copied().filter(|n| still_holds(*n)).collect();
+        let deferred: Vec<NetUid> = subnets
+            .iter()
+            .copied()
+            .filter(|n| still_holds(*n))
+            .collect();
 
         // --- Phase 2: drop the cap pressure so only the deferred subnets are due;
         // they should now reveal (and clean their expired commit).

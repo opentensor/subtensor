@@ -76,6 +76,12 @@ impl<T: Config> Pallet<T> {
     pub fn do_trigger_epoch(origin: OriginFor<T>, netuid: NetUid) -> Result<(), DispatchError> {
         let who = Self::ensure_subnet_owner(origin, netuid)?;
 
+        // Block triggering to avoid breaking CRv3 reveal
+        ensure!(
+            !Self::get_commit_reveal_weights_enabled(netuid),
+            Error::<T>::DynamicTempoBlockedByCommitReveal
+        );
+
         // No `ensure_admin_window_open` here: trigger *defines* the next epoch.
         ensure!(
             PendingEpochAt::<T>::get(netuid) == 0,

@@ -43,13 +43,37 @@ fn do_set_tempo_works_with_commit_reveal_enabled() {
 }
 
 #[test]
-fn do_trigger_epoch_works_with_commit_reveal_enabled() {
+fn do_trigger_epoch_blocked_with_commit_reveal_enabled() {
     new_test_ext(1).execute_with(|| {
         let owner = U256::from(1);
         let netuid = setup_subnet(owner);
 
-        // CR enabled by default; `trigger_epoch` is no longer blocked.
+        // CR enabled by default; an out-of-band epoch would desync the CRv3 reveal
+        // window from the Drand schedule and drop committed weights, so it is blocked.
         assert!(CommitRevealWeightsEnabled::<Test>::get(netuid));
+        AdminFreezeWindow::<Test>::set(5);
+
+        assert_noop!(
+            crate::Pallet::<Test>::do_trigger_epoch(
+                <<Test as Config>::RuntimeOrigin>::signed(owner),
+                netuid,
+            ),
+            crate::Error::<Test>::DynamicTempoBlockedByCommitReveal
+        );
+
+        // No pending epoch was scheduled.
+        assert_eq!(PendingEpochAt::<Test>::get(netuid), 0);
+    });
+}
+
+#[test]
+fn do_trigger_epoch_works_with_commit_reveal_disabled() {
+    new_test_ext(1).execute_with(|| {
+        let owner = U256::from(1);
+        let netuid = setup_subnet(owner);
+
+        // With CR disabled there is no reveal window to protect, so the trigger fires.
+        CommitRevealWeightsEnabled::<Test>::insert(netuid, false);
         AdminFreezeWindow::<Test>::set(5);
 
         assert_ok!(crate::Pallet::<Test>::do_trigger_epoch(
@@ -99,6 +123,10 @@ fn do_trigger_epoch_rejects_when_auto_epoch_already_imminent() {
     new_test_ext(1).execute_with(|| {
         let owner = U256::from(1);
         let netuid = setup_subnet(owner);
+
+        // Disable CR so the trigger reaches the imminent-auto-epoch check rather than
+        // being short-circuited by the commit-reveal guard.
+        CommitRevealWeightsEnabled::<Test>::insert(netuid, false);
 
         // Make the next auto epoch closer than AdminFreezeWindow.
         // remaining = (LastEpochBlock + tempo) - now = (1 + 10) - 5 = 6, window = 8 => reject.
