@@ -711,8 +711,24 @@ mod hooks {
             weight_meter.consumed()
         }
 
-        fn process_network_registration_queue() {
+        pub(crate) fn process_network_registration_queue() {
             let queue = NetworkRegistrationQueue::<T>::get();
+            if queue.is_empty() {
+                return;
+            }
+
+            // Only release a queued registration once dissolve cleanup has actually
+            // freed a slot; mirrors the queueing condition in `do_register_network`.
+            let subnet_limit = u64::from(Self::get_max_subnets());
+            let current_count = NetworksAdded::<T>::iter()
+                .filter(|(netuid, added)| *added && *netuid != NetUid::ROOT)
+                .count() as u64;
+            let cleanup_queue_len = DissolveCleanupQueue::<T>::get().len() as u64;
+
+            if current_count.saturating_add(cleanup_queue_len) >= subnet_limit {
+                return;
+            }
+
             for (index, info) in queue.iter().enumerate() {
                 let result = Self::set_new_network_state(
                     &info.coldkey,
