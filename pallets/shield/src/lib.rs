@@ -1441,6 +1441,52 @@ impl<T: Config> Pallet<T> {
         None
     }
 
+    /// Return the canonical IBE epoch key clients must use for a target block.
+    ///
+    /// Emergency DKG fallback extends the latest usable source epoch key in
+    /// place. That means clients continue to put the source `epoch` and `key_id`
+    /// returned here into the v2 envelope while `first_block..=last_block`
+    /// covers the requested target block.
+    pub fn active_ibe_key_for_target_block(target_block: u64) -> Option<IbeEpochPublicKey> {
+        let epoch_len = T::EpochLength::get().max(1);
+        let target_epoch = target_block.checked_div(epoch_len).unwrap_or(0);
+
+        if let Some(epoch_key) = IbeEpochKeys::<T>::get(target_epoch) {
+            if epoch_key.first_block <= target_block && target_block <= epoch_key.last_block {
+                return Some(epoch_key);
+            }
+        }
+
+        if let Some(source_epoch) = LatestPublishedIbeEpoch::<T>::get() {
+            if let Some(epoch_key) = IbeEpochKeys::<T>::get(source_epoch) {
+                if epoch_key.first_block <= target_block && target_block <= epoch_key.last_block {
+                    return Some(epoch_key);
+                }
+            }
+        }
+
+        let max_lookback = IBE_DKG_EPOCHS_AHEAD.saturating_add(1);
+        let mut checked = 0u64;
+        let mut epoch = target_epoch;
+        loop {
+            if checked > max_lookback {
+                break;
+            }
+            if let Some(epoch_key) = IbeEpochKeys::<T>::get(epoch) {
+                if epoch_key.first_block <= target_block && target_block <= epoch_key.last_block {
+                    return Some(epoch_key);
+                }
+            }
+            if epoch == 0 {
+                break;
+            }
+            epoch = epoch.saturating_sub(1);
+            checked = checked.saturating_add(1);
+        }
+
+        None
+    }
+
     pub fn ensure_ibe_dkg_liveness() -> frame_support::weights::Weight {
         let current = Self::current_ibe_epoch();
         let (_, current_last_block) = Self::epoch_bounds(current);

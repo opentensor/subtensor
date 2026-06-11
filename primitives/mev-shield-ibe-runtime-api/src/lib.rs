@@ -7,7 +7,9 @@ use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 use sp_core::H256;
 use sp_runtime::RuntimeDebug;
-use stp_mev_shield_ibe::{IbeDkgPublicShareAtomV1, IbePendingIdentity, KEY_ID_LEN};
+use stp_mev_shield_ibe::{
+    IbeDkgPublicShareAtomV1, IbeEpochPublicKey, IbePendingIdentity, KEY_ID_LEN,
+};
 
 /// Runtime-side classification used by node block import.  The node must not
 /// infer this from call indexes because runtime upgrades can move pallets/calls.
@@ -159,7 +161,7 @@ pub struct DkgTransportKeyRegistration {
 
 sp_api::decl_runtime_apis! {
     pub trait MevShieldIbeApi {
-        fn pending_ibe_identities(limit: u32) -> Vec<IbePendingIdentity>;
+        fn pending_ibe_identities(limit: u32) -> Vec<IbePendingIdentity>; fn active_ibe_key_for_target_block(target_block: u64) -> Option<IbeEpochPublicKey>;
         fn due_ibe_queue_head(block_number: u64) -> Option<IbePendingIdentity>;
         fn has_ibe_block_key(epoch: u64, target_block: u64, key_id: [u8; KEY_ID_LEN]) -> bool;
         fn pending_encrypted_queue_len() -> u32;

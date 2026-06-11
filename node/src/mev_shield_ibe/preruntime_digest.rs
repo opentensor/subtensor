@@ -190,14 +190,62 @@ where
         return Vec::new();
     };
 
-    let target_block = parent_number.saturating_add(1);
-    let mut seen = BTreeSet::new();
+    let child_block = parent_number.saturating_add(1);
     let api = client.runtime_api();
 
-    let mut bundles: Vec<IbeBlockDecryptionKeyShareBundleV1> = share_pool
+    let mut wanted_identities = BTreeSet::new();
+    let mut due_identity = None;
+
+    match api.due_ibe_queue_head(parent_hash, child_block) {
+        Ok(Some(identity)) => {
+            let id = (identity.epoch, identity.target_block, identity.key_id);
+            due_identity = Some(id);
+            wanted_identities.insert(id);
+        }
+        Ok(None) => {}
+        Err(error) => {
+            log::warn!(
+                target: LOG_TARGET,
+                "failed to query due IBE queue head while building pre-runtime digest: {:?}",
+                error,
+            );
+        }
+    }
+
+    match api.pending_ibe_identities(parent_hash, 0) {
+        Ok(identities) => {
+            for identity in identities
+                .into_iter()
+                .filter(|identity| identity.target_block <= child_block)
+            {
+                wanted_identities.insert((identity.epoch, identity.target_block, identity.key_id));
+            }
+        }
+        Err(error) => {
+            log::warn!(
+                target: LOG_TARGET,
+                "failed to query pending IBE identities while building pre-runtime digest: {:?}",
+                error,
+            );
+        }
+    }
+
+    if wanted_identities.is_empty() {
+        return Vec::new();
+    }
+
+    let mut seen = BTreeSet::new();
+    let mut bundles: Vec<_> = share_pool
         .try_combine_ready_key_bundles()
         .into_iter()
-        .filter(|bundle| bundle.key.target_block == target_block)
+        .filter(|bundle| bundle.key.target_block <= child_block)
+        .filter(|bundle| {
+            wanted_identities.contains(&(
+                bundle.key.epoch,
+                bundle.key.target_block,
+                bundle.key.key_id,
+            ))
+        })
         .filter(|bundle| {
             seen.insert((bundle.key.epoch, bundle.key.target_block, bundle.key.key_id))
         })
@@ -221,6 +269,20 @@ where
         })
         .collect();
 
+    bundles.sort_by_key(|bundle| {
+        let id = (bundle.key.epoch, bundle.key.target_block, bundle.key.key_id);
+        let due_rank = match due_identity {
+            Some(due) if due == id => 0u8,
+            _ => 1u8,
+        };
+        (
+            due_rank,
+            bundle.key.target_block,
+            bundle.key.epoch,
+            bundle.key.key_id,
+        )
+    });
+
     if bundles.len() > MAX_IBE_BLOCK_KEY_BUNDLES_PER_PRERUNTIME_DIGEST {
         bundles.truncate(MAX_IBE_BLOCK_KEY_BUNDLES_PER_PRERUNTIME_DIGEST);
     }
@@ -228,9 +290,9 @@ where
     if !bundles.is_empty() {
         log::debug!(
             target: LOG_TARGET,
-            "prepared {} IBE block-key release bundle(s) for pre-runtime digest at target block {}",
+            "prepared {} due/past-due IBE block-key release bundle(s) for pre-runtime digest at child block {}",
             bundles.len(),
-            target_block,
+            child_block,
         );
     }
 

@@ -151,9 +151,9 @@ where
                 return Err("IBE pre-runtime digest proof does not match bundle key".into());
             }
 
-            if key.target_block != block_number {
+            if key.target_block > block_number {
                 return Err(format!(
-                    "IBE pre-runtime digest target {} does not match block {block_number}",
+                    "IBE pre-runtime digest target {} is early for block {block_number}",
                     key.target_block,
                 ));
             }
@@ -224,17 +224,6 @@ where
                 class,
                 &mut preruntime_key_identities,
             )?;
-        }
-
-        if self.has_due_ibe_queue_head_without_available_key(
-            parent_hash,
-            block_number,
-            &preruntime_key_identities,
-        )? {
-            return Err(
-                "due encrypted queue head requires a valid threshold-IBE pre-runtime key bundle"
-                    .into(),
-            );
         }
 
         let encoded = block
