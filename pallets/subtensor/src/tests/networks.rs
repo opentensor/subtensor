@@ -1657,7 +1657,7 @@ fn register_network_prunes_and_netuid_not_reused() {
             }
         }
 
-        assert_ne!(new_netuid, NetUid::from(0));
+        assert_ne!(new_netuid, NetUid::from(0), "expected a newly registered netuid");
         assert_eq!(TotalNetworks::<Test>::get(), 2);
         assert!(DissolveCleanupQueue::<Test>::get().contains(&n1));
         assert!(!NetworksAdded::<Test>::get(n1));
@@ -3248,5 +3248,147 @@ fn dissolve_two_networks_fifo_cleanup_drains_queue() {
             DissolvedNetworksCleanupPhase::<Test>::get().is_none(),
             "no stale phase after queue drain"
         );
+    });
+}
+
+#[test]
+fn set_new_network_state_registers_subnet_with_expected_state() {
+    new_test_ext(1).execute_with(|| {
+        let cold = U256::from(9001);
+        let hot = U256::from(9002);
+        let lock_amount = SubtensorModule::get_network_lock_cost();
+        add_balance_to_coldkey_account(&cold, lock_amount.saturating_mul(2.into()).into());
+        TotalIssuance::<Test>::mutate(|total| *total = total.saturating_add(lock_amount));
+
+        let median_price = SubtensorModule::get_median_subnet_alpha_price();
+        let netuid = SubtensorModule::get_next_netuid();
+
+        assert_ok!(SubtensorModule::set_new_network_state(
+            &cold,
+            &hot,
+            1,
+            None,
+            lock_amount,
+            median_price,
+            false,
+        ));
+
+        assert!(SubtensorModule::if_subnet_exist(netuid));
+        assert_eq!(SubnetOwner::<Test>::get(netuid), cold);
+        assert_eq!(SubnetMechanism::<Test>::get(netuid), 1);
+        assert_eq!(SubnetLocked::<Test>::get(netuid), lock_amount);
+        assert_eq!(
+            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hot),
+            Ok(0)
+        );
+    });
+}
+
+#[test]
+fn register_network_queues_when_waiting_for_dissolve_cleanup() {
+    new_test_ext(0).execute_with(|| {
+        SubnetLimit::<Test>::put(2u16);
+
+        let n1 = add_dynamic_network(&U256::from(9102), &U256::from(9101));
+        let _n2 = add_dynamic_network(&U256::from(9202), &U256::from(9201));
+
+        assert_ok!(SubtensorModule::do_dissolve_network(n1));
+        assert!(DissolveCleanupQueue::<Test>::get().contains(&n1));
+
+        let cold = U256::from(9301);
+        let hot = U256::from(9302);
+        let lock_amount = SubtensorModule::get_network_lock_cost();
+        add_balance_to_coldkey_account(&cold, lock_amount.saturating_mul(2.into()).into());
+        TotalIssuance::<Test>::mutate(|total| *total = total.saturating_add(lock_amount));
+
+        assert_ok!(SubtensorModule::do_register_network(
+            RuntimeOrigin::signed(cold),
+            &hot,
+            1,
+            None,
+        ));
+
+        assert_eq!(NetworkRegistrationQueue::<Test>::get().len(), 1);
+        assert_eq!(
+            NetworkRegistrationQueue::<Test>::get()[0].coldkey,
+            cold
+        );
+        assert_eq!(TotalNetworks::<Test>::get(), 1);
+        assert!(!SubtensorModule::hotkey_account_exists(&hot));
+    });
+}
+
+#[test]
+fn process_network_registration_queue_registers_after_cleanup_slot_available() {
+    new_test_ext(0).execute_with(|| {
+        SubnetLimit::<Test>::put(2u16);
+
+        let n1 = add_dynamic_network(&U256::from(9402), &U256::from(9401));
+        let n2 = add_dynamic_network(&U256::from(9502), &U256::from(9501));
+
+        assert_ok!(SubtensorModule::do_dissolve_network(n1));
+        assert!(DissolveCleanupQueue::<Test>::get().contains(&n1));
+
+        let cold = U256::from(9601);
+        let hot = U256::from(9602);
+        let lock_amount = SubtensorModule::get_network_lock_cost();
+        add_balance_to_coldkey_account(&cold, lock_amount.saturating_mul(3.into()).into());
+        TotalIssuance::<Test>::mutate(|total| *total = total.saturating_add(lock_amount));
+
+        assert_ok!(SubtensorModule::do_register_network(
+            RuntimeOrigin::signed(cold),
+            &hot,
+            1,
+            None,
+        ));
+        assert_eq!(NetworkRegistrationQueue::<Test>::get().len(), 1);
+
+        // Simulate dissolve cleanup completing and freeing a subnet slot.
+        DissolveCleanupQueue::<Test>::kill();
+
+        run_network_registration_queue();
+
+        assert!(NetworkRegistrationQueue::<Test>::get().is_empty());
+        assert!(SubtensorModule::hotkey_account_exists(&hot));
+        assert_eq!(TotalNetworks::<Test>::get(), 2);
+
+        let registered_netuid = NetworksAdded::<Test>::iter()
+            .find(|(netuid, added)| *added && *netuid != n2)
+            .map(|(netuid, _)| netuid)
+            .expect("queued registration should create a new subnet");
+        assert_eq!(SubnetOwner::<Test>::get(registered_netuid), cold);
+    });
+}
+
+#[test]
+fn register_network_prune_registers_immediately_without_queue_entry() {
+    new_test_ext(0).execute_with(|| {
+        SubnetLimit::<Test>::put(2u16);
+
+        let n1 = add_dynamic_network(&U256::from(9702), &U256::from(9701));
+        let n2 = add_dynamic_network(&U256::from(9802), &U256::from(9801));
+
+        let imm = SubtensorModule::get_network_immunity_period();
+        System::set_block_number(imm + 100);
+        Emission::<Test>::insert(n1, vec![AlphaBalance::from(1)]);
+        Emission::<Test>::insert(n2, vec![AlphaBalance::from(1_000)]);
+
+        let cold = U256::from(9901);
+        let hot = U256::from(9902);
+        let lock_amount = SubtensorModule::get_network_lock_cost();
+        add_balance_to_coldkey_account(&cold, lock_amount.saturating_mul(10.into()).into());
+        TotalIssuance::<Test>::mutate(|total| *total = total.saturating_add(lock_amount));
+
+        assert_ok!(SubtensorModule::do_register_network(
+            RuntimeOrigin::signed(cold),
+            &hot,
+            1,
+            None,
+        ));
+
+        assert!(NetworkRegistrationQueue::<Test>::get().is_empty());
+        assert!(SubtensorModule::hotkey_account_exists(&hot));
+        assert!(DissolveCleanupQueue::<Test>::get().contains(&n1));
+        assert!(!NetworksAdded::<Test>::get(n1));
     });
 }

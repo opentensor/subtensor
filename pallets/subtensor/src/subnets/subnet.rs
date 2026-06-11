@@ -201,15 +201,16 @@ impl<T: Config> Pallet<T> {
             Self::do_dissolve_network(prune_netuid)?;
         }
 
-        if wait_to_cleanup || prune_netuid.is_some() {
+        if wait_to_cleanup {
             Self::lock_network_registration_cost(&coldkey, lock_amount.into())?;
+            let median_subnet_alpha_price = Self::get_median_subnet_alpha_price();
             let info = NetworkRegistrationInfo::<T::AccountId> {
                 coldkey: coldkey.clone(),
                 hotkey: hotkey.clone(),
                 mechid,
                 identity: identity.clone(),
                 lock_amount,
-                median_subnet_alpha_price: Self::get_median_subnet_alpha_price(),
+                median_subnet_alpha_price,
                 registration_block: current_block,
             };
             NetworkRegistrationQueue::<T>::mutate(|queue| queue.push(info));
@@ -217,11 +218,12 @@ impl<T: Config> Pallet<T> {
                 coldkey: coldkey.clone(),
                 hotkey: hotkey.clone(),
                 mechid,
-                identity: identity.clone(),
+                identity,
                 lock_amount,
-                median_subnet_alpha_price: Self::get_median_subnet_alpha_price(),
+                median_subnet_alpha_price,
                 registration_block: current_block,
             });
+            return Ok(());
         }
 
         Self::set_new_network_state(
@@ -232,9 +234,7 @@ impl<T: Config> Pallet<T> {
             lock_amount,
             Self::get_median_subnet_alpha_price(),
             false,
-        )?;
-
-        Ok(())
+        )
     }
 
     pub fn set_new_network_state(
@@ -251,38 +251,25 @@ impl<T: Config> Pallet<T> {
             .filter(|(netuid, added)| *added && *netuid != NetUid::ROOT)
             .count() as u16;
 
-        let cleanup_queue_len: u16 = DissolveCleanupQueue::<T>::get()
-            .len()
-            .saturated_into::<u16>();
-
         let netuid_to_register;
-        if current_count.saturating_add(cleanup_queue_len) >= subnet_limit {
+        if current_count >= subnet_limit {
             return Err(Error::<T>::SubnetLimitReached.into());
         } else {
             netuid_to_register = Self::get_next_netuid();
         }
 
         if fund_locked {
-            Self::unlock_network_registration_cost(&coldkey)?;
+            Self::unlock_network_registration_cost(coldkey)?;
         }
 
         let current_block = Self::get_current_block_as_u64();
-        // --- 9. Snapshot the current median subnet alpha price before creating the new subnet.
-        // let median_subnet_alpha_price = Self::get_median_subnet_alpha_price();
 
-        // --- 10. Perform the lock operation (transfer TAO from owner's coldkey to subnet account).
-        let actual_tao_lock_amount =
-            Self::transfer_tao_to_subnet(netuid_to_register, &coldkey, lock_amount.into())?;
-        log::debug!("actual_tao_lock_amount: {actual_tao_lock_amount:?}");
-
-        // --- 10. Set initial and custom parameters for the network.
         let default_tempo = DefaultTempo::<T>::get();
         Self::init_new_network(netuid_to_register, default_tempo);
         log::debug!("init_new_network: {netuid_to_register:?}");
 
-        // --- 11. Perform the lock operation (transfer TAO from owner's coldkey to subnet account).
         let actual_tao_lock_amount =
-            Self::transfer_tao_to_subnet(netuid_to_register, &coldkey, lock_amount.into())?;
+            Self::transfer_tao_to_subnet(netuid_to_register, coldkey, lock_amount.into())?;
         log::debug!("actual_tao_lock_amount: {actual_tao_lock_amount:?}");
 
         // --- 12. Set the lock amount for use to determine pricing.

@@ -759,6 +759,11 @@ pub(crate) fn run_block_idle() {
 }
 
 #[allow(dead_code)]
+pub(crate) fn run_network_registration_queue() {
+    run_block_idle();
+}
+
+#[allow(dead_code)]
 pub(crate) fn next_block_no_epoch(netuid: NetUid) -> u64 {
     // high tempo to skip automatic epochs in on_initialize
     let high_tempo: u16 = u16::MAX - 1;
