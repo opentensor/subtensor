@@ -563,33 +563,19 @@ impl<T: Config> Pallet<T> {
     pub fn purge_netuid(netuid: NetUid, weight_meter: &mut WeightMeter) -> bool {
         let write_weight = T::DbWeight::get().writes(1);
 
-        if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+        let result = clear_prefix_with_meter(weight_meter, write_weight, |limit| {
             CommitmentOf::<T>::clear_prefix(netuid, limit, None)
-        }) {
-            return false;
-        }
-
-        if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+        }) && clear_prefix_with_meter(weight_meter, write_weight, |limit| {
             LastCommitment::<T>::clear_prefix(netuid, limit, None)
-        }) {
-            return false;
-        }
-
-        if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+        }) && clear_prefix_with_meter(weight_meter, write_weight, |limit| {
             LastBondsReset::<T>::clear_prefix(netuid, limit, None)
-        }) {
-            return false;
-        }
-
-        if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+        }) && clear_prefix_with_meter(weight_meter, write_weight, |limit| {
             RevealedCommitments::<T>::clear_prefix(netuid, limit, None)
-        }) {
-            return false;
-        }
-
-        if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+        }) && clear_prefix_with_meter(weight_meter, write_weight, |limit| {
             UsedSpaceOf::<T>::clear_prefix(netuid, limit, None)
-        }) {
+        });
+
+        if !result {
             return false;
         }
 

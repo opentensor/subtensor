@@ -52,75 +52,33 @@ impl<T: Config> Pallet<T> {
     pub fn remove_network_map_parameters(netuid: NetUid, weight_meter: &mut WeightMeter) -> bool {
         let write_weight = T::DbWeight::get().writes(1);
 
-        if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+        let result = clear_prefix_with_meter(weight_meter, write_weight, |limit| {
             Keys::<T>::clear_prefix(netuid, limit, None)
-        }) {
-            return false;
-        }
-
-        if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+        }) && clear_prefix_with_meter(weight_meter, write_weight, |limit| {
             Uids::<T>::clear_prefix(netuid, limit, None)
-        }) {
-            return false;
-        }
-
-        if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+        }) && clear_prefix_with_meter(weight_meter, write_weight, |limit| {
             BlockAtRegistration::<T>::clear_prefix(netuid, limit, None)
-        }) {
-            return false;
-        }
-
-        if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+        }) && clear_prefix_with_meter(weight_meter, write_weight, |limit| {
             Axons::<T>::clear_prefix(netuid, limit, None)
-        }) {
-            return false;
-        }
-
-        if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+        }) && clear_prefix_with_meter(weight_meter, write_weight, |limit| {
             NeuronCertificates::<T>::clear_prefix(netuid, limit, None)
-        }) {
-            return false;
-        }
-
-        if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+        }) && clear_prefix_with_meter(weight_meter, write_weight, |limit| {
             Prometheus::<T>::clear_prefix(netuid, limit, None)
-        }) {
-            return false;
-        }
-
-        if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+        }) && clear_prefix_with_meter(weight_meter, write_weight, |limit| {
             AlphaDividendsPerSubnet::<T>::clear_prefix(netuid, limit, None)
-        }) {
-            return false;
-        }
-
-        if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+        }) && clear_prefix_with_meter(weight_meter, write_weight, |limit| {
             PendingChildKeys::<T>::clear_prefix(netuid, limit, None)
-        }) {
-            return false;
-        }
-
-        if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+        }) && clear_prefix_with_meter(weight_meter, write_weight, |limit| {
             AssociatedEvmAddress::<T>::clear_prefix(netuid, limit, None)
-        }) {
-            return false;
-        }
-
-        if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+        }) && clear_prefix_with_meter(weight_meter, write_weight, |limit| {
             HotkeyLock::<T>::clear_prefix(netuid, limit, None)
-        }) {
-            return false;
-        }
-
-        if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+        }) && clear_prefix_with_meter(weight_meter, write_weight, |limit| {
             DecayingHotkeyLock::<T>::clear_prefix(netuid, limit, None)
-        }) {
-            return false;
-        }
-
-        if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+        }) && clear_prefix_with_meter(weight_meter, write_weight, |limit| {
             LockingColdkeys::<T>::clear_prefix((netuid,), limit, None)
-        }) {
+        });
+
+        if !result {
             return false;
         }
 
@@ -142,39 +100,21 @@ impl<T: Config> Pallet<T> {
             LastUpdate::<T>::remove(netuid_index);
             Incentive::<T>::remove(netuid_index);
 
-            if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+            let result = clear_prefix_with_meter(weight_meter, write_weight, |limit| {
                 WeightCommits::<T>::clear_prefix(netuid_index, limit, None)
-            }) {
-                return false;
-            }
-
-            if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+            }) && clear_prefix_with_meter(weight_meter, write_weight, |limit| {
                 TimelockedWeightCommits::<T>::clear_prefix(netuid_index, limit, None)
-            }) {
-                return false;
-            }
-
-            if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+            }) && clear_prefix_with_meter(weight_meter, write_weight, |limit| {
                 CRV3WeightCommits::<T>::clear_prefix(netuid_index, limit, None)
-            }) {
-                return false;
-            }
-
-            if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+            }) && clear_prefix_with_meter(weight_meter, write_weight, |limit| {
                 CRV3WeightCommitsV2::<T>::clear_prefix(netuid_index, limit, None)
-            }) {
-                return false;
-            }
-
-            if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+            }) && clear_prefix_with_meter(weight_meter, write_weight, |limit| {
                 Bonds::<T>::clear_prefix(netuid_index, limit, None)
-            }) {
-                return false;
-            }
-
-            if !clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+            }) && clear_prefix_with_meter(weight_meter, write_weight, |limit| {
                 Weights::<T>::clear_prefix(netuid_index, limit, None)
-            }) {
+            });
+
+            if !result {
                 return false;
             }
         }
