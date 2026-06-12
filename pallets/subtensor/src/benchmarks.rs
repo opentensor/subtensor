@@ -2025,7 +2025,7 @@ mod pallet_benchmarks {
         #[extrinsic_call]
         _(RawOrigin::Root, coldkey.clone(), netuid);
 
-        assert!(DissolveCleanupQueue::<T>::get().contains(netuid));
+        assert!(DissolveCleanupQueue::<T>::get().contains(&netuid));
     }
 
     #[benchmark]
