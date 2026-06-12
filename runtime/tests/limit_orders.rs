@@ -10,8 +10,8 @@ use frame_support::{
     traits::{ConstU32, Hooks},
 };
 use node_subtensor_runtime::{
-    BuildStorage, LimitOrders, Runtime, RuntimeGenesisConfig, RuntimeOrigin, SubtensorModule,
-    System, pallet_subtensor,
+    BuildStorage, LimitOrders, Runtime, RuntimeEvent, RuntimeGenesisConfig, RuntimeOrigin,
+    SubtensorModule, System, pallet_subtensor,
 };
 use pallet_limit_orders::{
     HasMigrationRun, LimitOrdersEnabled, Order, OrderStatus, OrderType, Orders, SignedOrder,
@@ -673,6 +673,83 @@ fn batched_buy_dominant_executes_correctly() {
             bob_tao,
             TaoBalance::from(min_default_stake().to_u64()),
             "bob should hold exactly min_default_stake TAO after buy-dominant batch"
+        );
+    });
+}
+
+/// Regression (real-storage rollback): the same fully-signed `LimitBuy` order
+/// appearing twice in one batch must hard-fail with `DuplicateOrderInBatch` and
+/// leave the signer's balances completely untouched.
+///
+/// Balances are real substrate storage, so the
+/// all-or-nothing rollback is faithfully observable: free TAO and staked alpha
+/// must match their pre-call values exactly, and the order must never be
+/// recorded in `Orders`.
+#[test]
+fn batched_full_fill_duplicate_rejected_and_rolled_back() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1u16);
+        let alice = Sr25519Keyring::Alice;
+        let alice_id = alice.to_account_id();
+        let bob_id = Sr25519Keyring::Bob.to_account_id();
+        let charlie_id = Sr25519Keyring::Charlie.to_account_id();
+        let dave_id = Sr25519Keyring::Dave.to_account_id();
+
+        setup_subnet(netuid);
+        setup_buyer_seller(netuid, &alice_id, &charlie_id, &bob_id, &dave_id);
+
+        // Open-relay (relayer: None) fully-signed LimitBuy from Alice, staking
+        // to her hotkey (charlie).
+        let order = make_signed_order(
+            alice,
+            charlie_id.clone(),
+            netuid,
+            OrderType::LimitBuy,
+            min_default_stake().into(),
+            u64::MAX,
+            u64::MAX,
+            Perbill::zero(),
+            charlie_id.clone(),
+        );
+        let id = order_id(&order.order);
+
+        // Snapshot the signer's real balances before the call.
+        let alice_tao_before = SubtensorModule::get_coldkey_balance(&alice_id);
+        let alice_alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &charlie_id,
+            &alice_id,
+            netuid,
+        );
+
+        // The same order twice in one batch — must hard-fail the whole batch.
+        let orders = make_order_batch(vec![order.clone(), order]);
+        assert_noop!(
+            LimitOrders::execute_batched_orders(
+                RuntimeOrigin::signed(charlie_id.clone()),
+                netuid,
+                orders,
+            ),
+            pallet_limit_orders::Error::<Runtime>::DuplicateOrderInBatch
+        );
+
+        // Full rollback: balances unchanged and no order status recorded.
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&alice_id),
+            alice_tao_before,
+            "signer's free TAO must be unchanged after a duplicate-order batch rollback"
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &charlie_id,
+                &alice_id,
+                netuid,
+            ),
+            alice_alpha_before,
+            "signer's staked alpha must be unchanged after a duplicate-order batch rollback"
+        );
+        assert!(
+            Orders::<Runtime>::get(id).is_none(),
+            "no order status must be recorded when the batch is rolled back"
         );
     });
 }
@@ -2452,6 +2529,139 @@ fn batched_sell_order_fails_when_alpha_is_conviction_locked() {
                 make_order_batch(vec![sell]),
             ),
             pallet_subtensor::Error::<Runtime>::StakeUnavailable
+        );
+    });
+}
+
+/// Regression test for `#[transactional]` on `try_execute_order`.
+///
+/// Invariant: a single buy order is **atomic** — either the TAO→alpha swap AND
+/// the fee transfer both commit (and the order is recorded), or neither does.
+///
+/// ## Trigger (buy path)
+/// `buy_alpha` only checks the signer can remove `tao_after_fee`, NOT the full
+/// `tao_in`.  So if the signer's free TAO sits in the window
+/// `[tao_after_fee, tao_in)`, `buy_alpha` succeeds but the subsequent
+/// `forward_fee` of `fee_tao` fails for insufficient funds.  In best-effort mode
+/// (`should_fail = false`) the caller catches that `Err`, emits `OrderSkipped`,
+/// and returns `Ok(())`.  Without `#[transactional]` the orphaned `buy_alpha`
+/// swap would be committed by the outer storage layer; with it, the whole order
+/// rolls back.
+///
+/// ## Arithmetic (ED = 500, min_default_stake = 2_000_000)
+/// - `amount = tao_in = min_default_stake * 10 = 20_000_000`
+/// - `fee_rate = 10%` → `fee_tao = 2_000_000`, `tao_after_fee = 18_000_000`
+///   (≥ min_default_stake, so it clears the `AmountTooLow` check).
+/// - Fund the signer with `B = 19_000_000`, which sits strictly inside the
+///   vulnerable window `[18_000_000, 20_000_000)`:
+///     * `buy_alpha` passes: `tao_after_fee (18_000_000) ≤ B`, and
+///       `stake_into_subnet` debits the full `18_000_000` because
+///       `B - ED = 18_999_500 ≥ 18_000_000` (no ED clamp).  Balance → 1_000_000.
+///     * `forward_fee` of `fee_tao (2_000_000)` then fails: only 1_000_000 left.
+#[test]
+fn fee_failure_after_buy_rolls_back_swap() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1u16);
+        let alice = Sr25519Keyring::Alice;
+        let alice_id = alice.to_account_id();
+        let bob_id = Sr25519Keyring::Bob.to_account_id();
+        // Fee recipient distinct from the signer (Alice) and the relayer.
+        let charlie_id = Sr25519Keyring::Charlie.to_account_id();
+        // Relayer that submits the batch — kept distinct so its balance is irrelevant.
+        let dave_id = Sr25519Keyring::Dave.to_account_id();
+
+        setup_subnet(netuid);
+
+        // Create the hotkey association so buy_alpha's validation passes.
+        let _ = SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
+
+        // amount = tao_in = min_default_stake * 10; fee_rate = 10%.
+        //   fee_tao        = 2_000_000
+        //   tao_after_fee  = 18_000_000  (≥ min_default_stake, clears AmountTooLow)
+        let tao_in = min_default_stake().to_u64() * 10u64;
+
+        // Fund Alice's coldkey so her free TAO is inside the vulnerable window
+        // [tao_after_fee, tao_in) = [18_000_000, 20_000_000): 19_000_000.
+        //   buy_alpha passes (18_000_000 ≤ 19_000_000, and 19_000_000 - ED clears the
+        //   full debit), leaving 1_000_000 — which is < fee_tao (2_000_000), so
+        //   forward_fee fails for insufficient funds.
+        let signer_balance = TaoBalance::from(19_000_000u64);
+        add_balance_to_coldkey_account(&alice_id, signer_balance);
+
+        let signed = make_signed_order(
+            alice,
+            bob_id.clone(),
+            netuid,
+            OrderType::LimitBuy,
+            tao_in,
+            u64::MAX, // price ceiling — always satisfied
+            u64::MAX, // no expiry
+            Perbill::from_percent(10),
+            charlie_id.clone(),
+        );
+        let id = order_id(&signed.order);
+
+        // Snapshot the observable state before the call.
+        let alice_balance_before = SubtensorModule::get_coldkey_balance(&alice_id);
+        let alice_stake_before =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&bob_id, &alice_id, netuid);
+        let charlie_balance_before = SubtensorModule::get_coldkey_balance(&charlie_id);
+
+        // Sanity: Alice really is funded to 19_000_000, inside the window.
+        assert_eq!(alice_balance_before, signer_balance);
+
+        let orders = make_order_batch(vec![signed]);
+
+        // Best-effort path: the per-order error is caught, OrderSkipped is emitted,
+        // and the extrinsic returns Ok(()).
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(dave_id),
+            orders,
+            false,
+        ));
+
+        // ── Atomic rollback assertions ───────────────────────────────────────────
+
+        // 1. The signer's free TAO is unchanged: the buy_alpha debit was rolled back.
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&alice_id),
+            alice_balance_before,
+            "signer's TAO must be unchanged: the orphaned buy_alpha swap must roll back when forward_fee fails"
+        );
+
+        // 2. No alpha was credited to the signer: the swap was rolled back.
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&bob_id, &alice_id, netuid),
+            alice_stake_before,
+            "signer's staked alpha must be unchanged: no alpha may be credited from a rolled-back buy"
+        );
+
+        // 3. The order was NOT recorded — it must remain replayable-free, i.e. absent.
+        assert!(
+            Orders::<Runtime>::get(id).is_none(),
+            "order must not be recorded when its execution failed and rolled back"
+        );
+
+        // 4. The fee recipient received nothing.
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&charlie_id),
+            charlie_balance_before,
+            "fee recipient's balance must be unchanged: the fee transfer failed and rolled back"
+        );
+
+        // 5. An OrderSkipped event was emitted for this order id.
+        let skipped = System::events().into_iter().any(|record| {
+            matches!(
+                record.event,
+                RuntimeEvent::LimitOrders(pallet_limit_orders::Event::OrderSkipped {
+                    order_id: skipped_id,
+                    ..
+                }) if skipped_id == id
+            )
+        });
+        assert!(
+            skipped,
+            "an OrderSkipped event must be emitted for the failed order"
         );
     });
 }

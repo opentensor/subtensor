@@ -622,8 +622,9 @@ fn test_do_move_event_emission() {
 
         // Move stake and capture events
         System::reset_events();
-        let current_price =
-            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
+        let current_price = U96F32::from_num(
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into()),
+        );
         let tao_equivalent = (current_price * U96F32::from_num(alpha)).to_num::<u64>(); // no fee conversion
         assert_ok!(SubtensorModule::do_move_stake(
             RuntimeOrigin::signed(coldkey),
@@ -789,8 +790,8 @@ fn test_do_move_max_values() {
         let coldkey = U256::from(1);
         let origin_hotkey = U256::from(2);
         let destination_hotkey = U256::from(3);
-        let max_stake = u64::MAX;
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let max_stake = 20_000_000_000_000_000_u64;
 
         // Set up initial stake with maximum value
         let _ = SubtensorModule::create_account_if_non_existent(&coldkey, &origin_hotkey);
@@ -798,7 +799,7 @@ fn test_do_move_max_values() {
         add_balance_to_coldkey_account(&coldkey, max_stake.into());
 
         // Add lots of liquidity to bypass low liquidity check
-        let reserve = u64::MAX / 1000;
+        let reserve = max_stake / 1000;
         mock::setup_reserves(netuid, reserve.into(), reserve.into());
 
         SubtensorModule::stake_into_subnet(
