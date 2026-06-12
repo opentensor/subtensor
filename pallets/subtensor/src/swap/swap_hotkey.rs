@@ -41,7 +41,10 @@ impl<T: Config> Pallet<T> {
         let coldkey = ensure_signed(origin)?;
 
         if let Some(netuid) = netuid {
-            ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+            ensure!(
+                Self::if_subnet_exist(netuid) || netuid == NetUid::ROOT,
+                Error::<T>::SubnetNotExists
+            );
         }
 
         // 2. Ensure the coldkey owns the old hotkey
@@ -297,8 +300,6 @@ impl<T: Config> Pallet<T> {
         init_weight: Weight,
         keep_stake: bool,
     ) -> DispatchResultWithPostInfo {
-        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
-
         // 1. Ensure coldkey not swap hotkey too frequently
         let mut weight: Weight = init_weight;
         let block: u64 = Self::get_current_block_as_u64();

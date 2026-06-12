@@ -2174,9 +2174,6 @@ mod dispatches {
                 subnets.len() <= MAX_SUBNET_CLAIMS,
                 Error::<T>::InvalidSubnetNumber
             );
-            for subnet in subnets.iter() {
-                ensure!(Self::if_subnet_exist(*subnet), Error::<T>::SubnetNotExists);
-            }
 
             Self::maybe_add_coldkey_index(&coldkey);
 

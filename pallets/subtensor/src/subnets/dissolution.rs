@@ -32,8 +32,6 @@ impl<T: Config> Pallet<T> {
 
         // Just remove the network from the added networks, it is used to check if the network is existed.
         NetworksAdded::<T>::remove(netuid);
-        // Avoid owner send extrinsics after network is dissolved. can block lots of transactions.
-        SubnetOwner::<T>::remove(netuid);
         // Reduce the total networks count.
         TotalNetworks::<T>::mutate(|n: &mut u16| *n = n.saturating_sub(1));
 

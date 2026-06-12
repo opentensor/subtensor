@@ -92,6 +92,7 @@ fn dissolve_defers_cleanup_until_on_idle() {
         let net = add_dynamic_network(&owner_hot, &owner_cold);
 
         assert!(SubnetOwner::<Test>::contains_key(net));
+        assert!(SubnetOwnerHotkey::<Test>::contains_key(net));
         assert!(NetworkRegisteredAt::<Test>::contains_key(net));
         assert!(!DissolveCleanupQueue::<Test>::get().contains(&net));
 
