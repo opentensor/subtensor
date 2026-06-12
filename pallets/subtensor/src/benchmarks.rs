@@ -1515,6 +1515,7 @@ mod pallet_benchmarks {
         let logo_url = vec![];
         let add = vec![];
 
+        Subtensor::<T>::init_new_network(netuid, 1);
         SubnetOwner::<T>::insert(netuid, coldkey.clone());
         SubtokenEnabled::<T>::insert(netuid, true);
 
