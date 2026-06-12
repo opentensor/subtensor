@@ -1704,8 +1704,10 @@ fn ghsa_2026_014_childkey_take_not_migrated_on_hotkey_swap() {
 
         add_network(netuid, 1, 0);
         // Establish coldkey ownership of old_hotkey (Owner(old_hotkey) = coldkey).
-        SubtensorModule::create_account_if_non_existent(&coldkey, &old_hotkey)
-            .expect("account creation should succeed");
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &coldkey,
+            &old_hotkey
+        ));
 
         // The effective minimum (floor) childkey take in this mock is 0.
         let floor_take = SubtensorModule::get_effective_min_childkey_take(netuid);
