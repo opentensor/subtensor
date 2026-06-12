@@ -2169,13 +2169,14 @@ mod dispatches {
             let coldkey: T::AccountId = ensure_signed(origin)?;
 
             ensure!(!subnets.is_empty(), Error::<T>::InvalidSubnetNumber);
-            for subnet in subnets.iter() {
-                ensure!(Self::if_subnet_exist(*subnet), Error::<T>::SubnetNotExists);
-            }
+
             ensure!(
                 subnets.len() <= MAX_SUBNET_CLAIMS,
                 Error::<T>::InvalidSubnetNumber
             );
+            for subnet in subnets.iter() {
+                ensure!(Self::if_subnet_exist(*subnet), Error::<T>::SubnetNotExists);
+            }
 
             Self::maybe_add_coldkey_index(&coldkey);
 

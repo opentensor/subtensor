@@ -1659,6 +1659,19 @@ fn test_claim_root_subnet_limits() {
 }
 
 #[test]
+fn test_claim_root_subnet_not_exists() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1003);
+
+        let subnet_set = BTreeSet::from([NetUid::from(1)]);
+        assert_err!(
+            SubtensorModule::claim_root(RuntimeOrigin::signed(coldkey), subnet_set),
+            Error::<Test>::SubnetNotExists
+        );
+    });
+}
+
+#[test]
 fn test_claim_root_with_unrelated_subnets() {
     new_test_ext(1).execute_with(|| {
         let owner_coldkey = U256::from(1001);
