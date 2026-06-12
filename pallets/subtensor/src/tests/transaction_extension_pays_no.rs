@@ -686,7 +686,6 @@ fn extension_associate_evm_key_rejects_associate_rate_limit() {
     });
 }
 
-
 // ============================================================
 // GHSA-2026-006 regression test — security audit (June 2026)
 // Fails on the vulnerable code; passes with the fix in this PR.
