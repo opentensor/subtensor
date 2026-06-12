@@ -2152,7 +2152,6 @@ fn test_claim_root_with_moved_stake() {
     });
 }
 
-
 // ============================================================
 // GHSA-2026-010 regression test — security audit (June 2026)
 // Fails on the vulnerable code; passes with the fix in this PR.
@@ -2184,10 +2183,7 @@ fn ghsa_2026_010_hotkey_swap_inflates_rootclaimed_watermark() {
         RootClaimed::<Test>::insert((netuid, &new_hotkey, &coldkey), b);
 
         // Sanity: the residual watermark B is present on new_hotkey before the transfer.
-        assert_eq!(
-            RootClaimed::<Test>::get((netuid, &new_hotkey, &coldkey)),
-            b
-        );
+        assert_eq!(RootClaimed::<Test>::get((netuid, &new_hotkey, &coldkey)), b);
 
         // Perform exactly the per-coldkey transfer the ROOT swap path executes in
         // do_swap_hotkey for each claimed coldkey.
