@@ -91,6 +91,7 @@ impl<T: Config> Pallet<T> {
 
     /// Set the EMA alpha value for voting power calculation on a subnet.
     pub fn do_set_voting_power_ema_alpha(netuid: NetUid, alpha: u64) -> DispatchResult {
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
         // Validate alpha (must be <= 1.0, represented as 10^18)
         ensure!(
             alpha <= MAX_VOTING_POWER_EMA_ALPHA,

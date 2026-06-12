@@ -132,6 +132,8 @@ impl<T: Config> Pallet<T> {
         amount: TaoBalance,
         limit: Option<TaoBalance>,
     ) -> DispatchResult {
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+
         let alpha = if let Some(limit) = limit {
             Self::do_add_stake_limit(origin.clone(), hotkey.clone(), netuid, amount, limit, false)?
         } else {

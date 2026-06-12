@@ -460,6 +460,7 @@ impl<T: Config> Pallet<T> {
         salt: Vec<u16>,
         version_key: u64,
     ) -> DispatchResult {
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
         // Calculate netuid storage index
         let netuid_index = Self::get_mechanism_storage_index(netuid, mecid);
 
@@ -613,6 +614,7 @@ impl<T: Config> Pallet<T> {
         salts_list: Vec<Vec<u16>>,
         version_keys: Vec<u64>,
     ) -> DispatchResult {
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
         // Calculate netuid storage index
         let netuid_index = Self::get_mechanism_storage_index(netuid, MechId::MAIN);
 
