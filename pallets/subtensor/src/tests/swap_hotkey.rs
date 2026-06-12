@@ -1687,7 +1687,6 @@ fn test_swap_auto_stake_destination_coldkeys() {
     });
 }
 
-
 // ============================================================
 // GHSA-2026-011 regression test — security audit (June 2026)
 // Fails on the vulnerable code; passes with the fix in this PR.
