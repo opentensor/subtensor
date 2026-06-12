@@ -3708,7 +3708,7 @@ fn test_coinbase_inject_and_maybe_swap_reverts_excess_tao_deposit_on_swap_failur
         );
 
         let subnet_account = SubtensorModule::get_subnet_account_id(netuid).unwrap();
-        let chain_before = Balances::free_balance(&subnet_account);
+        let chain_before = Balances::free_balance(subnet_account);
         let subnet_tao_before = SubnetTAO::<Test>::get(netuid);
         let total_issuance_before = TotalIssuance::<Test>::get();
         let balances_issuance_before = Balances::total_issuance();
@@ -3720,7 +3720,7 @@ fn test_coinbase_inject_and_maybe_swap_reverts_excess_tao_deposit_on_swap_failur
 
         SubtensorModule::inject_and_maybe_swap(&[netuid], &tao_in, &alpha_in, &excess_tao, credit);
 
-        assert_eq!(Balances::free_balance(&subnet_account), chain_before);
+        assert_eq!(Balances::free_balance(subnet_account), chain_before);
         assert_eq!(SubnetTAO::<Test>::get(netuid), subnet_tao_before);
         assert_eq!(SubnetExcessTao::<Test>::get(netuid), TaoBalance::ZERO);
         assert_eq!(TotalIssuance::<Test>::get(), total_issuance_before);
