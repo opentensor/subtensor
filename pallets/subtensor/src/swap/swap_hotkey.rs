@@ -41,10 +41,7 @@ impl<T: Config> Pallet<T> {
         let coldkey = ensure_signed(origin)?;
 
         if let Some(netuid) = netuid {
-            ensure!(
-                Self::if_subnet_exist(netuid) || netuid == NetUid::ROOT,
-                Error::<T>::SubnetNotExists
-            );
+            ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
         }
 
         // 2. Ensure the coldkey owns the old hotkey

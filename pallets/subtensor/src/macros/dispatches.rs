@@ -2169,7 +2169,6 @@ mod dispatches {
             let coldkey: T::AccountId = ensure_signed(origin)?;
 
             ensure!(!subnets.is_empty(), Error::<T>::InvalidSubnetNumber);
-
             ensure!(
                 subnets.len() <= MAX_SUBNET_CLAIMS,
                 Error::<T>::InvalidSubnetNumber
