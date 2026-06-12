@@ -142,10 +142,16 @@ impl<T: Config> Pallet<T> {
         );
         for netuid in affected_netuids.iter() {
             let last_hotkey_swap_block = LastHotkeySwapOnNetuid::<T>::get(*netuid, &coldkey);
-            ensure!(
-                last_hotkey_swap_block.saturating_add(hotkey_swap_interval) < block,
-                Error::<T>::HotKeySwapOnSubnetIntervalNotPassed
-            );
+            // Only enforce the cooldown when a prior swap was recorded on this subnet.
+            // A first swap (no recorded timestamp) must not be gated by chain age — that
+            // would block the very first swap and never closes a bypass, since any swap
+            // records the timestamp and subsequent swaps within the interval are rejected.
+            if last_hotkey_swap_block != 0 {
+                ensure!(
+                    last_hotkey_swap_block.saturating_add(hotkey_swap_interval) < block,
+                    Error::<T>::HotKeySwapOnSubnetIntervalNotPassed
+                );
+            }
             weight.saturating_accrue(T::DbWeight::get().reads(1));
         }
 
