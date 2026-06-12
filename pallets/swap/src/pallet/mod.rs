@@ -26,19 +26,7 @@ type MigrationKeyMaxLen = ConstU32<128>;
 #[allow(clippy::expect_used)]
 mod pallet {
     use super::*;
-    use codec::{Decode, Encode, MaxEncodedLen};
     use frame_system::ensure_root;
-
-    #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug, MaxEncodedLen)]
-    pub enum CleanUpPhaseEnum {
-        #[default]
-        /// Phase 1: Clear protocol liquidity remove liquidity.
-        ClearProtocolLiquidityRemoveLiquidity,
-        /// Phase 2: Clear protocol liquidity tick index bitmap words.
-        ClearProtocolLiquidityTickIndexBitmapWords,
-        /// Phase 3: Clear protocol liquidity parameters.
-        ClearProtocolLiquidityParameters,
-    }
 
     #[pallet::pallet]
     pub struct Pallet<T>(_);
@@ -129,6 +117,10 @@ mod pallet {
     #[pallet::storage]
     pub type HasMigrationRun<T: Config> =
         StorageMap<_, Identity, BoundedVec<u8, MigrationKeyMaxLen>, bool, ValueQuery>;
+
+    /// Alpha reservoir for scraps of protocol claimed fees.
+    #[pallet::storage]
+    pub type ScrapReservoirAlpha<T> = StorageMap<_, Twox64Concat, NetUid, AlphaBalance, ValueQuery>;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]

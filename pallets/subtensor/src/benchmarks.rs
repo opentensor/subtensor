@@ -2024,6 +2024,8 @@ mod pallet_benchmarks {
 
         #[extrinsic_call]
         _(RawOrigin::Root, coldkey.clone(), netuid);
+
+        assert!(NetworkDissolveQueue::<T>::get().contains_key(netuid));
     }
 
     #[benchmark]

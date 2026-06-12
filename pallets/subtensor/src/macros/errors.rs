@@ -279,8 +279,8 @@ mod errors {
         Deprecated,
         /// Subnet buyback exceeded the operation rate limit
         SubnetBuybackRateLimitExceeded,
-        /// Network already dissolved
-        NetworkAlreadyDissolved,
+        /// Network already in dissolved queue
+        NetworkDissolveAlreadyQueued,
         /// "Add stake and burn" exceeded the operation rate limit
         AddStakeBurnRateLimitExceeded,
         /// A coldkey swap has been announced for this account.
@@ -307,7 +307,5 @@ mod errors {
         UnlockAmountTooHigh,
         /// Waiting for dissolved subnet cleanup.
         WaitingForDissolvedSubnetCleanup,
-        /// Internal data inconsistency.
-        InternalDataInconsistency,
     }
 }
