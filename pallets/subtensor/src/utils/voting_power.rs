@@ -43,6 +43,7 @@ impl<T: Config> Pallet<T> {
 
     /// Enable voting power tracking for a subnet.
     pub fn do_enable_voting_power_tracking(netuid: NetUid) -> DispatchResult {
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
         // Enable tracking
         VotingPowerTrackingEnabled::<T>::insert(netuid, true);
 
@@ -60,6 +61,7 @@ impl<T: Config> Pallet<T> {
     /// Schedule disabling of voting power tracking for a subnet.
     /// Tracking will continue for 14 days, then automatically disable.
     pub fn do_disable_voting_power_tracking(netuid: NetUid) -> DispatchResult {
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
         // Check if tracking is enabled
         ensure!(
             Self::get_voting_power_tracking_enabled(netuid),

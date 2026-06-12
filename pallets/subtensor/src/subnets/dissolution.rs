@@ -30,10 +30,10 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NetworkDissolveAlreadyQueued
         );
 
-        // TODO Most of data cleanup is done in the block hook, should we charge the user for this?
-
         // Just remove the network from the added networks, it is used to check if the network is existed.
         NetworksAdded::<T>::remove(netuid);
+        // Avoid owner send extrinsics after network is dissolved. can block lots of transactions.
+        SubnetOwner::<T>::remove(netuid);
         // Reduce the total networks count.
         TotalNetworks::<T>::mutate(|n: &mut u16| *n = n.saturating_sub(1));
 

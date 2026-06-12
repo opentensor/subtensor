@@ -412,6 +412,7 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         limit_price: Option<TaoBalance>,
     ) -> DispatchResult {
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
         let coldkey = ensure_signed(origin.clone())?;
 
         let alpha_unstaked =

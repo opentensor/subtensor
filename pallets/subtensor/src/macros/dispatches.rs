@@ -1980,6 +1980,7 @@ mod dispatches {
             symbol: Vec<u8>,
         ) -> DispatchResult {
             Self::ensure_subnet_owner_or_root(origin, netuid)?;
+            ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 
             Self::ensure_symbol_exists(&symbol)?;
             Self::ensure_symbol_available(&symbol)?;
@@ -2168,6 +2169,9 @@ mod dispatches {
             let coldkey: T::AccountId = ensure_signed(origin)?;
 
             ensure!(!subnets.is_empty(), Error::<T>::InvalidSubnetNumber);
+            for subnet in subnets.iter() {
+                ensure!(Self::if_subnet_exist(*subnet), Error::<T>::SubnetNotExists);
+            }
             ensure!(
                 subnets.len() <= MAX_SUBNET_CLAIMS,
                 Error::<T>::InvalidSubnetNumber
@@ -2231,6 +2235,7 @@ mod dispatches {
             new_value: u64,
         ) -> DispatchResult {
             Self::ensure_subnet_owner_or_root(origin, netuid)?;
+            ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 
             ensure!(
                 new_value <= I96F32::from(MAX_ROOT_CLAIM_THRESHOLD),
