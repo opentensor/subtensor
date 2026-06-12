@@ -5,12 +5,12 @@
 use crate::Pallet as Subtensor;
 use crate::staking::lock::LockState;
 use crate::*;
-use codec::Compact;
+use codec::{Compact, Encode};
 use frame_benchmarking::v2::*;
 use frame_support::{StorageDoubleMap, assert_ok};
 use frame_system::{RawOrigin, pallet_prelude::BlockNumberFor};
 pub use pallet::*;
-use sp_core::H256;
+use sp_core::{H160, H256, ecdsa};
 use sp_runtime::{
     BoundedVec, Percent,
     traits::{BlakeTwo256, Hash},
@@ -83,6 +83,67 @@ mod pallet_benchmarks {
                 last_update: 0,
             },
         );
+    }
+
+    fn benchmark_evm_secret_key() -> libsecp256k1::SecretKey {
+        let seed = [42u8; 32];
+
+        match libsecp256k1::SecretKey::parse(&seed) {
+            Ok(secret_key) => secret_key,
+            Err(_) => panic!("benchmark EVM secret key must be valid"),
+        }
+    }
+
+    fn evm_key_from_secret_key(secret_key: &libsecp256k1::SecretKey) -> H160 {
+        let public_key = libsecp256k1::PublicKey::from_secret_key(secret_key);
+        let uncompressed = public_key.serialize();
+
+        let public_key_without_prefix = match uncompressed.get(1..) {
+            Some(public_key_without_prefix) => public_key_without_prefix,
+            None => panic!("uncompressed secp256k1 public key must contain a prefix byte"),
+        };
+
+        let hashed_public_key = sp_io::hashing::keccak_256(public_key_without_prefix);
+
+        let evm_key_bytes = match hashed_public_key.get(12..) {
+            Some(evm_key_bytes) => evm_key_bytes,
+            None => panic!("keccak256 hash must be 32 bytes"),
+        };
+
+        H160::from_slice(evm_key_bytes)
+    }
+
+    fn signature_for_associate_evm_key<T: Config>(
+        hotkey: &T::AccountId,
+        block_number: u64,
+        secret_key: &libsecp256k1::SecretKey,
+    ) -> ecdsa::Signature {
+        let block_hash = sp_io::hashing::keccak_256(block_number.encode().as_ref());
+
+        let mut message = hotkey.encode();
+        message.extend_from_slice(&block_hash);
+
+        let message_hash = Subtensor::<T>::hash_message_eip191(message);
+        let secp_message = libsecp256k1::Message::parse(&message_hash);
+
+        let (secp_signature, recovery_id) = libsecp256k1::sign(&secp_message, secret_key);
+
+        let mut signature = [0u8; 65];
+        let serialized_signature = secp_signature.serialize();
+
+        let signature_bytes = match signature.get_mut(..64) {
+            Some(signature_bytes) => signature_bytes,
+            None => panic!("benchmark ECDSA signature buffer must contain 64 signature bytes"),
+        };
+        signature_bytes.copy_from_slice(&serialized_signature);
+
+        let recovery_id_byte = match signature.get_mut(64) {
+            Some(recovery_id_byte) => recovery_id_byte,
+            None => panic!("benchmark ECDSA signature buffer must contain a recovery id byte"),
+        };
+        *recovery_id_byte = recovery_id.serialize();
+
+        ecdsa::Signature::from_raw(signature)
     }
 
     #[benchmark]
@@ -2123,6 +2184,69 @@ mod pallet_benchmarks {
         assert!(
             Lock::<T>::iter_prefix((coldkey, netuid))
                 .any(|(locked_hotkey, _)| locked_hotkey == hotkey_dest)
+        );
+    }
+
+    #[benchmark]
+    fn associate_evm_key() {
+        let netuid = NetUid::from(1);
+        let tempo: u16 = 1;
+
+        let coldkey: T::AccountId = account("Test", 0, 1);
+        let hotkey: T::AccountId = account("Alice", 0, 1);
+
+        Subtensor::<T>::init_new_network(netuid, tempo);
+        SubtokenEnabled::<T>::insert(netuid, true);
+        Subtensor::<T>::set_network_registration_allowed(netuid, true);
+        Subtensor::<T>::set_max_allowed_uids(netuid, 4096);
+        Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
+
+        seed_swap_reserves::<T>(netuid);
+        fund_for_registration::<T>(netuid, &coldkey);
+
+        assert_ok!(Subtensor::<T>::burned_register(
+            RawOrigin::Signed(coldkey.clone()).into(),
+            netuid,
+            hotkey.clone()
+        ));
+
+        let uid = match Subtensor::<T>::get_uid_for_net_and_hotkey(netuid, &hotkey) {
+            Ok(uid) => uid,
+            Err(_) => panic!("registered benchmark hotkey must have a uid"),
+        };
+
+        // No existing association means `block_associated` is treated as 0.
+        // Move the block forward enough to satisfy:
+        // now - 0 >= T::EvmKeyAssociateRateLimit::get()
+        let benchmark_block_number = T::EvmKeyAssociateRateLimit::get().saturating_add(1);
+
+        let benchmark_block: BlockNumberFor<T> = match benchmark_block_number.try_into() {
+            Ok(benchmark_block) => benchmark_block,
+            Err(_) => panic!("benchmark block number must fit into BlockNumberFor<T>"),
+        };
+
+        frame_system::Pallet::<T>::set_block_number(benchmark_block);
+
+        let block_number = Subtensor::<T>::get_current_block_as_u64();
+
+        let evm_secret_key = benchmark_evm_secret_key();
+        let evm_key = evm_key_from_secret_key(&evm_secret_key);
+
+        let signature =
+            signature_for_associate_evm_key::<T>(&hotkey, block_number, &evm_secret_key);
+
+        #[extrinsic_call]
+        _(
+            RawOrigin::Signed(hotkey.clone()),
+            netuid,
+            evm_key,
+            block_number,
+            signature,
+        );
+
+        assert_eq!(
+            AssociatedEvmAddress::<T>::get(netuid, uid),
+            Some((evm_key, block_number))
         );
     }
 
