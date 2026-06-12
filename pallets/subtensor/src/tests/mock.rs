@@ -37,19 +37,11 @@ use subtensor_runtime_common::{AuthorshipInfo, ConstTao, NetUid, TaoBalance};
 use subtensor_swap_interface::{Order, SwapHandler};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
-// Local definitions for pallet_commitments associated types
+#[derive(TypeInfo)]
 pub struct TestMaxFields;
 impl Get<u32> for TestMaxFields {
     fn get() -> u32 {
         16
-    }
-}
-impl TypeInfo for TestMaxFields {
-    type Identity = Self;
-    fn type_info() -> scale_info::Type {
-        scale_info::Type::builder()
-            .path(scale_info::Path::new("TestMaxFields", module_path!()))
-            .composite(scale_info::build::Fields::unit())
     }
 }
 
@@ -72,11 +64,11 @@ impl pallet_commitments::GetTempoInterface for MockTempoInterface {
     }
 }
 
-// Implement OnMetadataCommitment for U256 by creating a local wrapper type
-pub struct TestOnMetadataCommitment;
-impl pallet_commitments::OnMetadataCommitment<U256> for TestOnMetadataCommitment {
-    fn on_metadata_commitment(_netuid: NetUid, _who: &U256) {}
-}
+// // Implement OnMetadataCommitment for U256 by creating a local wrapper type
+// pub struct TestOnMetadataCommitment;
+// impl pallet_commitments::OnMetadataCommitment<U256> for TestOnMetadataCommitment {
+//     fn on_metadata_commitment(_netuid: NetUid, _who: &U256) {}
+// }
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -407,7 +399,7 @@ impl pallet_commitments::Config for Test {
     type Currency = Balances;
     type WeightInfo = ();
     type CanCommit = TestCanCommit;
-    type OnMetadataCommitment = TestOnMetadataCommitment;
+    type OnMetadataCommitment = ();
     type MaxFields = TestMaxFields;
     type InitialDeposit = ConstTao<0>;
     type FieldDeposit = ConstTao<0>;
