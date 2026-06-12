@@ -46,16 +46,24 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NonAssociatedColdKey
         );
 
-        // 3. Initialize the weight for this operation
+        // 3. If the new hotkey already exists globally, ensure the coldkey owns it
+        if Self::hotkey_account_exists(new_hotkey) {
+            ensure!(
+                Self::coldkey_owns_hotkey(&coldkey, new_hotkey),
+                Error::<T>::NonAssociatedColdKey
+            );
+        }
+
+        // 4. Initialize the weight for this operation
         let mut weight = T::DbWeight::get().reads(2);
 
-        // 4. Ensure the new hotkey is different from the old one
+        // 5. Ensure the new hotkey is different from the old one
         ensure!(old_hotkey != new_hotkey, Error::<T>::NewHotKeyIsSameWithOld);
 
-        // 5. Get the current block number
+        // 6. Get the current block number
         let block: u64 = Self::get_current_block_as_u64();
 
-        // 6. Ensure the transaction rate limit is not exceeded
+        // 7. Ensure the transaction rate limit is not exceeded
         ensure!(
             !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
             Error::<T>::HotKeySetTxRateLimitExceeded
@@ -64,14 +72,14 @@ impl<T: Config> Pallet<T> {
         weight.saturating_accrue(T::DbWeight::get().reads(2));
 
         match netuid {
-            // 7. Ensure the hotkey is not registered on the network before, if netuid is provided
+            // 8. Ensure the hotkey is not registered on the network before, if netuid is provided
             Some(netuid) => {
                 ensure!(
                     !Self::is_hotkey_registered_on_specific_network(new_hotkey, netuid),
                     Error::<T>::HotKeyAlreadyRegisteredInSubNet
                 );
             }
-            // 7.1 Ensure the new hotkey is not already registered on any network, only if netuid is none
+            // 8.1 Ensure the new hotkey is not already registered on any network, only if netuid is none
             None => {
                 ensure!(
                     !Self::is_hotkey_registered_on_any_network(new_hotkey),
@@ -80,7 +88,7 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // 7.2 If the swap touches the root subnet, require that new_hotkey is clean
+        // 8.2 If the swap touches the root subnet, require that new_hotkey is clean
         // on root (no outstanding claimable rate and no existing root stake). Merging
         // a non-empty rate-book would either violate total conservation or misallocate
         // dividends across coldkeys that never staked on old_hotkey.
@@ -96,22 +104,22 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        // 8. Swap LastTxBlock
+        // 9. Swap LastTxBlock
         let last_tx_block: u64 = Self::get_last_tx_block(old_hotkey);
         Self::set_last_tx_block(new_hotkey, last_tx_block);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
-        // 9. Swap LastTxBlockDelegateTake
+        // 10. Swap LastTxBlockDelegateTake
         let last_tx_block_delegate_take: u64 = Self::get_last_tx_block_delegate_take(old_hotkey);
         Self::set_last_tx_block_delegate_take(new_hotkey, last_tx_block_delegate_take);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
-        // 10. Swap LastTxBlockChildKeyTake
+        // 11. Swap LastTxBlockChildKeyTake
         let last_tx_block_child_key_take: u64 = Self::get_last_tx_block_childkey_take(old_hotkey);
         Self::set_last_tx_block_childkey(new_hotkey, last_tx_block_child_key_take);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
-        // 11. fork for swap hotkey on a specific subnet case after do the common check
+        // 12. fork for swap hotkey on a specific subnet case after do the common check
         if let Some(netuid) = netuid {
             return Self::swap_hotkey_on_subnet(
                 &coldkey, old_hotkey, new_hotkey, netuid, weight, keep_stake,
@@ -119,11 +127,11 @@ impl<T: Config> Pallet<T> {
         };
 
         // Start to do everything for swap hotkey on all subnets case
-        // 12. Get the cost for swapping the key
+        // 13. Get the cost for swapping the key
         let swap_cost = Self::get_key_swap_cost();
         log::debug!("Swap cost: {swap_cost:?}");
 
-        // 13. Ensure the coldkey has enough balance to pay for the swap
+        // 14. Ensure the coldkey has enough balance to pay for the swap
         ensure!(
             Self::can_remove_balance_from_coldkey_account(&coldkey, swap_cost.into()),
             Error::<T>::NotEnoughBalanceToPaySwapHotKey
@@ -131,11 +139,11 @@ impl<T: Config> Pallet<T> {
 
         weight.saturating_accrue(T::DbWeight::get().reads_writes(3, 0));
 
-        // 14. Remove the swap cost from the coldkey's account + Recycle the tokens
+        // 15. Remove the swap cost from the coldkey's account + Recycle the tokens
         Self::recycle_tao(&coldkey, swap_cost.into())?;
         weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 2));
 
-        // 19. Perform the hotkey swap
+        // 16. Perform the hotkey swap
         Self::perform_hotkey_swap_on_all_subnets(
             old_hotkey,
             new_hotkey,
@@ -144,18 +152,18 @@ impl<T: Config> Pallet<T> {
             keep_stake,
         )?;
 
-        // 20. Update the last transaction block for the coldkey
+        // 17. Update the last transaction block for the coldkey
         Self::set_last_tx_block(&coldkey, block);
         weight.saturating_accrue(T::DbWeight::get().writes(1));
 
-        // 21. Emit an event for the hotkey swap
+        // 18. Emit an event for the hotkey swap
         Self::deposit_event(Event::HotkeySwapped {
             coldkey,
             old_hotkey: old_hotkey.clone(),
             new_hotkey: new_hotkey.clone(),
         });
 
-        // 22. Return the weight of the operation
+        // 19. Return the weight of the operation
         Ok(Some(weight).into())
     }
 
