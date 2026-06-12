@@ -2152,7 +2152,6 @@ fn test_claim_root_with_moved_stake() {
     });
 }
 
-
 // ============================================================
 // GHSA-2026-012 regression test — security audit (June 2026)
 // Fails on the vulnerable code; passes with the fix in this PR.
