@@ -28,7 +28,9 @@ fn announce_coldkey_swap() -> RuntimeCall {
     })
 }
 fn swap_coldkey_announced() -> RuntimeCall {
-    RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_coldkey_announced { new_coldkey: acct() })
+    RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_coldkey_announced {
+        new_coldkey: acct(),
+    })
 }
 fn swap_coldkey_legacy() -> RuntimeCall {
     RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_coldkey {
