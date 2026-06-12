@@ -2258,6 +2258,31 @@ mod pallet_benchmarks {
         );
     }
 
+    #[benchmark]
+    fn set_block_receiving_tao() {
+        let caller: T::AccountId = whitelisted_caller();
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(caller.clone()), true);
+    }
+
+    #[benchmark]
+    fn set_receiving_alpha_enabled() {
+        let caller: T::AccountId = whitelisted_caller();
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(caller.clone()), true);
+    }
+
+    #[benchmark]
+    fn set_block_receiving_locked_alpha() {
+        let caller: T::AccountId = whitelisted_caller();
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(caller.clone()), true);
+    }
+
+
     impl_benchmark_test_suite!(
         Subtensor,
         crate::tests::mock::new_test_ext(1),

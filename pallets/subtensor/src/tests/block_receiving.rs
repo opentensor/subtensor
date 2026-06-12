@@ -252,6 +252,41 @@ fn test_block_receiving_alpha_allows_stake_after_clear() {
     });
 }
 
+#[test]
+fn test_block_receiving_alpha_prevents_same_subnet_transfer() {
+    new_test_ext(1).execute_with(|| {
+        let sender_coldkey = U256::from(1);
+        let receiver_coldkey = U256::from(2);
+        let hotkey = U256::from(3);
+
+        let netuid = setup_subnet_and_stake(sender_coldkey, hotkey, 1_000_000_000_u64);
+
+        // Receiver blocks alpha
+        assert_ok!(SubtensorModule::set_block_receiving_alpha(
+            RuntimeOrigin::signed(receiver_coldkey),
+            true
+        ));
+
+        // Same-subnet cross-coldkey transfer should fail with ReceivingAlphaBlocked
+        let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &sender_coldkey,
+            netuid,
+        );
+        assert_err!(
+            SubtensorModule::do_transfer_stake(
+                RuntimeOrigin::signed(sender_coldkey),
+                receiver_coldkey,
+                hotkey,
+                netuid,
+                netuid,
+                alpha,
+            ),
+            Error::<Test>::ReceivingAlphaBlocked
+        );
+    });
+}
+
 // ============================================================
 // Locked Alpha blocking
 // ============================================================

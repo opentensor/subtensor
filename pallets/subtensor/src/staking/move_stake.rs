@@ -349,6 +349,18 @@ impl<T: Config> Pallet<T> {
             let drop_fee_origin = origin_netuid == NetUid::ROOT;
             let drop_fee_destination = !drop_fee_origin;
 
+            // Reject before any mutations if the destination has opted out of receiving funds.
+            if origin_coldkey != destination_coldkey {
+                ensure!(
+                    !BlockReceivingTao::<T>::get(destination_coldkey),
+                    Error::<T>::ReceivingTaoBlocked
+                );
+                ensure!(
+                    !BlockReceivingAlpha::<T>::get(destination_coldkey),
+                    Error::<T>::ReceivingAlphaBlocked
+                );
+            }
+
             // do not pay remove fees to avoid double fees in moves transactions
             let tao_unstaked = Self::unstake_from_subnet(
                 origin_hotkey,
@@ -362,11 +374,6 @@ impl<T: Config> Pallet<T> {
 
             // Transfer unstaked TAO from origin_coldkey to destination_coldkey
             if origin_coldkey != destination_coldkey {
-                // Reject if the destination has opted out of receiving TAO.
-                ensure!(
-                    !BlockReceivingTao::<T>::get(destination_coldkey),
-                    Error::<T>::ReceivingTaoBlocked
-                );
                 Self::transfer_tao(origin_coldkey, destination_coldkey, tao_unstaked)?;
             }
 
@@ -374,14 +381,6 @@ impl<T: Config> Pallet<T> {
             // Because of the fee, the tao_unstaked may be too low if initial stake is low. In that case,
             // do not restake.
             if tao_unstaked >= DefaultMinStake::<T>::get() {
-                // Reject if a cross-coldkey stake transfer targets a coldkey that blocks Alpha.
-                if origin_coldkey != destination_coldkey {
-                    ensure!(
-                        !BlockReceivingAlpha::<T>::get(destination_coldkey),
-                        Error::<T>::ReceivingAlphaBlocked
-                    );
-                }
-
                 // If the coldkey is not the owner, make the hotkey a delegate.
                 if Self::get_owning_coldkey_for_hotkey(destination_hotkey) != *destination_coldkey {
                     Self::maybe_become_delegate(destination_hotkey);
@@ -399,6 +398,13 @@ impl<T: Config> Pallet<T> {
 
             Ok(tao_unstaked)
         } else {
+            // Same subnet: reject if the destination blocks receiving Alpha.
+            if origin_coldkey != destination_coldkey {
+                ensure!(
+                    !BlockReceivingAlpha::<T>::get(destination_coldkey),
+                    Error::<T>::ReceivingAlphaBlocked
+                );
+            }
             Self::transfer_stake_within_subnet(
                 origin_coldkey,
                 origin_hotkey,

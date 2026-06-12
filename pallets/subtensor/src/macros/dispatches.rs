@@ -2596,9 +2596,9 @@ mod dispatches {
 
         /// Sets or clears the caller's block-receiving-TAO flag.
         ///
-        /// When enabled, any attempt to transfer TAO to this account through the
-        /// subtensor pallet will be rejected with `ReceivingTaoBlocked`. The default
-        /// is `false` (TAO transfers are allowed).
+        /// When enabled, any cross-coldkey TAO transfer during a cross-subnet stake
+        /// move to this account will be rejected with `ReceivingTaoBlocked`. The
+        /// default is `false` (TAO transfers are allowed).
         ///
         /// # Arguments
         /// * `origin` - Must be signed by the account that wishes to set the flag.
