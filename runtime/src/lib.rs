@@ -655,6 +655,10 @@ subtensor_macros::define_proxy_filters! {
         SubtensorModule::transfer_stake,
         SubtensorModule::schedule_swap_coldkey,
         SubtensorModule::swap_coldkey,
+        SubtensorModule::announce_coldkey_swap,
+        SubtensorModule::swap_coldkey_announced,
+        SubtensorModule::clear_coldkey_swap_announcement,
+        SubtensorModule::dispute_coldkey_swap,
     }
 
     NonFungible => deny {
@@ -674,6 +678,10 @@ subtensor_macros::define_proxy_filters! {
         SubtensorModule::root_register,
         SubtensorModule::schedule_swap_coldkey,
         SubtensorModule::swap_coldkey,
+        SubtensorModule::announce_coldkey_swap,
+        SubtensorModule::swap_coldkey_announced,
+        SubtensorModule::clear_coldkey_swap_announcement,
+        SubtensorModule::dispute_coldkey_swap,
         SubtensorModule::swap_hotkey,
         SubtensorModule::swap_hotkey_v2,
     }
@@ -704,6 +712,10 @@ subtensor_macros::define_proxy_filters! {
         SubtensorModule::root_register,
         SubtensorModule::burned_register,
         Sudo::*,
+        SubtensorModule::announce_coldkey_swap,
+        SubtensorModule::swap_coldkey_announced,
+        SubtensorModule::clear_coldkey_swap_announcement,
+        SubtensorModule::dispute_coldkey_swap,
     }
 
     Triumvirate => deny_all;

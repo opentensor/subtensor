@@ -80,6 +80,49 @@ fn set_subnet_owner_hotkey_c64() -> RuntimeCall {
     })
 }
 
+/// GHSA-2026-001 — NonTransfer and NonFungible proxies (the two "cannot move my funds"
+/// types) ALLOW the new coldkey-swap lifecycle, so a restricted delegate can take over
+/// the whole coldkey. Reproduced by asserting the calls are NOT filtered.
+#[test]
+fn ghsa_2026_001_restricted_proxies_allow_coldkey_swap_lifecycle() {
+    let announce = announce_coldkey_swap();
+    let exec = swap_coldkey_announced();
+
+    // These two proxy types DO block direct exfiltration (transfer_stake denied) ...
+    for pt in [ProxyType::NonTransfer, ProxyType::NonFungible] {
+        assert!(
+            !pt.filter(&transfer_stake()),
+            "precondition: {pt:?} should deny transfer_stake (it is a fund-protection type)"
+        );
+        // ... and after the fix they ALSO block the swap lifecycle that would exfiltrate everything:
+        assert!(
+            !pt.filter(&announce),
+            "regression (GHSA-2026-001 fixed): {pt:?} must DENY announce_coldkey_swap"
+        );
+        assert!(
+            !pt.filter(&exec),
+            "regression (GHSA-2026-001 fixed): {pt:?} must DENY swap_coldkey_announced"
+        );
+        // Contrast: the legacy swap_coldkey they replaced IS denied — proving the gap is
+        // specifically the un-listed new lifecycle calls.
+        assert!(
+            !pt.filter(&swap_coldkey_legacy()),
+            "{pt:?} correctly denies legacy swap_coldkey — the new calls were simply never added"
+        );
+    }
+}
+
+/// Scope correction for GHSA-2026-001: NonCritical is NOT a fund-protection type — it
+/// already permits transfer_stake — so the coldkey-swap gap is not an *escalation* for it.
+/// Documents why NonCritical is excluded from the finding.
+#[test]
+fn ghsa_2026_001_noncritical_is_not_a_fund_protection_type() {
+    assert!(
+        ProxyType::NonCritical.filter(&transfer_stake()),
+        "NonCritical already allows transfer_stake, so coldkey-swap adds no new capability"
+    );
+}
+
 /// GHSA-2026-002 — NonFungible denies the deprecated swap_hotkey (call 70) but ALLOWS the
 /// live swap_hotkey_v2 (call 72); and the SwapHotkey allow-list permits only call 70.
 #[test]
