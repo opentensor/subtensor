@@ -515,6 +515,17 @@ impl<T: Config> Pallet<T> {
             weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
         }
 
+        // 3.8. Swap ChildkeyTake.
+        // ChildkeyTake( hotkey, netuid ) --> u16 -- the per-subnet childkey take for the hotkey.
+        // Only migrate when an explicit value exists, to preserve the storage default
+        // semantics (don't materialize a floor value for hotkeys that never set a take).
+        // `take` reads + removes the old row in one operation, avoiding orphaned storage.
+        if ChildkeyTake::<T>::contains_key(old_hotkey, netuid) {
+            let childkey_take = ChildkeyTake::<T>::take(old_hotkey, netuid);
+            ChildkeyTake::<T>::insert(new_hotkey, netuid, childkey_take);
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+        }
+
         // 4. Swap ChildKeys.
         // 5. Swap ParentKeys.
         // 6. Swap PendingChildKeys.
