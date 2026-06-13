@@ -683,6 +683,7 @@ subtensor_macros::define_proxy_filters! {
         SubtensorModule::clear_coldkey_swap_announcement,
         SubtensorModule::dispute_coldkey_swap,
         SubtensorModule::swap_hotkey,
+        SubtensorModule::swap_hotkey_v2,
     }
 
     Transfer => allow {
@@ -754,6 +755,7 @@ subtensor_macros::define_proxy_filters! {
 
     SwapHotkey => allow {
         SubtensorModule::swap_hotkey,
+        SubtensorModule::swap_hotkey_v2,
     }
 
     SubnetLeaseBeneficiary => allow {
