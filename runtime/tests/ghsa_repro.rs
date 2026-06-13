@@ -147,3 +147,19 @@ fn ghsa_2026_002_nonfungible_allows_swap_hotkey_v2_gap() {
         "regression (GHSA-2026-002 fixed): SwapHotkey must ALLOW the live swap_hotkey_v2 (call 72)"
     );
 }
+
+/// GHSA-2026-003 — the Owner proxy excepts sudo_set_sn_owner_hotkey (call 67) but the
+/// duplicate alias sudo_set_subnet_owner_hotkey (call 64) is allowed by the AdminUtils::*
+/// wildcard, bypassing the carve-out.
+#[test]
+fn ghsa_2026_003_owner_proxy_set_owner_hotkey_alias_bypass() {
+    assert!(
+        !ProxyType::Owner.filter(&set_sn_owner_hotkey_c67()),
+        "precondition: Owner correctly excepts sudo_set_sn_owner_hotkey (call 67)"
+    );
+    assert!(
+        !ProxyType::Owner.filter(&set_subnet_owner_hotkey_c64()),
+        "regression (GHSA-2026-003 fixed): Owner must DENY the alias sudo_set_subnet_owner_hotkey (call 64), \
+         which calls the same do_set_sn_owner_hotkey backend"
+    );
+}

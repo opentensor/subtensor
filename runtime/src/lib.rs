@@ -705,6 +705,7 @@ subtensor_macros::define_proxy_filters! {
         SubtensorModule::update_symbol,
     } except {
         AdminUtils::sudo_set_sn_owner_hotkey,
+        AdminUtils::sudo_set_subnet_owner_hotkey,
     }
 
     NonCritical => deny {
