@@ -99,7 +99,10 @@ impl<T: Config> Pallet<T> {
         if touches_root {
             ensure!(
                 RootClaimable::<T>::get(new_hotkey).is_empty()
-                    && Self::get_stake_for_hotkey_on_subnet(new_hotkey, NetUid::ROOT).is_zero(),
+                    && Self::get_stake_for_hotkey_on_subnet(new_hotkey, NetUid::ROOT).is_zero()
+                    && RootClaimed::<T>::iter_prefix((NetUid::ROOT, new_hotkey))
+                        .next()
+                        .is_none(),
                 Error::<T>::NewHotKeyNotCleanForRootSwap
             );
         }
@@ -127,6 +130,35 @@ impl<T: Config> Pallet<T> {
         };
 
         // Start to do everything for swap hotkey on all subnets case
+        // 12.1 Enforce the per-subnet hotkey-swap cooldown on the all-subnets path too.
+        // The all-subnets swap moves the identity on every subnet the old hotkey is a
+        // member of, so it must respect (and record) `LastHotkeySwapOnNetuid` for each of
+        // those subnets, exactly like the per-subnet path. Only gate subnets the old
+        // hotkey actually participates in so non-member subnets do not create cooldown rows.
+        let hotkey_swap_interval = T::HotkeySwapOnSubnetInterval::get();
+        let affected_netuids: Vec<NetUid> = Self::get_all_subnet_netuids()
+            .into_iter()
+            .filter(|netuid| IsNetworkMember::<T>::get(old_hotkey, *netuid))
+            .collect();
+        weight.saturating_accrue(
+            T::DbWeight::get().reads(affected_netuids.len().saturating_add(1) as u64),
+        );
+        for netuid in affected_netuids.iter() {
+            let last_hotkey_swap_block = LastHotkeySwapOnNetuid::<T>::get(*netuid, &coldkey);
+            // Only enforce the cooldown when a prior swap was recorded on this subnet.
+            // A first swap (no recorded timestamp) must not be gated by chain age — that
+            // would block the very first swap and never closes a bypass, since any swap
+            // records the timestamp and subsequent swaps within the interval are rejected.
+            if last_hotkey_swap_block != 0 {
+                ensure!(
+                    last_hotkey_swap_block.saturating_add(hotkey_swap_interval) < block,
+                    Error::<T>::HotKeySwapOnSubnetIntervalNotPassed
+                );
+            }
+            weight.saturating_accrue(T::DbWeight::get().reads(1));
+        }
+
+        // Start to do everything for swap hotkey on all subnets case
         // 13. Get the cost for swapping the key
         let swap_cost = Self::get_key_swap_cost();
         log::debug!("Swap cost: {swap_cost:?}");
@@ -151,6 +183,14 @@ impl<T: Config> Pallet<T> {
             &mut weight,
             keep_stake,
         )?;
+
+        // 16.1 Record the per-subnet swap cooldown for every affected subnet, so a
+        // subsequent per-subnet (or all-subnets) swap on the same subnet within the
+        // interval is correctly rejected.
+        for netuid in affected_netuids.iter() {
+            LastHotkeySwapOnNetuid::<T>::insert(*netuid, &coldkey, block);
+            weight.saturating_accrue(T::DbWeight::get().writes(1));
+        }
 
         // 17. Update the last transaction block for the coldkey
         Self::set_last_tx_block(&coldkey, block);
