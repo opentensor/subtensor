@@ -717,15 +717,24 @@ impl<T: Config> Pallet<T> {
         })
     }
 
-    /// Returns the alpha amount available to unstake for a coldkey on a subnet.
-    pub fn available_to_unstake(coldkey: &T::AccountId, netuid: NetUid) -> AlphaBalance {
+    /// (total_stake, locked_mass, available_to_unstake) for a coldkey on one subnet.
+    ///
+    /// The lock is subnet-wide: it blocks unstaking from any hotkey on that subnet,
+    /// not from a single hotkey position.
+    pub(crate) fn stake_availability(
+        coldkey: &T::AccountId,
+        netuid: NetUid,
+    ) -> (AlphaBalance, AlphaBalance, AlphaBalance) {
         let total = Self::total_coldkey_alpha_on_subnet(coldkey, netuid);
         let locked = Self::get_current_locked(coldkey, netuid);
-        if total > locked {
-            total.saturating_sub(locked)
-        } else {
-            AlphaBalance::ZERO
-        }
+        let available = total.saturating_sub(locked);
+        (total, locked, available)
+    }
+
+    /// Alpha the coldkey can still unstake on this subnet right now.
+    pub fn available_to_unstake(coldkey: &T::AccountId, netuid: NetUid) -> AlphaBalance {
+        let (_, _, available) = Self::stake_availability(coldkey, netuid);
+        available
     }
 
     /// Ensures that the amount can be unstaked
