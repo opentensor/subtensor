@@ -5,10 +5,7 @@ use frame_support::traits::ConstU32;
 use frame_support::traits::IsSubType;
 use frame_system::RawOrigin;
 use pallet_evm::{AddressMapping, PrecompileHandle};
-use precompile_utils::{
-    EvmResult,
-    prelude::BoundedString,
-};
+use precompile_utils::{EvmResult, prelude::BoundedString};
 use sp_core::H256;
 use sp_runtime::traits::{AsSystemOriginSigner, Dispatchable};
 use sp_std::vec;
@@ -286,7 +283,10 @@ where
 
     #[precompile::public("getWeightsSetRateLimit(uint16)")]
     #[precompile::view]
-    fn get_weights_set_rate_limit(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
+    fn get_weights_set_rate_limit(
+        handle: &mut impl PrecompileHandle,
+        netuid: u16,
+    ) -> EvmResult<u64> {
         handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::WeightsSetRateLimit::<R>::get(
             NetUid::from(netuid),
@@ -423,7 +423,10 @@ where
 
     #[precompile::public("getAlphaSigmoidSteepness(uint16)")]
     #[precompile::view]
-    fn get_alpha_sigmoid_steepness(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u16> {
+    fn get_alpha_sigmoid_steepness(
+        handle: &mut impl PrecompileHandle,
+        netuid: u16,
+    ) -> EvmResult<u16> {
         handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::AlphaSigmoidSteepness::<R>::get(NetUid::from(netuid)) as u16)
     }
@@ -667,7 +670,10 @@ where
 
     #[precompile::public("getLiquidAlphaEnabled(uint16)")]
     #[precompile::view]
-    fn get_liquid_alpha_enabled(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<bool> {
+    fn get_liquid_alpha_enabled(
+        handle: &mut impl PrecompileHandle,
+        netuid: u16,
+    ) -> EvmResult<bool> {
         handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::LiquidAlphaOn::<R>::get(NetUid::from(
             netuid,

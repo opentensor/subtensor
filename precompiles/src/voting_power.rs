@@ -108,7 +108,10 @@ where
     /// * `u64` - The alpha value (with 18 decimal precision)
     #[precompile::public("getVotingPowerEmaAlpha(uint16)")]
     #[precompile::view]
-    fn get_voting_power_ema_alpha(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
+    fn get_voting_power_ema_alpha(
+        handle: &mut impl PrecompileHandle,
+        netuid: u16,
+    ) -> EvmResult<u64> {
         handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::VotingPowerEmaAlpha::<R>::get(
             NetUid::from(netuid),
@@ -129,7 +132,9 @@ where
     #[precompile::view]
     fn get_total_voting_power(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<U256> {
         let mut total: u64 = 0;
-        for (_, voting_power) in pallet_subtensor::VotingPower::<R>::iter_prefix(NetUid::from(netuid)) {
+        for (_, voting_power) in
+            pallet_subtensor::VotingPower::<R>::iter_prefix(NetUid::from(netuid))
+        {
             handle.record_db_reads::<R>(1)?;
             total = total.saturating_add(voting_power);
         }

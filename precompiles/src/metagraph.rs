@@ -125,7 +125,11 @@ where
 
     #[precompile::public("getLastUpdate(uint16,uint16)")]
     #[precompile::view]
-    fn get_last_update(handle: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<u64> {
+    fn get_last_update(
+        handle: &mut impl PrecompileHandle,
+        netuid: u16,
+        uid: u16,
+    ) -> EvmResult<u64> {
         handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::Pallet::<R>::get_last_update_for_uid(
             netuid.into(),

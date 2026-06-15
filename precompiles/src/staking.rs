@@ -309,10 +309,7 @@ where
 
     #[precompile::public("getTotalHotkeyStake(bytes32)")]
     #[precompile::view]
-    fn get_total_hotkey_stake(
-        handle: &mut impl PrecompileHandle,
-        hotkey: H256,
-    ) -> EvmResult<U256> {
+    fn get_total_hotkey_stake(handle: &mut impl PrecompileHandle, hotkey: H256) -> EvmResult<U256> {
         // Per-subnet stake + alpha price reads
         handle.record_db_reads::<R>(2)?;
         let hotkey = R::AccountId::from(hotkey.0);
@@ -809,10 +806,7 @@ where
 
     #[precompile::public("getTotalHotkeyStake(bytes32)")]
     #[precompile::view]
-    fn get_total_hotkey_stake(
-        handle: &mut impl PrecompileHandle,
-        hotkey: H256,
-    ) -> EvmResult<U256> {
+    fn get_total_hotkey_stake(handle: &mut impl PrecompileHandle, hotkey: H256) -> EvmResult<U256> {
         // Per-subnet stake + alpha price reads
         handle.record_db_reads::<R>(2)?;
         let hotkey = R::AccountId::from(hotkey.0);
