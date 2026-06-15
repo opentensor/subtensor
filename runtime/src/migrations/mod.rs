@@ -10,6 +10,7 @@ use frame_support::{
 };
 use sp_runtime::Saturating;
 
+type DbWeightOf<T> = <T as frame_system::Config>::DbWeight;
 type BalanceOf<T> = <T as pallet_balances::Config>::Balance;
 type AccountStoreOf<T> = <T as pallet_balances::Config>::AccountStore;
 
@@ -57,7 +58,7 @@ pub struct PalletRegistryCleanupMigration;
 impl OnRuntimeUpgrade for PalletRegistryCleanupMigration {
     fn on_runtime_upgrade() -> Weight {
         let migration_name = MIGRATION_NAME.to_vec();
-        let weight = <Runtime as frame_system::Config>::DbWeight::get().reads(1);
+        let mut weight = Weight::zero();
 
         log::info!(
             "Running migration '{}'",
@@ -66,6 +67,7 @@ impl OnRuntimeUpgrade for PalletRegistryCleanupMigration {
 
         pallet_balances::Holds::<Runtime>::translate::<deprecated::Holds, _>(
             |account_id, old_holds| {
+                weight.saturating_accrue(DbWeightOf::<Runtime>::get().reads_writes(1, 1));
                 let mut current_holds = BoundedVec::new();
                 let mut unlocked_amount = BalanceOf::<Runtime>::zero();
 
@@ -94,6 +96,7 @@ impl OnRuntimeUpgrade for PalletRegistryCleanupMigration {
 
                 // Unlock the balance if there is any.
                 if !unlocked_amount.is_zero() {
+                    weight.saturating_accrue(DbWeightOf::<Runtime>::get().reads_writes(1, 1));
                     if let Err(error) = AccountStoreOf::<Runtime>::mutate(&account_id, |account| {
                         account.reserved = account.reserved.saturating_sub(unlocked_amount);
                         account.free = account.free.saturating_add(unlocked_amount);
