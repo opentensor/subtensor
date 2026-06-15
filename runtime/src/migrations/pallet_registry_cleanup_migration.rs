@@ -124,7 +124,7 @@ impl OnRuntimeUpgrade for PalletRegistryCleanupMigration {
                     }
                 }
 
-                (!current_holds.is_empty()).then(|| current_holds)
+                (!current_holds.is_empty()).then_some(current_holds)
             },
         );
 
