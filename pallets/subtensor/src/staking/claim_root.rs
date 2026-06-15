@@ -7,6 +7,7 @@ use sp_runtime::DispatchError;
 use sp_runtime::traits::AccountIdConversion;
 use sp_std::collections::btree_set::BTreeSet;
 use substrate_fixed::types::{I96F32, U96F32};
+use subtensor_runtime_common::NetUidStorageIndex;
 use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
@@ -112,8 +113,13 @@ impl<T: Config> Pallet<T> {
             return;
         }
 
-        // Resolve the validator's beta basket weight vector w (dedicated storage).
-        let weights = RootBasketWeights::<T>::get(hotkey);
+        // Resolve the validator's basket weight vector w = Weights[ROOT][uid]. The vector follows
+        // the validator's root uid (so it survives hotkey swaps automatically) and reuses the
+        // existing root weights plumbing.
+        let maybe_uid = Uids::<T>::try_get(NetUid::ROOT, hotkey).ok();
+        let weights = maybe_uid
+            .map(|uid| Weights::<T>::get(NetUidStorageIndex::ROOT, uid))
+            .unwrap_or_default();
 
         // Keep only weights that point at existing, non-root subnets.
         let valid: Vec<(NetUid, u64)> = weights

@@ -3,10 +3,10 @@
 use crate::tests::mock::*;
 use crate::{
     BasketPrincipal, DefaultMinRootClaimAmount, Error, Keys, MAX_NUM_ROOT_CLAIMS,
-    MAX_ROOT_CLAIM_THRESHOLD, NetworksAdded, NumRootClaim, NumStakingColdkeys, RootBasketWeights,
-    RootClaimType, RootClaimTypeEnum, RootClaimable, RootClaimableThreshold, RootClaimed,
-    StakingColdkeys, StakingColdkeysByIndex, SubnetAlphaIn, SubnetMovingPrice, SubnetTAO,
-    SubnetworkN, Tempo, TotalStake, Uids,
+    MAX_ROOT_CLAIM_THRESHOLD, NetworksAdded, NumRootClaim, NumStakingColdkeys, RootClaimType,
+    RootClaimTypeEnum, RootClaimable, RootClaimableThreshold, RootClaimed, StakingColdkeys,
+    StakingColdkeysByIndex, SubnetAlphaIn, SubnetMovingPrice, SubnetTAO, SubnetworkN, Tempo,
+    TotalStake, Uids, Weights,
 };
 use approx::assert_abs_diff_eq;
 use frame_support::dispatch::RawOrigin;
@@ -17,7 +17,7 @@ use sp_core::{H256, U256};
 use sp_runtime::DispatchError;
 use std::collections::BTreeSet;
 use substrate_fixed::types::I96F32;
-use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
+use subtensor_runtime_common::{AlphaBalance, NetUid, NetUidStorageIndex, TaoBalance, Token};
 
 // =============================================================================
 // Helpers
@@ -26,9 +26,10 @@ use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 /// Directly assign a root UID and a beta-basket weight vector `w` to a validator hotkey,
 /// bypassing the `set_root_weights` extrinsic's validation (which is exercised separately).
 /// `dests` are `(subnet, weight)` pairs.
-fn set_root_weights_direct(hotkey: &U256, _uid: u16, dests: &[(NetUid, u16)]) {
+fn set_root_weights_direct(hotkey: &U256, uid: u16, dests: &[(NetUid, u16)]) {
+    Uids::<Test>::insert(NetUid::ROOT, hotkey, uid);
     let zipped: Vec<(u16, u16)> = dests.iter().map(|(n, w)| (u16::from(*n), *w)).collect();
-    RootBasketWeights::<Test>::insert(hotkey, zipped);
+    Weights::<Test>::insert(NetUidStorageIndex::ROOT, uid, zipped);
 }
 
 /// Ensure a subnet has deep, balanced AMM reserves so basket swaps execute with negligible
@@ -1046,7 +1047,7 @@ fn test_set_root_weights_stores_vector() {
             0,
         ));
 
-        let stored = RootBasketWeights::<Test>::get(hotkey);
+        let stored = Weights::<Test>::get(NetUidStorageIndex::ROOT, 0u16);
         assert_eq!(stored, vec![(u16::from(netuid), u16::MAX)]);
     });
 }

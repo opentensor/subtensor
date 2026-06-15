@@ -992,14 +992,13 @@ impl<T: Config> Pallet<T> {
         // --- 9. Max-upscale the weights.
         let max_upscaled_weights: Vec<u16> = vec_u16_max_upscale_to_u16(&values);
 
-        // --- 10. Zip and store in the dedicated beta-basket weights map (keyed by hotkey, NOT
-        // the legacy `Weights[ROOT]` consensus map, to avoid storage aliasing).
+        // --- 10. Zip and store under the root weights index (reusing the root weights plumbing).
         let zipped_weights: Vec<(u16, u16)> = dests
             .iter()
             .copied()
             .zip(max_upscaled_weights.iter().copied())
             .collect();
-        RootBasketWeights::<T>::insert(&hotkey, zipped_weights);
+        Weights::<T>::insert(NetUidStorageIndex::ROOT, neuron_uid, zipped_weights);
 
         // --- 11. Record activity for the rate limit.
         Self::set_last_update_for_uid(NetUidStorageIndex::ROOT, neuron_uid, current_block);

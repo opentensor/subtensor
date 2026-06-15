@@ -2509,15 +2509,6 @@ pub mod pallet {
         DefaultZeroAlpha<T>,
     >;
 
-    /// --- MAP ( validator_hotkey ) --> Vec<(subnet_id, weight)> | beta basket distribution vector.
-    ///
-    /// A root validator's beta-basket weight vector `w`, set via `set_root_weights`. Dedicated
-    /// storage (NOT the legacy `Weights[ROOT]` consensus map) so basket allocation never aliases
-    /// or is mutated by root-consensus / `remove_network` weight handling. Keyed by hotkey so it
-    /// is unaffected by root UID reuse and migrates cleanly on hotkey swap.
-    #[pallet::storage]
-    pub type RootBasketWeights<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, Vec<(u16, u16)>, ValueQuery>;
     #[pallet::storage] // -- MAP ( cold ) --> root_claim_type enum
     pub type RootClaimType<T: Config> = StorageMap<
         _,

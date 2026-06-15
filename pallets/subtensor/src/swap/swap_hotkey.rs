@@ -664,13 +664,6 @@ impl<T: Config> Pallet<T> {
                     }
                 }
 
-                // Move the validator's beta basket weight vector to the new hotkey.
-                if RootBasketWeights::<T>::contains_key(old_hotkey) {
-                    let w = RootBasketWeights::<T>::take(old_hotkey);
-                    RootBasketWeights::<T>::insert(new_hotkey, w);
-                    weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
-                }
-
                 // Transfer AutoParentDelegationEnabled flag from old_hotkey to new_hotkey.
                 // Only migrate if it was explicitly set, to preserve the storage default semantics.
                 if AutoParentDelegationEnabled::<T>::contains_key(old_hotkey) {
