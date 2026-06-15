@@ -226,7 +226,19 @@ impl MevShieldIbeSharePool {
             key_id: share.key_id,
         };
 
-        // Keep early shares; they become eligible once the identity is finalized/unlocked.
+        // Premature remote threshold-IBE shares are rejected, not cached.
+        // The same target-1 finality/unlock gate used for local publication must
+        // already have passed before any remote share is retained.
+        let Some(expected_finalized_ordering_block_number) = share.target_block.checked_sub(1)
+        else {
+            return false;
+        };
+        if share.finalized_ordering_block_number != expected_finalized_ordering_block_number {
+            return false;
+        }
+        if !self.inner.finalized_unlocked.lock().contains(&round) {
+            return false;
+        }
 
         let dkg_round = IdentityRoundKey::from(&round);
 

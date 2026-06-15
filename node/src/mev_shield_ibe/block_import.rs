@@ -201,6 +201,51 @@ where
             )))
     }
 
+    fn finalized_due_ibe_queue_head_requires_preruntime_key(
+        &self,
+        parent_hash: B::Hash,
+        block_number: u64,
+        preruntime_key_identities: &BTreeSet<(u64, u64, [u8; KEY_ID_LEN])>,
+    ) -> Result<bool, String> {
+        let api = self.client.runtime_api();
+        let Some(identity) = api
+            .due_ibe_queue_head(parent_hash, block_number)
+            .map_err(|e| format!("due_ibe_queue_head runtime API failed: {e:?}"))?
+        else {
+            return Ok(false);
+        };
+
+        let Some(ordering_number) = identity.target_block.checked_sub(1) else {
+            return Ok(false);
+        };
+        let finalized_hash = self.client.info().finalized_hash;
+        let finalized_header = self
+            .client
+            .header(finalized_hash)
+            .map_err(|e| format!("read finalized header failed: {e:?}"))?
+            .ok_or_else(|| "missing finalized header".to_string())?;
+        let finalized_number: u64 = (*finalized_header.number())
+            .try_into()
+            .map_err(|_| "finalized number does not fit u64".to_string())?;
+        if ordering_number > finalized_number {
+            return Ok(false);
+        }
+
+        let key_available_at_parent = api
+            .has_ibe_block_key(
+                parent_hash,
+                identity.epoch,
+                identity.target_block,
+                identity.key_id,
+            )
+            .map_err(|e| format!("has_ibe_block_key runtime API failed: {e:?}"))?;
+        Ok(!key_available_at_parent
+            && !preruntime_key_identities.contains(&(
+                identity.epoch,
+                identity.target_block,
+                identity.key_id,
+            )))
+    }
     fn verify_mev_shield_block(&self, parent_hash: B::Hash, block: &B) -> Result<(), String> {
         let api = self.client.runtime_api();
         let block_number = Self::block_number_u64(block.header())?;
@@ -226,6 +271,16 @@ where
             )?;
         }
 
+        if self.finalized_due_ibe_queue_head_requires_preruntime_key(
+            parent_hash,
+            block_number,
+            &preruntime_key_identities,
+        )? {
+            return Err(
+                "due encrypted queue head lacks required threshold-IBE pre-runtime key bundle"
+                    .into(),
+            );
+        }
         let encoded = block
             .extrinsics()
             .iter()

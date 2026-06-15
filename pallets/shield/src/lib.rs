@@ -2307,8 +2307,10 @@ impl<T: Config> Pallet<T> {
             }
 
             let Some(meta) = PendingIbeMetadata::<T>::get(index) else {
-                // The queue head exists but is not a threshold-IBE entry.
-                return None;
+                // Legacy/non-v2 entries do not carry IBE metadata. For the v2 MVP
+                // key-liveness/import guard, scan past them so an obsolete entry
+                // cannot hide a due threshold-IBE head behind it.
+                continue;
             };
 
             if meta.target_block > block_number {
