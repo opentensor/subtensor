@@ -159,11 +159,20 @@ impl pallet_shield::DecryptedExtrinsicExecutor<RuntimeCall> for MockDecryptedExt
 
 pub struct MockIbeDkgAuthorityProvider;
 impl pallet_shield::IbeDkgAuthorityProvider for MockIbeDkgAuthorityProvider {
-    fn authorities_for_epoch(_epoch: u64) -> Vec<mev_shield_ibe_runtime_api::DkgAuthorityInfo> {
+    fn authorities_for_epoch(_: u64) -> Vec<mev_shield_ibe_runtime_api::DkgAuthorityInfo> {
         MOCK_DKG_AUTHORITIES.with(|authorities| authorities.borrow().clone())
     }
-    fn consensus_source_for_epoch(_epoch: u64) -> mev_shield_ibe_runtime_api::DkgConsensusSource {
+    fn consensus_source_for_epoch(_: u64) -> mev_shield_ibe_runtime_api::DkgConsensusSource {
         mev_shield_ibe_runtime_api::DkgConsensusSource::PoaAuraRootValidators
+    }
+
+    fn verify_authority_signature(authority_id: &[u8], _: sp_core::H256, _: &[u8]) -> bool {
+        MOCK_DKG_AUTHORITIES.with(|authorities| {
+            authorities
+                .borrow()
+                .iter()
+                .any(|authority| authority.authority_id.as_slice() == authority_id)
+        })
     }
 }
 
