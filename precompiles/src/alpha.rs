@@ -236,7 +236,7 @@ where
 
         for netuid in netuids.iter() {
             let price = <pallet_subtensor_swap::Pallet<R> as SwapHandler>::current_alpha_price(
-                netuid.clone(),
+                *netuid,
             );
 
             if price < U64F64::from_num(1) {
