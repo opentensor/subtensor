@@ -213,6 +213,12 @@ where
     #[precompile::public("getSumAlphaPrice()")]
     #[precompile::view]
     fn get_sum_alpha_price(handle: &mut impl PrecompileHandle) -> EvmResult<U256> {
+        // NetworksAdded iteration + current_alpha_price reads
+        handle.record_db_reads::<R>(1)?;
+        let subnet_limit = pallet_subtensor::SubnetLimit::<R>::get().saturated_into::<u64>();
+
+        handle.record_db_reads::<R>(subnet_limit)?;
+
         let mut sum_alpha_price: U64F64 = U64F64::from_num(0);
         let netuids = pallet_subtensor::NetworksAdded::<R>::iter()
             .filter(|(netuid, _)| *netuid != NetUid::ROOT)
@@ -220,7 +226,13 @@ where
             .collect::<Vec<_>>();
 
         // NetworksAdded entry + current_alpha_price reads
-        handle.record_db_reads::<R>(netuids.len().saturated_into::<u64>().saturating_mul(5))?;
+        handle.record_db_reads::<R>(
+            netuids
+                .len()
+                .saturated_into::<u64>()
+                .saturating_mul(5)
+                .saturating_sub(subnet_limit),
+        )?;
 
         for netuid in netuids.iter() {
             let price = <pallet_subtensor_swap::Pallet<R> as SwapHandler>::current_alpha_price(
