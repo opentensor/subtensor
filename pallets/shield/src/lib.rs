@@ -962,6 +962,21 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+    pub fn ensure_legacy_queue_disabled_after_v2_activation(
+        encrypted_call: &[u8],
+    ) -> DispatchResult {
+        if IbeEncryptedExtrinsicV1::is_v2_prefixed(encrypted_call) {
+            return Ok(());
+        }
+
+        let current_block_u64: u64 =
+            frame_system::Pallet::<T>::block_number().saturated_into::<u64>();
+        ensure!(
+            !Self::ibe_v2_submission_bootstrap_ready(current_block_u64),
+            Error::<T>::BadIbeEnvelope
+        );
+        Ok(())
+    }
     pub fn current_ibe_epoch() -> u64 {
         let n: u64 = frame_system::Pallet::<T>::block_number().saturated_into::<u64>();
         let epoch_len = T::EpochLength::get();
@@ -1856,6 +1871,7 @@ impl<T: Config> Pallet<T> {
         who: T::AccountId,
         encrypted_call: BoundedVec<u8, MaxEncryptedCallSize>,
     ) -> DispatchResult {
+        Self::ensure_legacy_queue_disabled_after_v2_activation(encrypted_call.as_slice())?;
         if IbeEncryptedExtrinsicV1::is_v2_prefixed(encrypted_call.as_slice()) {
             let (index, _) = Self::enqueue_ibe_encrypted(who.clone(), encrypted_call)?;
             Self::deposit_event(Event::ExtrinsicStored { index, who });
