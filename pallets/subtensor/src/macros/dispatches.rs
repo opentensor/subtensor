@@ -1950,10 +1950,7 @@ mod dispatches {
         /// * `hotkey` (T::AccountId):
         ///     - The hotkey of the beneficiary to mark as subnet owner hotkey.
         #[pallet::call_index(111)]
-        #[pallet::weight(
-            <T as crate::pallet::Config>::WeightInfo::terminate_lease(T::MaxContributors::get())
-            .saturating_add(<T as crate::pallet::Config>::WeightInfo::swap_hotkey())
-        )]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::terminate_lease(T::MaxContributors::get()))]
         pub fn terminate_lease(
             origin: OriginFor<T>,
             lease_id: LeaseId,
@@ -2578,7 +2575,7 @@ mod dispatches {
             netuid: NetUid,
         ) -> DispatchResult {
             let coldkey = ensure_signed(origin)?;
-            Self::do_move_lock(&coldkey, &destination_hotkey, netuid, false)
+            Self::do_move_lock(&coldkey, &destination_hotkey, netuid)
         }
 
         /// Sets or clears the caller's perpetual lock flag for a subnet.

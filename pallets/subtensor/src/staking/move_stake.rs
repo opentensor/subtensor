@@ -393,7 +393,6 @@ impl<T: Config> Pallet<T> {
                 destination_hotkey,
                 origin_netuid,
                 move_amount,
-                true,
             )
         }
     }
