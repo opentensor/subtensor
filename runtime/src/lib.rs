@@ -1627,6 +1627,7 @@ type Migrations = (
     pallet_subtensor::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration<
         Runtime,
     >,
+    migrations::PalletRegistryCleanupMigration,
 );
 
 // Unchecked extrinsic type as expected by this runtime.
