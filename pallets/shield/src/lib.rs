@@ -1032,7 +1032,7 @@ impl<T: Config> Pallet<T> {
             let source_missing = stored_source.is_none();
 
             // The N+2 snapshot is the handoff point. If it was frozen as PoA
-            // before BABE registrations were available, allow exactly that
+            // before BABE runtime authorities were available, allow exactly that
             // future snapshot to be promoted to PoS before a DKG output exists.
             // Current and N+1 snapshots are left immutable so in-flight DKG
             // plans never drift.
@@ -1057,7 +1057,7 @@ impl<T: Config> Pallet<T> {
                     && matches!(provider_source, DkgConsensusSource::PosBabeRootValidators)
                 {
                     // Handoff has begun but the full PoA cohort has not finished
-                    // BABE/X25519 registration. Remove the stale future PoA plan
+                    // BABE/X25519 transport-key gossip. Remove the stale future PoA plan
                     // and store the PoS source marker so workers retry instead
                     // of producing a key for the wrong consensus authority set.
                     IbeDkgAuthoritySnapshots::<T>::remove(epoch);

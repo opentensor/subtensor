@@ -83,11 +83,11 @@ pub enum DkgConsensusKeyKind {
     Clone, Copy, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, TypeInfo,
 )]
 pub enum DkgConsensusSource {
-    /// Stake-bearing root validators using BABE registrations.  This is the
-    /// production POS source and is preferred whenever enough BABE registrations
+    /// Stake-bearing root validators using BABE/NPoS runtime authority data.  This is the
+    /// production POS source and is preferred whenever enough BABE runtime authorities
     /// exist for the active root validator set.
     PosBabeRootValidators,
-    /// Stake-bearing root validators using Aura registrations.  This is the
+    /// Stake-bearing root validators using Aura authority data.  This is the
     /// compatibility source used before the POS/BABE transition.
     PoaAuraRootValidators,
 }
@@ -97,12 +97,12 @@ pub enum DkgConsensusSource {
 #[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, TypeInfo)]
 pub struct DkgAuthorityInfo {
     /// Subtensor hotkey/account bytes whose stake is being used for threshold
-    /// weighting and whose registration binds the consensus key.
+    /// weighting and mapped to the active consensus authority key.
     pub hotkey_account_id: Vec<u8>,
     /// Active consensus key kind for this epoch.
     pub consensus_key_kind: DkgConsensusKeyKind,
     /// Raw consensus authority public key bytes.  This is Aura sr25519 before
-    /// the transition and BABE public key bytes once POS/BABE registrations are
+    /// the transition and BABE public key bytes once POS/BABE runtime authorities are
     /// live.
     pub authority_id: Vec<u8>,
     /// Stake weight at the runtime snapshot used by the epoch plan.

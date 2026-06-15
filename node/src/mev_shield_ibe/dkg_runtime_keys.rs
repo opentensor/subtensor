@@ -1,7 +1,7 @@
 //! Runtime/session key helpers for MeV Shield v2 epoch-ahead DKG.
 //!
 //! The DKG authority set is stake-bearing Subtensor hotkeys joined to the active
-//! consensus key registered by that hotkey.  This helper supports the POA->POS
+//! consensus key mapped by runtime to the active consensus authority cohort.  This helper supports the POA->POS
 //! transition automatically by discovering both local Aura and BABE keys and by
 //! signing DKG messages with the key kind selected by the runtime plan.
 
