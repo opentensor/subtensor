@@ -60,6 +60,14 @@ impl OnRuntimeUpgrade for PalletRegistryCleanupMigration {
         let migration_name = MIGRATION_NAME.to_vec();
         let mut weight = Weight::zero();
 
+        if pallet_subtensor::HasMigrationRun::<Runtime>::get(&migration_name) {
+            log::info!(
+                "Migration '{}' has already run. Skipping.",
+                String::from_utf8_lossy(&migration_name)
+            );
+            return weight;
+        }
+
         log::info!(
             "Running migration '{}'",
             String::from_utf8_lossy(&migration_name)
@@ -110,6 +118,14 @@ impl OnRuntimeUpgrade for PalletRegistryCleanupMigration {
 
                 (!current_holds.is_empty()).then(|| current_holds)
             },
+        );
+
+        pallet_subtensor::HasMigrationRun::<Runtime>::insert(&migration_name, true);
+        weight = weight.saturating_add(DbWeightOf::<Runtime>::get().writes(1));
+
+        log::info!(
+            "Migration '{}' completed successfully.",
+            String::from_utf8_lossy(&migration_name)
         );
 
         weight
@@ -186,6 +202,10 @@ mod tests {
         new_test_ext().execute_with(|| {
             let account_id = account(1);
 
+            assert!(!pallet_subtensor::HasMigrationRun::<Runtime>::get(
+                MIGRATION_NAME.to_vec()
+            ));
+
             let _ = crate::Balances::make_free_balance_be(&account_id, balance(10_000));
             assert_ok!(crate::Balances::reserve(&account_id, balance(225)));
 
@@ -227,6 +247,22 @@ mod tests {
                 id: RuntimeHoldReason::SafeMode(pallet_safe_mode::HoldReason::EnterOrExtend),
                 amount: balance(25),
             }));
+
+            assert!(pallet_subtensor::HasMigrationRun::<Runtime>::get(
+                MIGRATION_NAME.to_vec()
+            ));
+
+            let second_weight = PalletRegistryCleanupMigration::on_runtime_upgrade();
+            let account_after_second = crate::System::account(&account_id).data;
+
+            assert!(second_weight.is_zero());
+            assert_eq!(account_after_second.free, account.free);
+            assert_eq!(account_after_second.reserved, account.reserved);
+            assert_eq!(account_after_second.frozen, account.frozen);
+            assert_eq!(
+                pallet_balances::Holds::<Runtime>::get(&account_id),
+                current_holds
+            );
         });
     }
 
