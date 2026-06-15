@@ -61,6 +61,7 @@ sp-authority-discovery.workspace = true
 subtensor-runtime-common.workspace = true
 subtensor-precompiles.workspace = true
 sp-weights.workspace = true
+sp-io.workspace = true
 
 # Temporary sudo
 pallet-sudo.workspace = true
@@ -159,7 +160,6 @@ ethereum.workspace = true
 
 [dev-dependencies]
 frame-metadata.workspace = true
-sp-io.workspace = true
 sp-tracing.workspace = true
 sp-keyring.workspace = true
 precompile-utils = { workspace = true, features = ["testing"] }

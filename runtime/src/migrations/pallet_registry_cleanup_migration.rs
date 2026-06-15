@@ -1,19 +1,17 @@
 use crate::{Runtime, RuntimeHoldReason};
-use alloc::string::String;
-#[cfg(feature = "try-runtime")]
-use alloc::vec::Vec;
+use alloc::{string::String, vec::Vec};
 #[cfg(feature = "try-runtime")]
 use codec::{Decode, Encode};
 use deprecated::RegistryHoldReason as OldRegistryHoldReason;
 use deprecated::RuntimeHoldReason as OldRuntimeHoldReason;
-#[cfg(feature = "try-runtime")]
-use frame_support::storage::unhashed;
 use frame_support::{
     BoundedVec,
     pallet_prelude::Zero,
+    storage::unhashed,
     traits::{OnRuntimeUpgrade, StoredMap, tokens::IdAmount},
     weights::Weight,
 };
+use sp_io::hashing::twox_128;
 use sp_runtime::Saturating;
 
 type DbWeightOf<T> = <T as frame_system::Config>::DbWeight;
@@ -23,6 +21,10 @@ type BalanceOf<T> = <T as pallet_balances::Config>::Balance;
 type AccountStoreOf<T> = <T as pallet_balances::Config>::AccountStore;
 
 const MIGRATION_NAME: &[u8] = b"pallet_registry_cleanup_migration";
+#[cfg(any(feature = "try-runtime", test))]
+const REGISTRY_PALLET_NAME: &[u8] = b"Registry";
+#[cfg(test)]
+const REGISTRY_IDENTITY_OF_STORAGE_NAME: &[u8] = b"IdentityOf";
 
 mod deprecated {
     use super::BalanceOf;
@@ -128,6 +130,16 @@ impl OnRuntimeUpgrade for PalletRegistryCleanupMigration {
             },
         );
 
+        let registry_prefix = twox_128(REGISTRY_PALLET_NAME);
+        let result = unhashed::clear_prefix(&registry_prefix, Some(u32::MAX), None);
+        weight.saturating_accrue(
+            DbWeightOf::<Runtime>::get().reads_writes(result.loops as u64, result.unique as u64),
+        );
+        log::info!(
+            "Removed {} entries from Registry pallet storage.",
+            result.unique
+        );
+
         pallet_subtensor::HasMigrationRun::<Runtime>::insert(&migration_name, true);
         weight = weight.saturating_add(DbWeightOf::<Runtime>::get().writes(1));
 
@@ -208,8 +220,20 @@ impl OnRuntimeUpgrade for PalletRegistryCleanupMigration {
                 .map_err(|_| "failed to decode migrated balances holds")?;
         }
 
+        let registry_prefix = twox_128(REGISTRY_PALLET_NAME);
+        if unhashed::contains_prefixed_key(&registry_prefix) {
+            return Err("registry pallet storage was not cleared".into());
+        }
+
         Ok(())
     }
+}
+
+#[cfg(test)]
+fn registry_storage_prefix(storage_name: &[u8]) -> Vec<u8> {
+    let mut prefix = twox_128(REGISTRY_PALLET_NAME).to_vec();
+    prefix.extend_from_slice(&twox_128(storage_name));
+    prefix
 }
 
 fn map_reason(reason: OldRuntimeHoldReason) -> Option<RuntimeHoldReason> {
@@ -302,6 +326,23 @@ mod tests {
         unhashed::put_raw(&holds_key(account_id), &holds.encode());
     }
 
+    fn registry_identity_prefix() -> alloc::vec::Vec<u8> {
+        registry_storage_prefix(REGISTRY_IDENTITY_OF_STORAGE_NAME)
+    }
+
+    fn insert_old_registry_identity_storage(suffix: &[u8]) -> alloc::vec::Vec<u8> {
+        let mut key = registry_identity_prefix();
+        key.extend_from_slice(suffix);
+        unhashed::put_raw(&key, &[1]);
+        key
+    }
+
+    fn insert_old_registry_storage_version() -> alloc::vec::Vec<u8> {
+        let key = registry_storage_prefix(b":__STORAGE_VERSION__:");
+        unhashed::put_raw(&key, &[1]);
+        key
+    }
+
     #[test]
     fn drops_registry_holds_and_unlocks_their_balance() {
         new_test_ext().execute_with(|| {
@@ -332,6 +373,12 @@ mod tests {
                 ]),
             );
 
+            let registry_identity_key = insert_old_registry_identity_storage(b"account-1");
+            let registry_storage_version_key = insert_old_registry_storage_version();
+            assert!(unhashed::contains_prefixed_key(&twox_128(
+                REGISTRY_PALLET_NAME
+            )));
+
             let issuance_before = crate::Balances::total_issuance();
 
             let weight = PalletRegistryCleanupMigration::on_runtime_upgrade();
@@ -356,6 +403,11 @@ mod tests {
             assert!(pallet_subtensor::HasMigrationRun::<Runtime>::get(
                 MIGRATION_NAME.to_vec()
             ));
+            assert!(unhashed::get_raw(&registry_identity_key).is_none());
+            assert!(unhashed::get_raw(&registry_storage_version_key).is_none());
+            assert!(!unhashed::contains_prefixed_key(&twox_128(
+                REGISTRY_PALLET_NAME
+            )));
 
             let second_weight = PalletRegistryCleanupMigration::on_runtime_upgrade();
             let account_after_second = crate::System::account(&account_id).data;
@@ -471,6 +523,8 @@ mod tests {
                     ),
                 ]),
             );
+
+            insert_old_registry_identity_storage(b"account-4");
 
             let state = PalletRegistryCleanupMigration::pre_upgrade()
                 .expect("pre-upgrade check should decode old holds");
