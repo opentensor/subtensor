@@ -79,8 +79,8 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Returns actually added Tao and Alpha, which may be zero in case
-    /// of a high disbalance
+    /// Returns actually added Tao and Alpha. Amounts that would push weights
+    /// out of range are left in per-subnet reservoirs for a later injection.
     pub(super) fn adjust_protocol_liquidity(
         netuid: NetUid,
         tao_delta: TaoBalance,
@@ -89,31 +89,85 @@ impl<T: Config> Pallet<T> {
         // Get reserves
         let alpha_reserve = T::AlphaReserve::reserve(netuid.into());
         let tao_reserve = T::TaoReserve::reserve(netuid.into());
-        let mut balancer = SwapBalancer::<T>::get(netuid);
+        let balancer = SwapBalancer::<T>::get(netuid);
 
-        // Update weights and log errors if they go out of range
-        if balancer
+        let pending_tao = BalancerTaoReservoir::<T>::get(netuid).saturating_add(tao_delta);
+        let pending_alpha = BalancerAlphaReservoir::<T>::get(netuid).saturating_add(alpha_delta);
+
+        if let Some(new_balancer) = Self::try_update_balancer(
+            &balancer,
+            tao_reserve,
+            alpha_reserve,
+            pending_tao,
+            pending_alpha,
+        ) {
+            BalancerTaoReservoir::<T>::insert(netuid, TaoBalance::ZERO);
+            BalancerAlphaReservoir::<T>::insert(netuid, AlphaBalance::ZERO);
+            SwapBalancer::<T>::insert(netuid, new_balancer);
+            return (pending_tao, pending_alpha);
+        }
+
+        if let Some(new_balancer) = Self::try_update_balancer(
+            &balancer,
+            tao_reserve,
+            alpha_reserve,
+            TaoBalance::ZERO,
+            pending_alpha,
+        ) {
+            BalancerTaoReservoir::<T>::insert(netuid, pending_tao);
+            BalancerAlphaReservoir::<T>::insert(netuid, AlphaBalance::ZERO);
+            SwapBalancer::<T>::insert(netuid, new_balancer);
+            return (TaoBalance::ZERO, pending_alpha);
+        }
+
+        if let Some(new_balancer) = Self::try_update_balancer(
+            &balancer,
+            tao_reserve,
+            alpha_reserve,
+            pending_tao,
+            AlphaBalance::ZERO,
+        ) {
+            BalancerTaoReservoir::<T>::insert(netuid, TaoBalance::ZERO);
+            BalancerAlphaReservoir::<T>::insert(netuid, pending_alpha);
+            SwapBalancer::<T>::insert(netuid, new_balancer);
+            return (pending_tao, AlphaBalance::ZERO);
+        }
+
+        BalancerTaoReservoir::<T>::insert(netuid, pending_tao);
+        BalancerAlphaReservoir::<T>::insert(netuid, pending_alpha);
+        if pending_tao > TaoBalance::ZERO || pending_alpha > AlphaBalance::ZERO {
+            log::warn!(
+                "Reserves are out of range for emission: netuid = {}, tao = {}, alpha = {}, tao_delta = {}, alpha_delta = {}, tao_reservoir = {}, alpha_reservoir = {}",
+                netuid,
+                tao_reserve,
+                alpha_reserve,
+                tao_delta,
+                alpha_delta,
+                pending_tao,
+                pending_alpha
+            );
+        }
+
+        (TaoBalance::ZERO, AlphaBalance::ZERO)
+    }
+
+    fn try_update_balancer(
+        balancer: &Balancer,
+        tao_reserve: TaoBalance,
+        alpha_reserve: AlphaBalance,
+        tao_delta: TaoBalance,
+        alpha_delta: AlphaBalance,
+    ) -> Option<Balancer> {
+        let mut new_balancer = balancer.clone();
+        new_balancer
             .update_weights_for_added_liquidity(
                 u64::from(tao_reserve),
                 u64::from(alpha_reserve),
                 u64::from(tao_delta),
                 u64::from(alpha_delta),
             )
-            .is_err()
-        {
-            log::warn!(
-                "Reserves are out of range for emission: netuid = {}, tao = {}, alpha = {}, tao_delta = {}, alpha_delta = {}",
-                netuid,
-                tao_reserve,
-                alpha_reserve,
-                tao_delta,
-                alpha_delta
-            );
-            (TaoBalance::ZERO, AlphaBalance::ZERO)
-        } else {
-            SwapBalancer::<T>::insert(netuid, balancer);
-            (tao_delta, alpha_delta)
-        }
+            .ok()?;
+        Some(new_balancer)
     }
 
     /// Executes a token swap on the specified subnet.
@@ -276,6 +330,8 @@ impl<T: Config> Pallet<T> {
 
         FeeRate::<T>::remove(netuid);
         SwapBalancer::<T>::remove(netuid);
+        BalancerTaoReservoir::<T>::remove(netuid);
+        BalancerAlphaReservoir::<T>::remove(netuid);
 
         log::debug!(
             "clear_protocol_liquidity: netuid={netuid:?}, protocol_burned: τ={burned_tao:?}, α={burned_alpha:?}; state cleared"

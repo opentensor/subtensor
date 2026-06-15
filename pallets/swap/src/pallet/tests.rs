@@ -155,6 +155,94 @@ mod dispatchables {
         });
     }
 
+    #[test]
+    fn test_adjust_protocol_liquidity_injects_alpha_and_reservoirs_tao() {
+        new_test_ext().execute_with(|| {
+            let netuid = NetUid::from(1);
+
+            let tao = TaoBalance::from(1_000_u64);
+            let alpha = AlphaBalance::from(1_000_u64);
+            TaoReserve::set_mock_reserve(netuid, tao);
+            AlphaReserve::set_mock_reserve(netuid, alpha);
+
+            let (tao_added, alpha_added) = Swap::adjust_protocol_liquidity(
+                netuid,
+                TaoBalance::from(200_000_u64),
+                AlphaBalance::from(1_000_u64),
+            );
+
+            assert_eq!(tao_added, TaoBalance::ZERO);
+            assert_eq!(alpha_added, AlphaBalance::from(1_000_u64));
+            assert_eq!(
+                BalancerTaoReservoir::<Test>::get(netuid),
+                TaoBalance::from(200_000_u64)
+            );
+            assert_eq!(
+                BalancerAlphaReservoir::<Test>::get(netuid),
+                AlphaBalance::ZERO
+            );
+        });
+    }
+
+    #[test]
+    fn test_adjust_protocol_liquidity_injects_tao_and_reservoirs_alpha() {
+        new_test_ext().execute_with(|| {
+            let netuid = NetUid::from(1);
+
+            let tao = TaoBalance::from(1_000_u64);
+            let alpha = AlphaBalance::from(1_000_u64);
+            TaoReserve::set_mock_reserve(netuid, tao);
+            AlphaReserve::set_mock_reserve(netuid, alpha);
+
+            let (tao_added, alpha_added) = Swap::adjust_protocol_liquidity(
+                netuid,
+                TaoBalance::from(1_000_u64),
+                AlphaBalance::from(200_000_u64),
+            );
+
+            assert_eq!(tao_added, TaoBalance::from(1_000_u64));
+            assert_eq!(alpha_added, AlphaBalance::ZERO);
+            assert_eq!(BalancerTaoReservoir::<Test>::get(netuid), TaoBalance::ZERO);
+            assert_eq!(
+                BalancerAlphaReservoir::<Test>::get(netuid),
+                AlphaBalance::from(200_000_u64)
+            );
+        });
+    }
+
+    #[test]
+    fn test_adjust_protocol_liquidity_retries_reservoir_with_new_injection() {
+        new_test_ext().execute_with(|| {
+            let netuid = NetUid::from(1);
+
+            let mut tao = TaoBalance::from(1_000_u64);
+            let mut alpha = AlphaBalance::from(1_000_u64);
+            TaoReserve::set_mock_reserve(netuid, tao);
+            AlphaReserve::set_mock_reserve(netuid, alpha);
+
+            let (tao_added, alpha_added) = Swap::adjust_protocol_liquidity(
+                netuid,
+                TaoBalance::from(200_000_u64),
+                AlphaBalance::from(1_000_u64),
+            );
+            tao += tao_added;
+            alpha += alpha_added;
+            TaoReserve::set_mock_reserve(netuid, tao);
+            AlphaReserve::set_mock_reserve(netuid, alpha);
+
+            let (tao_added, alpha_added) = Swap::adjust_protocol_liquidity(
+                netuid,
+                TaoBalance::from(1_000_u64),
+                AlphaBalance::from(200_000_u64),
+            );
+
+            assert!(tao_added > TaoBalance::ZERO);
+            assert!(alpha_added > AlphaBalance::ZERO);
+            assert!(BalancerTaoReservoir::<Test>::get(netuid) < TaoBalance::from(200_000_u64));
+            assert!(BalancerAlphaReservoir::<Test>::get(netuid) < AlphaBalance::from(200_000_u64));
+        });
+    }
+
     /// This test case verifies that small gradual injections (like emissions in every block)
     /// in the worst case
     ///   - Do not cause price to change
@@ -749,6 +837,8 @@ fn test_liquidate_pal_simple_ok_and_clears() {
         // Insert map values
         FeeRate::<Test>::insert(netuid, 1_000);
         PalSwapInitialized::<Test>::insert(netuid, true);
+        BalancerTaoReservoir::<Test>::insert(netuid, TaoBalance::from(12_345_u64));
+        BalancerAlphaReservoir::<Test>::insert(netuid, AlphaBalance::from(67_890_u64));
         let w_quote_pt = Perquintill::from_rational(1u128, 2u128);
         let bal = Balancer::new(w_quote_pt).unwrap();
         SwapBalancer::<Test>::insert(netuid, bal);
@@ -763,6 +853,8 @@ fn test_liquidate_pal_simple_ok_and_clears() {
         assert!(!FeeRate::<Test>::contains_key(netuid));
         assert!(!PalSwapInitialized::<Test>::contains_key(netuid));
         assert!(!SwapBalancer::<Test>::contains_key(netuid));
+        assert!(!BalancerTaoReservoir::<Test>::contains_key(netuid));
+        assert!(!BalancerAlphaReservoir::<Test>::contains_key(netuid));
     });
 }
 
