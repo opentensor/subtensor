@@ -370,6 +370,8 @@ fn dissolve_clears_all_per_subnet_storages() {
         SubnetAlphaOutEmission::<Test>::insert(net, AlphaBalance::from(1));
         SubnetTaoInEmission::<Test>::insert(net, TaoBalance::from(1));
         SubnetVolume::<Test>::insert(net, 1u128);
+        pallet_subtensor_swap::BalancerTaoReservoir::<Test>::insert(net, TaoBalance::from(1));
+        pallet_subtensor_swap::BalancerAlphaReservoir::<Test>::insert(net, AlphaBalance::from(1));
 
         // Items now REMOVED (not zeroed) by dissolution
         SubnetAlphaIn::<Test>::insert(net, AlphaBalance::from(2));
@@ -521,6 +523,8 @@ fn dissolve_clears_all_per_subnet_storages() {
         assert!(!SubnetAlphaOutEmission::<Test>::contains_key(net));
         assert!(!SubnetTaoInEmission::<Test>::contains_key(net));
         assert!(!SubnetVolume::<Test>::contains_key(net));
+        assert!(!pallet_subtensor_swap::BalancerTaoReservoir::<Test>::contains_key(net));
+        assert!(!pallet_subtensor_swap::BalancerAlphaReservoir::<Test>::contains_key(net));
 
         // TAO Flow
         assert!(!SubnetTaoFlow::<Test>::contains_key(net));

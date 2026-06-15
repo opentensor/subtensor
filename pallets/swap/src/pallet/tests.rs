@@ -156,7 +156,7 @@ mod dispatchables {
     }
 
     #[test]
-    fn test_adjust_protocol_liquidity_injects_alpha_and_reservoirs_tao() {
+    fn test_adjust_protocol_liquidity_materializes_tao_when_reservoiring_tao() {
         new_test_ext().execute_with(|| {
             let netuid = NetUid::from(1);
 
@@ -165,14 +165,17 @@ mod dispatchables {
             TaoReserve::set_mock_reserve(netuid, tao);
             AlphaReserve::set_mock_reserve(netuid, alpha);
 
-            let (tao_added, alpha_added) = Swap::adjust_protocol_liquidity(
-                netuid,
-                TaoBalance::from(200_000_u64),
-                AlphaBalance::from(1_000_u64),
-            );
+            let (price_active_tao, tao_materialized, price_active_alpha, alpha_materialized) =
+                Swap::adjust_protocol_liquidity(
+                    netuid,
+                    TaoBalance::from(200_000_u64),
+                    AlphaBalance::from(1_000_u64),
+                );
 
-            assert_eq!(tao_added, TaoBalance::ZERO);
-            assert_eq!(alpha_added, AlphaBalance::from(1_000_u64));
+            assert_eq!(price_active_tao, TaoBalance::ZERO);
+            assert_eq!(tao_materialized, TaoBalance::from(200_000_u64));
+            assert_eq!(price_active_alpha, AlphaBalance::from(1_000_u64));
+            assert_eq!(alpha_materialized, AlphaBalance::from(1_000_u64));
             assert_eq!(
                 BalancerTaoReservoir::<Test>::get(netuid),
                 TaoBalance::from(200_000_u64)
@@ -185,7 +188,7 @@ mod dispatchables {
     }
 
     #[test]
-    fn test_adjust_protocol_liquidity_injects_tao_and_reservoirs_alpha() {
+    fn test_adjust_protocol_liquidity_materializes_alpha_when_reservoiring_alpha() {
         new_test_ext().execute_with(|| {
             let netuid = NetUid::from(1);
 
@@ -194,14 +197,17 @@ mod dispatchables {
             TaoReserve::set_mock_reserve(netuid, tao);
             AlphaReserve::set_mock_reserve(netuid, alpha);
 
-            let (tao_added, alpha_added) = Swap::adjust_protocol_liquidity(
-                netuid,
-                TaoBalance::from(1_000_u64),
-                AlphaBalance::from(200_000_u64),
-            );
+            let (price_active_tao, tao_materialized, price_active_alpha, alpha_materialized) =
+                Swap::adjust_protocol_liquidity(
+                    netuid,
+                    TaoBalance::from(1_000_u64),
+                    AlphaBalance::from(200_000_u64),
+                );
 
-            assert_eq!(tao_added, TaoBalance::from(1_000_u64));
-            assert_eq!(alpha_added, AlphaBalance::ZERO);
+            assert_eq!(price_active_tao, TaoBalance::from(1_000_u64));
+            assert_eq!(tao_materialized, TaoBalance::from(1_000_u64));
+            assert_eq!(price_active_alpha, AlphaBalance::ZERO);
+            assert_eq!(alpha_materialized, AlphaBalance::from(200_000_u64));
             assert_eq!(BalancerTaoReservoir::<Test>::get(netuid), TaoBalance::ZERO);
             assert_eq!(
                 BalancerAlphaReservoir::<Test>::get(netuid),
@@ -220,26 +226,64 @@ mod dispatchables {
             TaoReserve::set_mock_reserve(netuid, tao);
             AlphaReserve::set_mock_reserve(netuid, alpha);
 
-            let (tao_added, alpha_added) = Swap::adjust_protocol_liquidity(
-                netuid,
-                TaoBalance::from(200_000_u64),
-                AlphaBalance::from(1_000_u64),
-            );
-            tao += tao_added;
-            alpha += alpha_added;
+            let (price_active_tao, tao_materialized, price_active_alpha, alpha_materialized) =
+                Swap::adjust_protocol_liquidity(
+                    netuid,
+                    TaoBalance::from(200_000_u64),
+                    AlphaBalance::from(1_000_u64),
+                );
+            assert_eq!(price_active_tao, TaoBalance::ZERO);
+            assert_eq!(tao_materialized, TaoBalance::from(200_000_u64));
+            assert_eq!(price_active_alpha, AlphaBalance::from(1_000_u64));
+            assert_eq!(alpha_materialized, AlphaBalance::from(1_000_u64));
+            tao += price_active_tao;
+            alpha += price_active_alpha;
             TaoReserve::set_mock_reserve(netuid, tao);
             AlphaReserve::set_mock_reserve(netuid, alpha);
 
-            let (tao_added, alpha_added) = Swap::adjust_protocol_liquidity(
-                netuid,
-                TaoBalance::from(1_000_u64),
-                AlphaBalance::from(200_000_u64),
-            );
+            let (price_active_tao, tao_materialized, price_active_alpha, alpha_materialized) =
+                Swap::adjust_protocol_liquidity(
+                    netuid,
+                    TaoBalance::from(1_000_u64),
+                    AlphaBalance::from(200_000_u64),
+                );
 
-            assert!(tao_added > TaoBalance::ZERO);
-            assert!(alpha_added > AlphaBalance::ZERO);
-            assert!(BalancerTaoReservoir::<Test>::get(netuid) < TaoBalance::from(200_000_u64));
-            assert!(BalancerAlphaReservoir::<Test>::get(netuid) < AlphaBalance::from(200_000_u64));
+            assert!(price_active_tao >= tao_materialized);
+            assert!(price_active_alpha >= alpha_materialized);
+            assert_eq!(tao_materialized, TaoBalance::from(1_000_u64));
+            assert_eq!(alpha_materialized, AlphaBalance::from(200_000_u64));
+            assert_eq!(BalancerTaoReservoir::<Test>::get(netuid), TaoBalance::ZERO);
+            assert_eq!(
+                BalancerAlphaReservoir::<Test>::get(netuid),
+                AlphaBalance::ZERO
+            );
+        });
+    }
+
+    #[test]
+    fn test_adjust_protocol_liquidity_does_not_materialize_reservoir_amounts() {
+        new_test_ext().execute_with(|| {
+            let netuid = NetUid::from(1);
+
+            TaoReserve::set_mock_reserve(netuid, TaoBalance::from(1_000_000_u64));
+            AlphaReserve::set_mock_reserve(netuid, AlphaBalance::from(1_000_000_u64));
+            BalancerTaoReservoir::<Test>::insert(netuid, TaoBalance::from(10_000_u64));
+            BalancerAlphaReservoir::<Test>::insert(netuid, AlphaBalance::from(20_000_u64));
+
+            let tao_delta = TaoBalance::from(300_u64);
+            let alpha_delta = AlphaBalance::from(400_u64);
+            let (price_active_tao, tao_materialized, price_active_alpha, alpha_materialized) =
+                Swap::adjust_protocol_liquidity(netuid, tao_delta, alpha_delta);
+
+            assert_eq!(price_active_tao, TaoBalance::from(10_300_u64));
+            assert_eq!(tao_materialized, tao_delta);
+            assert_eq!(price_active_alpha, AlphaBalance::from(20_400_u64));
+            assert_eq!(alpha_materialized, alpha_delta);
+            assert_eq!(BalancerTaoReservoir::<Test>::get(netuid), TaoBalance::ZERO);
+            assert_eq!(
+                BalancerAlphaReservoir::<Test>::get(netuid),
+                AlphaBalance::ZERO
+            );
         });
     }
 

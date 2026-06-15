@@ -3679,6 +3679,42 @@ fn test_coinbase_inject_and_maybe_swap_does_not_skew_reserves() {
 }
 
 #[test]
+fn test_coinbase_failed_tao_materialization_does_not_activate_current_tao() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = add_dynamic_network(&U256::from(1), &U256::from(2));
+        let initial_reserve = TaoBalance::from(1_000_000_u64);
+        let reservoir_tao = TaoBalance::from(100_u64);
+        let current_tao = TaoBalance::from(200_u64);
+        let current_alpha = AlphaBalance::from(100_u64);
+
+        mock::setup_reserves(netuid, initial_reserve, AlphaBalance::from(1_000_000_u64));
+        Swap::maybe_initialize_palswap(netuid, None);
+        pallet_subtensor_swap::BalancerTaoReservoir::<Test>::insert(netuid, reservoir_tao);
+
+        let tao_in = BTreeMap::from([(netuid, U96F32::saturating_from_num(current_tao))]);
+        let alpha_in = BTreeMap::from([(netuid, U96F32::saturating_from_num(current_alpha))]);
+        let excess_tao = BTreeMap::new();
+        let credit = SubtensorModule::mint_tao(TaoBalance::ZERO);
+
+        SubtensorModule::inject_and_maybe_swap(&[netuid], &tao_in, &alpha_in, &excess_tao, credit);
+
+        assert_eq!(
+            SubnetTAO::<Test>::get(netuid),
+            initial_reserve.saturating_add(reservoir_tao)
+        );
+        assert_eq!(SubnetTaoInEmission::<Test>::get(netuid), reservoir_tao);
+        assert_eq!(
+            SubnetProtocolFlow::<Test>::get(netuid),
+            reservoir_tao.to_u64() as i64
+        );
+        assert_eq!(
+            pallet_subtensor_swap::BalancerTaoReservoir::<Test>::get(netuid),
+            TaoBalance::ZERO
+        );
+    });
+}
+
+#[test]
 fn test_coinbase_drain_pending_increments_blockssincelaststep() {
     new_test_ext(1).execute_with(|| {
         let zero = U96F32::saturating_from_num(0);
