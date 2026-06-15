@@ -1,7 +1,13 @@
 use crate::{Runtime, RuntimeHoldReason};
 use alloc::string::String;
+#[cfg(feature = "try-runtime")]
+use alloc::vec::Vec;
+#[cfg(feature = "try-runtime")]
+use codec::{Decode, Encode};
 use deprecated::RegistryHoldReason as OldRegistryHoldReason;
 use deprecated::RuntimeHoldReason as OldRuntimeHoldReason;
+#[cfg(feature = "try-runtime")]
+use frame_support::storage::unhashed;
 use frame_support::{
     BoundedVec,
     pallet_prelude::Zero,
@@ -11,6 +17,8 @@ use frame_support::{
 use sp_runtime::Saturating;
 
 type DbWeightOf<T> = <T as frame_system::Config>::DbWeight;
+#[cfg(feature = "try-runtime")]
+type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 type BalanceOf<T> = <T as pallet_balances::Config>::Balance;
 type AccountStoreOf<T> = <T as pallet_balances::Config>::AccountStore;
 
@@ -130,6 +138,78 @@ impl OnRuntimeUpgrade for PalletRegistryCleanupMigration {
 
         weight
     }
+
+    #[cfg(feature = "try-runtime")]
+    fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+        let mut affected_accounts = Vec::new();
+
+        for account_id in pallet_balances::Holds::<Runtime>::iter_keys() {
+            let old_holds = decode_deprecated_holds(&account_id)?;
+            let mut unlocked_amount = BalanceOf::<Runtime>::zero();
+
+            for hold in old_holds {
+                if matches!(hold.id, OldRuntimeHoldReason::Registry(_)) {
+                    unlocked_amount = unlocked_amount.saturating_add(hold.amount);
+                }
+            }
+
+            if !unlocked_amount.is_zero() {
+                let account = AccountStoreOf::<Runtime>::get(&account_id);
+                affected_accounts.push(AffectedAccount {
+                    account_id,
+                    free: account.free,
+                    reserved: account.reserved,
+                    unlocked: unlocked_amount,
+                });
+            }
+        }
+
+        let state = PreUpgradeState {
+            total_issuance: pallet_balances::TotalIssuance::<Runtime>::get(),
+            affected_accounts,
+        };
+
+        Ok(state.encode())
+    }
+
+    #[cfg(feature = "try-runtime")]
+    fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+        let state = PreUpgradeState::decode(&mut state.as_slice())
+            .map_err(|_| "failed to decode registry cleanup pre-upgrade state")?;
+
+        if !pallet_subtensor::HasMigrationRun::<Runtime>::get(MIGRATION_NAME.to_vec()) {
+            return Err("registry cleanup migration marker was not set".into());
+        }
+
+        if pallet_balances::TotalIssuance::<Runtime>::get() != state.total_issuance {
+            return Err("registry cleanup migration changed total issuance".into());
+        }
+
+        for affected_account in state.affected_accounts {
+            let account = AccountStoreOf::<Runtime>::get(&affected_account.account_id);
+            let expected_free = affected_account
+                .free
+                .saturating_add(affected_account.unlocked);
+            let expected_reserved = affected_account
+                .reserved
+                .saturating_sub(affected_account.unlocked);
+
+            if account.free != expected_free {
+                return Err("registry cleanup migration did not unlock free balance".into());
+            }
+
+            if account.reserved != expected_reserved {
+                return Err("registry cleanup migration did not reduce reserved balance".into());
+            }
+        }
+
+        for account_id in pallet_balances::Holds::<Runtime>::iter_keys() {
+            pallet_balances::Holds::<Runtime>::try_get(&account_id)
+                .map_err(|_| "failed to decode migrated balances holds")?;
+        }
+
+        Ok(())
+    }
 }
 
 fn map_reason(reason: OldRuntimeHoldReason) -> Option<RuntimeHoldReason> {
@@ -139,6 +219,31 @@ fn map_reason(reason: OldRuntimeHoldReason) -> Option<RuntimeHoldReason> {
         OldRuntimeHoldReason::Contracts(reason) => Some(RuntimeHoldReason::Contracts(reason)),
         OldRuntimeHoldReason::Registry(OldRegistryHoldReason::RegistryIdentity) => None,
     }
+}
+
+#[cfg(feature = "try-runtime")]
+#[derive(Encode, Decode)]
+struct PreUpgradeState {
+    total_issuance: BalanceOf<Runtime>,
+    affected_accounts: Vec<AffectedAccount>,
+}
+
+#[cfg(feature = "try-runtime")]
+#[derive(Encode, Decode)]
+struct AffectedAccount {
+    account_id: AccountIdOf<Runtime>,
+    free: BalanceOf<Runtime>,
+    reserved: BalanceOf<Runtime>,
+    unlocked: BalanceOf<Runtime>,
+}
+
+#[cfg(feature = "try-runtime")]
+fn decode_deprecated_holds(
+    account_id: &AccountIdOf<Runtime>,
+) -> Result<deprecated::Holds, sp_runtime::TryRuntimeError> {
+    let key = pallet_balances::Holds::<Runtime>::hashed_key_for(account_id);
+    unhashed::get::<deprecated::Holds>(&key)
+        .ok_or("failed to decode deprecated balances holds".into())
 }
 
 #[cfg(test)]
@@ -341,6 +446,39 @@ mod tests {
                 ),
                 amount: balance(30),
             }));
+        });
+    }
+
+    #[cfg(feature = "try-runtime")]
+    #[test]
+    fn try_runtime_checks_validate_cleanup() {
+        new_test_ext().execute_with(|| {
+            let account_id = account(4);
+
+            let _ = crate::Balances::make_free_balance_be(&account_id, balance(10_000));
+            assert_ok!(crate::Balances::reserve(&account_id, balance(150)));
+
+            insert_old_holds(
+                &account_id,
+                old_holds(vec![
+                    old_hold(
+                        OldRuntimeHoldReason::Registry(OldRegistryHoldReason::RegistryIdentity),
+                        100,
+                    ),
+                    old_hold(
+                        OldRuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage),
+                        50,
+                    ),
+                ]),
+            );
+
+            let state = PalletRegistryCleanupMigration::pre_upgrade()
+                .expect("pre-upgrade check should decode old holds");
+
+            PalletRegistryCleanupMigration::on_runtime_upgrade();
+
+            PalletRegistryCleanupMigration::post_upgrade(state)
+                .expect("post-upgrade check should validate migrated holds");
         });
     }
 }
