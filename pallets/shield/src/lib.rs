@@ -964,8 +964,9 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
     pub fn current_ibe_epoch() -> u64 {
         let n: u64 = frame_system::Pallet::<T>::block_number().saturated_into::<u64>();
-        let epoch_len = T::EpochLength::get().max(1);
-        n / epoch_len
+        let epoch_len = T::EpochLength::get();
+        let safe_epoch_len = if epoch_len == 0 { 1 } else { epoch_len };
+        n.checked_div(safe_epoch_len).unwrap_or(0)
     }
 
     /// Base charged weight for v2 submissions before queue-depth premium.

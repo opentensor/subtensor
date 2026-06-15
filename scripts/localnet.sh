@@ -140,6 +140,12 @@ one_start=(
     --scheme Sr25519 \
     --suri "//Three" \
     --key-type aura
+"$BUILD_DIR/release/node-subtensor" key insert \
+  --base-path /tmp/three \
+  --chain="$FULL_PATH" \
+  --scheme Sr25519 \
+  --suri "//Three" \
+  --key-type babe
   "$BUILD_DIR/release/node-subtensor" key insert \
     --base-path /tmp/three \
     --chain="$FULL_PATH" \

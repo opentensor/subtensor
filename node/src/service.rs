@@ -432,10 +432,14 @@ where
             );
         let has_mev_shield_dkg_consensus_keys = !local_authorities.is_empty();
         if !has_mev_shield_dkg_consensus_keys {
-            log::warn!(
+            log::error!(
                 target: "mev-shield-ibe",
-                "authority node has no local Aura or BABE keys visible to MeV Shield DKG; skipping the epoch-ahead DKG worker"
+                "authority node has no local Aura or BABE keys visible to MEV Shield DKG"
             );
+            return Err(ServiceError::Other(
+                "MEV Shield DKG authority node is missing local Aura/BABE consensus keys"
+                    .to_string(),
+            ));
         }
 
         let authority_signer = Arc::new(
