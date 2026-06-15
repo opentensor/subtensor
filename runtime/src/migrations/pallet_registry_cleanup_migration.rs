@@ -1,6 +1,8 @@
 use crate::{Runtime, RuntimeHoldReason};
 use alloc::string::String;
 #[cfg(feature = "try-runtime")]
+use alloc::vec::Vec;
+#[cfg(feature = "try-runtime")]
 use codec::{Decode, Encode};
 use deprecated::RegistryHoldReason as OldRegistryHoldReason;
 use deprecated::RuntimeHoldReason as OldRuntimeHoldReason;
