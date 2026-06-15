@@ -21,7 +21,6 @@ type BalanceOf<T> = <T as pallet_balances::Config>::Balance;
 type AccountStoreOf<T> = <T as pallet_balances::Config>::AccountStore;
 
 const MIGRATION_NAME: &[u8] = b"pallet_registry_cleanup_migration";
-#[cfg(any(feature = "try-runtime", test))]
 const REGISTRY_PALLET_NAME: &[u8] = b"Registry";
 #[cfg(test)]
 const REGISTRY_IDENTITY_OF_STORAGE_NAME: &[u8] = b"IdentityOf";
