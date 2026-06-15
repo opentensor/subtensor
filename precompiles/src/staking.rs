@@ -43,7 +43,7 @@ use pallet_evm::{
 };
 use pallet_subtensor_proxy as pallet_proxy;
 use precompile_utils::EvmResult;
-use precompile_utils::prelude::{Address, RuntimeHelper, revert};
+use precompile_utils::prelude::{Address, revert};
 use sp_core::{H160, H256, U256};
 use sp_runtime::traits::{AsSystemOriginSigner, Dispatchable, StaticLookup, UniqueSaturatedInto};
 use sp_std::vec;
@@ -496,8 +496,8 @@ where
         amount_alpha: U256,
     ) -> EvmResult<()> {
         // AllowancesStorage write + RegisteredSubnetCounter read
-        handle.record_cost(RuntimeHelper::<R>::db_read_gas_cost())?;
-        handle.record_cost(RuntimeHelper::<R>::db_write_gas_cost())?;
+        handle.record_db_reads::<R>(1)?;
+        handle.record_db_writes::<R>(1)?;
 
         let approver = handle.context().caller;
         let spender = spender_address.0;
@@ -522,8 +522,7 @@ where
         origin_netuid: U256,
     ) -> EvmResult<U256> {
         // AllowancesStorage read + RegisteredSubnetCounter read
-        handle.record_cost(RuntimeHelper::<R>::db_read_gas_cost())?;
-        handle.record_cost(RuntimeHelper::<R>::db_read_gas_cost())?;
+        handle.record_db_reads::<R>(2)?;
 
         let spender = spender_address.0;
         let netuid = try_u16_from_u256(origin_netuid)?;
@@ -547,9 +546,8 @@ where
         }
 
         // AllowancesStorage read + write + RegisteredSubnetCounter read
-        handle.record_cost(RuntimeHelper::<R>::db_read_gas_cost())?;
-        handle.record_cost(RuntimeHelper::<R>::db_read_gas_cost())?;
-        handle.record_cost(RuntimeHelper::<R>::db_write_gas_cost())?;
+        handle.record_db_reads::<R>(2)?;
+        handle.record_db_writes::<R>(1)?;
 
         let approver = handle.context().caller;
         let spender = spender_address.0;
@@ -578,9 +576,8 @@ where
         }
 
         // AllowancesStorage read + write + RegisteredSubnetCounter read
-        handle.record_cost(RuntimeHelper::<R>::db_read_gas_cost())?;
-        handle.record_cost(RuntimeHelper::<R>::db_read_gas_cost())?;
-        handle.record_cost(RuntimeHelper::<R>::db_write_gas_cost())?;
+        handle.record_db_reads::<R>(2)?;
+        handle.record_db_writes::<R>(1)?;
 
         let approver = handle.context().caller;
         let spender = spender_address.0;
@@ -613,9 +610,8 @@ where
         }
 
         // AllowancesStorage read + write + RegisteredSubnetCounter read
-        handle.record_cost(RuntimeHelper::<R>::db_read_gas_cost())?;
-        handle.record_cost(RuntimeHelper::<R>::db_read_gas_cost())?;
-        handle.record_cost(RuntimeHelper::<R>::db_write_gas_cost())?;
+        handle.record_db_reads::<R>(2)?;
+        handle.record_db_writes::<R>(1)?;
 
         let counter = Self::current_subnet_counter(netuid);
         let approval_key = (spender, netuid, counter);
