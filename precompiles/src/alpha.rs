@@ -4,7 +4,7 @@ use crate::PrecompileExt;
 use fp_evm::{ExitError, PrecompileFailure};
 use pallet_evm::{BalanceConverter, PrecompileHandle, SubstrateBalance};
 use precompile_utils::EvmResult;
-use sp_runtime::SaturatedConversion;
+use sp_runtime::{SaturatedConversion, Vec};
 
 use crate::PrecompileHandleExt;
 use sp_core::U256;
