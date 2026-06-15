@@ -168,7 +168,6 @@ where
             hash(AddressMappingPrecompile::<R>::INDEX),
         ]
     }
-
 }
 impl<R> PrecompileSet for Precompiles<R>
 where

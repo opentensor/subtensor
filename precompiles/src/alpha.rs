@@ -235,9 +235,8 @@ where
         )?;
 
         for netuid in netuids.iter() {
-            let price = <pallet_subtensor_swap::Pallet<R> as SwapHandler>::current_alpha_price(
-                *netuid,
-            );
+            let price =
+                <pallet_subtensor_swap::Pallet<R> as SwapHandler>::current_alpha_price(*netuid);
 
             if price < U64F64::from_num(1) {
                 sum_alpha_price = sum_alpha_price.saturating_add(price);
