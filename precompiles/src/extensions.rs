@@ -39,9 +39,7 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
     where
         R: frame_system::Config + pallet_evm::Config,
     {
-        for _ in 0..reads {
-            self.record_cost(RuntimeHelper::<R>::db_read_gas_cost())?;
-        }
+        self.record_cost(RuntimeHelper::<R>::db_read_gas_cost().saturating_mul(reads as u64))?;
         Ok(())
     }
 
@@ -49,9 +47,8 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
     where
         R: frame_system::Config + pallet_evm::Config,
     {
-        for _ in 0..writes {
-            self.record_cost(RuntimeHelper::<R>::db_write_gas_cost())?;
-        }
+        self.record_cost(RuntimeHelper::<R>::db_write_gas_cost().saturating_mul(writes as u64))?;
+
         Ok(())
     }
 
