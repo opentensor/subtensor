@@ -117,10 +117,9 @@ where
         tao: u64,
     ) -> EvmResult<U256> {
         // SubnetMechanism + swap simulation reads
-        handle.record_db_reads::<R>(1)?;
-        let order = pallet_subtensor::GetAlphaForTao::<R>::with_amount(tao);
+        handle.record_db_reads::<R>(9)?;
 
-        handle.record_db_reads::<R>(8)?;
+        let order = pallet_subtensor::GetAlphaForTao::<R>::with_amount(tao);
         let swap_result =
             <pallet_subtensor_swap::Pallet<R> as SwapHandler>::sim_swap(netuid.into(), order)
                 .map_err(|e| PrecompileFailure::Error {
@@ -137,7 +136,7 @@ where
         alpha: u64,
     ) -> EvmResult<U256> {
         // SubnetMechanism + swap simulation reads
-        handle.record_db_reads::<R>(2)?;
+        handle.record_db_reads::<R>(9)?;
 
         let order = pallet_subtensor::GetTaoForAlpha::<R>::with_amount(alpha);
         let swap_result =
