@@ -2488,6 +2488,36 @@ pub mod pallet {
         u128,
         ValueQuery,
     >;
+
+    /// --- DMAP ( validator_hotkey, netuid ) --> outstanding basket principal (alpha).
+    ///
+    /// Total un-claimed alpha *principal* that root stakers have contributed to this
+    /// validator's beta basket on `netuid`. The actual basket alpha is staked to the
+    /// validator under the global beta escrow coldkey and grows with dividends; the
+    /// per-staker payout at claim time is `owed_principal * (escrow_value / BasketPrincipal)`,
+    /// which captures that compounding. Kept in alpha (not shares) so it survives hotkey
+    /// swaps, where positions migrate by value.
+    #[pallet::storage]
+    pub type BasketPrincipal<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Identity,
+        NetUid,
+        AlphaBalance,
+        ValueQuery,
+        DefaultZeroAlpha<T>,
+    >;
+
+    /// --- MAP ( validator_hotkey ) --> Vec<(subnet_id, weight)> | beta basket distribution vector.
+    ///
+    /// A root validator's beta-basket weight vector `w`, set via `set_root_weights`. Dedicated
+    /// storage (NOT the legacy `Weights[ROOT]` consensus map) so basket allocation never aliases
+    /// or is mutated by root-consensus / `remove_network` weight handling. Keyed by hotkey so it
+    /// is unaffected by root UID reuse and migrates cleanly on hotkey swap.
+    #[pallet::storage]
+    pub type RootBasketWeights<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, Vec<(u16, u16)>, ValueQuery>;
     #[pallet::storage] // -- MAP ( cold ) --> root_claim_type enum
     pub type RootClaimType<T: Config> = StorageMap<
         _,

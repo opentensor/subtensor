@@ -1,26 +1,56 @@
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
-use crate::RootAlphaDividendsPerSubnet;
 use crate::tests::mock::*;
 use crate::{
-    DefaultMinRootClaimAmount, Error, MAX_NUM_ROOT_CLAIMS, MAX_ROOT_CLAIM_THRESHOLD, NetworksAdded,
-    NumRootClaim, NumStakingColdkeys, PendingRootAlphaDivs, RootClaimable, RootClaimableThreshold,
-    StakingColdkeys, StakingColdkeysByIndex, SubnetAlphaIn, SubnetAlphaOut, SubnetMechanism,
-    SubnetMovingPrice, SubnetProtocolFlow, SubnetRootSellTao, SubnetTAO, SubnetTaoFlow,
-    SubnetVolume, SubtokenEnabled, Tempo, TotalStake, pallet,
+    BasketPrincipal, DefaultMinRootClaimAmount, Error, Keys, MAX_NUM_ROOT_CLAIMS,
+    MAX_ROOT_CLAIM_THRESHOLD, NetworksAdded, NumRootClaim, NumStakingColdkeys, RootBasketWeights,
+    RootClaimType, RootClaimTypeEnum, RootClaimable, RootClaimableThreshold, RootClaimed,
+    StakingColdkeys, StakingColdkeysByIndex, SubnetAlphaIn, SubnetMovingPrice, SubnetTAO,
+    SubnetworkN, Tempo, TotalStake, Uids,
 };
-use crate::{RootClaimType, RootClaimTypeEnum, RootClaimed};
 use approx::assert_abs_diff_eq;
 use frame_support::dispatch::RawOrigin;
 use frame_support::pallet_prelude::Weight;
-use frame_support::traits::{Currency, Get};
+use frame_support::traits::Get;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use sp_core::{H256, U256};
 use sp_runtime::DispatchError;
 use std::collections::BTreeSet;
 use substrate_fixed::types::I96F32;
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
-use subtensor_swap_interface::SwapHandler;
+
+// =============================================================================
+// Helpers
+// =============================================================================
+
+/// Directly assign a root UID and a beta-basket weight vector `w` to a validator hotkey,
+/// bypassing the `set_root_weights` extrinsic's validation (which is exercised separately).
+/// `dests` are `(subnet, weight)` pairs.
+fn set_root_weights_direct(hotkey: &U256, _uid: u16, dests: &[(NetUid, u16)]) {
+    let zipped: Vec<(u16, u16)> = dests.iter().map(|(n, w)| (u16::from(*n), *w)).collect();
+    RootBasketWeights::<Test>::insert(hotkey, zipped);
+}
+
+/// Ensure a subnet has deep, balanced AMM reserves so basket swaps execute with negligible
+/// slippage and never fail for lack of liquidity.
+fn fund_pool(netuid: NetUid) {
+    SubnetTAO::<Test>::insert(netuid, TaoBalance::from(1_000_000_000_000u64));
+    SubnetAlphaIn::<Test>::insert(netuid, AlphaBalance::from(1_000_000_000_000u64));
+}
+
+fn escrow_alpha(hotkey: &U256, netuid: NetUid) -> u64 {
+    let escrow = SubtensorModule::get_beta_escrow_account_id();
+    SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, &escrow, netuid).to_u64()
+}
+
+fn root_stake_of(hotkey: &U256, coldkey: &U256) -> u64 {
+    SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, NetUid::ROOT)
+        .to_u64()
+}
+
+// =============================================================================
+// Still-valid utility tests (independent of the beta-basket accrual mechanics)
+// =============================================================================
 
 #[test]
 fn test_claim_root_set_claim_type() {
@@ -33,906 +63,6 @@ fn test_claim_root_set_claim_type() {
         ),);
 
         assert_eq!(RootClaimType::<Test>::get(coldkey), RootClaimTypeEnum::Keep);
-    });
-}
-
-#[test]
-fn test_claim_root_with_drain_emissions() {
-    new_test_ext(1).execute_with(|| {
-        let owner_coldkey = U256::from(1001);
-        let hotkey = U256::from(1002);
-        let coldkey = U256::from(1003);
-        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
-        remove_owner_registration_stake(netuid);
-
-        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
-
-        let root_stake = 2_000_000u64;
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &coldkey,
-            NetUid::ROOT,
-            root_stake.into(),
-        );
-
-        let initial_total_hotkey_alpha = 10_000_000u64;
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &owner_coldkey,
-            netuid,
-            initial_total_hotkey_alpha.into(),
-        );
-
-        let old_validator_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &owner_coldkey,
-            netuid,
-        );
-        assert_eq!(old_validator_stake, initial_total_hotkey_alpha.into());
-
-        // Distribute pending root alpha
-
-        let pending_root_alpha = 1_000_000u64;
-        SubtensorModule::distribute_emission(
-            netuid,
-            AlphaBalance::ZERO,
-            AlphaBalance::ZERO,
-            pending_root_alpha.into(),
-            AlphaBalance::ZERO,
-        );
-
-        // Check new validator stake
-        let validator_take_percent = 0.18f64;
-
-        let new_validator_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &owner_coldkey,
-            netuid,
-        );
-        let calculated_validator_stake = (pending_root_alpha as f64) * validator_take_percent
-            + (initial_total_hotkey_alpha as f64);
-
-        assert_abs_diff_eq!(
-            u64::from(new_validator_stake),
-            calculated_validator_stake as u64,
-            epsilon = 100u64,
-        );
-
-        // Check claimable
-
-        let claimable = *RootClaimable::<Test>::get(hotkey)
-            .get(&netuid)
-            .expect("claimable must exist at this point");
-        let calculated_rate =
-            (pending_root_alpha as f64) * (1f64 - validator_take_percent) / (root_stake as f64);
-
-        assert_abs_diff_eq!(
-            claimable.saturating_to_num::<f64>(),
-            calculated_rate,
-            epsilon = 0.001f64,
-        );
-
-        // Claim root alpha
-
-        assert_ok!(SubtensorModule::set_root_claim_type(
-            RuntimeOrigin::signed(coldkey),
-            RootClaimTypeEnum::Keep
-        ),);
-        assert_eq!(RootClaimType::<Test>::get(coldkey), RootClaimTypeEnum::Keep);
-
-        assert_ok!(SubtensorModule::claim_root(
-            RuntimeOrigin::signed(coldkey),
-            BTreeSet::from([netuid])
-        ));
-
-        let new_stake: u64 =
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid)
-                .into();
-
-        assert_abs_diff_eq!(
-            new_stake,
-            (I96F32::from(root_stake) * claimable).saturating_to_num::<u64>(),
-            epsilon = 10u64,
-        );
-
-        // Check root claimed value saved
-
-        let claimed = RootClaimed::<Test>::get((netuid, &hotkey, &coldkey));
-        assert_eq!(u128::from(new_stake), claimed);
-
-        // Distribute pending root alpha (round 2)
-
-        SubtensorModule::distribute_emission(
-            netuid,
-            AlphaBalance::ZERO,
-            AlphaBalance::ZERO,
-            pending_root_alpha.into(),
-            AlphaBalance::ZERO,
-        );
-
-        // Check claimable (round 2)
-
-        let claimable2 = *RootClaimable::<Test>::get(hotkey)
-            .get(&netuid)
-            .expect("claimable must exist at this point");
-        let calculated_rate =
-            (pending_root_alpha as f64) * (1f64 - validator_take_percent) / (root_stake as f64);
-
-        assert_abs_diff_eq!(
-            claimable2.saturating_to_num::<f64>(),
-            calculated_rate + claimable.saturating_to_num::<f64>(),
-            epsilon = 0.001f64,
-        );
-
-        assert_ok!(SubtensorModule::claim_root(
-            RuntimeOrigin::signed(coldkey),
-            BTreeSet::from([netuid])
-        ));
-
-        let new_stake2: u64 =
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid)
-                .into();
-        let calculated_new_stake2 =
-            (I96F32::from(root_stake) * claimable2).saturating_to_num::<u64>();
-
-        assert_abs_diff_eq!(
-            u64::from(new_stake2),
-            calculated_new_stake2,
-            epsilon = 10u64,
-        );
-
-        // Check root claimed value saved (round 2)
-
-        let claimed = RootClaimed::<Test>::get((netuid, &hotkey, &coldkey));
-        assert_eq!(u128::from(u64::from(new_stake2)), claimed);
-    });
-}
-
-#[test]
-fn test_claim_root_adding_stake_proportionally_for_two_stakers() {
-    new_test_ext(1).execute_with(|| {
-        let owner_coldkey = U256::from(1001);
-        let other_coldkey = U256::from(10010);
-        let hotkey = U256::from(1002);
-        let alice_coldkey = U256::from(1003);
-        let bob_coldkey = U256::from(1004);
-        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
-
-        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
-
-        let root_stake = 1_000_000u64;
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &alice_coldkey,
-            NetUid::ROOT,
-            root_stake.into(),
-        );
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &bob_coldkey,
-            NetUid::ROOT,
-            root_stake.into(),
-        );
-
-        let root_stake_rate = 0.1f64;
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &other_coldkey,
-            NetUid::ROOT,
-            (8 * root_stake).into(),
-        );
-
-        let initial_total_hotkey_alpha = 10_000_000u64;
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &owner_coldkey,
-            netuid,
-            initial_total_hotkey_alpha.into(),
-        );
-
-        // Claim root alpha
-
-        assert_ok!(SubtensorModule::set_root_claim_type(
-            RuntimeOrigin::signed(alice_coldkey),
-            RootClaimTypeEnum::Keep
-        ),);
-        assert_ok!(SubtensorModule::set_root_claim_type(
-            RuntimeOrigin::signed(bob_coldkey),
-            RootClaimTypeEnum::Keep
-        ),);
-
-        // Distribute pending root alpha
-
-        let pending_root_alpha = 10_000_000u64;
-        SubtensorModule::distribute_emission(
-            netuid,
-            AlphaBalance::ZERO,
-            AlphaBalance::ZERO,
-            pending_root_alpha.into(),
-            AlphaBalance::ZERO,
-        );
-
-        assert_ok!(SubtensorModule::claim_root(
-            RuntimeOrigin::signed(alice_coldkey),
-            BTreeSet::from([netuid])
-        ));
-        assert_ok!(SubtensorModule::claim_root(
-            RuntimeOrigin::signed(bob_coldkey),
-            BTreeSet::from([netuid])
-        ));
-
-        // Check stakes
-        let validator_take_percent = 0.18f64;
-
-        let alice_stake: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &alice_coldkey,
-            netuid,
-        )
-        .into();
-
-        let bob_stake: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &bob_coldkey,
-            netuid,
-        )
-        .into();
-
-        let estimated_stake =
-            (pending_root_alpha as f64) * (1f64 - validator_take_percent) * root_stake_rate;
-
-        assert_eq!(alice_stake, bob_stake);
-
-        assert_abs_diff_eq!(alice_stake, estimated_stake as u64, epsilon = 100u64,);
-    });
-}
-
-#[test]
-fn test_claim_root_adding_stake_disproportionally_for_two_stakers() {
-    new_test_ext(1).execute_with(|| {
-        let owner_coldkey = U256::from(1001);
-        let other_coldkey = U256::from(10010);
-        let hotkey = U256::from(1002);
-        let alice_coldkey = U256::from(1003);
-        let bob_coldkey = U256::from(1004);
-        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
-
-        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
-
-        let alice_root_stake = 1_000_000u64;
-        let bob_root_stake = 2_000_000u64;
-        let other_root_stake = 7_000_000u64;
-
-        let alice_root_stake_rate = 0.1f64;
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &alice_coldkey,
-            NetUid::ROOT,
-            alice_root_stake.into(),
-        );
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &bob_coldkey,
-            NetUid::ROOT,
-            bob_root_stake.into(),
-        );
-
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &other_coldkey,
-            NetUid::ROOT,
-            (other_root_stake).into(),
-        );
-
-        let initial_total_hotkey_alpha = 10_000_000u64;
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &owner_coldkey,
-            netuid,
-            initial_total_hotkey_alpha.into(),
-        );
-
-        // Claim root alpha
-
-        assert_ok!(SubtensorModule::set_root_claim_type(
-            RuntimeOrigin::signed(alice_coldkey),
-            RootClaimTypeEnum::Keep
-        ),);
-        assert_ok!(SubtensorModule::set_root_claim_type(
-            RuntimeOrigin::signed(bob_coldkey),
-            RootClaimTypeEnum::Keep
-        ),);
-
-        // Distribute pending root alpha
-
-        let pending_root_alpha = 10_000_000u64;
-        SubtensorModule::distribute_emission(
-            netuid,
-            AlphaBalance::ZERO,
-            AlphaBalance::ZERO,
-            pending_root_alpha.into(),
-            AlphaBalance::ZERO,
-        );
-
-        assert_ok!(SubtensorModule::claim_root(
-            RuntimeOrigin::signed(alice_coldkey),
-            BTreeSet::from([netuid])
-        ));
-        assert_ok!(SubtensorModule::claim_root(
-            RuntimeOrigin::signed(bob_coldkey),
-            BTreeSet::from([netuid])
-        ));
-
-        // Check stakes
-        let validator_take_percent = 0.18f64;
-
-        let alice_stake: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &alice_coldkey,
-            netuid,
-        )
-        .into();
-
-        let bob_stake: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &bob_coldkey,
-            netuid,
-        )
-        .into();
-
-        let alice_estimated_stake =
-            (pending_root_alpha as f64) * (1f64 - validator_take_percent) * alice_root_stake_rate;
-
-        assert_eq!(2 * alice_stake, bob_stake);
-
-        assert_abs_diff_eq!(alice_stake, alice_estimated_stake as u64, epsilon = 100u64,);
-    });
-}
-
-#[test]
-fn test_claim_root_with_changed_stake() {
-    new_test_ext(1).execute_with(|| {
-        let owner_coldkey = U256::from(1001);
-        let hotkey = U256::from(1002);
-        let alice_coldkey = U256::from(1003);
-        let bob_coldkey = U256::from(1004);
-        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
-
-        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
-        SubtokenEnabled::<Test>::insert(NetUid::ROOT, true);
-        NetworksAdded::<Test>::insert(NetUid::ROOT, true);
-
-        let root_stake = 8_000_000u64;
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &alice_coldkey,
-            NetUid::ROOT,
-            root_stake.into(),
-        );
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &bob_coldkey,
-            NetUid::ROOT,
-            root_stake.into(),
-        );
-
-        let initial_total_hotkey_alpha = 10_000_000u64;
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &owner_coldkey,
-            netuid,
-            initial_total_hotkey_alpha.into(),
-        );
-
-        // Claim root alpha
-
-        assert_ok!(SubtensorModule::set_root_claim_type(
-            RuntimeOrigin::signed(alice_coldkey),
-            RootClaimTypeEnum::Keep
-        ),);
-        assert_ok!(SubtensorModule::set_root_claim_type(
-            RuntimeOrigin::signed(bob_coldkey),
-            RootClaimTypeEnum::Keep
-        ),);
-
-        // Distribute pending root alpha
-
-        let pending_root_alpha = 10_000_000u64;
-        SubtensorModule::distribute_emission(
-            netuid,
-            AlphaBalance::ZERO,
-            AlphaBalance::ZERO,
-            pending_root_alpha.into(),
-            AlphaBalance::ZERO,
-        );
-
-        assert_ok!(SubtensorModule::claim_root(
-            RuntimeOrigin::signed(alice_coldkey),
-            BTreeSet::from([netuid])
-        ));
-        assert_ok!(SubtensorModule::claim_root(
-            RuntimeOrigin::signed(bob_coldkey),
-            BTreeSet::from([netuid])
-        ));
-
-        // Check stakes
-        let validator_take_percent = 0.18f64;
-
-        let alice_stake: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &alice_coldkey,
-            netuid,
-        )
-        .into();
-
-        let bob_stake: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &bob_coldkey,
-            netuid,
-        )
-        .into();
-
-        let estimated_stake = (pending_root_alpha as f64) * (1f64 - validator_take_percent) / 2f64;
-
-        assert_eq!(alice_stake, bob_stake);
-
-        assert_abs_diff_eq!(alice_stake, estimated_stake as u64, epsilon = 100u64,);
-
-        // Remove stake
-        let stake_decrement = root_stake / 2u64;
-
-        assert_ok!(SubtensorModule::remove_stake(
-            RuntimeOrigin::signed(bob_coldkey,),
-            hotkey,
-            NetUid::ROOT,
-            stake_decrement.into(),
-        ));
-
-        // Distribute pending root alpha
-
-        let pending_root_alpha = 10_000_000u64;
-        SubtensorModule::distribute_emission(
-            netuid,
-            AlphaBalance::ZERO,
-            AlphaBalance::ZERO,
-            pending_root_alpha.into(),
-            AlphaBalance::ZERO,
-        );
-
-        assert_ok!(SubtensorModule::claim_root(
-            RuntimeOrigin::signed(alice_coldkey),
-            BTreeSet::from([netuid])
-        ));
-        assert_ok!(SubtensorModule::claim_root(
-            RuntimeOrigin::signed(bob_coldkey),
-            BTreeSet::from([netuid])
-        ));
-
-        // Check new stakes
-
-        let alice_stake2: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &alice_coldkey,
-            netuid,
-        )
-        .into();
-
-        let bob_stake2: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &bob_coldkey,
-            netuid,
-        )
-        .into();
-
-        let estimated_stake = (pending_root_alpha as f64) * (1f64 - validator_take_percent) / 3f64;
-
-        let alice_stake_diff = alice_stake2 - alice_stake;
-        let bob_stake_diff = bob_stake2 - bob_stake;
-
-        assert_abs_diff_eq!(alice_stake_diff, 2 * bob_stake_diff, epsilon = 100u64,);
-        assert_abs_diff_eq!(bob_stake_diff, estimated_stake as u64, epsilon = 100u64,);
-
-        // Add stake
-        let stake_increment = root_stake / 2u64;
-
-        assert_ok!(SubtensorModule::add_stake(
-            RuntimeOrigin::signed(bob_coldkey,),
-            hotkey,
-            NetUid::ROOT,
-            stake_increment.into(),
-        ));
-
-        // Distribute pending root alpha
-
-        let pending_root_alpha = 10_000_000u64;
-        SubtensorModule::distribute_emission(
-            netuid,
-            AlphaBalance::ZERO,
-            AlphaBalance::ZERO,
-            pending_root_alpha.into(),
-            AlphaBalance::ZERO,
-        );
-
-        assert_ok!(SubtensorModule::claim_root(
-            RuntimeOrigin::signed(alice_coldkey),
-            BTreeSet::from([netuid])
-        ));
-        assert_ok!(SubtensorModule::claim_root(
-            RuntimeOrigin::signed(bob_coldkey),
-            BTreeSet::from([netuid])
-        ));
-
-        // Check new stakes
-
-        let alice_stake3: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &alice_coldkey,
-            netuid,
-        )
-        .into();
-
-        let bob_stake3: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &bob_coldkey,
-            netuid,
-        )
-        .into();
-
-        let estimated_stake = (pending_root_alpha as f64) * (1f64 - validator_take_percent) / 2f64;
-
-        let alice_stake_diff2 = alice_stake3 - alice_stake2;
-        let bob_stake_diff2 = bob_stake3 - bob_stake2;
-
-        assert_abs_diff_eq!(alice_stake_diff2, bob_stake_diff2, epsilon = 100u64,);
-        assert_abs_diff_eq!(bob_stake_diff2, estimated_stake as u64, epsilon = 100u64,);
-    });
-}
-
-#[test]
-fn test_claim_root_with_drain_emissions_and_swap_claim_type() {
-    new_test_ext(1).execute_with(|| {
-        let owner_coldkey = U256::from(1001);
-        let other_coldkey = U256::from(10010);
-        let hotkey = U256::from(1002);
-        let coldkey = U256::from(1003);
-        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
-
-        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
-        SubnetMechanism::<Test>::insert(netuid, 1);
-
-        let tao_reserve = TaoBalance::from(50_000_000_000_u64);
-        let alpha_in = AlphaBalance::from(100_000_000_000_u64);
-        SubnetTAO::<Test>::insert(netuid, tao_reserve);
-        SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
-        let current_price =
-            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into())
-                .saturating_to_num::<f64>();
-        assert_eq!(current_price, 0.5f64);
-
-        let root_stake = 2_000_000u64;
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &coldkey,
-            NetUid::ROOT,
-            root_stake.into(),
-        );
-        let root_stake_rate = 0.1f64;
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &other_coldkey,
-            NetUid::ROOT,
-            (9 * root_stake).into(),
-        );
-
-        let initial_total_hotkey_alpha = 10_000_000u64;
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &owner_coldkey,
-            netuid,
-            initial_total_hotkey_alpha.into(),
-        );
-
-        // Distribute pending root alpha
-
-        let pending_root_alpha = 10_000_000u64;
-        SubtensorModule::distribute_emission(
-            netuid,
-            AlphaBalance::ZERO,
-            AlphaBalance::ZERO,
-            pending_root_alpha.into(),
-            AlphaBalance::ZERO,
-        );
-
-        // Claim root alpha
-
-        let validator_take_percent = 0.18f64;
-
-        assert_ok!(SubtensorModule::set_root_claim_type(
-            RuntimeOrigin::signed(coldkey),
-            RootClaimTypeEnum::Swap
-        ),);
-        assert_eq!(RootClaimType::<Test>::get(coldkey), RootClaimTypeEnum::Swap);
-
-        assert_ok!(SubtensorModule::claim_root(
-            RuntimeOrigin::signed(coldkey),
-            BTreeSet::from([netuid])
-        ));
-
-        // Check new stake
-
-        let new_stake: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &coldkey,
-            NetUid::ROOT,
-        )
-        .into();
-
-        let estimated_stake_increment = (pending_root_alpha as f64)
-            * (1f64 - validator_take_percent)
-            * current_price
-            * root_stake_rate;
-
-        assert_abs_diff_eq!(
-            new_stake,
-            root_stake + estimated_stake_increment as u64,
-            epsilon = 10000u64,
-        );
-
-        // Distribute and claim pending root alpha (round 2)
-
-        SubtensorModule::distribute_emission(
-            netuid,
-            AlphaBalance::ZERO,
-            AlphaBalance::ZERO,
-            pending_root_alpha.into(),
-            AlphaBalance::ZERO,
-        );
-
-        assert_ok!(SubtensorModule::claim_root(
-            RuntimeOrigin::signed(coldkey),
-            BTreeSet::from([netuid])
-        ));
-
-        // Check new stake (2)
-
-        let new_stake2: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &coldkey,
-            NetUid::ROOT,
-        )
-        .into();
-
-        // new root stake / new total stake
-        let root_stake_rate2 = (root_stake as f64 + estimated_stake_increment)
-            / (root_stake as f64 / root_stake_rate + estimated_stake_increment);
-        let estimated_stake_increment2 = (pending_root_alpha as f64)
-            * (1f64 - validator_take_percent)
-            * current_price
-            * root_stake_rate2;
-
-        assert_abs_diff_eq!(
-            new_stake2,
-            new_stake + estimated_stake_increment2 as u64,
-            epsilon = 10000u64,
-        );
-        // Distribute and claim pending root alpha (round 3)
-
-        SubtensorModule::distribute_emission(
-            netuid,
-            AlphaBalance::ZERO,
-            AlphaBalance::ZERO,
-            pending_root_alpha.into(),
-            AlphaBalance::ZERO,
-        );
-
-        assert_ok!(SubtensorModule::claim_root(
-            RuntimeOrigin::signed(coldkey),
-            BTreeSet::from([netuid])
-        ));
-
-        // Check new stake (3)
-
-        let new_stake3: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &coldkey,
-            NetUid::ROOT,
-        )
-        .into();
-
-        // new root stake / new total stake
-        let root_stake_rate3 =
-            (root_stake as f64 + estimated_stake_increment + estimated_stake_increment2)
-                / (root_stake as f64 / root_stake_rate
-                    + estimated_stake_increment
-                    + estimated_stake_increment2);
-        let estimated_stake_increment3 = (pending_root_alpha as f64)
-            * (1f64 - validator_take_percent)
-            * current_price
-            * root_stake_rate3;
-
-        assert_abs_diff_eq!(
-            new_stake3,
-            new_stake2 + estimated_stake_increment3 as u64,
-            epsilon = 10000u64,
-        );
-    });
-}
-
-/// cargo test --package pallet-subtensor --lib -- tests::claim_root::test_claim_root_with_run_coinbase --exact --nocapture
-#[test]
-fn test_claim_root_swap_failure_does_not_consume_claim() {
-    new_test_ext(1).execute_with(|| {
-        let owner_coldkey = U256::from(1001);
-        let other_coldkey = U256::from(10010);
-        let hotkey = U256::from(1002);
-        let coldkey = U256::from(1003);
-        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
-
-        SubtensorModule::set_tao_weight(u64::MAX);
-        SubnetTAO::<Test>::insert(netuid, TaoBalance::from(50_000_000_000_u64));
-        SubnetAlphaIn::<Test>::insert(netuid, AlphaBalance::from(100_000_000_000_u64));
-
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &coldkey,
-            NetUid::ROOT,
-            2_000_000_u64.into(),
-        );
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &other_coldkey,
-            NetUid::ROOT,
-            18_000_000_u64.into(),
-        );
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &owner_coldkey,
-            netuid,
-            10_000_000_u64.into(),
-        );
-
-        SubtensorModule::distribute_emission(
-            netuid,
-            AlphaBalance::ZERO,
-            AlphaBalance::ZERO,
-            10_000_000_u64.into(),
-            AlphaBalance::ZERO,
-        );
-
-        assert_ok!(SubtensorModule::set_root_claim_type(
-            RuntimeOrigin::signed(coldkey),
-            RootClaimTypeEnum::Swap
-        ));
-
-        let subnet_account = SubtensorModule::get_subnet_account_id(netuid).unwrap();
-        Balances::make_free_balance_be(&subnet_account, 0.into());
-
-        let root_claimed_before = RootClaimed::<Test>::get((netuid, &hotkey, &coldkey));
-        let root_stake_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &coldkey,
-            NetUid::ROOT,
-        );
-        let subnet_tao_before = SubnetTAO::<Test>::get(netuid);
-        let root_subnet_tao_before = SubnetTAO::<Test>::get(NetUid::ROOT);
-        let subnet_alpha_in_before = SubnetAlphaIn::<Test>::get(netuid);
-        let subnet_alpha_out_before = SubnetAlphaOut::<Test>::get(netuid);
-        let total_stake_before = TotalStake::<Test>::get();
-        let subnet_volume_before = SubnetVolume::<Test>::get(netuid);
-        let root_sell_before = SubnetRootSellTao::<Test>::get(netuid);
-        let protocol_flow_before = SubnetProtocolFlow::<Test>::get(netuid);
-
-        assert_noop!(
-            SubtensorModule::claim_root(RuntimeOrigin::signed(coldkey), BTreeSet::from([netuid])),
-            Error::<Test>::InsufficientBalance
-        );
-
-        assert_eq!(
-            RootClaimed::<Test>::get((netuid, &hotkey, &coldkey)),
-            root_claimed_before
-        );
-        assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-                &hotkey,
-                &coldkey,
-                NetUid::ROOT,
-            ),
-            root_stake_before
-        );
-        assert_eq!(SubnetTAO::<Test>::get(netuid), subnet_tao_before);
-        assert_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), root_subnet_tao_before);
-        assert_eq!(SubnetAlphaIn::<Test>::get(netuid), subnet_alpha_in_before);
-        assert_eq!(SubnetAlphaOut::<Test>::get(netuid), subnet_alpha_out_before);
-        assert_eq!(TotalStake::<Test>::get(), total_stake_before);
-        assert_eq!(SubnetVolume::<Test>::get(netuid), subnet_volume_before);
-        assert_eq!(SubnetRootSellTao::<Test>::get(netuid), root_sell_before);
-        assert_eq!(
-            SubnetProtocolFlow::<Test>::get(netuid),
-            protocol_flow_before
-        );
-    });
-}
-
-#[test]
-fn test_claim_root_with_run_coinbase() {
-    new_test_ext(1).execute_with(|| {
-        let owner_coldkey = U256::from(1001);
-        let hotkey = U256::from(1002);
-        let coldkey = U256::from(1003);
-        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
-        remove_owner_registration_stake(netuid);
-
-        Tempo::<Test>::insert(netuid, 1);
-        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
-
-        let root_stake = 200_000_000u64;
-        SubnetTAO::<Test>::insert(NetUid::ROOT, TaoBalance::from(root_stake));
-
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &coldkey,
-            NetUid::ROOT,
-            root_stake.into(),
-        );
-
-        let initial_total_hotkey_alpha = 10_000_000u64;
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &owner_coldkey,
-            netuid,
-            initial_total_hotkey_alpha.into(),
-        );
-
-        // Set moving price > 1.0 and price > 1.0
-        // So we turn ON root sell
-        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(2));
-        let tao = TaoBalance::from(10_000_000_000_000_u64);
-        let alpha = AlphaBalance::from(1_000_000_000_000_u64);
-        SubnetTAO::<Test>::insert(netuid, tao);
-        SubnetAlphaIn::<Test>::insert(netuid, alpha);
-        let current_price =
-            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into())
-                .saturating_to_num::<f64>();
-        assert_eq!(current_price, 10.0f64);
-        RootClaimableThreshold::<Test>::insert(netuid, I96F32::from_num(0));
-
-        // Make sure we are root selling, so we have root alpha divs.
-        let root_sell_flag = SubtensorModule::get_network_root_sell_flag(&[netuid]);
-        assert!(root_sell_flag, "Root sell flag should be true");
-
-        // Distribute pending root alpha
-
-        let initial_stake: u64 =
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid)
-                .into();
-        assert_eq!(initial_stake, 0u64);
-
-        let block_emissions = SubtensorModule::mint_tao(1_000_000u64.into());
-        SubtensorModule::run_coinbase(block_emissions);
-
-        // Claim root alpha
-
-        let initial_stake: u64 =
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid)
-                .into();
-        assert_eq!(initial_stake, 0u64);
-
-        assert_ok!(SubtensorModule::set_root_claim_type(
-            RuntimeOrigin::signed(coldkey),
-            RootClaimTypeEnum::Keep
-        ),);
-        assert_eq!(RootClaimType::<Test>::get(coldkey), RootClaimTypeEnum::Keep);
-
-        assert_ok!(SubtensorModule::claim_root(
-            RuntimeOrigin::signed(coldkey),
-            BTreeSet::from([netuid])
-        ));
-
-        let new_stake: u64 =
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid)
-                .into();
-
-        assert!(new_stake > 0);
     });
 }
 
@@ -978,79 +108,6 @@ fn test_claim_root_block_hash_indices() {
 }
 
 #[test]
-fn test_claim_root_with_block_emissions() {
-    new_test_ext(0).execute_with(|| {
-        let owner_coldkey = U256::from(1001);
-        let hotkey = U256::from(1002);
-        let coldkey = U256::from(1003);
-        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
-        remove_owner_registration_stake(netuid);
-
-        Tempo::<Test>::insert(netuid, 1);
-        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
-
-        let root_stake = 200_000_000u64;
-        SubnetTAO::<Test>::insert(NetUid::ROOT, TaoBalance::from(root_stake));
-
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &coldkey,
-            NetUid::ROOT,
-            root_stake.into(),
-        );
-        SubtensorModule::maybe_add_coldkey_index(&coldkey);
-
-        // Set moving price > 1.0 and price > 1.0
-        // So we turn ON root sell
-        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(2));
-        let tao = TaoBalance::from(10_000_000_000_000_u64);
-        let alpha = AlphaBalance::from(1_000_000_000_000_u64);
-        SubnetTAO::<Test>::insert(netuid, tao);
-        SubnetAlphaIn::<Test>::insert(netuid, alpha);
-        let current_price =
-            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into())
-                .saturating_to_num::<f64>();
-        assert_eq!(current_price, 10.0f64);
-        RootClaimableThreshold::<Test>::insert(netuid, I96F32::from_num(0));
-
-        // Make sure we are root selling, so we have root alpha divs.
-        let root_sell_flag = SubtensorModule::get_network_root_sell_flag(&[netuid]);
-        assert!(root_sell_flag, "Root sell flag should be true");
-
-        let initial_total_hotkey_alpha = 10_000_000u64;
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &owner_coldkey,
-            netuid,
-            initial_total_hotkey_alpha.into(),
-        );
-
-        assert_ok!(SubtensorModule::set_root_claim_type(
-            RuntimeOrigin::signed(coldkey),
-            RootClaimTypeEnum::Keep
-        ),);
-        assert_eq!(RootClaimType::<Test>::get(coldkey), RootClaimTypeEnum::Keep);
-
-        // Distribute pending root alpha
-
-        let initial_stake: u64 =
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid)
-                .into();
-        assert_eq!(initial_stake, 0u64);
-
-        run_to_block(2);
-
-        // Check stake after block emissions
-
-        let new_stake: u64 =
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid)
-                .into();
-
-        assert!(new_stake > 0);
-    });
-}
-
-#[test]
 fn test_populate_staking_maps() {
     new_test_ext(1).execute_with(|| {
         let owner_coldkey = U256::from(1000);
@@ -1084,7 +141,6 @@ fn test_populate_staking_maps() {
         assert_eq!(NumStakingColdkeys::<Test>::get(), 0);
 
         // Populate maps through block step
-
         run_to_block(2);
 
         assert_eq!(NumStakingColdkeys::<Test>::get(), 2);
@@ -1095,103 +151,6 @@ fn test_populate_staking_maps() {
         assert!(StakingColdkeys::<Test>::contains_key(coldkey1));
         assert!(StakingColdkeys::<Test>::contains_key(coldkey2));
         assert!(!StakingColdkeys::<Test>::contains_key(coldkey3));
-    });
-}
-
-#[test]
-fn test_claim_root_coinbase_distribution() {
-    new_test_ext(1).execute_with(|| {
-        let owner_coldkey = U256::from(1001);
-        let hotkey = U256::from(1002);
-        let coldkey = U256::from(1003);
-        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
-
-        Tempo::<Test>::insert(netuid, 1);
-        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
-
-        let root_stake = 200_000_000u64;
-        let initial_tao = 200_000_000u64;
-        SubnetTAO::<Test>::insert(NetUid::ROOT, TaoBalance::from(initial_tao));
-
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &coldkey,
-            NetUid::ROOT,
-            root_stake.into(),
-        );
-
-        let initial_total_hotkey_alpha = 10_000_000u64;
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &owner_coldkey,
-            netuid,
-            initial_total_hotkey_alpha.into(),
-        );
-
-        // Set moving price > 1.0 and price > 1.0
-        // So we turn ON root sell
-        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(2));
-        let tao = TaoBalance::from(100_000_000_000_u64);
-        let alpha = AlphaBalance::from(100_000_000_000_u64);
-        SubnetTAO::<Test>::insert(netuid, tao);
-        SubnetAlphaIn::<Test>::insert(netuid, alpha);
-        // let current_price =
-        //     <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into())
-        //         .saturating_to_num::<f64>();
-        // assert_eq!(current_price, 2.0f64);
-        RootClaimableThreshold::<Test>::insert(netuid, I96F32::from_num(0));
-
-        let initial_alpha_issuance = SubtensorModule::get_alpha_issuance(netuid);
-        let alpha_emissions: AlphaBalance = 1_000_000_000u64.into();
-
-        // Make sure we are root selling, so we have root alpha divs.
-        let root_sell_flag = SubtensorModule::get_network_root_sell_flag(&[netuid]);
-        assert!(root_sell_flag, "Root sell flag should be true");
-
-        // Set TAOFlow > 0
-        SubnetTaoFlow::<Test>::insert(netuid, 2222_i64);
-
-        // Check total issuance (saved to pending alpha divs)
-        run_to_block(2);
-
-        let alpha_issuance = SubtensorModule::get_alpha_issuance(netuid);
-        // We went two blocks so we should have 2x the alpha emissions
-        assert_eq!(
-            initial_alpha_issuance + alpha_emissions.saturating_mul(2.into()),
-            alpha_issuance
-        );
-
-        let root_prop = initial_tao as f64 / (u64::from(alpha_issuance) + initial_tao) as f64;
-        let root_validators_share = 0.5f64;
-
-        let expected_pending_root_alpha_divs =
-            u64::from(alpha_emissions) as f64 * root_prop * root_validators_share;
-        assert_abs_diff_eq!(
-            u64::from(PendingRootAlphaDivs::<Test>::get(netuid)) as f64,
-            expected_pending_root_alpha_divs,
-            epsilon = 100f64
-        );
-
-        // Epoch pending alphas divs is distributed
-
-        run_to_block(3);
-
-        assert_eq!(u64::from(PendingRootAlphaDivs::<Test>::get(netuid)), 0u64);
-
-        let claimable = *RootClaimable::<Test>::get(hotkey)
-            .get(&netuid)
-            .expect("claimable must exist at this point");
-
-        let validator_take_percent = 0.18f64;
-        let calculated_rate = (expected_pending_root_alpha_divs * 2f64)
-            * (1f64 - validator_take_percent)
-            / (root_stake as f64);
-
-        assert_abs_diff_eq!(
-            claimable.saturating_to_num::<f64>(),
-            calculated_rate,
-            epsilon = 0.001f64,
-        );
     });
 }
 
@@ -1220,275 +179,6 @@ fn test_sudo_set_num_root_claims() {
         ),);
 
         assert_eq!(NumRootClaim::<Test>::get(), new_value);
-    });
-}
-
-#[test]
-fn test_claim_root_with_swap_coldkey() {
-    new_test_ext(1).execute_with(|| {
-        let owner_coldkey = U256::from(1001);
-        let hotkey = U256::from(1002);
-        let coldkey = U256::from(1003);
-        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
-        remove_owner_registration_stake(netuid);
-
-        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
-
-        let root_stake = 2_000_000u64;
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &coldkey,
-            NetUid::ROOT,
-            root_stake.into(),
-        );
-
-        let initial_total_hotkey_alpha = 10_000_000u64;
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &owner_coldkey,
-            netuid,
-            initial_total_hotkey_alpha.into(),
-        );
-
-        let old_validator_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &owner_coldkey,
-            netuid,
-        );
-        assert_eq!(old_validator_stake, initial_total_hotkey_alpha.into());
-
-        // Distribute pending root alpha
-
-        let pending_root_alpha = 1_000_000u64;
-        SubtensorModule::distribute_emission(
-            netuid,
-            AlphaBalance::ZERO,
-            AlphaBalance::ZERO,
-            pending_root_alpha.into(),
-            AlphaBalance::ZERO,
-        );
-
-        // Claim root alpha
-
-        assert_ok!(SubtensorModule::set_root_claim_type(
-            RuntimeOrigin::signed(coldkey),
-            RootClaimTypeEnum::Keep
-        ),);
-        assert_eq!(RootClaimType::<Test>::get(coldkey), RootClaimTypeEnum::Keep);
-
-        assert_ok!(SubtensorModule::claim_root(
-            RuntimeOrigin::signed(coldkey),
-            BTreeSet::from([netuid])
-        ));
-
-        let new_stake: u64 =
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid)
-                .into();
-
-        // Check root claimed value saved
-        let new_coldkey = U256::from(10030);
-
-        assert_eq!(
-            u128::from(new_stake),
-            RootClaimed::<Test>::get((netuid, &hotkey, &coldkey))
-        );
-        assert_eq!(
-            0u128,
-            RootClaimed::<Test>::get((netuid, &hotkey, &new_coldkey))
-        );
-
-        // Swap coldkey
-        assert_ok!(SubtensorModule::do_swap_coldkey(&coldkey, &new_coldkey,));
-
-        // Check swapped keys claimed values
-
-        assert_eq!(0u128, RootClaimed::<Test>::get((netuid, &hotkey, &coldkey)));
-        assert_eq!(
-            u128::from(new_stake),
-            RootClaimed::<Test>::get((netuid, &hotkey, &new_coldkey,))
-        );
-    });
-}
-
-#[test]
-fn test_claim_root_with_swap_hotkey() {
-    new_test_ext(1).execute_with(|| {
-        let owner_coldkey = U256::from(1001);
-        let hotkey = U256::from(1002);
-        let coldkey = U256::from(1003);
-        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
-        remove_owner_registration_stake(netuid);
-
-        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
-
-        let root_stake = 2_000_000u64;
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &coldkey,
-            NetUid::ROOT,
-            root_stake.into(),
-        );
-
-        let initial_total_hotkey_alpha = 10_000_000u64;
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &owner_coldkey,
-            netuid,
-            initial_total_hotkey_alpha.into(),
-        );
-
-        let old_validator_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &owner_coldkey,
-            netuid,
-        );
-        assert_eq!(old_validator_stake, initial_total_hotkey_alpha.into());
-
-        // Distribute pending root alpha
-
-        let pending_root_alpha = 1_000_000u64;
-        SubtensorModule::distribute_emission(
-            netuid,
-            AlphaBalance::ZERO,
-            AlphaBalance::ZERO,
-            pending_root_alpha.into(),
-            AlphaBalance::ZERO,
-        );
-
-        // Claim root alpha
-
-        assert_ok!(SubtensorModule::set_root_claim_type(
-            RuntimeOrigin::signed(coldkey),
-            RootClaimTypeEnum::Keep
-        ),);
-        assert_eq!(RootClaimType::<Test>::get(coldkey), RootClaimTypeEnum::Keep);
-
-        assert_ok!(SubtensorModule::claim_root(
-            RuntimeOrigin::signed(coldkey),
-            BTreeSet::from([netuid])
-        ));
-
-        let new_stake: u64 =
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid)
-                .into();
-
-        // Check root claimed value saved
-        let new_hotkey = U256::from(10030);
-
-        assert_eq!(
-            u128::from(new_stake),
-            RootClaimed::<Test>::get((netuid, &hotkey, &coldkey,))
-        );
-        assert_eq!(
-            0u128,
-            RootClaimed::<Test>::get((netuid, &new_hotkey, &coldkey,))
-        );
-
-        let _old_claimable = *RootClaimable::<Test>::get(hotkey)
-            .get(&netuid)
-            .expect("claimable must exist at this point");
-
-        assert!(!RootClaimable::<Test>::get(new_hotkey).contains_key(&netuid));
-
-        // Swap hotkey
-        let mut weight = Weight::zero();
-        assert_ok!(SubtensorModule::perform_hotkey_swap_on_one_subnet(
-            &hotkey,
-            &new_hotkey,
-            &mut weight,
-            netuid,
-            false,
-        ));
-
-        // Check swapped keys claimed values
-        assert_eq!(
-            u128::from(new_stake), // It shouldn't change, because we didn't swap the root hotkey
-            RootClaimed::<Test>::get((netuid, &hotkey, &coldkey,))
-        );
-        assert_eq!(
-            0u128,
-            RootClaimed::<Test>::get((netuid, &new_hotkey, &coldkey,))
-        );
-
-        assert!(RootClaimable::<Test>::get(hotkey).contains_key(&netuid));
-
-        assert!(!RootClaimable::<Test>::get(new_hotkey).contains_key(&netuid));
-    });
-}
-
-#[test]
-fn test_claim_root_on_network_deregistration() {
-    new_test_ext(1).execute_with(|| {
-        let owner_coldkey = U256::from(1001);
-        let other_coldkey = U256::from(10010);
-        let hotkey = U256::from(1002);
-        let coldkey = U256::from(1003);
-        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
-
-        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
-        SubnetMechanism::<Test>::insert(netuid, 1);
-
-        let tao_reserve = TaoBalance::from(50_000_000_000_u64);
-        let alpha_in = AlphaBalance::from(100_000_000_000_u64);
-        SubnetTAO::<Test>::insert(netuid, tao_reserve);
-        SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
-        let current_price =
-            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into())
-                .saturating_to_num::<f64>();
-        assert_eq!(current_price, 0.5f64);
-
-        let root_stake = 2_000_000u64;
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &coldkey,
-            NetUid::ROOT,
-            root_stake.into(),
-        );
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &other_coldkey,
-            NetUid::ROOT,
-            (9 * root_stake).into(),
-        );
-
-        let initial_total_hotkey_alpha = 10_000_000u64;
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &owner_coldkey,
-            netuid,
-            initial_total_hotkey_alpha.into(),
-        );
-
-        // Distribute pending root alpha
-
-        let pending_root_alpha = 10_000_000u64;
-        SubtensorModule::distribute_emission(
-            netuid,
-            AlphaBalance::ZERO,
-            AlphaBalance::ZERO,
-            pending_root_alpha.into(),
-            AlphaBalance::ZERO,
-        );
-
-        assert_ok!(SubtensorModule::claim_root(
-            RuntimeOrigin::signed(coldkey),
-            BTreeSet::from([netuid])
-        ));
-
-        assert!(RootClaimable::<Test>::get(hotkey).contains_key(&netuid));
-
-        assert!(RootClaimed::<Test>::contains_key((
-            netuid, &hotkey, &coldkey,
-        )));
-
-        // Claim root via network deregistration
-
-        assert_ok!(SubtensorModule::do_dissolve_network(netuid));
-
-        assert!(!RootClaimed::<Test>::contains_key((
-            netuid, &hotkey, &coldkey,
-        )));
-        assert!(!RootClaimable::<Test>::get(hotkey).contains_key(&netuid));
     });
 }
 
@@ -1560,23 +250,52 @@ fn test_claim_root_subnet_limits() {
         assert_err!(
             SubtensorModule::claim_root(
                 RuntimeOrigin::signed(coldkey),
-                BTreeSet::from_iter((0u16..=10u16).into_iter().map(NetUid::from))
+                BTreeSet::from_iter((0u16..=10u16).map(NetUid::from))
             ),
             Error::<Test>::InvalidSubnetNumber
         );
     });
 }
 
+// =============================================================================
+// Beta basket: setting weights (extrinsic validation)
+// =============================================================================
+
 #[test]
-fn test_claim_root_with_unrelated_subnets() {
+fn test_set_root_weights_rejects_unregistered_hotkey() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+
+        // `hotkey` is not registered on the root subnet, so it cannot set root weights.
+        assert_noop!(
+            SubtensorModule::set_root_weights(
+                RuntimeOrigin::signed(hotkey),
+                vec![u16::from(netuid)],
+                vec![u16::MAX],
+                0,
+            ),
+            Error::<Test>::HotKeyNotRegisteredInSubNet
+        );
+    });
+}
+
+// =============================================================================
+// Beta basket: accrual
+// =============================================================================
+
+#[test]
+fn test_root_basket_accrues_per_weights() {
     new_test_ext(1).execute_with(|| {
         let owner_coldkey = U256::from(1001);
         let hotkey = U256::from(1002);
         let coldkey = U256::from(1003);
         let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
         remove_owner_registration_stake(netuid);
+        fund_pool(netuid);
 
-        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
+        SubtensorModule::set_tao_weight(u64::MAX); // tao_weight = 1.0
 
         let root_stake = 2_000_000u64;
         mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -1585,23 +304,18 @@ fn test_claim_root_with_unrelated_subnets() {
             NetUid::ROOT,
             root_stake.into(),
         );
-
-        let initial_total_hotkey_alpha = 10_000_000u64;
         mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &owner_coldkey,
             netuid,
-            initial_total_hotkey_alpha.into(),
+            10_000_000u64.into(),
         );
 
-        let old_validator_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &owner_coldkey,
-            netuid,
-        );
-        assert_eq!(old_validator_stake, initial_total_hotkey_alpha.into());
+        // Route the basket 100% back into this subnet.
+        set_root_weights_direct(&hotkey, 0, &[(netuid, u16::MAX)]);
 
-        // Distribute pending root alpha
+        assert_eq!(escrow_alpha(&hotkey, netuid), 0);
+        assert_eq!(u64::from(BasketPrincipal::<Test>::get(&hotkey, netuid)), 0);
 
         let pending_root_alpha = 1_000_000u64;
         SubtensorModule::distribute_emission(
@@ -1612,246 +326,131 @@ fn test_claim_root_with_unrelated_subnets() {
             AlphaBalance::ZERO,
         );
 
-        // Claim root alpha
+        // Basket principal recorded, escrow holds the basket alpha, and a claimable rate exists.
+        assert!(u64::from(BasketPrincipal::<Test>::get(&hotkey, netuid)) > 0);
+        assert!(escrow_alpha(&hotkey, netuid) > 0);
+        assert!(RootClaimable::<Test>::get(hotkey).contains_key(&netuid));
 
-        assert_ok!(SubtensorModule::set_root_claim_type(
-            RuntimeOrigin::signed(coldkey),
-            RootClaimTypeEnum::Keep
-        ),);
-
-        // Claim root alpha on unrelated subnets
-
-        let unrelated_subnet_uid = NetUid::from(100u16);
-
-        assert_ok!(SubtensorModule::claim_root(
-            RuntimeOrigin::signed(coldkey),
-            BTreeSet::from([unrelated_subnet_uid])
-        ));
-
-        let new_stake: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &coldkey,
-            unrelated_subnet_uid,
-        )
-        .into();
-
-        assert_eq!(new_stake, 0u64,);
-
-        // Check root claim for correct subnet
-
-        // before
-        let new_stake: u64 =
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid)
-                .into();
-
-        assert_eq!(new_stake, 0u64,);
-
-        assert_ok!(SubtensorModule::claim_root(
-            RuntimeOrigin::signed(coldkey),
-            BTreeSet::from([netuid])
-        ));
-
-        // after
-        let new_stake: u64 =
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid)
-                .into();
-
-        assert!(new_stake > 0u64);
-
-        // Check root claimed value saved
-
-        let claimed = RootClaimed::<Test>::get((netuid, &hotkey, &coldkey));
-        assert_eq!(u128::from(new_stake), claimed);
-    });
-}
-
-#[test]
-fn test_claim_root_fill_root_alpha_dividends_per_subnet() {
-    new_test_ext(1).execute_with(|| {
-        let owner_coldkey = U256::from(1001);
-        let other_coldkey = U256::from(10010);
-        let hotkey = U256::from(1002);
-        let coldkey = U256::from(1003);
-        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
-
-        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
-        SubnetMechanism::<Test>::insert(netuid, 1);
-
-        let tao_reserve = TaoBalance::from(50_000_000_000_u64);
-        let alpha_in = AlphaBalance::from(100_000_000_000_u64);
-        SubnetTAO::<Test>::insert(netuid, tao_reserve);
-        SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
-
-        let root_stake = 2_000_000u64;
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &coldkey,
-            NetUid::ROOT,
-            root_stake.into(),
-        );
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &other_coldkey,
-            NetUid::ROOT,
-            (9 * root_stake).into(),
-        );
-
-        let initial_total_hotkey_alpha = 10_000_000u64;
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &owner_coldkey,
-            netuid,
-            initial_total_hotkey_alpha.into(),
-        );
-
-        // Check RootAlphaDividendsPerSubnet is empty on start
-        assert!(!RootAlphaDividendsPerSubnet::<Test>::contains_key(
-            netuid, hotkey
-        ));
-
-        let pending_root_alpha = 10_000_000u64;
-        SubtensorModule::distribute_emission(
-            netuid,
-            AlphaBalance::ZERO,
-            AlphaBalance::ZERO,
-            pending_root_alpha.into(),
-            AlphaBalance::ZERO,
-        );
-
-        // Check RootAlphaDividendsPerSubnet value
-        let root_claim_dividends1 = RootAlphaDividendsPerSubnet::<Test>::get(netuid, hotkey);
-
-        let validator_take_percent = 0.18f64;
-        let estimated_root_claim_dividends =
-            (pending_root_alpha as f64) * (1f64 - validator_take_percent);
-
+        // Escrow value and recorded principal should match (E/P starts at 1).
         assert_abs_diff_eq!(
-            estimated_root_claim_dividends as u64,
-            u64::from(root_claim_dividends1),
-            epsilon = 100u64,
-        );
-
-        SubtensorModule::distribute_emission(
-            netuid,
-            AlphaBalance::ZERO,
-            AlphaBalance::ZERO,
-            pending_root_alpha.into(),
-            AlphaBalance::ZERO,
-        );
-
-        let root_claim_dividends2 = RootAlphaDividendsPerSubnet::<Test>::get(netuid, hotkey);
-
-        // Check RootAlphaDividendsPerSubnet is cleaned each epoch
-        assert_eq!(root_claim_dividends1, root_claim_dividends2);
-    });
-}
-
-#[test]
-fn test_claim_root_with_keep_subnets() {
-    new_test_ext(1).execute_with(|| {
-        let owner_coldkey = U256::from(1001);
-        let hotkey = U256::from(1002);
-        let coldkey = U256::from(1003);
-        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
-        remove_owner_registration_stake(netuid);
-
-        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
-
-        let root_stake = 2_000_000u64;
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &coldkey,
-            NetUid::ROOT,
-            root_stake.into(),
-        );
-
-        let initial_total_hotkey_alpha = 10_000_000u64;
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &owner_coldkey,
-            netuid,
-            initial_total_hotkey_alpha.into(),
-        );
-
-        let old_validator_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &owner_coldkey,
-            netuid,
-        );
-        assert_eq!(old_validator_stake, initial_total_hotkey_alpha.into());
-
-        // Distribute pending root alpha
-
-        let pending_root_alpha = 1_000_000u64;
-        SubtensorModule::distribute_emission(
-            netuid,
-            AlphaBalance::ZERO,
-            AlphaBalance::ZERO,
-            pending_root_alpha.into(),
-            AlphaBalance::ZERO,
-        );
-
-        let claimable = *RootClaimable::<Test>::get(hotkey)
-            .get(&netuid)
-            .expect("claimable must exist at this point");
-
-        // Claim root alpha
-        assert_err!(
-            SubtensorModule::set_root_claim_type(
-                RuntimeOrigin::signed(coldkey),
-                RootClaimTypeEnum::KeepSubnets {
-                    subnets: BTreeSet::new()
-                },
-            ),
-            Error::<Test>::InvalidSubnetNumber
-        );
-
-        let keep_subnets = RootClaimTypeEnum::KeepSubnets {
-            subnets: BTreeSet::from([netuid]),
-        };
-        assert_ok!(SubtensorModule::set_root_claim_type(
-            RuntimeOrigin::signed(coldkey),
-            keep_subnets.clone(),
-        ),);
-        assert_eq!(RootClaimType::<Test>::get(coldkey), keep_subnets);
-
-        assert_ok!(SubtensorModule::claim_root(
-            RuntimeOrigin::signed(coldkey),
-            BTreeSet::from([netuid])
-        ));
-
-        let new_stake: u64 =
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid)
-                .into();
-
-        assert_abs_diff_eq!(
-            new_stake,
-            (I96F32::from(root_stake) * claimable).saturating_to_num::<u64>(),
+            escrow_alpha(&hotkey, netuid),
+            u64::from(BasketPrincipal::<Test>::get(&hotkey, netuid)),
             epsilon = 10u64,
         );
     });
 }
 
 #[test]
-fn test_claim_root_keep_subnets_swap_claim_type() {
+fn test_root_basket_recycles_without_weights() {
     new_test_ext(1).execute_with(|| {
         let owner_coldkey = U256::from(1001);
-        let other_coldkey = U256::from(10010);
         let hotkey = U256::from(1002);
         let coldkey = U256::from(1003);
         let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+        remove_owner_registration_stake(netuid);
+        fund_pool(netuid);
 
-        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
-        SubnetMechanism::<Test>::insert(netuid, 1);
+        SubtensorModule::set_tao_weight(u64::MAX);
 
-        let tao_reserve = TaoBalance::from(50_000_000_000_u64);
-        let alpha_in = AlphaBalance::from(100_000_000_000_u64);
-        SubnetTAO::<Test>::insert(netuid, tao_reserve);
-        SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
-        let current_price =
-            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into())
-                .saturating_to_num::<f64>();
-        assert_eq!(current_price, 0.5f64);
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            2_000_000u64.into(),
+        );
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_coldkey,
+            netuid,
+            10_000_000u64.into(),
+        );
+
+        // No root weights set for the validator.
+        SubtensorModule::distribute_emission(
+            netuid,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
+            1_000_000u64.into(),
+            AlphaBalance::ZERO,
+        );
+
+        // Without weights the root dividend is recycled: no basket, no claimable.
+        assert_eq!(escrow_alpha(&hotkey, netuid), 0);
+        assert_eq!(u64::from(BasketPrincipal::<Test>::get(&hotkey, netuid)), 0);
+        assert!(!RootClaimable::<Test>::get(hotkey).contains_key(&netuid));
+    });
+}
+
+#[test]
+fn test_root_basket_routes_to_target_subnet() {
+    new_test_ext(1).execute_with(|| {
+        let owner_a = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let coldkey = U256::from(1003);
+        let owner_b = U256::from(2001);
+        let hotkey_b = U256::from(2002);
+
+        let netuid_a = add_dynamic_network(&hotkey, &owner_a);
+        let netuid_b = add_dynamic_network(&hotkey_b, &owner_b);
+        remove_owner_registration_stake(netuid_a);
+        fund_pool(netuid_a);
+        fund_pool(netuid_b);
+
+        SubtensorModule::set_tao_weight(u64::MAX);
+
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            2_000_000u64.into(),
+        );
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_a,
+            netuid_a,
+            10_000_000u64.into(),
+        );
+
+        // Route the basket entirely into subnet B (different from the dividend origin A).
+        set_root_weights_direct(&hotkey, 0, &[(netuid_b, u16::MAX)]);
+
+        SubtensorModule::distribute_emission(
+            netuid_a,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
+            1_000_000u64.into(),
+            AlphaBalance::ZERO,
+        );
+
+        // Basket should be on B, not A.
+        assert!(escrow_alpha(&hotkey, netuid_b) > 0);
+        assert_eq!(escrow_alpha(&hotkey, netuid_a), 0);
+        assert!(u64::from(BasketPrincipal::<Test>::get(&hotkey, netuid_b)) > 0);
+        assert_eq!(
+            u64::from(BasketPrincipal::<Test>::get(&hotkey, netuid_a)),
+            0
+        );
+        assert!(RootClaimable::<Test>::get(hotkey).contains_key(&netuid_b));
+        assert!(!RootClaimable::<Test>::get(hotkey).contains_key(&netuid_a));
+    });
+}
+
+// =============================================================================
+// Beta basket: claiming (always full swap to root TAO)
+// =============================================================================
+
+#[test]
+fn test_root_basket_claim_swaps_to_root() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let coldkey = U256::from(1003);
+        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+        remove_owner_registration_stake(netuid);
+        fund_pool(netuid);
+
+        SubtensorModule::set_tao_weight(u64::MAX);
+        RootClaimableThreshold::<Test>::insert(netuid, I96F32::from_num(0));
 
         let root_stake = 2_000_000u64;
         mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -1860,310 +459,725 @@ fn test_claim_root_keep_subnets_swap_claim_type() {
             NetUid::ROOT,
             root_stake.into(),
         );
-        let root_stake_rate = 0.1f64;
-        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &other_coldkey,
-            NetUid::ROOT,
-            (9 * root_stake).into(),
-        );
-
-        let initial_total_hotkey_alpha = 10_000_000u64;
         mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &owner_coldkey,
             netuid,
-            initial_total_hotkey_alpha.into(),
+            10_000_000u64.into(),
         );
 
-        // Distribute pending root alpha
+        set_root_weights_direct(&hotkey, 0, &[(netuid, u16::MAX)]);
 
-        let pending_root_alpha = 10_000_000u64;
         SubtensorModule::distribute_emission(
             netuid,
             AlphaBalance::ZERO,
             AlphaBalance::ZERO,
-            pending_root_alpha.into(),
+            1_000_000u64.into(),
             AlphaBalance::ZERO,
         );
 
-        // Claim root alpha
+        let principal_before = u64::from(BasketPrincipal::<Test>::get(&hotkey, netuid));
+        assert!(principal_before > 0);
+        let root_before = root_stake_of(&hotkey, &coldkey);
+        assert_eq!(root_before, root_stake);
 
-        let validator_take_percent = 0.18f64;
-        // Set to keep 'another' subnet
-        let keep_subnets = RootClaimTypeEnum::KeepSubnets {
-            subnets: BTreeSet::from([NetUid::from(100u16)]),
-        };
-        assert_ok!(SubtensorModule::set_root_claim_type(
-            RuntimeOrigin::signed(coldkey),
-            keep_subnets.clone()
-        ),);
-        assert_eq!(RootClaimType::<Test>::get(coldkey), keep_subnets);
-
+        // Claim: full swap of the basket to TAO, staked on root.
         assert_ok!(SubtensorModule::claim_root(
             RuntimeOrigin::signed(coldkey),
             BTreeSet::from([netuid])
         ));
 
-        // Check new stake
-
-        let new_stake: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &coldkey,
-            NetUid::ROOT,
-        )
-        .into();
-
-        let estimated_stake_increment = (pending_root_alpha as f64)
-            * (1f64 - validator_take_percent)
-            * current_price
-            * root_stake_rate;
-
-        assert_abs_diff_eq!(
-            new_stake,
-            root_stake + estimated_stake_increment as u64,
-            epsilon = 10000u64,
-        );
+        // Staker's root stake increased, basket principal consumed, watermark advanced.
+        assert!(root_stake_of(&hotkey, &coldkey) > root_before);
+        assert!(u64::from(BasketPrincipal::<Test>::get(&hotkey, netuid)) < principal_before);
+        assert!(RootClaimed::<Test>::get((netuid, &hotkey, &coldkey)) > 0);
     });
 }
 
 #[test]
-fn test_claim_root_default_mode_keep() {
-    new_test_ext(1).execute_with(|| {
-        let coldkey = U256::from(1003);
-
-        assert_eq!(RootClaimType::<Test>::get(coldkey), RootClaimTypeEnum::Swap);
-    });
-}
-
-#[test]
-fn test_claim_root_with_moved_stake() {
+fn test_root_basket_proportional_two_stakers() {
     new_test_ext(1).execute_with(|| {
         let owner_coldkey = U256::from(1001);
         let hotkey = U256::from(1002);
-        let alice_coldkey = U256::from(1003);
-        let bob_coldkey = U256::from(1004);
-        let eve_coldkey = U256::from(1005);
+        let alice = U256::from(1003);
+        let bob = U256::from(1004);
         let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+        remove_owner_registration_stake(netuid);
+        fund_pool(netuid);
 
-        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
-        SubtokenEnabled::<Test>::insert(NetUid::ROOT, true);
-        NetworksAdded::<Test>::insert(NetUid::ROOT, true);
+        SubtensorModule::set_tao_weight(u64::MAX);
+        RootClaimableThreshold::<Test>::insert(netuid, I96F32::from_num(0));
 
-        let root_stake = 8_000_000u64;
+        // Equal root stake for both stakers.
+        let root_stake = 1_000_000u64;
         mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
-            &alice_coldkey,
+            &alice,
             NetUid::ROOT,
             root_stake.into(),
         );
         mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
-            &bob_coldkey,
+            &bob,
             NetUid::ROOT,
             root_stake.into(),
         );
-
-        let initial_total_hotkey_alpha = 10_000_000u64;
         mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &owner_coldkey,
             netuid,
-            initial_total_hotkey_alpha.into(),
+            10_000_000u64.into(),
         );
 
-        // Claim root alpha
+        set_root_weights_direct(&hotkey, 0, &[(netuid, u16::MAX)]);
 
-        assert_ok!(SubtensorModule::set_root_claim_type(
-            RuntimeOrigin::signed(alice_coldkey),
-            RootClaimTypeEnum::Keep
-        ),);
-        assert_ok!(SubtensorModule::set_root_claim_type(
-            RuntimeOrigin::signed(bob_coldkey),
-            RootClaimTypeEnum::Keep
-        ),);
-
-        assert_ok!(SubtensorModule::set_root_claim_type(
-            RuntimeOrigin::signed(eve_coldkey),
-            RootClaimTypeEnum::Keep
-        ),);
-
-        // Distribute pending root alpha
-
-        let pending_root_alpha = 10_000_000u64;
         SubtensorModule::distribute_emission(
             netuid,
             AlphaBalance::ZERO,
             AlphaBalance::ZERO,
-            pending_root_alpha.into(),
+            10_000_000u64.into(),
             AlphaBalance::ZERO,
         );
 
+        let alice_before = root_stake_of(&hotkey, &alice);
+        let bob_before = root_stake_of(&hotkey, &bob);
+
         assert_ok!(SubtensorModule::claim_root(
-            RuntimeOrigin::signed(alice_coldkey),
+            RuntimeOrigin::signed(alice),
             BTreeSet::from([netuid])
         ));
         assert_ok!(SubtensorModule::claim_root(
-            RuntimeOrigin::signed(bob_coldkey),
+            RuntimeOrigin::signed(bob),
             BTreeSet::from([netuid])
         ));
 
-        // Check stakes
-        let validator_take_percent = 0.18f64;
+        let alice_gain = root_stake_of(&hotkey, &alice).saturating_sub(alice_before);
+        let bob_gain = root_stake_of(&hotkey, &bob).saturating_sub(bob_before);
 
-        let alice_stake: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+        assert!(alice_gain > 0);
+        // Equal root stake => equal basket payout (small AMM slippage between the two
+        // sequential claims on the same pool).
+        assert_abs_diff_eq!(alice_gain, bob_gain, epsilon = 1_000u64);
+    });
+}
+
+// =============================================================================
+// Beta basket: hotkey swap migration
+// =============================================================================
+
+#[test]
+fn test_root_basket_hotkey_swap_migrates() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let coldkey = U256::from(1003);
+        let new_hotkey = U256::from(10030);
+        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+        remove_owner_registration_stake(netuid);
+        fund_pool(netuid);
+
+        SubtensorModule::set_tao_weight(u64::MAX);
+
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
-            &alice_coldkey,
-            netuid,
-        )
-        .into();
-
-        let bob_stake: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &coldkey,
+            NetUid::ROOT,
+            2_000_000u64.into(),
+        );
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
-            &bob_coldkey,
+            &owner_coldkey,
             netuid,
-        )
-        .into();
+            10_000_000u64.into(),
+        );
 
-        let estimated_stake = (pending_root_alpha as f64) * (1f64 - validator_take_percent) / 2f64;
+        set_root_weights_direct(&hotkey, 0, &[(netuid, u16::MAX)]);
 
-        assert_eq!(alice_stake, bob_stake);
-
-        assert_abs_diff_eq!(alice_stake, estimated_stake as u64, epsilon = 100u64,);
-
-        // Distribute pending root alpha
-
-        let pending_root_alpha = 10_000_000u64;
         SubtensorModule::distribute_emission(
             netuid,
             AlphaBalance::ZERO,
             AlphaBalance::ZERO,
-            pending_root_alpha.into(),
+            1_000_000u64.into(),
             AlphaBalance::ZERO,
         );
 
-        // Transfer stake to other coldkey
-        let stake_decrement = root_stake / 2u64;
+        let basket_before = escrow_alpha(&hotkey, netuid);
+        let principal_before = u64::from(BasketPrincipal::<Test>::get(&hotkey, netuid));
+        assert!(basket_before > 0);
+        assert!(principal_before > 0);
 
-        assert_ok!(SubtensorModule::transfer_stake(
-            RuntimeOrigin::signed(bob_coldkey,),
-            eve_coldkey,
-            hotkey,
-            NetUid::ROOT,
-            NetUid::ROOT,
-            stake_decrement.into(),
-        ));
-
-        let eve_stake: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+        // Swap the validator's root hotkey: the basket must follow it.
+        let mut weight = Weight::zero();
+        assert_ok!(SubtensorModule::perform_hotkey_swap_on_one_subnet(
             &hotkey,
-            &eve_coldkey,
-            netuid,
-        )
-        .into();
-
-        assert_ok!(SubtensorModule::claim_root(
-            RuntimeOrigin::signed(alice_coldkey),
-            BTreeSet::from([netuid])
-        ));
-        assert_ok!(SubtensorModule::claim_root(
-            RuntimeOrigin::signed(bob_coldkey),
-            BTreeSet::from([netuid])
-        ));
-
-        assert_ok!(SubtensorModule::claim_root(
-            RuntimeOrigin::signed(eve_coldkey),
-            BTreeSet::from([netuid])
-        ));
-
-        // Check new stakes
-
-        let alice_stake2: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &alice_coldkey,
-            netuid,
-        )
-        .into();
-
-        let bob_stake2: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &bob_coldkey,
-            netuid,
-        )
-        .into();
-
-        let eve_stake2: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &eve_coldkey,
-            netuid,
-        )
-        .into();
-
-        // Eve should not have gotten any root claim
-        let eve_stake_diff = eve_stake2 - eve_stake;
-        assert_abs_diff_eq!(eve_stake_diff, 0, epsilon = 100u64,);
-
-        let estimated_stake = (pending_root_alpha as f64) * (1f64 - validator_take_percent) / 2f64;
-
-        let alice_stake_diff = alice_stake2 - alice_stake;
-        let bob_stake_diff = bob_stake2 - bob_stake;
-
-        assert_abs_diff_eq!(alice_stake_diff, bob_stake_diff, epsilon = 100u64,);
-        assert_abs_diff_eq!(bob_stake_diff, estimated_stake as u64, epsilon = 100u64,);
-
-        // Transfer stake back
-        let stake_increment = stake_decrement;
-
-        assert_ok!(SubtensorModule::transfer_stake(
-            RuntimeOrigin::signed(eve_coldkey,),
-            bob_coldkey,
-            hotkey,
+            &new_hotkey,
+            &mut weight,
             NetUid::ROOT,
-            NetUid::ROOT,
-            stake_increment.into(),
+            false,
         ));
 
-        // Distribute pending root alpha
+        // Basket moved to the new hotkey, old slot emptied.
+        assert_eq!(escrow_alpha(&hotkey, netuid), 0);
+        assert_eq!(u64::from(BasketPrincipal::<Test>::get(&hotkey, netuid)), 0);
+        assert_abs_diff_eq!(
+            escrow_alpha(&new_hotkey, netuid),
+            basket_before,
+            epsilon = 10u64
+        );
+        assert_abs_diff_eq!(
+            u64::from(BasketPrincipal::<Test>::get(&new_hotkey, netuid)),
+            principal_before,
+            epsilon = 10u64,
+        );
+        assert!(RootClaimable::<Test>::get(new_hotkey).contains_key(&netuid));
+        assert!(!RootClaimable::<Test>::get(hotkey).contains_key(&netuid));
+    });
+}
 
-        let pending_root_alpha = 10_000_000u64;
+// =============================================================================
+// Beta basket: subnet dissolution liquidates the basket back to root stakers
+// =============================================================================
+
+#[test]
+fn test_root_basket_dissolve_liquidates_to_stakers() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let coldkey = U256::from(1003);
+        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+        remove_owner_registration_stake(netuid);
+        fund_pool(netuid);
+
+        SubtensorModule::set_tao_weight(u64::MAX);
+
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            2_000_000u64.into(),
+        );
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_coldkey,
+            netuid,
+            10_000_000u64.into(),
+        );
+
+        set_root_weights_direct(&hotkey, 0, &[(netuid, u16::MAX)]);
+
         SubtensorModule::distribute_emission(
             netuid,
             AlphaBalance::ZERO,
             AlphaBalance::ZERO,
-            pending_root_alpha.into(),
+            1_000_000u64.into(),
             AlphaBalance::ZERO,
         );
 
+        assert!(escrow_alpha(&hotkey, netuid) > 0);
+        let root_before = root_stake_of(&hotkey, &coldkey);
+
+        // Dissolving the subnet liquidates the basket back to the validator's root stakers.
+        assert_ok!(SubtensorModule::do_dissolve_network(netuid));
+
+        // Basket principal cleared; root stakers credited.
+        assert_eq!(u64::from(BasketPrincipal::<Test>::get(&hotkey, netuid)), 0);
+        assert!(!RootClaimable::<Test>::get(hotkey).contains_key(&netuid));
+        assert!(root_stake_of(&hotkey, &coldkey) > root_before);
+    });
+}
+
+// =============================================================================
+// Beta basket: conservation invariants ("prove it works")
+// =============================================================================
+
+/// TotalStake (the global TAO ledger) must be neutral across both basket distribution
+/// (sell origin alpha -> rebuy across w) and redemption (swap basket -> TAO on root):
+/// no TAO is minted or destroyed by the round trips.
+#[test]
+fn test_root_basket_total_stake_conserved() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let coldkey = U256::from(1003);
+        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+        remove_owner_registration_stake(netuid);
+        fund_pool(netuid);
+
+        SubtensorModule::set_tao_weight(u64::MAX);
+        RootClaimableThreshold::<Test>::insert(netuid, I96F32::from_num(0));
+
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            2_000_000u64.into(),
+        );
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_coldkey,
+            netuid,
+            10_000_000u64.into(),
+        );
+        set_root_weights_direct(&hotkey, 0, &[(netuid, u16::MAX)]);
+
+        // --- Distribution must not move TotalStake (sell + rebuy is TAO-neutral).
+        let ts_before_distribute = TotalStake::<Test>::get().to_u64();
+        SubtensorModule::distribute_emission(
+            netuid,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
+            1_000_000u64.into(),
+            AlphaBalance::ZERO,
+        );
+        let ts_after_distribute = TotalStake::<Test>::get().to_u64();
+        assert_eq!(
+            ts_before_distribute, ts_after_distribute,
+            "distribution must be TotalStake-neutral"
+        );
+
+        // --- Redemption must also be TotalStake-neutral (swap out then stake on root).
+        let ts_before_claim = TotalStake::<Test>::get().to_u64();
         assert_ok!(SubtensorModule::claim_root(
-            RuntimeOrigin::signed(alice_coldkey),
+            RuntimeOrigin::signed(coldkey),
+            BTreeSet::from([netuid])
+        ));
+        let ts_after_claim = TotalStake::<Test>::get().to_u64();
+        assert_eq!(
+            ts_before_claim, ts_after_claim,
+            "redemption must be TotalStake-neutral"
+        );
+    });
+}
+
+/// The basket compounds: if the escrow position grows (validator earns more on the subnet)
+/// after accrual, a sole staker redeems MORE than their recorded principal — the `E/P`
+/// multiplier carries the growth through to the staker.
+#[test]
+fn test_root_basket_compounds_when_escrow_grows() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let coldkey = U256::from(1003);
+        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+        remove_owner_registration_stake(netuid);
+        fund_pool(netuid);
+
+        SubtensorModule::set_tao_weight(u64::MAX);
+        RootClaimableThreshold::<Test>::insert(netuid, I96F32::from_num(0));
+
+        // Single root staker => owns 100% of the basket.
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            2_000_000u64.into(),
+        );
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_coldkey,
+            netuid,
+            10_000_000u64.into(),
+        );
+        set_root_weights_direct(&hotkey, 0, &[(netuid, u16::MAX)]);
+
+        SubtensorModule::distribute_emission(
+            netuid,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
+            1_000_000u64.into(),
+            AlphaBalance::ZERO,
+        );
+
+        let principal = u64::from(BasketPrincipal::<Test>::get(&hotkey, netuid));
+        let escrow_before = escrow_alpha(&hotkey, netuid);
+        assert!(principal > 0);
+
+        // Validator earns more nominator dividends on the subnet => escrow value grows,
+        // principal stays fixed (E/P rises above 1).
+        SubtensorModule::increase_stake_for_hotkey_on_subnet(
+            &hotkey,
+            netuid,
+            100_000_000u64.into(),
+        );
+        let escrow_after = escrow_alpha(&hotkey, netuid);
+        assert!(
+            escrow_after > escrow_before,
+            "escrow must grow with dividends"
+        );
+
+        let root_before = root_stake_of(&hotkey, &coldkey);
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(coldkey),
+            BTreeSet::from([netuid])
+        ));
+        let gain = root_stake_of(&hotkey, &coldkey).saturating_sub(root_before);
+
+        // The sole staker realizes the *grown* basket, strictly more than principal.
+        assert!(
+            gain > principal,
+            "compounding: realized {gain} must exceed principal {principal}"
+        );
+    });
+}
+
+/// Claiming drains the basket exactly: after all stakers redeem, the escrow position and the
+/// outstanding basket principal both go to ~zero (Σ payouts == escrow value; no residual,
+/// no over-draw).
+#[test]
+fn test_root_basket_fully_drains_on_claims() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let alice = U256::from(1003);
+        let bob = U256::from(1004);
+        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+        remove_owner_registration_stake(netuid);
+        fund_pool(netuid);
+
+        SubtensorModule::set_tao_weight(u64::MAX);
+        RootClaimableThreshold::<Test>::insert(netuid, I96F32::from_num(0));
+
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &alice,
+            NetUid::ROOT,
+            1_000_000u64.into(),
+        );
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &bob,
+            NetUid::ROOT,
+            3_000_000u64.into(),
+        );
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_coldkey,
+            netuid,
+            10_000_000u64.into(),
+        );
+        set_root_weights_direct(&hotkey, 0, &[(netuid, u16::MAX)]);
+
+        SubtensorModule::distribute_emission(
+            netuid,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
+            10_000_000u64.into(),
+            AlphaBalance::ZERO,
+        );
+
+        let escrow_filled = escrow_alpha(&hotkey, netuid);
+        assert!(escrow_filled > 0);
+
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(alice),
             BTreeSet::from([netuid])
         ));
         assert_ok!(SubtensorModule::claim_root(
-            RuntimeOrigin::signed(bob_coldkey),
+            RuntimeOrigin::signed(bob),
             BTreeSet::from([netuid])
         ));
 
-        // Check new stakes
+        // Escrow and principal fully drained (allow tiny rounding dust).
+        assert!(
+            escrow_alpha(&hotkey, netuid) <= 10,
+            "escrow must be drained, got {}",
+            escrow_alpha(&hotkey, netuid)
+        );
+        assert!(
+            u64::from(BasketPrincipal::<Test>::get(&hotkey, netuid)) <= 10,
+            "principal must be drained, got {}",
+            u64::from(BasketPrincipal::<Test>::get(&hotkey, netuid))
+        );
+    });
+}
 
-        let alice_stake3: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+/// Disproportionate root stake yields proportionate payout: a staker with 2x the root stake
+/// redeems ~2x the TAO.
+#[test]
+fn test_root_basket_disproportional_two_stakers() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let alice = U256::from(1003);
+        let bob = U256::from(1004);
+        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+        remove_owner_registration_stake(netuid);
+        fund_pool(netuid);
+
+        SubtensorModule::set_tao_weight(u64::MAX);
+        RootClaimableThreshold::<Test>::insert(netuid, I96F32::from_num(0));
+
+        // Bob has 2x Alice's root stake.
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
-            &alice_coldkey,
-            netuid,
-        )
-        .into();
-
-        let bob_stake3: u64 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &alice,
+            NetUid::ROOT,
+            1_000_000u64.into(),
+        );
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
-            &bob_coldkey,
+            &bob,
+            NetUid::ROOT,
+            2_000_000u64.into(),
+        );
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_coldkey,
             netuid,
-        )
-        .into();
+            10_000_000u64.into(),
+        );
+        set_root_weights_direct(&hotkey, 0, &[(netuid, u16::MAX)]);
 
-        let estimated_stake = (pending_root_alpha as f64) * (1f64 - validator_take_percent) / 2f64;
+        SubtensorModule::distribute_emission(
+            netuid,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
+            10_000_000u64.into(),
+            AlphaBalance::ZERO,
+        );
 
-        let alice_stake_diff2 = alice_stake3 - alice_stake2;
-        let bob_stake_diff2 = bob_stake3 - bob_stake2;
+        let alice_before = root_stake_of(&hotkey, &alice);
+        let bob_before = root_stake_of(&hotkey, &bob);
 
-        assert_abs_diff_eq!(alice_stake_diff2, bob_stake_diff2, epsilon = 100u64,);
-        assert_abs_diff_eq!(bob_stake_diff2, estimated_stake as u64, epsilon = 100u64,);
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(alice),
+            BTreeSet::from([netuid])
+        ));
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(bob),
+            BTreeSet::from([netuid])
+        ));
+
+        let alice_gain = root_stake_of(&hotkey, &alice).saturating_sub(alice_before);
+        let bob_gain = root_stake_of(&hotkey, &bob).saturating_sub(bob_before);
+
+        assert!(alice_gain > 0);
+        // Bob staked 2x => ~2x payout (small AMM slippage between sequential claims).
+        assert_abs_diff_eq!(bob_gain, 2 * alice_gain, epsilon = 2_000u64);
+    });
+}
+
+/// A weight vector that spans multiple subnets splits the basket across them in proportion
+/// to the weights.
+#[test]
+fn test_root_basket_splits_across_multiple_subnets() {
+    new_test_ext(1).execute_with(|| {
+        let owner_a = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let coldkey = U256::from(1003);
+        let owner_b = U256::from(2001);
+        let hotkey_b = U256::from(2002);
+        let owner_c = U256::from(3001);
+        let hotkey_c = U256::from(3002);
+
+        let netuid_a = add_dynamic_network(&hotkey, &owner_a);
+        let netuid_b = add_dynamic_network(&hotkey_b, &owner_b);
+        let netuid_c = add_dynamic_network(&hotkey_c, &owner_c);
+        remove_owner_registration_stake(netuid_a);
+        fund_pool(netuid_a);
+        fund_pool(netuid_b);
+        fund_pool(netuid_c);
+
+        SubtensorModule::set_tao_weight(u64::MAX);
+
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            2_000_000u64.into(),
+        );
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_a,
+            netuid_a,
+            10_000_000u64.into(),
+        );
+
+        // 50/50 split between B and C (neither is the origin A).
+        set_root_weights_direct(&hotkey, 0, &[(netuid_b, u16::MAX), (netuid_c, u16::MAX)]);
+
+        SubtensorModule::distribute_emission(
+            netuid_a,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
+            10_000_000u64.into(),
+            AlphaBalance::ZERO,
+        );
+
+        let basket_b = escrow_alpha(&hotkey, netuid_b);
+        let basket_c = escrow_alpha(&hotkey, netuid_c);
+
+        assert!(basket_b > 0 && basket_c > 0, "both targets must be funded");
+        assert_eq!(
+            escrow_alpha(&hotkey, netuid_a),
+            0,
+            "origin must hold nothing"
+        );
+        // Equal weights + equal-depth pools => ~equal split.
+        assert_abs_diff_eq!(basket_b, basket_c, epsilon = 1_000u64);
+    });
+}
+
+/// The `set_root_weights` extrinsic stores the validator's vector under the root weights index.
+#[test]
+fn test_set_root_weights_stores_vector() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let coldkey = U256::from(1003);
+        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+
+        // Register the validator on root (uid 0) and give it stake.
+        NetworksAdded::<Test>::insert(NetUid::ROOT, true);
+        SubnetworkN::<Test>::insert(NetUid::ROOT, 1);
+        Uids::<Test>::insert(NetUid::ROOT, hotkey, 0u16);
+        Keys::<Test>::insert(NetUid::ROOT, 0u16, hotkey);
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            2_000_000u64.into(),
+        );
+
+        assert_ok!(SubtensorModule::set_root_weights(
+            RuntimeOrigin::signed(hotkey),
+            vec![u16::from(netuid)],
+            vec![u16::MAX],
+            0,
+        ));
+
+        let stored = RootBasketWeights::<Test>::get(hotkey);
+        assert_eq!(stored, vec![(u16::from(netuid), u16::MAX)]);
+    });
+}
+
+/// The read-only views (RPC surface) report the basket correctly: a sole staker's "owed TAO"
+/// equals the validator NAV equals the network total, and the breakdown lists the slot.
+#[test]
+fn test_root_basket_rpc_views() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let coldkey = U256::from(1003);
+        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+        remove_owner_registration_stake(netuid);
+        fund_pool(netuid); // price ~= 1.0 (TAO reserve == alpha reserve)
+
+        SubtensorModule::set_tao_weight(u64::MAX);
+        RootClaimableThreshold::<Test>::insert(netuid, I96F32::from_num(0));
+
+        // Empty baskets read as zero everywhere.
+        assert_eq!(SubtensorModule::get_root_basket_total_nav_tao().to_u64(), 0);
+        assert_eq!(
+            SubtensorModule::get_validator_basket_nav_tao(&hotkey).to_u64(),
+            0
+        );
+
+        // Single staker => owns 100% of the basket.
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            2_000_000u64.into(),
+        );
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_coldkey,
+            netuid,
+            10_000_000u64.into(),
+        );
+        set_root_weights_direct(&hotkey, 0, &[(netuid, u16::MAX)]);
+
+        SubtensorModule::distribute_emission(
+            netuid,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
+            1_000_000u64.into(),
+            AlphaBalance::ZERO,
+        );
+
+        let nav = SubtensorModule::get_validator_basket_nav_tao(&hotkey).to_u64();
+        let total = SubtensorModule::get_root_basket_total_nav_tao().to_u64();
+        let owed = SubtensorModule::get_root_basket_owed_tao(&coldkey).to_u64();
+        let basket = SubtensorModule::get_validator_basket(&hotkey);
+
+        assert!(nav > 0, "validator NAV must be positive");
+        // Single validator => network total == this validator's NAV.
+        assert_eq!(total, nav);
+        // Sole staker => owed (marked) == NAV (marked), both value the same escrow alpha.
+        assert_abs_diff_eq!(owed, nav, epsilon = 10u64);
+
+        // Breakdown lists exactly the one funded subnet, and its TAO value sums to the NAV.
+        assert_eq!(basket.len(), 1);
+        assert_eq!(basket[0].0, netuid);
+        assert!(basket[0].1.to_u64() > 0); // alpha held
+        assert_eq!(basket[0].2.to_u64(), nav); // tao value == NAV
+    });
+}
+
+/// End-to-end through the real coinbase path (block_step -> run_coinbase -> emit_to_subnets
+/// -> drain_pending -> distribute_emission), proving the basket forms from actual block
+/// emission rather than a direct `distribute_emission` call.
+#[test]
+fn test_root_basket_end_to_end_via_coinbase() {
+    new_test_ext(0).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let coldkey = U256::from(1003);
+        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+        remove_owner_registration_stake(netuid);
+
+        Tempo::<Test>::insert(netuid, 1);
+        SubtensorModule::set_tao_weight(u64::MAX);
+
+        let root_stake = 200_000_000u64;
+        SubnetTAO::<Test>::insert(NetUid::ROOT, TaoBalance::from(root_stake));
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            root_stake.into(),
+        );
+
+        // Turn root-sell ON: moving price + spot price > 1.
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(2));
+        SubnetTAO::<Test>::insert(netuid, TaoBalance::from(10_000_000_000_000u64));
+        SubnetAlphaIn::<Test>::insert(netuid, AlphaBalance::from(1_000_000_000_000u64));
+        RootClaimableThreshold::<Test>::insert(netuid, I96F32::from_num(0));
+        assert!(
+            SubtensorModule::get_network_root_sell_flag(&[netuid]),
+            "root sell flag must be ON"
+        );
+
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_coldkey,
+            netuid,
+            10_000_000u64.into(),
+        );
+
+        // Validator routes its basket back into the subnet.
+        set_root_weights_direct(&hotkey, 0, &[(netuid, u16::MAX)]);
+
+        assert_eq!(escrow_alpha(&hotkey, netuid), 0);
+
+        // Run real blocks: emission accrues and drains through the coinbase.
+        run_to_block(3);
+
+        // The basket formed end-to-end from actual block emission.
+        assert!(
+            escrow_alpha(&hotkey, netuid) > 0,
+            "basket must form from coinbase emission"
+        );
+        assert!(u64::from(BasketPrincipal::<Test>::get(&hotkey, netuid)) > 0);
+        assert!(RootClaimable::<Test>::get(hotkey).contains_key(&netuid));
+
+        // And it is redeemable to root TAO.
+        let root_before = root_stake_of(&hotkey, &coldkey);
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(coldkey),
+            BTreeSet::from([netuid])
+        ));
+        assert!(root_stake_of(&hotkey, &coldkey) > root_before);
     });
 }

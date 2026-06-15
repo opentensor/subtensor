@@ -571,8 +571,17 @@ impl<T: Config> Pallet<T> {
                 .map(|(coldkey, _)| coldkey)
                 .collect();
 
+            // The beta escrow's basket positions are tied to the validator's root identity, not
+            // to per-subnet membership. Skip it here and migrate baskets atomically in the root
+            // branch below, so a non-root single-subnet swap never moves a basket out from under
+            // its (unchanged) root accounting.
+            let beta_escrow = Self::get_beta_escrow_account_id();
+
             // For each coldkey remove their stake from old_hotkey and add to new_hotkey
             for coldkey in unique_coldkeys {
+                if coldkey == beta_escrow {
+                    continue;
+                }
                 let alpha_old =
                     Self::get_stake_for_hotkey_and_coldkey_on_subnet(old_hotkey, &coldkey, netuid);
                 Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
@@ -622,6 +631,44 @@ impl<T: Config> Pallet<T> {
                         );
                         weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
                     }
+
+                    // Migrate the beta basket for this subnet: move the escrow position
+                    // (old_hotkey, H, subnet) -> (new_hotkey, H, subnet) by value, and the
+                    // outstanding basket principal. Moving both keeps the E/P multiplier intact.
+                    let basket_alpha = Self::get_stake_for_hotkey_and_coldkey_on_subnet(
+                        old_hotkey,
+                        &beta_escrow,
+                        subnet,
+                    );
+                    if !basket_alpha.is_zero() {
+                        Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+                            old_hotkey,
+                            &beta_escrow,
+                            subnet,
+                            basket_alpha,
+                        );
+                        Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                            new_hotkey,
+                            &beta_escrow,
+                            subnet,
+                            basket_alpha,
+                        );
+                        weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+                    }
+                    let basket_principal = BasketPrincipal::<T>::take(old_hotkey, subnet);
+                    if !basket_principal.is_zero() {
+                        BasketPrincipal::<T>::mutate(new_hotkey, subnet, |p| {
+                            *p = p.saturating_add(basket_principal);
+                        });
+                        weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+                    }
+                }
+
+                // Move the validator's beta basket weight vector to the new hotkey.
+                if RootBasketWeights::<T>::contains_key(old_hotkey) {
+                    let w = RootBasketWeights::<T>::take(old_hotkey);
+                    RootBasketWeights::<T>::insert(new_hotkey, w);
+                    weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
                 }
 
                 // Transfer AutoParentDelegationEnabled flag from old_hotkey to new_hotkey.

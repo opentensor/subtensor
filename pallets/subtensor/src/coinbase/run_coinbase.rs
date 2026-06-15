@@ -705,11 +705,11 @@ impl<T: Config> Pallet<T> {
                 tou64!(alpha_take).into(),
             );
 
-            Self::increase_root_claimable_for_hotkey_and_subnet(
-                &hotkey,
-                netuid,
-                tou64!(root_alpha).into(),
-            );
+            // Distribute the validator's root dividend into its beta basket across subnets
+            // per the validator's root weight vector (set on subnet 0). The bought basket
+            // alpha is staked to the validator under the global escrow coldkey, so it counts
+            // toward the validator's stake and compounds; stakers accrue a claimable rate.
+            Self::distribute_root_alpha_to_basket(&hotkey, netuid, tou64!(root_alpha).into());
 
             // Record root alpha dividends for this validator on this subnet.
             RootAlphaDividendsPerSubnet::<T>::mutate(netuid, &hotkey, |divs| {
