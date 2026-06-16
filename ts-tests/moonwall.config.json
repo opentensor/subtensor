@@ -15,7 +15,7 @@
                 "generate-types.sh",
                 "build-spec.sh"
             ],
-            "multiThreads": true,
+            "multiThreads": false,
             "reporters": ["basic"],
             "foundation": {
                 "type": "dev",
@@ -35,7 +35,9 @@
                             "--sealing=manual"
                         ],
                         "disableDefaultEthProviders": true,
-                        "newRpcBehaviour": true
+                        "newRpcBehaviour": true,
+                        "maxStartupTimeout": 120000,
+                        "connectTimeout": 30000
                     }
                 ]
             }
