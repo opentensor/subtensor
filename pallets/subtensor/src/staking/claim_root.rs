@@ -238,6 +238,13 @@ impl<T: Config> Pallet<T> {
                 });
 
                 Self::bump_root_claimable_rate(hotkey, *dest_netuid, increment);
+
+                Self::deposit_event(Event::BasketDeposited {
+                    hotkey: hotkey.clone(),
+                    netuid: *dest_netuid,
+                    alpha: bought,
+                    shares: shares.into(),
+                });
             }
 
             TransactionOutcome::Commit(Ok(()))
@@ -430,6 +437,13 @@ impl<T: Config> Pallet<T> {
                 coldkey,
                 owed_tao.amount_paid_out.into(),
             );
+
+            Self::deposit_event(Event::BasketClaimed {
+                hotkey: hotkey.clone(),
+                coldkey: coldkey.clone(),
+                netuid,
+                tao: owed_tao.amount_paid_out,
+            });
 
             TransactionOutcome::Commit(Ok(()))
         })?;
@@ -713,6 +727,12 @@ impl<T: Config> Pallet<T> {
                 *total = total.saturating_add(owed_tao.amount_paid_out.into());
             });
 
+            Self::deposit_event(Event::BasketLiquidated {
+                hotkey: hotkey.clone(),
+                netuid,
+                tao: owed_tao.amount_paid_out,
+            });
+
             // Gather this validator's root stakers and their owed basket entitlement.
             let coldkeys: BTreeSet<T::AccountId> = Self::alpha_iter_single_prefix(hotkey)
                 .filter(|(_, n, _)| *n == NetUid::ROOT)
@@ -887,5 +907,17 @@ impl<T: Config> Pallet<T> {
             nav = nav.saturating_add(Self::alpha_to_tao_value(netuid, escrow_value));
         }
         nav.into()
+    }
+
+    /// A validator's beta basket weight vector `w`: the `(subnet, weight)` pairs it deploys its
+    /// root dividends into (its curation strategy), exactly as stored.
+    pub fn get_validator_root_weights(hotkey: &T::AccountId) -> Vec<(NetUid, u16)> {
+        Uids::<T>::try_get(NetUid::ROOT, hotkey)
+            .ok()
+            .map(|uid| Weights::<T>::get(NetUidStorageIndex::ROOT, uid))
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(dest, weight)| (NetUid::from(dest), weight))
+            .collect()
     }
 }

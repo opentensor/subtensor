@@ -143,6 +143,13 @@ pub trait SubtensorCustomApi<BlockHash> {
     /// Network-wide total beta basket NAV across all validators, in TAO.
     #[method(name = "betaBasket_getTotalNav")]
     fn get_root_basket_total_nav(&self, at: Option<BlockHash>) -> RpcResult<TaoBalance>;
+    /// A validator's basket weight vector: SCALE-encoded `Vec<(NetUid, u16)>` (its strategy).
+    #[method(name = "betaBasket_getValidatorWeights")]
+    fn get_validator_weights(
+        &self,
+        hotkey: AccountId32,
+        at: Option<BlockHash>,
+    ) -> RpcResult<Vec<u8>>;
 }
 
 pub struct SubtensorCustom<C, P> {
@@ -659,6 +666,22 @@ where
             Ok(result) => Ok(result),
             Err(e) => {
                 Err(Error::RuntimeError(format!("Unable to get total basket NAV: {e:?}")).into())
+            }
+        }
+    }
+
+    fn get_validator_weights(
+        &self,
+        hotkey: AccountId32,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        match api.get_validator_weights(at, hotkey) {
+            Ok(result) => Ok(result.encode()),
+            Err(e) => {
+                Err(Error::RuntimeError(format!("Unable to get validator weights: {e:?}")).into())
             }
         }
     }

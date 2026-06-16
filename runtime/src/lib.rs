@@ -2592,6 +2592,9 @@ impl_runtime_apis! {
         fn get_root_basket_total_nav() -> TaoBalance {
             SubtensorModule::get_root_basket_total_nav_tao()
         }
+        fn get_validator_weights(hotkey: AccountId32) -> Vec<(NetUid, u16)> {
+            SubtensorModule::get_validator_root_weights(&hotkey)
+        }
     }
 
     impl subtensor_custom_rpc_runtime_api::ProxyFilterRuntimeApi<Block> for Runtime {
