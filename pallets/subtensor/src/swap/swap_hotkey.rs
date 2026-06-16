@@ -131,26 +131,28 @@ impl<T: Config> Pallet<T> {
 
         // Start to do everything for swap hotkey on all subnets case
         // 12.1 Enforce the per-subnet hotkey-swap cooldown on the all-subnets path too.
-        // The all-subnets swap moves the identity on every subnet the old hotkey has a
-        // presence on, so it must respect (and record) `LastHotkeySwapOnNetuid` for each of
-        // those subnets, exactly like the per-subnet path.
+        // The all-subnets swap moves the identity on every subnet the old hotkey actively
+        // participates in, so it must respect (and record) `LastHotkeySwapOnNetuid` for each
+        // of those subnets, exactly like the per-subnet path.
         //
-        // "Presence" is NOT just subnet membership: `perform_hotkey_swap_on_one_subnet`
-        // migrates ParentKeys/ChildKeys (`parent_child_swap_hotkey`) UNCONDITIONALLY, so a
-        // hotkey that is a parent (has childkeys) or a child (has parents) on a subnet it is
-        // not a registered member of is still re-homed there. The cooldown must cover those
-        // subnets too, otherwise the all-subnets path could repeatedly re-home parent/child
-        // relationships on a non-member subnet without ever tripping the per-subnet rate
-        // limit. We still skip subnets where the old hotkey has no presence so those do not
-        // accumulate cooldown rows.
+        // "Participates in" is membership OR being a parent (has childkeys). Note a parent
+        // need not be a registered member — `do_set_children` has no membership requirement —
+        // so the childkey case genuinely adds coverage beyond `IsNetworkMember`, and
+        // `parent_child_swap_hotkey` re-homes those childkeys even on non-member subnets.
+        //
+        // We deliberately do NOT gate on the *child* side (`ParentKeys`): being someone's
+        // child is set by the parent via `do_set_children` WITHOUT the child's consent, so a
+        // third party could otherwise add a victim's hotkey as a child on an arbitrary subnet
+        // and impose swap-cooldowns on it — a griefing vector. The swap still migrates the
+        // child relationship for correctness; it simply isn't cooldown-gated.
         let hotkey_swap_interval = T::HotkeySwapOnSubnetInterval::get();
         let all_netuids = Self::get_all_subnet_netuids();
-        // Up to 3 reads per subnet during filtering (membership + childkeys + parentkeys),
-        // plus the subnet-list read itself.
+        // Up to 2 reads per subnet during filtering (membership + childkeys), plus the
+        // subnet-list read itself.
         weight.saturating_accrue(
             T::DbWeight::get().reads(
                 (all_netuids.len() as u64)
-                    .saturating_mul(3)
+                    .saturating_mul(2)
                     .saturating_add(1),
             ),
         );
@@ -159,7 +161,6 @@ impl<T: Config> Pallet<T> {
             .filter(|netuid| {
                 IsNetworkMember::<T>::get(old_hotkey, *netuid)
                     || !ChildKeys::<T>::get(old_hotkey, *netuid).is_empty()
-                    || !ParentKeys::<T>::get(old_hotkey, *netuid).is_empty()
             })
             .collect();
         for netuid in affected_netuids.iter() {
