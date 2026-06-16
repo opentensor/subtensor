@@ -2202,6 +2202,12 @@ mod dispatches {
         }
 
         /// --- Sets the root claim type for the coldkey.
+        ///
+        /// Beta-basket redemption is always a full swap to root TAO, so only
+        /// [`RootClaimTypeEnum::Swap`] is accepted. The `Keep` / `KeepSubnets` variants are
+        /// deprecated no-ops retained only for storage/SCALE decode compatibility and are
+        /// rejected here so a caller can never set a claim type that silently does nothing.
+        ///
         /// # Args:
         /// * 'origin': (<T as frame_system::Config>Origin):
         /// 	- The signature of the caller's coldkey.
@@ -2218,9 +2224,10 @@ mod dispatches {
         ) -> DispatchResult {
             let coldkey: T::AccountId = ensure_signed(origin)?;
 
-            if let RootClaimTypeEnum::KeepSubnets { subnets } = &new_root_claim_type {
-                ensure!(!subnets.is_empty(), Error::<T>::InvalidSubnetNumber);
-            }
+            ensure!(
+                matches!(new_root_claim_type, RootClaimTypeEnum::Swap),
+                Error::<T>::RootClaimTypeNotSupported
+            );
 
             Self::maybe_add_coldkey_index(&coldkey);
 

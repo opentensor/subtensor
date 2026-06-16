@@ -265,6 +265,9 @@ mod errors {
         ChildParentInconsistency,
         /// Invalid number of root claims
         InvalidNumRootClaim,
+        /// The requested root claim type is no longer supported (only `Swap` is accepted; the
+        /// `Keep`/`KeepSubnets` variants are deprecated no-ops).
+        RootClaimTypeNotSupported,
         /// Invalid value of root claim threshold
         InvalidRootClaimThreshold,
         /// Exceeded subnet limit number or zero.

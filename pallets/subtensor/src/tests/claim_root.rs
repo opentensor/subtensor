@@ -5,15 +5,15 @@ use crate::{
     BasketPrincipal, DefaultMinRootClaimAmount, Error, Keys, MAX_NUM_ROOT_CLAIMS,
     MAX_ROOT_CLAIM_THRESHOLD, NetworksAdded, NumRootClaim, NumStakingColdkeys, RootClaimType,
     RootClaimTypeEnum, RootClaimable, RootClaimableThreshold, RootClaimed, StakingColdkeys,
-    StakingColdkeysByIndex, SubnetAlphaIn, SubnetMovingPrice, SubnetTAO, SubnetworkN, Tempo,
-    TotalStake, Uids, Weights,
+    StakingColdkeysByIndex, SubnetAlphaIn, SubnetMovingPrice, SubnetProtocolFlow, SubnetTAO,
+    SubnetworkN, Tempo, TotalStake, Uids, Weights,
 };
 use approx::assert_abs_diff_eq;
 use frame_support::dispatch::RawOrigin;
 use frame_support::pallet_prelude::Weight;
 use frame_support::traits::Get;
 use frame_support::{assert_err, assert_noop, assert_ok};
-use sp_core::{H256, U256};
+use sp_core::U256;
 use sp_runtime::DispatchError;
 use std::collections::BTreeSet;
 use substrate_fixed::types::I96F32;
@@ -58,53 +58,31 @@ fn test_claim_root_set_claim_type() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
 
+        // Swap is the only supported claim type.
         assert_ok!(SubtensorModule::set_root_claim_type(
             RuntimeOrigin::signed(coldkey),
-            RootClaimTypeEnum::Keep
-        ),);
+            RootClaimTypeEnum::Swap
+        ));
+        assert_eq!(RootClaimType::<Test>::get(coldkey), RootClaimTypeEnum::Swap);
 
-        assert_eq!(RootClaimType::<Test>::get(coldkey), RootClaimTypeEnum::Keep);
-    });
-}
-
-#[test]
-fn test_claim_root_block_hash_indices() {
-    new_test_ext(1).execute_with(|| {
-        let k = 15u64;
-        let n = 15000u64;
-
-        // 0
-        let indices =
-            SubtensorModule::block_hash_to_indices(H256(sp_core::keccak_256(b"zero")), 0, n);
-        assert!(indices.is_empty());
-
-        // 1
-        let hash = sp_core::keccak_256(b"some");
-        let mut indices = SubtensorModule::block_hash_to_indices(H256(hash), k, n);
-        indices.sort();
-
-        assert!(indices.len() <= k as usize);
-        assert!(!indices.iter().any(|i| *i >= n));
-        // precomputed values
-        let expected_result = vec![
-            265, 630, 1286, 1558, 4496, 4861, 5517, 5789, 6803, 8096, 9092, 11034, 11399, 12055,
-            12327,
-        ];
-        assert_eq!(indices, expected_result);
-
-        // 2
-        let hash = sp_core::keccak_256(b"some2");
-        let mut indices = SubtensorModule::block_hash_to_indices(H256(hash), k, n);
-        indices.sort();
-
-        assert!(indices.len() <= k as usize);
-        assert!(!indices.iter().any(|i| *i >= n));
-        // precomputed values
-        let expected_result = vec![
-            61, 246, 1440, 2855, 3521, 5236, 6130, 6615, 8511, 9405, 9890, 11786, 11971, 13165,
-            14580,
-        ];
-        assert_eq!(indices, expected_result);
+        // Keep / KeepSubnets are deprecated no-ops and are rejected so a caller can never set a
+        // claim type that silently does nothing.
+        assert_noop!(
+            SubtensorModule::set_root_claim_type(
+                RuntimeOrigin::signed(coldkey),
+                RootClaimTypeEnum::Keep
+            ),
+            Error::<Test>::RootClaimTypeNotSupported
+        );
+        assert_noop!(
+            SubtensorModule::set_root_claim_type(
+                RuntimeOrigin::signed(coldkey),
+                RootClaimTypeEnum::KeepSubnets {
+                    subnets: BTreeSet::from([NetUid::from(1)])
+                }
+            ),
+            Error::<Test>::RootClaimTypeNotSupported
+        );
     });
 }
 
@@ -433,6 +411,109 @@ fn test_root_basket_routes_to_target_subnet() {
         );
         assert!(RootClaimable::<Test>::get(hotkey).contains_key(&netuid_b));
         assert!(!RootClaimable::<Test>::get(hotkey).contains_key(&netuid_a));
+    });
+}
+
+// =============================================================================
+// Beta basket: protocol-flow accounting (symmetric)
+// =============================================================================
+
+/// The basket must book protocol flow symmetrically: the origin sell on A is an outflow, each
+/// redistribution buy on B/C is an inflow, and the claim sell on B/C is an outflow that nets the
+/// deposit-then-claim round-trip back toward zero on the dest pools.
+#[test]
+fn test_root_basket_records_symmetric_protocol_flow() {
+    new_test_ext(1).execute_with(|| {
+        let owner_a = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let coldkey = U256::from(1003);
+        let owner_b = U256::from(2001);
+        let hotkey_b = U256::from(2002);
+        let owner_c = U256::from(3001);
+        let hotkey_c = U256::from(3002);
+
+        let netuid_a = add_dynamic_network(&hotkey, &owner_a);
+        let netuid_b = add_dynamic_network(&hotkey_b, &owner_b);
+        let netuid_c = add_dynamic_network(&hotkey_c, &owner_c);
+        remove_owner_registration_stake(netuid_a);
+        fund_pool(netuid_a);
+        fund_pool(netuid_b);
+        fund_pool(netuid_c);
+
+        SubtensorModule::set_tao_weight(u64::MAX);
+        RootClaimableThreshold::<Test>::insert(netuid_b, I96F32::from_num(0));
+        RootClaimableThreshold::<Test>::insert(netuid_c, I96F32::from_num(0));
+
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            2_000_000u64.into(),
+        );
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_a,
+            netuid_a,
+            10_000_000u64.into(),
+        );
+
+        // Split the basket 50/50 across B and C (neither is the dividend origin A).
+        set_root_weights_direct(&hotkey, 0, &[(netuid_b, u16::MAX), (netuid_c, u16::MAX)]);
+
+        // No protocol flow has been recorded on any subnet yet.
+        assert_eq!(SubnetProtocolFlow::<Test>::get(netuid_a), 0);
+        assert_eq!(SubnetProtocolFlow::<Test>::get(netuid_b), 0);
+        assert_eq!(SubnetProtocolFlow::<Test>::get(netuid_c), 0);
+
+        SubtensorModule::distribute_emission(
+            netuid_a,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
+            1_000_000u64.into(),
+            AlphaBalance::ZERO,
+        );
+
+        let flow_a = SubnetProtocolFlow::<Test>::get(netuid_a);
+        let flow_b = SubnetProtocolFlow::<Test>::get(netuid_b);
+        let flow_c = SubnetProtocolFlow::<Test>::get(netuid_c);
+
+        // Origin sell on A is booked as an outflow (negative); the buys on B and C as inflows.
+        assert!(flow_a < 0, "origin sell must be an outflow, got {flow_a}");
+        assert!(flow_b > 0, "buy on B must be an inflow, got {flow_b}");
+        assert!(flow_c > 0, "buy on C must be an inflow, got {flow_c}");
+
+        // Symmetry: every TAO sold on A is spent buying on B and C, so the inflows exactly offset
+        // the outflow across subnets.
+        assert_abs_diff_eq!(flow_b + flow_c, -flow_a, epsilon = 10i64);
+
+        // Now redeem the basket on B and C. The claim sells alpha back to TAO, booking an outflow
+        // on each dest that nets the round-trip back toward zero.
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(coldkey),
+            BTreeSet::from([netuid_b, netuid_c])
+        ));
+
+        let flow_b_after = SubnetProtocolFlow::<Test>::get(netuid_b);
+        let flow_c_after = SubnetProtocolFlow::<Test>::get(netuid_c);
+
+        // Claim recorded an outflow: the dest flow decreased, and the deposit+claim round-trip
+        // leaves a residual far smaller than the original inflow (only swap fees/slippage remain).
+        assert!(
+            flow_b_after < flow_b,
+            "claim must book an outflow on B: {flow_b_after} !< {flow_b}"
+        );
+        assert!(
+            flow_c_after < flow_c,
+            "claim must book an outflow on C: {flow_c_after} !< {flow_c}"
+        );
+        assert!(
+            flow_b_after.abs() < flow_b,
+            "round-trip residual on B should be smaller than the inflow: {flow_b_after} vs {flow_b}"
+        );
+        assert!(
+            flow_c_after.abs() < flow_c,
+            "round-trip residual on C should be smaller than the inflow: {flow_c_after} vs {flow_c}"
+        );
     });
 }
 

@@ -11,37 +11,6 @@ use subtensor_runtime_common::NetUidStorageIndex;
 use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
-    pub fn block_hash_to_indices(block_hash: T::Hash, k: u64, n: u64) -> Vec<u64> {
-        let block_hash_bytes = block_hash.as_ref();
-        let mut indices: BTreeSet<u64> = BTreeSet::new();
-        // k < n
-        let start_index: u64 = u64::from_be_bytes(
-            block_hash_bytes
-                .get(0..8)
-                .unwrap_or(&[0; 8])
-                .try_into()
-                .unwrap_or([0; 8]),
-        );
-        let mut last_idx = start_index;
-        for i in 0..k {
-            let bh_idx: usize = ((i.saturating_mul(8)) % 32) as usize;
-            let idx_step = u64::from_be_bytes(
-                block_hash_bytes
-                    .get(bh_idx..(bh_idx.saturating_add(8)))
-                    .unwrap_or(&[0; 8])
-                    .try_into()
-                    .unwrap_or([0; 8]),
-            );
-            let idx = last_idx
-                .saturating_add(idx_step)
-                .checked_rem(n)
-                .unwrap_or(0);
-            indices.insert(idx);
-            last_idx = idx;
-        }
-        indices.into_iter().collect()
-    }
-
     pub fn increase_root_claimable_for_hotkey_and_subnet(
         hotkey: &T::AccountId,
         netuid: NetUid,
@@ -104,6 +73,11 @@ impl<T: Config> Pallet<T> {
     /// The whole operation is transactional: if any swap fails, it is rolled back and the original
     /// alpha is recycled. If the validator has no usable weights (or no root stake), the dividend
     /// is recycled.
+    ///
+    /// Protocol-flow accounting is symmetric with redemption: the origin sell is booked as an
+    /// outflow on the origin subnet and each redistribution buy as an inflow on its dest subnet, so
+    /// that a deposit-then-claim round-trip nets to ~0 on the dest pools (the claim sell is booked
+    /// as an outflow in `root_claim_on_subnet`).
     pub fn distribute_root_alpha_to_basket(
         hotkey: &T::AccountId,
         origin_netuid: NetUid,
@@ -158,6 +132,9 @@ impl<T: Config> Pallet<T> {
                 Err(err) => return TransactionOutcome::Rollback(Err(err)),
             };
 
+            // Record the origin-subnet root sell as protocol outflow (TAO left A's pool).
+            Self::record_protocol_outflow(origin_netuid, tao_total);
+
             // 2. Split the TAO across subnets per w and buy each subnet's alpha.
             let tao_total_u64: u64 = tao_total.to_u64();
             let mut spent: u64 = 0;
@@ -187,6 +164,10 @@ impl<T: Config> Pallet<T> {
                     Ok(res) => res.amount_paid_out,
                     Err(err) => return TransactionOutcome::Rollback(Err(err)),
                 };
+
+                // Record the redistribution buy as protocol inflow (TAO entered B/C/D's pool).
+                Self::record_protocol_inflow(*dest_netuid, tao_s.into());
+
                 if bought.is_zero() {
                     continue;
                 }
@@ -317,7 +298,8 @@ impl<T: Config> Pallet<T> {
     /// basket's live growth multiplier `E / P` (escrow value over outstanding principal) to get
     /// the current payout, that payout alpha is removed from the escrow position, swapped to TAO,
     /// and staked on root for the staker. `root_claim_type` is retained for signature
-    /// compatibility but no longer branches behavior (Keep was removed).
+    /// compatibility but no longer branches behavior: redemption is always a full swap. The
+    /// `Keep`/`KeepSubnets` variants are deprecated no-ops (rejected by `set_root_claim_type`).
     pub fn root_claim_on_subnet(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
@@ -574,11 +556,6 @@ impl<T: Config> Pallet<T> {
         Ok(weight)
     }
 
-    fn block_hash_to_indices_weight(k: u64, _n: u64) -> Weight {
-        Weight::from_parts(3_000_000, 1517)
-            .saturating_add(Weight::from_parts(100_412, 0).saturating_mul(k.into()))
-    }
-
     pub fn maybe_add_coldkey_index(coldkey: &T::AccountId) {
         if !StakingColdkeys::<T>::contains_key(coldkey) {
             let n = NumStakingColdkeys::<T>::get();
@@ -586,29 +563,6 @@ impl<T: Config> Pallet<T> {
             StakingColdkeys::<T>::insert(coldkey.clone(), n);
             NumStakingColdkeys::<T>::mutate(|n| *n = n.saturating_add(1));
         }
-    }
-
-    pub fn run_auto_claim_root_divs(last_block_hash: T::Hash) -> Weight {
-        let mut weight: Weight = Weight::default();
-
-        let n = NumStakingColdkeys::<T>::get();
-        let k = NumRootClaim::<T>::get();
-        weight.saturating_accrue(T::DbWeight::get().reads(2));
-
-        let coldkeys_to_claim: Vec<u64> = Self::block_hash_to_indices(last_block_hash, k, n);
-        weight.saturating_accrue(Self::block_hash_to_indices_weight(k, n));
-
-        for i in coldkeys_to_claim.iter() {
-            weight.saturating_accrue(T::DbWeight::get().reads(1));
-            if let Ok(coldkey) = StakingColdkeysByIndex::<T>::try_get(i) {
-                match Self::do_root_claim(coldkey.clone(), None) {
-                    Ok(claim_weight) => weight.saturating_accrue(claim_weight),
-                    Err(err) => log::error!("Error auto-claiming root dividends: {err:?}"),
-                }
-            }
-        }
-
-        weight
     }
 
     pub fn change_root_claim_type(coldkey: &T::AccountId, new_type: RootClaimTypeEnum) {

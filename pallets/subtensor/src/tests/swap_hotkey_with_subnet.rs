@@ -2486,10 +2486,6 @@ fn test_revert_claim_root_with_swap_hotkey() {
             AlphaBalance::ZERO,
         );
 
-        assert_ok!(SubtensorModule::set_root_claim_type(
-            RuntimeOrigin::signed(coldkey),
-            RootClaimTypeEnum::Keep
-        ));
         assert_ok!(SubtensorModule::claim_root(
             RuntimeOrigin::signed(coldkey),
             BTreeSet::from([netuid])
@@ -3070,10 +3066,6 @@ fn test_swap_hotkey_root_claims_changed_if_root() {
             AlphaBalance::ZERO,
         );
 
-        assert_ok!(SubtensorModule::set_root_claim_type(
-            RuntimeOrigin::signed(staker_coldkey),
-            RootClaimTypeEnum::Keep
-        ));
         assert_ok!(SubtensorModule::claim_root(
             RuntimeOrigin::signed(staker_coldkey),
             BTreeSet::from([netuid_1])
@@ -3169,10 +3161,6 @@ fn test_swap_hotkey_root_claims_changed_if_all_subnets() {
             AlphaBalance::ZERO,
         );
 
-        assert_ok!(SubtensorModule::set_root_claim_type(
-            RuntimeOrigin::signed(staker_coldkey),
-            RootClaimTypeEnum::Keep
-        ));
         assert_ok!(SubtensorModule::claim_root(
             RuntimeOrigin::signed(staker_coldkey),
             BTreeSet::from([netuid_1])

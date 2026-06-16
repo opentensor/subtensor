@@ -337,13 +337,19 @@ pub mod pallet {
         Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug, DecodeWithMemTracking,
     )]
     /// Enum for the per-coldkey root claim setting.
+    ///
+    /// With beta baskets, redemption is always a full swap to root TAO, so `Swap` is the only
+    /// supported variant. `Keep` and `KeepSubnets` are deprecated no-ops kept solely for
+    /// storage/SCALE decode compatibility with values written before the basket model; they are
+    /// rejected by `set_root_claim_type` and ignored by the claim path.
     pub enum RootClaimTypeEnum {
         /// Swap any alpha emission for TAO.
         #[default]
         Swap,
-        /// Keep all alpha emission.
+        /// Deprecated no-op (formerly: keep all alpha emission). Rejected by `set_root_claim_type`.
         Keep,
-        /// Keep all alpha emission for specified subnets.
+        /// Deprecated no-op (formerly: keep alpha emission for specified subnets). Rejected by
+        /// `set_root_claim_type`.
         KeepSubnets {
             /// Subnets to keep alpha emissions (swap everything else).
             subnets: BTreeSet<NetUid>,

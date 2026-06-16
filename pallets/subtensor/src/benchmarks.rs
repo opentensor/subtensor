@@ -1912,7 +1912,7 @@ mod pallet_benchmarks {
         let coldkey: T::AccountId = whitelisted_caller();
 
         #[extrinsic_call]
-        _(RawOrigin::Signed(coldkey.clone()), RootClaimTypeEnum::Keep);
+        _(RawOrigin::Signed(coldkey.clone()), RootClaimTypeEnum::Swap);
     }
 
     #[benchmark]
@@ -1971,7 +1971,7 @@ mod pallet_benchmarks {
 
         assert_ok!(Subtensor::<T>::set_root_claim_type(
             RawOrigin::Signed(coldkey.clone()).into(),
-            RootClaimTypeEnum::Keep
+            RootClaimTypeEnum::Swap
         ));
 
         #[extrinsic_call]
