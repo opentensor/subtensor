@@ -140,8 +140,7 @@
                 }
             },
             "vitestArgs": {
-                "hookTimeout": 900000,
-                "testTimeout": 300000
+                "bail": 1
             },
             "connections": [
                 {

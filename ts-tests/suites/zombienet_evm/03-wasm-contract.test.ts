@@ -1,10 +1,9 @@
-import { describeSuite } from "@moonwall/cli";
+import { beforeAll, beforeEach, describeSuite, expect } from "@moonwall/cli";
 import { contracts, MultiAddress, subtensor } from "@polkadot-api/descriptors";
-import { getInkClient } from "@polkadot-api/ink-contracts";
+import { getInkClient, InkClient } from "@polkadot-api/ink-contracts";
 import type { KeyringPair } from "@polkadot/keyring/types";
 import fs from "node:fs";
 import { Binary, type TypedApi } from "polkadot-api";
-import { beforeAll, beforeEach, expect } from "vitest";
 import {
     addNewSubnetwork,
     BITTENSOR_WASM_PATH,
@@ -53,7 +52,7 @@ describeSuite({
         let coldkey2: KeyringPair;
         let netuid = 0;
         let contractAddress = "";
-        let inkClient: ReturnType<typeof getInkClient>;
+        let inkClient: InkClient<typeof contracts.bittensor>;
 
         async function addStakeViaContract(addStakeToContract: boolean) {
             if (contractAddress === "") {
