@@ -131,18 +131,37 @@ impl<T: Config> Pallet<T> {
 
         // Start to do everything for swap hotkey on all subnets case
         // 12.1 Enforce the per-subnet hotkey-swap cooldown on the all-subnets path too.
-        // The all-subnets swap moves the identity on every subnet the old hotkey is a
-        // member of, so it must respect (and record) `LastHotkeySwapOnNetuid` for each of
-        // those subnets, exactly like the per-subnet path. Only gate subnets the old
-        // hotkey actually participates in so non-member subnets do not create cooldown rows.
+        // The all-subnets swap moves the identity on every subnet the old hotkey has a
+        // presence on, so it must respect (and record) `LastHotkeySwapOnNetuid` for each of
+        // those subnets, exactly like the per-subnet path.
+        //
+        // "Presence" is NOT just subnet membership: `perform_hotkey_swap_on_one_subnet`
+        // migrates ParentKeys/ChildKeys (`parent_child_swap_hotkey`) UNCONDITIONALLY, so a
+        // hotkey that is a parent (has childkeys) or a child (has parents) on a subnet it is
+        // not a registered member of is still re-homed there. The cooldown must cover those
+        // subnets too, otherwise the all-subnets path could repeatedly re-home parent/child
+        // relationships on a non-member subnet without ever tripping the per-subnet rate
+        // limit. We still skip subnets where the old hotkey has no presence so those do not
+        // accumulate cooldown rows.
         let hotkey_swap_interval = T::HotkeySwapOnSubnetInterval::get();
-        let affected_netuids: Vec<NetUid> = Self::get_all_subnet_netuids()
-            .into_iter()
-            .filter(|netuid| IsNetworkMember::<T>::get(old_hotkey, *netuid))
-            .collect();
+        let all_netuids = Self::get_all_subnet_netuids();
+        // Up to 3 reads per subnet during filtering (membership + childkeys + parentkeys),
+        // plus the subnet-list read itself.
         weight.saturating_accrue(
-            T::DbWeight::get().reads(affected_netuids.len().saturating_add(1) as u64),
+            T::DbWeight::get().reads(
+                (all_netuids.len() as u64)
+                    .saturating_mul(3)
+                    .saturating_add(1),
+            ),
         );
+        let affected_netuids: Vec<NetUid> = all_netuids
+            .into_iter()
+            .filter(|netuid| {
+                IsNetworkMember::<T>::get(old_hotkey, *netuid)
+                    || !ChildKeys::<T>::get(old_hotkey, *netuid).is_empty()
+                    || !ParentKeys::<T>::get(old_hotkey, *netuid).is_empty()
+            })
+            .collect();
         for netuid in affected_netuids.iter() {
             let last_hotkey_swap_block = LastHotkeySwapOnNetuid::<T>::get(*netuid, &coldkey);
             // Only enforce the cooldown when a prior swap was recorded on this subnet.

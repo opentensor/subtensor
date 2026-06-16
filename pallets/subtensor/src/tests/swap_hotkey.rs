@@ -1807,6 +1807,82 @@ fn ghsa_2026_011_subnet_swap_interval_bypassed_by_all_subnets_path() {
 }
 
 // ============================================================
+// GHSA-2026-011 follow-up (review): the all-subnets cooldown must also cover subnets
+// where the old hotkey is only a PARENT/CHILD (parent/child keys are migrated even on
+// subnets the hotkey is not a member of), not just member subnets.
+// Fails on the member-only filter; passes with the parent/child-aware filter in this PR.
+// ============================================================
+#[test]
+fn ghsa_2026_011_all_subnets_swap_covers_parent_key_only_subnets() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(3);
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let child = U256::from(8);
+
+        // member_netuid: old_hotkey is a registered member here.
+        let member_netuid = NetUid::from(1);
+        // parent_netuid: old_hotkey is ONLY a parent here (has a childkey), NOT a member.
+        let parent_netuid = NetUid::from(2);
+
+        let interval: u64 = <Test as crate::Config>::HotkeySwapOnSubnetInterval::get();
+
+        add_network(member_netuid, 13, 0);
+        add_network(parent_netuid, 13, 0);
+        register_ok_neuron(member_netuid, old_hotkey, coldkey, 0);
+        add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_u64.into());
+
+        // old_hotkey is a parent on parent_netuid (has a child) but NOT a network member there.
+        ChildKeys::<Test>::insert(old_hotkey, parent_netuid, vec![(u64::MAX, child)]);
+        assert!(!IsNetworkMember::<Test>::get(old_hotkey, parent_netuid));
+        assert!(!ChildKeys::<Test>::get(old_hotkey, parent_netuid).is_empty());
+
+        // Advance past the interval so the swap itself is allowed (first swap on each subnet).
+        step_block(20);
+        let block = SubtensorModule::get_current_block_as_u64();
+        assert!(block > interval);
+
+        // Precondition: no cooldown recorded on the parent-only subnet.
+        assert_eq!(
+            LastHotkeySwapOnNetuid::<Test>::get(parent_netuid, coldkey),
+            0
+        );
+
+        // All-subnets swap (netuid = None).
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            RuntimeOrigin::signed(coldkey),
+            &old_hotkey,
+            &new_hotkey,
+            None,
+            false,
+        ));
+
+        // The parent relationship was re-homed onto new_hotkey on the parent-only subnet
+        // (this migration happens regardless of membership).
+        assert!(ChildKeys::<Test>::get(old_hotkey, parent_netuid).is_empty());
+        assert_eq!(
+            ChildKeys::<Test>::get(new_hotkey, parent_netuid),
+            vec![(u64::MAX, child)],
+            "parent relationship must migrate to new_hotkey on the parent-only subnet"
+        );
+
+        // FIXED: the per-subnet cooldown is recorded on the parent-only subnet too — the
+        // member-only filter would have left this at 0, leaving an un-rate-limited path to
+        // re-home parent/child relationships on that subnet.
+        assert_eq!(
+            LastHotkeySwapOnNetuid::<Test>::get(parent_netuid, coldkey),
+            block,
+            "all-subnets swap must record the cooldown on parent-key subnets, not just member subnets"
+        );
+        // And the member subnet is still recorded, as before.
+        assert_eq!(
+            LastHotkeySwapOnNetuid::<Test>::get(member_netuid, coldkey),
+            block
+        );
+    });
+}
+
+// ============================================================
 // GHSA-2026-014 regression test — security audit (June 2026)
 // Fails on the vulnerable code; passes with the fix in this PR.
 // ============================================================
