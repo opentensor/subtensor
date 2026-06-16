@@ -29,6 +29,8 @@ import {
     ISTAKING_V2_ADDRESS,
     IStakingV2ABI,
     raoToEth,
+    reconnectEthersWallet,
+    refreshEthersProvider,
     STAKE_WRAP_ABI,
     STAKE_WRAP_BYTECODE,
     startCall,
@@ -161,14 +163,25 @@ describeSuite({
             return delegates;
         }
 
+        function refreshProviderAndWallets(): void {
+            provider = refreshEthersProvider(provider);
+            ethWallet = reconnectEthersWallet(ethWallet, provider);
+            if (proxyWalletsReady) {
+                stakeWallet = reconnectEthersWallet(stakeWallet, provider);
+                proxyWallet1 = reconnectEthersWallet(proxyWallet1, provider);
+                proxyWallet2 = reconnectEthersWallet(proxyWallet2, provider);
+                proxyWallet3 = reconnectEthersWallet(proxyWallet3, provider);
+                proxyWallet4 = reconnectEthersWallet(proxyWallet4, provider);
+            }
+        }
+
         async function ensureChainIdStable(): Promise<void> {
             const chainId = await api.query.EVMChainId.ChainId.getValue();
             if (chainId !== BigInt(42)) {
                 await forceSetChainID(api, BigInt(42));
                 await waitForFinalizedBlocks(api, 1);
             }
-            // Clear ethers cached network so a mid-run chain-id change does not abort calls.
-            (provider as { _network?: unknown })._network = null;
+            refreshProviderAndWallets();
         }
 
         async function waitForBalanceIncrease(
@@ -294,11 +307,7 @@ describeSuite({
                 const alphaInPool = await contractForCall.getContractStake(netuid);
                 expect(alphaInPool).toEqual(BigInt(0));
 
-                const depositAlphaTx = await contractForCall.depositAlpha(
-                    netuid,
-                    tao(10).toString(),
-                    hotkey.publicKey
-                );
+                const depositAlphaTx = await contractForCall.depositAlpha(netuid, tao(10).toString(), hotkey.publicKey);
                 const depositReceipt = await depositAlphaTx.wait();
                 expect(depositReceipt?.status).toEqual(1);
                 await waitForFinalizedBlocks(api, 2);
@@ -510,11 +519,7 @@ describeSuite({
 
                 for (let i = 0; i < 5; i++) {
                     const delegateWallet = createEthersWallet(provider);
-                    const addTx = await contract.addProxy(
-                        convertH160ToPublicKey(delegateWallet.address),
-                        type,
-                        delay
-                    );
+                    const addTx = await contract.addProxy(convertH160ToPublicKey(delegateWallet.address), type, delay);
                     await addTx.wait();
                 }
 

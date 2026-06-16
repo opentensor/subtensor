@@ -8,7 +8,7 @@ import { getBalance } from "./balance.ts";
 import { sudoSetAdminFreezeWindow } from "./staking.ts";
 import { sendTransaction, waitForTransactionWithRetry } from "./transactions.ts";
 
-export const BITTENSOR_WASM_PATH = "../ink/bittensor.wasm"
+export const BITTENSOR_WASM_PATH = "./ink/bittensor.wasm"
 
 export async function getTransferCallCode(
     api: TypedApi<typeof subtensor>,
