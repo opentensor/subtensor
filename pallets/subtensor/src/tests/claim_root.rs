@@ -687,6 +687,84 @@ fn test_root_basket_dissolve_liquidates_to_stakers() {
     });
 }
 
+/// Dissolve liquidation must distribute by each staker's *owed* basket entitlement, NOT by
+/// current root-stake share. A "fresh" staker who joined after the basket accrued (zero owed)
+/// must receive nothing, even with an equal current root stake — otherwise they'd windfall at
+/// the expense of the staker who actually funded the basket.
+#[test]
+fn test_root_basket_dissolve_distributes_by_owed_not_stake() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let alice = U256::from(1003);
+        let bob = U256::from(1004);
+        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+        remove_owner_registration_stake(netuid);
+        fund_pool(netuid);
+
+        SubtensorModule::set_tao_weight(u64::MAX);
+
+        // Alice is the sole root staker while the basket accrues — she funds all of it.
+        let stake = 2_000_000u64;
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &alice,
+            NetUid::ROOT,
+            stake.into(),
+        );
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_coldkey,
+            netuid,
+            10_000_000u64.into(),
+        );
+        set_root_weights_direct(&hotkey, 0, &[(netuid, u16::MAX)]);
+
+        SubtensorModule::distribute_emission(
+            netuid,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
+            1_000_000u64.into(),
+            AlphaBalance::ZERO,
+        );
+        assert!(escrow_alpha(&hotkey, netuid) > 0);
+
+        // Bob joins AFTER accrual with the SAME root stake; his watermark is rebased exactly as
+        // real `add_stake` would, so his owed entitlement is zero.
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &bob,
+            NetUid::ROOT,
+            stake.into(),
+        );
+        SubtensorModule::add_stake_adjust_root_claimed_for_hotkey_and_coldkey(&hotkey, &bob, stake);
+
+        // Equal current root stake, but only Alice is owed the basket.
+        assert_eq!(root_stake_of(&hotkey, &alice), root_stake_of(&hotkey, &bob));
+        assert!(SubtensorModule::get_root_owed_for_hotkey_coldkey(&hotkey, &alice, netuid) > 0);
+        assert_eq!(
+            SubtensorModule::get_root_owed_for_hotkey_coldkey(&hotkey, &bob, netuid),
+            0
+        );
+
+        let alice_before = root_stake_of(&hotkey, &alice);
+        let bob_before = root_stake_of(&hotkey, &bob);
+
+        assert_ok!(SubtensorModule::do_dissolve_network(netuid));
+
+        let alice_gain = root_stake_of(&hotkey, &alice).saturating_sub(alice_before);
+        let bob_gain = root_stake_of(&hotkey, &bob).saturating_sub(bob_before);
+
+        // The basket goes to Alice (who accrued it); Bob (zero owed) gets nothing — even though
+        // a stake-proportional split would have handed him ~half.
+        assert!(alice_gain > 0, "accruing staker must receive the basket");
+        assert_eq!(
+            bob_gain, 0,
+            "fresh staker with zero owed must receive nothing"
+        );
+    });
+}
+
 // =============================================================================
 // Beta basket: conservation invariants ("prove it works")
 // =============================================================================

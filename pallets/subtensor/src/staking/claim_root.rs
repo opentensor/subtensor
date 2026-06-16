@@ -621,11 +621,12 @@ impl<T: Config> Pallet<T> {
 
     /// Liquidates a validator's beta basket on `netuid` back to its root stakers.
     ///
-    /// Used when a subnet is dissolved: the escrow position `(hotkey, H, netuid)` is removed,
-    /// swapped to TAO, and credited to the validator's root nominators (proportional to their
-    /// root stake) via the root share pool — so basket value reaches the actual stakers instead
-    /// of being orphaned in the escrow account by subnet teardown. Best-effort: swap failures are
-    /// logged and the slot is left for subnet teardown to handle.
+    /// Used when a subnet is dissolved: the escrow position `(hotkey, H, netuid)` is removed and
+    /// swapped to TAO once, then the proceeds are credited to each root staker **in proportion to
+    /// their owed basket entitlement** (`owed_c = rate · root_stake − claimed`, i.e. the same
+    /// `owed · E/P` a normal claim would pay), NOT their current root-stake share. Distributing by
+    /// current stake would windfall recent/large stakers and short-change stakers who actually
+    /// accrued the basket. Best-effort: swap failures are logged and the slot is left for teardown.
     pub fn liquidate_basket_to_root_stakers(
         hotkey: &T::AccountId,
         escrow: &T::AccountId,
@@ -645,7 +646,8 @@ impl<T: Config> Pallet<T> {
                 basket_alpha,
             );
 
-            // Swap the basket alpha to TAO.
+            // Swap the whole basket to TAO once (one swap => no per-staker ordering slippage; the
+            // realized TAO is then split by owed-proportion, which equals each staker's `owed·E/P`).
             let owed_tao = match Self::swap_alpha_for_tao(
                 netuid,
                 basket_alpha,
@@ -679,12 +681,9 @@ impl<T: Config> Pallet<T> {
 
             Self::record_protocol_outflow(netuid, owed_tao.amount_paid_out);
 
-            // Credit the validator's root nominators proportionally to their root stake.
-            Self::increase_stake_for_hotkey_on_subnet(
-                hotkey,
-                NetUid::ROOT,
-                owed_tao.amount_paid_out.to_u64().into(),
-            );
+            let tao_total: u64 = owed_tao.amount_paid_out.to_u64();
+
+            // Move the TAO onto root (aggregate); per-coldkey shares are credited below.
             SubnetTAO::<T>::mutate(NetUid::ROOT, |total| {
                 *total = total.saturating_add(owed_tao.amount_paid_out.into());
             });
@@ -694,6 +693,56 @@ impl<T: Config> Pallet<T> {
             TotalStake::<T>::mutate(|total| {
                 *total = total.saturating_add(owed_tao.amount_paid_out.into());
             });
+
+            // Gather this validator's root stakers and their owed basket entitlement.
+            let coldkeys: BTreeSet<T::AccountId> = Self::alpha_iter_single_prefix(hotkey)
+                .filter(|(_, n, _)| *n == NetUid::ROOT)
+                .map(|(coldkey, _, _)| coldkey)
+                .collect();
+            let mut owed_list: Vec<(T::AccountId, u128)> = Vec::new();
+            let mut total_owed: u128 = 0;
+            for coldkey in coldkeys {
+                let owed = Self::get_root_owed_for_hotkey_coldkey(hotkey, &coldkey, netuid) as u128;
+                if owed > 0 {
+                    total_owed = total_owed.saturating_add(owed);
+                    owed_list.push((coldkey, owed));
+                }
+            }
+
+            // Degenerate case (no current staker is owed, e.g. all already claimed): fall back to
+            // proportional-by-stake so the value is not orphaned in the root account.
+            if total_owed == 0 {
+                Self::increase_stake_for_hotkey_on_subnet(hotkey, NetUid::ROOT, tao_total.into());
+                return TransactionOutcome::Commit(Ok::<(), DispatchError>(()));
+            }
+
+            // Distribute the realized TAO pro-rata by owed; the last staker absorbs the remainder
+            // so the full amount is allocated.
+            let mut distributed: u64 = 0;
+            let last_idx = owed_list.len().saturating_sub(1);
+            for (i, (coldkey, owed)) in owed_list.iter().enumerate() {
+                let tao_c: u64 = if i == last_idx {
+                    tao_total.saturating_sub(distributed)
+                } else {
+                    (tao_total as u128)
+                        .saturating_mul(*owed)
+                        .checked_div(total_owed)
+                        .unwrap_or(0) as u64
+                };
+                distributed = distributed.saturating_add(tao_c);
+                if tao_c == 0 {
+                    continue;
+                }
+                Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                    hotkey,
+                    coldkey,
+                    NetUid::ROOT,
+                    tao_c.into(),
+                );
+                // Rebase this staker's claimed watermark for the new root stake so it does not
+                // inflate their claimable on other subnets' baskets (mirrors a normal claim).
+                Self::add_stake_adjust_root_claimed_for_hotkey_and_coldkey(hotkey, coldkey, tao_c);
+            }
 
             TransactionOutcome::Commit(Ok::<(), DispatchError>(()))
         });
