@@ -2489,14 +2489,16 @@ pub mod pallet {
         ValueQuery,
     >;
 
-    /// --- DMAP ( validator_hotkey, netuid ) --> outstanding basket principal (alpha).
+    /// --- DMAP ( validator_hotkey, netuid ) --> outstanding basket principal *shares*.
     ///
-    /// Total un-claimed alpha *principal* that root stakers have contributed to this
-    /// validator's beta basket on `netuid`. The actual basket alpha is staked to the
-    /// validator under the global beta escrow coldkey and grows with dividends; the
-    /// per-staker payout at claim time is `owed_principal * (escrow_value / BasketPrincipal)`,
-    /// which captures that compounding. Kept in alpha (not shares) so it survives hotkey
-    /// swaps, where positions migrate by value.
+    /// Total un-claimed principal shares root stakers hold in this validator's beta basket on
+    /// `netuid`. The actual basket alpha is staked to the validator under the global beta escrow
+    /// coldkey (value `E`) and grows with dividends; the per-staker payout at claim time is
+    /// `owed_shares * (E / BasketPrincipal)`, which captures that compounding. Deposits mint
+    /// shares at the live NAV (`E/P`), not at par, so a deposit into an already-compounded basket
+    /// leaves `E/P` unchanged — existing holders are not diluted and late stakers cannot skim
+    /// past compounding. At a flat NAV (`E == P`, e.g. right after the seed migration) one share
+    /// equals one alpha, so this also migrates cleanly by value on hotkey swap.
     #[pallet::storage]
     pub type BasketPrincipal<T: Config> = StorageDoubleMap<
         _,

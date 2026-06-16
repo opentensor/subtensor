@@ -191,21 +191,40 @@ impl<T: Config> Pallet<T> {
                     continue;
                 }
 
-                // Per-staker claimable rate increment: bought alpha per unit of root stake.
-                let increment: I96F32 = I96F32::saturating_from_num(bought)
+                // Mint basket principal at the CURRENT escrow NAV, not at par. A deposit into an
+                // already-compounded basket (E/P > 1) must mint fewer principal "shares" than the
+                // alpha bought, so E/P is left unchanged: existing holders are not diluted and a
+                // late staker cannot skim past compounding. shares = bought / (E/P) = bought*P/E.
+                let escrow_value: u64 =
+                    Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, &escrow, *dest_netuid)
+                        .to_u64();
+                let principal_total: u64 = BasketPrincipal::<T>::get(hotkey, *dest_netuid).to_u64();
+                let bought_u64: u64 = bought.to_u64();
+                let shares: u64 = if principal_total == 0 || escrow_value == 0 {
+                    // First deposit into this slot: 1 principal share per unit (E/P starts at 1).
+                    bought_u64
+                } else {
+                    U96F32::saturating_from_num(bought_u64)
+                        .saturating_mul(U96F32::saturating_from_num(principal_total))
+                        .checked_div(U96F32::saturating_from_num(escrow_value))
+                        .unwrap_or(U96F32::saturating_from_num(0))
+                        .saturating_to_num::<u64>()
+                };
+
+                // Per-staker claimable rate increment: principal shares per unit of root stake.
+                let increment: I96F32 = I96F32::saturating_from_num(shares)
                     .checked_div(total_root_float)
                     .unwrap_or(I96F32::saturating_from_num(0));
 
-                // If the increment underflows to zero (bought is tiny relative to the root pool),
-                // crediting would grow principal/escrow with no claimable rate, stranding the
-                // value. Recycle this slot's alpha instead, keeping `Σ owed == BasketPrincipal`
-                // exact. (TAO stays neutral: the buy's `tao_s` already balances the origin sell.)
-                if increment == I96F32::saturating_from_num(0) {
+                // Too small to credit (shares or rate round to zero): recycle so the escrow never
+                // grows without matching claimable principal (keeps `Σ owed == BasketPrincipal`).
+                if shares == 0 || increment == I96F32::saturating_from_num(0) {
                     Self::recycle_subnet_alpha(*dest_netuid, bought);
                     continue;
                 }
 
-                // Stake the bought alpha to the validator under the escrow coldkey.
+                // Stake the full `bought` alpha to the validator under the escrow coldkey (grows E
+                // by `bought`); P grows only by `shares`, so E/P is preserved on deposit.
                 Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                     hotkey,
                     &escrow,
@@ -213,9 +232,9 @@ impl<T: Config> Pallet<T> {
                     bought,
                 );
 
-                // Record basket principal (alpha) for the E/P compounding multiplier.
+                // Record basket principal as NAV shares (not face alpha).
                 BasketPrincipal::<T>::mutate(hotkey, *dest_netuid, |p| {
-                    *p = p.saturating_add(bought);
+                    *p = p.saturating_add(shares.into());
                 });
 
                 Self::bump_root_claimable_rate(hotkey, *dest_netuid, increment);

@@ -1130,6 +1130,299 @@ fn test_set_root_weights_stores_vector() {
     });
 }
 
+// =============================================================================
+// Claims 1-4: the staker-facing guarantees, proven directly.
+// =============================================================================
+
+/// CLAIM 1 — staking principal can never be lost: the basket only ever deploys the validator's
+/// dividends, never the staker's root principal. A distribution leaves the staker's root stake
+/// untouched, and a claim only ever *adds* to it.
+#[test]
+fn test_claim1_principal_never_lost() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let coldkey = U256::from(1003);
+        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+        remove_owner_registration_stake(netuid);
+        fund_pool(netuid);
+
+        SubtensorModule::set_tao_weight(u64::MAX);
+        RootClaimableThreshold::<Test>::insert(netuid, I96F32::from_num(0));
+
+        let principal = 2_000_000u64;
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            principal.into(),
+        );
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_coldkey,
+            netuid,
+            10_000_000u64.into(),
+        );
+        set_root_weights_direct(&hotkey, 0, &[(netuid, u16::MAX)]);
+
+        SubtensorModule::distribute_emission(
+            netuid,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
+            1_000_000u64.into(),
+            AlphaBalance::ZERO,
+        );
+
+        // Dividend distribution did not touch the staker's root principal.
+        assert_eq!(root_stake_of(&hotkey, &coldkey), principal);
+
+        // Claiming only adds TAO to the root principal (never subtracts).
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(coldkey),
+            BTreeSet::from([netuid])
+        ));
+        assert!(root_stake_of(&hotkey, &coldkey) >= principal);
+    });
+}
+
+/// CLAIM 2 — accrued beta is unaffected by *others* staking the same validator: another staker
+/// joining does not change your already-accrued basket value, and they accrue nothing of yours.
+#[test]
+fn test_claim2_accrued_basket_unchanged_when_others_stake() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let alice = U256::from(1003);
+        let bob = U256::from(1004);
+        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+        remove_owner_registration_stake(netuid);
+        fund_pool(netuid);
+
+        SubtensorModule::set_tao_weight(u64::MAX);
+        RootClaimableThreshold::<Test>::insert(netuid, I96F32::from_num(0));
+
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &alice,
+            NetUid::ROOT,
+            2_000_000u64.into(),
+        );
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_coldkey,
+            netuid,
+            10_000_000u64.into(),
+        );
+        set_root_weights_direct(&hotkey, 0, &[(netuid, u16::MAX)]);
+
+        SubtensorModule::distribute_emission(
+            netuid,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
+            1_000_000u64.into(),
+            AlphaBalance::ZERO,
+        );
+
+        let alice_before = SubtensorModule::get_basket_payout_alpha(&hotkey, &alice, netuid);
+        assert!(alice_before > 0);
+
+        // Bob stakes the same validator (no new distribution). The mock stake helper bypasses the
+        // root-claimed watermark that the real add_stake applies, so set it explicitly.
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &bob,
+            NetUid::ROOT,
+            5_000_000u64.into(),
+        );
+        SubtensorModule::add_stake_adjust_root_claimed_for_hotkey_and_coldkey(
+            &hotkey,
+            &bob,
+            5_000_000u64,
+        );
+
+        // Alice's accrued basket is unchanged; Bob has accrued nothing of it.
+        assert_eq!(
+            SubtensorModule::get_basket_payout_alpha(&hotkey, &alice, netuid),
+            alice_before
+        );
+        assert_eq!(
+            SubtensorModule::get_basket_payout_alpha(&hotkey, &bob, netuid),
+            0
+        );
+    });
+}
+
+/// CLAIM 3 — earned beta compounds: while it sits staked under the validator it earns the
+/// validator's subnet dividends, so the staker's claimable value grows beyond what they earned.
+#[test]
+fn test_claim3_basket_compounds() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let coldkey = U256::from(1003);
+        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+        remove_owner_registration_stake(netuid);
+        fund_pool(netuid);
+
+        SubtensorModule::set_tao_weight(u64::MAX);
+        RootClaimableThreshold::<Test>::insert(netuid, I96F32::from_num(0));
+
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            2_000_000u64.into(),
+        );
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_coldkey,
+            netuid,
+            10_000_000u64.into(),
+        );
+        set_root_weights_direct(&hotkey, 0, &[(netuid, u16::MAX)]);
+
+        SubtensorModule::distribute_emission(
+            netuid,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
+            1_000_000u64.into(),
+            AlphaBalance::ZERO,
+        );
+
+        let before = SubtensorModule::get_basket_payout_alpha(&hotkey, &coldkey, netuid);
+        assert!(before > 0);
+
+        // The validator earns subnet dividends on the basket position (escrow value grows).
+        let escrow = SubtensorModule::get_beta_escrow_account_id();
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &escrow,
+            netuid,
+            before.into(),
+        );
+
+        // The sole staker's claimable value compounded upward.
+        assert!(SubtensorModule::get_basket_payout_alpha(&hotkey, &coldkey, netuid) > before);
+    });
+}
+
+/// CLAIM 4 — a late staker can neither claim the existing basket nor skim its past compounding.
+/// Proven two ways: (a) a fresh staker's owed is zero, and (b) a deposit into an already
+/// compounded basket leaves the `E/P` multiplier unchanged (deposit-at-NAV), so the late
+/// staker only ever earns their fair share of *new* distributions — never the old compounding.
+#[test]
+fn test_claim4_no_dilution_or_skim_on_late_stake() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let alice = U256::from(1003);
+        let bob = U256::from(1004);
+        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+        remove_owner_registration_stake(netuid);
+        fund_pool(netuid);
+
+        SubtensorModule::set_tao_weight(u64::MAX);
+        RootClaimableThreshold::<Test>::insert(netuid, I96F32::from_num(0));
+
+        // Equal root stake for Alice and Bob.
+        let stake = 2_000_000u64;
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &alice,
+            NetUid::ROOT,
+            stake.into(),
+        );
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_coldkey,
+            netuid,
+            10_000_000u64.into(),
+        );
+        set_root_weights_direct(&hotkey, 0, &[(netuid, u16::MAX)]);
+
+        // Alice accrues a basket.
+        SubtensorModule::distribute_emission(
+            netuid,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
+            1_000_000u64.into(),
+            AlphaBalance::ZERO,
+        );
+
+        // The basket compounds heavily (escrow value grows ~4x; principal unchanged).
+        let escrow = SubtensorModule::get_beta_escrow_account_id();
+        let e0 = escrow_alpha(&hotkey, netuid);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &escrow,
+            netuid,
+            (3 * e0).into(),
+        );
+
+        let mult = |hk: &U256| -> f64 {
+            let e = escrow_alpha(hk, netuid) as f64;
+            let p = u64::from(BasketPrincipal::<Test>::get(hk, netuid)) as f64;
+            e / p
+        };
+        let mult_before = mult(&hotkey);
+        assert!(
+            mult_before > 3.0,
+            "basket should have compounded, got {mult_before}"
+        );
+        let alice_before = SubtensorModule::get_basket_payout_alpha(&hotkey, &alice, netuid);
+
+        // Bob stakes the heavily-compounded validator. The mock stake helper bypasses the
+        // root-claimed watermark that the real add_stake applies, so set it explicitly.
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &bob,
+            NetUid::ROOT,
+            stake.into(),
+        );
+        SubtensorModule::add_stake_adjust_root_claimed_for_hotkey_and_coldkey(&hotkey, &bob, stake);
+
+        // (4a) Bob cannot claim any of the existing basket; Alice's accrual is untouched.
+        assert_eq!(
+            SubtensorModule::get_basket_payout_alpha(&hotkey, &bob, netuid),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_basket_payout_alpha(&hotkey, &alice, netuid),
+            alice_before
+        );
+
+        // A new distribution deposits into the already-compounded basket.
+        SubtensorModule::distribute_emission(
+            netuid,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
+            1_000_000u64.into(),
+            AlphaBalance::ZERO,
+        );
+
+        // (4b) Deposit-at-NAV: the E/P multiplier is unchanged, so no dilution occurred.
+        let mult_after = mult(&hotkey);
+        assert_abs_diff_eq!(mult_after, mult_before, epsilon = 0.02);
+
+        let alice_after = SubtensorModule::get_basket_payout_alpha(&hotkey, &alice, netuid);
+        let bob_after = SubtensorModule::get_basket_payout_alpha(&hotkey, &bob, netuid);
+
+        // Alice was not diluted: her value only grew.
+        assert!(alice_after >= alice_before);
+
+        // The new distribution split fairly (equal root stake) — and crucially, Bob's *entire*
+        // basket equals only Alice's *increment* from the new distribution. Bob captured none of
+        // Alice's pre-existing compounding (alice_before).
+        let alice_increment = alice_after.saturating_sub(alice_before);
+        assert!(bob_after > 0);
+        assert_abs_diff_eq!(alice_increment, bob_after, epsilon = 1_000u64);
+        assert!(
+            bob_after < alice_before,
+            "late staker skimmed past compounding: bob={bob_after} alice_before={alice_before}"
+        );
+    });
+}
+
 /// The read-only views (RPC surface) report the basket correctly: a sole staker's "owed TAO"
 /// equals the validator NAV equals the network total, and the breakdown lists the slot.
 #[test]
