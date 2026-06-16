@@ -94,6 +94,14 @@ where
             return Ok((Default::default(), (), origin));
         }
 
+        if let Some(Call::submit_conditional_encrypted { ciphertext, .. }) =
+            IsSubType::<Call<T>>::is_sub_type(call)
+        {
+            if IbeEncryptedExtrinsicV1::decode_v2(ciphertext.as_slice()).is_err() {
+                return Err(CustomTransactionError::FailedShieldedTxParsing.into());
+            }
+            return Ok((Default::default(), (), origin));
+        }
         // Runtime-level no-preemption invariant. If on_initialize left a due
         // threshold-IBE queue head behind, ordinary non-operational plaintext
         // transactions are invalid for this block. The drain-in-progress guard
@@ -102,7 +110,8 @@ where
         let dispatch_class = call.get_dispatch_info().class;
         if !crate::Pallet::<T>::is_ibe_queue_drain_in_progress()
             && dispatch_class != DispatchClass::Operational
-            && crate::Pallet::<T>::has_due_ibe_queue_head()
+            && (crate::Pallet::<T>::has_due_ibe_queue_head()
+                || crate::Pallet::<T>::has_fired_conditional_ibe())
         {
             return Err(InvalidTransaction::ExhaustsResources.into());
         }

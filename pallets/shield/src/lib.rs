@@ -9,7 +9,7 @@ use chacha20poly1305::{
     KeyInit, XChaCha20Poly1305, XNonce,
     aead::{Aead, Payload},
 };
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
     dispatch::{GetDispatchInfo, PostDispatchInfo},
     pallet_prelude::*,
@@ -86,6 +86,15 @@ pub const IBE_QUEUE_PRICE_SCALE: u128 = 1_000_000;
 /// The MVP curve is convex: multiplier = 1 + (FULL - 1) * fill_ratio^2.
 /// At 50% queue fill this is about 16.75x; near the hard cap it approaches 64x.
 pub const IBE_QUEUE_PRICE_FULL_MULTIPLIER: u128 = 64;
+/// Maximum lifetime for a conditional encrypted transaction in blocks.
+///
+/// This MVP caps pre-paid condition evaluation at 5,000 blocks to match the
+/// Section 8 conditional-transaction launch profile and to bound storage plus
+/// per-block evaluation work.
+pub const MAX_CONDITIONAL_IBE_LIFETIME_BLOCKS: u32 = 5_000;
+
+/// Fixed condition-evaluation weight charged once per pre-paid lifetime block.
+pub const CONDITIONAL_IBE_EVAL_WEIGHT_REF_TIME: u64 = 1_000_000;
 
 pub trait IbeDkgAuthorityProvider {
     fn authorities_for_epoch(epoch: u64) -> Vec<DkgAuthorityInfo>;
@@ -492,6 +501,65 @@ pub mod pallet {
     /// encrypted entry remains behind it in the queue.
     #[pallet::storage]
     pub type IbeQueueDrainInProgress<T: Config> = StorageValue<_, bool, ValueQuery>;
+    /// MVP conditional encrypted transaction condition.
+    ///
+    /// Section 8 allows richer pallet-defined and read-only contract conditions.
+    /// The first production-safe variant is a deterministic block gate: the
+    /// entry fires once `current_block >= block` and is evaluated each block
+    /// until it fires or expires.
+    #[derive(
+        Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen, Eq, PartialEq, Debug,
+    )]
+    pub enum ConditionalIbeCondition {
+        AtBlock { block: u64 },
+    }
+
+    impl ConditionalIbeCondition {
+        pub fn target_block(&self) -> u64 {
+            match self {
+                Self::AtBlock { block } => *block,
+            }
+        }
+
+        pub fn is_fired(&self, current_block: u64) -> bool {
+            current_block >= self.target_block()
+        }
+    }
+
+    /// A conditional encrypted entry stored separately from the regular v2 FIFO queue.
+    #[freeze_struct("2145ee11edb219e2")]
+    #[derive(Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, PartialEq, Debug)]
+    #[scale_info(skip_type_params(T))]
+    pub struct PendingConditionalIbe<T: Config> {
+        pub who: T::AccountId,
+        pub encrypted_call: BoundedVec<u8, MaxEncryptedCallSize>,
+        pub condition: ConditionalIbeCondition,
+        pub submitted_at: BlockNumberFor<T>,
+        pub expires_at: u64,
+        pub epoch: u64,
+        pub target_block: u64,
+        pub key_id: [u8; KEY_ID_LEN],
+        pub commitment: sp_core::H256,
+    }
+
+    #[pallet::storage]
+    pub type PendingConditionalIbeQueue<T: Config> =
+        CountedStorageMap<_, Identity, u32, PendingConditionalIbe<T>, OptionQuery>;
+
+    #[pallet::storage]
+    pub type NextPendingConditionalIbeIndex<T: Config> = StorageValue<_, u32, ValueQuery>;
+
+    #[pallet::storage]
+    pub type PendingConditionalIbeCommitments<T: Config> =
+        StorageMap<_, Blake2_128Concat, sp_core::H256, u32, OptionQuery>;
+
+    #[pallet::storage]
+    pub type PendingConditionalIbeBySubmitter<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, u32, ValueQuery>;
+
+    #[pallet::storage]
+    pub type PendingConditionalIbeSubmissionDeposits<T: Config> =
+        StorageMap<_, Identity, u32, (T::AccountId, BalanceOf<T>), OptionQuery>;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -611,6 +679,28 @@ pub mod pallet {
             index: u32,
             success: bool,
         },
+
+        /// Conditional encrypted transaction accepted into the Section 8 queue.
+        ConditionalIbeEncryptedSubmitted {
+            index: u32,
+            who: T::AccountId,
+            target_block: u64,
+            expires_at: u64,
+            commitment: sp_core::H256,
+        },
+        /// Conditional encrypted transaction expired before its condition fired.
+        ConditionalIbeExpired {
+            index: u32,
+        },
+        /// Conditional encrypted transaction was invalid after its key became available.
+        ConditionalIbeInvalid {
+            index: u32,
+        },
+        /// Conditional encrypted transaction fired and consumed its queue position.
+        ConditionalIbeExecuted {
+            index: u32,
+            success: bool,
+        },
     }
 
     #[pallet::error]
@@ -645,6 +735,11 @@ pub mod pallet {
         BadIbeDkgPublication,
         InsufficientIbeDkgAttestationWeight,
         IbeDkgPublicationAlreadyKnown,
+
+        /// Invalid conditional encrypted-transaction condition or lifetime.
+        InvalidConditionalIbeCondition,
+        /// Conditional encrypted transaction was submitted after its expiry window.
+        ConditionalIbeExpired,
     }
 
     #[pallet::hooks]
@@ -654,6 +749,7 @@ pub mod pallet {
             weight = weight.saturating_add(Self::ensure_ibe_dkg_liveness());
             weight = weight.saturating_add(Self::ingest_ibe_block_key_preruntime_digests());
             weight = weight.saturating_add(Self::process_pending_extrinsics());
+            weight = weight.saturating_add(Self::process_conditional_ibe_queue());
             weight
         }
 
@@ -891,6 +987,24 @@ pub mod pallet {
             }
             Ok(())
         }
+
+        /// Submit a conditional MEV Shield v2 encrypted transaction.
+        ///
+        /// MVP condition support is `AtBlock { block }`: the submitter pays the
+        /// condition-evaluation weight up front for `lifetime_blocks`, the entry
+        /// is checked each block, and it decrypts/executes once the block gate
+        /// fires and the threshold IBE key is available.
+        #[pallet::call_index(8)]
+        #[pallet::weight(Pallet::<T>::conditional_encrypted_submission_weight(*lifetime_blocks))]
+        pub fn submit_conditional_encrypted(
+            origin: OriginFor<T>,
+            ciphertext: BoundedVec<u8, MaxEncryptedCallSize>,
+            condition: ConditionalIbeCondition,
+            lifetime_blocks: u32,
+        ) -> DispatchResult {
+            let who = ensure_signed(origin)?;
+            Self::submit_conditional_encrypted_inner(who, ciphertext, condition, lifetime_blocks)
+        }
     }
 
     #[pallet::validate_unsigned]
@@ -976,6 +1090,242 @@ impl<T: Config> Pallet<T> {
             Error::<T>::BadIbeEnvelope
         );
         Ok(())
+    }
+    pub fn conditional_encrypted_submission_weight(lifetime_blocks: u32) -> Weight {
+        let eval_ref_time = CONDITIONAL_IBE_EVAL_WEIGHT_REF_TIME
+            .checked_mul(u64::from(lifetime_blocks))
+            .unwrap_or(u64::MAX);
+        Self::current_ibe_queue_depth_priced_weight(Self::ibe_encrypted_submission_base_weight())
+            .saturating_add(Weight::from_parts(eval_ref_time, 0))
+    }
+
+    fn reserve_conditional_ibe_submission_deposit(
+        index: u32,
+        who: &T::AccountId,
+        amount: BalanceOf<T>,
+    ) -> DispatchResult {
+        if amount.is_zero() {
+            return Ok(());
+        }
+        T::Currency::reserve(who, amount)?;
+        PendingConditionalIbeSubmissionDeposits::<T>::insert(index, (who.clone(), amount));
+        Self::deposit_event(Event::IbeSubmissionDepositReserved {
+            index,
+            who: who.clone(),
+            amount,
+        });
+        Ok(())
+    }
+
+    fn refund_conditional_ibe_submission_deposit(index: u32) {
+        let Some((who, amount)) = PendingConditionalIbeSubmissionDeposits::<T>::take(index) else {
+            return;
+        };
+        if amount.is_zero() {
+            return;
+        }
+        let _ = T::Currency::unreserve(&who, amount);
+        Self::deposit_event(Event::IbeSubmissionDepositRefunded { index, who, amount });
+    }
+
+    fn forfeit_conditional_ibe_submission_deposit(index: u32) {
+        let Some((who, amount)) = PendingConditionalIbeSubmissionDeposits::<T>::take(index) else {
+            return;
+        };
+        if amount.is_zero() {
+            return;
+        }
+        let (_slashed, unslashed) = T::Currency::slash_reserved(&who, amount);
+        if !unslashed.is_zero() {
+            let _ = T::Currency::unreserve(&who, unslashed);
+        }
+        Self::deposit_event(Event::IbeSubmissionDepositForfeited { index, who, amount });
+    }
+
+    fn remove_conditional_ibe_entry(index: u32) -> Option<PendingConditionalIbe<T>> {
+        let entry = PendingConditionalIbeQueue::<T>::take(index)?;
+        PendingConditionalIbeCommitments::<T>::remove(entry.commitment);
+        PendingConditionalIbeBySubmitter::<T>::mutate(&entry.who, |n| *n = n.saturating_sub(1));
+        Some(entry)
+    }
+
+    fn validate_conditional_ibe_envelope(
+        envelope: &IbeEncryptedExtrinsicV1,
+        condition: &ConditionalIbeCondition,
+        now: u64,
+        lifetime_blocks: u32,
+    ) -> DispatchResult {
+        ensure!(
+            lifetime_blocks > 0 && lifetime_blocks <= MAX_CONDITIONAL_IBE_LIFETIME_BLOCKS,
+            Error::<T>::InvalidConditionalIbeCondition
+        );
+        ensure!(
+            envelope.version == MEV_SHIELD_IBE_VERSION,
+            Error::<T>::BadIbeEnvelope
+        );
+        let target_block = condition.target_block();
+        ensure!(
+            target_block > now,
+            Error::<T>::InvalidConditionalIbeCondition
+        );
+        let expires_at = now
+            .checked_add(u64::from(lifetime_blocks))
+            .ok_or(Error::<T>::InvalidConditionalIbeCondition)?;
+        ensure!(
+            target_block <= expires_at,
+            Error::<T>::InvalidConditionalIbeCondition
+        );
+        ensure!(
+            envelope.target_block == target_block,
+            Error::<T>::InvalidIbeTargetWindow
+        );
+        ensure!(
+            !PendingIbeCommitments::<T>::contains_key(envelope.commitment)
+                && !PendingConditionalIbeCommitments::<T>::contains_key(envelope.commitment),
+            Error::<T>::DuplicateIbeCommitment
+        );
+        let epoch_key = Self::active_ibe_key_for_target_block(target_block)
+            .ok_or(Error::<T>::UnknownIbeEpoch)?;
+        ensure!(
+            envelope.epoch == epoch_key.epoch,
+            Error::<T>::UnknownIbeEpoch
+        );
+        ensure!(
+            epoch_key.key_id == envelope.key_id,
+            Error::<T>::WrongIbeEpochKey
+        );
+        ensure!(
+            target_block >= epoch_key.first_block && target_block <= epoch_key.last_block,
+            Error::<T>::IbeEpochKeyInactive
+        );
+        ensure!(
+            IbeBlockDecryptionKeys::<T>::get(block_key_storage_key(
+                envelope.epoch,
+                envelope.target_block,
+                envelope.key_id,
+            ))
+            .is_none(),
+            Error::<T>::IbeKeyAlreadyPublished
+        );
+        Ok(())
+    }
+
+    fn submit_conditional_encrypted_inner(
+        who: T::AccountId,
+        encrypted_call: BoundedVec<u8, MaxEncryptedCallSize>,
+        condition: ConditionalIbeCondition,
+        lifetime_blocks: u32,
+    ) -> DispatchResult {
+        ensure!(
+            PendingConditionalIbeQueue::<T>::count() < MaxPendingExtrinsicsLimit::<T>::get(),
+            Error::<T>::TooManyPendingExtrinsics
+        );
+        ensure!(
+            PendingConditionalIbeBySubmitter::<T>::get(&who) < T::MaxPendingIbePerSender::get(),
+            Error::<T>::TooManyPendingIbeForSender
+        );
+        let envelope = IbeEncryptedExtrinsicV1::decode_v2(encrypted_call.as_slice())
+            .map_err(|_| Error::<T>::BadIbeEnvelope)?;
+        let now_block: u64 = frame_system::Pallet::<T>::block_number().saturated_into::<u64>();
+        Self::validate_conditional_ibe_envelope(&envelope, &condition, now_block, lifetime_blocks)?;
+        let expires_at = now_block
+            .checked_add(u64::from(lifetime_blocks))
+            .ok_or(Error::<T>::InvalidConditionalIbeCondition)?;
+        let index = NextPendingConditionalIbeIndex::<T>::get();
+        let next_index = index
+            .checked_add(1)
+            .ok_or(Error::<T>::TooManyPendingExtrinsics)?;
+        let deposit = Self::ibe_submission_deposit();
+        Self::reserve_conditional_ibe_submission_deposit(index, &who, deposit)?;
+        PendingConditionalIbeQueue::<T>::insert(
+            index,
+            PendingConditionalIbe::<T> {
+                who: who.clone(),
+                encrypted_call,
+                condition,
+                submitted_at: frame_system::Pallet::<T>::block_number(),
+                expires_at,
+                epoch: envelope.epoch,
+                target_block: envelope.target_block,
+                key_id: envelope.key_id,
+                commitment: envelope.commitment,
+            },
+        );
+        NextPendingConditionalIbeIndex::<T>::put(next_index);
+        PendingConditionalIbeCommitments::<T>::insert(envelope.commitment, index);
+        PendingConditionalIbeBySubmitter::<T>::mutate(&who, |n| *n = n.saturating_add(1));
+        Self::deposit_event(Event::ConditionalIbeEncryptedSubmitted {
+            index,
+            who,
+            target_block: envelope.target_block,
+            expires_at,
+            commitment: envelope.commitment,
+        });
+        Ok(())
+    }
+
+    pub fn has_fired_conditional_ibe() -> bool {
+        let now: u64 = frame_system::Pallet::<T>::block_number().saturated_into::<u64>();
+        PendingConditionalIbeQueue::<T>::iter()
+            .any(|(_, entry)| now <= entry.expires_at && entry.condition.is_fired(now))
+    }
+
+    pub fn process_conditional_ibe_queue() -> Weight {
+        let mut consumed = Weight::zero();
+        let now: u64 = frame_system::Pallet::<T>::block_number().saturated_into::<u64>();
+        let indices: Vec<u32> = PendingConditionalIbeQueue::<T>::iter_keys().collect();
+        for index in indices {
+            consumed = consumed
+                .saturating_add(Weight::from_parts(CONDITIONAL_IBE_EVAL_WEIGHT_REF_TIME, 0));
+            let Some(entry) = PendingConditionalIbeQueue::<T>::get(index) else {
+                continue;
+            };
+            if now > entry.expires_at {
+                let _ = Self::remove_conditional_ibe_entry(index);
+                Self::refund_conditional_ibe_submission_deposit(index);
+                Self::deposit_event(Event::ConditionalIbeExpired { index });
+                continue;
+            }
+            if !entry.condition.is_fired(now) {
+                continue;
+            }
+            match T::IbeEncryptedTxDecryptor::decrypt(entry.encrypted_call.as_slice()) {
+                IbeDecryptOutcome::NotReady => {
+                    Self::deposit_event(Event::ExtrinsicPostponed { index });
+                    continue;
+                }
+                IbeDecryptOutcome::InvalidAfterKeyAvailable => {
+                    let _ = Self::remove_conditional_ibe_entry(index);
+                    Self::forfeit_conditional_ibe_submission_deposit(index);
+                    Self::deposit_event(Event::ConditionalIbeInvalid { index });
+                }
+                IbeDecryptOutcome::Ready(inner) => {
+                    if let Some(info) = T::DecryptedExtrinsicExecutor::dispatch_info(&inner) {
+                        if info.call_weight.ref_time() > MaxExtrinsicWeight::<T>::get() {
+                            let _ = Self::remove_conditional_ibe_entry(index);
+                            Self::forfeit_conditional_ibe_submission_deposit(index);
+                            Self::deposit_event(Event::ExtrinsicWeightExceeded { index });
+                            continue;
+                        }
+                    }
+                    IbeQueueDrainInProgress::<T>::put(true);
+                    let applied = T::DecryptedExtrinsicExecutor::apply(inner);
+                    IbeQueueDrainInProgress::<T>::put(false);
+                    consumed = consumed.saturating_add(applied.consumed_weight);
+                    let _ = Self::remove_conditional_ibe_entry(index);
+                    if applied.success {
+                        Self::refund_conditional_ibe_submission_deposit(index);
+                    } else {
+                        Self::forfeit_conditional_ibe_submission_deposit(index);
+                    }
+                    Self::deposit_event(Event::ConditionalIbeExecuted {
+                        index,
+                        success: applied.success,
+                    });
+                }
+            }
+        }
+        consumed
     }
     pub fn current_ibe_epoch() -> u64 {
         let n: u64 = frame_system::Pallet::<T>::block_number().saturated_into::<u64>();
