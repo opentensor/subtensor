@@ -470,6 +470,15 @@ pub mod pallet {
     #[pallet::storage]
     pub type PublishedDkgOutputHashes<T: Config> =
         StorageMap<_, Twox64Concat, u64, sp_core::H256, OptionQuery>;
+
+    /// Finalized NPoS/BABE validator authority snapshots for MEV Shield DKG.
+    ///
+    /// This storage is intentionally populated by the PoA->NPoS runtime transition
+    /// migration once real session/BABE state exists. It is not a public user
+    /// extrinsic and it is not derived from the PoA fallback path.
+    #[pallet::storage]
+    pub type IbeNposDkgAuthoritySnapshots<T: Config> =
+        StorageMap<_, Blake2_128Concat, u64, Vec<DkgAuthorityInfo>, ValueQuery>;
     #[pallet::storage]
     pub type IbeDkgAuthoritySnapshots<T: Config> =
         StorageMap<_, Twox64Concat, u64, Vec<DkgAuthorityInfo>, ValueQuery>;
@@ -733,6 +742,7 @@ pub mod pallet {
         TooManyPendingIbeForSender,
         InvalidIbeFinalityPoint,
         BadIbeDkgPublication,
+        BadIbeDkgAuthoritySnapshot,
         InsufficientIbeDkgAttestationWeight,
         IbeDkgPublicationAlreadyKnown,
 
@@ -1076,6 +1086,49 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+    /// Install the finalized NPoS/BABE DKG authority snapshot for an epoch.
+    ///
+    /// This is a runtime-internal hook for the PoA->NPoS transition migration.
+    /// It deliberately has no dispatchable call: before the transition there is
+    /// no session/BABE pallet state to query, and after the transition this must
+    /// be sourced from the finalized NPoS/session authority set, not from a user
+    /// transaction or a PoA ordinal fallback.
+    pub fn install_npos_dkg_authority_snapshot_from_transition(
+        epoch: u64,
+        authorities: Vec<DkgAuthorityInfo>,
+    ) -> DispatchResult {
+        ensure!(
+            !authorities.is_empty(),
+            Error::<T>::BadIbeDkgAuthoritySnapshot
+        );
+
+        let mut seen_authorities = sp_std::collections::btree_set::BTreeSet::new();
+        let mut total_stake = 0u128;
+        for authority in &authorities {
+            ensure!(
+                authority.consensus_key_kind == DkgConsensusKeyKind::BabeSr25519,
+                Error::<T>::BadIbeDkgAuthoritySnapshot
+            );
+            ensure!(
+                !authority.authority_id.is_empty(),
+                Error::<T>::BadIbeDkgAuthoritySnapshot
+            );
+            ensure!(authority.stake > 0, Error::<T>::BadIbeDkgAuthoritySnapshot);
+            ensure!(
+                seen_authorities.insert(authority.authority_id.clone()),
+                Error::<T>::BadIbeDkgAuthoritySnapshot
+            );
+            total_stake = total_stake
+                .checked_add(authority.stake)
+                .ok_or(Error::<T>::BadIbeDkgAuthoritySnapshot)?;
+        }
+        ensure!(total_stake > 0, Error::<T>::BadIbeDkgAuthoritySnapshot);
+
+        IbeNposDkgAuthoritySnapshots::<T>::insert(epoch, authorities);
+        IbeDkgConsensusSources::<T>::insert(epoch, DkgConsensusSource::PosBabeRootValidators);
+        Ok(())
+    }
+
     pub fn ensure_legacy_queue_disabled_after_v2_activation(
         encrypted_call: &[u8],
     ) -> DispatchResult {
