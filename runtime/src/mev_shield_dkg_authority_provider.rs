@@ -1,4 +1,3 @@
-use frame_support::storage::IterableStorageDoubleMap;
 use mev_shield_ibe_runtime_api::{DkgAuthorityInfo, DkgConsensusKeyKind, DkgConsensusSource};
 use sp_core::{H256, sr25519};
 use sp_runtime::{
@@ -18,19 +17,16 @@ struct RootValidatorEntry {
 }
 
 impl RuntimeIbeDkgAuthorityProvider {
-    fn current_ibe_epoch() -> u64 {
-        pallet_shield::Pallet::<Runtime>::current_ibe_epoch()
-    }
-
     fn future_dkg_epoch() -> Option<u64> {
-        Self::current_ibe_epoch().checked_add(pallet_shield::IBE_DKG_EPOCHS_AHEAD)
+        pallet_shield::Pallet::<Runtime>::current_ibe_epoch()
+            .checked_add(pallet_shield::IBE_DKG_EPOCHS_AHEAD)
     }
 
     fn root_validator_entries() -> Vec<RootValidatorEntry> {
         let root = NetUid::ROOT;
         let permits = pallet_subtensor::Pallet::<Runtime>::get_validator_permit(root);
         let mut keys: Vec<(u16, AccountId32)> =
-            <pallet_subtensor::Keys<Runtime> as IterableStorageDoubleMap<
+            <pallet_subtensor::Keys<Runtime> as frame_support::storage::IterableStorageDoubleMap<
                 NetUid,
                 u16,
                 AccountId32,
@@ -43,15 +39,18 @@ impl RuntimeIbeDkgAuthorityProvider {
             if !permits.get(usize::from(uid)).copied().unwrap_or(false) {
                 continue;
             }
+
             let stake: u128 =
                 pallet_subtensor::Pallet::<Runtime>::get_total_stake_for_hotkey(&hotkey)
                     .unique_saturated_into();
             if stake == 0 {
                 continue;
             }
+
             let hotkey_id = <AccountId32 as core::convert::AsRef<[u8]>>::as_ref(&hotkey).to_vec();
             out.push(RootValidatorEntry { hotkey_id, stake });
         }
+
         out
     }
 
@@ -62,17 +61,35 @@ impl RuntimeIbeDkgAuthorityProvider {
             .map(|authority| authority.to_raw_vec())
             .collect::<Vec<_>>();
         ids.sort();
+        ids.dedup();
         ids
     }
 
     fn babe_authority_ids() -> Vec<Vec<u8>> {
-        // Runtime-local BABE/session authority storage is not part of this runtime
-        // yet. Do not use the node-facing BabeApi here and do not relabel Aura
-        // authorities as BABE: that would make DKG publications verify against
-        // the wrong production authority source. Once pallet-session/pallet-babe
-        // authority storage is wired into the runtime, this function is the only
-        // place that needs to return the finalized N+2 BABE authority IDs.
+        // This runtime does not yet include pallet-session/pallet-babe authority
+        // storage in construct_runtime!, and the generated node-facing BabeApi
+        // currently exposes empty epoch authority vectors. Do not relabel Aura
+        // authorities as BABE here: DKG output signatures would then be checked
+        // against the wrong production authority source. Once runtime-local
+        // session/BABE storage is wired in, this function is the single source
+        // for the finalized N+2 BABE authority ids.
         Vec::new()
+    }
+
+    fn source_for_epoch(epoch: u64) -> DkgConsensusSource {
+        if let Some(stored) = pallet_shield::IbeDkgConsensusSources::<Runtime>::get(epoch) {
+            return stored;
+        }
+
+        let Some(future_epoch) = Self::future_dkg_epoch() else {
+            return DkgConsensusSource::PoaAuraRootValidators;
+        };
+
+        if epoch >= future_epoch && !Self::babe_authority_ids().is_empty() {
+            DkgConsensusSource::PosBabeRootValidators
+        } else {
+            DkgConsensusSource::PoaAuraRootValidators
+        }
     }
 
     fn stake_for_authority(
@@ -80,6 +97,7 @@ impl RuntimeIbeDkgAuthorityProvider {
         ordinal: usize,
         root_entries: &[RootValidatorEntry],
         allow_ordinal_fallback: bool,
+        allow_equal_stake_fallback: bool,
     ) -> Option<(Vec<u8>, u128)> {
         if let Some(root) = root_entries
             .iter()
@@ -87,11 +105,17 @@ impl RuntimeIbeDkgAuthorityProvider {
         {
             return Some((root.hotkey_id.clone(), root.stake));
         }
+
         if allow_ordinal_fallback {
-            return root_entries
-                .get(ordinal)
-                .map(|root| (root.hotkey_id.clone(), root.stake));
+            if let Some(root) = root_entries.get(ordinal) {
+                return Some((root.hotkey_id.clone(), root.stake));
+            }
         }
+
+        if allow_equal_stake_fallback {
+            return Some((authority_id.to_vec(), 1));
+        }
+
         None
     }
 
@@ -99,53 +123,53 @@ impl RuntimeIbeDkgAuthorityProvider {
         consensus_key_kind: DkgConsensusKeyKind,
         authority_ids: Vec<Vec<u8>>,
         root_entries: &[RootValidatorEntry],
-        allow_equal_stake_fallback: bool,
         allow_ordinal_fallback: bool,
+        allow_equal_stake_fallback: bool,
     ) -> Vec<DkgAuthorityInfo> {
-        if authority_ids.is_empty() {
-            return Vec::new();
-        }
-        if root_entries.is_empty() && !allow_equal_stake_fallback {
-            return Vec::new();
-        }
-
         let mut out = Vec::new();
         for (ordinal, authority_id) in authority_ids.into_iter().enumerate() {
-            let (hotkey_account_id, stake) = if root_entries.is_empty() {
-                (authority_id.clone(), 1)
-            } else {
-                let Some(mapped) = Self::stake_for_authority(
-                    authority_id.as_slice(),
-                    ordinal,
-                    root_entries,
-                    allow_ordinal_fallback,
-                ) else {
-                    return Vec::new();
-                };
-                mapped
+            let Some((hotkey_account_id, stake)) = Self::stake_for_authority(
+                authority_id.as_slice(),
+                ordinal,
+                root_entries,
+                allow_ordinal_fallback,
+                allow_equal_stake_fallback,
+            ) else {
+                return Vec::new();
             };
+
             if stake == 0 {
                 continue;
             }
+
             out.push(DkgAuthorityInfo {
                 hotkey_account_id,
                 consensus_key_kind,
                 authority_id,
                 stake,
+                // DKG transport keys are node-local/P2P state, not runtime
+                // authority-set state. The worker overlays signed transport-key
+                // gossip after the runtime has chosen the stake-weighted cohort.
                 dkg_x25519_public_key: [0u8; 32],
             });
         }
-        out.sort_by(|a, b| a.authority_id.cmp(&b.authority_id));
+
+        out.sort_by(|a, b| {
+            (a.consensus_key_kind, &a.authority_id).cmp(&(b.consensus_key_kind, &b.authority_id))
+        });
+        out.dedup_by(|a, b| {
+            a.consensus_key_kind == b.consensus_key_kind && a.authority_id == b.authority_id
+        });
         out
     }
 
-    fn poa_aura_authorities(root_entries: &[RootValidatorEntry]) -> Vec<DkgAuthorityInfo> {
+    fn poa_authorities(root_entries: &[RootValidatorEntry]) -> Vec<DkgAuthorityInfo> {
         Self::build_authorities(
             DkgConsensusKeyKind::AuraSr25519,
             Self::aura_authority_ids(),
             root_entries,
             true,
-            true,
+            root_entries.is_empty(),
         )
     }
 
@@ -159,33 +183,16 @@ impl RuntimeIbeDkgAuthorityProvider {
         )
     }
 
-    fn planned_source_for_epoch(epoch: u64) -> DkgConsensusSource {
-        if let Some(stored) = pallet_shield::IbeDkgConsensusSources::<Runtime>::get(epoch) {
-            return stored;
-        }
-        let Some(future_epoch) = Self::future_dkg_epoch() else {
-            return DkgConsensusSource::PoaAuraRootValidators;
-        };
-        if epoch >= future_epoch && !Self::babe_authority_ids().is_empty() {
-            DkgConsensusSource::PosBabeRootValidators
-        } else {
-            DkgConsensusSource::PoaAuraRootValidators
-        }
-    }
-
     fn selected_authorities_for_epoch(epoch: u64) -> (DkgConsensusSource, Vec<DkgAuthorityInfo>) {
         let root_entries = Self::root_validator_entries();
-        match Self::planned_source_for_epoch(epoch) {
-            DkgConsensusSource::PosBabeRootValidators => {
-                let authorities = Self::pos_babe_authorities(&root_entries);
-                // A stored/future PoS marker with no BABE authority source must
-                // fail closed. Falling back to Aura here would silently produce a
-                // DKG key for the wrong validator set.
-                (DkgConsensusSource::PosBabeRootValidators, authorities)
-            }
+        match Self::source_for_epoch(epoch) {
             DkgConsensusSource::PoaAuraRootValidators => (
                 DkgConsensusSource::PoaAuraRootValidators,
-                Self::poa_aura_authorities(&root_entries),
+                Self::poa_authorities(&root_entries),
+            ),
+            DkgConsensusSource::PosBabeRootValidators => (
+                DkgConsensusSource::PosBabeRootValidators,
+                Self::pos_babe_authorities(&root_entries),
             ),
         }
     }
@@ -197,6 +204,7 @@ impl RuntimeIbeDkgAuthorityProvider {
         let Ok(signature_bytes) = <[u8; 64]>::try_from(signature) else {
             return false;
         };
+
         let signature = sr25519::Signature::from_raw(signature_bytes);
         let public = sr25519::Public::from_raw(public_bytes);
         signature.verify(&payload_hash.as_fixed_bytes()[..], &public)

@@ -350,18 +350,24 @@ where
         }
     }
 
-    if effective_authorities
-        .iter()
-        .any(|authority| authority.dkg_x25519_public_key == [0u8; 32])
-    {
-        return Ok(());
-    }
-
     let authorities = effective_authorities
         .iter()
         .map(|a| (a.authority_id.clone(), a.stake, a.dkg_x25519_public_key))
         .collect::<Vec<_>>();
     let atom_plan = plan_from_runtime_authorities(authorities, plan.max_atoms)?;
+
+    let missing_transport_for_required_atom = atom_plan
+        .atoms
+        .iter()
+        .any(|atom| atom.dkg_x25519_public_key == [0u8; 32]);
+    if missing_transport_for_required_atom {
+        log::debug!(
+            target: "mev-shield-ibe",
+            "postponing DKG round until transport keys are available for stake-eligible share atoms"
+        );
+        return Ok(());
+    }
+
     let local_share_ids = local_share_ids_for_authority(&atom_plan, &local_authority.authority_id);
     if local_share_ids.is_empty() {
         log::debug!(
