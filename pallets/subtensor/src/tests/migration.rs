@@ -4818,3 +4818,64 @@ fn test_migrate_reset_tnet_conviction_locks() {
         );
     });
 }
+
+// SKIP_WASM_BUILD=1 cargo test --package pallet-subtensor --lib -- tests::migration::test_migrate_seed_beta_basket --exact --nocapture
+#[test]
+fn test_migrate_seed_beta_basket() {
+    use crate::migrations::migrate_seed_beta_basket::migrate_seed_beta_basket;
+
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &[u8] = b"migrate_seed_beta_basket";
+
+        let owner_coldkey = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let coldkey = U256::from(1003);
+        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+
+        // Validator has root stake; a legacy claimable rate exists on `netuid` with no claims yet.
+        let root_stake = 2_000_000u64;
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            root_stake.into(),
+        );
+
+        // rate = 0.5 alpha-principal per unit root stake => gross = 1_000_000 alpha.
+        let rate = I96F32::from_num(0.5);
+        RootClaimable::<Test>::mutate(hotkey, |m| {
+            m.insert(netuid, rate);
+        });
+
+        assert_eq!(u64::from(BasketPrincipal::<Test>::get(&hotkey, netuid)), 0);
+        let escrow = SubtensorModule::get_beta_escrow_account_id();
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &escrow, netuid)
+                .to_u64(),
+            0
+        );
+
+        let w = migrate_seed_beta_basket::<Test>();
+        assert!(!w.is_zero());
+        assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
+
+        // remaining = rate * total_root - claimed = 0.5 * 2_000_000 - 0 = 1_000_000.
+        let expected = 1_000_000u64;
+        assert_abs_diff_eq!(
+            u64::from(BasketPrincipal::<Test>::get(&hotkey, netuid)),
+            expected,
+            epsilon = 10u64,
+        );
+        // Escrow now holds the basket alpha (E == P, so E/P = 1).
+        assert_abs_diff_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &escrow, netuid)
+                .to_u64(),
+            expected,
+            epsilon = 10u64,
+        );
+
+        // Idempotent: a second run is a no-op (only reads the flag).
+        let w2 = migrate_seed_beta_basket::<Test>();
+        assert_eq!(w2, <Test as frame_system::Config>::DbWeight::get().reads(1));
+    });
+}

@@ -2467,6 +2467,16 @@ fn test_revert_claim_root_with_swap_hotkey() {
             initial_total_hotkey_alpha.into(),
         );
 
+        // Route the validator's beta basket back into this subnet so dividends accrue.
+        SubnetTAO::<Test>::insert(netuid, TaoBalance::from(1_000_000_000_000u64));
+        SubnetAlphaIn::<Test>::insert(netuid, AlphaBalance::from(1_000_000_000_000u64));
+        Uids::<Test>::insert(NetUid::ROOT, hk1, 0u16);
+        Weights::<Test>::insert(
+            NetUidStorageIndex::ROOT,
+            0u16,
+            vec![(u16::from(netuid), u16::MAX)],
+        );
+
         let pending_root_alpha = 1_000_000u64;
         SubtensorModule::distribute_emission(
             netuid,
@@ -2476,23 +2486,17 @@ fn test_revert_claim_root_with_swap_hotkey() {
             AlphaBalance::ZERO,
         );
 
-        assert_ok!(SubtensorModule::set_root_claim_type(
-            RuntimeOrigin::signed(coldkey),
-            RootClaimTypeEnum::Keep
-        ));
         assert_ok!(SubtensorModule::claim_root(
             RuntimeOrigin::signed(coldkey),
             BTreeSet::from([netuid])
         ));
 
-        let stake_after_claim: u64 =
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hk1, &coldkey, netuid)
-                .into();
-
         let hk1_root_claimed = RootClaimed::<Test>::get((netuid, &hk1, &coldkey));
         let hk1_claimable = *RootClaimable::<Test>::get(hk1).get(&netuid).unwrap();
 
-        assert_eq!(u128::from(stake_after_claim), hk1_root_claimed);
+        // Claiming now swaps the basket to TAO on root (not subnet alpha), so we only assert the
+        // watermark advanced; the rest of the test verifies claim state transfer/revert on swap.
+        assert!(hk1_root_claimed > 0);
         assert!(!RootClaimable::<Test>::get(hk2).contains_key(&netuid));
 
         System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
@@ -2953,6 +2957,16 @@ fn test_swap_hotkey_root_claims_unchanged_if_not_root() {
         );
         assert_eq!(validator_stake, initial_total_hotkey_alpha.into());
 
+        // Route the validator's beta basket back into this subnet so dividends accrue.
+        SubnetTAO::<Test>::insert(netuid, TaoBalance::from(1_000_000_000_000u64));
+        SubnetAlphaIn::<Test>::insert(netuid, AlphaBalance::from(1_000_000_000_000u64));
+        Uids::<Test>::insert(NetUid::ROOT, neuron_hotkey, 0u16);
+        Weights::<Test>::insert(
+            NetUidStorageIndex::ROOT,
+            0u16,
+            vec![(u16::from(netuid), u16::MAX)],
+        );
+
         // Distribute pending root alpha
         let pending_root_alpha = 1_000_000_000u64;
         SubtensorModule::distribute_emission(
@@ -3032,6 +3046,16 @@ fn test_swap_hotkey_root_claims_changed_if_root() {
             initial_total_hotkey_alpha.into(),
         );
 
+        // Route the validator's beta basket back into this subnet so dividends accrue.
+        SubnetTAO::<Test>::insert(netuid_1, TaoBalance::from(1_000_000_000_000u64));
+        SubnetAlphaIn::<Test>::insert(netuid_1, AlphaBalance::from(1_000_000_000_000u64));
+        Uids::<Test>::insert(NetUid::ROOT, neuron_hotkey, 0u16);
+        Weights::<Test>::insert(
+            NetUidStorageIndex::ROOT,
+            0u16,
+            vec![(u16::from(netuid_1), u16::MAX)],
+        );
+
         // Distribute pending root alpha
         let pending_root_alpha = 1_000_000_000u64;
         SubtensorModule::distribute_emission(
@@ -3042,10 +3066,6 @@ fn test_swap_hotkey_root_claims_changed_if_root() {
             AlphaBalance::ZERO,
         );
 
-        assert_ok!(SubtensorModule::set_root_claim_type(
-            RuntimeOrigin::signed(staker_coldkey),
-            RootClaimTypeEnum::Keep
-        ));
         assert_ok!(SubtensorModule::claim_root(
             RuntimeOrigin::signed(staker_coldkey),
             BTreeSet::from([netuid_1])
@@ -3121,6 +3141,16 @@ fn test_swap_hotkey_root_claims_changed_if_all_subnets() {
             initial_total_hotkey_alpha.into(),
         );
 
+        // Route the validator's beta basket back into this subnet so dividends accrue.
+        SubnetTAO::<Test>::insert(netuid_1, TaoBalance::from(1_000_000_000_000u64));
+        SubnetAlphaIn::<Test>::insert(netuid_1, AlphaBalance::from(1_000_000_000_000u64));
+        Uids::<Test>::insert(NetUid::ROOT, neuron_hotkey, 0u16);
+        Weights::<Test>::insert(
+            NetUidStorageIndex::ROOT,
+            0u16,
+            vec![(u16::from(netuid_1), u16::MAX)],
+        );
+
         // Distribute pending root alpha
         let pending_root_alpha = 1_000_000_000u64;
         SubtensorModule::distribute_emission(
@@ -3131,10 +3161,6 @@ fn test_swap_hotkey_root_claims_changed_if_all_subnets() {
             AlphaBalance::ZERO,
         );
 
-        assert_ok!(SubtensorModule::set_root_claim_type(
-            RuntimeOrigin::signed(staker_coldkey),
-            RootClaimTypeEnum::Keep
-        ));
         assert_ok!(SubtensorModule::claim_root(
             RuntimeOrigin::signed(staker_coldkey),
             BTreeSet::from([netuid_1])

@@ -2541,6 +2541,24 @@ impl_runtime_apis! {
         }
     }
 
+    impl subtensor_custom_rpc_runtime_api::BetaBasketRuntimeApi<Block> for Runtime {
+        fn get_root_basket_owed(coldkey: AccountId32) -> TaoBalance {
+            SubtensorModule::get_root_basket_owed_tao(&coldkey)
+        }
+        fn get_validator_basket_nav(hotkey: AccountId32) -> TaoBalance {
+            SubtensorModule::get_validator_basket_nav_tao(&hotkey)
+        }
+        fn get_validator_basket(hotkey: AccountId32) -> Vec<(NetUid, AlphaBalance, TaoBalance)> {
+            SubtensorModule::get_validator_basket(&hotkey)
+        }
+        fn get_root_basket_total_nav() -> TaoBalance {
+            SubtensorModule::get_root_basket_total_nav_tao()
+        }
+        fn get_validator_weights(hotkey: AccountId32) -> Vec<(NetUid, u16)> {
+            SubtensorModule::get_validator_root_weights(&hotkey)
+        }
+    }
+
     impl subtensor_custom_rpc_runtime_api::ProxyFilterRuntimeApi<Block> for Runtime {
         fn get_proxy_types() -> Vec<ProxyTypeInfo> {
             get_all_proxy_type_infos()
