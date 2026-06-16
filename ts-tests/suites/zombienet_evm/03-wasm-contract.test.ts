@@ -60,14 +60,14 @@ describeSuite({
                 return;
             }
 
-            const amount = tao(100)
-            let message
-            let dest
+            const amount = tao(100);
+            let message;
+            let dest;
             if (addStakeToContract) {
-                message = inkClient.message("add_stake")
+                message = inkClient.message("add_stake");
                 dest = contractAddress;
             } else {
-                message = inkClient.message("caller_add_stake")
+                message = inkClient.message("caller_add_stake");
                 dest = convertPublicKeyToSs58(coldkey.publicKey);
             }
 
@@ -75,49 +75,54 @@ describeSuite({
                 hotkey: Binary.fromBytes(hotkey.publicKey),
                 netuid: netuid,
                 amount: amount,
-            })
-            await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
+            });
+            await sendWasmContractExtrinsic(api, coldkey, contractAddress, data);
 
-            const stake = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                convertPublicKeyToSs58(hotkey.publicKey),
-                dest,
-                netuid,
-            ))?.stake
+            const stake = (
+                await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                    convertPublicKeyToSs58(hotkey.publicKey),
+                    dest,
+                    netuid
+                )
+            )?.stake;
 
-            expect(stake).toBeDefined()
-            expect(stake > BigInt(0)).toBeTruthy()
+            expect(stake).toBeDefined();
+            expect(stake > BigInt(0)).toBeTruthy();
         }
 
         async function getContractStake(): Promise<bigint> {
-            const stake = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                convertPublicKeyToSs58(hotkey.publicKey),
-                contractAddress,
-                netuid,
-            ))?.stake
+            const stake = (
+                await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                    convertPublicKeyToSs58(hotkey.publicKey),
+                    contractAddress,
+                    netuid
+                )
+            )?.stake;
 
-            expect(stake).toBeDefined()
-            return stake as bigint
+            expect(stake).toBeDefined();
+            return stake as bigint;
         }
 
         async function getContractStakeOnRoot(): Promise<bigint> {
-            const stake = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                convertPublicKeyToSs58(hotkey.publicKey),
-                contractAddress,
-                0,
-            ))?.stake
+            const stake = (
+                await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                    convertPublicKeyToSs58(hotkey.publicKey),
+                    contractAddress,
+                    0
+                )
+            )?.stake;
 
-            expect(stake).toBeDefined()
-            return stake as bigint
+            expect(stake).toBeDefined();
+            return stake as bigint;
         }
 
         async function initSecondColdAndHotkey() {
             hotkey2 = generateKeyringPair("sr25519");
             coldkey2 = generateKeyringPair("sr25519");
-            await fundAccount(api, faucet, convertPublicKeyToSs58(coldkey2.publicKey))
-            await fundAccount(api, faucet, convertPublicKeyToSs58(hotkey2.publicKey))
-            await burnedRegister(api, netuid, convertPublicKeyToSs58(hotkey2.publicKey), coldkey2)
+            await fundAccount(api, faucet, convertPublicKeyToSs58(coldkey2.publicKey));
+            await fundAccount(api, faucet, convertPublicKeyToSs58(hotkey2.publicKey));
+            await burnedRegister(api, netuid, convertPublicKeyToSs58(hotkey2.publicKey), coldkey2);
         }
-
 
         beforeAll(async () => {
             api = context.papi("Node").getTypedApi(subtensor);
@@ -151,7 +156,9 @@ describeSuite({
         }, 300000);
 
         it({
-            id: "T01", title: "Can instantiate contract", test: async () => {
+            id: "T01",
+            title: "Can instantiate contract",
+            test: async () => {
                 const constructor = inkClient.constructor("new");
                 const data = constructor.encode();
                 contractAddress = await instantiateWasmContract(api, coldkey, bittensorBytecode, data);
@@ -162,19 +169,20 @@ describeSuite({
                 });
                 await waitForTransactionWithRetry(api, transfer, coldkey, "transfer_to_contract", 5);
                 await waitForFinalizedBlocks(api, 1);
-            }
+            },
         });
 
         it({
-            id: "T02", title: "Can query stake info from contract", test: async () => {
-
-                const queryMessage = inkClient.message("get_stake_info_for_hotkey_coldkey_netuid")
+            id: "T02",
+            title: "Can query stake info from contract",
+            test: async () => {
+                const queryMessage = inkClient.message("get_stake_info_for_hotkey_coldkey_netuid");
 
                 const data = queryMessage.encode({
                     hotkey: Binary.fromBytes(hotkey.publicKey),
                     coldkey: Binary.fromBytes(coldkey.publicKey),
                     netuid: netuid,
-                })
+                });
 
                 const response = await api.apis.ContractsApi.call(
                     convertPublicKeyToSs58(hotkey.publicKey),
@@ -182,280 +190,326 @@ describeSuite({
                     BigInt(0),
                     undefined,
                     undefined,
-                    Binary.fromBytes(data.asBytes()),
-                )
+                    Binary.fromBytes(data.asBytes())
+                );
 
-                expect(response.result.success).toBeTruthy()
-                const result = queryMessage.decode(response.result.value).value.value
+                expect(response.result.success).toBeTruthy();
+                const result = queryMessage.decode(response.result.value).value.value;
 
-                if (typeof result === "object" && "hotkey" in result && "coldkey" in result && "netuid" in result && "stake" in result && "locked" in result && "emission" in result && "tao_emission" in result && "drain" in result && "is_registered" in result) {
-                    expect(result.hotkey).toEqual(convertPublicKeyToSs58(hotkey.publicKey))
-                    expect(result.coldkey).toEqual(convertPublicKeyToSs58(coldkey.publicKey))
-                    expect(result.netuid).toEqual(netuid)
-                    expect(result.is_registered).toEqual(true)
+                if (
+                    typeof result === "object" &&
+                    "hotkey" in result &&
+                    "coldkey" in result &&
+                    "netuid" in result &&
+                    "stake" in result &&
+                    "locked" in result &&
+                    "emission" in result &&
+                    "tao_emission" in result &&
+                    "drain" in result &&
+                    "is_registered" in result
+                ) {
+                    expect(result.hotkey).toEqual(convertPublicKeyToSs58(hotkey.publicKey));
+                    expect(result.coldkey).toEqual(convertPublicKeyToSs58(coldkey.publicKey));
+                    expect(result.netuid).toEqual(netuid);
+                    expect(result.is_registered).toEqual(true);
                 } else {
-                    throw new Error("result is not an object")
+                    throw new Error("result is not an object");
                 }
-
-            }
+            },
         });
 
         it({
-            id: "T03", title: "Can add stake to contract", test: async () => {
-                await addStakeViaContract(true)
-            }
+            id: "T03",
+            title: "Can add stake to contract",
+            test: async () => {
+                await addStakeViaContract(true);
+            },
         });
 
         it({
-            id: "T04", title: "Can remove stake to contract", test: async () => {
-                await addStakeViaContract(true)
-                const stake = await getContractStake()
+            id: "T04",
+            title: "Can remove stake to contract",
+            test: async () => {
+                await addStakeViaContract(true);
+                const stake = await getContractStake();
 
-                let amount = stake / BigInt(2)
-                const message = inkClient.message("remove_stake")
+                let amount = stake / BigInt(2);
+                const message = inkClient.message("remove_stake");
                 const data = message.encode({
                     hotkey: Binary.fromBytes(hotkey.publicKey),
                     netuid: netuid,
                     amount: amount,
-                })
+                });
 
-                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
+                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data);
 
-                const stakeAfterAddStake = await getContractStake()
+                const stakeAfterAddStake = await getContractStake();
 
-                expect(stakeAfterAddStake < stake).toBeTruthy()
-            }
+                expect(stakeAfterAddStake < stake).toBeTruthy();
+            },
         });
 
         it({
-            id: "T05", title: "Can unstake all from contract", test: async () => {
-                await addStakeViaContract(true)
+            id: "T05",
+            title: "Can unstake all from contract",
+            test: async () => {
+                await addStakeViaContract(true);
                 // Get stake before unstake_all
-                const stakeBefore = await getContractStake()
+                const stakeBefore = await getContractStake();
 
-                expect(stakeBefore > BigInt(0)).toBeTruthy()
+                expect(stakeBefore > BigInt(0)).toBeTruthy();
 
                 // Call unstake_all
-                const unstakeMessage = inkClient.message("unstake_all")
+                const unstakeMessage = inkClient.message("unstake_all");
                 const unstakeData = unstakeMessage.encode({
                     hotkey: Binary.fromBytes(hotkey.publicKey),
-                })
-                await sendWasmContractExtrinsic(api, coldkey, contractAddress, unstakeData)
+                });
+                await sendWasmContractExtrinsic(api, coldkey, contractAddress, unstakeData);
 
                 // Verify stake is now zero
-                const stakeAfter = await getContractStake()
+                const stakeAfter = await getContractStake();
 
-                expect(stakeAfter).toEqual(BigInt(0))
-            }
+                expect(stakeAfter).toEqual(BigInt(0));
+            },
         });
 
         it({
-            id: "T06", title: "Can unstake all alpha from contract", test: async () => {
-                await addStakeViaContract(true)
+            id: "T06",
+            title: "Can unstake all alpha from contract",
+            test: async () => {
+                await addStakeViaContract(true);
                 // Get stake before unstake_all_alpha
-                const stakeBefore = await getContractStake()
+                const stakeBefore = await getContractStake();
 
-                expect(stakeBefore > BigInt(0)).toBeTruthy()
+                expect(stakeBefore > BigInt(0)).toBeTruthy();
 
                 // Call unstake_all_alpha
-                const message = inkClient.message("unstake_all_alpha")
+                const message = inkClient.message("unstake_all_alpha");
                 const data = message.encode({
                     hotkey: Binary.fromBytes(hotkey.publicKey),
-                })
-                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
+                });
+                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data);
 
                 // Verify stake is now zero
-                const stakeAfter = await getContractStake()
+                const stakeAfter = await getContractStake();
 
-                expect(stakeAfter).toEqual(BigInt(0))
-            }
+                expect(stakeAfter).toEqual(BigInt(0));
+            },
         });
 
         it({
-            id: "T07", title: "Can move stake between hotkeys", test: async () => {
-                await addStakeViaContract(true)
-                await initSecondColdAndHotkey()
+            id: "T07",
+            title: "Can move stake between hotkeys",
+            test: async () => {
+                await addStakeViaContract(true);
+                await initSecondColdAndHotkey();
                 // Get initial stakes
-                const originStakeBefore = await getContractStake()
+                const originStakeBefore = await getContractStake();
 
-                const destStakeBefore = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                    convertPublicKeyToSs58(hotkey2.publicKey),
-                    contractAddress,
-                    netuid,
-                ))?.stake || BigInt(0)
+                const destStakeBefore =
+                    (
+                        await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                            convertPublicKeyToSs58(hotkey2.publicKey),
+                            contractAddress,
+                            netuid
+                        )
+                    )?.stake || BigInt(0);
 
-                expect(originStakeBefore > BigInt(0)).toBeTruthy()
+                expect(originStakeBefore > BigInt(0)).toBeTruthy();
 
                 // Move stake
-                const moveAmount = originStakeBefore / BigInt(2)
-                const message = inkClient.message("move_stake")
+                const moveAmount = originStakeBefore / BigInt(2);
+                const message = inkClient.message("move_stake");
                 const data = message.encode({
                     origin_hotkey: Binary.fromBytes(hotkey.publicKey),
                     destination_hotkey: Binary.fromBytes(hotkey2.publicKey),
                     origin_netuid: netuid,
                     destination_netuid: netuid,
                     amount: moveAmount,
-                })
-                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
+                });
+                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data);
 
                 // Verify stakes changed
-                const originStakeAfter = await getContractStake()
+                const originStakeAfter = await getContractStake();
 
-                const destStakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                    convertPublicKeyToSs58(hotkey2.publicKey),
-                    contractAddress,
-                    netuid,
-                ))?.stake
+                const destStakeAfter = (
+                    await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                        convertPublicKeyToSs58(hotkey2.publicKey),
+                        contractAddress,
+                        netuid
+                    )
+                )?.stake;
 
-                expect(destStakeAfter).toBeDefined()
-                expect(originStakeAfter < originStakeBefore).toBeTruthy()
-                expect(destStakeAfter > destStakeBefore).toBeTruthy()
-            }
+                expect(destStakeAfter).toBeDefined();
+                expect(originStakeAfter < originStakeBefore).toBeTruthy();
+                expect(destStakeAfter > destStakeBefore).toBeTruthy();
+            },
         });
 
         it({
-            id: "T08", title: "Can transfer stake between coldkeys", test: async () => {
-                await addStakeViaContract(true)
-                await initSecondColdAndHotkey()
+            id: "T08",
+            title: "Can transfer stake between coldkeys",
+            test: async () => {
+                await addStakeViaContract(true);
+                await initSecondColdAndHotkey();
                 // Get initial stake
-                const stakeBeforeOrigin = await getContractStake()
+                const stakeBeforeOrigin = await getContractStake();
 
-                const stakeBeforeDest = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                    convertPublicKeyToSs58(hotkey.publicKey),
-                    convertPublicKeyToSs58(coldkey2.publicKey),
-                    netuid,
-                ))?.stake
+                const stakeBeforeDest = (
+                    await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                        convertPublicKeyToSs58(hotkey.publicKey),
+                        convertPublicKeyToSs58(coldkey2.publicKey),
+                        netuid
+                    )
+                )?.stake;
 
-                expect(stakeBeforeOrigin > BigInt(0)).toBeTruthy()
-                expect(stakeBeforeDest).toBeDefined()
+                expect(stakeBeforeOrigin > BigInt(0)).toBeTruthy();
+                expect(stakeBeforeDest).toBeDefined();
 
                 // Transfer stake
-                const transferAmount = stakeBeforeOrigin / BigInt(2)
-                const message = inkClient.message("transfer_stake")
+                const transferAmount = stakeBeforeOrigin / BigInt(2);
+                const message = inkClient.message("transfer_stake");
                 const data = message.encode({
                     destination_coldkey: Binary.fromBytes(coldkey2.publicKey),
                     hotkey: Binary.fromBytes(hotkey.publicKey),
                     origin_netuid: netuid,
                     destination_netuid: netuid,
                     amount: transferAmount,
-                })
-                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
+                });
+                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data);
 
                 // Verify stake transferred
-                const stakeAfterOrigin = await getContractStake()
+                const stakeAfterOrigin = await getContractStake();
 
-                const stakeAfterDest = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                    convertPublicKeyToSs58(hotkey.publicKey),
-                    convertPublicKeyToSs58(coldkey2.publicKey),
-                    netuid,
-                ))?.stake
+                const stakeAfterDest = (
+                    await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                        convertPublicKeyToSs58(hotkey.publicKey),
+                        convertPublicKeyToSs58(coldkey2.publicKey),
+                        netuid
+                    )
+                )?.stake;
 
-                expect(stakeAfterDest).toBeDefined()
-                expect(stakeAfterOrigin < stakeBeforeOrigin).toBeTruthy()
-                expect(stakeAfterDest > stakeBeforeDest!).toBeTruthy()
-            }
+                expect(stakeAfterDest).toBeDefined();
+                expect(stakeAfterOrigin < stakeBeforeOrigin).toBeTruthy();
+                expect(stakeAfterDest > stakeBeforeDest!).toBeTruthy();
+            },
         });
 
         it({
-            id: "T09", title: "Can swap stake between networks", test: async () => {
-                await addStakeViaContract(true)
+            id: "T09",
+            title: "Can swap stake between networks",
+            test: async () => {
+                await addStakeViaContract(true);
                 // Get initial stakes
-                const stakeBefore = await getContractStake()
+                const stakeBefore = await getContractStake();
 
-                const stakeBefore2 = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                    convertPublicKeyToSs58(hotkey.publicKey),
-                    contractAddress,
-                    netuid + 1,
-                ))?.stake || BigInt(0)
+                const stakeBefore2 =
+                    (
+                        await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                            convertPublicKeyToSs58(hotkey.publicKey),
+                            contractAddress,
+                            netuid + 1
+                        )
+                    )?.stake || BigInt(0);
 
-                expect(stakeBefore > BigInt(0)).toBeTruthy()
+                expect(stakeBefore > BigInt(0)).toBeTruthy();
 
                 // Swap stake
-                const swapAmount = stakeBefore / BigInt(2)
-                const message = inkClient.message("swap_stake")
+                const swapAmount = stakeBefore / BigInt(2);
+                const message = inkClient.message("swap_stake");
                 const data = message.encode({
                     hotkey: Binary.fromBytes(hotkey.publicKey),
                     origin_netuid: netuid,
                     destination_netuid: netuid + 1,
                     amount: swapAmount,
-                })
-                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
+                });
+                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data);
 
                 // Verify stakes swapped
-                const stakeAfter = await getContractStake()
+                const stakeAfter = await getContractStake();
 
-                const stakeAfter2 = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                    convertPublicKeyToSs58(hotkey.publicKey),
-                    contractAddress,
-                    netuid + 1,
-                ))?.stake
+                const stakeAfter2 = (
+                    await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                        convertPublicKeyToSs58(hotkey.publicKey),
+                        contractAddress,
+                        netuid + 1
+                    )
+                )?.stake;
 
-                expect(stakeAfter2).toBeDefined()
-                expect(stakeAfter < stakeBefore).toBeTruthy()
-                expect(stakeAfter2 > stakeBefore2).toBeTruthy()
-            }
+                expect(stakeAfter2).toBeDefined();
+                expect(stakeAfter < stakeBefore).toBeTruthy();
+                expect(stakeAfter2 > stakeBefore2).toBeTruthy();
+            },
         });
 
         it({
-            id: "T10", title: "Can add stake with limit", test: async () => {
-                const stakeBefore = await getContractStake()
+            id: "T10",
+            title: "Can add stake with limit",
+            test: async () => {
+                const stakeBefore = await getContractStake();
 
-                const message = inkClient.message("add_stake_limit")
+                const message = inkClient.message("add_stake_limit");
                 const data = message.encode({
                     hotkey: Binary.fromBytes(hotkey.publicKey),
                     netuid: netuid,
                     amount: tao(200),
                     limit_price: tao(100),
                     allow_partial: false,
-                })
-                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
+                });
+                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data);
 
                 // Verify stake was added
-                const stakeAfter = await getContractStake()
+                const stakeAfter = await getContractStake();
 
-                expect(stakeAfter > stakeBefore).toBeTruthy()
-            }
+                expect(stakeAfter > stakeBefore).toBeTruthy();
+            },
         });
 
         it({
-            id: "T11", title: "Can remove stake with limit", test: async () => {
-                await addStakeViaContract(true)
-                const stakeBefore = await getContractStake()
+            id: "T11",
+            title: "Can remove stake with limit",
+            test: async () => {
+                await addStakeViaContract(true);
+                const stakeBefore = await getContractStake();
 
-                expect(stakeBefore > BigInt(0)).toBeTruthy()
+                expect(stakeBefore > BigInt(0)).toBeTruthy();
 
-                const message = inkClient.message("remove_stake_limit")
+                const message = inkClient.message("remove_stake_limit");
                 const data = message.encode({
                     hotkey: Binary.fromBytes(hotkey.publicKey),
                     netuid: netuid,
                     amount: stakeBefore / BigInt(2),
                     limit_price: tao(1),
                     allow_partial: false,
-                })
-                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
+                });
+                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data);
 
-                const stakeAfter = await getContractStake()
+                const stakeAfter = await getContractStake();
 
-                expect(stakeAfter < stakeBefore).toBeTruthy()
-            }
+                expect(stakeAfter < stakeBefore).toBeTruthy();
+            },
         });
 
         it({
-            id: "T12", title: "Can swap stake with limit", test: async () => {
-                await addStakeViaContract(true)
+            id: "T12",
+            title: "Can swap stake with limit",
+            test: async () => {
+                await addStakeViaContract(true);
 
-                const stakeBefore = await getContractStake()
+                const stakeBefore = await getContractStake();
 
-                const stakeBefore2 = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                    convertPublicKeyToSs58(hotkey.publicKey),
-                    contractAddress,
-                    netuid + 1,
-                ))?.stake
+                const stakeBefore2 = (
+                    await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                        convertPublicKeyToSs58(hotkey.publicKey),
+                        contractAddress,
+                        netuid + 1
+                    )
+                )?.stake;
 
-                expect(stakeBefore > BigInt(0)).toBeTruthy()
-                expect(stakeBefore2).toBeDefined()
+                expect(stakeBefore > BigInt(0)).toBeTruthy();
+                expect(stakeBefore2).toBeDefined();
 
-                const message = inkClient.message("swap_stake_limit")
+                const message = inkClient.message("swap_stake_limit");
                 const data = message.encode({
                     hotkey: Binary.fromBytes(hotkey.publicKey),
                     origin_netuid: netuid,
@@ -463,98 +517,103 @@ describeSuite({
                     amount: stakeBefore / BigInt(2),
                     limit_price: tao(1),
                     allow_partial: false,
-                })
-                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
+                });
+                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data);
 
-                const stakeAfter = await getContractStake()
+                const stakeAfter = await getContractStake();
 
-                const stakeAfter2 = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                    convertPublicKeyToSs58(hotkey.publicKey),
-                    contractAddress,
-                    netuid + 1,
-                ))?.stake
+                const stakeAfter2 = (
+                    await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                        convertPublicKeyToSs58(hotkey.publicKey),
+                        contractAddress,
+                        netuid + 1
+                    )
+                )?.stake;
 
-                expect(stakeAfter2).toBeDefined()
-                expect(stakeAfter < stakeBefore).toBeTruthy()
-                expect(stakeAfter2 > stakeBefore2).toBeTruthy()
-            }
+                expect(stakeAfter2).toBeDefined();
+                expect(stakeAfter < stakeBefore).toBeTruthy();
+                expect(stakeAfter2 > stakeBefore2).toBeTruthy();
+            },
         });
 
         it({
-            id: "T13", title: "Can remove stake full limit", test: async () => {
-                await addStakeViaContract(true)
-                const stakeBefore = await getContractStake()
+            id: "T13",
+            title: "Can remove stake full limit",
+            test: async () => {
+                await addStakeViaContract(true);
+                const stakeBefore = await getContractStake();
 
-                expect(stakeBefore > BigInt(0)).toBeTruthy()
+                expect(stakeBefore > BigInt(0)).toBeTruthy();
 
-                const message = inkClient.message("remove_stake_full_limit")
+                const message = inkClient.message("remove_stake_full_limit");
                 const data = message.encode({
                     hotkey: Binary.fromBytes(hotkey.publicKey),
                     netuid: netuid,
                     limit_price: BigInt(0),
-                })
-                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
+                });
+                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data);
 
-                const stakeAfter = await getContractStake()
+                const stakeAfter = await getContractStake();
 
-                expect(stakeAfter < stakeBefore).toBeTruthy()
-            }
+                expect(stakeAfter < stakeBefore).toBeTruthy();
+            },
         });
 
         it({
-            id: "T14", title: "Can set coldkey auto stake hotkey", test: async () => {
-                const message = inkClient.message("set_coldkey_auto_stake_hotkey")
+            id: "T14",
+            title: "Can set coldkey auto stake hotkey",
+            test: async () => {
+                const message = inkClient.message("set_coldkey_auto_stake_hotkey");
                 const data = message.encode({
                     netuid: netuid,
                     hotkey: Binary.fromBytes(hotkey.publicKey),
-                })
-                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
+                });
+                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data);
 
                 let autoStakeHotkey = await api.query.SubtensorModule.AutoStakeDestination.getValue(
                     contractAddress,
-                    netuid,
-                )
+                    netuid
+                );
 
-                expect(autoStakeHotkey).toBeDefined()
-                expect(autoStakeHotkey).toEqual(convertPublicKeyToSs58(hotkey.publicKey))
-            }
+                expect(autoStakeHotkey).toBeDefined();
+                expect(autoStakeHotkey).toEqual(convertPublicKeyToSs58(hotkey.publicKey));
+            },
         });
 
         it({
-            id: "T15", title: "Can add and remove proxy", test: async () => {
-                const message = inkClient.message("add_proxy")
+            id: "T15",
+            title: "Can add and remove proxy",
+            test: async () => {
+                const message = inkClient.message("add_proxy");
                 const data = message.encode({
                     delegate: Binary.fromBytes(hotkey.publicKey),
-                })
-                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
-                let proxies = await api.query.Proxy.Proxies.getValue(
-                    contractAddress,
-                )
-                expect(proxies).toBeDefined()
-                expect(proxies.length > 0 && proxies[0].length > 0).toBeTruthy()
-                expect(proxies[0][0].delegate).toEqual(convertPublicKeyToSs58(hotkey.publicKey))
+                });
+                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data);
+                let proxies = await api.query.Proxy.Proxies.getValue(contractAddress);
+                expect(proxies).toBeDefined();
+                expect(proxies.length > 0 && proxies[0].length > 0).toBeTruthy();
+                expect(proxies[0][0].delegate).toEqual(convertPublicKeyToSs58(hotkey.publicKey));
 
-
-                const removeMessage = inkClient.message("remove_proxy")
+                const removeMessage = inkClient.message("remove_proxy");
                 const removeData = removeMessage.encode({
                     delegate: Binary.fromBytes(hotkey.publicKey),
-                })
-                await sendWasmContractExtrinsic(api, coldkey, contractAddress, removeData)
+                });
+                await sendWasmContractExtrinsic(api, coldkey, contractAddress, removeData);
 
-                let proxiesAfterRemove = await api.query.Proxy.Proxies.getValue(
-                    contractAddress,
-                )
-                expect(proxiesAfterRemove).toBeDefined()
-                expect(proxiesAfterRemove[0].length).toEqual(0)
-            }
+                let proxiesAfterRemove = await api.query.Proxy.Proxies.getValue(contractAddress);
+                expect(proxiesAfterRemove).toBeDefined();
+                expect(proxiesAfterRemove[0].length).toEqual(0);
+            },
         });
 
         it({
-            id: "T16", title: "Can get alpha price", test: async () => {
-                const message = inkClient.message("get_alpha_price")
+            id: "T16",
+            title: "Can get alpha price",
+            test: async () => {
+                const message = inkClient.message("get_alpha_price");
                 const data = message.encode({
                     netuid: netuid,
-                })
+                });
 
                 const response = await api.apis.ContractsApi.call(
                     convertPublicKeyToSs58(hotkey.publicKey),
@@ -562,369 +621,447 @@ describeSuite({
                     BigInt(0),
                     undefined,
                     undefined,
-                    Binary.fromBytes(data.asBytes()),
-                )
+                    Binary.fromBytes(data.asBytes())
+                );
 
-                expect(response.result.success).toBeTruthy()
-                const result = message.decode(response.result.value).value.value
+                expect(response.result.success).toBeTruthy();
+                const result = message.decode(response.result.value).value.value;
 
-                expect(result).toBeDefined()
-            }
+                expect(result).toBeDefined();
+            },
         });
 
         it({
-            id: "T17", title: "Can recycle alpha from contract stake", test: async () => {
-                await addStakeViaContract(true)
-                await waitForFinalizedBlocks(api, 2)
-                const stakeBefore = await getContractStake()
-                const alphaOutBefore = await api.query.SubtensorModule.SubnetAlphaOut.getValue(netuid)
+            id: "T17",
+            title: "Can recycle alpha from contract stake",
+            test: async () => {
+                await addStakeViaContract(true);
+                await waitForFinalizedBlocks(api, 2);
+                const stakeBefore = await getContractStake();
+                const alphaOutBefore = await api.query.SubtensorModule.SubnetAlphaOut.getValue(netuid);
 
-                const message = inkClient.message("recycle_alpha")
+                const message = inkClient.message("recycle_alpha");
                 const data = message.encode({
                     hotkey: Binary.fromBytes(hotkey.publicKey),
                     netuid,
                     amount: stakeBefore / BigInt(2),
-                })
-                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
+                });
+                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data);
 
-                const stakeAfter = await getContractStake()
-                const alphaOutAfter = await api.query.SubtensorModule.SubnetAlphaOut.getValue(netuid)
+                const stakeAfter = await getContractStake();
+                const alphaOutAfter = await api.query.SubtensorModule.SubnetAlphaOut.getValue(netuid);
 
-                expect(stakeAfter < stakeBefore).toBeTruthy()
-                expect(alphaOutAfter < alphaOutBefore).toBeTruthy()
-            }
+                expect(stakeAfter < stakeBefore).toBeTruthy();
+                expect(alphaOutAfter < alphaOutBefore).toBeTruthy();
+            },
         });
 
         it({
-            id: "T18", title: "Can burn alpha from contract stake", test: async () => {
-                await addStakeViaContract(true)
-                await waitForFinalizedBlocks(api, 2)
-                const stakeBefore = await getContractStake()
-                const alphaBurnedBefore = await api.query.AlphaAssets.AlphaBurned.getValue(netuid)
+            id: "T18",
+            title: "Can burn alpha from contract stake",
+            test: async () => {
+                await addStakeViaContract(true);
+                await waitForFinalizedBlocks(api, 2);
+                const stakeBefore = await getContractStake();
+                const alphaBurnedBefore = await api.query.AlphaAssets.AlphaBurned.getValue(netuid);
 
-                const message = inkClient.message("burn_alpha")
+                const message = inkClient.message("burn_alpha");
                 const data = message.encode({
                     hotkey: Binary.fromBytes(hotkey.publicKey),
                     netuid,
                     amount: stakeBefore / BigInt(2),
-                })
-                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
+                });
+                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data);
 
-                const stakeAfter = await getContractStake()
-                const alphaBurnedAfter = await api.query.AlphaAssets.AlphaBurned.getValue(netuid)
+                const stakeAfter = await getContractStake();
+                const alphaBurnedAfter = await api.query.AlphaAssets.AlphaBurned.getValue(netuid);
 
-                expect(stakeAfter < stakeBefore).toBeTruthy()
-                expect(alphaBurnedBefore < alphaBurnedAfter).toBeTruthy()
-            }
+                expect(stakeAfter < stakeBefore).toBeTruthy();
+                expect(alphaBurnedBefore < alphaBurnedAfter).toBeTruthy();
+            },
         });
 
         it({
-            id: "T19", title: "Can add stake and recycle resulting alpha", test: async () => {
-                const stakeBefore = await getContractStake()
+            id: "T19",
+            title: "Can add stake and recycle resulting alpha",
+            test: async () => {
+                const stakeBefore = await getContractStake();
 
-                const message = inkClient.message("add_stake_recycle")
+                const message = inkClient.message("add_stake_recycle");
                 const data = message.encode({
                     hotkey: Binary.fromBytes(hotkey.publicKey),
                     netuid,
                     amount: tao(100),
-                })
-                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
+                });
+                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data);
 
-                const stakeAfter = await getContractStake()
+                const stakeAfter = await getContractStake();
 
-                expect(stakeAfter).toEqual(stakeBefore)
-            }
+                expect(stakeAfter).toEqual(stakeBefore);
+            },
         });
 
         it({
-            id: "T20", title: "Can add stake and burn resulting alpha", test: async () => {
-                const stakeBefore = await getContractStake()
-                const alphaOutBefore = await api.query.SubtensorModule.SubnetAlphaOut.getValue(netuid)
+            id: "T20",
+            title: "Can add stake and burn resulting alpha",
+            test: async () => {
+                const stakeBefore = await getContractStake();
+                const alphaOutBefore = await api.query.SubtensorModule.SubnetAlphaOut.getValue(netuid);
 
-                const message = inkClient.message("add_stake_burn")
+                const message = inkClient.message("add_stake_burn");
                 const data = message.encode({
                     hotkey: Binary.fromBytes(hotkey.publicKey),
                     netuid,
                     amount: tao(100),
-                })
-                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
+                });
+                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data);
 
-                const stakeAfter = await getContractStake()
-                const alphaOutAfter = await api.query.SubtensorModule.SubnetAlphaOut.getValue(netuid)
+                const stakeAfter = await getContractStake();
+                const alphaOutAfter = await api.query.SubtensorModule.SubnetAlphaOut.getValue(netuid);
 
-                expect(stakeAfter).toEqual(stakeBefore)
-                expect(alphaOutAfter > alphaOutBefore).toBeTruthy()
-            }
+                expect(stakeAfter).toEqual(stakeBefore);
+                expect(alphaOutAfter > alphaOutBefore).toBeTruthy();
+            },
         });
 
         it({
-            id: "T21", title: "Can caller add stake (fn 20)", test: async () => {
-                await addStakeViaContract(false)
-            }
+            id: "T21",
+            title: "Can caller add stake (fn 20)",
+            test: async () => {
+                await addStakeViaContract(false);
+            },
         });
 
         it({
-            id: "T22", title: "Can caller remove stake (fn 21)", test: async () => {
-                await addStakeViaContract(false)
-                const stake = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                    convertPublicKeyToSs58(hotkey.publicKey),
-                    convertPublicKeyToSs58(coldkey.publicKey),
-                    netuid,
-                ))?.stake
-                expect(stake).toBeDefined()
-                const amount = stake / BigInt(2)
-                const message = inkClient.message("caller_remove_stake")
+            id: "T22",
+            title: "Can caller remove stake (fn 21)",
+            test: async () => {
+                await addStakeViaContract(false);
+                const stake = (
+                    await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                        convertPublicKeyToSs58(hotkey.publicKey),
+                        convertPublicKeyToSs58(coldkey.publicKey),
+                        netuid
+                    )
+                )?.stake;
+                expect(stake).toBeDefined();
+                const amount = stake / BigInt(2);
+                const message = inkClient.message("caller_remove_stake");
                 const data = message.encode({
                     hotkey: Binary.fromBytes(hotkey.publicKey),
                     netuid,
                     amount,
-                })
-                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
-                const stakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                    convertPublicKeyToSs58(hotkey.publicKey),
-                    convertPublicKeyToSs58(coldkey.publicKey),
-                    netuid,
-                ))?.stake
-                expect(stakeAfter !== undefined && stakeAfter < stake!).toBeTruthy()
-            }
+                });
+                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data);
+                const stakeAfter = (
+                    await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                        convertPublicKeyToSs58(hotkey.publicKey),
+                        convertPublicKeyToSs58(coldkey.publicKey),
+                        netuid
+                    )
+                )?.stake;
+                expect(stakeAfter !== undefined && stakeAfter < stake!).toBeTruthy();
+            },
         });
 
         it({
-            id: "T23", title: "Can caller unstake_all (fn 22)", test: async () => {
-                await addStakeViaContract(false)
-                const stakeBefore = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                    convertPublicKeyToSs58(hotkey.publicKey),
-                    convertPublicKeyToSs58(coldkey.publicKey),
-                    netuid,
-                ))?.stake
-                expect(stakeBefore !== undefined && stakeBefore > BigInt(0)).toBeTruthy()
-                const message = inkClient.message("caller_unstake_all")
-                const data = message.encode({ hotkey: Binary.fromBytes(hotkey.publicKey) })
-                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
-                const stakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                    convertPublicKeyToSs58(hotkey.publicKey),
-                    convertPublicKeyToSs58(coldkey.publicKey),
-                    netuid,
-                ))?.stake
-                expect(stakeAfter).toBeDefined()
-                expect(stakeAfter < stakeBefore!).toBeTruthy()
-            }
+            id: "T23",
+            title: "Can caller unstake_all (fn 22)",
+            test: async () => {
+                await addStakeViaContract(false);
+                const stakeBefore = (
+                    await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                        convertPublicKeyToSs58(hotkey.publicKey),
+                        convertPublicKeyToSs58(coldkey.publicKey),
+                        netuid
+                    )
+                )?.stake;
+                expect(stakeBefore !== undefined && stakeBefore > BigInt(0)).toBeTruthy();
+                const message = inkClient.message("caller_unstake_all");
+                const data = message.encode({ hotkey: Binary.fromBytes(hotkey.publicKey) });
+                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data);
+                const stakeAfter = (
+                    await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                        convertPublicKeyToSs58(hotkey.publicKey),
+                        convertPublicKeyToSs58(coldkey.publicKey),
+                        netuid
+                    )
+                )?.stake;
+                expect(stakeAfter).toBeDefined();
+                expect(stakeAfter < stakeBefore!).toBeTruthy();
+            },
         });
 
         it({
-            id: "T24", title: "Can caller unstake_all_alpha (fn 23)", test: async () => {
-                await addStakeViaContract(false)
-                const stakeBefore = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                    convertPublicKeyToSs58(hotkey.publicKey),
-                    convertPublicKeyToSs58(coldkey.publicKey),
-                    netuid,
-                ))?.stake
-                expect(stakeBefore !== undefined && stakeBefore > BigInt(0)).toBeTruthy()
-                const message = inkClient.message("caller_unstake_all_alpha")
-                const data = message.encode({ hotkey: Binary.fromBytes(hotkey.publicKey) })
-                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
-                const stakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                    convertPublicKeyToSs58(hotkey.publicKey),
-                    convertPublicKeyToSs58(coldkey.publicKey),
-                    netuid,
-                ))?.stake
-                expect(stakeAfter).toBeDefined()
-                expect(stakeAfter < stakeBefore!).toBeTruthy()
-            }
+            id: "T24",
+            title: "Can caller unstake_all_alpha (fn 23)",
+            test: async () => {
+                await addStakeViaContract(false);
+                const stakeBefore = (
+                    await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                        convertPublicKeyToSs58(hotkey.publicKey),
+                        convertPublicKeyToSs58(coldkey.publicKey),
+                        netuid
+                    )
+                )?.stake;
+                expect(stakeBefore !== undefined && stakeBefore > BigInt(0)).toBeTruthy();
+                const message = inkClient.message("caller_unstake_all_alpha");
+                const data = message.encode({ hotkey: Binary.fromBytes(hotkey.publicKey) });
+                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data);
+                const stakeAfter = (
+                    await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                        convertPublicKeyToSs58(hotkey.publicKey),
+                        convertPublicKeyToSs58(coldkey.publicKey),
+                        netuid
+                    )
+                )?.stake;
+                expect(stakeAfter).toBeDefined();
+                expect(stakeAfter < stakeBefore!).toBeTruthy();
+            },
         });
 
         it({
-            id: "T25", title: "Can caller move_stake (fn 24)", test: async () => {
-                await addStakeViaContract(false)
-                await initSecondColdAndHotkey()
-                const originStakeBefore = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                    convertPublicKeyToSs58(hotkey.publicKey),
-                    convertPublicKeyToSs58(coldkey.publicKey),
-                    netuid,
-                ))?.stake
-                const destStakeBefore = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                    convertPublicKeyToSs58(hotkey2.publicKey),
-                    convertPublicKeyToSs58(coldkey.publicKey),
-                    netuid,
-                ))?.stake || BigInt(0)
-                expect(originStakeBefore !== undefined && originStakeBefore > BigInt(0)).toBeTruthy()
-                const moveAmount = originStakeBefore / BigInt(2)
-                const message = inkClient.message("caller_move_stake")
+            id: "T25",
+            title: "Can caller move_stake (fn 24)",
+            test: async () => {
+                await addStakeViaContract(false);
+                await initSecondColdAndHotkey();
+                const originStakeBefore = (
+                    await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                        convertPublicKeyToSs58(hotkey.publicKey),
+                        convertPublicKeyToSs58(coldkey.publicKey),
+                        netuid
+                    )
+                )?.stake;
+                const destStakeBefore =
+                    (
+                        await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                            convertPublicKeyToSs58(hotkey2.publicKey),
+                            convertPublicKeyToSs58(coldkey.publicKey),
+                            netuid
+                        )
+                    )?.stake || BigInt(0);
+                expect(originStakeBefore !== undefined && originStakeBefore > BigInt(0)).toBeTruthy();
+                const moveAmount = originStakeBefore / BigInt(2);
+                const message = inkClient.message("caller_move_stake");
                 const data = message.encode({
                     origin_hotkey: Binary.fromBytes(hotkey.publicKey),
                     destination_hotkey: Binary.fromBytes(hotkey2.publicKey),
                     origin_netuid: netuid,
                     destination_netuid: netuid,
                     amount: moveAmount,
-                })
-                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
-                const originStakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                    convertPublicKeyToSs58(hotkey.publicKey),
-                    convertPublicKeyToSs58(coldkey.publicKey),
-                    netuid,
-                ))?.stake
-                const destStakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                    convertPublicKeyToSs58(hotkey2.publicKey),
-                    convertPublicKeyToSs58(coldkey.publicKey),
-                    netuid,
-                ))?.stake
-                expect(originStakeAfter !== undefined && destStakeAfter !== undefined).toBeTruthy()
-                expect(originStakeAfter < originStakeBefore!).toBeTruthy()
-                expect(destStakeAfter > destStakeBefore).toBeTruthy()
-            }
+                });
+                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data);
+                const originStakeAfter = (
+                    await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                        convertPublicKeyToSs58(hotkey.publicKey),
+                        convertPublicKeyToSs58(coldkey.publicKey),
+                        netuid
+                    )
+                )?.stake;
+                const destStakeAfter = (
+                    await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                        convertPublicKeyToSs58(hotkey2.publicKey),
+                        convertPublicKeyToSs58(coldkey.publicKey),
+                        netuid
+                    )
+                )?.stake;
+                expect(originStakeAfter !== undefined && destStakeAfter !== undefined).toBeTruthy();
+                expect(originStakeAfter < originStakeBefore!).toBeTruthy();
+                expect(destStakeAfter > destStakeBefore).toBeTruthy();
+            },
         });
 
         it({
-            id: "T26", title: "Can caller transfer_stake (fn 25)", test: async () => {
-                await addStakeViaContract(false)
-                await initSecondColdAndHotkey()
-                const stakeBeforeOrigin = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                    convertPublicKeyToSs58(hotkey.publicKey),
-                    convertPublicKeyToSs58(coldkey.publicKey),
-                    netuid,
-                ))?.stake
-                const stakeBeforeDest = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                    convertPublicKeyToSs58(hotkey.publicKey),
-                    convertPublicKeyToSs58(coldkey2.publicKey),
-                    netuid,
-                ))?.stake
-                expect(stakeBeforeOrigin !== undefined && stakeBeforeOrigin > BigInt(0)).toBeTruthy()
-                expect(stakeBeforeDest).toBeDefined()
-                const transferAmount = stakeBeforeOrigin / BigInt(2)
-                const message = inkClient.message("caller_transfer_stake")
+            id: "T26",
+            title: "Can caller transfer_stake (fn 25)",
+            test: async () => {
+                await addStakeViaContract(false);
+                await initSecondColdAndHotkey();
+                const stakeBeforeOrigin = (
+                    await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                        convertPublicKeyToSs58(hotkey.publicKey),
+                        convertPublicKeyToSs58(coldkey.publicKey),
+                        netuid
+                    )
+                )?.stake;
+                const stakeBeforeDest = (
+                    await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                        convertPublicKeyToSs58(hotkey.publicKey),
+                        convertPublicKeyToSs58(coldkey2.publicKey),
+                        netuid
+                    )
+                )?.stake;
+                expect(stakeBeforeOrigin !== undefined && stakeBeforeOrigin > BigInt(0)).toBeTruthy();
+                expect(stakeBeforeDest).toBeDefined();
+                const transferAmount = stakeBeforeOrigin / BigInt(2);
+                const message = inkClient.message("caller_transfer_stake");
                 const data = message.encode({
                     destination_coldkey: Binary.fromBytes(coldkey2.publicKey),
                     hotkey: Binary.fromBytes(hotkey.publicKey),
                     origin_netuid: netuid,
                     destination_netuid: netuid,
                     amount: transferAmount,
-                })
-                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
-                const stakeAfterOrigin = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                    convertPublicKeyToSs58(hotkey.publicKey),
-                    convertPublicKeyToSs58(coldkey.publicKey),
-                    netuid,
-                ))?.stake
-                const stakeAfterDest = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                    convertPublicKeyToSs58(hotkey.publicKey),
-                    convertPublicKeyToSs58(coldkey2.publicKey),
-                    netuid,
-                ))?.stake
-                expect(stakeAfterOrigin !== undefined && stakeAfterDest !== undefined).toBeTruthy()
-                expect(stakeAfterOrigin < stakeBeforeOrigin!).toBeTruthy()
-                expect(stakeAfterDest > stakeBeforeDest!).toBeTruthy()
-            }
+                });
+                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data);
+                const stakeAfterOrigin = (
+                    await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                        convertPublicKeyToSs58(hotkey.publicKey),
+                        convertPublicKeyToSs58(coldkey.publicKey),
+                        netuid
+                    )
+                )?.stake;
+                const stakeAfterDest = (
+                    await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                        convertPublicKeyToSs58(hotkey.publicKey),
+                        convertPublicKeyToSs58(coldkey2.publicKey),
+                        netuid
+                    )
+                )?.stake;
+                expect(stakeAfterOrigin !== undefined && stakeAfterDest !== undefined).toBeTruthy();
+                expect(stakeAfterOrigin < stakeBeforeOrigin!).toBeTruthy();
+                expect(stakeAfterDest > stakeBeforeDest!).toBeTruthy();
+            },
         });
 
         it({
-            id: "T27", title: "Can caller swap_stake (fn 26)", test: async () => {
-                await addStakeViaContract(false)
-                await initSecondColdAndHotkey()
-                const stakeBefore = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                    convertPublicKeyToSs58(hotkey.publicKey),
-                    convertPublicKeyToSs58(coldkey.publicKey),
-                    netuid,
-                ))?.stake
-                const stakeBefore2 = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                    convertPublicKeyToSs58(hotkey.publicKey),
-                    convertPublicKeyToSs58(coldkey.publicKey),
-                    netuid + 1,
-                ))?.stake || BigInt(0)
-                expect(stakeBefore !== undefined && stakeBefore > BigInt(0)).toBeTruthy()
-                const swapAmount = stakeBefore / BigInt(2)
-                const message = inkClient.message("caller_swap_stake")
+            id: "T27",
+            title: "Can caller swap_stake (fn 26)",
+            test: async () => {
+                await addStakeViaContract(false);
+                await initSecondColdAndHotkey();
+                const stakeBefore = (
+                    await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                        convertPublicKeyToSs58(hotkey.publicKey),
+                        convertPublicKeyToSs58(coldkey.publicKey),
+                        netuid
+                    )
+                )?.stake;
+                const stakeBefore2 =
+                    (
+                        await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                            convertPublicKeyToSs58(hotkey.publicKey),
+                            convertPublicKeyToSs58(coldkey.publicKey),
+                            netuid + 1
+                        )
+                    )?.stake || BigInt(0);
+                expect(stakeBefore !== undefined && stakeBefore > BigInt(0)).toBeTruthy();
+                const swapAmount = stakeBefore / BigInt(2);
+                const message = inkClient.message("caller_swap_stake");
                 const data = message.encode({
                     hotkey: Binary.fromBytes(hotkey.publicKey),
                     origin_netuid: netuid,
                     destination_netuid: netuid + 1,
                     amount: swapAmount,
-                })
-                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
-                const stakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                    convertPublicKeyToSs58(hotkey.publicKey),
-                    convertPublicKeyToSs58(coldkey.publicKey),
-                    netuid,
-                ))?.stake
-                const stakeAfter2 = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                    convertPublicKeyToSs58(hotkey.publicKey),
-                    convertPublicKeyToSs58(coldkey.publicKey),
-                    netuid + 1,
-                ))?.stake
-                expect(stakeAfter !== undefined && stakeAfter2 !== undefined).toBeTruthy()
-                expect(stakeAfter < stakeBefore).toBeTruthy()
-                expect(stakeAfter2 > stakeBefore2).toBeTruthy()
-            }
+                });
+                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data);
+                const stakeAfter = (
+                    await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                        convertPublicKeyToSs58(hotkey.publicKey),
+                        convertPublicKeyToSs58(coldkey.publicKey),
+                        netuid
+                    )
+                )?.stake;
+                const stakeAfter2 = (
+                    await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                        convertPublicKeyToSs58(hotkey.publicKey),
+                        convertPublicKeyToSs58(coldkey.publicKey),
+                        netuid + 1
+                    )
+                )?.stake;
+                expect(stakeAfter !== undefined && stakeAfter2 !== undefined).toBeTruthy();
+                expect(stakeAfter < stakeBefore).toBeTruthy();
+                expect(stakeAfter2 > stakeBefore2).toBeTruthy();
+            },
         });
 
         it({
-            id: "T28", title: "Can caller add_stake_limit (fn 27)", test: async () => {
-                const stakeBefore = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                    convertPublicKeyToSs58(hotkey.publicKey),
-                    convertPublicKeyToSs58(coldkey.publicKey),
-                    netuid,
-                ))?.stake
-                expect(stakeBefore).toBeDefined()
-                const message = inkClient.message("caller_add_stake_limit")
+            id: "T28",
+            title: "Can caller add_stake_limit (fn 27)",
+            test: async () => {
+                const stakeBefore = (
+                    await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                        convertPublicKeyToSs58(hotkey.publicKey),
+                        convertPublicKeyToSs58(coldkey.publicKey),
+                        netuid
+                    )
+                )?.stake;
+                expect(stakeBefore).toBeDefined();
+                const message = inkClient.message("caller_add_stake_limit");
                 const data = message.encode({
                     hotkey: Binary.fromBytes(hotkey.publicKey),
                     netuid,
                     amount: tao(200),
                     limit_price: tao(100),
                     allow_partial: false,
-                })
-                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
-                const stakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                    convertPublicKeyToSs58(hotkey.publicKey),
-                    convertPublicKeyToSs58(coldkey.publicKey),
-                    netuid,
-                ))?.stake
-                expect(stakeAfter !== undefined && stakeAfter > stakeBefore!).toBeTruthy()
-            }
+                });
+                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data);
+                const stakeAfter = (
+                    await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                        convertPublicKeyToSs58(hotkey.publicKey),
+                        convertPublicKeyToSs58(coldkey.publicKey),
+                        netuid
+                    )
+                )?.stake;
+                expect(stakeAfter !== undefined && stakeAfter > stakeBefore!).toBeTruthy();
+            },
         });
 
         it({
-            id: "T29", title: "Can caller remove_stake_limit (fn 28)", test: async () => {
-                await addStakeViaContract(false)
-                const stakeBefore = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                    convertPublicKeyToSs58(hotkey.publicKey),
-                    convertPublicKeyToSs58(coldkey.publicKey),
-                    netuid,
-                ))?.stake
-                expect(stakeBefore !== undefined && stakeBefore > BigInt(0)).toBeTruthy()
-                const message = inkClient.message("caller_remove_stake_limit")
+            id: "T29",
+            title: "Can caller remove_stake_limit (fn 28)",
+            test: async () => {
+                await addStakeViaContract(false);
+                const stakeBefore = (
+                    await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                        convertPublicKeyToSs58(hotkey.publicKey),
+                        convertPublicKeyToSs58(coldkey.publicKey),
+                        netuid
+                    )
+                )?.stake;
+                expect(stakeBefore !== undefined && stakeBefore > BigInt(0)).toBeTruthy();
+                const message = inkClient.message("caller_remove_stake_limit");
                 const data = message.encode({
                     hotkey: Binary.fromBytes(hotkey.publicKey),
                     netuid,
                     amount: stakeBefore / BigInt(2),
                     limit_price: tao(1),
                     allow_partial: false,
-                })
-                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
-                const stakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                    convertPublicKeyToSs58(hotkey.publicKey),
-                    convertPublicKeyToSs58(coldkey.publicKey),
-                    netuid,
-                ))?.stake
-                expect(stakeAfter !== undefined && stakeAfter < stakeBefore!).toBeTruthy()
-            }
+                });
+                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data);
+                const stakeAfter = (
+                    await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                        convertPublicKeyToSs58(hotkey.publicKey),
+                        convertPublicKeyToSs58(coldkey.publicKey),
+                        netuid
+                    )
+                )?.stake;
+                expect(stakeAfter !== undefined && stakeAfter < stakeBefore!).toBeTruthy();
+            },
         });
 
         it({
-            id: "T30", title: "Can caller swap_stake_limit (fn 29)", test: async () => {
-                await addStakeViaContract(false)
-                const stakeBefore = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                    convertPublicKeyToSs58(hotkey.publicKey),
-                    convertPublicKeyToSs58(coldkey.publicKey),
-                    netuid,
-                ))?.stake
-                const stakeBefore2 = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                    convertPublicKeyToSs58(hotkey.publicKey),
-                    convertPublicKeyToSs58(coldkey.publicKey),
-                    netuid + 1,
-                ))?.stake
-                expect(stakeBefore !== undefined && stakeBefore > BigInt(0)).toBeTruthy()
-                expect(stakeBefore2).toBeDefined()
-                const message = inkClient.message("caller_swap_stake_limit")
+            id: "T30",
+            title: "Can caller swap_stake_limit (fn 29)",
+            test: async () => {
+                await addStakeViaContract(false);
+                const stakeBefore = (
+                    await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                        convertPublicKeyToSs58(hotkey.publicKey),
+                        convertPublicKeyToSs58(coldkey.publicKey),
+                        netuid
+                    )
+                )?.stake;
+                const stakeBefore2 = (
+                    await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                        convertPublicKeyToSs58(hotkey.publicKey),
+                        convertPublicKeyToSs58(coldkey.publicKey),
+                        netuid + 1
+                    )
+                )?.stake;
+                expect(stakeBefore !== undefined && stakeBefore > BigInt(0)).toBeTruthy();
+                expect(stakeBefore2).toBeDefined();
+                const message = inkClient.message("caller_swap_stake_limit");
                 const data = message.encode({
                     hotkey: Binary.fromBytes(hotkey.publicKey),
                     origin_netuid: netuid,
@@ -932,133 +1069,150 @@ describeSuite({
                     amount: stakeBefore / BigInt(2),
                     limit_price: tao(1),
                     allow_partial: false,
-                })
-                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
-                const stakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                    convertPublicKeyToSs58(hotkey.publicKey),
-                    convertPublicKeyToSs58(coldkey.publicKey),
-                    netuid,
-                ))?.stake
-                const stakeAfter2 = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                    convertPublicKeyToSs58(hotkey.publicKey),
-                    convertPublicKeyToSs58(coldkey.publicKey),
-                    netuid + 1,
-                ))?.stake
-                expect(stakeAfter !== undefined && stakeAfter2 !== undefined).toBeTruthy()
-                expect(stakeAfter < stakeBefore).toBeTruthy()
-                expect(stakeAfter2 > stakeBefore2!).toBeTruthy()
-            }
+                });
+                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data);
+                const stakeAfter = (
+                    await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                        convertPublicKeyToSs58(hotkey.publicKey),
+                        convertPublicKeyToSs58(coldkey.publicKey),
+                        netuid
+                    )
+                )?.stake;
+                const stakeAfter2 = (
+                    await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                        convertPublicKeyToSs58(hotkey.publicKey),
+                        convertPublicKeyToSs58(coldkey.publicKey),
+                        netuid + 1
+                    )
+                )?.stake;
+                expect(stakeAfter !== undefined && stakeAfter2 !== undefined).toBeTruthy();
+                expect(stakeAfter < stakeBefore).toBeTruthy();
+                expect(stakeAfter2 > stakeBefore2!).toBeTruthy();
+            },
         });
 
         it({
-            id: "T31", title: "Can caller remove_stake_full_limit (fn 30)", test: async () => {
-                await addStakeViaContract(false)
-                const stakeBefore = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                    convertPublicKeyToSs58(hotkey.publicKey),
-                    convertPublicKeyToSs58(coldkey.publicKey),
-                    netuid,
-                ))?.stake
-                expect(stakeBefore !== undefined && stakeBefore > BigInt(0)).toBeTruthy()
-                const message = inkClient.message("caller_remove_stake_full_limit")
+            id: "T31",
+            title: "Can caller remove_stake_full_limit (fn 30)",
+            test: async () => {
+                await addStakeViaContract(false);
+                const stakeBefore = (
+                    await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                        convertPublicKeyToSs58(hotkey.publicKey),
+                        convertPublicKeyToSs58(coldkey.publicKey),
+                        netuid
+                    )
+                )?.stake;
+                expect(stakeBefore !== undefined && stakeBefore > BigInt(0)).toBeTruthy();
+                const message = inkClient.message("caller_remove_stake_full_limit");
                 const data = message.encode({
                     hotkey: Binary.fromBytes(hotkey.publicKey),
                     netuid,
                     limit_price: BigInt(0),
-                })
-                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
-                const stakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-                    convertPublicKeyToSs58(hotkey.publicKey),
-                    convertPublicKeyToSs58(coldkey.publicKey),
-                    netuid,
-                ))?.stake
-                expect(stakeAfter !== undefined && stakeAfter < stakeBefore!).toBeTruthy()
-            }
+                });
+                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data);
+                const stakeAfter = (
+                    await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+                        convertPublicKeyToSs58(hotkey.publicKey),
+                        convertPublicKeyToSs58(coldkey.publicKey),
+                        netuid
+                    )
+                )?.stake;
+                expect(stakeAfter !== undefined && stakeAfter < stakeBefore!).toBeTruthy();
+            },
         });
 
         it({
-            id: "T32", title: "Can caller set_coldkey_auto_stake_hotkey (fn 31)", test: async () => {
-                await addStakeViaContract(false)
-                await initSecondColdAndHotkey()
-                const message = inkClient.message("caller_set_coldkey_auto_stake_hotkey")
+            id: "T32",
+            title: "Can caller set_coldkey_auto_stake_hotkey (fn 31)",
+            test: async () => {
+                await addStakeViaContract(false);
+                await initSecondColdAndHotkey();
+                const message = inkClient.message("caller_set_coldkey_auto_stake_hotkey");
                 const data = message.encode({
                     netuid,
                     hotkey: Binary.fromBytes(hotkey2.publicKey),
-                })
-                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
+                });
+                await sendWasmContractExtrinsic(api, coldkey, contractAddress, data);
                 const autoStakeHotkey = await api.query.SubtensorModule.AutoStakeDestination.getValue(
                     convertPublicKeyToSs58(coldkey.publicKey),
-                    netuid,
-                )
-                expect(autoStakeHotkey).toEqual(convertPublicKeyToSs58(hotkey2.publicKey))
-            }
+                    netuid
+                );
+                expect(autoStakeHotkey).toEqual(convertPublicKeyToSs58(hotkey2.publicKey));
+            },
         });
 
         it({
-            id: "T33", title: "Can caller add_proxy and remove_proxy (fn 32-33)", test: async () => {
-                const addMessage = inkClient.message("caller_add_proxy")
+            id: "T33",
+            title: "Can caller add_proxy and remove_proxy (fn 32-33)",
+            test: async () => {
+                const addMessage = inkClient.message("caller_add_proxy");
                 const addData = addMessage.encode({
                     delegate: Binary.fromBytes(hotkey2.publicKey),
-                })
-                await sendWasmContractExtrinsic(api, coldkey, contractAddress, addData)
-                let proxies = await api.query.Proxy.Proxies.getValue(convertPublicKeyToSs58(coldkey.publicKey))
-                expect(proxies !== undefined && proxies[0].length > 0).toBeTruthy()
-                expect(proxies[0][0].delegate).toEqual(convertPublicKeyToSs58(hotkey2.publicKey))
+                });
+                await sendWasmContractExtrinsic(api, coldkey, contractAddress, addData);
+                let proxies = await api.query.Proxy.Proxies.getValue(convertPublicKeyToSs58(coldkey.publicKey));
+                expect(proxies !== undefined && proxies[0].length > 0).toBeTruthy();
+                expect(proxies[0][0].delegate).toEqual(convertPublicKeyToSs58(hotkey2.publicKey));
 
-                const removeMessage = inkClient.message("caller_remove_proxy")
+                const removeMessage = inkClient.message("caller_remove_proxy");
                 const removeData = removeMessage.encode({
                     delegate: Binary.fromBytes(hotkey2.publicKey),
-                })
-                await sendWasmContractExtrinsic(api, coldkey, contractAddress, removeData)
-                proxies = await api.query.Proxy.Proxies.getValue(convertPublicKeyToSs58(coldkey.publicKey))
-                expect(proxies !== undefined && proxies[0].length).toEqual(0)
-            }
+                });
+                await sendWasmContractExtrinsic(api, coldkey, contractAddress, removeData);
+                proxies = await api.query.Proxy.Proxies.getValue(convertPublicKeyToSs58(coldkey.publicKey));
+                expect(proxies !== undefined && proxies[0].length).toEqual(0);
+            },
         });
 
         it({
-            id: "T34", title: "Check add_stake_recycle is atomic operation", test: async () => {
-                const stakeBefore = await getContractStakeOnRoot()
-                const balanceBefore = await getBalance(api, convertPublicKeyToSs58(coldkey.publicKey))
+            id: "T34",
+            title: "Check add_stake_recycle is atomic operation",
+            test: async () => {
+                const stakeBefore = await getContractStakeOnRoot();
+                const balanceBefore = await getBalance(api, convertPublicKeyToSs58(coldkey.publicKey));
 
                 // recycle alpha on root subnet is not allowed, the extrinsic should be failed.
-                const message = inkClient.message("add_stake_recycle")
+                const message = inkClient.message("add_stake_recycle");
                 const data = message.encode({
                     hotkey: Binary.fromBytes(hotkey.publicKey),
                     netuid: 0,
                     amount: tao(100),
-                })
-                await sendWasmContractExtrinsicAllowFailure(api, coldkey, contractAddress, data)
+                });
+                await sendWasmContractExtrinsicAllowFailure(api, coldkey, contractAddress, data);
 
-                const stakeAfter = await getContractStakeOnRoot()
-                const balanceAfter = await getBalance(api, convertPublicKeyToSs58(coldkey.publicKey))
+                const stakeAfter = await getContractStakeOnRoot();
+                const balanceAfter = await getBalance(api, convertPublicKeyToSs58(coldkey.publicKey));
 
-                expect(balanceBefore - balanceAfter < 10_000_000).toBeTruthy()
-                expect(stakeAfter).toEqual(stakeBefore)
-            }
+                expect(balanceBefore - balanceAfter < 10_000_000).toBeTruthy();
+                expect(stakeAfter).toEqual(stakeBefore);
+            },
         });
 
         it({
-            id: "T35", title: "Check add_stake_burn is atomic operation", test: async () => {
-                const stakeBefore = await getContractStakeOnRoot()
-                const balanceBefore = await getBalance(api, convertPublicKeyToSs58(coldkey.publicKey))
-                const alphaOutBefore = await api.query.SubtensorModule.SubnetAlphaOut.getValue(netuid)
+            id: "T35",
+            title: "Check add_stake_burn is atomic operation",
+            test: async () => {
+                const stakeBefore = await getContractStakeOnRoot();
+                const balanceBefore = await getBalance(api, convertPublicKeyToSs58(coldkey.publicKey));
+                const alphaOutBefore = await api.query.SubtensorModule.SubnetAlphaOut.getValue(netuid);
 
-                const message = inkClient.message("add_stake_burn")
+                const message = inkClient.message("add_stake_burn");
                 const data = message.encode({
                     hotkey: Binary.fromBytes(hotkey.publicKey),
                     netuid: 0,
                     amount: tao(100),
-                })
-                await sendWasmContractExtrinsicAllowFailure(api, coldkey, contractAddress, data)
+                });
+                await sendWasmContractExtrinsicAllowFailure(api, coldkey, contractAddress, data);
 
-                const stakeAfter = await getContractStakeOnRoot()
-                const alphaOutAfter = await api.query.SubtensorModule.SubnetAlphaOut.getValue(netuid)
-                const balanceAfter = await getBalance(api, convertPublicKeyToSs58(coldkey.publicKey))
+                const stakeAfter = await getContractStakeOnRoot();
+                const alphaOutAfter = await api.query.SubtensorModule.SubnetAlphaOut.getValue(netuid);
+                const balanceAfter = await getBalance(api, convertPublicKeyToSs58(coldkey.publicKey));
 
-                expect(balanceBefore - balanceAfter < 10_000_000).toBeTruthy()
-                expect(stakeAfter).toEqual(stakeBefore)
-                expect(alphaOutAfter > alphaOutBefore).toBeTruthy()
-            }
+                expect(balanceBefore - balanceAfter < 10_000_000).toBeTruthy();
+                expect(stakeAfter).toEqual(stakeBefore);
+                expect(alphaOutAfter > alphaOutBefore).toBeTruthy();
+            },
         });
-
     },
 });

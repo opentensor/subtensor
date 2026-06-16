@@ -501,7 +501,11 @@ describeSuite({
                 const proxyType = 0;
                 const delay = 0;
                 const proxyContract = new ethers.Contract(IPROXY_ADDRESS, IProxyABI, ethWallet);
-                const addProxyTx = await proxyContract.addProxy(convertH160ToPublicKey(wrapperAddress), proxyType, delay);
+                const addProxyTx = await proxyContract.addProxy(
+                    convertH160ToPublicKey(wrapperAddress),
+                    proxyType,
+                    delay
+                );
                 const receipt = await addProxyTx.wait();
                 expect(receipt?.status).toEqual(1);
                 await waitForFinalizedBlocks(api, 1);
@@ -510,9 +514,11 @@ describeSuite({
                 const callData = await remarkCall.getEncodedData();
                 const data = callData.asBytes();
 
-                const proxyCallTx = await wrapperContract.proxyCall(convertH160ToPublicKey(ethWallet.address), [proxyType], [
-                    ...data,
-                ]);
+                const proxyCallTx = await wrapperContract.proxyCall(
+                    convertH160ToPublicKey(ethWallet.address),
+                    [proxyType],
+                    [...data]
+                );
                 const proxyReceipt = await proxyCallTx.wait();
                 expect(proxyReceipt?.status).toEqual(1);
             },
@@ -526,9 +532,7 @@ describeSuite({
 
                 const mapped = await wrapperContract.addressMapping(ethWallet.address);
                 expect(mapped).toBeDefined();
-                expect(mapped).not.toEqual(
-                    "0x0000000000000000000000000000000000000000000000000000000000000000"
-                );
+                expect(mapped).not.toEqual("0x0000000000000000000000000000000000000000000000000000000000000000");
             },
         });
     },

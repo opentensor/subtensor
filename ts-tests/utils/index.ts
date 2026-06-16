@@ -9,4 +9,3 @@ export * from "./staking.js";
 export * from "./subnet.js";
 export * from "./transactions.js";
 export * from "./wasm-contract.ts";
-

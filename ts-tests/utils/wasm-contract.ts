@@ -8,7 +8,7 @@ import { getBalance } from "./balance.ts";
 import { sudoSetAdminFreezeWindow } from "./staking.ts";
 import { sendTransaction, waitForTransactionWithRetry } from "./transactions.ts";
 
-export const BITTENSOR_WASM_PATH = "./ink/bittensor.wasm"
+export const BITTENSOR_WASM_PATH = "./ink/bittensor.wasm";
 
 export async function getTransferCallCode(
     api: TypedApi<typeof subtensor>,
@@ -111,9 +111,8 @@ export async function getStakeInfoForHotkeyColdkeyNetuid(
     coldkey: string,
     netuid: number
 ): Promise<bigint | undefined> {
-    return (
-        await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(hotkey, coldkey, netuid)
-    )?.stake;
+    return (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(hotkey, coldkey, netuid))
+        ?.stake;
 }
 
 export async function instantiateWasmContract(
@@ -148,4 +147,3 @@ export async function instantiateWasmContract(
 }
 
 export { convertPublicKeyToSs58, getBalance };
-

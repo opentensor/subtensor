@@ -21,31 +21,30 @@ async function assertPrecompileGasScaling(
     api: TypedApi<typeof subtensor>,
     contract: ethers.Contract,
     wallet: ethers.Wallet,
-    call: (iterations: number) => Promise<ethers.ContractTransactionResponse>,
-    baseFee: bigint
+    call: (iterations: number) => Promise<ethers.ContractTransactionResponse>
 ): Promise<void> {
     let oneIterationGas = BigInt(0);
 
     for (const iterations of ITERATION_COUNTS) {
         const balanceBefore = await getBalance(api, convertH160ToSS58(wallet.address));
         const tx = await call(iterations);
-        await tx.wait();
+        const receipt = await tx.wait();
         await waitForFinalizedBlocks(api, 1);
 
         const balanceAfter = await getBalance(api, convertH160ToSS58(wallet.address));
         expect(balanceAfter).toBeLessThan(balanceBefore);
 
-        const usedGas = balanceBefore - balanceAfter;
+        const gasUsed = receipt!.gasUsed;
         if (iterations === 1) {
-            oneIterationGas = usedGas;
+            oneIterationGas = gasUsed;
             continue;
         }
 
-        expect(usedGas >= oneIterationGas).toBe(true);
+        expect(gasUsed >= oneIterationGas).toBe(true);
 
-        const precompileUsedGas = usedGas - oneIterationGas;
-        const minExpected = MIN_PRECOMPILE_GAS * BigInt(iterations - 1) * baseFee;
-        const maxExpected = MAX_PRECOMPILE_GAS * BigInt(iterations - 1) * baseFee;
+        const precompileUsedGas = gasUsed - oneIterationGas;
+        const minExpected = MIN_PRECOMPILE_GAS * BigInt(iterations - 1);
+        const maxExpected = MAX_PRECOMPILE_GAS * BigInt(iterations - 1);
 
         expect(precompileUsedGas >= minExpected).toBe(true);
         expect(precompileUsedGas <= maxExpected).toBe(true);
@@ -76,7 +75,6 @@ describeSuite({
             test: async () => {
                 const fee = await api.query.BaseFee.BaseFeePerGas.getValue();
                 expect(fee[0]).toBeGreaterThan(1_000_000_000);
-                const baseFee = BigInt(fee[0]) / BigInt(1_000_000_000);
 
                 const contractFactory = new ethers.ContractFactory(
                     PRECOMPILE_GAS_CONTRACT_ABI,
@@ -92,8 +90,12 @@ describeSuite({
 
                 const contract = new ethers.Contract(contractAddress, PRECOMPILE_GAS_CONTRACT_ABI, ethWallet);
 
-                await assertPrecompileGasScaling(api, contract, ethWallet, (iterations) => contract.callED25519(iterations), baseFee);
-                await assertPrecompileGasScaling(api, contract, ethWallet, (iterations) => contract.callSR25519(iterations), baseFee);
+                await assertPrecompileGasScaling(api, contract, ethWallet, (iterations) =>
+                    contract.callED25519(iterations)
+                );
+                await assertPrecompileGasScaling(api, contract, ethWallet, (iterations) =>
+                    contract.callSR25519(iterations)
+                );
             },
         });
     },

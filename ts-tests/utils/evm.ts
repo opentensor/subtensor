@@ -37,10 +37,7 @@ export function refreshEthersProvider(provider: ethers.JsonRpcProvider): ethers.
     return new ethers.JsonRpcProvider(url);
 }
 
-export function reconnectEthersWallet(
-    wallet: ethers.Wallet,
-    provider: ethers.JsonRpcProvider
-): ethers.Wallet {
+export function reconnectEthersWallet(wallet: ethers.Wallet, provider: ethers.JsonRpcProvider): ethers.Wallet {
     return wallet.connect(provider) as ethers.Wallet;
 }
 

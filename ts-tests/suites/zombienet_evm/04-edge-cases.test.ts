@@ -11,6 +11,9 @@ import {
     forceSetBalance,
     forceSetChainID,
     generateKeyringPair,
+    getEthChainId,
+    reconnectEthersWallet,
+    refreshEthersProvider,
     IBALANCETRANSFER_ADDRESS,
     IBalanceTransferABI,
     raoToEth,
@@ -48,9 +51,14 @@ describeSuite({
             await waitForFinalizedBlocks(api, 1);
         }, 300000);
 
+        function refreshProviderAndWallets(): void {
+            provider = refreshEthersProvider(provider);
+            ethWallet = reconnectEthersWallet(ethWallet, provider);
+            ethWallet2 = reconnectEthersWallet(ethWallet2, provider);
+        }
+
         async function getChainId(): Promise<bigint> {
-            const network = await provider.getNetwork();
-            return network.chainId;
+            return getEthChainId(provider);
         }
 
         it({
@@ -63,12 +71,14 @@ describeSuite({
                 const newChainId = BigInt(100);
                 await forceSetChainID(api, newChainId);
                 await waitForFinalizedBlocks(api, 1);
+                refreshProviderAndWallets();
 
                 chainId = await getChainId();
                 expect(chainId).toEqual(newChainId);
 
                 await forceSetChainID(api, BigInt(INIT_CHAIN_ID));
                 await waitForFinalizedBlocks(api, 1);
+                refreshProviderAndWallets();
 
                 chainId = await getChainId();
                 expect(chainId).toEqual(BigInt(INIT_CHAIN_ID));
