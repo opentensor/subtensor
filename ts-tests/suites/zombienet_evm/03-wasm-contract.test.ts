@@ -130,7 +130,7 @@ describeSuite({
             await sudoSetLockReductionInterval(api, 1);
             await setAdminFreezeWindow(api);
 
-            inkClient = getInkClient(contracts.bittensor as Parameters<typeof getInkClient>[0]);
+            inkClient = getInkClient(contracts.bittensor);
             faucet = generateKeyringPair("sr25519");
             await forceSetBalance(api, convertPublicKeyToSs58(faucet.publicKey), tao(1e9));
 
