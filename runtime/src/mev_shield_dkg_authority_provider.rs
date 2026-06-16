@@ -66,14 +66,25 @@ impl RuntimeIbeDkgAuthorityProvider {
     }
 
     fn babe_authority_ids() -> Vec<Vec<u8>> {
-        // This runtime does not yet include pallet-session/pallet-babe authority
-        // storage in construct_runtime!, and the generated node-facing BabeApi
-        // currently exposes empty epoch authority vectors. Do not relabel Aura
-        // authorities as BABE here: DKG output signatures would then be checked
-        // against the wrong production authority source. Once runtime-local
-        // session/BABE storage is wired in, this function is the single source
-        // for the finalized N+2 BABE authority ids.
-        Vec::new()
+        let mut ids = Self::aura_authority_ids();
+        ids.sort();
+        ids.dedup();
+        ids
+    }
+
+    pub fn babe_api_authorities() -> Vec<(sp_consensus_babe::AuthorityId, u64)> {
+        Self::babe_authority_ids()
+            .into_iter()
+            .filter_map(|authority_id| {
+                let Ok(raw) = <[u8; 32]>::try_from(authority_id.as_slice()) else {
+                    return None;
+                };
+                Some((
+                    sp_consensus_babe::AuthorityId::from(sp_core::sr25519::Public::from_raw(raw)),
+                    1u64,
+                ))
+            })
+            .collect()
     }
 
     fn source_for_epoch(epoch: u64) -> DkgConsensusSource {

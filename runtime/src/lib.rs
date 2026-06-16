@@ -2569,9 +2569,9 @@ impl_runtime_apis! {
         fn configuration() -> BabeConfiguration {
             let config = BabeEpochConfiguration::default();
             BabeConfiguration {
-                slot_duration: Default::default(),
-                epoch_length: Default::default(),
-                authorities: vec![],
+                slot_duration: SLOT_DURATION,
+                epoch_length: EPOCH_DURATION_IN_SLOTS,
+                authorities: mev_shield_dkg_authority_provider::RuntimeIbeDkgAuthorityProvider::babe_api_authorities(),
                 randomness: Default::default(),
                 c: config.c,
                 allowed_slots: config.allowed_slots,
@@ -2587,8 +2587,8 @@ impl_runtime_apis! {
             sp_consensus_babe::Epoch {
                 epoch_index: Default::default(),
                 start_slot: Default::default(),
-                duration: Default::default(),
-                authorities: vec![],
+                duration: EPOCH_DURATION_IN_SLOTS,
+                authorities: mev_shield_dkg_authority_provider::RuntimeIbeDkgAuthorityProvider::babe_api_authorities(),
                 randomness: Default::default(),
                 config: BabeEpochConfiguration::default(),
             }
@@ -2598,8 +2598,8 @@ impl_runtime_apis! {
             sp_consensus_babe::Epoch {
                 epoch_index: Default::default(),
                 start_slot: Default::default(),
-                duration: Default::default(),
-                authorities: vec![],
+                duration: EPOCH_DURATION_IN_SLOTS,
+                authorities: mev_shield_dkg_authority_provider::RuntimeIbeDkgAuthorityProvider::babe_api_authorities(),
                 randomness: Default::default(),
                 config: BabeEpochConfiguration::default(),
             }

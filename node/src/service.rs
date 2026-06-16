@@ -688,6 +688,14 @@ where
 
         // manual-seal authorship
         if let Some(sealing) = sealing {
+            if let Some(ibe_share_pool) = maybe_ibe_share_pool.clone() {
+                crate::mev_shield_ibe::finality::spawn_best_block_gate::<Block, _>(
+                    &task_manager.spawn_handle(),
+                    client.clone(),
+                    ibe_share_pool,
+                );
+            }
+
             run_manual_seal_authorship(
                 sealing,
                 client,

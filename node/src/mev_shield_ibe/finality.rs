@@ -81,3 +81,72 @@ pub fn spawn_finality_gate<Block, Client>(
         }),
     );
 }
+
+/// Dev/manual-seal finality shim.
+///
+/// Manual seal does not necessarily produce GRANDPA finality notifications, but
+/// local demos still need threshold-IBE partial-key release once the local chain
+/// has advanced past `target_block - 1`. This task treats the best local block as
+/// finalized for manual-seal only; production authority nodes keep using the
+/// normal `spawn_finality_gate` path.
+pub fn spawn_best_block_gate<Block, Client>(
+    spawn: &sc_service::SpawnTaskHandle,
+    client: std::sync::Arc<Client>,
+    pool: crate::mev_shield_ibe::MevShieldIbeSharePool,
+) where
+    Block: sp_runtime::traits::Block,
+    <Block as sp_runtime::traits::Block>::Hash: Into<sp_core::H256>,
+    sp_runtime::traits::NumberFor<Block>: core::convert::TryFrom<u64>,
+    Client: sc_client_api::HeaderBackend<Block>
+        + sc_client_api::BlockBackend<Block>
+        + sp_api::ProvideRuntimeApi<Block>
+        + Send
+        + Sync
+        + 'static,
+    Client::Api: mev_shield_ibe_runtime_api::MevShieldIbeApi<Block>,
+{
+    spawn.spawn(
+        "mev-shield-ibe-manual-finality-gate",
+        None,
+        Box::pin(async move {
+            let mut retry_tick = tokio::time::interval(std::time::Duration::from_secs(1));
+            loop {
+                retry_tick.tick().await;
+                let info = client.info();
+                use sp_runtime::traits::SaturatedConversion as _;
+                let best_hash = info.best_hash;
+                let best_number: u64 = info.best_number.saturated_into::<u64>();
+                let Ok(identities) = client
+                    .runtime_api()
+                    .pending_ibe_identities(best_hash, pool.max_pending_identities())
+                else {
+                    continue;
+                };
+                for identity in identities {
+                    let Some(ordering_block_number) = identity.target_block.checked_sub(1) else {
+                        continue;
+                    };
+                    if ordering_block_number > best_number {
+                        continue;
+                    }
+                    let Ok(ordering_number) =
+                        <sp_runtime::traits::NumberFor<Block> as core::convert::TryFrom<u64>>::try_from(
+                            ordering_block_number,
+                        )
+                    else {
+                        continue;
+                    };
+                    let Ok(Some(ordering_hash)) = client.hash(ordering_number) else {
+                        continue;
+                    };
+                    pool.mark_finalized_identity_unlocked(
+                        identity,
+                        ordering_block_number,
+                        ordering_hash.into(),
+                        best_number,
+                    );
+                }
+            }
+        }),
+    );
+}
