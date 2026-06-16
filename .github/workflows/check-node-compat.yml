@@ -16,14 +16,16 @@ jobs:
   build:
     name: build ${{ matrix.version.name }}
     runs-on: [self-hosted, type-ccx33]
-    if: contains(github.event.pull_request.labels.*.name, 'check-node-compat')
+    if: github.event.label.name == 'check-node-compat'
     env:
         RUST_BACKTRACE: full
     strategy:
       matrix:
         version:
-          - { name: old, ref: devnet-ready }
-          - { name: new, ref: ${{ github.head_ref }} }
+          - name: old
+            ref: devnet-ready
+          - name: new
+            ref: ${{ github.head_ref }}
 
     steps:
       - name: Install dependencies
@@ -42,7 +44,7 @@ jobs:
           key: "check-node-compat-${{ matrix.version.name }}"
       
       - name: Checkout ${{ matrix.version.name }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ matrix.version.ref }}
           path: ${{ matrix.version.name }}
@@ -52,7 +54,7 @@ jobs:
         run: cargo build --release --locked
         
       - name: Upload ${{ matrix.version.name }} node binary
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: node-subtensor-${{ matrix.version.name }}
           path: ${{ matrix.version.name }}/target/release/node-subtensor
@@ -63,19 +65,19 @@ jobs:
     runs-on: [self-hosted, type-ccx33]
     steps:
       - name: Download old node binary
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: node-subtensor-old
           path: /tmp/node-subtensor-old
           
       - name: Download new node binary
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: node-subtensor-new
           path: /tmp/node-subtensor-new
           
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "24"
 

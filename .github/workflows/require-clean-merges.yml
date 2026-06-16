@@ -12,7 +12,7 @@ jobs:
     runs-on: [self-hosted, type-ccx13]
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0 # Ensures we get all branches for merging
 

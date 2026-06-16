@@ -19,7 +19,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
 
       - name: Install dependencies
         run: |
@@ -48,7 +48,7 @@ jobs:
         run: |
             echo "<meta http-equiv=refresh content=0;url=wasm_oidc_plugin/index.html>" > target/doc/index.html
       - name: Upload documentation
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
             path: ./target/doc
 
@@ -66,4 +66,4 @@ jobs:
         steps:
           - name: Deploy documentation
             id: pages
-            uses: actions/deploy-pages@v2
+            uses: actions/deploy-pages@v5

@@ -4,10 +4,14 @@ on:
   pull_request:
     branches: [devnet, devnet-ready]
     types: [labeled, unlabeled, synchronize, opened]
-    
+
 concurrency:
   group: check-devnet-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
 
 env:
   CARGO_TERM_COLOR: always
@@ -16,22 +20,64 @@ jobs:
   check-spec-version:
     name: Check spec_version bump
     runs-on: [self-hosted, type-ccx33]
-    if: ${{ !contains(github.event.pull_request.labels.*.name, 'no-spec-version-bump') }}
     steps:
+      - name: Decide whether to run, skip, or mirror previous result
+        id: gate
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const labels = context.payload.pull_request?.labels?.map(l => l.name) ?? [];
+            if (labels.includes('no-spec-version-bump')) {
+              core.info('no-spec-version-bump label present on PR; skipping spec_version check.');
+              core.setOutput('skip', 'true');
+              return;
+            }
+
+            const action = context.payload.action;
+            const labelName = context.payload.label?.name;
+            const isLabelEvent = action === 'labeled' || action === 'unlabeled';
+            if (isLabelEvent && labelName !== 'no-spec-version-bump') {
+              const sha = context.payload.pull_request.head.sha;
+              const runs = await github.rest.actions.listWorkflowRuns({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: 'check-devnet.yml',
+                head_sha: sha,
+                status: 'completed',
+                per_page: 20,
+              });
+              const prev = runs.data.workflow_runs.find(r => r.id !== context.runId);
+              core.info(`Previous completed run for ${sha}: ${prev?.conclusion ?? 'none'}`);
+              if (prev?.conclusion === 'success') {
+                core.setOutput('skip', 'true');
+                return;
+              }
+              if (prev?.conclusion === 'failure') {
+                core.setFailed('Mirroring previous failed run for this commit.');
+                return;
+              }
+            }
+
+            core.setOutput('skip', 'false');
+
       - name: Dependencies
+        if: steps.gate.outputs.skip != 'true'
         run: |
           sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
           sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl libssl-dev llvm libudev-dev protobuf-compiler pkg-config
 
       - name: Install Rust
+        if: steps.gate.outputs.skip != 'true'
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
 
       - name: Check-out repository under $GITHUB_WORKSPACE
-        uses: actions/checkout@v4
+        if: steps.gate.outputs.skip != 'true'
+        uses: actions/checkout@v6
 
       - name: Utilize Shared Rust Cache
+        if: steps.gate.outputs.skip != 'true'
         uses: Swatinem/rust-cache@v2
         with:
           key: try-runtime
@@ -39,9 +85,11 @@ jobs:
           save-if: true
 
       - name: Install substrate-spec-version
+        if: steps.gate.outputs.skip != 'true'
         run: cargo install substrate-spec-version
 
       - name: Check that spec_version has been bumped
+        if: steps.gate.outputs.skip != 'true'
         run: |
           spec_version=$(PATH=$PATH:$HOME/.cargo/.bin substrate-spec-version wss://dev.chain.opentensor.ai:443 | tr -d '\n')
           echo "network spec_version: $spec_version"
