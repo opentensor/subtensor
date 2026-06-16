@@ -1687,11 +1687,26 @@ impl<T: Config> Pallet<T> {
     pub fn ensure_ibe_dkg_liveness() -> frame_support::weights::Weight {
         let current = Self::current_ibe_epoch();
         let (_, current_last_block) = Self::epoch_bounds(current);
-        let reads = 2u64;
+        let current_block: u64 = frame_system::Pallet::<T>::block_number().saturated_into::<u64>();
+        let canonical_submission_target = current_block
+            .checked_add(IBE_TARGET_LOOKAHEAD_BLOCKS)
+            .unwrap_or(u64::MAX);
+        let required_last_block = core::cmp::max(current_last_block, canonical_submission_target);
+
+        // Reads are intentionally conservative: the readiness probes and fallback
+        // lookup may inspect current/latest/nearby epoch keys. The important part is
+        // that fallback covers the same +2 target the submission gate requires.
+        let reads = 4u64;
         let mut writes = 0u64;
 
+        if Self::active_ibe_key_for_target_block(current_block).is_some()
+            && Self::active_ibe_key_for_target_block(canonical_submission_target).is_some()
+        {
+            return T::DbWeight::get().reads_writes(reads, writes);
+        }
+
         if let Some(epoch_key) = IbeEpochKeys::<T>::get(current) {
-            if epoch_key.last_block >= current_last_block {
+            if epoch_key.last_block >= required_last_block {
                 return T::DbWeight::get().reads_writes(reads, writes);
             }
         }
@@ -1700,22 +1715,28 @@ impl<T: Config> Pallet<T> {
             return T::DbWeight::get().reads_writes(reads, writes);
         };
 
-        if fallback_key.last_block >= current_last_block {
+        if fallback_key.last_block >= required_last_block {
             return T::DbWeight::get().reads_writes(reads, writes);
         }
 
         let source_epoch = fallback_key.epoch;
-        fallback_key.last_block = current_last_block;
         let key_id = fallback_key.key_id;
+        fallback_key.last_block = required_last_block;
         IbeEpochKeys::<T>::insert(source_epoch, fallback_key);
         Self::update_latest_published_ibe_epoch(source_epoch);
-        writes = writes.saturating_add(2);
+        writes = writes.checked_add(2).unwrap_or(u64::MAX);
+
+        let epoch_len = T::EpochLength::get().max(1);
+        let extended_epoch = required_last_block
+            .checked_div(epoch_len)
+            .unwrap_or(current);
         Self::deposit_event(Event::IbeEpochKeyEmergencyExtended {
             source_epoch,
-            extended_epoch: current,
+            extended_epoch,
             key_id,
-            new_last_block: current_last_block,
+            new_last_block: required_last_block,
         });
+
         T::DbWeight::get().reads_writes(reads, writes)
     }
 
