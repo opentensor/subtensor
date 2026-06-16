@@ -5,7 +5,7 @@ use frame_support::{
     pallet_prelude::*,
     storage::{TransactionOutcome, with_transaction},
     traits::{
-        Imbalance, IsSubType, OnUnbalanced,
+        Imbalance, IsSubType, IsType, OnUnbalanced,
         fungible::{
             Balanced, Credit, Debt, DecreaseIssuance, Imbalance as FungibleImbalance,
             IncreaseIssuance, Inspect,
@@ -247,85 +247,166 @@ pub struct SubtensorEvmFeeHandler<F, OU>(PhantomData<(F, OU)>);
 /// This implementation contains the list of calls that require paying transaction
 /// fees in Alpha
 impl<F, OU> SubtensorTxFeeHandler<F, OU> {
+    /// Maximum nesting depth unwrapped when searching for an eligible subtensor
+    /// call inside `proxy` / `batch` wrappers. Mirrors the 2-level fee-payer
+    /// resolution in the runtime transaction-payment wrapper.
+    const MAX_WRAP_DEPTH: u8 = 2;
+
     /// Returns Vec<(hotkey, netuid)> if the given call should pay fees in Alpha instead of TAO.
     /// The vector represents all subnets where this hotkey has any alpha stake. Fees will be
     /// distributed evenly between subnets in case of multiple subnets.
+    ///
+    /// Eligible subtensor calls are also discovered when wrapped in `proxy` or
+    /// `batch` (see [`Self::collect_fees_in_alpha`]).
     pub fn fees_in_alpha<T>(who: &AccountIdOf<T>, call: &CallOf<T>) -> Vec<(AccountIdOf<T>, NetUid)>
     where
-        T: frame_system::Config + pallet_subtensor::Config + AuthorshipInfo<AccountIdOf<T>>,
-        CallOf<T>: IsSubType<pallet_subtensor::Call<T>>,
+        T: frame_system::Config
+            + pallet_subtensor::Config
+            + pallet_subtensor_proxy::Config
+            + pallet_subtensor_utility::Config
+            + AuthorshipInfo<AccountIdOf<T>>,
+        CallOf<T>: IsSubType<pallet_subtensor::Call<T>>
+            + IsSubType<pallet_subtensor_proxy::Call<T>>
+            + IsSubType<pallet_subtensor_utility::Call<T>>,
         OU: AlphaFeeHandler<T>,
     {
         let mut alpha_vec: Vec<(AccountIdOf<T>, NetUid)> = Vec::new();
+        Self::collect_fees_in_alpha::<T>(who, call, Self::MAX_WRAP_DEPTH, &mut alpha_vec);
+        alpha_vec
+    }
 
-        // Otherwise, switch to Alpha for the extrinsics that assume converting Alpha
-        // to TAO
+    /// Recursively descend through `proxy` and `batch` wrappers, collecting the
+    /// `(hotkey, netuid)` targets of every eligible subtensor call found.
+    fn collect_fees_in_alpha<T>(
+        who: &AccountIdOf<T>,
+        call: &CallOf<T>,
+        depth: u8,
+        alpha_vec: &mut Vec<(AccountIdOf<T>, NetUid)>,
+    ) where
+        T: frame_system::Config
+            + pallet_subtensor::Config
+            + pallet_subtensor_proxy::Config
+            + pallet_subtensor_utility::Config
+            + AuthorshipInfo<AccountIdOf<T>>,
+        CallOf<T>: IsSubType<pallet_subtensor::Call<T>>
+            + IsSubType<pallet_subtensor_proxy::Call<T>>
+            + IsSubType<pallet_subtensor_utility::Call<T>>,
+        OU: AlphaFeeHandler<T>,
+    {
+        // Eligible subtensor call at this level.
+        if let Some(sub_call) = IsSubType::<pallet_subtensor::Call<T>>::is_sub_type(call) {
+            Self::push_subtensor_alpha_targets::<T>(who, sub_call, alpha_vec);
+            return;
+        }
+
+        if depth == 0 {
+            return;
+        }
+
+        // proxy.proxy(real, _, call) -> descend into the wrapped call.
+        if let Some(pallet_subtensor_proxy::Call::proxy { call: inner, .. }) =
+            IsSubType::<pallet_subtensor_proxy::Call<T>>::is_sub_type(call)
+        {
+            let inner: &CallOf<T> = (*inner).as_ref().into_ref();
+            Self::collect_fees_in_alpha::<T>(who, inner, depth.saturating_sub(1), alpha_vec);
+            return;
+        }
+
+        // utility.batch / batch_all / force_batch -> descend into each item.
+        if let Some(
+            pallet_subtensor_utility::Call::batch { calls }
+            | pallet_subtensor_utility::Call::batch_all { calls }
+            | pallet_subtensor_utility::Call::force_batch { calls },
+        ) = IsSubType::<pallet_subtensor_utility::Call<T>>::is_sub_type(call)
+        {
+            for inner in calls.iter() {
+                let inner: &CallOf<T> = inner.into_ref();
+                Self::collect_fees_in_alpha::<T>(who, inner, depth.saturating_sub(1), alpha_vec);
+            }
+        }
+    }
+
+    /// Push the `(hotkey, netuid)` Alpha-fee target(s) for a single eligible
+    /// subtensor call. Calls that do not convert Alpha to TAO are ignored.
+    fn push_subtensor_alpha_targets<T>(
+        who: &AccountIdOf<T>,
+        call: &pallet_subtensor::Call<T>,
+        alpha_vec: &mut Vec<(AccountIdOf<T>, NetUid)>,
+    ) where
+        T: frame_system::Config + pallet_subtensor::Config + AuthorshipInfo<AccountIdOf<T>>,
+        OU: AlphaFeeHandler<T>,
+    {
+        // Switch to Alpha for the extrinsics that assume converting Alpha to TAO.
         // TODO: Populate the list
-        match call.is_sub_type() {
-            Some(SubtensorCall::remove_stake { hotkey, netuid, .. }) => {
+        match call {
+            SubtensorCall::remove_stake { hotkey, netuid, .. } => {
                 alpha_vec.push((hotkey.clone(), *netuid))
             }
-            Some(SubtensorCall::remove_stake_limit { hotkey, netuid, .. }) => {
+            SubtensorCall::remove_stake_limit { hotkey, netuid, .. } => {
                 alpha_vec.push((hotkey.clone(), *netuid))
             }
-            Some(SubtensorCall::remove_stake_full_limit { hotkey, netuid, .. }) => {
+            SubtensorCall::remove_stake_full_limit { hotkey, netuid, .. } => {
                 alpha_vec.push((hotkey.clone(), *netuid))
             }
-            Some(SubtensorCall::unstake_all { hotkey, .. }) => {
+            SubtensorCall::unstake_all { hotkey, .. } => {
                 let netuids = OU::get_all_netuids_for_coldkey_and_hotkey(who, hotkey);
                 netuids
                     .into_iter()
                     .for_each(|netuid| alpha_vec.push((hotkey.clone(), netuid)));
             }
-            Some(SubtensorCall::unstake_all_alpha { hotkey, .. }) => {
+            SubtensorCall::unstake_all_alpha { hotkey, .. } => {
                 let netuids = OU::get_all_netuids_for_coldkey_and_hotkey(who, hotkey);
                 netuids
                     .into_iter()
                     .for_each(|netuid| alpha_vec.push((hotkey.clone(), netuid)));
             }
-            Some(SubtensorCall::move_stake {
+            SubtensorCall::move_stake {
                 origin_hotkey,
                 destination_hotkey: _,
                 origin_netuid,
                 ..
-            }) => alpha_vec.push((origin_hotkey.clone(), *origin_netuid)),
-            Some(SubtensorCall::transfer_stake {
+            } => alpha_vec.push((origin_hotkey.clone(), *origin_netuid)),
+            SubtensorCall::transfer_stake {
                 destination_coldkey: _,
                 hotkey,
                 origin_netuid,
                 ..
-            }) => alpha_vec.push((hotkey.clone(), *origin_netuid)),
-            Some(SubtensorCall::swap_stake {
+            } => alpha_vec.push((hotkey.clone(), *origin_netuid)),
+            SubtensorCall::swap_stake {
                 hotkey,
                 origin_netuid,
                 ..
-            }) => alpha_vec.push((hotkey.clone(), *origin_netuid)),
-            Some(SubtensorCall::swap_stake_limit {
+            } => alpha_vec.push((hotkey.clone(), *origin_netuid)),
+            SubtensorCall::swap_stake_limit {
                 hotkey,
                 origin_netuid,
                 ..
-            }) => alpha_vec.push((hotkey.clone(), *origin_netuid)),
-            Some(SubtensorCall::recycle_alpha {
+            } => alpha_vec.push((hotkey.clone(), *origin_netuid)),
+            SubtensorCall::recycle_alpha {
                 hotkey,
                 amount: _,
                 netuid,
-            }) => alpha_vec.push((hotkey.clone(), *netuid)),
-            Some(SubtensorCall::burn_alpha {
+            } => alpha_vec.push((hotkey.clone(), *netuid)),
+            SubtensorCall::burn_alpha {
                 hotkey,
                 amount: _,
                 netuid,
-            }) => alpha_vec.push((hotkey.clone(), *netuid)),
+            } => alpha_vec.push((hotkey.clone(), *netuid)),
             _ => {}
         }
-
-        alpha_vec
     }
 }
 
 impl<T, F, OU> OnChargeTransaction<T> for SubtensorTxFeeHandler<F, OU>
 where
-    T: PTPConfig + pallet_subtensor::Config + AuthorshipInfo<AccountIdOf<T>>,
-    CallOf<T>: IsSubType<pallet_subtensor::Call<T>>,
+    T: PTPConfig
+        + pallet_subtensor::Config
+        + pallet_subtensor_proxy::Config
+        + pallet_subtensor_utility::Config
+        + AuthorshipInfo<AccountIdOf<T>>,
+    CallOf<T>: IsSubType<pallet_subtensor::Call<T>>
+        + IsSubType<pallet_subtensor_proxy::Call<T>>
+        + IsSubType<pallet_subtensor_utility::Call<T>>,
     F: Balanced<T::AccountId>,
     OU: OnUnbalanced<Credit<T::AccountId, F>> + AlphaFeeHandler<T>,
     <F as Inspect<AccountIdOf<T>>>::Balance: Into<TaoBalance> + From<TaoBalance>,

@@ -1574,3 +1574,125 @@ fn test_add_stake_fees_go_to_block_builder() {
         );
     });
 }
+
+// cargo test --package subtensor-transaction-fee --lib -- tests::test_fees_in_alpha_unwraps_batch --exact --show-output
+#[test]
+fn test_fees_in_alpha_unwraps_batch() {
+    new_test_ext().execute_with(|| {
+        let sn = setup_subnets(1, 1);
+        setup_stake(sn.subnets[0].netuid, &sn.coldkey, &sn.hotkeys[0], TAO);
+
+        let inner = RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake {
+            hotkey: sn.hotkeys[0],
+            netuid: sn.subnets[0].netuid,
+            amount_unstaked: AlphaBalance::from(TAO / 50),
+        });
+        let call =
+            RuntimeCall::Utility(pallet_subtensor_utility::Call::batch { calls: vec![inner] });
+
+        let alpha_vec =
+            SubtensorTxFeeHandler::<Balances, TransactionFeeHandler<Test>>::fees_in_alpha::<Test>(
+                &sn.coldkey,
+                &call,
+            );
+        assert_eq!(alpha_vec, vec![(sn.hotkeys[0], sn.subnets[0].netuid)]);
+    });
+}
+
+// cargo test --package subtensor-transaction-fee --lib -- tests::test_fees_in_alpha_unwraps_proxy --exact --show-output
+#[test]
+fn test_fees_in_alpha_unwraps_proxy() {
+    new_test_ext().execute_with(|| {
+        let sn = setup_subnets(1, 1);
+        setup_stake(sn.subnets[0].netuid, &sn.coldkey, &sn.hotkeys[0], TAO);
+
+        let inner = RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake {
+            hotkey: sn.hotkeys[0],
+            netuid: sn.subnets[0].netuid,
+            amount_unstaked: AlphaBalance::from(TAO / 50),
+        });
+        let call = RuntimeCall::Proxy(pallet_subtensor_proxy::Call::proxy {
+            real: sn.coldkey,
+            force_proxy_type: None,
+            call: Box::new(inner),
+        });
+
+        // The fee payer (`who`) is the real account that owns the alpha — the
+        // proxy fee-payer resolution lives in the runtime wrapper; here we only
+        // assert that the inner subtensor call is discovered through the proxy.
+        let alpha_vec =
+            SubtensorTxFeeHandler::<Balances, TransactionFeeHandler<Test>>::fees_in_alpha::<Test>(
+                &sn.coldkey,
+                &call,
+            );
+        assert_eq!(alpha_vec, vec![(sn.hotkeys[0], sn.subnets[0].netuid)]);
+    });
+}
+
+// End-to-end: a `batch([remove_stake])` signed by the stake owner with ~0 free
+// TAO must pay the fee in Alpha, exactly as the bare `remove_stake` does.
+// cargo test --package subtensor-transaction-fee --lib -- tests::test_batch_remove_stake_fees_alpha --exact --show-output
+#[test]
+fn test_batch_remove_stake_fees_alpha() {
+    new_test_ext().execute_with(|| {
+        let unstake_amount = AlphaBalance::from(TAO / 50);
+        let sn = setup_subnets(1, 1);
+        setup_stake(sn.subnets[0].netuid, &sn.coldkey, &sn.hotkeys[0], TAO);
+
+        // Force signer balance down to ED so TAO cannot cover the fee.
+        let current_balance = Balances::free_balance(sn.coldkey);
+        remove_balance_from_coldkey_account(
+            &sn.coldkey,
+            current_balance - ExistentialDeposit::get(),
+        );
+
+        let alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &sn.hotkeys[0],
+            &sn.coldkey,
+            sn.subnets[0].netuid,
+        );
+
+        let inner = RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake {
+            hotkey: sn.hotkeys[0],
+            netuid: sn.subnets[0].netuid,
+            amount_unstaked: unstake_amount,
+        });
+        let call =
+            RuntimeCall::Utility(pallet_subtensor_utility::Call::batch { calls: vec![inner] });
+
+        System::reset_events();
+
+        let info = call.get_dispatch_info();
+        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0.into());
+        assert_ok!(ext.dispatch_transaction(
+            RuntimeOrigin::signed(sn.coldkey).into(),
+            call,
+            &info,
+            0,
+            0,
+        ));
+
+        let alpha_after = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &sn.hotkeys[0],
+            &sn.coldkey,
+            sn.subnets[0].netuid,
+        );
+
+        // Alpha was spent beyond the explicitly unstaked amount (i.e. the fee
+        // was charged in Alpha).
+        let actual_alpha_fee = alpha_before - alpha_after - unstake_amount;
+        assert!(actual_alpha_fee > 0.into());
+
+        let events = System::events();
+        assert!(events.iter().any(|event_record| {
+            matches!(
+                &event_record.event,
+                RuntimeEvent::SubtensorModule(SubtensorEvent::TransactionFeePaidWithAlpha {
+                    who,
+                    netuid,
+                    ..
+                }) if who == &sn.coldkey && *netuid == sn.subnets[0].netuid
+            )
+        }));
+    });
+}

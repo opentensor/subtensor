@@ -47,6 +47,8 @@ frame_support::construct_runtime!(
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 10,
         Crowdloan: pallet_crowdloan::{Pallet, Call, Storage, Event<T>} = 11,
         TransactionPayment: pallet_transaction_payment = 12,
+        Utility: pallet_subtensor_utility::{Pallet, Call, Storage, Event} = 13,
+        Proxy: pallet_subtensor_proxy::{Pallet, Call, Storage, Event<T>} = 14,
     }
 );
 
@@ -462,6 +464,63 @@ impl pallet_scheduler::Config for Test {
     type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Test>;
     type OriginPrivilegeCmp = OriginPrivilegeCmp;
     type Preimages = ();
+    type BlockNumberProvider = System;
+}
+
+// Minimal proxy type for the mock: a single all-permitting variant.
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Default,
+    codec::Encode,
+    codec::Decode,
+    codec::DecodeWithMemTracking,
+    codec::MaxEncodedLen,
+    scale_info::TypeInfo,
+    frame_support::pallet_prelude::RuntimeDebug,
+)]
+pub enum ProxyType {
+    #[default]
+    Any,
+}
+
+impl frame_support::traits::InstanceFilter<RuntimeCall> for ProxyType {
+    fn filter(&self, _call: &RuntimeCall) -> bool {
+        true
+    }
+}
+
+parameter_types! {
+    pub const ProxyDepositBase: Balance = TaoBalance::new(1);
+    pub const ProxyDepositFactor: Balance = TaoBalance::new(1);
+    pub const MaxProxies: u32 = 32;
+    pub const MaxPending: u32 = 32;
+    pub const AnnouncementDepositBase: Balance = TaoBalance::new(1);
+    pub const AnnouncementDepositFactor: Balance = TaoBalance::new(1);
+}
+
+impl pallet_subtensor_utility::Config for Test {
+    type RuntimeCall = RuntimeCall;
+    type PalletsOrigin = OriginCaller;
+    type WeightInfo = ();
+}
+
+impl pallet_subtensor_proxy::Config for Test {
+    type RuntimeCall = RuntimeCall;
+    type Currency = Balances;
+    type ProxyType = ProxyType;
+    type ProxyDepositBase = ProxyDepositBase;
+    type ProxyDepositFactor = ProxyDepositFactor;
+    type MaxProxies = MaxProxies;
+    type WeightInfo = ();
+    type MaxPending = MaxPending;
+    type CallHasher = BlakeTwo256;
+    type AnnouncementDepositBase = AnnouncementDepositBase;
+    type AnnouncementDepositFactor = AnnouncementDepositFactor;
     type BlockNumberProvider = System;
 }
 
