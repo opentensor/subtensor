@@ -19,7 +19,6 @@ const ITERATION_COUNTS = [1, 11, 101] as const;
 
 async function assertPrecompileGasScaling(
     api: TypedApi<typeof subtensor>,
-    contract: ethers.Contract,
     wallet: ethers.Wallet,
     call: (iterations: number) => Promise<ethers.ContractTransactionResponse>
 ): Promise<void> {
@@ -29,7 +28,7 @@ async function assertPrecompileGasScaling(
         const balanceBefore = await getBalance(api, convertH160ToSS58(wallet.address));
         const tx = await call(iterations);
         const receipt = await tx.wait();
-        await waitForFinalizedBlocks(api, 1);
+        await waitForFinalizedBlocks(api, 2);
 
         const balanceAfter = await getBalance(api, convertH160ToSS58(wallet.address));
         expect(balanceAfter).toBeLessThan(balanceBefore);
@@ -90,10 +89,10 @@ describeSuite({
 
                 const contract = new ethers.Contract(contractAddress, PRECOMPILE_GAS_CONTRACT_ABI, ethWallet);
 
-                await assertPrecompileGasScaling(api, contract, ethWallet, (iterations) =>
+                await assertPrecompileGasScaling(api, ethWallet, (iterations) =>
                     contract.callED25519(iterations)
                 );
-                await assertPrecompileGasScaling(api, contract, ethWallet, (iterations) =>
+                await assertPrecompileGasScaling(api, ethWallet, (iterations) =>
                     contract.callSR25519(iterations)
                 );
             },
