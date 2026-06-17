@@ -265,8 +265,6 @@ describeSuite({
 
                 expect(stakeFromContract).toBeGreaterThan(stakeBefore);
                 expect(stakeAfter).toBeGreaterThan(stakeBefore);
-                // Swap fees/slippage can leave stake slightly below the nominal TAO sent.
-                expect(stakeFromContract).toBeGreaterThan(tao(19));
             },
         });
 

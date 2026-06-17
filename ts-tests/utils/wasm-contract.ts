@@ -6,7 +6,7 @@ import { Binary } from "polkadot-api";
 import { convertPublicKeyToSs58 } from "./address.ts";
 import { getBalance } from "./balance.ts";
 import { sudoSetAdminFreezeWindow } from "./staking.ts";
-import { sendTransaction, waitForTransactionWithRetry } from "./transactions.ts";
+import { sendTransaction, waitForFinalizedBlocks, waitForTransactionWithRetry } from "./transactions.ts";
 
 export const BITTENSOR_WASM_PATH = "./ink/bittensor.wasm";
 
@@ -82,7 +82,8 @@ export async function sendWasmContractExtrinsic(
         },
         storage_deposit_limit: BigInt(1_000_000_000),
     });
-    await waitForTransactionWithRetry(api, tx, coldkey, "contracts_call", 5);
+    await waitForTransactionWithRetry(api, tx, coldkey, "contracts_call", 1);
+    await waitForFinalizedBlocks(api, 1);
 }
 
 /** Submit a contract call without failing when the contract reverts (expected for atomic-failure tests). */
