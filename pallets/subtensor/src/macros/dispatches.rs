@@ -2593,5 +2593,28 @@ mod dispatches {
             let coldkey = ensure_signed(origin)?;
             Self::do_set_perpetual_lock(&coldkey, netuid, enabled)
         }
+
+        /// Sets or clears the caller's "reject locked alpha" account flag.
+        ///
+        /// When enabled, this coldkey cannot receive locked alpha from stake
+        /// transfers or coldkey swaps.
+        #[pallet::call_index(139)]
+        #[pallet::weight((
+            <T as frame_system::Config>::DbWeight::get().reads_writes(1, 1),
+            DispatchClass::Normal,
+            Pays::Yes
+        ))]
+        pub fn set_reject_locked_alpha(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
+            let coldkey = ensure_signed(origin)?;
+            AccountFlags::<T>::mutate(&coldkey, |flags| {
+                if enabled {
+                    *flags |= crate::ACCOUNT_FLAGS_REJECT_LOCKED_ALPHA;
+                } else {
+                    *flags &= !crate::ACCOUNT_FLAGS_REJECT_LOCKED_ALPHA;
+                }
+            });
+            Self::deposit_event(Event::RejectLockedAlphaUpdated { coldkey, enabled });
+            Ok(())
+        }
     }
 }

@@ -444,6 +444,49 @@ impl ConvictionModel {
 }
 
 impl<T: Config> Pallet<T> {
+    pub fn account_rejects_locked_alpha(coldkey: &T::AccountId) -> bool {
+        AccountFlags::<T>::get(coldkey) & crate::ACCOUNT_FLAGS_REJECT_LOCKED_ALPHA != 0
+    }
+
+    pub fn ensure_can_receive_locked_alpha(
+        coldkey: &T::AccountId,
+        amount: AlphaBalance,
+    ) -> DispatchResult {
+        if amount.is_zero() {
+            return Ok(());
+        }
+        ensure!(
+            !Self::account_rejects_locked_alpha(coldkey),
+            Error::<T>::AccountRejectsLockedAlpha
+        );
+        Ok(())
+    }
+
+    pub fn ensure_can_receive_coldkey_locks(
+        old_coldkey: &T::AccountId,
+        new_coldkey: &T::AccountId,
+    ) -> DispatchResult {
+        Self::ensure_no_active_locks(new_coldkey)?;
+
+        let now = Self::get_current_block_as_u64();
+        let unlock_rate = UnlockRate::<T>::get();
+        let maturity_rate = MaturityRate::<T>::get();
+
+        for ((netuid, hotkey), lock) in Lock::<T>::iter_prefix((old_coldkey,)) {
+            let old_lock = ConvictionModel::roll_forward_lock(
+                lock,
+                now,
+                unlock_rate,
+                maturity_rate,
+                Self::is_subnet_owner_hotkey(netuid, &hotkey),
+                Self::is_perpetual_lock(old_coldkey, netuid),
+            );
+            Self::ensure_can_receive_locked_alpha(new_coldkey, old_lock.locked_mass)?;
+        }
+
+        Ok(())
+    }
+
     pub fn insert_lock_state(
         coldkey: &T::AccountId,
         netuid: NetUid,
@@ -1328,20 +1371,15 @@ impl<T: Config> Pallet<T> {
         old_coldkey: &T::AccountId,
         new_coldkey: &T::AccountId,
     ) -> DispatchResult {
-        Self::ensure_no_active_locks(new_coldkey)?;
+        Self::ensure_can_receive_coldkey_locks(old_coldkey, new_coldkey)?;
 
         let mut locks_to_transfer: Vec<(NetUid, T::AccountId, LockState)> = Vec::new();
+        let now = Self::get_current_block_as_u64();
+        let unlock_rate = UnlockRate::<T>::get();
+        let maturity_rate = MaturityRate::<T>::get();
 
         // Gather locks for old coldkey
         for ((netuid, hotkey), lock) in Lock::<T>::iter_prefix((old_coldkey,)) {
-            locks_to_transfer.push((netuid, hotkey, lock));
-        }
-
-        // Remove locks for old coldkey and insert for new
-        for (netuid, hotkey, lock) in locks_to_transfer {
-            let now = Self::get_current_block_as_u64();
-            let unlock_rate = UnlockRate::<T>::get();
-            let maturity_rate = MaturityRate::<T>::get();
             let old_lock = ConvictionModel::roll_forward_lock(
                 lock,
                 now,
@@ -1350,6 +1388,12 @@ impl<T: Config> Pallet<T> {
                 Self::is_subnet_owner_hotkey(netuid, &hotkey),
                 Self::is_perpetual_lock(old_coldkey, netuid),
             );
+            Self::ensure_can_receive_locked_alpha(new_coldkey, old_lock.locked_mass)?;
+            locks_to_transfer.push((netuid, hotkey, old_lock));
+        }
+
+        // Remove locks for old coldkey and insert for new
+        for (netuid, hotkey, old_lock) in locks_to_transfer {
             let new_lock = ConvictionModel::roll_forward_lock(
                 old_lock.clone(),
                 now,
@@ -1780,6 +1824,7 @@ impl<T: Config> Pallet<T> {
                 .conviction
                 .saturating_add(conviction_transfer);
         }
+        Self::ensure_can_receive_locked_alpha(destination_coldkey, locked_transfer)?;
 
         source_lock = ConvictionModel::roll_forward_lock(
             source_lock,

@@ -15,6 +15,7 @@ impl<T: Config> Pallet<T> {
             !Self::hotkey_account_exists(new_coldkey),
             Error::<T>::NewColdKeyIsHotkey
         );
+        Self::ensure_can_receive_coldkey_locks(old_coldkey, new_coldkey)?;
 
         // Swap the identity if the old coldkey has one and the new coldkey doesn't
         if IdentitiesV2::<T>::get(new_coldkey).is_none()

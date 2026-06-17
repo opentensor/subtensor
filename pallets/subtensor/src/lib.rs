@@ -69,6 +69,9 @@ pub const MAX_SUBNET_CLAIMS: usize = 5;
 
 pub const MAX_ROOT_CLAIM_THRESHOLD: u64 = 10_000_000;
 
+/// Account flag bit that rejects incoming locked alpha transfers.
+pub const ACCOUNT_FLAGS_REJECT_LOCKED_ALPHA: u128 = 1u128 << 0;
+
 #[allow(deprecated)]
 #[deny(missing_docs)]
 #[import_section(errors::errors)]
@@ -1185,6 +1188,11 @@ pub mod pallet {
     #[pallet::storage]
     pub type Owner<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId, ValueQuery, DefaultAccount<T>>;
+
+    /// MAP ( coldkey ) --> flags | Account-level flags. Defaults to zero.
+    #[pallet::storage]
+    pub type AccountFlags<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, u128, ValueQuery>;
 
     /// MAP ( hot ) --> take | Returns the hotkey delegation take. And signals that this key is open for delegation
     #[pallet::storage]
