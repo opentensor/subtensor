@@ -95,12 +95,6 @@ pub const MAX_CONDITIONAL_IBE_LIFETIME_BLOCKS: u32 = 5_000;
 
 /// Fixed condition-evaluation weight charged once per pre-paid lifetime block.
 pub const CONDITIONAL_IBE_EVAL_WEIGHT_REF_TIME: u64 = 1_000_000;
-/// Extra per-block weight for public storage predicate evaluation.
-pub const CONDITIONAL_IBE_STORAGE_PREDICATE_WEIGHT_REF_TIME: u64 = 2_000_000;
-/// Extra per-block weight reserved for EVM staticcall-result predicate checks.
-pub const CONDITIONAL_IBE_EVM_PREDICATE_WEIGHT_REF_TIME: u64 = 25_000_000;
-/// Extra per-block weight reserved for Ink read-only-result predicate checks.
-pub const CONDITIONAL_IBE_INK_PREDICATE_WEIGHT_REF_TIME: u64 = 25_000_000;
 /// Per-byte, per-block storage-rent/backpressure weight for conditional entries.
 pub const CONDITIONAL_IBE_STORAGE_RENT_WEIGHT_PER_BYTE_BLOCK: u64 = 128;
 /// Per-block committee compensation premium reserved by conditional entries.
@@ -520,49 +514,24 @@ pub mod pallet {
     /// encrypted entry remains behind it in the queue.
     #[pallet::storage]
     pub type IbeQueueDrainInProgress<T: Config> = StorageValue<_, bool, ValueQuery>;
-    /// MVP conditional encrypted transaction condition.
-    ///
-    /// Section 8 allows richer pallet-defined and read-only contract conditions.
-    /// The first production-safe variant is a deterministic block gate: the
-    /// entry fires once `current_block >= block` and is evaluated each block
-    /// until it fires or expires.
     /// Section 8 conditional encrypted transaction condition.
     ///
-    /// `AtBlock` is the deterministic time/block gate. The richer variants are
-    /// public predicate commitments: an external runtime integration updates the
-    /// public result/storage key, and the shield pallet checks that committed
-    /// public value before plaintext execution.
+    /// MVP supports only block-height conditions. The variant has an explicit
+    /// SCALE codec index so future typed variants can be appended without
+    /// changing the `submit_conditional_encrypted(..., condition, ...)` call
+    /// shape or changing the encoding of existing `AtBlock` clients.
     #[derive(
         Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen, Eq, PartialEq, Debug,
     )]
     pub enum ConditionalIbeCondition {
-        AtBlock {
-            block: u64,
-        },
-        PalletStorageHashEquals {
-            earliest_block: u64,
-            storage_key: BoundedVec<u8, MaxEncryptedCallSize>,
-            expected_hash: sp_core::H256,
-        },
-        EvmStaticCallResult {
-            earliest_block: u64,
-            result_key: BoundedVec<u8, MaxEncryptedCallSize>,
-            expected_hash: sp_core::H256,
-        },
-        InkReadOnlyResult {
-            earliest_block: u64,
-            result_key: BoundedVec<u8, MaxEncryptedCallSize>,
-            expected_hash: sp_core::H256,
-        },
+        /// Fire once the current block is at least `block`.
+        AtBlock { block: u64 },
     }
 
     impl ConditionalIbeCondition {
         pub fn target_block(&self) -> u64 {
             match self {
                 Self::AtBlock { block } => *block,
-                Self::PalletStorageHashEquals { earliest_block, .. }
-                | Self::EvmStaticCallResult { earliest_block, .. }
-                | Self::InkReadOnlyResult { earliest_block, .. } => *earliest_block,
             }
         }
 
@@ -571,48 +540,12 @@ pub mod pallet {
         }
 
         pub fn condition_eval_weight_ref_time(&self) -> u64 {
-            match self {
-                Self::AtBlock { .. } => CONDITIONAL_IBE_EVAL_WEIGHT_REF_TIME,
-                Self::PalletStorageHashEquals { .. } => CONDITIONAL_IBE_EVAL_WEIGHT_REF_TIME
-                    .checked_add(CONDITIONAL_IBE_STORAGE_PREDICATE_WEIGHT_REF_TIME)
-                    .unwrap_or(u64::MAX),
-                Self::EvmStaticCallResult { .. } => CONDITIONAL_IBE_EVAL_WEIGHT_REF_TIME
-                    .checked_add(CONDITIONAL_IBE_EVM_PREDICATE_WEIGHT_REF_TIME)
-                    .unwrap_or(u64::MAX),
-                Self::InkReadOnlyResult { .. } => CONDITIONAL_IBE_EVAL_WEIGHT_REF_TIME
-                    .checked_add(CONDITIONAL_IBE_INK_PREDICATE_WEIGHT_REF_TIME)
-                    .unwrap_or(u64::MAX),
-            }
-        }
-
-        fn public_value_matches_hash(key: &[u8], expected_hash: sp_core::H256) -> bool {
-            let Some(value) = sp_io::storage::get(key) else {
-                return false;
-            };
-            sp_core::H256::from(sp_io::hashing::blake2_256(&value)) == expected_hash
+            CONDITIONAL_IBE_EVAL_WEIGHT_REF_TIME
         }
 
         pub fn is_fired(&self, current_block: u64) -> bool {
-            if current_block < self.target_block() {
-                return false;
-            }
             match self {
-                Self::AtBlock { .. } => true,
-                Self::PalletStorageHashEquals {
-                    storage_key,
-                    expected_hash,
-                    ..
-                }
-                | Self::EvmStaticCallResult {
-                    result_key: storage_key,
-                    expected_hash,
-                    ..
-                }
-                | Self::InkReadOnlyResult {
-                    result_key: storage_key,
-                    expected_hash,
-                    ..
-                } => Self::public_value_matches_hash(storage_key.as_slice(), *expected_hash),
+                Self::AtBlock { block } => current_block >= *block,
             }
         }
     }
