@@ -89,12 +89,8 @@ describeSuite({
 
                 const contract = new ethers.Contract(contractAddress, PRECOMPILE_GAS_CONTRACT_ABI, ethWallet);
 
-                await assertPrecompileGasScaling(api, ethWallet, (iterations) =>
-                    contract.callED25519(iterations)
-                );
-                await assertPrecompileGasScaling(api, ethWallet, (iterations) =>
-                    contract.callSR25519(iterations)
-                );
+                await assertPrecompileGasScaling(api, ethWallet, (iterations) => contract.callED25519(iterations));
+                await assertPrecompileGasScaling(api, ethWallet, (iterations) => contract.callSR25519(iterations));
             },
         });
     },
