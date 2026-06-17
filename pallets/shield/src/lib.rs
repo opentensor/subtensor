@@ -1173,10 +1173,21 @@ impl<T: Config> Pallet<T> {
     /// It deliberately has no dispatchable call: before the transition there is
     /// no session/BABE pallet state to query, and after the transition this must
     /// be sourced from the finalized NPoS/session authority set, not from a user
-    /// transaction or a PoA ordinal fallback.
+    /// Install/freeze a finalized NPoS/BABE DKG authority snapshot for `epoch`.
+    ///
+    /// This is a runtime-internal hook for the PoA -> NPoS transition and
+    /// later session/election boundaries. It is deliberately not a
+    /// dispatchable extrinsic and it is deliberately not a pallet migration:
+    /// the caller must be the runtime transition/session code that already
+    /// owns the finalized BABE/NPoS authority and stake snapshot for the
+    /// target DKG epoch.
+    ///
+    /// PR #1708 should call this after BABE/session/staking has initialized
+    /// the first post-transition authority set, and then call the same hook
+    /// whenever the finalized future N+2 session/election output changes.
     pub fn install_npos_dkg_authority_snapshot_from_transition(
         epoch: u64,
-        authorities: Vec<DkgAuthorityInfo>,
+        authorities: Vec<mev_shield_ibe_runtime_api::DkgAuthorityInfo>,
     ) -> DispatchResult {
         ensure!(
             !authorities.is_empty(),
@@ -1187,11 +1198,12 @@ impl<T: Config> Pallet<T> {
         let mut total_stake = 0u128;
         for authority in &authorities {
             ensure!(
-                authority.consensus_key_kind == DkgConsensusKeyKind::BabeSr25519,
+                authority.consensus_key_kind
+                    == mev_shield_ibe_runtime_api::DkgConsensusKeyKind::BabeSr25519,
                 Error::<T>::BadIbeDkgAuthoritySnapshot
             );
             ensure!(
-                !authority.authority_id.is_empty(),
+                !authority.hotkey_account_id.is_empty() && !authority.authority_id.is_empty(),
                 Error::<T>::BadIbeDkgAuthoritySnapshot
             );
             ensure!(authority.stake > 0, Error::<T>::BadIbeDkgAuthoritySnapshot);
@@ -1205,8 +1217,12 @@ impl<T: Config> Pallet<T> {
         }
         ensure!(total_stake > 0, Error::<T>::BadIbeDkgAuthoritySnapshot);
 
-        IbeNposDkgAuthoritySnapshots::<T>::insert(epoch, authorities);
-        IbeDkgConsensusSources::<T>::insert(epoch, DkgConsensusSource::PosBabeRootValidators);
+        IbeNposDkgAuthoritySnapshots::<T>::insert(epoch, authorities.clone());
+        IbeDkgAuthoritySnapshots::<T>::insert(epoch, authorities);
+        IbeDkgConsensusSources::<T>::insert(
+            epoch,
+            mev_shield_ibe_runtime_api::DkgConsensusSource::PosBabeRootValidators,
+        );
         Ok(())
     }
 
