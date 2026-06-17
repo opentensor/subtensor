@@ -2169,6 +2169,7 @@ fn test_do_transfer_stake_same_subnet_transfers_lock_to_destination_coldkey() {
 
         step_block(1);
 
+        ReceivingAlphaEnabled::<Test>::insert(coldkey_receiver, true);
         let transfer_amount = total;
         assert_ok!(SubtensorModule::do_transfer_stake(
             RuntimeOrigin::signed(coldkey_sender),
@@ -2270,6 +2271,7 @@ fn test_transfer_stake_cross_coldkey_allowed_partial() {
         step_block(1);
 
         // Transfer the unlocked portion
+        ReceivingAlphaEnabled::<Test>::insert(coldkey_receiver, true);
         let alpha = get_alpha(&hotkey, &coldkey_sender, netuid);
         let transfer_amount = alpha / 4.into(); // well within the unlocked half
         assert_ok!(SubtensorModule::do_transfer_stake(

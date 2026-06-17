@@ -920,6 +920,7 @@ fn test_do_transfer_success() {
         );
 
         // 4. Transfer the entire stake to the destination coldkey on the same subnet (netuid, netuid).
+        ReceivingAlphaEnabled::<Test>::insert(destination_coldkey, true);
         let expected_alpha = alpha;
         assert_ok!(SubtensorModule::do_transfer_stake(
             RuntimeOrigin::signed(origin_coldkey),
@@ -1025,6 +1026,7 @@ fn test_do_transfer_insufficient_stake() {
 
         // Amount over available stake succeeds (because fees can be paid in Alpha,
         // this limitation is removed)
+        ReceivingAlphaEnabled::<Test>::insert(destination_coldkey, true);
         let alpha = stake_amount * 2;
         assert_ok!(SubtensorModule::do_transfer_stake(
             RuntimeOrigin::signed(origin_coldkey),
@@ -1063,6 +1065,7 @@ fn test_do_transfer_wrong_origin() {
         )
         .unwrap();
 
+        ReceivingAlphaEnabled::<Test>::insert(destination_coldkey, true);
         assert_noop!(
             SubtensorModule::do_transfer_stake(
                 RuntimeOrigin::signed(wrong_coldkey),
@@ -1101,6 +1104,7 @@ fn test_do_transfer_minimum_stake_check() {
         )
         .unwrap();
 
+        ReceivingAlphaEnabled::<Test>::insert(destination_coldkey, true);
         assert_err!(
             SubtensorModule::do_transfer_stake(
                 RuntimeOrigin::signed(origin_coldkey),
@@ -1149,6 +1153,7 @@ fn test_do_transfer_different_subnets() {
         .unwrap();
 
         // 6. Transfer entire stake from origin_netuid -> destination_netuid.
+        ReceivingAlphaEnabled::<Test>::insert(destination_coldkey, true);
         let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &origin_coldkey,
@@ -1808,6 +1813,7 @@ fn test_transfer_stake_same_netuid_not_rate_limited() {
 
         // add_stake set the limiter for (hotkey, origin_coldkey, netuid), but a same-netuid
         // transfer performs no AMM swap (no price impact), so it is NOT rate limited
+        ReceivingAlphaEnabled::<Test>::insert(destination_coldkey, true);
         assert_ok!(SubtensorModule::do_transfer_stake(
             RuntimeOrigin::signed(origin_coldkey),
             destination_coldkey,
@@ -1868,6 +1874,7 @@ fn test_transfer_stake_doesnt_limit_destination_coldkey() {
             netuid,
         );
 
+        ReceivingAlphaEnabled::<Test>::insert(destination_coldkey, true);
         assert_ok!(SubtensorModule::do_transfer_stake(
             RuntimeOrigin::signed(origin_coldkey),
             destination_coldkey,

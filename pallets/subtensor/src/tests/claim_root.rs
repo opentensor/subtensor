@@ -4,10 +4,10 @@ use crate::RootAlphaDividendsPerSubnet;
 use crate::tests::mock::*;
 use crate::{
     DefaultMinRootClaimAmount, Error, MAX_NUM_ROOT_CLAIMS, MAX_ROOT_CLAIM_THRESHOLD, NetworksAdded,
-    NumRootClaim, NumStakingColdkeys, PendingRootAlphaDivs, RootClaimable, RootClaimableThreshold,
-    StakingColdkeys, StakingColdkeysByIndex, SubnetAlphaIn, SubnetAlphaOut, SubnetMechanism,
-    SubnetMovingPrice, SubnetProtocolFlow, SubnetRootSellTao, SubnetTAO, SubnetTaoFlow,
-    SubnetVolume, SubtokenEnabled, Tempo, TotalStake, pallet,
+    NumRootClaim, NumStakingColdkeys, PendingRootAlphaDivs, ReceivingAlphaEnabled, RootClaimable,
+    RootClaimableThreshold, StakingColdkeys, StakingColdkeysByIndex, SubnetAlphaIn, SubnetAlphaOut,
+    SubnetMechanism, SubnetMovingPrice, SubnetProtocolFlow, SubnetRootSellTao, SubnetTAO,
+    SubnetTaoFlow, SubnetVolume, SubtokenEnabled, Tempo, TotalStake, pallet,
 };
 use crate::{RootClaimType, RootClaimTypeEnum, RootClaimed};
 use approx::assert_abs_diff_eq;
@@ -2045,6 +2045,7 @@ fn test_claim_root_with_moved_stake() {
         // Transfer stake to other coldkey
         let stake_decrement = root_stake / 2u64;
 
+        ReceivingAlphaEnabled::<Test>::insert(eve_coldkey, true);
         assert_ok!(SubtensorModule::transfer_stake(
             RuntimeOrigin::signed(bob_coldkey,),
             eve_coldkey,
@@ -2113,6 +2114,7 @@ fn test_claim_root_with_moved_stake() {
         // Transfer stake back
         let stake_increment = stake_decrement;
 
+        ReceivingAlphaEnabled::<Test>::insert(bob_coldkey, true);
         assert_ok!(SubtensorModule::transfer_stake(
             RuntimeOrigin::signed(eve_coldkey,),
             bob_coldkey,

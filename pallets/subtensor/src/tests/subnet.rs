@@ -663,6 +663,7 @@ fn test_subtoken_enable_trading_ok_with_enable() {
             unstake_amount,
         ));
 
+        ReceivingAlphaEnabled::<Test>::insert(hotkey_account_id, true);
         assert_ok!(SubtensorModule::transfer_stake(
             RuntimeOrigin::signed(coldkey_account_id),
             hotkey_account_id,

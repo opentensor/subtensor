@@ -1226,6 +1226,7 @@ mod pallet_benchmarks {
             Subtensor::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(&hot, &coldkey, netuid);
 
         let _ = Subtensor::<T>::create_account_if_non_existent(&dest, &hot);
+        ReceivingAlphaEnabled::<T>::insert(&dest, true);
 
         #[extrinsic_call]
         _(
