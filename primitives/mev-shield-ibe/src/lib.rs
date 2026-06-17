@@ -149,6 +149,7 @@ pub struct IbeBlockDecryptionKeyV1 {
     pub finalized_ordering_block_hash: H256,
 }
 
+#[subtensor_macros::freeze_struct("79906af083610d1f")]
 #[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 pub struct IbeBlockDecryptionKeyShareBundleV1 {
     /// Runtime-combined identity decryption key for the target block.
@@ -157,20 +158,17 @@ pub struct IbeBlockDecryptionKeyShareBundleV1 {
     pub shares: Vec<IbePartialDecryptionKeyShareV1>,
 }
 
+#[subtensor_macros::freeze_struct("e6b40f899cc7984a")]
 #[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 pub struct IbeBlockDecryptionKeyInherentData {
     pub keys: Vec<IbeBlockDecryptionKeyV1>,
     pub share_bundles: Vec<IbeBlockDecryptionKeyShareBundleV1>,
 }
 
+#[subtensor_macros::freeze_struct("882e735cbb91413")]
 #[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 pub struct IbeBlockDecryptionKeyPreRuntimeDigestData {
     /// Threshold-release bundles supplied in the header pre-runtime digest.
-    ///
-    /// This is the only MVP path for threshold-IBE block-key material. Body
-    /// inherents and unsigned key-submission extrinsics are deliberately not
-    /// accepted for block-key delivery, because `on_initialize` must see these
-    /// bundles before encrypted queue drainage starts.
     pub share_bundles: Vec<IbeBlockDecryptionKeyShareBundleV1>,
 }
 
