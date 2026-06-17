@@ -6,6 +6,7 @@ import {
     forceSetBalance,
     generateKeyringPair,
     getStake,
+    setReceivingAlphaEnabled,
     startCall,
     sudoSetLockReductionInterval,
     tao,
@@ -65,6 +66,9 @@ describeSuite({
                     `Origin stake (netuid1) before: ${originStakeBefore}, Destination stake (netuid2) before: ${destStakeBefore}`
                 );
 
+                // Enable receiving alpha for destination coldkey (required for cross-coldkey transfers).
+                await setReceivingAlphaEnabled(api, destinationColdkey, true);
+
                 // Transfer stake to destination coldkey on a different subnet
                 const originStake = await getStake(api, hotkey1Address, originColdkeyAddress, netuid1);
                 const transferAmount = originStake / 2n;
@@ -122,6 +126,9 @@ describeSuite({
                 expect(originStakeBefore, "Origin should have stake before transfer").toBeGreaterThan(0n);
 
                 log(`Origin stake before: ${originStakeBefore}`);
+
+                // Enable receiving alpha for destination coldkey (required for cross-coldkey transfers).
+                await setReceivingAlphaEnabled(api, destinationColdkey, true);
 
                 // Transfer stake to destination coldkey
                 const originStake = await getStake(api, hotkeyAddress, originColdkeyAddress, netuid);

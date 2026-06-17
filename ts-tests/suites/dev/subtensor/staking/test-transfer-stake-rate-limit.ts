@@ -105,6 +105,13 @@ describeSuite({
 
             await devEnableSubtoken(polkadotJs, context, alice, netuid);
             await devAssociateHotKey(polkadotJs, context, alice, aliceHotKey.address);
+
+            // Enable receiving alpha for destination coldkey (required for cross-coldkey transfers).
+            await context.createBlock([
+                await polkadotJs.tx.subtensorModule
+                    .setReceivingAlphaEnabled(true)
+                    .signAsync(destinationColdkey),
+            ]);
         });
 
         it({
