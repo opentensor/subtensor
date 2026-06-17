@@ -1823,7 +1823,7 @@ mod dispatches {
         /// May emit a `EvmKeyAssociated` event on success
         #[pallet::call_index(93)]
         #[pallet::weight((
-            Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().reads_writes(2, 1)),
+            <T as crate::pallet::Config>::WeightInfo::associate_evm_key(),
             DispatchClass::Normal,
             Pays::No
         ))]
@@ -2592,6 +2592,82 @@ mod dispatches {
         ) -> DispatchResult {
             let coldkey = ensure_signed(origin)?;
             Self::do_set_perpetual_lock(&coldkey, netuid, enabled)
+        }
+
+        /// Sets or clears the caller's block-receiving-TAO flag.
+        ///
+        /// When enabled, any cross-coldkey TAO transfer during a cross-subnet stake
+        /// move to this account will be rejected with `ReceivingTaoBlocked`. The
+        /// default is `false` (TAO transfers are allowed).
+        ///
+        /// # Arguments
+        /// * `origin` - Must be signed by the account that wishes to set the flag.
+        /// * `enabled` - `true` to block incoming TAO; `false` to allow it.
+        #[pallet::call_index(139)]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::set_block_receiving_tao())]
+        pub fn set_block_receiving_tao(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
+            let account = ensure_signed(origin)?;
+            if enabled {
+                BlockReceivingTao::<T>::insert(&account, true);
+            } else {
+                BlockReceivingTao::<T>::remove(&account);
+            }
+            Self::deposit_event(Event::BlockReceivingTaoSet { account, enabled });
+            Ok(())
+        }
+
+        /// Opts the caller's coldkey in or out of receiving cross-coldkey Alpha transfers.
+        ///
+        /// Alpha transfers from another coldkey are **disabled by default**. Call this with
+        /// `enabled = true` to allow other coldkeys to transfer staked Alpha to your account.
+        /// Call with `enabled = false` to revert to the default (blocked) state.
+        ///
+        /// This flag only affects cross-coldkey operations (stake transfers / moves to a
+        /// different coldkey). It does **not** affect `add_stake` calls made by the coldkey
+        /// itself.
+        ///
+        /// # Arguments
+        /// * `origin` - Must be signed by the coldkey that wishes to set the flag.
+        /// * `enabled` - `true` to allow incoming cross-coldkey Alpha; `false` to block it.
+        #[pallet::call_index(140)]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::set_receiving_alpha_enabled())]
+        pub fn set_receiving_alpha_enabled(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
+            let account = ensure_signed(origin)?;
+            if enabled {
+                ReceivingAlphaEnabled::<T>::insert(&account, true);
+            } else {
+                ReceivingAlphaEnabled::<T>::remove(&account);
+            }
+            Self::deposit_event(Event::ReceivingAlphaEnabledSet { account, enabled });
+            Ok(())
+        }
+
+        /// Sets or clears the caller's block-receiving-locked-Alpha flag.
+        ///
+        /// When enabled, any attempt to transfer locked Alpha to this account via
+        /// [`transfer_lock`](crate::Pallet::transfer_lock) will be rejected with
+        /// `ReceivingLockedAlphaBlocked`. Only the locked portion of a stake transfer
+        /// is gated; unlocked Alpha transfers are governed by the separate
+        /// `ReceivingAlphaEnabled` flag.
+        /// The default is `false` (locked Alpha transfers are allowed).
+        ///
+        /// # Arguments
+        /// * `origin` - Must be signed by the account that wishes to set the flag.
+        /// * `enabled` - `true` to block incoming locked Alpha; `false` to allow it.
+        #[pallet::call_index(141)]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::set_block_receiving_locked_alpha())]
+        pub fn set_block_receiving_locked_alpha(
+            origin: OriginFor<T>,
+            enabled: bool,
+        ) -> DispatchResult {
+            let account = ensure_signed(origin)?;
+            if enabled {
+                BlockReceivingLockedAlpha::<T>::insert(&account, true);
+            } else {
+                BlockReceivingLockedAlpha::<T>::remove(&account);
+            }
+            Self::deposit_event(Event::BlockReceivingLockedAlphaSet { account, enabled });
+            Ok(())
         }
     }
 }

@@ -7,6 +7,7 @@ pub mod helpers;
 pub mod increase_take;
 pub mod lock;
 pub mod move_stake;
+pub mod order_swap;
 pub mod recycle_alpha;
 pub mod remove_stake;
 pub mod set_children;

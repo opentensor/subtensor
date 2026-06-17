@@ -161,9 +161,22 @@ where
         )
     }
 
+    #[precompile::public("getNetworkRegistrationBlock(uint16)")]
+    #[precompile::view]
+    fn get_network_registration_block(
+        handle: &mut impl PrecompileHandle,
+        netuid: u16,
+    ) -> EvmResult<u64> {
+        handle.record_db_reads::<R>(1)?;
+        Ok(pallet_subtensor::NetworkRegisteredAt::<R>::get(
+            NetUid::from(netuid),
+        ))
+    }
+
     #[precompile::public("getServingRateLimit(uint16)")]
     #[precompile::view]
-    fn get_serving_rate_limit(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
+    fn get_serving_rate_limit(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::ServingRateLimit::<R>::get(NetUid::from(
             netuid,
         )))
@@ -189,7 +202,8 @@ where
 
     #[precompile::public("getMinDifficulty(uint16)")]
     #[precompile::view]
-    fn get_min_difficulty(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
+    fn get_min_difficulty(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::MinDifficulty::<R>::get(NetUid::from(
             netuid,
         )))
@@ -215,7 +229,8 @@ where
 
     #[precompile::public("getMaxDifficulty(uint16)")]
     #[precompile::view]
-    fn get_max_difficulty(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
+    fn get_max_difficulty(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::MaxDifficulty::<R>::get(NetUid::from(
             netuid,
         )))
@@ -241,7 +256,8 @@ where
 
     #[precompile::public("getWeightsVersionKey(uint16)")]
     #[precompile::view]
-    fn get_weights_version_key(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
+    fn get_weights_version_key(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::WeightsVersionKey::<R>::get(NetUid::from(
             netuid,
         )))
@@ -267,7 +283,11 @@ where
 
     #[precompile::public("getWeightsSetRateLimit(uint16)")]
     #[precompile::view]
-    fn get_weights_set_rate_limit(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
+    fn get_weights_set_rate_limit(
+        handle: &mut impl PrecompileHandle,
+        netuid: u16,
+    ) -> EvmResult<u64> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::WeightsSetRateLimit::<R>::get(
             NetUid::from(netuid),
         ))
@@ -286,7 +306,8 @@ where
 
     #[precompile::public("getAdjustmentAlpha(uint16)")]
     #[precompile::view]
-    fn get_adjustment_alpha(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
+    fn get_adjustment_alpha(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::AdjustmentAlpha::<R>::get(NetUid::from(
             netuid,
         )))
@@ -320,7 +341,8 @@ where
 
     #[precompile::public("getImmunityPeriod(uint16)")]
     #[precompile::view]
-    fn get_immunity_period(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u16> {
+    fn get_immunity_period(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u16> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::ImmunityPeriod::<R>::get(NetUid::from(
             netuid,
         )))
@@ -346,7 +368,8 @@ where
 
     #[precompile::public("getMinAllowedWeights(uint16)")]
     #[precompile::view]
-    fn get_min_allowed_weights(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u16> {
+    fn get_min_allowed_weights(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u16> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::MinAllowedWeights::<R>::get(NetUid::from(
             netuid,
         )))
@@ -372,7 +395,8 @@ where
 
     #[precompile::public("getKappa(uint16)")]
     #[precompile::view]
-    fn get_kappa(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u16> {
+    fn get_kappa(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u16> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::Kappa::<R>::get(NetUid::from(netuid)))
     }
 
@@ -392,13 +416,18 @@ where
 
     #[precompile::public("getRho(uint16)")]
     #[precompile::view]
-    fn get_rho(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u16> {
+    fn get_rho(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u16> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::Rho::<R>::get(NetUid::from(netuid)))
     }
 
     #[precompile::public("getAlphaSigmoidSteepness(uint16)")]
     #[precompile::view]
-    fn get_alpha_sigmoid_steepness(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u16> {
+    fn get_alpha_sigmoid_steepness(
+        handle: &mut impl PrecompileHandle,
+        netuid: u16,
+    ) -> EvmResult<u16> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::AlphaSigmoidSteepness::<R>::get(NetUid::from(netuid)) as u16)
     }
 
@@ -436,7 +465,8 @@ where
 
     #[precompile::public("getActivityCutoff(uint16)")]
     #[precompile::view]
-    fn get_activity_cutoff(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u16> {
+    fn get_activity_cutoff(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u16> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::ActivityCutoff::<R>::get(NetUid::from(
             netuid,
         )))
@@ -463,9 +493,10 @@ where
     #[precompile::public("getNetworkRegistrationAllowed(uint16)")]
     #[precompile::view]
     fn get_network_registration_allowed(
-        _: &mut impl PrecompileHandle,
+        handle: &mut impl PrecompileHandle,
         netuid: u16,
     ) -> EvmResult<bool> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::NetworkRegistrationAllowed::<R>::get(
             NetUid::from(netuid),
         ))
@@ -492,9 +523,10 @@ where
     #[precompile::public("getNetworkPowRegistrationAllowed(uint16)")]
     #[precompile::view]
     fn get_network_pow_registration_allowed(
-        _: &mut impl PrecompileHandle,
+        handle: &mut impl PrecompileHandle,
         netuid: u16,
     ) -> EvmResult<bool> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::NetworkPowRegistrationAllowed::<R>::get(
             NetUid::from(netuid),
         ))
@@ -520,7 +552,8 @@ where
 
     #[precompile::public("getMinBurn(uint16)")]
     #[precompile::view]
-    fn get_min_burn(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
+    fn get_min_burn(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::MinBurn::<R>::get(NetUid::from(netuid)).to_u64())
     }
 
@@ -537,7 +570,8 @@ where
 
     #[precompile::public("getMaxBurn(uint16)")]
     #[precompile::view]
-    fn get_max_burn(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
+    fn get_max_burn(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::MaxBurn::<R>::get(NetUid::from(netuid)).to_u64())
     }
 
@@ -554,7 +588,8 @@ where
 
     #[precompile::public("getDifficulty(uint16)")]
     #[precompile::view]
-    fn get_difficulty(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
+    fn get_difficulty(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::Difficulty::<R>::get(NetUid::from(netuid)))
     }
 
@@ -578,7 +613,8 @@ where
 
     #[precompile::public("getBondsMovingAverage(uint16)")]
     #[precompile::view]
-    fn get_bonds_moving_average(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
+    fn get_bonds_moving_average(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::BondsMovingAverage::<R>::get(
             NetUid::from(netuid),
         ))
@@ -605,9 +641,10 @@ where
     #[precompile::public("getCommitRevealWeightsEnabled(uint16)")]
     #[precompile::view]
     fn get_commit_reveal_weights_enabled(
-        _: &mut impl PrecompileHandle,
+        handle: &mut impl PrecompileHandle,
         netuid: u16,
     ) -> EvmResult<bool> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::CommitRevealWeightsEnabled::<R>::get(
             NetUid::from(netuid),
         ))
@@ -633,7 +670,11 @@ where
 
     #[precompile::public("getLiquidAlphaEnabled(uint16)")]
     #[precompile::view]
-    fn get_liquid_alpha_enabled(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<bool> {
+    fn get_liquid_alpha_enabled(
+        handle: &mut impl PrecompileHandle,
+        netuid: u16,
+    ) -> EvmResult<bool> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::LiquidAlphaOn::<R>::get(NetUid::from(
             netuid,
         )))
@@ -659,13 +700,15 @@ where
 
     #[precompile::public("getYuma3Enabled(uint16)")]
     #[precompile::view]
-    fn get_yuma3_enabled(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<bool> {
+    fn get_yuma3_enabled(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<bool> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::Yuma3On::<R>::get(NetUid::from(netuid)))
     }
 
     #[precompile::public("getBondsResetEnabled(uint16)")]
     #[precompile::view]
-    fn get_bonds_reset_enabled(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<bool> {
+    fn get_bonds_reset_enabled(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<bool> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::BondsResetOn::<R>::get(NetUid::from(
             netuid,
         )))
@@ -709,7 +752,8 @@ where
 
     #[precompile::public("getAlphaValues(uint16)")]
     #[precompile::view]
-    fn get_alpha_values(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<(u16, u16)> {
+    fn get_alpha_values(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<(u16, u16)> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::AlphaValues::<R>::get(NetUid::from(
             netuid,
         )))
@@ -738,9 +782,10 @@ where
     #[precompile::public("getCommitRevealWeightsInterval(uint16)")]
     #[precompile::view]
     fn get_commit_reveal_weights_interval(
-        _: &mut impl PrecompileHandle,
+        handle: &mut impl PrecompileHandle,
         netuid: u16,
     ) -> EvmResult<u64> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::RevealPeriodEpochs::<R>::get(
             NetUid::from(netuid),
         ))
@@ -1222,6 +1267,30 @@ mod tests {
                     (TEST_NETUID_U16,),
                 ),
                 U256::from(99_u64),
+            );
+        });
+    }
+
+    #[test]
+    fn subnet_precompile_gets_network_registered_block() {
+        new_test_ext().execute_with(|| {
+            let caller = addr_from_index(0x5003);
+            let netuid = setup_owner_subnet(caller);
+            let precompiles = precompiles::<SubnetPrecompile<Runtime>>();
+            let precompile_addr = addr_from_index(SubnetPrecompile::<Runtime>::INDEX);
+
+            let registration_block: u64 = 42;
+            pallet_subtensor::NetworkRegisteredAt::<Runtime>::insert(netuid, registration_block);
+
+            assert_static_call(
+                &precompiles,
+                caller,
+                precompile_addr,
+                encode_with_selector(
+                    selector_u32("getNetworkRegistrationBlock(uint16)"),
+                    (TEST_NETUID_U16,),
+                ),
+                U256::from(registration_block),
             );
         });
     }

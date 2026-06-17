@@ -66,7 +66,7 @@ impl<T: Config> Pallet<T> {
     /// Transfer TAO from one coldkey account to another.
     ///
     /// This is a plain transfer and may reap the origin account if `amount` reduces
-    /// its balance below the existential deposit (ED).    
+    /// its balance below the existential deposit (ED).
     pub fn transfer_tao(
         origin_coldkey: &T::AccountId,
         destination_coldkey: &T::AccountId,
@@ -273,6 +273,11 @@ impl<T: Config> Pallet<T> {
         credit: CreditOf<T>,
         part: BalanceOf<T>,
     ) -> Result<CreditOf<T>, CreditOf<T>> {
+        // Reject overspending.
+        if credit.peek() < part {
+            return Err(credit);
+        }
+
         let (to_spend, remainder) = credit.split(part);
 
         match <T as Config>::Currency::resolve(coldkey, to_spend) {

@@ -144,6 +144,15 @@ export async function getStakeRaw(
     return await api.query.SubtensorModule.Alpha.getValue(hotkey, coldkey, netuid);
 }
 
+export async function setReceivingAlphaEnabled(
+    api: TypedApi<typeof subtensor>,
+    coldkey: KeyringPair,
+    enabled: boolean
+): Promise<void> {
+    const tx = api.tx.SubtensorModule.set_receiving_alpha_enabled({ enabled });
+    await waitForTransactionWithRetry(api, tx, coldkey, "set_receiving_alpha_enabled");
+}
+
 export async function transferStake(
     api: TypedApi<typeof subtensor>,
     originColdkey: KeyringPair,

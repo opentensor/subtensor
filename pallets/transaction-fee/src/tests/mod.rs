@@ -5,12 +5,10 @@ use frame_support::dispatch::GetDispatchInfo;
 use frame_support::pallet_prelude::Zero;
 use frame_support::traits::Currency;
 use frame_support::{assert_err, assert_ok};
-use pallet_subtensor_swap::AlphaSqrtPrice;
 use sp_runtime::{
     traits::{DispatchTransaction, TransactionExtension, TxBaseImplication},
     transaction_validity::{InvalidTransaction, TransactionValidityError},
 };
-use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::AlphaBalance;
 
 use mock::*;
@@ -709,7 +707,9 @@ fn test_remove_stake_edge_alpha() {
         assert_ok!(result);
 
         // Lower Alpha price to 0.0001 so that there is not enough alpha to cover tx fees
-        AlphaSqrtPrice::<Test>::insert(sn.subnets[0].netuid, U64F64::from_num(0.01));
+        SubnetTAO::<Test>::insert(sn.subnets[0].netuid, TaoBalance::from(1_000_000));
+        SubnetAlphaIn::<Test>::insert(sn.subnets[0].netuid, AlphaBalance::from(10_000_000_000_u64));
+
         let result_low_alpha_price = ext.validate(
             RuntimeOrigin::signed(sn.coldkey).into(),
             &call.clone(),
@@ -1223,6 +1223,9 @@ fn test_transfer_stake_fees_alpha() {
             alpha_amount: unstake_amount,
         });
 
+        // Enable receiving alpha for the destination coldkey (required for cross-coldkey transfers).
+        ReceivingAlphaEnabled::<Test>::insert(destination_coldkey, true);
+
         // Dispatch the extrinsic with ChargeTransactionPayment extension
         let info = call.get_dispatch_info();
         let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0.into());
@@ -1540,7 +1543,6 @@ fn test_add_stake_fees_go_to_block_builder() {
         let (_, swap_fee) = mock::swap_tao_to_alpha(sn.subnets[0].netuid, stake_amount.into());
 
         add_balance_to_coldkey_account(&sn.coldkey, (stake_amount * 10).into());
-        remove_stake_rate_limit_for_tests(&sn.hotkeys[0], &sn.coldkey, sn.subnets[0].netuid);
 
         // Stake
         let balance_before = Balances::free_balance(sn.coldkey);

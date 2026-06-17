@@ -213,14 +213,10 @@ mod errors {
         SubtokenDisabled,
         /// Too frequent hotkey swap on subnet
         HotKeySwapOnSubnetIntervalNotPassed,
-        /// Zero max stake amount
-        ZeroMaxStakeAmount,
         /// Invalid netuid duplication
         SameNetuid,
         /// The caller does not have enough balance for the operation.
         InsufficientBalance,
-        /// Too frequent staking operations
-        StakingOperationRateLimitExceeded,
         /// Invalid lease beneficiary to register the leased network.
         InvalidLeaseBeneficiary,
         /// Lease cannot end in the past.
@@ -305,5 +301,19 @@ mod errors {
         CannotUseSystemAccount,
         /// Trying to unlock more than locked
         UnlockAmountTooHigh,
+        /// Destination account has set `BlockReceivingTao = true`; the cross-coldkey TAO
+        /// transfer was rejected. The recipient must call `set_block_receiving_tao(false)`
+        /// before TAO can be sent to that address through the subtensor pallet.
+        ReceivingTaoBlocked,
+        /// Destination account has not enabled receiving cross-coldkey Alpha (`ReceivingAlphaEnabled`
+        /// defaults to `false`). The cross-coldkey stake transfer was rejected. The recipient
+        /// must call `set_receiving_alpha_enabled(true)` before Alpha can be transferred to
+        /// that address from another coldkey.
+        ReceivingAlphaBlocked,
+        /// Destination account has set `BlockReceivingLockedAlpha = true`; the locked-Alpha
+        /// portion of a `transfer_lock` call was rejected. The recipient must call
+        /// `set_block_receiving_locked_alpha(false)` before locked Alpha can be transferred
+        /// to that address.
+        ReceivingLockedAlphaBlocked,
     }
 }

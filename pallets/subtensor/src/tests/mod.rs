@@ -1,5 +1,6 @@
 mod auto_stake_hotkey;
 mod batch_tx;
+mod block_receiving;
 mod children;
 mod claim_root;
 mod coinbase;

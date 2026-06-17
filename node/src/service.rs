@@ -544,10 +544,14 @@ where
     .await;
 
     if role.is_authority() {
-        let shield_keystore = Arc::new(MemoryShieldKeystore::new());
-
-        // manual-seal authorship
+        // manual-seal authorship — use a fixed keystore so the single-validator dev
+        // node doesn't drift: MemoryShieldKeystore rolls on every own-block import
+        // (every block in single-validator mode), advancing current_dec_key() 2 pairs
+        // ahead of PendingKey on-chain. DevShieldKeystore avoids this by keeping the
+        // same keypair for both next_enc_key() and current_dec_key().
         if let Some(sealing) = sealing {
+            let dev_shield_keystore: stp_shield::ShieldKeystorePtr =
+                Arc::new(crate::dev_keystore::DevShieldKeystore::new());
             run_manual_seal_authorship(
                 sealing,
                 client,
@@ -558,11 +562,13 @@ where
                 prometheus_registry.as_ref(),
                 telemetry.as_ref(),
                 commands_stream,
-                shield_keystore.clone(),
+                dev_shield_keystore,
             )?;
             log::info!("Manual Seal Ready");
             return Ok(task_manager);
         }
+
+        let shield_keystore = Arc::new(MemoryShieldKeystore::new());
 
         stc_shield::spawn_key_rotation_on_own_import(
             &task_manager.spawn_handle(),
@@ -749,7 +755,7 @@ fn run_manual_seal_authorship(
         transaction_pool.clone(),
         prometheus_registry,
         telemetry.as_ref().map(|x| x.handle()),
-        shield_keystore,
+        shield_keystore.clone(),
     );
 
     thread_local!(static TIMESTAMP: RefCell<u64> = const { RefCell::new(0) });
@@ -781,8 +787,15 @@ fn run_manual_seal_authorship(
         }
     }
 
-    let create_inherent_data_providers =
-        move |_, ()| async move { Ok(MockTimestampInherentDataProvider) };
+    let create_inherent_data_providers = move |_, ()| {
+        let keystore = shield_keystore.clone();
+        async move {
+            Ok((
+                MockTimestampInherentDataProvider,
+                stc_shield::InherentDataProvider::new(keystore),
+            ))
+        }
+    };
 
     let aura_data_provider =
         sc_consensus_manual_seal::consensus::aura::AuraConsensusDataProvider::new(client.clone());
