@@ -460,10 +460,20 @@ impl<T: Config> Pallet<T> {
         RootClaimed::<T>::remove((netuid, old_hotkey, old_coldkey));
 
         RootClaimed::<T>::mutate((netuid, new_hotkey, new_coldkey), |new_root_claimed| {
-            // Take the maximum rather than summing so that a stale residual watermark
-            // already present on the destination cannot inflate the merged value past
-            // the correct claimable high-water mark (GHSA-2026-010).
-            *new_root_claimed = old_root_claimed.max(*new_root_claimed);
+            // Sum the two already-claimed watermarks. When BOTH the source and the
+            // destination hold a legitimate RootClaimed — e.g. a coldkey swap onto a
+            // hotkey the new coldkey has already staked to, or a hotkey swap that merges
+            // two real positions — the merged "already claimed" total is old + new. Taking
+            // the max would drop one side, under-count what has already been claimed, and
+            // cause a future over-payment / double-claim of root dividends.
+            //
+            // GHSA-2026-010 (a *stale residual* watermark on new_hotkey inflating this sum
+            // in the hotkey-swap path) is prevented upstream by the root-swap cleanliness
+            // gate in `do_swap_hotkey`, which now also requires RootClaimed to be empty on
+            // new_hotkey (see `test_do_swap_hotkey_err_new_hotkey_not_clean_for_root`). With
+            // that gate the destination is always clean (new == 0) in the swap path, so the
+            // sum cannot be inflated there.
+            *new_root_claimed = old_root_claimed.saturating_add(*new_root_claimed);
         });
     }
     pub fn transfer_root_claimable_for_new_hotkey(
