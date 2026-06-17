@@ -19,6 +19,8 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         Self::reveal_crv3_commits();
         // --- 4. Run emission through network.
         Self::run_coinbase(block_emission);
+        // --- 4b. Decay covered-short positions and restore unwound TAO to pools.
+        Self::run_short_decay();
         // --- 5. Update moving prices AFTER using them for emissions.
         Self::update_moving_prices();
         // --- 6. Update roop prop AFTER using them for emissions.

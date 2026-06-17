@@ -2593,5 +2593,50 @@ mod dispatches {
             let coldkey = ensure_signed(origin)?;
             Self::do_set_perpetual_lock(&coldkey, netuid, enabled)
         }
+
+        /// Open (or merge into) a covered short with floor input `position_input`.
+        #[pallet::call_index(139)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(12, 8))]
+        pub fn open_short(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            netuid: NetUid,
+            position_input: TaoBalance,
+        ) -> DispatchResult {
+            Self::do_open_short(origin, hotkey, netuid, position_input)
+        }
+
+        /// Top up a covered short's carry buffer with fresh capital.
+        #[pallet::call_index(140)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(5, 4))]
+        pub fn top_up_short(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            amount: TaoBalance,
+        ) -> DispatchResult {
+            Self::do_top_up_short(origin, netuid, amount)
+        }
+
+        /// Close `fraction_ppb / 1e9` of a covered short (`1e9` = full close).
+        #[pallet::call_index(141)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(10, 8))]
+        pub fn close_short(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            fraction_ppb: u64,
+        ) -> DispatchResult {
+            Self::do_close_short(origin, netuid, fraction_ppb)
+        }
+
+        /// Permissionlessly default a covered short whose buffer reached dust.
+        #[pallet::call_index(142)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(7, 6))]
+        pub fn default_short(
+            origin: OriginFor<T>,
+            coldkey: T::AccountId,
+            netuid: NetUid,
+        ) -> DispatchResult {
+            Self::do_default_short(origin, coldkey, netuid)
+        }
     }
 }

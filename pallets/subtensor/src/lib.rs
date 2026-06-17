@@ -34,6 +34,7 @@ mod benchmarks;
 //	==== Pallet Imports =====
 // =========================
 pub mod coinbase;
+pub mod derivatives;
 pub mod epoch;
 pub mod extensions;
 pub mod guards;
@@ -1381,6 +1382,127 @@ pub mod pallet {
     #[pallet::storage]
     pub type SubnetAlphaOut<T: Config> =
         StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
+
+    // ===== Covered continuous-unwind derivatives (spec v3.6.1) =====
+
+    #[pallet::type_value]
+    /// Shorts are gated off until the trading-games suite passes.
+    pub fn DefaultDisabled<T: Config>() -> bool {
+        false
+    }
+    #[pallet::type_value]
+    /// Base short LTV `λ` = 0.50.
+    pub fn DefaultShortBaseLtv<T: Config>() -> substrate_fixed::types::I64F64 {
+        substrate_fixed::types::I64F64::from_num(0.5)
+    }
+    #[pallet::type_value]
+    /// Conservative short footprint-cap factor `κ_S`.
+    pub fn DefaultShortKappa<T: Config>() -> substrate_fixed::types::I64F64 {
+        substrate_fixed::types::I64F64::from_num(0.05)
+    }
+    #[pallet::type_value]
+    /// `d_min` = 0.1%/day.
+    pub fn DefaultDecayMin<T: Config>() -> substrate_fixed::types::I64F64 {
+        substrate_fixed::types::I64F64::from_num(0.001)
+    }
+    #[pallet::type_value]
+    /// `d_max` = 1.5%/day.
+    pub fn DefaultDecayMax<T: Config>() -> substrate_fixed::types::I64F64 {
+        substrate_fixed::types::I64F64::from_num(0.015)
+    }
+    #[pallet::type_value]
+    /// Dust threshold `R_dust` = 1 TAO.
+    pub fn DefaultShortDust<T: Config>() -> TaoBalance {
+        TaoBalance::from(1_000_000_000u64)
+    }
+    #[pallet::type_value]
+    /// Anti-snipe grace: blocks after the last owner action during which a
+    /// permissionless default is rejected (~1.2h at 12s blocks).
+    pub fn DefaultShortDefaultGrace<T: Config>() -> u64 {
+        360
+    }
+    #[pallet::type_value]
+    /// Minimum short open input = 0.1 TAO. Bounds dust-spam and terminal load.
+    pub fn DefaultShortMinInput<T: Config>() -> TaoBalance {
+        TaoBalance::from(100_000_000u64)
+    }
+    #[pallet::type_value]
+    /// Empty short-side aggregate.
+    pub fn DefaultShortAgg<T: Config>() -> crate::derivatives::ShortAgg {
+        crate::derivatives::ShortAgg::zero()
+    }
+
+    /// Short-side master enablement flag.
+    #[pallet::storage]
+    pub type ShortsEnabled<T: Config> = StorageValue<_, bool, ValueQuery, DefaultDisabled<T>>;
+
+    /// Long-side master enablement flag (gated; long mechanics not yet built).
+    #[pallet::storage]
+    pub type LongsEnabled<T: Config> = StorageValue<_, bool, ValueQuery, DefaultDisabled<T>>;
+
+    /// Base short LTV `λ`.
+    #[pallet::storage]
+    pub type ShortBaseLtv<T: Config> =
+        StorageValue<_, substrate_fixed::types::I64F64, ValueQuery, DefaultShortBaseLtv<T>>;
+
+    /// Short footprint-cap factor `κ_S`.
+    #[pallet::storage]
+    pub type ShortKappa<T: Config> =
+        StorageValue<_, substrate_fixed::types::I64F64, ValueQuery, DefaultShortKappa<T>>;
+
+    /// Minimum daily decay rate `d_min`.
+    #[pallet::storage]
+    pub type DecayMin<T: Config> =
+        StorageValue<_, substrate_fixed::types::I64F64, ValueQuery, DefaultDecayMin<T>>;
+
+    /// Maximum daily decay rate `d_max`.
+    #[pallet::storage]
+    pub type DecayMax<T: Config> =
+        StorageValue<_, substrate_fixed::types::I64F64, ValueQuery, DefaultDecayMax<T>>;
+
+    /// Retained-buffer dust threshold `R_dust`.
+    #[pallet::storage]
+    pub type ShortDust<T: Config> =
+        StorageValue<_, TaoBalance, ValueQuery, DefaultShortDust<T>>;
+
+    /// Anti-snipe default grace period, in blocks.
+    #[pallet::storage]
+    pub type ShortDefaultGrace<T: Config> =
+        StorageValue<_, u64, ValueQuery, DefaultShortDefaultGrace<T>>;
+
+    /// Minimum short open input.
+    #[pallet::storage]
+    pub type ShortMinInput<T: Config> =
+        StorageValue<_, TaoBalance, ValueQuery, DefaultShortMinInput<T>>;
+
+    /// --- SET ( netuid ) of subnets with live short state, so the per-block
+    /// decay tick iterates only active subnets instead of all of them.
+    #[pallet::storage]
+    pub type ShortActiveSubnets<T: Config> =
+        StorageMap<_, Identity, NetUid, (), OptionQuery>;
+
+    /// --- MAP ( netuid ) --> short-side aggregate + decay accumulator.
+    #[pallet::storage]
+    pub type ShortAggregate<T: Config> = StorageMap<
+        _,
+        Identity,
+        NetUid,
+        crate::derivatives::ShortAgg,
+        ValueQuery,
+        DefaultShortAgg<T>,
+    >;
+
+    /// --- DMAP ( netuid, coldkey ) --> merged covered short position.
+    #[pallet::storage]
+    pub type ShortPositions<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        NetUid,
+        Blake2_128Concat,
+        T::AccountId,
+        crate::derivatives::ShortPosition<T::AccountId>,
+        OptionQuery,
+    >;
     /// --- MAP ( netuid ) --> protocol_alpha | Returns the protocol-owned alpha cached for the subnet.
     #[pallet::storage]
     pub type SubnetProtocolAlpha<T: Config> =

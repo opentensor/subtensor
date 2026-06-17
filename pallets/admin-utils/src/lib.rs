@@ -2276,6 +2276,73 @@ pub mod pallet {
 
             Ok(())
         }
+
+        /// Enable or disable short-side covered derivatives (launch gate).
+        #[pallet::call_index(96)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(0, 1))]
+        pub fn sudo_set_shorts_enabled(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_shorts_enabled(enabled);
+            Ok(())
+        }
+
+        /// Set the short footprint-cap factor `κ_S` (scaled by 1e9).
+        #[pallet::call_index(97)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(0, 1))]
+        pub fn sudo_set_short_kappa(origin: OriginFor<T>, kappa_ppb: u64) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_short_kappa_ppb(kappa_ppb);
+            Ok(())
+        }
+
+        /// Set the base short LTV `λ` (scaled by 1e9).
+        #[pallet::call_index(98)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(0, 1))]
+        pub fn sudo_set_short_base_ltv(origin: OriginFor<T>, ltv_ppb: u64) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_short_base_ltv_ppb(ltv_ppb);
+            Ok(())
+        }
+
+        /// Set the daily decay bounds `d_min`, `d_max` (scaled by 1e9).
+        #[pallet::call_index(99)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(0, 2))]
+        pub fn sudo_set_short_decay_bounds(
+            origin: OriginFor<T>,
+            min_ppb: u64,
+            max_ppb: u64,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_decay_bounds_ppb(min_ppb, max_ppb);
+            Ok(())
+        }
+
+        /// Set the retained-buffer dust threshold `R_dust` (in rao).
+        #[pallet::call_index(100)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(0, 1))]
+        pub fn sudo_set_short_dust(origin: OriginFor<T>, dust_rao: u64) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_short_dust(dust_rao.into());
+            Ok(())
+        }
+
+        /// Set the anti-snipe default grace period (in blocks).
+        #[pallet::call_index(101)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(0, 1))]
+        pub fn sudo_set_short_default_grace(origin: OriginFor<T>, blocks: u64) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_short_default_grace(blocks);
+            Ok(())
+        }
+
+        /// Set the minimum short open input (in rao).
+        #[pallet::call_index(102)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(0, 1))]
+        pub fn sudo_set_short_min_input(origin: OriginFor<T>, min_input_rao: u64) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_short_min_input(min_input_rao.into());
+            Ok(())
+        }
     }
 }
 

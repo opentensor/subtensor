@@ -2556,6 +2556,42 @@ impl_runtime_apis! {
         }
     }
 
+    impl subtensor_custom_rpc_runtime_api::DerivativesRuntimeApi<Block> for Runtime {
+        fn quote_open_short(
+            netuid: NetUid,
+            position_input: TaoBalance,
+        ) -> Option<pallet_subtensor::derivatives::ShortOpenQuote> {
+            SubtensorModule::quote_open_short(netuid, position_input)
+        }
+
+        fn quote_close_short(
+            coldkey: AccountId32,
+            netuid: NetUid,
+            fraction_ppb: u64,
+        ) -> Option<pallet_subtensor::derivatives::CloseShortQuote> {
+            SubtensorModule::quote_close_short(&coldkey, netuid, fraction_ppb)
+        }
+
+        fn get_short_position(
+            coldkey: AccountId32,
+            netuid: NetUid,
+        ) -> Option<pallet_subtensor::derivatives::ShortPositionInfo<AccountId32>> {
+            SubtensorModule::get_short_position(&coldkey, netuid)
+        }
+
+        fn get_short_positions(
+            coldkey: AccountId32,
+        ) -> Vec<pallet_subtensor::derivatives::ShortPositionInfo<AccountId32>> {
+            SubtensorModule::get_short_positions(&coldkey)
+        }
+
+        fn get_subnet_short_state(
+            netuid: NetUid,
+        ) -> Option<pallet_subtensor::derivatives::ShortMarketInfo> {
+            SubtensorModule::get_subnet_short_state(netuid)
+        }
+    }
+
     impl subtensor_custom_rpc_runtime_api::ProxyFilterRuntimeApi<Block> for Runtime {
         fn get_proxy_types() -> Vec<ProxyTypeInfo> {
             get_all_proxy_type_infos()

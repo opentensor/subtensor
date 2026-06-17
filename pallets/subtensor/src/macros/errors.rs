@@ -301,5 +301,27 @@ mod errors {
         CannotUseSystemAccount,
         /// Trying to unlock more than locked
         UnlockAmountTooHigh,
+        /// Short-side derivatives are disabled.
+        ShortsDisabled,
+        /// The subnet is not a dynamic (AMM) subnet.
+        SubnetNotDynamic,
+        /// No short position exists for this coldkey on the subnet.
+        ShortPositionNotFound,
+        /// Effective LTV is non-positive at current utilization.
+        EffectiveLtvNonPositive,
+        /// Retained proceeds would be non-positive.
+        RetainedProceedsNonPositive,
+        /// Open would exceed the active short footprint cap.
+        ShortCapacityExceeded,
+        /// Open violates the remove-and-sell-back square-root domain.
+        ReserveDomainExceeded,
+        /// Close fraction must be in (0, 1e9].
+        InvalidCloseFraction,
+        /// Trader does not hold enough alpha to repay the liability.
+        InsufficientAlphaToClose,
+        /// Position has not decayed to dust and is not default-eligible.
+        PositionNotDefaultEligible,
+        /// Additional open targets a different hotkey than the existing position.
+        ShortHotkeyMismatch,
     }
 }

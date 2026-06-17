@@ -172,6 +172,46 @@ pub trait FixedExt: Fixed {
         ln_y.checked_add(exp_ln2)
     }
 
+    /// Exponential (base e).
+    ///
+    /// Range reduction `exp(x) = 2^k · exp(r)` with `k = round(x / ln 2)` and
+    /// `r = x − k·ln 2`, so `|r| ≤ ln 2 / 2` and the Taylor series converges fast.
+    /// Mirrors `checked_ln` (its inverse); valid for positive and negative `x`.
+    fn checked_exp(&self) -> Option<Self> {
+        let one = Self::from_num(1);
+        let ln2 = Self::from_num(LN_2);
+
+        // k = round(x / ln 2) = floor(x / ln 2 + 0.5)
+        let k_fixed = self
+            .checked_div(ln2)?
+            .checked_add(Self::from_num(0.5))?
+            .checked_floor()?;
+        let k_int: i32 = k_fixed.saturating_to_num::<i32>();
+
+        // r = x − k·ln 2, with |r| ≤ ln 2 / 2 ≈ 0.347
+        let r = self.checked_sub(k_fixed.checked_mul(ln2)?)?;
+
+        // exp(r) = 1 + r + r²/2 + r³/6 + r⁴/24 + r⁵/120 + r⁶/720 + r⁷/5040
+        let r2 = r.checked_mul(r)?;
+        let r3 = r2.checked_mul(r)?;
+        let r4 = r3.checked_mul(r)?;
+        let r5 = r4.checked_mul(r)?;
+        let r6 = r5.checked_mul(r)?;
+        let r7 = r6.checked_mul(r)?;
+        let exp_r = one
+            .checked_add(r)?
+            .checked_add(r2.checked_mul(Self::from_num(0.5))?)?
+            .checked_add(r3.checked_mul(Self::from_num(1.0 / 6.0))?)?
+            .checked_add(r4.checked_mul(Self::from_num(1.0 / 24.0))?)?
+            .checked_add(r5.checked_mul(Self::from_num(1.0 / 120.0))?)?
+            .checked_add(r6.checked_mul(Self::from_num(1.0 / 720.0))?)?
+            .checked_add(r7.checked_mul(Self::from_num(1.0 / 5040.0))?)?;
+
+        // 2^k (checked_pow handles negative k as 1 / 2^|k|)
+        let two_k = Self::from_num(2).checked_pow(k_int)?;
+        exp_r.checked_mul(two_k)
+    }
+
     /// Logarithm with arbitrary base
     fn checked_log(&self, base: Self) -> Option<Self> {
         // Check for invalid base
