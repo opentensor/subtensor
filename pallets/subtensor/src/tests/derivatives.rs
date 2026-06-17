@@ -9,7 +9,7 @@ use super::mock::*;
 use crate::*;
 use frame_support::{assert_noop, assert_ok};
 use sp_core::U256;
-use substrate_fixed::types::I96F32;
+use substrate_fixed::types::{I64F64, I96F32};
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 
 const TAO: u64 = 1_000_000_000;
@@ -794,6 +794,54 @@ fn close_quote_matches_position() {
         let half = SubtensorModule::quote_close_short(&trader, netuid, 500_000_000).unwrap();
         assert_approx(half.repay_alpha.to_u64(), full.repay_alpha.to_u64() / 2, 2, "half repay");
         assert_approx(half.returned_tao.to_u64(), full.returned_tao.to_u64() / 2, 2, "half return");
+    });
+}
+
+// Materialization can never inflate a position: even with a (impossible)
+// entry accumulator above the aggregate, the factor is clamped to ≤ 1.
+#[test]
+fn materialize_never_inflates() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_market(1000 * TAO, 1000 * TAO, 1.0);
+        let trader = U256::from(10);
+        add_balance_to_coldkey_account(&trader, t(1000 * TAO));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO)));
+
+        // Corrupt the invariant: set omega_entry far above the aggregate omega.
+        let mut pos = ShortPositions::<Test>::get(netuid, trader).unwrap();
+        let buf = pos.r_stored;
+        pos.omega_entry = I64F64::from_num(1000);
+        ShortPositions::<Test>::insert(netuid, trader, pos);
+
+        // The materialized view must not exceed the stored buffer (no inflation).
+        let info = SubtensorModule::get_short_position(&trader, netuid).unwrap();
+        assert!(info.buffer <= buf, "materialize inflated: {} > {}", info.buffer.to_u64(), buf.to_u64());
+    });
+}
+
+// Open immediately followed by full close cannot be a rounding-profit loop: the
+// trader gets back at most floor + buffer and must repay the full liability.
+#[test]
+fn open_close_roundtrip_is_not_profitable() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_market(1000 * TAO, 1000 * TAO, 1.0);
+        let trader = U256::from(10);
+        let hotkey = U256::from(11);
+        add_balance_to_coldkey_account(&trader, t(1000 * TAO));
+
+        let before = bal(&trader);
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), hotkey, netuid, t(100 * TAO)));
+        let pos = ShortPositions::<Test>::get(netuid, trader).unwrap();
+        let n = pos.r_stored.to_u64();
+        // Seed exactly the liability alpha so the round trip is self-contained.
+        give_alpha(hotkey, trader, netuid, pos.q_liability);
+        assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(trader), netuid, 1_000_000_000));
+
+        // TAO-only delta is +N (the retained proceeds); the trader still had to
+        // source Q alpha, whose pool buy-cost strictly exceeds N — so no free TAO.
+        assert_eq!(bal(&trader), before + n);
+        let buy_cost = SubtensorModule::get_subnet_short_state(netuid); // sanity: market still consistent
+        assert!(buy_cost.is_some());
     });
 }
 

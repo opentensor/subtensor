@@ -184,7 +184,13 @@ impl<T: Config> Pallet<T> {
 
     /// Materialize a position to the current accumulator: `f = exp(−(Ω − Ω_entry))`.
     fn materialize_short(pos: &mut ShortPosition<T::AccountId>, omega_now: I64F64) {
-        let arg = pos.omega_entry.saturating_sub(omega_now); // ≤ 0
+        // `Ω` only ever grows, so `arg ≤ 0` and `f ≤ 1`. Clamp defensively: a
+        // positive `arg` (which should be impossible) must never inflate a
+        // position by producing `f > 1`.
+        let arg = pos
+            .omega_entry
+            .saturating_sub(omega_now)
+            .min(I64F64::from_num(0));
         let f = arg.checked_exp().unwrap_or_else(|| I64F64::from_num(0));
         pos.r_stored = Self::mul_tao(pos.r_stored, f);
         pos.e_stored = Self::mul_tao(pos.e_stored, f);
