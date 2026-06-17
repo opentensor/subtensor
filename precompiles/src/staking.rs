@@ -912,6 +912,38 @@ where
 
         Ok(())
     }
+
+    #[precompile::public("isReceivingTaoBlocked(bytes32)")]
+    #[precompile::view]
+    fn is_receiving_tao_blocked(
+        _handle: &mut impl PrecompileHandle,
+        coldkey: H256,
+    ) -> EvmResult<bool> {
+        let coldkey = R::AccountId::from(coldkey.0);
+        Ok(pallet_subtensor::BlockReceivingTao::<R>::get(&coldkey))
+    }
+
+    #[precompile::public("isReceivingAlphaEnabled(bytes32)")]
+    #[precompile::view]
+    fn is_receiving_alpha_enabled(
+        _handle: &mut impl PrecompileHandle,
+        coldkey: H256,
+    ) -> EvmResult<bool> {
+        let coldkey = R::AccountId::from(coldkey.0);
+        Ok(pallet_subtensor::ReceivingAlphaEnabled::<R>::get(&coldkey))
+    }
+
+    #[precompile::public("isReceivingLockedAlphaBlocked(bytes32)")]
+    #[precompile::view]
+    fn is_receiving_locked_alpha_blocked(
+        _handle: &mut impl PrecompileHandle,
+        coldkey: H256,
+    ) -> EvmResult<bool> {
+        let coldkey = R::AccountId::from(coldkey.0);
+        Ok(pallet_subtensor::BlockReceivingLockedAlpha::<R>::get(
+            &coldkey,
+        ))
+    }
 }
 
 fn try_u16_from_u256(value: U256) -> Result<u16, PrecompileFailure> {

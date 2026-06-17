@@ -640,11 +640,11 @@ mod events {
             enabled: bool,
         },
 
-        /// An account's block-receiving-Alpha flag was updated.
-        BlockReceivingAlphaSet {
+        /// Emitted when a coldkey's opt-in flag for receiving cross-coldkey Alpha is changed.
+        ReceivingAlphaEnabledSet {
             /// The account whose flag changed.
             account: T::AccountId,
-            /// Whether this account now blocks receiving Alpha.
+            /// Whether this account now allows receiving cross-coldkey Alpha.
             enabled: bool,
         },
 

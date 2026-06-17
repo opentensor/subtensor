@@ -2616,27 +2616,29 @@ mod dispatches {
             Ok(())
         }
 
-        /// Sets or clears the caller's block-receiving-Alpha flag.
+        /// Opts the caller's coldkey in or out of receiving cross-coldkey Alpha transfers.
         ///
-        /// When enabled, any attempt to stake Alpha (staked tokens) to this account
-        /// through the subtensor pallet will be rejected with `ReceivingAlphaBlocked`.
-        /// This flag is checked at user-facing stake entry points only; internal system
-        /// operations (such as re-staking into root during unstake) are unaffected.
-        /// The default is `false` (Alpha transfers are allowed).
+        /// Alpha transfers from another coldkey are **disabled by default**. Call this with
+        /// `enabled = true` to allow other coldkeys to transfer staked Alpha to your account.
+        /// Call with `enabled = false` to revert to the default (blocked) state.
+        ///
+        /// This flag only affects cross-coldkey operations (stake transfers / moves to a
+        /// different coldkey). It does **not** affect `add_stake` calls made by the coldkey
+        /// itself.
         ///
         /// # Arguments
-        /// * `origin` - Must be signed by the account that wishes to set the flag.
-        /// * `enabled` - `true` to block incoming Alpha; `false` to allow it.
+        /// * `origin` - Must be signed by the coldkey that wishes to set the flag.
+        /// * `enabled` - `true` to allow incoming cross-coldkey Alpha; `false` to block it.
         #[pallet::call_index(140)]
-        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::set_block_receiving_alpha())]
-        pub fn set_block_receiving_alpha(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::set_receiving_alpha_enabled())]
+        pub fn set_receiving_alpha_enabled(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
             let account = ensure_signed(origin)?;
             if enabled {
-                BlockReceivingAlpha::<T>::insert(&account, true);
+                ReceivingAlphaEnabled::<T>::insert(&account, true);
             } else {
-                BlockReceivingAlpha::<T>::remove(&account);
+                ReceivingAlphaEnabled::<T>::remove(&account);
             }
-            Self::deposit_event(Event::BlockReceivingAlphaSet { account, enabled });
+            Self::deposit_event(Event::ReceivingAlphaEnabledSet { account, enabled });
             Ok(())
         }
 
@@ -2646,7 +2648,7 @@ mod dispatches {
         /// [`transfer_lock`](crate::Pallet::transfer_lock) will be rejected with
         /// `ReceivingLockedAlphaBlocked`. Only the locked portion of a stake transfer
         /// is gated; unlocked Alpha transfers are governed by the separate
-        /// `BlockReceivingAlpha` flag.
+        /// `ReceivingAlphaEnabled` flag.
         /// The default is `false` (locked Alpha transfers are allowed).
         ///
         /// # Arguments

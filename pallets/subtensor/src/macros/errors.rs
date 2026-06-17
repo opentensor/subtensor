@@ -305,10 +305,10 @@ mod errors {
         /// transfer was rejected. The recipient must call `set_block_receiving_tao(false)`
         /// before TAO can be sent to that address through the subtensor pallet.
         ReceivingTaoBlocked,
-        /// Destination account has set `BlockReceivingAlpha = true`; the user-facing stake
-        /// operation (add_stake or cross-coldkey stake transfer) was rejected. The recipient
-        /// must call `set_block_receiving_alpha(false)` before Alpha can be staked to that
-        /// address.
+        /// Destination account has not enabled receiving cross-coldkey Alpha (`ReceivingAlphaEnabled`
+        /// defaults to `false`). The cross-coldkey stake transfer was rejected. The recipient
+        /// must call `set_receiving_alpha_enabled(true)` before Alpha can be transferred to
+        /// that address from another coldkey.
         ReceivingAlphaBlocked,
         /// Destination account has set `BlockReceivingLockedAlpha = true`; the locked-Alpha
         /// portion of a `transfer_lock` call was rejected. The recipient must call

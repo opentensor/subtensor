@@ -46,6 +46,8 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
                 Error::<T>::SlippageTooHigh
             );
         }
+        // Note: `ReceivingAlphaEnabled` is intentionally not checked here — buy_alpha is an
+        // internal market-order operation, not a cross-coldkey user-facing transfer.
         let alpha_out =
             Self::stake_into_subnet(hotkey, coldkey, netuid, tao_amount, amm_limit, false)?;
         Ok(alpha_out)

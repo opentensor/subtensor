@@ -349,14 +349,14 @@ impl<T: Config> Pallet<T> {
             let drop_fee_origin = origin_netuid == NetUid::ROOT;
             let drop_fee_destination = !drop_fee_origin;
 
-            // Reject before any mutations if the destination has opted out of receiving funds.
+            // Reject before any mutations if the destination cannot receive these assets.
             if origin_coldkey != destination_coldkey {
                 ensure!(
                     !BlockReceivingTao::<T>::get(destination_coldkey),
                     Error::<T>::ReceivingTaoBlocked
                 );
                 ensure!(
-                    !BlockReceivingAlpha::<T>::get(destination_coldkey),
+                    ReceivingAlphaEnabled::<T>::get(destination_coldkey),
                     Error::<T>::ReceivingAlphaBlocked
                 );
             }
@@ -398,10 +398,10 @@ impl<T: Config> Pallet<T> {
 
             Ok(tao_unstaked)
         } else {
-            // Same subnet: reject if the destination blocks receiving Alpha.
+            // Same subnet: reject if the destination has not enabled receiving Alpha.
             if origin_coldkey != destination_coldkey {
                 ensure!(
-                    !BlockReceivingAlpha::<T>::get(destination_coldkey),
+                    ReceivingAlphaEnabled::<T>::get(destination_coldkey),
                     Error::<T>::ReceivingAlphaBlocked
                 );
             }

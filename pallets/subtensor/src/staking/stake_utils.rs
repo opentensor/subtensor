@@ -1062,12 +1062,6 @@ impl<T: Config> Pallet<T> {
         max_amount: TaoBalance,
         allow_partial: bool,
     ) -> Result<(), Error<T>> {
-        // Reject if the coldkey (alpha recipient) has opted out of receiving Alpha.
-        ensure!(
-            !BlockReceivingAlpha::<T>::get(coldkey),
-            Error::<T>::ReceivingAlphaBlocked
-        );
-
         // Ensure that the subnet exists.
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 

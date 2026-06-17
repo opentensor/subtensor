@@ -2660,21 +2660,20 @@ pub mod pallet {
     pub type BlockReceivingTao<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, bool, ValueQuery>;
 
-    /// --- Map ( account_id ) --> bool | Whether this account blocks receiving Alpha (staked) transfers.
-    ///
-    /// When `true`, user-facing stake entry points (`add_stake`, `add_stake_limit`, and
-    /// cross-coldkey stake transfers) are rejected with `ReceivingAlphaBlocked`. Internal
-    /// re-staking paths (e.g. re-staking TAO into root during a non-root unstake) are NOT
-    /// gated. Absent key is treated as `false` (receiving allowed).
+    /// When `true`, cross-coldkey Alpha transfers to this account are permitted.
+    /// When `false` (the default), any cross-coldkey transfer of staked Alpha to
+    /// this coldkey is rejected with `ReceivingAlphaBlocked`. Call
+    /// `set_receiving_alpha_enabled(true)` to opt in to receiving Alpha from
+    /// other coldkeys.
     #[pallet::storage]
-    pub type BlockReceivingAlpha<T: Config> =
+    pub type ReceivingAlphaEnabled<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, bool, ValueQuery>;
 
     /// --- Map ( account_id ) --> bool | Whether this account blocks receiving locked Alpha transfers.
     ///
     /// When `true`, any call to `transfer_lock` that would move a non-zero locked-Alpha amount
     /// to this account is rejected with `ReceivingLockedAlphaBlocked`. Only the locked portion
-    /// of a transfer is gated; unlocked Alpha is governed separately by `BlockReceivingAlpha`.
+    /// of a transfer is gated; unlocked Alpha is governed separately by `ReceivingAlphaEnabled`.
     /// Absent key is treated as `false` (receiving allowed).
     #[pallet::storage]
     pub type BlockReceivingLockedAlpha<T: Config> =
@@ -2746,6 +2745,21 @@ pub mod pallet {
                 Error::<T>::SubtokenDisabled
             );
             Ok(())
+        }
+
+        /// Returns `true` if the given coldkey has opted in to receiving Alpha from other coldkeys.
+        pub fn get_receiving_alpha_enabled(coldkey: &T::AccountId) -> bool {
+            ReceivingAlphaEnabled::<T>::get(coldkey)
+        }
+
+        /// Returns `true` if the given coldkey has blocked incoming cross-coldkey TAO transfers.
+        pub fn get_block_receiving_tao(coldkey: &T::AccountId) -> bool {
+            BlockReceivingTao::<T>::get(coldkey)
+        }
+
+        /// Returns `true` if the given coldkey has blocked incoming locked-Alpha transfers.
+        pub fn get_block_receiving_locked_alpha(coldkey: &T::AccountId) -> bool {
+            BlockReceivingLockedAlpha::<T>::get(coldkey)
         }
     }
 }

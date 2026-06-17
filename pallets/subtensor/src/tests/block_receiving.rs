@@ -125,7 +125,7 @@ fn test_block_receiving_tao_allows_transfer_after_clear() {
             AlphaBalance::from(10_000_000_000_000_u64),
         );
 
-        // Block then unblock
+        // Block then unblock TAO
         assert_ok!(SubtensorModule::set_block_receiving_tao(
             RuntimeOrigin::signed(receiver_coldkey),
             true
@@ -133,6 +133,12 @@ fn test_block_receiving_tao_allows_transfer_after_clear() {
         assert_ok!(SubtensorModule::set_block_receiving_tao(
             RuntimeOrigin::signed(receiver_coldkey),
             false
+        ));
+
+        // Also enable alpha receiving (required for cross-coldkey cross-subnet transfers)
+        assert_ok!(SubtensorModule::set_receiving_alpha_enabled(
+            RuntimeOrigin::signed(receiver_coldkey),
+            true
         ));
 
         // Cross-subnet transfer stake should now succeed
@@ -153,31 +159,36 @@ fn test_block_receiving_tao_allows_transfer_after_clear() {
 }
 
 // ============================================================
-// Alpha blocking
+// Alpha blocking (opt-in)
 // ============================================================
 
 #[test]
-fn test_block_receiving_alpha_set_and_clear() {
+fn test_receiving_alpha_enabled_set_and_clear() {
     new_test_ext(1).execute_with(|| {
         let account = U256::from(1);
         let origin = RuntimeOrigin::signed(account);
 
-        assert!(!BlockReceivingAlpha::<Test>::get(account));
+        // Default: flag is off (alpha transfers disabled)
+        assert!(!ReceivingAlphaEnabled::<Test>::get(account));
 
-        assert_ok!(SubtensorModule::set_block_receiving_alpha(
+        // Enable
+        assert_ok!(SubtensorModule::set_receiving_alpha_enabled(
             origin.clone(),
             true
         ));
-        assert!(BlockReceivingAlpha::<Test>::get(account));
+        assert!(ReceivingAlphaEnabled::<Test>::get(account));
 
-        assert_ok!(SubtensorModule::set_block_receiving_alpha(origin, false));
-        assert!(!BlockReceivingAlpha::<Test>::get(account));
+        // Disable
+        assert_ok!(SubtensorModule::set_receiving_alpha_enabled(origin, false));
+        assert!(!ReceivingAlphaEnabled::<Test>::get(account));
     });
 }
 
 #[test]
-fn test_block_receiving_alpha_prevents_stake_into_subnet() {
+fn test_receiving_alpha_disabled_allows_self_staking() {
     new_test_ext(1).execute_with(|| {
+        // Even when ReceivingAlphaEnabled is false (default), a coldkey can always
+        // stake their own TAO — the opt-in flag only blocks cross-coldkey transfers.
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
 
@@ -194,55 +205,8 @@ fn test_block_receiving_alpha_prevents_stake_into_subnet() {
         ));
         add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_u64.into());
 
-        // Block receiving alpha
-        assert_ok!(SubtensorModule::set_block_receiving_alpha(
-            RuntimeOrigin::signed(coldkey),
-            true
-        ));
-
-        // Staking should fail
-        assert_err!(
-            SubtensorModule::do_add_stake(
-                RuntimeOrigin::signed(coldkey),
-                hotkey,
-                netuid,
-                500_000_000_u64.into(),
-            ),
-            Error::<Test>::ReceivingAlphaBlocked
-        );
-    });
-}
-
-#[test]
-fn test_block_receiving_alpha_allows_stake_after_clear() {
-    new_test_ext(1).execute_with(|| {
-        let coldkey = U256::from(1);
-        let hotkey = U256::from(2);
-
-        let owner_coldkey = U256::from(999);
-        let owner_hotkey = U256::from(998);
-        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
-        setup_reserves(
-            netuid,
-            TaoBalance::from(1_000_000_000_000_u64),
-            AlphaBalance::from(10_000_000_000_000_u64),
-        );
-        assert_ok!(SubtensorModule::create_account_if_non_existent(
-            &coldkey, &hotkey
-        ));
-        add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_u64.into());
-
-        // Block then unblock
-        assert_ok!(SubtensorModule::set_block_receiving_alpha(
-            RuntimeOrigin::signed(coldkey),
-            true
-        ));
-        assert_ok!(SubtensorModule::set_block_receiving_alpha(
-            RuntimeOrigin::signed(coldkey),
-            false
-        ));
-
-        // Staking should now succeed
+        // ReceivingAlphaEnabled is false by default — self-staking should still work
+        assert!(!ReceivingAlphaEnabled::<Test>::get(coldkey));
         assert_ok!(SubtensorModule::do_add_stake(
             RuntimeOrigin::signed(coldkey),
             hotkey,
@@ -253,7 +217,7 @@ fn test_block_receiving_alpha_allows_stake_after_clear() {
 }
 
 #[test]
-fn test_block_receiving_alpha_prevents_same_subnet_transfer() {
+fn test_receiving_alpha_disabled_blocks_same_subnet_transfer() {
     new_test_ext(1).execute_with(|| {
         let sender_coldkey = U256::from(1);
         let receiver_coldkey = U256::from(2);
@@ -261,13 +225,7 @@ fn test_block_receiving_alpha_prevents_same_subnet_transfer() {
 
         let netuid = setup_subnet_and_stake(sender_coldkey, hotkey, 1_000_000_000_u64);
 
-        // Receiver blocks alpha
-        assert_ok!(SubtensorModule::set_block_receiving_alpha(
-            RuntimeOrigin::signed(receiver_coldkey),
-            true
-        ));
-
-        // Same-subnet cross-coldkey transfer should fail with ReceivingAlphaBlocked
+        // receiver_coldkey has NOT enabled receiving alpha (default = disabled)
         let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &sender_coldkey,
@@ -284,6 +242,82 @@ fn test_block_receiving_alpha_prevents_same_subnet_transfer() {
             ),
             Error::<Test>::ReceivingAlphaBlocked
         );
+    });
+}
+
+#[test]
+fn test_receiving_alpha_disabled_blocks_cross_subnet_transfer() {
+    new_test_ext(1).execute_with(|| {
+        let sender_coldkey = U256::from(1);
+        let receiver_coldkey = U256::from(2);
+        let hotkey = U256::from(3);
+
+        let netuid_src = setup_subnet_and_stake(sender_coldkey, hotkey, 1_000_000_000_u64);
+        let owner_ck2 = U256::from(997);
+        let owner_hk2 = U256::from(996);
+        let netuid_dst = add_dynamic_network(&owner_hk2, &owner_ck2);
+        setup_reserves(
+            netuid_dst,
+            TaoBalance::from(1_000_000_000_000_u64),
+            AlphaBalance::from(10_000_000_000_000_u64),
+        );
+
+        // receiver_coldkey has NOT enabled receiving alpha (default = disabled)
+        let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &sender_coldkey,
+            netuid_src,
+        );
+        assert_err!(
+            SubtensorModule::do_transfer_stake(
+                RuntimeOrigin::signed(sender_coldkey),
+                receiver_coldkey,
+                hotkey,
+                netuid_src,
+                netuid_dst,
+                alpha,
+            ),
+            Error::<Test>::ReceivingAlphaBlocked
+        );
+    });
+}
+
+#[test]
+fn test_receiving_alpha_enabled_allows_cross_subnet_transfer() {
+    new_test_ext(1).execute_with(|| {
+        let sender_coldkey = U256::from(1);
+        let receiver_coldkey = U256::from(2);
+        let hotkey = U256::from(3);
+
+        let netuid_src = setup_subnet_and_stake(sender_coldkey, hotkey, 1_000_000_000_u64);
+        let owner_ck2 = U256::from(997);
+        let owner_hk2 = U256::from(996);
+        let netuid_dst = add_dynamic_network(&owner_hk2, &owner_ck2);
+        setup_reserves(
+            netuid_dst,
+            TaoBalance::from(1_000_000_000_000_u64),
+            AlphaBalance::from(10_000_000_000_000_u64),
+        );
+
+        // receiver_coldkey opts in to receiving alpha
+        assert_ok!(SubtensorModule::set_receiving_alpha_enabled(
+            RuntimeOrigin::signed(receiver_coldkey),
+            true
+        ));
+
+        let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &sender_coldkey,
+            netuid_src,
+        );
+        assert_ok!(SubtensorModule::do_transfer_stake(
+            RuntimeOrigin::signed(sender_coldkey),
+            receiver_coldkey,
+            hotkey,
+            netuid_src,
+            netuid_dst,
+            alpha,
+        ));
     });
 }
 
