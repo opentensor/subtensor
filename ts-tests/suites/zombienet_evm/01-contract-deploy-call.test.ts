@@ -73,7 +73,6 @@ describeSuite({
             api = context.papi("Node").getTypedApi(subtensor);
             provider = context.ethers("EVM").provider as ethers.JsonRpcProvider;
             ethWallet = createEthersWallet(provider);
-
             await forceSetBalance(api, convertH160ToSS58(ethWallet.address));
             await disableWhiteListCheck(api, true);
             await waitForFinalizedBlocks(api, 1);
