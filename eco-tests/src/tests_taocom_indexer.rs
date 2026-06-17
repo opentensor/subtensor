@@ -8,7 +8,6 @@
 use pallet_subtensor::rpc_info::delegate_info::DelegateInfo;
 use pallet_subtensor::rpc_info::stake_info::StakeInfo;
 use pallet_subtensor::*;
-use pallet_subtensor_swap as swap;
 use pallet_subtensor_swap_runtime_api::SwapRuntimeApi;
 use share_pool::SafeFloat;
 use sp_core::U256;
@@ -113,8 +112,6 @@ fn indexer_subnet_pool_and_emissions() {
         let _: AlphaBalance = SubnetAlphaOutEmission::<Test>::get(netuid);
         let _: AlphaBalance = PendingValidatorEmission::<Test>::get(netuid);
         let _: AlphaBalance = PendingServerEmission::<Test>::get(netuid);
-
-        let _: U64F64 = swap::AlphaSqrtPrice::<Test>::get(netuid);
     });
 }
 
@@ -165,7 +162,6 @@ fn indexer_step_and_toggles() {
         let _: u64 = LastMechansimStepBlock::<Test>::get(netuid);
         let _: Option<(RateLimitKey<U256>, u64)> = LastRateLimitedBlock::<Test>::iter().next();
         let _: bool = TransferToggle::<Test>::get(netuid);
-        let _: bool = swap::EnabledUserLiquidity::<Test>::get(netuid);
     });
 }
 
