@@ -298,7 +298,7 @@ describeSuite({
                 const hotkeySs58 = convertPublicKeyToSs58(hotkey.publicKey);
                 const stakeBefore = await getStake(api, hotkeySs58, wrapperSs58, netuid);
 
-                const removeStakeTx = await wrapperContract.removeStake(hotkey.publicKey, removeAmount, netuid);
+                const removeStakeTx = await wrapperContract.removeStake(hotkey.publicKey, removeAmount.toString(), netuid);
                 const receipt = await removeStakeTx.wait();
                 expect(receipt?.status).toEqual(1);
                 await waitForFinalizedBlocks(api, 2);
