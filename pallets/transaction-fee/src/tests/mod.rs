@@ -1223,6 +1223,9 @@ fn test_transfer_stake_fees_alpha() {
             alpha_amount: unstake_amount,
         });
 
+        // Enable receiving alpha for the destination coldkey (required for cross-coldkey transfers).
+        ReceivingAlphaEnabled::<Test>::insert(destination_coldkey, true);
+
         // Dispatch the extrinsic with ChargeTransactionPayment extension
         let info = call.get_dispatch_info();
         let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0.into());
