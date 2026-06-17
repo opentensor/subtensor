@@ -462,31 +462,6 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn ensure_can_receive_coldkey_locks(
-        old_coldkey: &T::AccountId,
-        new_coldkey: &T::AccountId,
-    ) -> DispatchResult {
-        Self::ensure_no_active_locks(new_coldkey)?;
-
-        let now = Self::get_current_block_as_u64();
-        let unlock_rate = UnlockRate::<T>::get();
-        let maturity_rate = MaturityRate::<T>::get();
-
-        for ((netuid, hotkey), lock) in Lock::<T>::iter_prefix((old_coldkey,)) {
-            let old_lock = ConvictionModel::roll_forward_lock(
-                lock,
-                now,
-                unlock_rate,
-                maturity_rate,
-                Self::is_subnet_owner_hotkey(netuid, &hotkey),
-                Self::is_perpetual_lock(old_coldkey, netuid),
-            );
-            Self::ensure_can_receive_locked_alpha(new_coldkey, old_lock.locked_mass)?;
-        }
-
-        Ok(())
-    }
-
     pub fn insert_lock_state(
         coldkey: &T::AccountId,
         netuid: NetUid,
@@ -1371,7 +1346,7 @@ impl<T: Config> Pallet<T> {
         old_coldkey: &T::AccountId,
         new_coldkey: &T::AccountId,
     ) -> DispatchResult {
-        Self::ensure_can_receive_coldkey_locks(old_coldkey, new_coldkey)?;
+        Self::ensure_no_active_locks(new_coldkey)?;
 
         let mut locks_to_transfer: Vec<(NetUid, T::AccountId, LockState)> = Vec::new();
         let now = Self::get_current_block_as_u64();
