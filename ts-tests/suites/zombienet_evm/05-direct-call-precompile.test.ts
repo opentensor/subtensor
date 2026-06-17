@@ -408,7 +408,6 @@ describeSuite({
                 const crowdloanDeposit = BigInt(100_000_000_000);
                 const networkLastLockCost = await api.query.SubtensorModule.NetworkLastLockCost.getValue();
                 const crowdloanCap = networkLastLockCost * BigInt(2);
-                const currentBlock = await api.query.System.Number.getValue();
                 const crowdloanEnd = await getCrowdloanEndBlock();
                 const leasingEmissionsShare = 15;
                 const leasingEndBlock = crowdloanEnd + 200;
