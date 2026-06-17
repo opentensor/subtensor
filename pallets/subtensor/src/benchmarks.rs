@@ -2282,7 +2282,6 @@ mod pallet_benchmarks {
         _(RawOrigin::Signed(caller.clone()), true);
     }
 
-
     impl_benchmark_test_suite!(
         Subtensor,
         crate::tests::mock::new_test_ext(1),
