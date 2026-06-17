@@ -103,6 +103,7 @@ fn test_account_flags_default_to_zero_and_reject_locked_alpha_setter_pays_fee() 
         let coldkey = U256::from(1);
 
         assert_eq!(AccountFlags::<Test>::get(coldkey), 0);
+        assert!(!AccountFlags::<Test>::contains_key(coldkey));
         assert!(!SubtensorModule::account_rejects_locked_alpha(&coldkey));
 
         let call =
@@ -117,6 +118,7 @@ fn test_account_flags_default_to_zero_and_reject_locked_alpha_setter_pays_fee() 
             AccountFlags::<Test>::get(coldkey),
             ACCOUNT_FLAGS_REJECT_LOCKED_ALPHA
         );
+        assert!(AccountFlags::<Test>::contains_key(coldkey));
         assert!(SubtensorModule::account_rejects_locked_alpha(&coldkey));
 
         assert_ok!(SubtensorModule::set_reject_locked_alpha(
@@ -124,6 +126,7 @@ fn test_account_flags_default_to_zero_and_reject_locked_alpha_setter_pays_fee() 
             false,
         ));
         assert_eq!(AccountFlags::<Test>::get(coldkey), 0);
+        assert!(!AccountFlags::<Test>::contains_key(coldkey));
         assert!(!SubtensorModule::account_rejects_locked_alpha(&coldkey));
     });
 }

@@ -2606,12 +2606,14 @@ mod dispatches {
         ))]
         pub fn set_reject_locked_alpha(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
             let coldkey = ensure_signed(origin)?;
-            AccountFlags::<T>::mutate(&coldkey, |flags| {
+            AccountFlags::<T>::mutate_exists(&coldkey, |maybe_flags| {
+                let mut flags = maybe_flags.unwrap_or_default();
                 if enabled {
-                    *flags |= crate::ACCOUNT_FLAGS_REJECT_LOCKED_ALPHA;
+                    flags |= crate::ACCOUNT_FLAGS_REJECT_LOCKED_ALPHA;
                 } else {
-                    *flags &= !crate::ACCOUNT_FLAGS_REJECT_LOCKED_ALPHA;
+                    flags &= !crate::ACCOUNT_FLAGS_REJECT_LOCKED_ALPHA;
                 }
+                *maybe_flags = if flags == 0 { None } else { Some(flags) };
             });
             Self::deposit_event(Event::RejectLockedAlphaUpdated { coldkey, enabled });
             Ok(())
