@@ -1756,6 +1756,7 @@ mod tests {
             let source_stake_before = stake_for(&hotkey, &source_account, netuid);
             let spender_stake_before = stake_for(&hotkey, &spender_account, netuid);
 
+            pallet_subtensor::ReceivingAlphaEnabled::<Runtime>::insert(&spender_account, true);
             precompiles
                 .prepare_test(
                     spender,
