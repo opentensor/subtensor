@@ -452,13 +452,18 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         amount: AlphaBalance,
     ) -> DispatchResult {
+        let rejects_locked_alpha = Self::account_rejects_locked_alpha(coldkey);
+        Self::ensure_can_receive_locked_alpha_with_flag(rejects_locked_alpha, amount)
+    }
+
+    fn ensure_can_receive_locked_alpha_with_flag(
+        rejects_locked_alpha: bool,
+        amount: AlphaBalance,
+    ) -> DispatchResult {
         if amount.is_zero() {
             return Ok(());
         }
-        ensure!(
-            !Self::account_rejects_locked_alpha(coldkey),
-            Error::<T>::AccountRejectsLockedAlpha
-        );
+        ensure!(!rejects_locked_alpha, Error::<T>::AccountRejectsLockedAlpha);
         Ok(())
     }
 
@@ -1352,6 +1357,7 @@ impl<T: Config> Pallet<T> {
         let now = Self::get_current_block_as_u64();
         let unlock_rate = UnlockRate::<T>::get();
         let maturity_rate = MaturityRate::<T>::get();
+        let new_coldkey_rejects_locked_alpha = Self::account_rejects_locked_alpha(new_coldkey);
 
         // Gather locks for old coldkey
         for ((netuid, hotkey), lock) in Lock::<T>::iter_prefix((old_coldkey,)) {
@@ -1363,7 +1369,10 @@ impl<T: Config> Pallet<T> {
                 Self::is_subnet_owner_hotkey(netuid, &hotkey),
                 Self::is_perpetual_lock(old_coldkey, netuid),
             );
-            Self::ensure_can_receive_locked_alpha(new_coldkey, old_lock.locked_mass)?;
+            Self::ensure_can_receive_locked_alpha_with_flag(
+                new_coldkey_rejects_locked_alpha,
+                old_lock.locked_mass,
+            )?;
             locks_to_transfer.push((netuid, hotkey, old_lock));
         }
 
