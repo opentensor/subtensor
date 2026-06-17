@@ -8,6 +8,7 @@ use frame_support::{assert_ok, weights::Weight};
 use frame_system::RawOrigin;
 use pallet_contracts::chain_extension::RetVal;
 use pallet_subtensor::DefaultMinStake;
+use pallet_subtensor::ReceivingAlphaEnabled;
 use pallet_subtensor::weights::WeightInfo as SubtensorWeightInfo;
 use sp_core::Get;
 use sp_core::U256;
@@ -456,6 +457,7 @@ fn transfer_stake_success_moves_between_coldkeys() {
 
         let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::transfer_stake();
 
+        ReceivingAlphaEnabled::<mock::Test>::insert(destination_coldkey, true);
         let mut env = MockEnv::new(
             FunctionId::TransferStakeV1,
             origin_coldkey,
@@ -1938,6 +1940,7 @@ mod caller_dispatch_tests {
 
             let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::transfer_stake();
 
+            ReceivingAlphaEnabled::<mock::Test>::insert(destination_coldkey, true);
             let mut env = MockEnv::new(
                 FunctionId::CallerTransferStakeV1,
                 origin_coldkey,
