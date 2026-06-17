@@ -110,7 +110,8 @@ where
         let dispatch_class = call.get_dispatch_info().class;
         if !crate::Pallet::<T>::is_ibe_queue_drain_in_progress()
             && dispatch_class != DispatchClass::Operational
-            && (crate::Pallet::<T>::has_due_ibe_queue_head()
+            && ((crate::Pallet::<T>::has_due_ibe_queue_head()
+                || crate::Pallet::<T>::has_fired_conditional_ibe())
                 || crate::Pallet::<T>::has_fired_conditional_ibe())
         {
             return Err(InvalidTransaction::ExhaustsResources.into());

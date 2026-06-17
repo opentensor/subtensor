@@ -95,6 +95,16 @@ pub const MAX_CONDITIONAL_IBE_LIFETIME_BLOCKS: u32 = 5_000;
 
 /// Fixed condition-evaluation weight charged once per pre-paid lifetime block.
 pub const CONDITIONAL_IBE_EVAL_WEIGHT_REF_TIME: u64 = 1_000_000;
+/// Extra per-block weight for public storage predicate evaluation.
+pub const CONDITIONAL_IBE_STORAGE_PREDICATE_WEIGHT_REF_TIME: u64 = 2_000_000;
+/// Extra per-block weight reserved for EVM staticcall-result predicate checks.
+pub const CONDITIONAL_IBE_EVM_PREDICATE_WEIGHT_REF_TIME: u64 = 25_000_000;
+/// Extra per-block weight reserved for Ink read-only-result predicate checks.
+pub const CONDITIONAL_IBE_INK_PREDICATE_WEIGHT_REF_TIME: u64 = 25_000_000;
+/// Per-byte, per-block storage-rent/backpressure weight for conditional entries.
+pub const CONDITIONAL_IBE_STORAGE_RENT_WEIGHT_PER_BYTE_BLOCK: u64 = 128;
+/// Per-block committee compensation premium reserved by conditional entries.
+pub const CONDITIONAL_IBE_COMMITTEE_PREMIUM_WEIGHT_REF_TIME: u64 = 5_000_000;
 
 pub trait IbeDkgAuthorityProvider {
     fn authorities_for_epoch(epoch: u64) -> Vec<DkgAuthorityInfo>;
@@ -516,25 +526,96 @@ pub mod pallet {
     /// The first production-safe variant is a deterministic block gate: the
     /// entry fires once `current_block >= block` and is evaluated each block
     /// until it fires or expires.
+    /// Section 8 conditional encrypted transaction condition.
+    ///
+    /// `AtBlock` is the deterministic time/block gate. The richer variants are
+    /// public predicate commitments: an external runtime integration updates the
+    /// public result/storage key, and the shield pallet checks that committed
+    /// public value before plaintext execution.
     #[derive(
         Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen, Eq, PartialEq, Debug,
     )]
     pub enum ConditionalIbeCondition {
-        AtBlock { block: u64 },
+        AtBlock {
+            block: u64,
+        },
+        PalletStorageHashEquals {
+            earliest_block: u64,
+            storage_key: BoundedVec<u8, MaxEncryptedCallSize>,
+            expected_hash: sp_core::H256,
+        },
+        EvmStaticCallResult {
+            earliest_block: u64,
+            result_key: BoundedVec<u8, MaxEncryptedCallSize>,
+            expected_hash: sp_core::H256,
+        },
+        InkReadOnlyResult {
+            earliest_block: u64,
+            result_key: BoundedVec<u8, MaxEncryptedCallSize>,
+            expected_hash: sp_core::H256,
+        },
     }
 
     impl ConditionalIbeCondition {
         pub fn target_block(&self) -> u64 {
             match self {
                 Self::AtBlock { block } => *block,
+                Self::PalletStorageHashEquals { earliest_block, .. }
+                | Self::EvmStaticCallResult { earliest_block, .. }
+                | Self::InkReadOnlyResult { earliest_block, .. } => *earliest_block,
             }
         }
 
+        pub fn encoded_condition_len(&self) -> u64 {
+            u64::try_from(self.encode().len()).unwrap_or(u64::MAX)
+        }
+
+        pub fn condition_eval_weight_ref_time(&self) -> u64 {
+            match self {
+                Self::AtBlock { .. } => CONDITIONAL_IBE_EVAL_WEIGHT_REF_TIME,
+                Self::PalletStorageHashEquals { .. } => CONDITIONAL_IBE_EVAL_WEIGHT_REF_TIME
+                    .checked_add(CONDITIONAL_IBE_STORAGE_PREDICATE_WEIGHT_REF_TIME)
+                    .unwrap_or(u64::MAX),
+                Self::EvmStaticCallResult { .. } => CONDITIONAL_IBE_EVAL_WEIGHT_REF_TIME
+                    .checked_add(CONDITIONAL_IBE_EVM_PREDICATE_WEIGHT_REF_TIME)
+                    .unwrap_or(u64::MAX),
+                Self::InkReadOnlyResult { .. } => CONDITIONAL_IBE_EVAL_WEIGHT_REF_TIME
+                    .checked_add(CONDITIONAL_IBE_INK_PREDICATE_WEIGHT_REF_TIME)
+                    .unwrap_or(u64::MAX),
+            }
+        }
+
+        fn public_value_matches_hash(key: &[u8], expected_hash: sp_core::H256) -> bool {
+            let Some(value) = sp_io::storage::get(key) else {
+                return false;
+            };
+            sp_core::H256::from(sp_io::hashing::blake2_256(&value)) == expected_hash
+        }
+
         pub fn is_fired(&self, current_block: u64) -> bool {
-            current_block >= self.target_block()
+            if current_block < self.target_block() {
+                return false;
+            }
+            match self {
+                Self::AtBlock { .. } => true,
+                Self::PalletStorageHashEquals {
+                    storage_key,
+                    expected_hash,
+                    ..
+                }
+                | Self::EvmStaticCallResult {
+                    result_key: storage_key,
+                    expected_hash,
+                    ..
+                }
+                | Self::InkReadOnlyResult {
+                    result_key: storage_key,
+                    expected_hash,
+                    ..
+                } => Self::public_value_matches_hash(storage_key.as_slice(), *expected_hash),
+            }
         }
     }
-
     /// A conditional encrypted entry stored separately from the regular v2 FIFO queue.
     #[freeze_struct("2145ee11edb219e2")]
     #[derive(Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, PartialEq, Debug)]
@@ -1005,7 +1086,7 @@ pub mod pallet {
         /// is checked each block, and it decrypts/executes once the block gate
         /// fires and the threshold IBE key is available.
         #[pallet::call_index(8)]
-        #[pallet::weight(Pallet::<T>::conditional_encrypted_submission_weight(*lifetime_blocks))]
+        #[pallet::weight(Pallet::<T>::conditional_encrypted_submission_weight(condition, *lifetime_blocks))]
         pub fn submit_conditional_encrypted(
             origin: OriginFor<T>,
             ciphertext: BoundedVec<u8, MaxEncryptedCallSize>,
@@ -1144,12 +1225,31 @@ impl<T: Config> Pallet<T> {
         );
         Ok(())
     }
-    pub fn conditional_encrypted_submission_weight(lifetime_blocks: u32) -> Weight {
-        let eval_ref_time = CONDITIONAL_IBE_EVAL_WEIGHT_REF_TIME
-            .checked_mul(u64::from(lifetime_blocks))
+    pub fn conditional_encrypted_submission_weight(
+        condition: &ConditionalIbeCondition,
+        lifetime_blocks: u32,
+    ) -> Weight {
+        let lifetime = u64::from(lifetime_blocks);
+        let eval_ref_time = condition
+            .condition_eval_weight_ref_time()
+            .checked_mul(lifetime)
             .unwrap_or(u64::MAX);
-        Self::current_ibe_queue_depth_priced_weight(Self::ibe_encrypted_submission_base_weight())
-            .saturating_add(Weight::from_parts(eval_ref_time, 0))
+        let storage_rent_ref_time = condition
+            .encoded_condition_len()
+            .checked_mul(lifetime)
+            .and_then(|x| x.checked_mul(CONDITIONAL_IBE_STORAGE_RENT_WEIGHT_PER_BYTE_BLOCK))
+            .unwrap_or(u64::MAX);
+        let committee_premium_ref_time = CONDITIONAL_IBE_COMMITTEE_PREMIUM_WEIGHT_REF_TIME
+            .checked_mul(lifetime)
+            .unwrap_or(u64::MAX);
+        let variable_ref_time = eval_ref_time
+            .checked_add(storage_rent_ref_time)
+            .and_then(|x| x.checked_add(committee_premium_ref_time))
+            .unwrap_or(u64::MAX);
+        let base = Self::current_ibe_queue_depth_priced_weight(
+            Self::ibe_encrypted_submission_base_weight(),
+        );
+        base.saturating_add(Weight::from_parts(variable_ref_time, 0))
     }
 
     fn reserve_conditional_ibe_submission_deposit(
@@ -2662,15 +2762,16 @@ impl<T: Config> Pallet<T> {
         let limit_usize = if limit == 0 {
             usize::MAX
         } else {
-            limit as usize
+            usize::try_from(limit).unwrap_or(usize::MAX)
         };
         let next_index = NextPendingExtrinsicIndex::<T>::get();
         let count: u32 = PendingExtrinsics::<T>::count();
-        let start_index = next_index.saturating_sub(count);
+        let start_index = next_index.checked_sub(count).unwrap_or(0);
         let mut identities = sp_std::collections::btree_map::BTreeMap::<
             (u64, u64, [u8; KEY_ID_LEN]),
             (u32, u32),
         >::new();
+
         for index in start_index..next_index {
             if identities.len() >= limit_usize {
                 break;
@@ -2687,6 +2788,29 @@ impl<T: Config> Pallet<T> {
                 })
                 .or_insert((index, index));
         }
+
+        // Section 8 conditional entries use the same block-identity key release
+        // path once their public predicate has fired. This makes finality-gated
+        // share release and the pre-runtime digest proposer discover fired
+        // conditional identities, not only regular FIFO queue identities.
+        let now: u64 = frame_system::Pallet::<T>::block_number().saturated_into::<u64>();
+        for (index, entry) in PendingConditionalIbeQueue::<T>::iter() {
+            if identities.len() >= limit_usize {
+                break;
+            }
+            if now > entry.expires_at || !entry.condition.is_fired(now) {
+                continue;
+            }
+            let key = (entry.epoch, entry.target_block, entry.key_id);
+            identities
+                .entry(key)
+                .and_modify(|range| {
+                    range.0 = range.0.min(index);
+                    range.1 = range.1.max(index);
+                })
+                .or_insert((index, index));
+        }
+
         identities
             .into_iter()
             .map(
