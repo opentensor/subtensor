@@ -108,9 +108,7 @@ describeSuite({
 
             // Enable receiving alpha for destination coldkey (required for cross-coldkey transfers).
             await context.createBlock([
-                await polkadotJs.tx.subtensorModule
-                    .setReceivingAlphaEnabled(true)
-                    .signAsync(destinationColdkey),
+                await polkadotJs.tx.subtensorModule.setReceivingAlphaEnabled(true).signAsync(destinationColdkey),
             ]);
         });
 
