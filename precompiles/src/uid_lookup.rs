@@ -6,7 +6,7 @@ use precompile_utils::{EvmResult, prelude::Address};
 use sp_runtime::traits::{Dispatchable, StaticLookup};
 use sp_std::vec::Vec;
 
-use crate::PrecompileExt;
+use crate::{PrecompileExt, PrecompileHandleExt};
 
 pub struct UidLookupPrecompile<R>(PhantomData<R>);
 
@@ -39,11 +39,12 @@ where
     #[precompile::public("uidLookup(uint16,address,uint16)")]
     #[precompile::view]
     fn uid_lookup(
-        _handle: &mut impl PrecompileHandle,
+        handle: &mut impl PrecompileHandle,
         netuid: u16,
         evm_address: Address,
         limit: u16,
     ) -> EvmResult<Vec<(u16, u64)>> {
+        handle.record_db_reads::<R>(u64::from(limit))?;
         Ok(pallet_subtensor::Pallet::<R>::uid_lookup(
             netuid.into(),
             evm_address.0,
