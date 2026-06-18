@@ -122,12 +122,8 @@ fn test_get_subnet_hyperparams_v3_values_reflect_storage() {
         SubtensorModule::set_bonds_reset(netuid, true);
         SubtensorModule::set_owner_cut_enabled_flag(netuid, true);
         SubtensorModule::set_owner_cut_auto_lock_enabled(netuid, true);
-<<<<<<< HEAD
-        SubtensorModule::set_min_childkey_take_for_subnet(netuid, 31);
-=======
         SubtensorModule::set_min_childkey_take(31);
         SubtensorModule::set_min_childkey_take_for_subnet(netuid, 32);
->>>>>>> devnet-ready
 
         let result = SubtensorModule::get_subnet_hyperparams_v3(netuid).unwrap();
         let p = &result;
@@ -187,16 +183,10 @@ fn test_get_subnet_hyperparams_v3_values_reflect_storage() {
             &HyperparamValue::U16(Compact(30))
         );
         assert_eq!(find(p, b"yuma_version"), &HyperparamValue::U16(Compact(3)));
-<<<<<<< HEAD
-        assert_eq!(
-            find(p, b"min_childkey_take_per_subnet"),
-            &HyperparamValue::U16(Compact(31))
-=======
         // Effective min childkey take = max(global, per-subnet).
         assert_eq!(
             find(p, b"min_childkey_take"),
             &HyperparamValue::U16(Compact(32))
->>>>>>> devnet-ready
         );
 
         // U64 variants
