@@ -1,11 +1,6 @@
 packages:
   - "**"
 
-overrides:
-  toml: 3.0.0
-
-strictDepBuilds: false
-
 allowBuilds:
   '@biomejs/biome': set this to true or false
   '@parcel/watcher': set this to true or false

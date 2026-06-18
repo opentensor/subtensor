@@ -4,9 +4,6 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-overrides:
-  toml: 3.0.0
-
 importers:
 
   .:
@@ -115,7 +112,7 @@ importers:
         specifier: 0.8.21
         version: 0.8.21(debug@4.3.7(supports-color@8.1.1))
       toml:
-        specifier: 3.0.0
+        specifier: ^3.0.0
         version: 3.0.0
       tsx:
         specifier: '*'
@@ -4161,6 +4158,10 @@ packages:
   toml@3.0.0:
     resolution: {integrity: sha512-y/mWCZinnvxjTKYhJ+pYxwD0mRLVvOtdS2Awbgxln6iEnt4rk0yBxeSBHkGJcPucRiG0e55mwWp+g/05rsrd6w==}
 
+  toml@https://codeload.github.com/pepoviola/toml-node/tar.gz/5e17114f1af5b5b70e4f2ec10cd007623c928988:
+    resolution: {gitHosted: true, tarball: https://codeload.github.com/pepoviola/toml-node/tar.gz/5e17114f1af5b5b70e4f2ec10cd007623c928988}
+    version: 3.0.0
+
   totalist@3.0.1:
     resolution: {integrity: sha512-sf4i37nQ2LBx4m3wB74y+ubopq6W/dIzXg0FDGjsYnZHVa1Da8FH853wlL2gtUhg+xJXjfk3kUZS3BRoQeoQBQ==}
     engines: {node: '>=6'}
@@ -7228,7 +7229,7 @@ snapshots:
       debug: 4.3.7(supports-color@8.1.1)
       mocha: 10.8.2
       nunjucks: 3.2.4(chokidar@3.6.0)
-      toml: 3.0.0
+      toml: https://codeload.github.com/pepoviola/toml-node/tar.gz/5e17114f1af5b5b70e4f2ec10cd007623c928988
       ts-node: 10.9.2(@types/node@25.3.5)(typescript@5.8.3)
     transitivePeerDependencies:
       - '@swc/core'
@@ -7244,7 +7245,7 @@ snapshots:
       debug: 4.4.3
       mocha: 10.8.2
       nunjucks: 3.2.4(chokidar@3.6.0)
-      toml: 3.0.0
+      toml: https://codeload.github.com/pepoviola/toml-node/tar.gz/5e17114f1af5b5b70e4f2ec10cd007623c928988
       ts-node: 10.9.2(@types/node@24.12.0)(typescript@5.8.3)
     transitivePeerDependencies:
       - '@swc/core'
@@ -7260,7 +7261,7 @@ snapshots:
       debug: 4.4.3
       mocha: 10.8.2
       nunjucks: 3.2.4(chokidar@3.6.0)
-      toml: 3.0.0
+      toml: https://codeload.github.com/pepoviola/toml-node/tar.gz/5e17114f1af5b5b70e4f2ec10cd007623c928988
       ts-node: 10.9.2(@types/node@25.3.5)(typescript@5.8.3)
     transitivePeerDependencies:
       - '@swc/core'
@@ -9650,6 +9651,8 @@ snapshots:
       is-number: 7.0.0
 
   toml@3.0.0: {}
+
+  toml@https://codeload.github.com/pepoviola/toml-node/tar.gz/5e17114f1af5b5b70e4f2ec10cd007623c928988: {}
 
   totalist@3.0.1: {}
 
