@@ -943,6 +943,182 @@ fn decay_rate_matches_closed_form() {
     });
 }
 
+// ---------------------------------------------------------------------------
+// Longs (mirror) + side independence
+// ---------------------------------------------------------------------------
+
+fn setup_long(tao_reserve: u64, alpha_reserve: u64, price: f64) -> NetUid {
+    let netuid = setup_market(tao_reserve, alpha_reserve, price);
+    SubtensorModule::set_longs_enabled(true);
+    SubtensorModule::set_long_kappa_ppb(900_000_000);
+    netuid
+}
+
+fn alpha_issuance(netuid: NetUid) -> u64 {
+    SubnetAlphaIn::<Test>::get(netuid).to_u64() + SubnetAlphaOut::<Test>::get(netuid).to_u64()
+}
+
+#[test]
+fn open_long_rejected_when_disabled() {
+    new_test_ext(1).execute_with(|| {
+        // setup_market enables shorts only; longs remain off by default.
+        let netuid = setup_market(1000 * TAO, 1000 * TAO, 1.0);
+        let trader = U256::from(10);
+        let hotkey = U256::from(11);
+        give_alpha(hotkey, trader, netuid, AlphaBalance::from(500 * TAO));
+        assert_noop!(
+            SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO)),
+            Error::<Test>::LongsDisabled
+        );
+    });
+}
+
+#[test]
+fn open_long_moves_alpha_off_issuance() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_long(1000 * TAO, 1000 * TAO, 1.0);
+        let trader = U256::from(10);
+        let hotkey = U256::from(11);
+        give_alpha(hotkey, trader, netuid, AlphaBalance::from(500 * TAO));
+
+        let alpha_in0 = SubnetAlphaIn::<Test>::get(netuid).to_u64();
+        let stake0 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &trader, netuid).to_u64();
+
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO)));
+        let pos = LongPositions::<Test>::get(netuid, trader).unwrap();
+        let (n, e, d) = (pos.r_stored.to_u64(), pos.e_stored.to_u64(), pos.d_liability.to_u64());
+
+        assert!(n > 0 && e > 0 && d > 0);
+        assert_eq!(pos.p_floor.to_u64(), 100 * TAO);
+        // Pool alpha dropped by N+E; trader stake dropped by the floor P.
+        assert_eq!(SubnetAlphaIn::<Test>::get(netuid).to_u64(), alpha_in0 - n - e);
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &trader, netuid).to_u64(),
+            stake0 - 100 * TAO
+        );
+        let agg = LongAggregate::<Test>::get(netuid);
+        assert_eq!(agg.d_sigma, pos.d_liability);
+        assert!(LongActiveSubnets::<Test>::contains_key(netuid));
+    });
+}
+
+#[test]
+fn full_close_long_conserves_value() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_long(1000 * TAO, 1000 * TAO, 1.0);
+        let trader = U256::from(10);
+        let hotkey = U256::from(11);
+        give_alpha(hotkey, trader, netuid, AlphaBalance::from(500 * TAO));
+        add_balance_to_coldkey_account(&trader, t(1000 * TAO)); // TAO to repay D
+
+        let iss0 = alpha_issuance(netuid);
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO)));
+        let pos = LongPositions::<Test>::get(netuid, trader).unwrap();
+        let d = pos.d_liability.to_u64();
+        let tao0 = SubnetTAO::<Test>::get(netuid).to_u64();
+
+        assert_ok!(SubtensorModule::close_long(RuntimeOrigin::signed(trader), netuid, 1_000_000_000));
+
+        assert!(LongPositions::<Test>::get(netuid, trader).is_none());
+        assert!(!LongActiveSubnets::<Test>::contains_key(netuid));
+        // Alpha issuance is fully restored (mint == earlier burn); TAO liability paid into pool.
+        assert_eq!(alpha_issuance(netuid), iss0);
+        assert_eq!(SubnetTAO::<Test>::get(netuid).to_u64(), tao0 + d);
+        let agg = LongAggregate::<Test>::get(netuid);
+        assert_eq!(agg.r_sigma.to_u64(), 0);
+        assert_eq!(agg.d_sigma.to_u64(), 0);
+    });
+}
+
+#[test]
+fn long_decay_restores_alpha_to_pool() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_long(1000 * TAO, 1000 * TAO, 1.0);
+        let trader = U256::from(10);
+        let hotkey = U256::from(11);
+        give_alpha(hotkey, trader, netuid, AlphaBalance::from(500 * TAO));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO)));
+
+        let r0 = LongAggregate::<Test>::get(netuid).r_sigma.to_u64();
+        let alpha_in0 = SubnetAlphaIn::<Test>::get(netuid).to_u64();
+        for _ in 0..300 {
+            SubtensorModule::run_long_decay();
+        }
+        assert!(LongAggregate::<Test>::get(netuid).r_sigma.to_u64() < r0);
+        assert!(SubnetAlphaIn::<Test>::get(netuid).to_u64() > alpha_in0); // alpha minted back to pool
+    });
+}
+
+#[test]
+fn long_default_recycles_floor_and_restores_residual() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_long(1000 * TAO, 1000 * TAO, 1.0);
+        let trader = U256::from(10);
+        let hotkey = U256::from(11);
+        give_alpha(hotkey, trader, netuid, AlphaBalance::from(500 * TAO));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO)));
+        let pos = LongPositions::<Test>::get(netuid, trader).unwrap();
+        let (p, n, e) = (pos.p_floor.to_u64(), pos.r_stored.to_u64(), pos.e_stored.to_u64());
+        SubtensorModule::set_long_dust(AlphaBalance::from(1000 * TAO));
+        SubtensorModule::set_short_default_grace(0);
+
+        let alpha_in0 = SubnetAlphaIn::<Test>::get(netuid).to_u64();
+        let iss0 = alpha_issuance(netuid);
+        assert_ok!(SubtensorModule::default_long(RuntimeOrigin::signed(U256::from(99)), trader, netuid));
+
+        assert!(LongPositions::<Test>::get(netuid, trader).is_none());
+        // Residual R+E minted back to the pool; floor P stays burned (recycled).
+        assert_eq!(SubnetAlphaIn::<Test>::get(netuid).to_u64(), alpha_in0 + n + e);
+        assert_eq!(alpha_issuance(netuid), iss0 + n + e); // P remains out of issuance
+        assert_eq!(p, 100 * TAO);
+    });
+}
+
+#[test]
+fn dereg_settles_longs() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_long(1000 * TAO, 1000 * TAO, 1.0);
+        let trader = U256::from(10);
+        let hotkey = U256::from(11);
+        give_alpha(hotkey, trader, netuid, AlphaBalance::from(500 * TAO));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO)));
+        assert!(LongPositions::<Test>::get(netuid, trader).is_some());
+
+        assert_ok!(SubtensorModule::do_dissolve_network(netuid));
+        assert!(LongPositions::<Test>::get(netuid, trader).is_none());
+        assert!(!LongActiveSubnets::<Test>::contains_key(netuid));
+    });
+}
+
+// Shorts and longs are independently flaggable on the same subnet.
+#[test]
+fn short_and_long_flags_are_independent() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_market(1000 * TAO, 1000 * TAO, 1.0); // shorts on, longs off
+        let trader = U256::from(10);
+        let hotkey = U256::from(11);
+        add_balance_to_coldkey_account(&trader, t(1000 * TAO));
+        give_alpha(hotkey, trader, netuid, AlphaBalance::from(500 * TAO));
+
+        // Shorts enabled, longs disabled.
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), hotkey, netuid, t(50 * TAO)));
+        assert_noop!(
+            SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(50 * TAO)),
+            Error::<Test>::LongsDisabled
+        );
+
+        // Flip: longs enabled, shorts disabled.
+        SubtensorModule::set_shorts_enabled(false);
+        SubtensorModule::set_longs_enabled(true);
+        SubtensorModule::set_long_kappa_ppb(900_000_000);
+        assert_noop!(
+            SubtensorModule::open_short(RuntimeOrigin::signed(U256::from(20)), hotkey, netuid, t(50 * TAO)),
+            Error::<Test>::ShortsDisabled
+        );
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(50 * TAO)));
+    });
+}
+
 // Listing returns every position a coldkey holds across subnets.
 #[test]
 fn list_positions_across_subnets() {

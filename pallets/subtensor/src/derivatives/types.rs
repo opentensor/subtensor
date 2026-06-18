@@ -32,6 +32,60 @@ pub struct ShortPosition<AccountId> {
     pub last_active: u64,
 }
 
+/// A merged covered long position for one `(coldkey, netuid)` (spec §2.3).
+///
+/// The mirror of `ShortPosition` with Alpha and TAO swapped: collateral/buffer/
+/// escrow/footprint are Alpha; the fixed liability `D` is TAO.
+#[freeze_struct("fba4427847673b78")]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, Clone, PartialEq, Eq, Debug)]
+pub struct LongPosition<AccountId> {
+    /// Hotkey the collateral alpha is sourced from / returned to.
+    pub hotkey: AccountId,
+    /// Non-decaying Alpha floor supplied by the trader (spec `P`).
+    pub p_floor: AlphaBalance,
+    /// Fixed TAO liability (spec `D`); changes only on close/default/dereg.
+    pub d_liability: TaoBalance,
+    /// Retained Alpha-proceeds buffer at last materialization (spec `R`).
+    pub r_stored: AlphaBalance,
+    /// Linked Alpha escrow at last materialization (spec `E`).
+    pub e_stored: AlphaBalance,
+    /// Utilization footprint at last materialization (spec `B = λ_L·C`).
+    pub b_stored: AlphaBalance,
+    /// Value of `Ω_L` at last materialization.
+    pub omega_entry: I64F64,
+    /// Block of the last owner action (open / merge / top-up).
+    pub last_active: u64,
+}
+
+/// Per-subnet long-side aggregate and decay accumulator.
+#[freeze_struct("571ef9a642107d3b")]
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, Clone, PartialEq, Eq, Debug)]
+pub struct LongAgg {
+    /// Σ current retained Alpha buffer.
+    pub r_sigma: AlphaBalance,
+    /// Σ current Alpha escrow.
+    pub e_sigma: AlphaBalance,
+    /// Σ current Alpha footprint == active utilization `S_L`.
+    pub b_sigma: AlphaBalance,
+    /// Σ fixed TAO liability (open interest `D_Σ`).
+    pub d_sigma: TaoBalance,
+    /// Cumulative monotone long-side decay accumulator `Ω_L`.
+    pub omega: I64F64,
+}
+
+impl LongAgg {
+    /// Empty long-side aggregate.
+    pub fn zero() -> Self {
+        Self {
+            r_sigma: AlphaBalance::ZERO,
+            e_sigma: AlphaBalance::ZERO,
+            b_sigma: AlphaBalance::ZERO,
+            d_sigma: TaoBalance::ZERO,
+            omega: I64F64::from_num(0),
+        }
+    }
+}
+
 /// Per-subnet short-side aggregate and decay accumulator (spec §2.4, §6.3).
 #[freeze_struct("376a8ccf882d6dea")]
 #[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, Clone, PartialEq, Eq, Debug)]

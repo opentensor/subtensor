@@ -2352,6 +2352,60 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::set_short_max_positions(max);
             Ok(())
         }
+
+        /// Enable or disable long-side covered derivatives (launch gate).
+        #[pallet::call_index(104)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(0, 1))]
+        pub fn sudo_set_longs_enabled(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_longs_enabled(enabled);
+            Ok(())
+        }
+
+        /// Set the long footprint-cap factor `κ_L` (scaled by 1e9).
+        #[pallet::call_index(105)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(0, 1))]
+        pub fn sudo_set_long_kappa(origin: OriginFor<T>, kappa_ppb: u64) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_long_kappa_ppb(kappa_ppb);
+            Ok(())
+        }
+
+        /// Set the base long LTV `λ_L` (scaled by 1e9).
+        #[pallet::call_index(106)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(0, 1))]
+        pub fn sudo_set_long_base_ltv(origin: OriginFor<T>, ltv_ppb: u64) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_long_base_ltv_ppb(ltv_ppb);
+            Ok(())
+        }
+
+        /// Set the long retained-buffer dust threshold (in rao of Alpha).
+        #[pallet::call_index(107)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(0, 1))]
+        pub fn sudo_set_long_dust(origin: OriginFor<T>, dust_rao: u64) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_long_dust(dust_rao.into());
+            Ok(())
+        }
+
+        /// Set the minimum long open input (in rao of Alpha).
+        #[pallet::call_index(108)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(0, 1))]
+        pub fn sudo_set_long_min_input(origin: OriginFor<T>, min_input_rao: u64) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_long_min_input(min_input_rao.into());
+            Ok(())
+        }
+
+        /// Set the maximum number of open long positions per subnet.
+        #[pallet::call_index(109)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(0, 1))]
+        pub fn sudo_set_long_max_positions(origin: OriginFor<T>, max: u32) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_long_max_positions(max);
+            Ok(())
+        }
     }
 }
 

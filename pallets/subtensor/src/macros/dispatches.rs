@@ -2638,5 +2638,50 @@ mod dispatches {
         ) -> DispatchResult {
             Self::do_default_short(origin, coldkey, netuid)
         }
+
+        /// Open (or merge into) a covered long with floor Alpha `position_input`.
+        #[pallet::call_index(143)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(12, 8))]
+        pub fn open_long(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            netuid: NetUid,
+            position_input: AlphaBalance,
+        ) -> DispatchResult {
+            Self::do_open_long(origin, hotkey, netuid, position_input)
+        }
+
+        /// Top up a covered long's carry buffer with fresh Alpha.
+        #[pallet::call_index(144)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(5, 4))]
+        pub fn top_up_long(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            amount: AlphaBalance,
+        ) -> DispatchResult {
+            Self::do_top_up_long(origin, netuid, amount)
+        }
+
+        /// Close `fraction_ppb / 1e9` of a covered long (`1e9` = full close).
+        #[pallet::call_index(145)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(10, 8))]
+        pub fn close_long(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            fraction_ppb: u64,
+        ) -> DispatchResult {
+            Self::do_close_long(origin, netuid, fraction_ppb)
+        }
+
+        /// Permissionlessly default a covered long whose buffer reached dust.
+        #[pallet::call_index(146)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(7, 6))]
+        pub fn default_long(
+            origin: OriginFor<T>,
+            coldkey: T::AccountId,
+            netuid: NetUid,
+        ) -> DispatchResult {
+            Self::do_default_long(origin, coldkey, netuid)
+        }
     }
 }

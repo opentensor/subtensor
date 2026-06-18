@@ -1518,6 +1518,80 @@ pub mod pallet {
         crate::derivatives::ShortPosition<T::AccountId>,
         OptionQuery,
     >;
+
+    // ===== Long side (mirror; Alpha collateral, TAO liability) =====
+
+    #[pallet::type_value]
+    /// Long dust threshold = 1 Alpha.
+    pub fn DefaultLongDust<T: Config>() -> AlphaBalance {
+        AlphaBalance::from(1_000_000_000u64)
+    }
+    #[pallet::type_value]
+    /// Minimum long open input = 0.1 Alpha.
+    pub fn DefaultLongMinInput<T: Config>() -> AlphaBalance {
+        AlphaBalance::from(100_000_000u64)
+    }
+    #[pallet::type_value]
+    /// Empty long-side aggregate.
+    pub fn DefaultLongAgg<T: Config>() -> crate::derivatives::LongAgg {
+        crate::derivatives::LongAgg::zero()
+    }
+
+    /// Base long LTV `λ_L` (shares the short LTV default; ADR-adjustment TBD).
+    #[pallet::storage]
+    pub type LongBaseLtv<T: Config> =
+        StorageValue<_, substrate_fixed::types::I64F64, ValueQuery, DefaultShortBaseLtv<T>>;
+
+    /// Long footprint-cap factor `κ_L`.
+    #[pallet::storage]
+    pub type LongKappa<T: Config> =
+        StorageValue<_, substrate_fixed::types::I64F64, ValueQuery, DefaultShortKappa<T>>;
+
+    /// Long retained-buffer dust threshold (Alpha).
+    #[pallet::storage]
+    pub type LongDust<T: Config> = StorageValue<_, AlphaBalance, ValueQuery, DefaultLongDust<T>>;
+
+    /// Minimum long open input (Alpha).
+    #[pallet::storage]
+    pub type LongMinInput<T: Config> =
+        StorageValue<_, AlphaBalance, ValueQuery, DefaultLongMinInput<T>>;
+
+    /// Max open long positions per subnet (deregistration-work bound).
+    #[pallet::storage]
+    pub type LongMaxPositions<T: Config> =
+        StorageValue<_, u32, ValueQuery, DefaultShortMaxPositions<T>>;
+
+    /// --- MAP ( netuid ) --> long-side aggregate + decay accumulator.
+    #[pallet::storage]
+    pub type LongAggregate<T: Config> = StorageMap<
+        _,
+        Identity,
+        NetUid,
+        crate::derivatives::LongAgg,
+        ValueQuery,
+        DefaultLongAgg<T>,
+    >;
+
+    /// --- DMAP ( netuid, coldkey ) --> merged covered long position.
+    #[pallet::storage]
+    pub type LongPositions<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        NetUid,
+        Blake2_128Concat,
+        T::AccountId,
+        crate::derivatives::LongPosition<T::AccountId>,
+        OptionQuery,
+    >;
+
+    /// --- SET ( netuid ) of subnets with live long state.
+    #[pallet::storage]
+    pub type LongActiveSubnets<T: Config> =
+        StorageMap<_, Identity, NetUid, (), OptionQuery>;
+
+    /// --- MAP ( netuid ) --> count of open long positions on the subnet.
+    #[pallet::storage]
+    pub type LongPositionCount<T: Config> = StorageMap<_, Identity, NetUid, u32, ValueQuery>;
     /// --- MAP ( netuid ) --> protocol_alpha | Returns the protocol-owned alpha cached for the subnet.
     #[pallet::storage]
     pub type SubnetProtocolAlpha<T: Config> =

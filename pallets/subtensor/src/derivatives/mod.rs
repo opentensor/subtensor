@@ -13,6 +13,7 @@ use sp_runtime::traits::AccountIdConversion;
 use substrate_fixed::types::I64F64;
 use subtensor_runtime_common::Token;
 
+pub mod long;
 pub mod types;
 pub use types::*;
 
@@ -91,26 +92,41 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Current daily decay rate `d(u) = d_min + (d_max − d_min)·u²` (spec §6.2).
-    fn short_daily_decay(netuid: NetUid, b_sigma: TaoBalance) -> I64F64 {
-        let t_ref = Self::short_t_ref(netuid);
-        let cap = ShortKappa::<T>::get().saturating_mul(t_ref);
-        let u = if cap > I64F64::from_num(0) {
-            Self::tao_f(b_sigma).safe_div(cap).min(I64F64::from_num(1))
-        } else {
-            I64F64::from_num(0)
-        };
+    /// Convex decay curve `d(u) = d_min + (d_max − d_min)·u²` (spec §6.2),
+    /// shared by both sides (the rate is denomination-agnostic).
+    fn decay_curve(u: I64F64) -> I64F64 {
         let dmin = DecayMin::<T>::get();
         let dmax = DecayMax::<T>::get();
         dmin.saturating_add(dmax.saturating_sub(dmin).saturating_mul(u).saturating_mul(u))
     }
 
+    /// Utilization ratio `min(1, S / cap)`.
+    fn utilization(s: I64F64, cap: I64F64) -> I64F64 {
+        if cap > I64F64::from_num(0) {
+            s.safe_div(cap).min(I64F64::from_num(1))
+        } else {
+            I64F64::from_num(0)
+        }
+    }
+
+    /// Current short daily decay rate at the live short footprint.
+    fn short_daily_decay(netuid: NetUid, b_sigma: TaoBalance) -> I64F64 {
+        let cap = ShortKappa::<T>::get().saturating_mul(Self::short_t_ref(netuid));
+        Self::decay_curve(Self::utilization(Self::tao_f(b_sigma), cap))
+    }
+
     // ---- open-time math (spec §4.1–4.3, Appendix A.1) -------------------
 
     /// Solve gross collateral `C` and retained proceeds `N` from input `P`
-    /// (spec §4.2). Returns `None` if `N ≤ 0` (effective LTV non-positive).
-    fn solve_collateral(p: I64F64, t_ref: I64F64, s: I64F64) -> Option<(I64F64, I64F64)> {
-        let lambda = ShortBaseLtv::<T>::get();
+    /// (spec §4.2). Side-agnostic: `ref_reserve` is `T_ref` for shorts / `A_ref`
+    /// for longs, `lambda` the per-side base LTV. Returns `None` if `N ≤ 0`.
+    fn solve_collateral(
+        p: I64F64,
+        ref_reserve: I64F64,
+        s: I64F64,
+        lambda: I64F64,
+    ) -> Option<(I64F64, I64F64)> {
+        let t_ref = ref_reserve;
         if t_ref <= I64F64::from_num(0) || lambda <= I64F64::from_num(0) {
             return None;
         }
@@ -223,7 +239,7 @@ impl<T: Config> Pallet<T> {
         let t_ref = Self::short_t_ref(netuid);
         let p = Self::tao_f(position_input);
 
-        let (c, n) = Self::solve_collateral(p, t_ref, Self::tao_f(agg.b_sigma))
+        let (c, n) = Self::solve_collateral(p, t_ref, Self::tao_f(agg.b_sigma), ShortBaseLtv::<T>::get())
             .ok_or(Error::<T>::EffectiveLtvNonPositive)?;
         let b = ShortBaseLtv::<T>::get().saturating_mul(c);
 
@@ -635,7 +651,7 @@ impl<T: Config> Pallet<T> {
         let agg = ShortAggregate::<T>::get(netuid);
         let t_ref = Self::short_t_ref(netuid);
         let p = Self::tao_f(position_input);
-        let (c, n) = Self::solve_collateral(p, t_ref, Self::tao_f(agg.b_sigma))?;
+        let (c, n) = Self::solve_collateral(p, t_ref, Self::tao_f(agg.b_sigma), ShortBaseLtv::<T>::get())?;
         let t_live = Self::tao_f(SubnetTAO::<T>::get(netuid));
         let a_live = Self::alpha_f(SubnetAlphaIn::<T>::get(netuid));
         let phi = Self::solve_phi(n, t_live)?;

@@ -325,5 +325,17 @@ mod errors {
         ShortHotkeyMismatch,
         /// The subnet has reached its maximum number of open short positions.
         ShortPositionLimit,
+        /// Long-side derivatives are disabled.
+        LongsDisabled,
+        /// No long position exists for this coldkey on the subnet.
+        LongPositionNotFound,
+        /// Open would exceed the active long footprint cap.
+        LongCapacityExceeded,
+        /// The subnet has reached its maximum number of open long positions.
+        LongPositionLimit,
+        /// Additional open targets a different hotkey than the existing position.
+        LongHotkeyMismatch,
+        /// Trader does not hold enough alpha collateral to open/extend the long.
+        InsufficientCollateral,
     }
 }

@@ -687,5 +687,59 @@ mod events {
             /// Liability-cover recycled outside terminal distribution.
             liability_cover: TaoBalance,
         },
+
+        /// A covered long was opened (or merged).
+        LongOpened {
+            /// Position owner coldkey.
+            coldkey: T::AccountId,
+            /// Subnet the long is on.
+            netuid: NetUid,
+            /// Floor Alpha supplied by the trader.
+            position_input: AlphaBalance,
+            /// Retained Alpha proceeds booked as the initial buffer.
+            retained_proceeds: AlphaBalance,
+            /// Fixed TAO liability created.
+            tao_liability: TaoBalance,
+            /// Linked Alpha escrow created.
+            escrow: AlphaBalance,
+        },
+        /// A covered long's carry buffer was topped up.
+        LongToppedUp {
+            /// Position owner coldkey.
+            coldkey: T::AccountId,
+            /// Subnet the long is on.
+            netuid: NetUid,
+            /// Alpha added to the buffer.
+            amount: AlphaBalance,
+        },
+        /// A covered long was (partially) closed.
+        LongClosed {
+            /// Position owner coldkey.
+            coldkey: T::AccountId,
+            /// Subnet the long is on.
+            netuid: NetUid,
+            /// Closed fraction in parts-per-billion.
+            fraction_ppb: u64,
+            /// TAO repaid to extinguish the liability slice.
+            repaid_tao: TaoBalance,
+            /// Alpha (floor + buffer) returned to the trader.
+            returned: AlphaBalance,
+        },
+        /// A covered long defaulted after its buffer reached dust.
+        LongDefaulted {
+            /// Position owner coldkey.
+            coldkey: T::AccountId,
+            /// Subnet the long was on.
+            netuid: NetUid,
+        },
+        /// A covered long was settled at subnet deregistration.
+        LongTerminalSettled {
+            /// Position owner coldkey.
+            coldkey: T::AccountId,
+            /// Subnet that deregistered.
+            netuid: NetUid,
+            /// Terminal equity (Alpha) returned to the trader.
+            equity: AlphaBalance,
+        },
     }
 }
