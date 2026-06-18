@@ -1215,6 +1215,96 @@ fn long_dereg_underwater_pays_zero_equity() {
     });
 }
 
+// Fix (L1): long open won't mint alpha by saturating SubnetAlphaOut to zero.
+#[test]
+fn open_long_guards_against_alpha_mint() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_long(1000 * TAO, 1000 * TAO, 1.0);
+        let trader = U256::from(10);
+        let hotkey = U256::from(11);
+        give_alpha(hotkey, trader, netuid, AlphaBalance::from(500 * TAO));
+        // Corrupt outstanding alpha below the collateral; open must refuse.
+        SubnetAlphaOut::<Test>::insert(netuid, AlphaBalance::from(0));
+        assert_noop!(
+            SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO)),
+            Error::<Test>::InsufficientCollateral
+        );
+    });
+}
+
+// Long top-up adds Alpha buffer (from stake) and resets the grace clock.
+#[test]
+fn long_top_up_adds_buffer_and_resets_grace() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_long(1000 * TAO, 1000 * TAO, 1.0);
+        let trader = U256::from(10);
+        let hotkey = U256::from(11);
+        give_alpha(hotkey, trader, netuid, AlphaBalance::from(500 * TAO));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO)));
+        let r0 = LongPositions::<Test>::get(netuid, trader).unwrap().r_stored;
+        let stake0 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &trader, netuid);
+
+        assert_ok!(SubtensorModule::top_up_long(RuntimeOrigin::signed(trader), netuid, AlphaBalance::from(10 * TAO)));
+        let pos = LongPositions::<Test>::get(netuid, trader).unwrap();
+        assert_eq!(pos.r_stored, r0 + AlphaBalance::from(10 * TAO));
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &trader, netuid),
+            stake0 - AlphaBalance::from(10 * TAO)
+        );
+    });
+}
+
+// Long merge must target the same hotkey; long position cap is enforced.
+#[test]
+fn long_merge_mismatch_and_position_cap() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_long(1000 * TAO, 1000 * TAO, 1.0);
+        let a = U256::from(10);
+        give_alpha(U256::from(11), a, netuid, AlphaBalance::from(500 * TAO));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(a), U256::from(11), netuid, AlphaBalance::from(20 * TAO)));
+        // Same coldkey, different hotkey → rejected.
+        give_alpha(U256::from(12), a, netuid, AlphaBalance::from(100 * TAO));
+        assert_noop!(
+            SubtensorModule::open_long(RuntimeOrigin::signed(a), U256::from(12), netuid, AlphaBalance::from(20 * TAO)),
+            Error::<Test>::LongHotkeyMismatch
+        );
+
+        // Position cap: with max=1, a second distinct coldkey is rejected.
+        SubtensorModule::set_long_max_positions(1);
+        let b = U256::from(20);
+        give_alpha(U256::from(21), b, netuid, AlphaBalance::from(100 * TAO));
+        assert_noop!(
+            SubtensorModule::open_long(RuntimeOrigin::signed(b), U256::from(21), netuid, AlphaBalance::from(20 * TAO)),
+            Error::<Test>::LongPositionLimit
+        );
+    });
+}
+
+// Long close rejects invalid fractions and below-min-input opens.
+#[test]
+fn long_close_invalid_fraction_and_min_input() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_long(1000 * TAO, 1000 * TAO, 1.0);
+        let trader = U256::from(10);
+        let hotkey = U256::from(11);
+        give_alpha(hotkey, trader, netuid, AlphaBalance::from(500 * TAO));
+        SubtensorModule::set_long_min_input(AlphaBalance::from(TAO));
+        assert_noop!(
+            SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(TAO / 2)),
+            Error::<Test>::AmountTooLow
+        );
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO)));
+        assert_noop!(
+            SubtensorModule::close_long(RuntimeOrigin::signed(trader), netuid, 0),
+            Error::<Test>::InvalidCloseFraction
+        );
+        assert_noop!(
+            SubtensorModule::close_long(RuntimeOrigin::signed(trader), netuid, 1_000_000_001),
+            Error::<Test>::InvalidCloseFraction
+        );
+    });
+}
+
 // Short and long default-grace windows are governed independently.
 #[test]
 fn default_grace_independent_per_side() {
