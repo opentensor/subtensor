@@ -2415,6 +2415,16 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::set_long_default_grace(blocks);
             Ok(())
         }
+
+        /// Set the derivative emissions-flow factor `χ` (scaled by 1e9; `0` =
+        /// flow-neutral). Governs how strongly shorts/longs move subnet TaoFlow.
+        #[pallet::call_index(111)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(0, 1))]
+        pub fn sudo_set_derivative_flow_factor(origin: OriginFor<T>, chi_ppb: u64) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_derivative_flow_factor_ppb(chi_ppb);
+            Ok(())
+        }
     }
 }
 

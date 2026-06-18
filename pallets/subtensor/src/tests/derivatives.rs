@@ -1313,6 +1313,41 @@ fn long_close_invalid_fraction_and_min_input() {
     });
 }
 
+// Shorts express negative subnet flow; a long close pays TAO in (positive
+// flow); χ = 0 restores flow-neutral behavior.
+#[test]
+fn derivatives_write_subnet_flow() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_long(1000 * TAO, 1000 * TAO, 1.0);
+        let s = U256::from(10);
+        add_balance_to_coldkey_account(&s, t(1000 * TAO));
+
+        // Default χ = 1.0: a short open removes TAO and writes negative flow.
+        let f0 = SubnetTaoFlow::<Test>::get(netuid);
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(s), U256::from(11), netuid, t(100 * TAO)));
+        let f1 = SubnetTaoFlow::<Test>::get(netuid);
+        assert!(f1 < f0, "short open must write negative flow: {f1} !< {f0}");
+
+        // A long close pays D TAO into the pool → positive flow.
+        let lc = U256::from(20);
+        let lh = U256::from(21);
+        give_alpha(lh, lc, netuid, AlphaBalance::from(500 * TAO));
+        add_balance_to_coldkey_account(&lc, t(1000 * TAO));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(lc), lh, netuid, AlphaBalance::from(100 * TAO)));
+        let f2 = SubnetTaoFlow::<Test>::get(netuid);
+        assert_ok!(SubtensorModule::close_long(RuntimeOrigin::signed(lc), netuid, 1_000_000_000));
+        assert!(SubnetTaoFlow::<Test>::get(netuid) > f2, "long close must write positive flow");
+
+        // χ = 0 → flow-neutral: another short open leaves flow untouched.
+        SubtensorModule::set_derivative_flow_factor_ppb(0);
+        let s2 = U256::from(30);
+        add_balance_to_coldkey_account(&s2, t(1000 * TAO));
+        let f3 = SubnetTaoFlow::<Test>::get(netuid);
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(s2), U256::from(31), netuid, t(100 * TAO)));
+        assert_eq!(SubnetTaoFlow::<Test>::get(netuid), f3, "χ=0 must be flow-neutral");
+    });
+}
+
 // Short and long default-grace windows are governed independently.
 #[test]
 fn default_grace_independent_per_side() {

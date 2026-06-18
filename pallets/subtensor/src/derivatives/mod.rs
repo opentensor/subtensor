@@ -8,8 +8,13 @@
 //! Custody model. Shorts park floor/buffer/escrow TAO in a dedicated per-subnet
 //! custody account; longs have no custody account and instead track parked Alpha
 //! via issuance accounting (burned at open, minted back on restore/close). Pool
-//! reserves, `TotalStake`, and issuance move in lockstep and derivative legs
-//! never write TaoFlow.
+//! reserves, `TotalStake`, and issuance move in lockstep.
+//!
+//! Emissions flow. Derivative TAO movements write TaoFlow scaled by the
+//! governance factor `χ` (`DerivativeFlowFactor`): a short removing TAO from the
+//! pool writes negative flow (bearish demand), and TAO returned on
+//! unwind/close/dereg — including a long close paying its `D` liability — writes
+//! positive flow. `χ = 0` restores flow-neutral behavior (spec §4.5).
 //!
 //! Custody solvency invariant. `custody_balance(netuid)` (shorts) and the burned
 //! Alpha (longs) equal `Σ materialized (P + R(t) + E(t))` **to within per-block
@@ -86,6 +91,31 @@ impl<T: Config> Pallet<T> {
             Preservation::Expendable,
             Fortitude::Force,
         );
+    }
+
+    // ---- emissions-flow accounting (spec §4.5) -------------------------
+
+    /// `χ`-scaled TAO amount for TaoFlow writes. `χ = 0` ⇒ flow-neutral.
+    fn scale_flow(tao: TaoBalance) -> TaoBalance {
+        Self::to_tao(Self::tao_f(tao).saturating_mul(DerivativeFlowFactor::<T>::get()))
+    }
+
+    /// Negative TaoFlow for TAO a derivative removes from the subnet pool
+    /// (a short open expresses bearish demand on the subnet).
+    fn record_derivative_outflow(netuid: NetUid, tao: TaoBalance) {
+        let amt = Self::scale_flow(tao);
+        if !amt.is_zero() {
+            Self::record_tao_outflow(netuid, amt);
+        }
+    }
+
+    /// Positive TaoFlow for TAO a derivative returns to the subnet pool
+    /// (short unwinds, and a long close pays its TAO liability into the pool).
+    fn record_derivative_inflow(netuid: NetUid, tao: TaoBalance) {
+        let amt = Self::scale_flow(tao);
+        if !amt.is_zero() {
+            Self::record_tao_inflow(netuid, amt);
+        }
     }
 
     // ---- references (spec §3, §4) --------------------------------------
@@ -297,6 +327,8 @@ impl<T: Config> Pallet<T> {
         Self::transfer_tao(&subnet_account, &custody, removed.into())?;
         Self::decrease_provided_tao_reserve(netuid, removed);
         TotalStake::<T>::mutate(|t| *t = t.saturating_sub(removed));
+        // Express bearish demand: a short removing TAO writes negative TaoFlow.
+        Self::record_derivative_outflow(netuid, removed);
 
         let block = Self::get_current_block_as_u64();
         let pos = match ShortPositions::<T>::get(netuid, &coldkey) {
@@ -432,6 +464,7 @@ impl<T: Config> Pallet<T> {
             Self::transfer_tao(&custody, &subnet_account, e_close.into())?;
             Self::increase_provided_tao_reserve(netuid, e_close);
             TotalStake::<T>::mutate(|t| *t = t.saturating_add(e_close));
+            Self::record_derivative_inflow(netuid, e_close);
         }
         let returned = p_close.saturating_add(r_close);
         if !returned.is_zero() {
@@ -500,6 +533,7 @@ impl<T: Config> Pallet<T> {
             Self::transfer_tao(&custody, &subnet_account, residual.into())?;
             Self::increase_provided_tao_reserve(netuid, residual);
             TotalStake::<T>::mutate(|t| *t = t.saturating_add(residual));
+            Self::record_derivative_inflow(netuid, residual);
         }
         Self::recycle_custody_tao(&custody, pos.p_floor);
 
@@ -558,6 +592,7 @@ impl<T: Config> Pallet<T> {
             {
                 Self::increase_provided_tao_reserve(netuid, restore);
                 TotalStake::<T>::mutate(|t| *t = t.saturating_add(restore));
+                Self::record_derivative_inflow(netuid, restore);
             }
         }
     }
@@ -587,6 +622,7 @@ impl<T: Config> Pallet<T> {
             {
                 Self::increase_provided_tao_reserve(netuid, pos.e_stored);
                 TotalStake::<T>::mutate(|t| *t = t.saturating_add(pos.e_stored));
+                Self::record_derivative_inflow(netuid, pos.e_stored);
             }
 
             // K_D(Q) = max(K_spot,last(Q), Q·pEMA).
@@ -665,6 +701,14 @@ impl<T: Config> Pallet<T> {
     }
     pub fn set_short_default_grace(blocks: u64) {
         ShortDefaultGrace::<T>::put(blocks);
+    }
+    /// Emissions-flow factor `χ`, supplied scaled by 1e9. Clamped to `[0, 1.0]`;
+    /// `0` restores flow-neutral behavior.
+    pub fn set_derivative_flow_factor_ppb(chi_ppb: u64) {
+        let c = chi_ppb.min(1_000_000_000);
+        DerivativeFlowFactor::<T>::put(
+            I64F64::from_num(c).safe_div(I64F64::from_num(1_000_000_000u64)),
+        );
     }
     pub fn set_long_default_grace(blocks: u64) {
         LongDefaultGrace::<T>::put(blocks);

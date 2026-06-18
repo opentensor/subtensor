@@ -254,6 +254,8 @@ impl<T: Config> Pallet<T> {
             Self::transfer_tao(&coldkey, &subnet_account, d_close.into())?;
             Self::increase_provided_tao_reserve(netuid, d_close);
             TotalStake::<T>::mutate(|t| *t = t.saturating_add(d_close));
+            // Long close pays D TAO into the pool: positive TaoFlow.
+            Self::record_derivative_inflow(netuid, d_close);
         }
         // Settle escrow back to the pool; return floor+buffer as stake (mint).
         Self::increase_provided_alpha_reserve(netuid, e_close);

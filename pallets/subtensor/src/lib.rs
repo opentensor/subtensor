@@ -1422,6 +1422,14 @@ pub mod pallet {
         360
     }
     #[pallet::type_value]
+    /// Derivative emissions-flow activation factor `χ` (spec §4.5). Scales the
+    /// negative/positive TaoFlow written by derivative TAO movements so that
+    /// shorts express negative flow and longs (at close) positive flow.
+    /// `0` = flow-neutral. Defaults to `1.0` (full effect).
+    pub fn DefaultDerivativeFlowFactor<T: Config>() -> substrate_fixed::types::I64F64 {
+        substrate_fixed::types::I64F64::from_num(1)
+    }
+    #[pallet::type_value]
     /// Minimum short open input = 0.1 TAO. Bounds dust-spam and terminal load.
     pub fn DefaultShortMinInput<T: Config>() -> TaoBalance {
         TaoBalance::from(100_000_000u64)
@@ -1477,6 +1485,15 @@ pub mod pallet {
     #[pallet::storage]
     pub type ShortDefaultGrace<T: Config> =
         StorageValue<_, u64, ValueQuery, DefaultShortDefaultGrace<T>>;
+
+    /// Derivative emissions-flow activation factor `χ` (shared across sides).
+    #[pallet::storage]
+    pub type DerivativeFlowFactor<T: Config> = StorageValue<
+        _,
+        substrate_fixed::types::I64F64,
+        ValueQuery,
+        DefaultDerivativeFlowFactor<T>,
+    >;
 
     /// Minimum short open input.
     #[pallet::storage]
