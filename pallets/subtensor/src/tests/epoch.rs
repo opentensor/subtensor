@@ -2052,14 +2052,14 @@ fn test_deregistered_miner_bonds() {
         }
 
         // Set tempo high so we don't automatically run epochs
-        SubtensorModule::set_tempo(netuid, high_tempo);
+        SubtensorModule::set_tempo_unchecked(netuid, high_tempo);
 
         // Run 2 blocks
         next_block();
         next_block();
 
         // set tempo to 2 blocks
-        SubtensorModule::set_tempo(netuid, 2);
+        SubtensorModule::set_tempo_unchecked(netuid, 2);
         // Run epoch
         if sparse {
             SubtensorModule::epoch(netuid, 1_000_000_000.into());
@@ -2077,7 +2077,7 @@ fn test_deregistered_miner_bonds() {
         assert!(bond_0_3 > 0);
 
         // Set tempo high so we don't automatically run epochs
-        SubtensorModule::set_tempo(netuid, high_tempo);
+        SubtensorModule::set_tempo_unchecked(netuid, high_tempo);
 
         // Run one more block
         next_block();
@@ -2137,7 +2137,7 @@ fn test_deregistered_miner_bonds() {
         );
 
         // set tempo to 2 blocks
-        SubtensorModule::set_tempo(netuid, 2);
+        SubtensorModule::set_tempo_unchecked(netuid, 2);
         // Run epoch again.
         if sparse {
             SubtensorModule::epoch(netuid, 1_000_000_000.into());
@@ -2465,7 +2465,7 @@ fn test_blocks_since_last_step() {
         assert!(new_blocks > original_blocks);
         assert_eq!(new_blocks, 5);
 
-        let blocks_to_step: u16 = SubtensorModule::blocks_until_next_epoch(
+        let blocks_to_step: u16 = SubtensorModule::blocks_until_next_auto_epoch(
             netuid,
             tempo,
             SubtensorModule::get_current_block_as_u64(),
@@ -2477,7 +2477,7 @@ fn test_blocks_since_last_step() {
 
         assert_eq!(post_blocks, 10);
 
-        let blocks_to_step: u16 = SubtensorModule::blocks_until_next_epoch(
+        let blocks_to_step: u16 = SubtensorModule::blocks_until_next_auto_epoch(
             netuid,
             tempo,
             SubtensorModule::get_current_block_as_u64(),
@@ -3784,7 +3784,7 @@ fn test_epoch_does_not_mask_outside_window_but_masks_inside() {
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_max_allowed_validators(netuid, 1);
 
-        run_to_block(tempo as u64 + 1);
+        run_to_block(tempo as u64);
 
         /* first commit */
         commit_dummy(v_hot, netuid);
@@ -3801,7 +3801,7 @@ fn test_epoch_does_not_mask_outside_window_but_masks_inside() {
 
         /* let first commit expire for UID‑1 */
         for _ in 0..(reveal + 1) {
-            run_to_block(System::block_number() + tempo as u64 + 1);
+            run_to_block(System::block_number() + tempo as u64);
         }
 
         /* second commit — will mask UID‑2 & UID‑3 */

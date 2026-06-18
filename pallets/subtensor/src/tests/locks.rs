@@ -4007,7 +4007,7 @@ fn test_epoch_distribution_auto_locks_owner_cut() {
         let subnet_tempo = 10;
         let stake = 100_000_000_000u64;
 
-        SubtensorModule::set_tempo(netuid, subnet_tempo);
+        SubtensorModule::set_tempo_unchecked(netuid, subnet_tempo);
         SubtensorModule::set_ck_burn(0);
         setup_reserves(netuid, (stake * 10_000).into(), (stake * 10_000).into());
 
@@ -4071,7 +4071,7 @@ fn test_epoch_distribution_auto_locks_owner_cut() {
         );
 
         // Advance to the next epoch so owner cut is distributed and auto-locked.
-        step_block(subnet_tempo);
+        step_epochs(1, netuid);
 
         let owner_stake_after = get_alpha(&subnet_owner_hotkey, &subnet_owner_coldkey, netuid);
         let owner_cut_locked = owner_stake_after - owner_stake_before;

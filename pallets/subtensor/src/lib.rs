@@ -1796,6 +1796,50 @@ pub mod pallet {
     #[pallet::storage]
     pub type Tempo<T> = StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultTempo<T>>;
 
+    /// Lower bound for owner-set tempo. Also the fixed cooldown for `set_tempo`.
+    pub const MIN_TEMPO: u16 = 360;
+    /// Upper bound for owner-set tempo (≈ 7 days at 12 s/block).
+    pub const MAX_TEMPO: u16 = 50_400;
+    /// Lower bound for activity-cutoff factor (per-mille). 1_000 = one full tempo.
+    pub const MIN_ACTIVITY_CUTOFF_FACTOR_MILLI: u32 = 1_000;
+    /// Upper bound for activity-cutoff factor (per-mille). 50_000 = 50 tempos.
+    pub const MAX_ACTIVITY_CUTOFF_FACTOR_MILLI: u32 = 50_000;
+    /// Default activity-cutoff factor (per-mille). 13_889 ≈ legacy 5000-block cutoff
+    /// at default tempo 360 (`13_889 * 360 / 1000 = 5_000`, exact via ceiling rounding).
+    pub const INITIAL_ACTIVITY_CUTOFF_FACTOR_MILLI: u32 = 13_889;
+
+    /// Default value for activity-cutoff factor (per-mille).
+    #[pallet::type_value]
+    pub fn DefaultActivityCutoffFactorMilli<T: Config>() -> u32 {
+        INITIAL_ACTIVITY_CUTOFF_FACTOR_MILLI
+    }
+
+    /// --- MAP ( netuid ) --> last epoch attempt block (consumed slot).
+    /// Drives normal-cadence scheduling and the admin freeze window.
+    /// Advances on every `should_run_epoch == true` slot — including consistency-skipped slots —
+    /// and on a successful `set_tempo` (cycle reset).
+    #[pallet::storage]
+    pub type LastEpochBlock<T> =
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
+
+    /// --- MAP ( netuid ) --> block at which a manually triggered epoch should fire.
+    /// `0` means no trigger pending. Cleared after the triggered epoch runs.
+    #[pallet::storage]
+    pub type PendingEpochAt<T> =
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
+
+    /// --- MAP ( netuid ) --> monotonic epoch counter.
+    /// Incremented by exactly one each time the subnet's epoch slot is consumed in `run_coinbase`
+    #[pallet::storage]
+    pub type SubnetEpochIndex<T> =
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
+
+    /// --- MAP ( netuid ) --> activity-cutoff factor in per-mille epochs (1/1000 granularity).
+    /// Effective cutoff in blocks = `(factor × tempo) / 1000`, clamped to ≥ 1.
+    #[pallet::storage]
+    pub type ActivityCutoffFactorMilli<T> =
+        StorageMap<_, Identity, NetUid, u32, ValueQuery, DefaultActivityCutoffFactorMilli<T>>;
+
     /// ============================
     /// ==== Subnet Parameters =====
     /// ============================
@@ -1952,6 +1996,7 @@ pub mod pallet {
         StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultImmunityPeriod<T>>;
 
     /// --- MAP ( netuid ) --> activity_cutoff
+    // #[deprecated(note = "Replaced by `ActivityCutoffFactorMilli` (per-mille of `Tempo`).")]
     #[pallet::storage]
     pub type ActivityCutoff<T> =
         StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultActivityCutoff<T>>;
@@ -2380,7 +2425,8 @@ pub mod pallet {
     #[pallet::storage]
     pub type StakeThreshold<T> = StorageValue<_, u64, ValueQuery, DefaultStakeThreshold<T>>;
 
-    /// --- MAP (netuid, who) --> VecDeque<(hash, commit_block, first_reveal_block, last_reveal_block)> | Stores a queue of commits for an account on a given netuid.
+    /// --- MAP (netuid, who) --> VecDeque<(hash, commit_epoch, commit_block, _unused)>
+    /// Stores a queue of commit-reveal-v2 commits for an account on a given netuid.
     #[pallet::storage]
     pub type WeightCommits<T: Config> = StorageDoubleMap<
         _,

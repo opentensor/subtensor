@@ -825,7 +825,7 @@ fn test_owner_cut_base() {
             1_000_000_000_000_u64.into(),
             1_000_000_000_000_u64.into(),
         );
-        SubtensorModule::set_tempo(netuid, 10000); // Large number (dont drain)
+        SubtensorModule::set_tempo_unchecked(netuid, 10000); // Large number (dont drain)
         SubtensorModule::set_subnet_owner_cut(0);
         SubtensorModule::run_coinbase(SubtensorModule::mint_tao(0.into()));
         assert_eq!(PendingOwnerCut::<Test>::get(netuid), 0.into()); // No cut
@@ -835,7 +835,7 @@ fn test_owner_cut_base() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_pending_swapped --exact --show-output --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_pending_emission --exact --show-output --nocapture
 #[test]
 fn test_pending_emission() {
     new_test_ext(1).execute_with(|| {
@@ -847,10 +847,13 @@ fn test_pending_emission() {
         FirstEmissionBlockNumber::<Test>::insert(netuid, 0);
 
         mock::setup_reserves(netuid, 1_000_000.into(), 1.into());
+        LastEpochBlock::<Test>::insert(netuid, 0);
+        System::set_block_number(10);
         SubtensorModule::run_coinbase(SubtensorModule::mint_tao(0.into()));
         SubnetTAO::<Test>::insert(NetUid::ROOT, TaoBalance::from(1_000_000_000)); // Add root weight.
+        System::set_block_number(12);
         SubtensorModule::run_coinbase(SubtensorModule::mint_tao(0.into()));
-        SubtensorModule::set_tempo(netuid, 10000); // Large number (dont drain)
+        SubtensorModule::set_tempo_unchecked(netuid, 10000); // Large number (dont drain)
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
 
         // Set moving price > 1.0
@@ -2627,7 +2630,7 @@ fn test_distribute_emission_zero_emission() {
         let miner_ck = U256::from(6);
         let init_stake: u64 = 100_000_000_000_000;
         let tempo = 2;
-        SubtensorModule::set_tempo(netuid, tempo);
+        SubtensorModule::set_tempo_unchecked(netuid, tempo);
         // Set weight-set limit to 0.
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
@@ -2715,7 +2718,7 @@ fn test_run_coinbase_not_started() {
         let miner_ck = U256::from(6);
         let init_stake: u64 = 100_000_000_000_000;
         let tempo = 2;
-        SubtensorModule::set_tempo(netuid, tempo);
+        SubtensorModule::set_tempo_unchecked(netuid, tempo);
         // Set weight-set limit to 0.
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
@@ -2810,7 +2813,7 @@ fn test_run_coinbase_not_started_start_after() {
         let miner_ck = U256::from(6);
         let init_stake: u64 = 100_000_000_000_000;
         let tempo = 2;
-        SubtensorModule::set_tempo(netuid, tempo);
+        SubtensorModule::set_tempo_unchecked(netuid, tempo);
         // Set weight-set limit to 0.
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
@@ -2877,6 +2880,12 @@ fn test_run_coinbase_not_started_start_after() {
             FirstEmissionBlockNumber::<Test>::get(netuid),
             Some(current_block + 1)
         );
+
+        // Advance the block past `LastEpochBlock + tempo` so the state-based
+        // scheduler is due again (the previous `run_coinbase` advanced it).
+        next_block_no_epoch(netuid);
+        next_block_no_epoch(netuid);
+        next_block_no_epoch(netuid);
 
         // Run coinbase with emission.
         let emission_credit = SubtensorModule::mint_tao(100_000_000.into());
@@ -3092,6 +3101,7 @@ fn test_zero_shares_zero_emission() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_mining_emission_distribution_with_no_root_sell --exact --show-output --nocapture
 #[test]
 fn test_mining_emission_distribution_with_no_root_sell() {
     new_test_ext(1).execute_with(|| {
@@ -3216,17 +3226,20 @@ fn test_mining_emission_distribution_with_no_root_sell() {
             AlphaBalance::ZERO,
             "Root alpha divs should be zero"
         );
+        step_block(1);
+        // Drain to a clean epoch boundary so accumulation starts fresh.
+        step_epochs(1, netuid);
         let miner_stake_before_epoch = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &miner_hotkey,
             &miner_coldkey,
             netuid,
         );
         // Run again but with some root stake
-        step_block(subnet_tempo - 2);
+        step_block(subnet_tempo - 1);
         assert_abs_diff_eq!(
             PendingServerEmission::<Test>::get(netuid).to_u64(),
             U96F32::saturating_from_num(per_block_emission)
-                .saturating_mul(U96F32::saturating_from_num(subnet_tempo as u64))
+                .saturating_mul(U96F32::saturating_from_num((subnet_tempo - 1) as u64))
                 .saturating_mul(U96F32::saturating_from_num(0.5)) // miner cut
                 .saturating_mul(U96F32::saturating_from_num(0.90))
                 .saturating_to_num::<u64>(),
@@ -3273,7 +3286,7 @@ fn test_mining_emission_distribution_with_no_root_sell() {
             U96F32::saturating_from_num(miner_incentive)
                 .saturating_div(u16::MAX.into())
                 .saturating_mul(U96F32::saturating_from_num(per_block_emission))
-                .saturating_mul(U96F32::saturating_from_num(subnet_tempo + 1))
+                .saturating_mul(U96F32::saturating_from_num(subnet_tempo))
                 .saturating_mul(U96F32::saturating_from_num(0.45)) // miner cut
                 .saturating_to_num::<u64>(),
             epsilon = 1_000_000_u64
@@ -3304,7 +3317,9 @@ fn test_mining_emission_distribution_with_root_sell() {
         let owner_hotkey = U256::from(10);
         let owner_coldkey = U256::from(11);
         let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
-        Tempo::<Test>::insert(netuid, 1);
+        // Period is `tempo`; `tempo = 2` keeps a one-block gap between epochs so
+        // pending root-alpha-divs can be observed accumulating before a drain.
+        Tempo::<Test>::insert(netuid, 2);
         FirstEmissionBlockNumber::<Test>::insert(netuid, 0);
 
         // Setup large LPs to prevent slippage
@@ -3390,6 +3405,7 @@ fn test_mining_emission_distribution_with_root_sell() {
         // Run run_coinbase until emissions are drained
         step_block(subnet_tempo);
 
+        LastEpochBlock::<Test>::insert(netuid, SubtensorModule::get_current_block_as_u64());
         let old_root_alpha_divs = PendingRootAlphaDivs::<Test>::get(netuid);
         let miner_stake_before_epoch = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &miner_hotkey,
@@ -3445,7 +3461,7 @@ fn test_mining_emission_distribution_with_root_sell() {
             U96F32::saturating_from_num(miner_incentive)
                 .saturating_div(u16::MAX.into())
                 .saturating_mul(U96F32::saturating_from_num(per_block_emission))
-                .saturating_mul(U96F32::saturating_from_num(subnet_tempo + 1))
+                .saturating_mul(U96F32::saturating_from_num(subnet_tempo))
                 .saturating_mul(U96F32::saturating_from_num(0.45)) // miner cut
                 .saturating_to_num::<u64>(),
             epsilon = 1_000_000_u64
@@ -3704,8 +3720,8 @@ fn test_coinbase_drain_pending_resets_blockssincelaststep() {
         let zero = U96F32::saturating_from_num(0);
         let netuid0 = add_dynamic_network(&U256::from(1), &U256::from(2));
         Tempo::<Test>::insert(netuid0, 100);
-        // Ensure the block number we use is the tempo block
-        let block_number = 98;
+        LastEpochBlock::<Test>::insert(netuid0, 0);
+        let block_number = 102;
         assert!(SubtensorModule::should_run_epoch(netuid0, block_number));
 
         let blocks_since_last_step_before = 12345678;
@@ -3717,8 +3733,7 @@ fn test_coinbase_drain_pending_resets_blockssincelaststep() {
 
         let blocks_since_last_step_after = BlocksSinceLastStep::<Test>::get(netuid0);
         assert_eq!(blocks_since_last_step_after, 0);
-        // Also check LastMechansimStepBlock is set to the block number we ran on
-        assert_eq!(LastMechansimStepBlock::<Test>::get(netuid0), block_number);
+        assert_eq!(LastMechansimStepBlock::<Test>::get(netuid0), 12345);
     });
 }
 
@@ -3728,8 +3743,8 @@ fn test_coinbase_drain_pending_gets_counters_and_resets_them() {
         let zero = U96F32::saturating_from_num(0);
         let netuid0 = add_dynamic_network(&U256::from(1), &U256::from(2));
         Tempo::<Test>::insert(netuid0, 100);
-        // Ensure the block number we use is the tempo block
-        let block_number = 98;
+        LastEpochBlock::<Test>::insert(netuid0, 0);
+        let block_number = 102;
         assert!(SubtensorModule::should_run_epoch(netuid0, block_number));
 
         let pending_server_em = AlphaBalance::from(123434534);
@@ -3967,10 +3982,11 @@ fn test_disabling_owner_cut_sends_subnet_emission_to_miners_and_validators() {
         let miner_coldkey = U256::from(5);
         let miner_hotkey = U256::from(6);
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        LastEpochBlock::<Test>::insert(netuid, SubtensorModule::get_current_block_as_u64());
         let subnet_tempo = 10;
         let stake = 100_000_000_000u64;
 
-        SubtensorModule::set_tempo(netuid, subnet_tempo);
+        SubtensorModule::set_tempo_unchecked(netuid, subnet_tempo);
         setup_reserves(netuid, (stake * 10_000).into(), (stake * 10_000).into());
 
         register_ok_neuron(netuid, validator_hotkey, validator_coldkey, 0);
@@ -4250,5 +4266,105 @@ fn test_get_subnet_terms_alpha_emissions_cap() {
         let (_, alpha_in, _, _) = SubtensorModule::get_subnet_terms(&subnet_emissions2);
 
         assert_eq!(alpha_in.get(&netuid).copied().unwrap(), tao_block_emission);
+    });
+}
+
+#[test]
+fn test_epochs_deferred_this_block_respects_cap() {
+    new_test_ext(1).execute_with(|| {
+        let cap = <Test as Config>::MaxEpochsPerBlock::get() as usize;
+        let n = cap + 2;
+
+        for i in 0..n {
+            let netuid = NetUid::from((i + 1) as u16);
+            add_network(netuid, 100, 0);
+            // Force "due this block".
+            PendingEpochAt::<Test>::insert(netuid, 1);
+        }
+
+        let block = SubtensorModule::get_current_block_as_u64();
+        let subnets: Vec<NetUid> = SubtensorModule::get_all_subnet_netuids()
+            .into_iter()
+            .filter(|x| *x != NetUid::ROOT)
+            .collect();
+
+        // All `n` subnets are due, but only `cap` may fire — the rest are deferred.
+        let deferred = SubtensorModule::epochs_deferred_this_block(&subnets, block);
+        assert_eq!(
+            deferred.len(),
+            n - cap,
+            "exactly the due subnets beyond MaxEpochsPerBlock are deferred"
+        );
+        for netuid in &deferred {
+            assert!(SubtensorModule::should_run_epoch(*netuid, block));
+        }
+    });
+}
+
+// Regression test for the dynamic-tempo / CR-v3 interaction: when a subnet's epoch
+// is deferred by the per-block cap, its timelock reveal must be held back to the
+// deferred fire-block (not run on the originally-scheduled block, which would
+// surface weights before the epoch consumes them).
+//
+// Crypto-free probe: the reveal path removes *expired* commits only when it runs
+// for a subnet, so a retained expired (epoch-0) commit means the reveal was skipped.
+#[test]
+fn test_reveal_crv3_defers_with_capped_epoch() {
+    new_test_ext(1).execute_with(|| {
+        let cap = <Test as Config>::MaxEpochsPerBlock::get() as usize;
+        let n = cap + 2;
+        let mec0 = subtensor_runtime_common::MechId::from(0);
+
+        for i in 0..n {
+            let netuid = NetUid::from((i + 1) as u16);
+            add_network(netuid, 100, 0);
+            PendingEpochAt::<Test>::insert(netuid, 1); // due this block
+            SubnetEpochIndex::<Test>::insert(netuid, 10); // cur_epoch >> reveal_period
+            // Plant an expired commit at epoch 0 (field types inferred from the queue).
+            let idx = SubtensorModule::get_mechanism_storage_index(netuid, mec0);
+            TimelockedWeightCommits::<Test>::mutate(idx, 0u64, |q| {
+                q.push_back((U256::from(1u64), 0u64, Default::default(), 0u64));
+            });
+        }
+
+        let subnets: Vec<NetUid> = SubtensorModule::get_all_subnet_netuids()
+            .into_iter()
+            .filter(|x| *x != NetUid::ROOT)
+            .collect();
+
+        let still_holds = |netuid: NetUid| -> bool {
+            let idx = SubtensorModule::get_mechanism_storage_index(netuid, mec0);
+            TimelockedWeightCommits::<Test>::contains_key(idx, 0u64)
+        };
+        let retained = |subnets: &[NetUid]| subnets.iter().filter(|n| still_holds(**n)).count();
+
+        // --- Phase 1: cap-deferred subnets must NOT reveal this block.
+        SubtensorModule::reveal_crv3_commits();
+        assert_eq!(
+            retained(&subnets),
+            n - cap,
+            "only cap-deferred subnets keep their commit (their reveal was skipped)"
+        );
+
+        let deferred: Vec<NetUid> = subnets
+            .iter()
+            .copied()
+            .filter(|n| still_holds(*n))
+            .collect();
+
+        // --- Phase 2: drop the cap pressure so only the deferred subnets are due;
+        // they should now reveal (and clean their expired commit).
+        for netuid in &subnets {
+            if !deferred.contains(netuid) {
+                PendingEpochAt::<Test>::insert(*netuid, 0);
+                LastEpochBlock::<Test>::insert(*netuid, 1); // blocks_since < tempo => not due
+            }
+        }
+        SubtensorModule::reveal_crv3_commits();
+        assert_eq!(
+            retained(&subnets),
+            0,
+            "deferred subnets reveal once they actually fire"
+        );
     });
 }
