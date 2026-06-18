@@ -48,6 +48,9 @@ Subtensor provides a custom chain extension that allows smart contracts to inter
 | 17 | `burn_alpha` | Burn alpha stake without reducing SubnetAlphaOut (supply neutral) | `(AccountId, NetUid, AlphaBalance)` | `u64` (actual amount burned) |
 | 18 | `add_stake_recycle` | Atomically add stake then recycle the resulting alpha | `(AccountId, NetUid, TaoBalance)` | `u64` (alpha amount recycled) |
 | 19 | `add_stake_burn` | Atomically add stake then burn the resulting alpha | `(AccountId, NetUid, TaoBalance)` | `u64` (alpha amount burned) |
+| 34 | `get_subnet_registration_state` | Query whether a subnet exists and which registration generation currently owns the netuid | `(NetUid)` | `SubnetRegistrationState { netuid, exists, registered_subnet_counter }` |
+| 35 | `get_coldkey_lock` | Query the current rolled-forward lock state for a coldkey on a subnet | `(AccountId, NetUid)` | `Option<ColdkeyLock { locked_mass, conviction_bits, last_update }>` |
+| 36 | `get_stake_availability` | Query total, locked, and currently available alpha for a coldkey on a subnet | `(AccountId, NetUid)` | `StakeAvailability { netuid, total, locked, available }` |
 
 > [!NOTE]
 > Functions **16** and **17** use the decoded argument order **`(hotkey, netuid, amount)`**, matching [`SubtensorChainExtension`](../chain-extensions/src/lib.rs). If your ink! contract encoded **`(hotkey, amount, netuid)`** for those functions, **recompile and redeploy**; the runtime will decode the older layout incorrectly.

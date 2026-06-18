@@ -18458,6 +18458,7 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "substrate-fixed",
+ "subtensor-macros",
  "subtensor-runtime-common",
  "subtensor-swap-interface",
 ]
