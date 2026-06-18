@@ -1023,6 +1023,225 @@ fn proof_default_recycles_exactly_the_floor() {
     });
 }
 
+// PROOF (multi-position): the aggregate Σ-decay and per-position lazy decay
+// stay solvent across MANY heterogeneous positions on both sides through a long
+// decay horizon — the configuration the single-position tests can't exercise.
+#[test]
+fn proof_multi_position_decay_conserves() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_long(10_000 * TAO, 10_000 * TAO, 1.0);
+        let shorts: [(U256, U256, u64); 3] = [
+            (U256::from(10), U256::from(11), 50 * TAO),
+            (U256::from(12), U256::from(13), 100 * TAO),
+            (U256::from(14), U256::from(15), 30 * TAO),
+        ];
+        let longs: [(U256, U256, u64); 2] = [
+            (U256::from(20), U256::from(21), 40 * TAO),
+            (U256::from(22), U256::from(23), 60 * TAO),
+        ];
+        for (c, h, _) in shorts {
+            add_balance_to_coldkey_account(&c, t(2000 * TAO));
+            give_alpha(h, c, netuid, AlphaBalance::from(5000 * TAO)); // to repay Q
+        }
+        for (c, h, _) in longs {
+            add_balance_to_coldkey_account(&c, t(2000 * TAO)); // to repay D
+            give_alpha(h, c, netuid, AlphaBalance::from(1000 * TAO)); // collateral
+        }
+
+        let tao0 = TotalIssuance::<Test>::get().to_u64();
+        let alpha0 = alpha_issuance(netuid);
+
+        for (c, h, p) in shorts {
+            assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(c), h, netuid, t(p)));
+        }
+        for (c, h, p) in longs {
+            assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(c), h, netuid, AlphaBalance::from(p)));
+        }
+
+        for _ in 0..300 {
+            SubtensorModule::run_short_decay();
+            SubtensorModule::run_long_decay();
+        }
+
+        for (c, _, _) in shorts {
+            assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(c), netuid, 1_000_000_000));
+        }
+        for (c, _, _) in longs {
+            assert_ok!(SubtensorModule::close_long(RuntimeOrigin::signed(c), netuid, 1_000_000_000));
+        }
+
+        const TOL: u64 = 10_000_000; // 0.01 token
+        assert_eq!(TotalIssuance::<Test>::get().to_u64(), tao0, "TAO supply not conserved");
+        let alpha1 = alpha_issuance(netuid);
+        assert!(alpha1 <= alpha0, "Alpha minted across many positions");
+        assert!(alpha0 - alpha1 <= TOL, "Alpha drift {} > tol", alpha0 - alpha1);
+        assert!(custody_bal(netuid) <= TOL, "custody not drained across many positions");
+        assert_eq!(ShortPositionCount::<Test>::get(netuid), 0);
+        assert_eq!(LongPositionCount::<Test>::get(netuid), 0);
+        assert!(!ShortActiveSubnets::<Test>::contains_key(netuid));
+        assert!(!LongActiveSubnets::<Test>::contains_key(netuid));
+    });
+}
+
+// Many partial closes followed by a full close drain the position cleanly (the
+// floor-rounding residue path), with TAO conserved and custody emptied.
+#[test]
+fn short_many_partial_closes_drain_cleanly() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_market(10_000 * TAO, 10_000 * TAO, 1.0);
+        let trader = U256::from(10);
+        let hotkey = U256::from(11);
+        add_balance_to_coldkey_account(&trader, t(1000 * TAO));
+        give_alpha(hotkey, trader, netuid, AlphaBalance::from(5000 * TAO));
+
+        let tao0 = TotalIssuance::<Test>::get().to_u64();
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), hotkey, netuid, t(100 * TAO)));
+        for _ in 0..9 {
+            assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(trader), netuid, 100_000_000)); // 10% of remaining
+        }
+        assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(trader), netuid, 1_000_000_000));
+
+        assert!(ShortPositions::<Test>::get(netuid, trader).is_none());
+        assert_eq!(TotalIssuance::<Test>::get().to_u64(), tao0);
+        assert!(custody_bal(netuid) <= 10_000, "custody dust after partial closes");
+        assert!(!ShortActiveSubnets::<Test>::contains_key(netuid));
+    });
+}
+
+// Governance setters clamp out-of-range inputs (kappa can't freeze the market
+// or remove the cap; decay bounds stay ordered and ≤ 1.0/day).
+#[test]
+fn governance_setters_clamp_ranges() {
+    new_test_ext(1).execute_with(|| {
+        let one = I64F64::from_num(1);
+        let two = I64F64::from_num(2);
+
+        SubtensorModule::set_short_kappa_ppb(0);
+        assert!(ShortKappa::<Test>::get() > I64F64::from_num(0), "kappa=0 must clamp above 0");
+        SubtensorModule::set_short_kappa_ppb(10_000_000_000); // 10.0
+        assert_eq!(ShortKappa::<Test>::get(), two, "kappa clamps to 2.0");
+        SubtensorModule::set_long_kappa_ppb(0);
+        assert!(LongKappa::<Test>::get() > I64F64::from_num(0));
+
+        // min > max → enforced min ≤ max.
+        SubtensorModule::set_decay_bounds_ppb(500_000_000, 100_000_000);
+        assert!(DecayMax::<Test>::get() >= DecayMin::<Test>::get());
+        // max > 1.0/day → clamped so per-block delta stays < 1.
+        SubtensorModule::set_decay_bounds_ppb(0, 5_000_000_000);
+        assert!(DecayMax::<Test>::get() <= one, "decay max clamps to 1.0/day");
+    });
+}
+
+// Cleanup-on-empty only evicts a subnet from the decay tick once its LAST
+// position closes — not while others remain.
+#[test]
+fn cleanup_evicts_only_after_last_short_closes() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_market(10_000 * TAO, 10_000 * TAO, 1.0);
+        let (a, b) = (U256::from(10), U256::from(20));
+        for k in [a, b] {
+            add_balance_to_coldkey_account(&k, t(1000 * TAO));
+        }
+        give_alpha(U256::from(11), a, netuid, AlphaBalance::from(5000 * TAO));
+        give_alpha(U256::from(21), b, netuid, AlphaBalance::from(5000 * TAO));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(a), U256::from(11), netuid, t(50 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(b), U256::from(21), netuid, t(50 * TAO)));
+
+        assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(a), netuid, 1_000_000_000));
+        assert!(ShortActiveSubnets::<Test>::contains_key(netuid), "still active while b open");
+
+        assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(b), netuid, 1_000_000_000));
+        assert!(!ShortActiveSubnets::<Test>::contains_key(netuid), "evicted after last close");
+    });
+}
+
+// Long capacity cap is enforced.
+#[test]
+fn long_capacity_cap_enforced() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_long(1000 * TAO, 1000 * TAO, 1.0);
+        SubtensorModule::set_long_kappa_ppb(1_000_000); // κ_L = 0.001
+        let trader = U256::from(10);
+        let hotkey = U256::from(11);
+        give_alpha(hotkey, trader, netuid, AlphaBalance::from(500 * TAO));
+        assert_noop!(
+            SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO)),
+            Error::<Test>::LongCapacityExceeded
+        );
+    });
+}
+
+// Long partial close reduces all legs pro-rata.
+#[test]
+fn long_partial_close_reduces_prorata() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_long(1000 * TAO, 1000 * TAO, 1.0);
+        let trader = U256::from(10);
+        let hotkey = U256::from(11);
+        give_alpha(hotkey, trader, netuid, AlphaBalance::from(500 * TAO));
+        add_balance_to_coldkey_account(&trader, t(1000 * TAO));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO)));
+        let p0 = LongPositions::<Test>::get(netuid, trader).unwrap();
+
+        assert_ok!(SubtensorModule::close_long(RuntimeOrigin::signed(trader), netuid, 500_000_000));
+        let p1 = LongPositions::<Test>::get(netuid, trader).unwrap();
+        assert_approx(p1.p_floor.to_u64(), p0.p_floor.to_u64() / 2, 2, "p/2");
+        assert_approx(p1.d_liability.to_u64(), p0.d_liability.to_u64() / 2, 2, "d/2");
+        assert_approx(p1.r_stored.to_u64(), p0.r_stored.to_u64() / 2, 2, "r/2");
+    });
+}
+
+// Long terminal settlement is underwater (equity 0) when the collateral can't
+// cover the TAO debt at the terminal price.
+#[test]
+fn long_dereg_underwater_pays_zero_equity() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_long(1000 * TAO, 1000 * TAO, 1.0);
+        let trader = U256::from(10);
+        let hotkey = U256::from(11);
+        give_alpha(hotkey, trader, netuid, AlphaBalance::from(500 * TAO));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO)));
+
+        // Crash the price: D/price ≫ collateral ⇒ cover = C_L, equity = 0.
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(0.0001));
+        let stake_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &trader, netuid).to_u64();
+
+        SubtensorModule::settle_longs_on_dereg(netuid);
+
+        assert!(LongPositions::<Test>::get(netuid, trader).is_none());
+        let stake_after = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &trader, netuid).to_u64();
+        assert_eq!(stake_after, stake_before, "underwater long must return no equity");
+        assert!(!LongActiveSubnets::<Test>::contains_key(netuid));
+    });
+}
+
+// Short and long default-grace windows are governed independently.
+#[test]
+fn default_grace_independent_per_side() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_long(1000 * TAO, 1000 * TAO, 1.0);
+        let (sc, sh) = (U256::from(10), U256::from(11));
+        let (lc, lh) = (U256::from(20), U256::from(21));
+        add_balance_to_coldkey_account(&sc, t(1000 * TAO));
+        give_alpha(lh, lc, netuid, AlphaBalance::from(500 * TAO));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(sc), sh, netuid, t(100 * TAO)));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(lc), lh, netuid, AlphaBalance::from(100 * TAO)));
+
+        SubtensorModule::set_short_dust(t(10_000 * TAO));
+        SubtensorModule::set_long_dust(AlphaBalance::from(10_000 * TAO));
+        SubtensorModule::set_short_default_grace(0); // shorts: no grace
+        SubtensorModule::set_long_default_grace(5); // longs: still gated
+
+        let poker = U256::from(99);
+        // Short is immediately defaultable; long is not (independent grace).
+        assert_ok!(SubtensorModule::default_short(RuntimeOrigin::signed(poker), sc, netuid));
+        assert_noop!(
+            SubtensorModule::default_long(RuntimeOrigin::signed(poker), lc, netuid),
+            Error::<Test>::PositionNotDefaultEligible
+        );
+    });
+}
+
 // Decay rate matches the closed form: one day at 1.0/day leaves ≈ e⁻¹, and the
 // per-position materialized buffer stays consistent with the aggregate.
 #[test]
