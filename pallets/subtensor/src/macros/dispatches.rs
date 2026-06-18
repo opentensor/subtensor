@@ -1849,7 +1849,7 @@ mod dispatches {
         /// May emit a `EvmKeyAssociated` event on success
         #[pallet::call_index(93)]
         #[pallet::weight((
-            Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().reads_writes(2, 1)),
+            <T as crate::pallet::Config>::WeightInfo::associate_evm_key(),
             DispatchClass::Normal,
             Pays::No
         ))]

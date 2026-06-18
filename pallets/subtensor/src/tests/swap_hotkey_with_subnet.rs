@@ -907,7 +907,6 @@ fn test_swap_owner_new_hotkey_already_exists() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let another_coldkey = U256::from(4);
 
         let netuid = add_dynamic_network(&old_hotkey, &coldkey);
         add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_u64.into());

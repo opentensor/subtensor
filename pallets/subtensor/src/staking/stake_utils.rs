@@ -793,6 +793,12 @@ impl<T: Config> Pallet<T> {
         if netuid == NetUid::ROOT {
             // Adjust root claimed value for this hotkey and coldkey.
             Self::remove_stake_adjust_root_claimed_for_hotkey_and_coldkey(hotkey, coldkey, alpha);
+
+            // If the coldkey no longer holds any root stake, remove it from the
+            // auto-claim staking-coldkey index so dead entries do not accumulate.
+            if !Self::coldkey_has_root_stake(coldkey) {
+                Self::maybe_remove_coldkey_index(coldkey);
+            }
         }
 
         // Step 3: Update StakingHotkeys if the hotkey's total alpha, across all subnets, is zero
