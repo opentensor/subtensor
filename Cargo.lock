@@ -8534,7 +8534,6 @@ dependencies = [
  "pallet-nomination-pools-runtime-api",
  "pallet-offences",
  "pallet-preimage",
- "pallet-registry",
  "pallet-safe-mode",
  "pallet-scheduler",
  "pallet-session",
@@ -10530,25 +10529,6 @@ dependencies = [
  "sp-arithmetic",
  "sp-io",
  "sp-runtime",
-]
-
-[[package]]
-name = "pallet-registry"
-version = "4.0.0-dev"
-dependencies = [
- "enumflags2",
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "pallet-balances",
- "parity-scale-codec",
- "scale-info",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
- "subtensor-macros",
- "subtensor-runtime-common",
 ]
 
 [[package]]

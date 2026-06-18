@@ -31,7 +31,6 @@ use frame_support::{
 use frame_system::{EnsureRoot, EnsureRootWithSuccess, EnsureSigned};
 use pallet_commitments::{CanCommit, OnMetadataCommitment};
 use pallet_grandpa::{AuthorityId as GrandpaId, fg_primitives};
-use pallet_registry::CanRegisterIdentity;
 pub use pallet_shield;
 use pallet_subtensor::rpc_info::{
     delegate_info::DelegateInfo,
@@ -235,7 +234,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 418,
+    spec_version: 419,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -613,6 +612,10 @@ subtensor_macros::define_proxy_filters! {
         SubtensorModule::transfer_stake,
         SubtensorModule::schedule_swap_coldkey,
         SubtensorModule::swap_coldkey,
+        SubtensorModule::announce_coldkey_swap,
+        SubtensorModule::swap_coldkey_announced,
+        SubtensorModule::clear_coldkey_swap_announcement,
+        SubtensorModule::dispute_coldkey_swap,
     }
 
     NonFungible => deny {
@@ -632,7 +635,12 @@ subtensor_macros::define_proxy_filters! {
         SubtensorModule::root_register,
         SubtensorModule::schedule_swap_coldkey,
         SubtensorModule::swap_coldkey,
+        SubtensorModule::announce_coldkey_swap,
+        SubtensorModule::swap_coldkey_announced,
+        SubtensorModule::clear_coldkey_swap_announcement,
+        SubtensorModule::dispute_coldkey_swap,
         SubtensorModule::swap_hotkey,
+        SubtensorModule::swap_hotkey_v2,
     }
 
     Transfer => allow {
@@ -654,6 +662,7 @@ subtensor_macros::define_proxy_filters! {
         SubtensorModule::update_symbol,
     } except {
         AdminUtils::sudo_set_sn_owner_hotkey,
+        AdminUtils::sudo_set_subnet_owner_hotkey,
     }
 
     NonCritical => deny {
@@ -661,6 +670,10 @@ subtensor_macros::define_proxy_filters! {
         SubtensorModule::root_register,
         SubtensorModule::burned_register,
         Sudo::*,
+        SubtensorModule::announce_coldkey_swap,
+        SubtensorModule::swap_coldkey_announced,
+        SubtensorModule::clear_coldkey_swap_announcement,
+        SubtensorModule::dispute_coldkey_swap,
     }
 
     Triumvirate => deny_all;
@@ -700,6 +713,7 @@ subtensor_macros::define_proxy_filters! {
 
     SwapHotkey => allow {
         SubtensorModule::swap_hotkey,
+        SubtensorModule::swap_hotkey_v2,
     }
 
     SubnetLeaseBeneficiary => allow {
@@ -859,43 +873,6 @@ impl pallet_preimage::Config for Runtime {
         PreimageHoldReason,
         LinearStoragePrice<PreimageBaseDeposit, PreimageByteDeposit, Balance>,
     >;
-}
-
-pub struct AllowIdentityReg;
-
-impl CanRegisterIdentity<AccountId> for AllowIdentityReg {
-    #[cfg(not(feature = "runtime-benchmarks"))]
-    fn can_register(address: &AccountId, identified: &AccountId) -> bool {
-        if address != identified {
-            SubtensorModule::coldkey_owns_hotkey(address, identified)
-                && SubtensorModule::is_hotkey_registered_on_network(NetUid::ROOT, identified)
-        } else {
-            SubtensorModule::is_subnet_owner(address)
-        }
-    }
-
-    #[cfg(feature = "runtime-benchmarks")]
-    fn can_register(_: &AccountId, _: &AccountId) -> bool {
-        true
-    }
-}
-
-// Configure registry pallet.
-parameter_types! {
-    pub const MaxAdditionalFields: u32 = 1;
-    pub const InitialDeposit: Balance = TaoBalance::new(100_000_000); // 0.1 TAO
-    pub const FieldDeposit: Balance = TaoBalance::new(100_000_000); // 0.1 TAO
-}
-
-impl pallet_registry::Config for Runtime {
-    type RuntimeHoldReason = RuntimeHoldReason;
-    type Currency = Balances;
-    type CanRegister = AllowIdentityReg;
-    type WeightInfo = pallet_registry::weights::SubstrateWeight<Runtime>;
-
-    type MaxAdditionalFields = MaxAdditionalFields;
-    type InitialDeposit = InitialDeposit;
-    type FieldDeposit = FieldDeposit;
 }
 
 parameter_types! {
@@ -1626,7 +1603,7 @@ construct_runtime!(
         Preimage: pallet_preimage = 14,
         Scheduler: pallet_scheduler = 15,
         Proxy: pallet_proxy = 16,
-        Registry: pallet_registry = 17,
+        // pallet_registry was 17
         Commitments: pallet_commitments = 18,
         AdminUtils: pallet_admin_utils = 19,
         SafeMode: pallet_safe_mode = 20,
@@ -1683,6 +1660,7 @@ type Migrations = (
     pallet_subtensor::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration<
         Runtime,
     >,
+    migrations::PalletRegistryCleanupMigration,
 );
 
 // Unchecked extrinsic type as expected by this runtime.
@@ -1720,7 +1698,6 @@ mod benches {
         [pallet_balances, Balances]
         [pallet_timestamp, Timestamp]
         [pallet_sudo, Sudo]
-        [pallet_registry, Registry]
         [pallet_commitments, Commitments]
         [pallet_admin_utils, AdminUtils]
         [pallet_subtensor, SubtensorModule]

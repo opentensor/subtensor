@@ -395,6 +395,35 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    /// Returns true if `coldkey` still holds any root (netuid 0) stake on any of its
+    /// staking hotkeys. Used to decide whether the coldkey should remain indexed in the
+    /// auto-claim staking-coldkey index.
+    pub fn coldkey_has_root_stake(coldkey: &T::AccountId) -> bool {
+        StakingHotkeys::<T>::get(coldkey).iter().any(|hotkey| {
+            !Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, NetUid::ROOT)
+                .is_zero()
+        })
+    }
+
+    /// Remove `coldkey` from the staking-coldkey index, compacting by moving the last
+    /// entry into the freed slot so the index stays dense in `[0, n)`. This is the inverse
+    /// of `maybe_add_coldkey_index` and keeps the
+    /// `StakingColdkeys[c] == i <=> StakingColdkeysByIndex[i] == c` bijection consistent.
+    pub fn maybe_remove_coldkey_index(coldkey: &T::AccountId) {
+        if let Some(idx) = StakingColdkeys::<T>::take(coldkey) {
+            let last = NumStakingColdkeys::<T>::get().saturating_sub(1);
+            if idx != last
+                && let Some(moved) = StakingColdkeysByIndex::<T>::take(last)
+            {
+                StakingColdkeysByIndex::<T>::insert(idx, moved.clone());
+                StakingColdkeys::<T>::insert(moved, idx);
+            } else {
+                StakingColdkeysByIndex::<T>::remove(idx);
+            }
+            NumStakingColdkeys::<T>::put(last);
+        }
+    }
+
     pub fn run_auto_claim_root_divs(last_block_hash: T::Hash) -> Weight {
         let mut weight: Weight = Weight::default();
 
@@ -438,6 +467,19 @@ impl<T: Config> Pallet<T> {
         RootClaimed::<T>::remove((netuid, old_hotkey, old_coldkey));
 
         RootClaimed::<T>::mutate((netuid, new_hotkey, new_coldkey), |new_root_claimed| {
+            // Sum the two already-claimed watermarks. When BOTH the source and the
+            // destination hold a legitimate RootClaimed — e.g. a coldkey swap onto a
+            // hotkey the new coldkey has already staked to, or a hotkey swap that merges
+            // two real positions — the merged "already claimed" total is old + new. Taking
+            // the max would drop one side, under-count what has already been claimed, and
+            // cause a future over-payment / double-claim of root dividends.
+            //
+            // GHSA-2026-010 (a *stale residual* watermark on new_hotkey inflating this sum
+            // in the hotkey-swap path) is prevented upstream by the root-swap cleanliness
+            // gate in `do_swap_hotkey`, which now also requires RootClaimed to be empty on
+            // new_hotkey (see `test_do_swap_hotkey_err_new_hotkey_not_clean_for_root`). With
+            // that gate the destination is always clean (new == 0) in the swap path, so the
+            // sum cannot be inflated there.
             *new_root_claimed = old_root_claimed.saturating_add(*new_root_claimed);
         });
     }
