@@ -1340,6 +1340,132 @@ fn default_grace_independent_per_side() {
     });
 }
 
+// ---------------------------------------------------------------------------
+// Long read/RPC layer (mirror of the short views)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn long_open_quote_matches_position() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_long(1000 * TAO, 1000 * TAO, 1.0);
+        let trader = U256::from(10);
+        let hotkey = U256::from(11);
+        give_alpha(hotkey, trader, netuid, AlphaBalance::from(500 * TAO));
+
+        let q = SubtensorModule::quote_open_long(netuid, AlphaBalance::from(100 * TAO)).unwrap();
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO)));
+        let pos = LongPositions::<Test>::get(netuid, trader).unwrap();
+        assert_eq!(pos.r_stored, q.retained_proceeds);
+        assert_eq!(pos.d_liability, q.tao_liability);
+        assert_eq!(pos.e_stored, q.escrow);
+        assert_eq!(pos.p_floor, AlphaBalance::from(100 * TAO));
+        assert!(q.effective_ltv > 0 && q.gross_collateral.to_u64() > 100 * TAO);
+    });
+}
+
+#[test]
+fn long_open_quote_gated_by_enable_flag() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_long(1000 * TAO, 1000 * TAO, 1.0);
+        assert!(SubtensorModule::quote_open_long(netuid, AlphaBalance::from(100 * TAO)).is_some());
+        SubtensorModule::set_longs_enabled(false);
+        assert!(SubtensorModule::quote_open_long(netuid, AlphaBalance::from(100 * TAO)).is_none());
+    });
+}
+
+#[test]
+fn long_position_view_materializes_decay() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_long(1000 * TAO, 1000 * TAO, 1.0);
+        let trader = U256::from(10);
+        let hotkey = U256::from(11);
+        give_alpha(hotkey, trader, netuid, AlphaBalance::from(500 * TAO));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO)));
+        SubtensorModule::set_decay_bounds_ppb(1_000_000_000, 1_000_000_000);
+
+        let raw = LongPositions::<Test>::get(netuid, trader).unwrap().r_stored.to_u64();
+        for _ in 0..2000 {
+            SubtensorModule::run_long_decay();
+        }
+        let info = SubtensorModule::get_long_position(&trader, netuid).unwrap();
+        assert!(info.buffer.to_u64() < raw, "view buffer {} !< raw {}", info.buffer.to_u64(), raw);
+        assert_eq!(LongPositions::<Test>::get(netuid, trader).unwrap().r_stored.to_u64(), raw);
+        assert_eq!(info.collateral_claim.to_u64(), info.floor.to_u64() + info.buffer.to_u64());
+        assert!(info.daily_decay > 0);
+        assert!(info.blocks_to_dust > 0 && info.blocks_to_dust < u64::MAX);
+        assert_eq!(info.tao_to_close, info.tao_liability);
+    });
+}
+
+#[test]
+fn long_market_view_reports_capacity() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_long(1000 * TAO, 1000 * TAO, 1.0);
+        let trader = U256::from(10);
+        let hotkey = U256::from(11);
+        give_alpha(hotkey, trader, netuid, AlphaBalance::from(500 * TAO));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO)));
+
+        let pos = LongPositions::<Test>::get(netuid, trader).unwrap();
+        let m = SubtensorModule::get_subnet_long_state(netuid).unwrap();
+        assert!(m.longs_enabled);
+        assert!(m.footprint_used.to_u64() > 0);
+        assert!(m.footprint_cap.to_u64() > m.footprint_used.to_u64());
+        assert_eq!(
+            m.footprint_remaining.to_u64(),
+            m.footprint_cap.to_u64() - m.footprint_used.to_u64()
+        );
+        assert_eq!(m.open_interest_tao, pos.d_liability);
+        assert_eq!(m.buffer_total, pos.r_stored);
+        assert!(m.current_daily_decay > 0);
+    });
+}
+
+#[test]
+fn long_close_quote_matches_position() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_long(1000 * TAO, 1000 * TAO, 1.0);
+        let trader = U256::from(10);
+        let hotkey = U256::from(11);
+        give_alpha(hotkey, trader, netuid, AlphaBalance::from(500 * TAO));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO)));
+        let pos = LongPositions::<Test>::get(netuid, trader).unwrap();
+
+        let full = SubtensorModule::quote_close_long(&trader, netuid, 1_000_000_000).unwrap();
+        assert_eq!(full.repay_tao, pos.d_liability);
+        assert_eq!(
+            full.returned_alpha.to_u64(),
+            pos.p_floor.to_u64() + pos.r_stored.to_u64()
+        );
+        assert_eq!(full.escrow_settled, pos.e_stored);
+
+        let half = SubtensorModule::quote_close_long(&trader, netuid, 500_000_000).unwrap();
+        assert_approx(half.repay_tao.to_u64(), full.repay_tao.to_u64() / 2, 2, "half repay");
+        assert_approx(half.returned_alpha.to_u64(), full.returned_alpha.to_u64() / 2, 2, "half return");
+    });
+}
+
+#[test]
+fn list_long_positions_across_subnets() {
+    new_test_ext(1).execute_with(|| {
+        let n1 = setup_long(1000 * TAO, 1000 * TAO, 1.0);
+        let n2 = setup_long(1000 * TAO, 1000 * TAO, 1.0);
+        let trader = U256::from(10);
+        give_alpha(U256::from(11), trader, n1, AlphaBalance::from(200 * TAO));
+        give_alpha(U256::from(12), trader, n2, AlphaBalance::from(200 * TAO));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), U256::from(11), n1, AlphaBalance::from(50 * TAO)));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), U256::from(12), n2, AlphaBalance::from(50 * TAO)));
+
+        let all = SubtensorModule::get_long_positions(&trader);
+        assert_eq!(all.len(), 2);
+        let mut netuids: Vec<_> = all.iter().map(|p| p.netuid).collect();
+        netuids.sort();
+        let mut want = vec![n1, n2];
+        want.sort();
+        assert_eq!(netuids, want);
+    });
+}
+
 // Decay rate matches the closed form: one day at 1.0/day leaves ≈ e⁻¹, and the
 // per-position materialized buffer stays consistent with the aggregate.
 #[test]

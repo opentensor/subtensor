@@ -2,8 +2,8 @@
 //!
 //! Both sides are implemented and independently gated (`ShortsEnabled` /
 //! `LongsEnabled`, both default-off). Shorts live here; the long mirror is in
-//! `long.rs`. The client/RPC read layer (`quote_*`, `get_*`) currently exists
-//! for shorts only — long RPC parity is a tracked follow-up.
+//! `long.rs`. Both sides expose a symmetric client/RPC read layer (`quote_*`,
+//! `get_*` via `DerivativesRuntimeApi`), so the two are equivalent to clients.
 //!
 //! Custody model. Shorts park floor/buffer/escrow TAO in a dedicated per-subnet
 //! custody account; longs have no custody account and instead track parked Alpha

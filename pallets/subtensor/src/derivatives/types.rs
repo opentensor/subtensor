@@ -219,3 +219,96 @@ pub struct CloseShortQuote {
     /// Incremental alpha still to acquire (`max(0, repay_alpha − held)`).
     pub alpha_needed: AlphaBalance,
 }
+
+// ===== Long-side read DTOs (mirror; Alpha collateral, TAO liability) =====
+
+/// Pre-open long quote (spec §1.2 mirror). Pure derivation, no state change.
+#[freeze_struct("be9ea5284be96d19")]
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug)]
+pub struct LongOpenQuote {
+    /// Gross open-time Alpha collateral `C = P + N`.
+    pub gross_collateral: AlphaBalance,
+    /// Retained Alpha proceeds `N` (becomes the initial buffer `R0`).
+    pub retained_proceeds: AlphaBalance,
+    /// Fixed TAO liability `D` (also the TAO required to close).
+    pub tao_liability: TaoBalance,
+    /// Linked Alpha escrow `E`.
+    pub escrow: AlphaBalance,
+    /// Effective LTV `λ_eff`, scaled by 1e9.
+    pub effective_ltv: u64,
+    /// Current daily decay/carry rate, scaled by 1e9.
+    pub daily_decay: u64,
+}
+
+/// Live, materialized view of a trader's long position plus health metrics.
+#[freeze_struct("bf02f609ef130edd")]
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug)]
+pub struct LongPositionInfo<AccountId> {
+    pub netuid: NetUid,
+    pub hotkey: AccountId,
+    /// Non-decaying Alpha floor `P`.
+    pub floor: AlphaBalance,
+    /// Fixed TAO liability `D`.
+    pub tao_liability: TaoBalance,
+    /// Current retained Alpha buffer `R(t)` after decay.
+    pub buffer: AlphaBalance,
+    /// Current linked Alpha escrow `E(t)` after decay.
+    pub escrow: AlphaBalance,
+    /// Current Alpha collateral claim `C = P + R(t)` (returned on close).
+    pub collateral_claim: AlphaBalance,
+    /// Current daily carry/decay rate, scaled by 1e9.
+    pub daily_decay: u64,
+    /// Estimated blocks until `R` decays to dust (`u64::MAX` if ~zero).
+    pub blocks_to_dust: u64,
+    /// Whether the position can be defaulted right now.
+    pub default_eligible: bool,
+    /// Earliest block a third party could default once dusted.
+    pub defaultable_at_block: u64,
+    /// TAO required to fully close (repay the liability `D`).
+    pub tao_to_close: TaoBalance,
+}
+
+/// Per-subnet long market state for sizing and capacity decisions.
+#[freeze_struct("bcf0bbff93530f91")]
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug)]
+pub struct LongMarketInfo {
+    pub longs_enabled: bool,
+    /// Base LTV `λ_L`, scaled by 1e9.
+    pub base_ltv: u64,
+    /// Footprint-cap factor `κ_L`, scaled by 1e9.
+    pub kappa: u64,
+    /// Daily decay bounds, scaled by 1e9.
+    pub decay_min: u64,
+    pub decay_max: u64,
+    /// Current daily decay at the live utilization, scaled by 1e9.
+    pub current_daily_decay: u64,
+    /// Conservative Alpha reference `A_ref`.
+    pub a_ref: AlphaBalance,
+    /// Active footprint `S_L` (used capacity).
+    pub footprint_used: AlphaBalance,
+    /// Footprint cap `κ_L · A_ref`.
+    pub footprint_cap: AlphaBalance,
+    /// Remaining openable footprint.
+    pub footprint_remaining: AlphaBalance,
+    /// Aggregate fixed TAO liability (open interest).
+    pub open_interest_tao: TaoBalance,
+    /// Aggregate retained buffer and escrow (Alpha).
+    pub buffer_total: AlphaBalance,
+    pub escrow_total: AlphaBalance,
+    /// Dust threshold, minimum input (Alpha), and default grace (blocks).
+    pub dust_threshold: AlphaBalance,
+    pub min_input: AlphaBalance,
+    pub default_grace: u64,
+}
+
+/// Pre-close quote for a fraction of a long position.
+#[freeze_struct("5ab2d9afb4b4d199")]
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug)]
+pub struct CloseLongQuote {
+    /// TAO that must be repaid for this close fraction.
+    pub repay_tao: TaoBalance,
+    /// Alpha returned to the trader (floor + buffer fraction).
+    pub returned_alpha: AlphaBalance,
+    /// Escrow settled back into the pool (Alpha).
+    pub escrow_settled: AlphaBalance,
+}
