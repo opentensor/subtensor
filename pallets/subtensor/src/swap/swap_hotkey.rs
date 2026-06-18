@@ -103,7 +103,10 @@ impl<T: Config> Pallet<T> {
         if touches_root {
             ensure!(
                 RootClaimable::<T>::get(new_hotkey).is_empty()
-                    && Self::get_stake_for_hotkey_on_subnet(new_hotkey, NetUid::ROOT).is_zero(),
+                    && Self::get_stake_for_hotkey_on_subnet(new_hotkey, NetUid::ROOT).is_zero()
+                    && RootClaimed::<T>::iter_prefix((NetUid::ROOT, new_hotkey))
+                        .next()
+                        .is_none(),
                 Error::<T>::NewHotKeyNotCleanForRootSwap
             );
         }
@@ -131,6 +134,55 @@ impl<T: Config> Pallet<T> {
         };
 
         // Start to do everything for swap hotkey on all subnets case
+        // 12.1 Enforce the per-subnet hotkey-swap cooldown on the all-subnets path too.
+        // The all-subnets swap moves the identity on every subnet the old hotkey actively
+        // participates in, so it must respect (and record) `LastHotkeySwapOnNetuid` for each
+        // of those subnets, exactly like the per-subnet path.
+        //
+        // "Participates in" is membership OR being a parent (has childkeys). Note a parent
+        // need not be a registered member — `do_set_children` has no membership requirement —
+        // so the childkey case genuinely adds coverage beyond `IsNetworkMember`, and
+        // `parent_child_swap_hotkey` re-homes those childkeys even on non-member subnets.
+        //
+        // We deliberately do NOT gate on the *child* side (`ParentKeys`): being someone's
+        // child is set by the parent via `do_set_children` WITHOUT the child's consent, so a
+        // third party could otherwise add a victim's hotkey as a child on an arbitrary subnet
+        // and impose swap-cooldowns on it — a griefing vector. The swap still migrates the
+        // child relationship for correctness; it simply isn't cooldown-gated.
+        let hotkey_swap_interval = T::HotkeySwapOnSubnetInterval::get();
+        let all_netuids = Self::get_all_subnet_netuids();
+        // Up to 2 reads per subnet during filtering (membership + childkeys), plus the
+        // subnet-list read itself.
+        weight.saturating_accrue(
+            T::DbWeight::get().reads(
+                (all_netuids.len() as u64)
+                    .saturating_mul(2)
+                    .saturating_add(1),
+            ),
+        );
+        let affected_netuids: Vec<NetUid> = all_netuids
+            .into_iter()
+            .filter(|netuid| {
+                IsNetworkMember::<T>::get(old_hotkey, *netuid)
+                    || !ChildKeys::<T>::get(old_hotkey, *netuid).is_empty()
+            })
+            .collect();
+        for netuid in affected_netuids.iter() {
+            let last_hotkey_swap_block = LastHotkeySwapOnNetuid::<T>::get(*netuid, &coldkey);
+            // Only enforce the cooldown when a prior swap was recorded on this subnet.
+            // A first swap (no recorded timestamp) must not be gated by chain age — that
+            // would block the very first swap and never closes a bypass, since any swap
+            // records the timestamp and subsequent swaps within the interval are rejected.
+            if last_hotkey_swap_block != 0 {
+                ensure!(
+                    last_hotkey_swap_block.saturating_add(hotkey_swap_interval) < block,
+                    Error::<T>::HotKeySwapOnSubnetIntervalNotPassed
+                );
+            }
+            weight.saturating_accrue(T::DbWeight::get().reads(1));
+        }
+
+        // Start to do everything for swap hotkey on all subnets case
         // 13. Get the cost for swapping the key
         let swap_cost = Self::get_key_swap_cost();
         log::debug!("Swap cost: {swap_cost:?}");
@@ -155,6 +207,14 @@ impl<T: Config> Pallet<T> {
             &mut weight,
             keep_stake,
         )?;
+
+        // 16.1 Record the per-subnet swap cooldown for every affected subnet, so a
+        // subsequent per-subnet (or all-subnets) swap on the same subnet within the
+        // interval is correctly rejected.
+        for netuid in affected_netuids.iter() {
+            LastHotkeySwapOnNetuid::<T>::insert(*netuid, &coldkey, block);
+            weight.saturating_accrue(T::DbWeight::get().writes(1));
+        }
 
         // 17. Update the last transaction block for the coldkey
         Self::set_last_tx_block(&coldkey, block);
@@ -479,6 +539,17 @@ impl<T: Config> Pallet<T> {
         {
             NeuronCertificates::<T>::remove(netuid, old_hotkey);
             NeuronCertificates::<T>::insert(netuid, new_hotkey, old_neuron_certificates);
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+        }
+
+        // 3.8. Swap ChildkeyTake.
+        // ChildkeyTake( hotkey, netuid ) --> u16 -- the per-subnet childkey take for the hotkey.
+        // Only migrate when an explicit value exists, to preserve the storage default
+        // semantics (don't materialize a floor value for hotkeys that never set a take).
+        // `take` reads + removes the old row in one operation, avoiding orphaned storage.
+        if ChildkeyTake::<T>::contains_key(old_hotkey, netuid) {
+            let childkey_take = ChildkeyTake::<T>::take(old_hotkey, netuid);
+            ChildkeyTake::<T>::insert(new_hotkey, netuid, childkey_take);
             weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
         }
 

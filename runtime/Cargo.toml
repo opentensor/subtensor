@@ -61,6 +61,7 @@ sp-authority-discovery.workspace = true
 subtensor-runtime-common.workspace = true
 subtensor-precompiles.workspace = true
 sp-weights.workspace = true
+sp-io.workspace = true
 
 # Temporary sudo
 pallet-sudo.workspace = true
@@ -87,9 +88,6 @@ pallet-transaction-payment-rpc-runtime-api.workspace = true
 # Used for runtime benchmarking
 frame-benchmarking = { workspace = true, optional = true }
 frame-system-benchmarking = { workspace = true, optional = true }
-
-# Identity registry pallet for registering project info
-pallet-registry.workspace = true
 
 # Metadata commitment pallet
 pallet-commitments.workspace = true
@@ -162,7 +160,6 @@ ethereum.workspace = true
 
 [dev-dependencies]
 frame-metadata.workspace = true
-sp-io.workspace = true
 sp-tracing.workspace = true
 sp-keyring.workspace = true
 precompile-utils = { workspace = true, features = ["testing"] }
@@ -218,7 +215,6 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"substrate-wasm-builder",
-	"pallet-registry/std",
 	"pallet-admin-utils/std",
 	"subtensor-custom-rpc-runtime-api/std",
 	"subtensor-transaction-fee/std",
@@ -302,7 +298,6 @@ runtime-benchmarks = [
 	"pallet-safe-mode/runtime-benchmarks",
 	"pallet-subtensor/runtime-benchmarks",
 	"pallet-subtensor-proxy/runtime-benchmarks",
-	"pallet-registry/runtime-benchmarks",
 	"pallet-commitments/runtime-benchmarks",
 	"pallet-admin-utils/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
@@ -362,7 +357,6 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 	"pallet-admin-utils/try-runtime",
 	"pallet-commitments/try-runtime",
-	"pallet-registry/try-runtime",
 	"pallet-crowdloan/try-runtime",
 	"pallet-babe/try-runtime",
 	"pallet-session/try-runtime",

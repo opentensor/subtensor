@@ -6,6 +6,7 @@ use sp_core::{ByteArray, H256, U256};
 use subtensor_runtime_common::NetUid;
 
 use crate::PrecompileExt;
+use crate::PrecompileHandleExt;
 
 /// VotingPower precompile for smart contract access to validator voting power.
 ///
@@ -15,7 +16,7 @@ pub struct VotingPowerPrecompile<R>(PhantomData<R>);
 
 impl<R> PrecompileExt<R::AccountId> for VotingPowerPrecompile<R>
 where
-    R: frame_system::Config + pallet_subtensor::Config,
+    R: frame_system::Config + pallet_subtensor::Config + pallet_evm::Config,
     R::AccountId: From<[u8; 32]> + ByteArray,
 {
     const INDEX: u64 = 2061;
@@ -24,7 +25,7 @@ where
 #[precompile_utils::precompile]
 impl<R> VotingPowerPrecompile<R>
 where
-    R: frame_system::Config + pallet_subtensor::Config,
+    R: frame_system::Config + pallet_subtensor::Config + pallet_evm::Config,
     R::AccountId: From<[u8; 32]>,
 {
     /// Get voting power for a hotkey on a subnet.
@@ -44,10 +45,11 @@ where
     #[precompile::public("getVotingPower(uint16,bytes32)")]
     #[precompile::view]
     fn get_voting_power(
-        _: &mut impl PrecompileHandle,
+        handle: &mut impl PrecompileHandle,
         netuid: u16,
         hotkey: H256,
     ) -> EvmResult<U256> {
+        handle.record_db_reads::<R>(1)?;
         let hotkey = R::AccountId::from(hotkey.0);
         let voting_power = pallet_subtensor::VotingPower::<R>::get(NetUid::from(netuid), &hotkey);
         Ok(U256::from(voting_power))
@@ -63,9 +65,10 @@ where
     #[precompile::public("isVotingPowerTrackingEnabled(uint16)")]
     #[precompile::view]
     fn is_voting_power_tracking_enabled(
-        _: &mut impl PrecompileHandle,
+        handle: &mut impl PrecompileHandle,
         netuid: u16,
     ) -> EvmResult<bool> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::VotingPowerTrackingEnabled::<R>::get(
             NetUid::from(netuid),
         ))
@@ -84,9 +87,10 @@ where
     #[precompile::public("getVotingPowerDisableAtBlock(uint16)")]
     #[precompile::view]
     fn get_voting_power_disable_at_block(
-        _: &mut impl PrecompileHandle,
+        handle: &mut impl PrecompileHandle,
         netuid: u16,
     ) -> EvmResult<u64> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::VotingPowerDisableAtBlock::<R>::get(
             NetUid::from(netuid),
         ))
@@ -104,7 +108,11 @@ where
     /// * `u64` - The alpha value (with 18 decimal precision)
     #[precompile::public("getVotingPowerEmaAlpha(uint16)")]
     #[precompile::view]
-    fn get_voting_power_ema_alpha(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
+    fn get_voting_power_ema_alpha(
+        handle: &mut impl PrecompileHandle,
+        netuid: u16,
+    ) -> EvmResult<u64> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::VotingPowerEmaAlpha::<R>::get(
             NetUid::from(netuid),
         ))
@@ -122,10 +130,14 @@ where
     /// * `u256` - The total voting power across all validators
     #[precompile::public("getTotalVotingPower(uint16)")]
     #[precompile::view]
-    fn get_total_voting_power(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<U256> {
-        let total: u64 = pallet_subtensor::VotingPower::<R>::iter_prefix(NetUid::from(netuid))
-            .map(|(_, voting_power)| voting_power)
-            .fold(0u64, |acc, vp| acc.saturating_add(vp));
+    fn get_total_voting_power(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<U256> {
+        let mut total: u64 = 0;
+        for (_, voting_power) in
+            pallet_subtensor::VotingPower::<R>::iter_prefix(NetUid::from(netuid))
+        {
+            handle.record_db_reads::<R>(1)?;
+            total = total.saturating_add(voting_power);
+        }
         Ok(U256::from(total))
     }
 }
