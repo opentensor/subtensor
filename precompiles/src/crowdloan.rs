@@ -75,9 +75,10 @@ where
     #[precompile::public("getCrowdloan(uint32)")]
     #[precompile::view]
     fn get_crowdloan(
-        _handle: &mut impl PrecompileHandle,
+        handle: &mut impl PrecompileHandle,
         crowdloan_id: u32,
     ) -> EvmResult<CrowdloanInfo> {
+        handle.record_db_reads::<R>(1)?;
         let crowdloan = pallet_crowdloan::Crowdloans::<R>::get(crowdloan_id).ok_or(
             PrecompileFailure::Error {
                 exit_status: ExitError::Other("Crowdloan not found".into()),
@@ -105,10 +106,11 @@ where
     #[precompile::public("getContribution(uint32,bytes32)")]
     #[precompile::view]
     fn get_contribution(
-        _handle: &mut impl PrecompileHandle,
+        handle: &mut impl PrecompileHandle,
         crowdloan_id: u32,
         coldkey: H256,
     ) -> EvmResult<u64> {
+        handle.record_db_reads::<R>(1)?;
         let coldkey = R::AccountId::from(coldkey.0);
         let contribution = pallet_crowdloan::Contributions::<R>::get(crowdloan_id, coldkey).ok_or(
             PrecompileFailure::Error {

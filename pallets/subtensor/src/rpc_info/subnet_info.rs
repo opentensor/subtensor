@@ -618,7 +618,7 @@ impl<T: Config> Pallet<T> {
             )
                 .into(),
             (
-                "min_childkey_take_per_subnet",
+                "min_childkey_take",
                 HyperparamValue::U16(Self::get_effective_min_childkey_take(netuid).into()),
             )
                 .into(),

@@ -12,6 +12,7 @@ use pallet_evm::{
 };
 use pallet_subtensor::SubtensorTransactionExtension;
 use precompile_utils::EvmResult;
+use precompile_utils::prelude::RuntimeHelper;
 use scale_info::TypeInfo;
 use sp_core::{H160, U256, blake2_256};
 use sp_runtime::{
@@ -32,6 +33,23 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
         <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     {
         <R as pallet_evm::Config>::AddressMapping::into_account_id(self.context().caller)
+    }
+
+    fn record_db_reads<R>(&mut self, reads: u64) -> EvmResult<()>
+    where
+        R: frame_system::Config + pallet_evm::Config,
+    {
+        self.record_cost(RuntimeHelper::<R>::db_read_gas_cost().saturating_mul(reads))?;
+        Ok(())
+    }
+
+    fn record_db_writes<R>(&mut self, writes: u64) -> EvmResult<()>
+    where
+        R: frame_system::Config + pallet_evm::Config,
+    {
+        self.record_cost(RuntimeHelper::<R>::db_write_gas_cost().saturating_mul(writes))?;
+
+        Ok(())
     }
 
     fn try_convert_apparent_value<R>(&self) -> EvmResult<U256>
