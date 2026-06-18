@@ -273,7 +273,7 @@ pub mod opaque {
     // Opaque block identifier type.
     pub type BlockId = generic::BlockId<Block>;
 
-    impl_opaque_keys! { pub struct SessionKeys { pub aura: Aura, pub babe: Babe, pub grandpa: Grandpa, } }
+    impl_opaque_keys! { pub struct SessionKeys { pub aura: Aura, pub grandpa: Grandpa, } }
 }
 
 // To learn more about runtime versioning, see:
@@ -427,17 +427,6 @@ impl pallet_grandpa::Config for Runtime {
     type EquivocationReportSystem = ();
 }
 
-impl pallet_babe::Config for Runtime {
-    type EpochDuration = MevShieldIbeEpochLength;
-    type ExpectedBlockTime = ConstU64<SLOT_DURATION>;
-    type EpochChangeTrigger = pallet_babe::SameAuthoritiesForever;
-    type DisabledValidators = ();
-    type WeightInfo = ();
-    type MaxAuthorities = ConstU32<32>;
-    type MaxNominators = ConstU32<20>;
-    type KeyOwnerProof = sp_core::Void;
-    type EquivocationReportSystem = ();
-}
 /// Babe epoch duration.
 ///
 /// Staging this Babe constant prior to enacting the full Babe upgrade so the node
@@ -466,7 +455,7 @@ pub const BABE_GENESIS_EPOCH_CONFIG: sp_consensus_babe::BabeEpochConfiguration =
 impl pallet_timestamp::Config for Runtime {
     // A timestamp: milliseconds since the unix epoch.
     type Moment = u64;
-    type OnTimestampSet = (Aura, Babe);
+    type OnTimestampSet = Aura;
     type MinimumPeriod = ConstU64<{ SLOT_DURATION / 2 }>;
     type WeightInfo = pallet_timestamp::weights::SubstrateWeight<Runtime>;
 }
@@ -1709,7 +1698,7 @@ construct_runtime!(
         Crowdloan: pallet_crowdloan = 27,
         Swap: pallet_subtensor_swap = 28,
         Contracts: pallet_contracts = 29,
-        MevShield: pallet_shield = 30, Babe: pallet_babe = 31,
+        MevShield: pallet_shield = 30,
     }
 );
 
@@ -2572,11 +2561,46 @@ impl_runtime_apis! {
     }
 
     impl sp_consensus_babe::BabeApi<Block> for Runtime {
-        fn configuration() -> BabeConfiguration { let config = BabeEpochConfiguration::default(); BabeConfiguration { slot_duration: SLOT_DURATION, epoch_length: EPOCH_DURATION_IN_SLOTS, authorities: Babe::authorities().into_inner(), randomness: Babe::randomness(), c: config.c, allowed_slots: config.allowed_slots, } } fn current_epoch_start() -> sp_consensus_babe::Slot { Babe::current_epoch_start() }
+        fn configuration() -> BabeConfiguration {
+        let config = BabeEpochConfiguration::default();
+        BabeConfiguration {
+            slot_duration: SLOT_DURATION,
+            epoch_length: EPOCH_DURATION_IN_SLOTS,
+            authorities: sp_std::vec::Vec::new(),
+            randomness: [0u8; 32],
+            c: config.c,
+            allowed_slots: config.allowed_slots,
+        }
 
-        fn current_epoch() -> sp_consensus_babe::Epoch { Babe::current_epoch() }
+} fn current_epoch_start() -> sp_consensus_babe::Slot {
+        Default::default()
+}
 
-        fn next_epoch() -> sp_consensus_babe::Epoch { Babe::next_epoch() }
+        fn current_epoch() -> sp_consensus_babe::Epoch {
+        let config = BabeEpochConfiguration::default();
+        sp_consensus_babe::Epoch {
+            epoch_index: 0,
+            start_slot: Default::default(),
+            duration: EPOCH_DURATION_IN_SLOTS,
+            authorities: sp_std::vec::Vec::new(),
+            randomness: [0u8; 32],
+            config,
+        }
+
+}
+
+        fn next_epoch() -> sp_consensus_babe::Epoch {
+        let config = BabeEpochConfiguration::default();
+        sp_consensus_babe::Epoch {
+            epoch_index: 0,
+            start_slot: Default::default(),
+            duration: EPOCH_DURATION_IN_SLOTS,
+            authorities: sp_std::vec::Vec::new(),
+            randomness: [0u8; 32],
+            config,
+        }
+
+}
 
         fn generate_key_ownership_proof(
             _slot: sp_consensus_babe::Slot,
