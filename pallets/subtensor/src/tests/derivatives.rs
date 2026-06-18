@@ -1193,6 +1193,29 @@ fn dereg_settles_longs() {
     });
 }
 
+// Fix: long collateral must be UNLOCKED alpha — opening a long against
+// locked alpha (which a normal unstake would block) is rejected, so it can't
+// be used to free locked stake.
+#[test]
+fn open_long_respects_stake_lock() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_long(1000 * TAO, 1000 * TAO, 1.0);
+        let cold = U256::from(10);
+        let hot = U256::from(11);
+        register_ok_neuron(netuid, hot, cold, 0);
+        give_alpha(hot, cold, netuid, AlphaBalance::from(200 * TAO));
+
+        // Lock almost all the staked alpha.
+        assert_ok!(SubtensorModule::do_lock_stake(&cold, netuid, &hot, AlphaBalance::from(195 * TAO)));
+
+        // A long against the locked alpha is rejected (would otherwise free it).
+        assert_noop!(
+            SubtensorModule::open_long(RuntimeOrigin::signed(cold), hot, netuid, AlphaBalance::from(100 * TAO)),
+            Error::<Test>::StakeUnavailable
+        );
+    });
+}
+
 // Shorts and longs are independently flaggable on the same subnet.
 #[test]
 fn short_and_long_flags_are_independent() {

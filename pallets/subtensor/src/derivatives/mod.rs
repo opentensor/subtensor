@@ -391,6 +391,8 @@ impl<T: Config> Pallet<T> {
             SubnetAlphaOut::<T>::get(netuid) >= q_close,
             Error::<T>::InsufficientAlphaToClose
         );
+        // The repayment alpha must be unlocked (respect stake locks like unstake).
+        Self::ensure_available_to_unstake(&coldkey, netuid, q_close)?;
         Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(&pos.hotkey, &coldkey, netuid, q_close);
         SubnetAlphaOut::<T>::mutate(netuid, |o| *o = o.saturating_sub(q_close));
         Self::increase_provided_alpha_reserve(netuid, q_close);

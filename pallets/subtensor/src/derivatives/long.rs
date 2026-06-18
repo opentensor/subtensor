@@ -113,6 +113,10 @@ impl<T: Config> Pallet<T> {
                 >= position_input,
             Error::<T>::InsufficientCollateral
         );
+        // Respect stake locks: collateral must be unlocked alpha, exactly as a
+        // normal unstake requires (otherwise a long open+close would free locked
+        // alpha and bypass the subnet-ownership lock).
+        Self::ensure_available_to_unstake(&coldkey, netuid, position_input)?;
         Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid, position_input);
         SubnetAlphaOut::<T>::mutate(netuid, |o| *o = o.saturating_sub(position_input));
         Self::decrease_provided_alpha_reserve(netuid, n_alpha.saturating_add(e_alpha));
@@ -183,6 +187,7 @@ impl<T: Config> Pallet<T> {
             Self::get_stake_for_hotkey_and_coldkey_on_subnet(&pos.hotkey, &coldkey, netuid) >= amount,
             Error::<T>::InsufficientCollateral
         );
+        Self::ensure_available_to_unstake(&coldkey, netuid, amount)?;
         Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(&pos.hotkey, &coldkey, netuid, amount);
         SubnetAlphaOut::<T>::mutate(netuid, |o| *o = o.saturating_sub(amount));
 
