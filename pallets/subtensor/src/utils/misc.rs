@@ -377,6 +377,15 @@ impl<T: Config> Pallet<T> {
     // ========= Sudo =========
     // ========================
 
+    // Per-block epoch cap (dynamic tempo throttle)
+    pub fn get_max_epochs_per_block() -> u32 {
+        MaxEpochsPerBlock::<T>::get()
+    }
+    pub fn set_max_epochs_per_block(max_epochs_per_block: u32) {
+        MaxEpochsPerBlock::<T>::put(max_epochs_per_block);
+        Self::deposit_event(Event::MaxEpochsPerBlockSet(max_epochs_per_block));
+    }
+
     // Configure tx rate limiting
     pub fn get_tx_rate_limit() -> u64 {
         TxRateLimit::<T>::get()

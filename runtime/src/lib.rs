@@ -1116,7 +1116,7 @@ impl pallet_subtensor::Config for Runtime {
     type AuthorshipProvider = BlockAuthorFromAura<Aura>;
     type SubtensorPalletId = SubtensorPalletId;
     type BurnAccountId = BurnAccountId;
-    type MaxEpochsPerBlock = SubtensorMaxEpochsPerBlock;
+    type InitialMaxEpochsPerBlock = SubtensorMaxEpochsPerBlock;
     type WeightInfo = pallet_subtensor::weights::SubstrateWeight<Runtime>;
 }
 

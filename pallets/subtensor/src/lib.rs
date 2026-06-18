@@ -923,6 +923,12 @@ pub mod pallet {
     //     T::InitialHotkeyEmissionTempo::get()
     // } (DEPRECATED)
 
+    /// Default per-block epoch cap, seeded from the runtime-configured initial value.
+    #[pallet::type_value]
+    pub fn DefaultMaxEpochsPerBlock<T: Config>() -> u32 {
+        T::InitialMaxEpochsPerBlock::get()
+    }
+
     /// Default value for rate limiting
     #[pallet::type_value]
     pub fn DefaultTxRateLimit<T: Config>() -> u64 {
@@ -2129,6 +2135,10 @@ pub mod pallet {
         ValueQuery,
         DefaultRAORecycledForRegistration<T>,
     >;
+
+    /// --- ITEM ( max_epochs_per_block )
+    #[pallet::storage]
+    pub type MaxEpochsPerBlock<T> = StorageValue<_, u32, ValueQuery, DefaultMaxEpochsPerBlock<T>>;
 
     /// --- ITEM ( tx_rate_limit )
     #[pallet::storage]

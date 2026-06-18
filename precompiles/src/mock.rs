@@ -483,7 +483,7 @@ impl pallet_subtensor::Config for Runtime {
     type AuthorshipProvider = MockAuthorshipProvider;
     type SubtensorPalletId = SubtensorPalletId;
     type BurnAccountId = BurnAccountId;
-    type MaxEpochsPerBlock = MaxEpochsPerBlock;
+    type InitialMaxEpochsPerBlock = MaxEpochsPerBlock;
     type WeightInfo = ();
 }
 
