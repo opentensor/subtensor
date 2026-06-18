@@ -39,10 +39,13 @@ impl<T: Config> Pallet<T> {
     // ---- conversions ----------------------------------------------------
 
     fn tao_f(t: TaoBalance) -> I64F64 {
-        I64F64::from_num(t.to_u64())
+        // `saturating_from_num`, not `from_num`: these run in the non-transactional
+        // `on_initialize` decay path, so a panic would halt consensus. Saturating
+        // is safe (balances are supply-capped well below I64F64's range).
+        I64F64::saturating_from_num(t.to_u64())
     }
     fn alpha_f(a: AlphaBalance) -> I64F64 {
-        I64F64::from_num(a.to_u64())
+        I64F64::saturating_from_num(a.to_u64())
     }
     fn to_tao(x: I64F64) -> TaoBalance {
         TaoBalance::from(x.max(I64F64::from_num(0)).saturating_to_num::<u64>())
@@ -92,7 +95,7 @@ impl<T: Config> Pallet<T> {
     fn short_t_ref(netuid: NetUid) -> I64F64 {
         let t_live = Self::tao_f(SubnetTAO::<T>::get(netuid));
         let a_live = Self::alpha_f(SubnetAlphaIn::<T>::get(netuid));
-        let pema = I64F64::from_num(Self::get_moving_alpha_price(netuid));
+        let pema = I64F64::saturating_from_num(Self::get_moving_alpha_price(netuid));
         let t_ema = pema.saturating_mul(a_live);
         // A cold price EMA (`pema == 0`, e.g. a freshly created subnet) must not
         // lock the market; fall back to the live reserve until it warms up.
@@ -565,7 +568,7 @@ impl<T: Config> Pallet<T> {
     /// pool is drained so restored escrow joins the terminal distribution.
     pub fn settle_shorts_on_dereg(netuid: NetUid) {
         let agg = ShortAggregate::<T>::get(netuid);
-        let pema = I64F64::from_num(Self::get_moving_alpha_price(netuid));
+        let pema = I64F64::saturating_from_num(Self::get_moving_alpha_price(netuid));
         let custody = Self::short_custody_account(netuid);
         let subnet_account = match Self::get_subnet_account_id(netuid) {
             Some(a) => a,
@@ -669,8 +672,11 @@ impl<T: Config> Pallet<T> {
     pub fn set_short_min_input(min_input: TaoBalance) {
         ShortMinInput::<T>::put(min_input);
     }
+    /// Clamped to `[1, 4096]` so governance can't lift the dereg-settlement
+    /// blast radius to a chain-halting size (terminal settlement is O(positions)
+    /// in a single block until incremental settlement lands).
     pub fn set_short_max_positions(max: u32) {
-        ShortMaxPositions::<T>::put(max);
+        ShortMaxPositions::<T>::put(max.clamp(1, 4096));
     }
 
     // ---- read-only quote (spec §1.2) -----------------------------------

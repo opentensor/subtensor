@@ -24,7 +24,7 @@ impl<T: Config> Pallet<T> {
     fn long_a_ref(netuid: NetUid) -> I64F64 {
         let a_live = Self::alpha_f(SubnetAlphaIn::<T>::get(netuid));
         let t_live = Self::tao_f(SubnetTAO::<T>::get(netuid));
-        let pema = I64F64::from_num(Self::get_moving_alpha_price(netuid));
+        let pema = I64F64::saturating_from_num(Self::get_moving_alpha_price(netuid));
         if pema <= I64F64::from_num(0) {
             return a_live;
         }
@@ -370,7 +370,7 @@ impl<T: Config> Pallet<T> {
     /// debt stays burned (recycled); the equity remainder returns as stake.
     pub fn settle_longs_on_dereg(netuid: NetUid) {
         let agg = LongAggregate::<T>::get(netuid);
-        let price = I64F64::from_num(Self::get_moving_alpha_price(netuid));
+        let price = I64F64::saturating_from_num(Self::get_moving_alpha_price(netuid));
         let positions: Vec<(T::AccountId, LongPosition<T::AccountId>)> =
             LongPositions::<T>::iter_prefix(netuid).collect();
         for (coldkey, mut pos) in positions {
@@ -420,7 +420,8 @@ impl<T: Config> Pallet<T> {
     pub fn set_long_min_input(min_input: AlphaBalance) {
         LongMinInput::<T>::put(min_input);
     }
+    /// Clamped to `[1, 4096]` (see `set_short_max_positions`).
     pub fn set_long_max_positions(max: u32) {
-        LongMaxPositions::<T>::put(max);
+        LongMaxPositions::<T>::put(max.clamp(1, 4096));
     }
 }

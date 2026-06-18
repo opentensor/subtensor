@@ -1129,6 +1129,14 @@ fn governance_setters_clamp_ranges() {
         // max > 1.0/day → clamped so per-block delta stays < 1.
         SubtensorModule::set_decay_bounds_ppb(0, 5_000_000_000);
         assert!(DecayMax::<Test>::get() <= one, "decay max clamps to 1.0/day");
+
+        // Max-positions clamped so root can't lift the dereg blast radius.
+        SubtensorModule::set_short_max_positions(u32::MAX);
+        assert_eq!(ShortMaxPositions::<Test>::get(), 4096);
+        SubtensorModule::set_short_max_positions(0);
+        assert_eq!(ShortMaxPositions::<Test>::get(), 1);
+        SubtensorModule::set_long_max_positions(u32::MAX);
+        assert_eq!(LongMaxPositions::<Test>::get(), 4096);
     });
 }
 
