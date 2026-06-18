@@ -1328,15 +1328,13 @@ fn derivatives_write_subnet_flow() {
         let f1 = SubnetTaoFlow::<Test>::get(netuid);
         assert!(f1 < f0, "short open must write negative flow: {f1} !< {f0}");
 
-        // A long close pays D TAO into the pool → positive flow.
+        // A long open routes D TAO through the pool to buy alpha → positive flow.
         let lc = U256::from(20);
         let lh = U256::from(21);
         give_alpha(lh, lc, netuid, AlphaBalance::from(500 * TAO));
-        add_balance_to_coldkey_account(&lc, t(1000 * TAO));
-        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(lc), lh, netuid, AlphaBalance::from(100 * TAO)));
         let f2 = SubnetTaoFlow::<Test>::get(netuid);
-        assert_ok!(SubtensorModule::close_long(RuntimeOrigin::signed(lc), netuid, 1_000_000_000));
-        assert!(SubnetTaoFlow::<Test>::get(netuid) > f2, "long close must write positive flow");
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(lc), lh, netuid, AlphaBalance::from(100 * TAO)));
+        assert!(SubnetTaoFlow::<Test>::get(netuid) > f2, "long open must write positive flow");
 
         // χ = 0 → flow-neutral: another short open leaves flow untouched.
         SubtensorModule::set_derivative_flow_factor_ppb(0);

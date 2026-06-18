@@ -10,11 +10,12 @@
 //! via issuance accounting (burned at open, minted back on restore/close). Pool
 //! reserves, `TotalStake`, and issuance move in lockstep.
 //!
-//! Emissions flow. Derivative TAO movements write TaoFlow scaled by the
-//! governance factor `χ` (`DerivativeFlowFactor`): a short removing TAO from the
-//! pool writes negative flow (bearish demand), and TAO returned on
-//! unwind/close/dereg — including a long close paying its `D` liability — writes
-//! positive flow. `χ = 0` restores flow-neutral behavior (spec §4.5).
+//! Emissions flow. A single TaoFlow signal is written **at open**, scaled by the
+//! governance factor `χ` (`DerivativeFlowFactor`), based on the TAO swapped
+//! through the pool: a short sells alpha and extracts `N` TAO → negative flow;
+//! a long routes `D` TAO through the pool to buy alpha → positive flow. Unwinds
+//! (decay/close/default/dereg) do not write flow — the flow EMA decays the
+//! open-time pulse. `χ = 0` restores flow-neutral behavior (spec §4.5).
 //!
 //! Custody solvency invariant. `custody_balance(netuid)` (shorts) and the burned
 //! Alpha (longs) equal `Σ materialized (P + R(t) + E(t))` **to within per-block
@@ -327,8 +328,10 @@ impl<T: Config> Pallet<T> {
         Self::transfer_tao(&subnet_account, &custody, removed.into())?;
         Self::decrease_provided_tao_reserve(netuid, removed);
         TotalStake::<T>::mutate(|t| *t = t.saturating_sub(removed));
-        // Express bearish demand: a short removing TAO writes negative TaoFlow.
-        Self::record_derivative_outflow(netuid, removed);
+        // Bearish demand: the alpha sold through the pool extracts `N` TAO, which
+        // is the subnet's negative flow signal (one-shot at open; the flow EMA
+        // decays it). Unwinds do not reverse it.
+        Self::record_derivative_outflow(netuid, n_tao);
 
         let block = Self::get_current_block_as_u64();
         let pos = match ShortPositions::<T>::get(netuid, &coldkey) {
@@ -464,7 +467,6 @@ impl<T: Config> Pallet<T> {
             Self::transfer_tao(&custody, &subnet_account, e_close.into())?;
             Self::increase_provided_tao_reserve(netuid, e_close);
             TotalStake::<T>::mutate(|t| *t = t.saturating_add(e_close));
-            Self::record_derivative_inflow(netuid, e_close);
         }
         let returned = p_close.saturating_add(r_close);
         if !returned.is_zero() {
@@ -533,7 +535,6 @@ impl<T: Config> Pallet<T> {
             Self::transfer_tao(&custody, &subnet_account, residual.into())?;
             Self::increase_provided_tao_reserve(netuid, residual);
             TotalStake::<T>::mutate(|t| *t = t.saturating_add(residual));
-            Self::record_derivative_inflow(netuid, residual);
         }
         Self::recycle_custody_tao(&custody, pos.p_floor);
 
@@ -592,7 +593,6 @@ impl<T: Config> Pallet<T> {
             {
                 Self::increase_provided_tao_reserve(netuid, restore);
                 TotalStake::<T>::mutate(|t| *t = t.saturating_add(restore));
-                Self::record_derivative_inflow(netuid, restore);
             }
         }
     }
@@ -622,7 +622,6 @@ impl<T: Config> Pallet<T> {
             {
                 Self::increase_provided_tao_reserve(netuid, pos.e_stored);
                 TotalStake::<T>::mutate(|t| *t = t.saturating_add(pos.e_stored));
-                Self::record_derivative_inflow(netuid, pos.e_stored);
             }
 
             // K_D(Q) = max(K_spot,last(Q), Q·pEMA).

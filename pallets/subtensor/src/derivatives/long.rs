@@ -135,6 +135,9 @@ impl<T: Config> Pallet<T> {
         Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid, position_input);
         SubnetAlphaOut::<T>::mutate(netuid, |o| *o = o.saturating_sub(position_input));
         Self::decrease_provided_alpha_reserve(netuid, n_alpha.saturating_add(e_alpha));
+        // Bullish demand: the long routes `D` TAO through the pool to buy alpha,
+        // recorded as positive flow at open (one-shot; the flow EMA decays it).
+        Self::record_derivative_inflow(netuid, d_tao);
 
         let block = Self::get_current_block_as_u64();
         let pos = match LongPositions::<T>::get(netuid, &coldkey) {
@@ -254,8 +257,6 @@ impl<T: Config> Pallet<T> {
             Self::transfer_tao(&coldkey, &subnet_account, d_close.into())?;
             Self::increase_provided_tao_reserve(netuid, d_close);
             TotalStake::<T>::mutate(|t| *t = t.saturating_add(d_close));
-            // Long close pays D TAO into the pool: positive TaoFlow.
-            Self::record_derivative_inflow(netuid, d_close);
         }
         // Settle escrow back to the pool; return floor+buffer as stake (mint).
         Self::increase_provided_alpha_reserve(netuid, e_close);
