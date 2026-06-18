@@ -28,7 +28,8 @@
                             "--no-prometheus",
                             "--no-telemetry",
                             "--reserved-only",
-                            "--tmp"
+                            "--tmp",
+                            "--sealing=manual"
                         ],
                         "disableDefaultEthProviders": true,
                         "newRpcBehaviour": true
