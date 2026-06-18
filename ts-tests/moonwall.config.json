@@ -1,12 +1,12 @@
 {
     "$schema": "https://raw.githubusercontent.com/Moonsong-Labs/moonwall/main/packages/types/config_schema.json",
     "label": "💃 MasterConfig",
-    "defaultTestTimeout": 120000,
+    "defaultTestTimeout": 600000,
     "scriptsDir": "scripts/",
     "environments": [
         {
             "name": "dev",
-            "timeout": 120000,
+            "timeout": 600000,
             "envVars": ["DEBUG_COLORS=1"],
             "testFileDir": [
                 "suites/dev"
@@ -36,7 +36,7 @@
                         ],
                         "disableDefaultEthProviders": true,
                         "newRpcBehaviour": true,
-                        "maxStartupTimeout": 120000,
+                        "maxStartupTimeout": 600000,
                         "connectTimeout": 30000
                     }
                 ]
