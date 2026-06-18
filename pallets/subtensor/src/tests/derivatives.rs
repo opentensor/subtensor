@@ -916,6 +916,109 @@ fn position_count_cap_enforced_and_maintained() {
     });
 }
 
+// ===========================================================================
+// PROOF: global value conservation across the full mixed lifecycle.
+//
+// Exercises the real dispatch path for both sides (open/top-up/partial+full
+// close) plus continuous decay, and asserts that no TAO and no Alpha is minted
+// or destroyed once every position is closed. Decay is driven directly (not via
+// step_block) so coinbase emissions don't perturb issuance.
+// ===========================================================================
+#[test]
+fn proof_full_lifecycle_conserves_tao_and_alpha() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_long(1000 * TAO, 1000 * TAO, 1.0); // both sides enabled
+        let (s_cold, s_hot) = (U256::from(10), U256::from(11));
+        let (l_cold, l_hot) = (U256::from(20), U256::from(21));
+        // Fund: short needs TAO (floor + top-up) and Alpha (repay Q); long needs
+        // Alpha (collateral) and TAO (repay D).
+        add_balance_to_coldkey_account(&s_cold, t(1000 * TAO));
+        add_balance_to_coldkey_account(&l_cold, t(1000 * TAO));
+        give_alpha(s_hot, s_cold, netuid, AlphaBalance::from(5000 * TAO));
+        give_alpha(l_hot, l_cold, netuid, AlphaBalance::from(500 * TAO));
+
+        // Baseline after all seeding.
+        let tao0 = TotalIssuance::<Test>::get().to_u64();
+        let alpha0 = alpha_issuance(netuid);
+
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(s_cold), s_hot, netuid, t(100 * TAO)));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(l_cold), l_hot, netuid, AlphaBalance::from(100 * TAO)));
+
+        // Continuous unwind on both sides.
+        for _ in 0..500 {
+            SubtensorModule::run_short_decay();
+            SubtensorModule::run_long_decay();
+        }
+
+        // Mid-life owner actions.
+        assert_ok!(SubtensorModule::top_up_short(RuntimeOrigin::signed(s_cold), netuid, t(10 * TAO)));
+        assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(s_cold), netuid, 500_000_000)); // half
+
+        // Close everything out.
+        assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(s_cold), netuid, 1_000_000_000));
+        assert_ok!(SubtensorModule::close_long(RuntimeOrigin::signed(l_cold), netuid, 1_000_000_000));
+
+        // CONSERVATION.
+        // TAO only ever *moves* between accounts (no recycle on this all-close
+        // path), so total TAO supply is conserved exactly.
+        assert_eq!(TotalIssuance::<Test>::get().to_u64(), tao0, "TAO supply not conserved");
+
+        // Alpha is burned/minted around the pool; fixed-point flooring means the
+        // restored amount is never ABOVE baseline (no value minted) and is below
+        // it only by bounded rounding dust.
+        let alpha1 = alpha_issuance(netuid);
+        const DUST_TOL: u64 = 1_000_000; // 0.001 Alpha; observed drift is ~5e2 rao
+        assert!(alpha1 <= alpha0, "Alpha was minted: {alpha1} > {alpha0}");
+        assert!(alpha0 - alpha1 <= DUST_TOL, "Alpha loss {} exceeds dust tol", alpha0 - alpha1);
+        assert!(custody_bal(netuid) <= DUST_TOL, "short custody dust too large");
+
+        // Positions and counts are cleared exactly; fixed liabilities net to 0.
+        assert!(ShortPositions::<Test>::get(netuid, s_cold).is_none());
+        assert!(LongPositions::<Test>::get(netuid, l_cold).is_none());
+        assert_eq!(ShortPositionCount::<Test>::get(netuid), 0);
+        assert_eq!(LongPositionCount::<Test>::get(netuid), 0);
+        assert_eq!(ShortAggregate::<Test>::get(netuid).q_sigma.to_u64(), 0);
+        assert_eq!(LongAggregate::<Test>::get(netuid).d_sigma.to_u64(), 0);
+    });
+}
+
+// PROOF: default reduces issuance by EXACTLY the recycled floor — no more, no
+// less — on both sides.
+#[test]
+fn proof_default_recycles_exactly_the_floor() {
+    new_test_ext(1).execute_with(|| {
+        // Short side: TotalIssuance (TAO) drops by exactly the floor P.
+        let netuid = setup_long(1000 * TAO, 1000 * TAO, 1.0);
+        let (s_cold, s_hot) = (U256::from(10), U256::from(11));
+        add_balance_to_coldkey_account(&s_cold, t(1000 * TAO));
+        SubtensorModule::set_short_default_grace(0);
+        SubtensorModule::set_short_dust(t(10_000 * TAO));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(s_cold), s_hot, netuid, t(100 * TAO)));
+        let tao_before = TotalIssuance::<Test>::get().to_u64();
+        assert_ok!(SubtensorModule::default_short(RuntimeOrigin::signed(U256::from(99)), s_cold, netuid));
+        assert_eq!(
+            TotalIssuance::<Test>::get().to_u64(),
+            tao_before - 100 * TAO,
+            "short default must recycle exactly the floor"
+        );
+
+        // Long side: Alpha issuance drops by exactly the floor P.
+        let (l_cold, l_hot) = (U256::from(20), U256::from(21));
+        give_alpha(l_hot, l_cold, netuid, AlphaBalance::from(500 * TAO));
+        SubtensorModule::set_long_dust(AlphaBalance::from(10_000 * TAO));
+        // Measure BEFORE open: long open burns alpha, default restores all but the
+        // floor, so the net effect of open+default is exactly −floor.
+        let alpha_before = alpha_issuance(netuid);
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(l_cold), l_hot, netuid, AlphaBalance::from(100 * TAO)));
+        assert_ok!(SubtensorModule::default_long(RuntimeOrigin::signed(U256::from(98)), l_cold, netuid));
+        assert_eq!(
+            alpha_issuance(netuid),
+            alpha_before - 100 * TAO,
+            "long default must recycle exactly the floor"
+        );
+    });
+}
+
 // Decay rate matches the closed form: one day at 1.0/day leaves ≈ e⁻¹, and the
 // per-position materialized buffer stays consistent with the aggregate.
 #[test]
