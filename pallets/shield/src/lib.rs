@@ -1374,8 +1374,10 @@ impl<T: Config> Pallet<T> {
                 .writes(2)
                 .saturating_add(info.call_weight);
 
-            let max_extrinsic_weight = Weight::from_parts(MaxExtrinsicWeight::<T>::get(), 0);
-            if info.call_weight.any_gt(max_extrinsic_weight) {
+            // MaxExtrinsicWeight is a ref_time-only storage limit. Do not compare
+            // against Weight::from_parts(limit, 0), because that creates a zero
+            // proof-size ceiling and rejects ordinary calls with non-zero proof_size.
+            if info.call_weight.ref_time() > MaxExtrinsicWeight::<T>::get() {
                 Self::remove_pending_index(index);
                 weight = weight.saturating_add(remove_weight);
 
@@ -1384,9 +1386,8 @@ impl<T: Config> Pallet<T> {
                 continue;
             }
 
-            let max_weight = Weight::from_parts(OnInitializeWeight::<T>::get(), 0);
-
-            if weight.saturating_add(dispatch_weight).any_gt(max_weight) {
+            // OnInitializeWeight is also stored as a ref_time-only budget.
+            if weight.saturating_add(dispatch_weight).ref_time() > OnInitializeWeight::<T>::get() {
                 Self::deposit_event(Event::ExtrinsicPostponed { index });
                 break;
             }
