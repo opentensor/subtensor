@@ -135,8 +135,8 @@ impl<T: Config> Pallet<T> {
         Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid, position_input);
         SubnetAlphaOut::<T>::mutate(netuid, |o| *o = o.saturating_sub(position_input));
         Self::decrease_provided_alpha_reserve(netuid, n_alpha.saturating_add(e_alpha));
-        // Bullish demand: the long routes `D` TAO through the pool to buy alpha,
-        // recorded as positive flow at open (one-shot; the flow EMA decays it).
+        // Bullish flow: the long's `D` TAO liability is the positive signal at
+        // open; close/default reverse it on the same `D` basis (round-trip ~0).
         Self::record_derivative_inflow(netuid, d_tao);
 
         let block = Self::get_current_block_as_u64();
@@ -324,6 +324,11 @@ impl<T: Config> Pallet<T> {
 
         // Restore residual R+E Alpha to the pool; floor stays burned (recycled).
         Self::increase_provided_alpha_reserve(netuid, pos.r_stored.saturating_add(pos.e_stored));
+
+        // Default ends the position: reverse its remaining open-side `+D` flow so
+        // an abandoned long can't leave a lasting positive-flow bias for only the
+        // cost of the forfeited floor.
+        Self::record_derivative_outflow(netuid, pos.d_liability);
 
         agg.r_sigma = agg.r_sigma.saturating_sub(pos.r_stored);
         agg.e_sigma = agg.e_sigma.saturating_sub(pos.e_stored);

@@ -10,15 +10,17 @@
 //! via issuance accounting (burned at open, minted back on restore/close). Pool
 //! reserves, `TotalStake`, and issuance move in lockstep.
 //!
-//! Emissions flow. Open and close write opposite TaoFlow signals, scaled by the
-//! governance factor `χ` (`DerivativeFlowFactor`), tracking the alpha/TAO swap
-//! direction:
-//!   - short open: sell alpha, extract `N` TAO → negative flow;
-//!   - short close: rebuy `ρQ` alpha with TAO (valued at the EMA price) → positive;
-//!   - long open: route `D` TAO through the pool to buy alpha → positive flow;
-//!   - long close: sell the alpha exposure back for `ρD` TAO → negative.
-//! Decay/default/dereg do not write flow — the flow EMA decays the residual
-//! open-side signal. `χ = 0` restores flow-neutral behavior (spec §4.5).
+//! Emissions flow. Open and position-end (close/default) write opposite TaoFlow
+//! signals on a SINGLE per-side basis, scaled by the governance factor `χ`
+//! (`DerivativeFlowFactor`), so a round-trip nets ~0 and standing flow reflects
+//! only live positions:
+//!   - short: `Q·pEMA` notional — open writes `−χ·Q·pEMA`; close/default write
+//!     `+χ·(ρQ)·pEMA`. (Same basis at both ends; EMA price, not spot, so it
+//!     can't be flash-manipulated. A nonzero residual survives only if the EMA
+//!     moved while open — the realized directional impact.)
+//!   - long: `D` TAO liability — open writes `+χ·D`; close/default write `−χ·ρD`.
+//! Decay and dereg do not write flow (decay is gradual; dereg removes the
+//! ledger). `χ = 0` restores flow-neutral behavior (spec §4.5).
 //!
 //! Custody solvency invariant. `custody_balance(netuid)` (shorts) and the burned
 //! Alpha (longs) equal `Σ materialized (P + R(t) + E(t))` **to within per-block
@@ -331,10 +333,13 @@ impl<T: Config> Pallet<T> {
         Self::transfer_tao(&subnet_account, &custody, removed.into())?;
         Self::decrease_provided_tao_reserve(netuid, removed);
         TotalStake::<T>::mutate(|t| *t = t.saturating_sub(removed));
-        // Bearish demand: the alpha sold through the pool extracts `N` TAO, which
-        // is the subnet's negative flow signal (one-shot at open; the flow EMA
-        // decays it). Unwinds do not reverse it.
-        Self::record_derivative_outflow(netuid, n_tao);
+        // Bearish flow: the short sells `Q` alpha, marked at the EMA price. Open
+        // and close/default use the SAME `Q·pEMA` basis so a round-trip nets ~0
+        // (a residual only survives if the EMA price moved while the short was
+        // open — i.e. the realized directional impact). EMA, not spot, so it
+        // can't be flash-manipulated.
+        let pema = I64F64::saturating_from_num(Self::get_moving_alpha_price(netuid));
+        Self::record_derivative_outflow(netuid, Self::to_tao(Self::alpha_f(q_alpha).saturating_mul(pema)));
 
         let block = Self::get_current_block_as_u64();
         let pos = match ShortPositions::<T>::get(netuid, &coldkey) {
@@ -461,9 +466,9 @@ impl<T: Config> Pallet<T> {
         Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(&pos.hotkey, &coldkey, netuid, q_close);
         SubnetAlphaOut::<T>::mutate(netuid, |o| *o = o.saturating_sub(q_close));
         Self::increase_provided_alpha_reserve(netuid, q_close);
-        // Closing rebuys `ρQ` alpha with TAO: positive flow, reversing the open
-        // sell. Valued at the EMA price (bounded / not flash-manipulable).
-        let pema = I64F64::from_num(Self::get_moving_alpha_price(netuid));
+        // Closing rebuys `ρQ` alpha: positive flow on the same `Q·pEMA` basis as
+        // the open, reversing it proportionally.
+        let pema = I64F64::saturating_from_num(Self::get_moving_alpha_price(netuid));
         Self::record_derivative_inflow(netuid, Self::to_tao(Self::alpha_f(q_close).saturating_mul(pema)));
 
         let custody = Self::short_custody_account(netuid);
@@ -544,6 +549,15 @@ impl<T: Config> Pallet<T> {
             TotalStake::<T>::mutate(|t| *t = t.saturating_add(residual));
         }
         Self::recycle_custody_tao(&custody, pos.p_floor);
+
+        // Default ends the position: reverse its remaining open-side flow on the
+        // same `Q·pEMA` basis, so standing flow only reflects live positions
+        // (abandoning can't cheaply leave a lasting flow bias).
+        let pema = I64F64::saturating_from_num(Self::get_moving_alpha_price(netuid));
+        Self::record_derivative_inflow(
+            netuid,
+            Self::to_tao(Self::alpha_f(pos.q_liability).saturating_mul(pema)),
+        );
 
         agg.r_sigma = agg.r_sigma.saturating_sub(pos.r_stored);
         agg.e_sigma = agg.e_sigma.saturating_sub(pos.e_stored);

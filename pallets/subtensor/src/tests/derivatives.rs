@@ -1322,8 +1322,9 @@ fn derivatives_write_subnet_flow() {
         let s = U256::from(10);
         add_balance_to_coldkey_account(&s, t(1000 * TAO));
 
-        // Default χ = 1.0: a short open sells alpha → negative flow; closing it
-        // rebuys the alpha → positive flow (reversal).
+        // Same-block round-trip must net ~0 on the EMA price: a short open sells
+        // alpha → negative flow; a full close rebuys it on the SAME `Q·pEMA`
+        // basis → flow returns to baseline (no positive residual — H1 regression).
         let shk = U256::from(11);
         give_alpha(shk, s, netuid, AlphaBalance::from(5000 * TAO)); // to repay Q on close
         let f0 = SubnetTaoFlow::<Test>::get(netuid);
@@ -1331,9 +1332,32 @@ fn derivatives_write_subnet_flow() {
         let f1 = SubnetTaoFlow::<Test>::get(netuid);
         assert!(f1 < f0, "short open must write negative flow: {f1} !< {f0}");
         assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(s), netuid, 1_000_000_000));
-        assert!(SubnetTaoFlow::<Test>::get(netuid) > f1, "short close must reverse to positive flow");
+        let f_rt = SubnetTaoFlow::<Test>::get(netuid);
+        let tol = (TAO as i64) / 1000; // generous rounding tolerance
+        assert!(f_rt > f1, "short close must reverse toward positive flow");
+        assert!(
+            (f_rt - f0).abs() <= tol,
+            "short round-trip must net ~0, not positive: f0={f0} f_rt={f_rt}"
+        );
 
-        // A long open buys alpha with D TAO → positive; closing sells back → negative.
+        // Defaulting a short must ALSO reverse its open flow (standing flow tracks
+        // only live positions; abandoning leaves no lasting bias).
+        let sd = U256::from(40);
+        let sdh = U256::from(41);
+        add_balance_to_coldkey_account(&sd, t(1000 * TAO));
+        let fd0 = SubnetTaoFlow::<Test>::get(netuid);
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(sd), sdh, netuid, t(100 * TAO)));
+        SubtensorModule::set_short_dust(t(10_000 * TAO));
+        SubtensorModule::set_short_default_grace(0);
+        assert_ok!(SubtensorModule::default_short(RuntimeOrigin::signed(U256::from(99)), sd, netuid));
+        assert!(
+            (SubnetTaoFlow::<Test>::get(netuid) - fd0).abs() <= tol,
+            "short default must reverse the open flow"
+        );
+        SubtensorModule::set_short_dust(t(1));
+
+        // A long open buys alpha with D TAO → positive; full close sells back on
+        // the same `D` basis → flow returns to baseline.
         let lc = U256::from(20);
         let lh = U256::from(21);
         give_alpha(lh, lc, netuid, AlphaBalance::from(500 * TAO));
@@ -1343,7 +1367,27 @@ fn derivatives_write_subnet_flow() {
         let f3 = SubnetTaoFlow::<Test>::get(netuid);
         assert!(f3 > f2, "long open must write positive flow");
         assert_ok!(SubtensorModule::close_long(RuntimeOrigin::signed(lc), netuid, 1_000_000_000));
-        assert!(SubnetTaoFlow::<Test>::get(netuid) < f3, "long close must reverse to negative flow");
+        let lf_rt = SubnetTaoFlow::<Test>::get(netuid);
+        assert!(lf_rt < f3, "long close must reverse toward negative flow");
+        assert!(
+            (lf_rt - f2).abs() <= tol,
+            "long round-trip must net ~0: f2={f2} lf_rt={lf_rt}"
+        );
+
+        // Defaulting a long must reverse its open `+D` flow (M1 regression).
+        let ld = U256::from(50);
+        let ldh = U256::from(51);
+        give_alpha(ldh, ld, netuid, AlphaBalance::from(500 * TAO));
+        let lfd0 = SubnetTaoFlow::<Test>::get(netuid);
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(ld), ldh, netuid, AlphaBalance::from(100 * TAO)));
+        SubtensorModule::set_long_dust(AlphaBalance::from(10_000 * TAO));
+        SubtensorModule::set_long_default_grace(0);
+        assert_ok!(SubtensorModule::default_long(RuntimeOrigin::signed(U256::from(98)), ld, netuid));
+        assert!(
+            (SubnetTaoFlow::<Test>::get(netuid) - lfd0).abs() <= tol,
+            "long default must reverse the open flow"
+        );
+        SubtensorModule::set_long_dust(AlphaBalance::from(1));
 
         // χ = 0 → flow-neutral: another short open leaves flow untouched.
         SubtensorModule::set_derivative_flow_factor_ppb(0);
