@@ -73,7 +73,8 @@ where
 {
     #[precompile::public("getLease(uint32)")]
     #[precompile::view]
-    fn get_lease(_handle: &mut impl PrecompileHandle, lease_id: u32) -> EvmResult<LeaseInfo> {
+    fn get_lease(handle: &mut impl PrecompileHandle, lease_id: u32) -> EvmResult<LeaseInfo> {
+        handle.record_db_reads::<R>(1)?;
         let lease =
             pallet_subtensor::SubnetLeases::<R>::get(lease_id).ok_or(PrecompileFailure::Error {
                 exit_status: ExitError::Other("Lease not found".into()),
@@ -97,10 +98,11 @@ where
     #[precompile::public("getContributorShare(uint32,bytes32)")]
     #[precompile::view]
     fn get_contributor_share(
-        _handle: &mut impl PrecompileHandle,
+        handle: &mut impl PrecompileHandle,
         lease_id: u32,
         contributor: H256,
     ) -> EvmResult<(u128, u128)> {
+        handle.record_db_reads::<R>(1)?;
         let contributor = R::AccountId::from(contributor.0);
         let share = pallet_subtensor::SubnetLeaseShares::<R>::get(lease_id, contributor);
 
@@ -109,7 +111,8 @@ where
 
     #[precompile::public("getLeaseIdForSubnet(uint16)")]
     #[precompile::view]
-    fn get_lease_id_for_subnet(_handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u32> {
+    fn get_lease_id_for_subnet(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u32> {
+        handle.record_db_reads::<R>(1)?;
         let lease_id = pallet_subtensor::SubnetUidToLeaseId::<R>::get(NetUid::from(netuid)).ok_or(
             PrecompileFailure::Error {
                 exit_status: ExitError::Other("Lease not found for netuid".into()),

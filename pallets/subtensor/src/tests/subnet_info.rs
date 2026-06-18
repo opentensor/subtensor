@@ -43,6 +43,7 @@ const EXPECTED_V3_NAMES: &[&[u8]] = &[
     b"user_liquidity_enabled",
     b"owner_cut_enabled",
     b"owner_cut_auto_lock_enabled",
+    b"min_childkey_take",
 ];
 
 fn find<'a>(params: &'a [HyperparamEntry], name: &[u8]) -> &'a HyperparamValue {
@@ -121,6 +122,8 @@ fn test_get_subnet_hyperparams_v3_values_reflect_storage() {
         SubtensorModule::set_bonds_reset(netuid, true);
         SubtensorModule::set_owner_cut_enabled_flag(netuid, true);
         SubtensorModule::set_owner_cut_auto_lock_enabled(netuid, true);
+        SubtensorModule::set_min_childkey_take(31);
+        SubtensorModule::set_min_childkey_take_for_subnet(netuid, 32);
 
         let result = SubtensorModule::get_subnet_hyperparams_v3(netuid).unwrap();
         let p = &result;
@@ -180,6 +183,11 @@ fn test_get_subnet_hyperparams_v3_values_reflect_storage() {
             &HyperparamValue::U16(Compact(30))
         );
         assert_eq!(find(p, b"yuma_version"), &HyperparamValue::U16(Compact(3)));
+        // Effective min childkey take = max(global, per-subnet).
+        assert_eq!(
+            find(p, b"min_childkey_take"),
+            &HyperparamValue::U16(Compact(32))
+        );
 
         // U64 variants
         assert_eq!(
