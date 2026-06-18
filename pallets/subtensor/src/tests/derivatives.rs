@@ -845,6 +845,77 @@ fn open_close_roundtrip_is_not_profitable() {
     });
 }
 
+// Fix (L3): close must never mint alpha by saturating SubnetAlphaOut to zero.
+#[test]
+fn close_guards_against_alpha_mint() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_market(1000 * TAO, 1000 * TAO, 1.0);
+        let trader = U256::from(10);
+        let hotkey = U256::from(11);
+        add_balance_to_coldkey_account(&trader, t(1000 * TAO));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), hotkey, netuid, t(100 * TAO)));
+        let pos = ShortPositions::<Test>::get(netuid, trader).unwrap();
+        give_alpha(hotkey, trader, netuid, pos.q_liability);
+
+        // Corrupt outstanding alpha below the liability: close must refuse rather
+        // than push SubnetAlphaIn up while SubnetAlphaOut saturates (a mint).
+        SubnetAlphaOut::<Test>::insert(netuid, AlphaBalance::from(0));
+        let alpha_in_before = SubnetAlphaIn::<Test>::get(netuid);
+        assert_noop!(
+            SubtensorModule::close_short(RuntimeOrigin::signed(trader), netuid, 1_000_000_000),
+            Error::<Test>::InsufficientAlphaToClose
+        );
+        assert_eq!(SubnetAlphaIn::<Test>::get(netuid), alpha_in_before); // no mint
+    });
+}
+
+// Fix (L2): the open quote is unavailable while shorts are disabled.
+#[test]
+fn open_quote_gated_by_enable_flag() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_market(1000 * TAO, 1000 * TAO, 1.0);
+        assert!(SubtensorModule::quote_open_short(netuid, t(100 * TAO)).is_some());
+        SubtensorModule::set_shorts_enabled(false);
+        assert!(SubtensorModule::quote_open_short(netuid, t(100 * TAO)).is_none());
+    });
+}
+
+// Fix (M4): per-subnet open-position count is capped and maintained, bounding
+// deregistration-settlement work.
+#[test]
+fn position_count_cap_enforced_and_maintained() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_market(1000 * TAO, 1000 * TAO, 1.0);
+        SubtensorModule::set_short_max_positions(2);
+        let (a, b, c) = (U256::from(10), U256::from(20), U256::from(30));
+        for k in [a, b, c] {
+            add_balance_to_coldkey_account(&k, t(1000 * TAO));
+        }
+
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(a), U256::from(11), netuid, t(20 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(b), U256::from(21), netuid, t(20 * TAO)));
+        assert_eq!(ShortPositionCount::<Test>::get(netuid), 2);
+
+        // Third distinct position exceeds the cap.
+        assert_noop!(
+            SubtensorModule::open_short(RuntimeOrigin::signed(c), U256::from(31), netuid, t(20 * TAO)),
+            Error::<Test>::ShortPositionLimit
+        );
+
+        // Closing one frees a slot; the count is decremented and reusable.
+        let pos = ShortPositions::<Test>::get(netuid, a).unwrap();
+        give_alpha(U256::from(11), a, netuid, pos.q_liability);
+        assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(a), netuid, 1_000_000_000));
+        assert_eq!(ShortPositionCount::<Test>::get(netuid), 1);
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(c), U256::from(31), netuid, t(20 * TAO)));
+        assert_eq!(ShortPositionCount::<Test>::get(netuid), 2);
+
+        // A merge (same coldkey, same hotkey) does not consume a new slot.
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(c), U256::from(31), netuid, t(20 * TAO)));
+        assert_eq!(ShortPositionCount::<Test>::get(netuid), 2);
+    });
+}
+
 // Decay rate matches the closed form: one day at 1.0/day leaves ≈ e⁻¹, and the
 // per-position materialized buffer stays consistent with the aggregate.
 #[test]

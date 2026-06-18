@@ -1427,6 +1427,12 @@ pub mod pallet {
         TaoBalance::from(100_000_000u64)
     }
     #[pallet::type_value]
+    /// Max open short positions per subnet, bounding deregistration settlement
+    /// work so a heavily-shorted subnet stays prunable.
+    pub fn DefaultShortMaxPositions<T: Config>() -> u32 {
+        4096
+    }
+    #[pallet::type_value]
     /// Empty short-side aggregate.
     pub fn DefaultShortAgg<T: Config>() -> crate::derivatives::ShortAgg {
         crate::derivatives::ShortAgg::zero()
@@ -1480,6 +1486,15 @@ pub mod pallet {
     #[pallet::storage]
     pub type ShortActiveSubnets<T: Config> =
         StorageMap<_, Identity, NetUid, (), OptionQuery>;
+
+    /// Max open short positions per subnet (deregistration-work bound).
+    #[pallet::storage]
+    pub type ShortMaxPositions<T: Config> =
+        StorageValue<_, u32, ValueQuery, DefaultShortMaxPositions<T>>;
+
+    /// --- MAP ( netuid ) --> count of open short positions on the subnet.
+    #[pallet::storage]
+    pub type ShortPositionCount<T: Config> = StorageMap<_, Identity, NetUid, u32, ValueQuery>;
 
     /// --- MAP ( netuid ) --> short-side aggregate + decay accumulator.
     #[pallet::storage]

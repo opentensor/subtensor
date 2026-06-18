@@ -270,16 +270,26 @@ impl<T: Config> Pallet<T> {
                 existing.last_active = block;
                 existing
             }
-            None => ShortPosition {
-                hotkey,
-                p_floor: position_input,
-                q_liability: q_alpha,
-                r_stored: n_tao,
-                e_stored: e_tao,
-                b_stored: b_tao,
-                omega_entry: agg.omega,
-                last_active: block,
-            },
+            None => {
+                // New position: enforce and bump the per-subnet position count
+                // so deregistration settlement work stays bounded.
+                let count = ShortPositionCount::<T>::get(netuid);
+                ensure!(
+                    count < ShortMaxPositions::<T>::get(),
+                    Error::<T>::ShortPositionLimit
+                );
+                ShortPositionCount::<T>::insert(netuid, count.saturating_add(1));
+                ShortPosition {
+                    hotkey,
+                    p_floor: position_input,
+                    q_liability: q_alpha,
+                    r_stored: n_tao,
+                    e_stored: e_tao,
+                    b_stored: b_tao,
+                    omega_entry: agg.omega,
+                    last_active: block,
+                }
+            }
         };
         ShortPositions::<T>::insert(netuid, &coldkey, pos);
 
@@ -359,6 +369,12 @@ impl<T: Config> Pallet<T> {
                 >= q_close,
             Error::<T>::InsufficientAlphaToClose
         );
+        // Guard against minting alpha: the repaid `q_close` must come out of
+        // outstanding stake, never saturate `SubnetAlphaOut` to zero.
+        ensure!(
+            SubnetAlphaOut::<T>::get(netuid) >= q_close,
+            Error::<T>::InsufficientAlphaToClose
+        );
         Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(&pos.hotkey, &coldkey, netuid, q_close);
         SubnetAlphaOut::<T>::mutate(netuid, |o| *o = o.saturating_sub(q_close));
         Self::increase_provided_alpha_reserve(netuid, q_close);
@@ -392,6 +408,7 @@ impl<T: Config> Pallet<T> {
 
         if fraction_ppb == 1_000_000_000 || pos.p_floor.is_zero() {
             ShortPositions::<T>::remove(netuid, &coldkey);
+            ShortPositionCount::<T>::mutate(netuid, |c| *c = c.saturating_sub(1));
         } else {
             ShortPositions::<T>::insert(netuid, &coldkey, pos);
         }
@@ -447,6 +464,7 @@ impl<T: Config> Pallet<T> {
         Self::sync_active_short(netuid, &agg);
         ShortAggregate::<T>::insert(netuid, agg);
         ShortPositions::<T>::remove(netuid, &coldkey);
+        ShortPositionCount::<T>::mutate(netuid, |c| *c = c.saturating_sub(1));
 
         Self::deposit_event(Event::ShortDefaulted { coldkey, netuid });
         Ok(())
@@ -550,6 +568,7 @@ impl<T: Config> Pallet<T> {
         Self::recycle_custody_tao(&custody, TaoBalance::MAX);
         ShortAggregate::<T>::remove(netuid);
         ShortActiveSubnets::<T>::remove(netuid);
+        ShortPositionCount::<T>::remove(netuid);
     }
 
     /// Slippage-aware TAO cost to buy `q` alpha on the live pool (CPMM core).
@@ -601,12 +620,16 @@ impl<T: Config> Pallet<T> {
     pub fn set_short_min_input(min_input: TaoBalance) {
         ShortMinInput::<T>::put(min_input);
     }
+    pub fn set_short_max_positions(max: u32) {
+        ShortMaxPositions::<T>::put(max);
+    }
 
     // ---- read-only quote (spec §1.2) -----------------------------------
 
-    /// Pure pre-open quote for a given input `P`.
+    /// Pure pre-open quote for a given input `P`. Returns `None` when shorts are
+    /// disabled or the subnet is not a dynamic market.
     pub fn quote_open_short(netuid: NetUid, position_input: TaoBalance) -> Option<ShortOpenQuote> {
-        if SubnetMechanism::<T>::get(netuid) != 1 {
+        if !ShortsEnabled::<T>::get() || SubnetMechanism::<T>::get(netuid) != 1 {
             return None;
         }
         let agg = ShortAggregate::<T>::get(netuid);

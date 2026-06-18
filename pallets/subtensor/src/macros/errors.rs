@@ -323,5 +323,7 @@ mod errors {
         PositionNotDefaultEligible,
         /// Additional open targets a different hotkey than the existing position.
         ShortHotkeyMismatch,
+        /// The subnet has reached its maximum number of open short positions.
+        ShortPositionLimit,
     }
 }
