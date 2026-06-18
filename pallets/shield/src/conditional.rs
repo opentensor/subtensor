@@ -220,6 +220,27 @@ impl<T: Config> Pallet<T> {
             }
             match T::IbeEncryptedTxDecryptor::decrypt(entry.encrypted_call.as_slice()) {
                 IbeDecryptOutcome::NotReady => {
+                    if now >= entry.target_block {
+                        let epoch = entry.epoch;
+                        let target_block = entry.target_block;
+                        let key_id = entry.key_id;
+
+                        let _ = Self::remove_conditional_ibe_entry(index);
+                        Self::refund_conditional_ibe_submission_deposit(index);
+
+                        Self::deposit_event(Event::IbeBlockKeyUnavailable {
+                            index,
+                            epoch,
+                            target_block,
+                            key_id,
+                        });
+                        Self::deposit_event(Event::ConditionalIbeExecuted {
+                            index,
+                            success: false,
+                        });
+                        continue;
+                    }
+
                     Self::deposit_event(Event::ExtrinsicPostponed { index });
                     continue;
                 }

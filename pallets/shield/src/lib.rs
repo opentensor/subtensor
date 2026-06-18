@@ -700,6 +700,18 @@ pub mod pallet {
         IbeEncryptedExtrinsicInvalid {
             index: u32,
         },
+
+        /// MEVShield v2 encrypted extrinsic reached its target without an available block key.
+        ///
+        /// The entry was removed and its submission deposit was refunded so missing key
+        /// release cannot stall block production.
+        IbeBlockKeyUnavailable {
+            index: u32,
+            epoch: u64,
+            target_block: u64,
+            key_id: [u8; KEY_ID_LEN],
+        },
+
         /// MEVShield v2 encrypted extrinsic consumed its canonical queue position.
         IbeEncryptedExtrinsicExecuted {
             index: u32,

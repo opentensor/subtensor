@@ -315,4 +315,3 @@ pub fn test_ibe_envelope(
     };
     BoundedVec::truncate_from(codec::Encode::encode(&envelope))
 }
-

@@ -929,6 +929,21 @@ impl<T: Config> Pallet<T> {
         T::DbWeight::get().reads_writes(1u64, imported)
     }
 
+    /// Return the identity of a pending IBE queue entry once its target block is due.
+    ///
+    /// A due entry whose block key is unavailable must be terminal. Otherwise one
+    /// missing key can pin the FIFO head forever and halt plaintext block import.
+    pub(crate) fn due_ibe_entry_identity(index: u32) -> Option<(u64, u64, [u8; KEY_ID_LEN])> {
+        let meta = PendingIbeMetadata::<T>::get(index)?;
+        let now: u64 = frame_system::Pallet::<T>::block_number().saturated_into::<u64>();
+
+        if meta.target_block <= now {
+            Some((meta.epoch, meta.target_block, meta.key_id))
+        } else {
+            None
+        }
+    }
+
     pub(crate) fn process_pending_ibe_extrinsic(
         index: u32,
         pending: PendingExtrinsic<T>,
@@ -938,6 +953,29 @@ impl<T: Config> Pallet<T> {
         let outcome = T::IbeEncryptedTxDecryptor::decrypt(pending.encrypted_call.as_slice());
         let inner = match outcome {
             IbeDecryptOutcome::NotReady => {
+                if let Some((epoch, target_block, key_id)) = Self::due_ibe_entry_identity(index) {
+                    Self::remove_pending_index(index);
+                    weight = weight.saturating_add(remove_weight);
+
+                    // Missing key release is a committee/liveness failure, not a malformed
+                    // user ciphertext. Refund the reserved deposit and consume the slot so
+                    // a single unreleased key can never pin the chain.
+                    Self::refund_ibe_submission_deposit(index);
+
+                    Self::deposit_event(Event::IbeBlockKeyUnavailable {
+                        index,
+                        epoch,
+                        target_block,
+                        key_id,
+                    });
+                    Self::deposit_event(Event::IbeEncryptedExtrinsicExecuted {
+                        index,
+                        success: false,
+                    });
+
+                    return PendingProcess::Continue(weight);
+                }
+
                 Self::deposit_event(Event::ExtrinsicPostponed { index });
                 return PendingProcess::Break(weight);
             }
