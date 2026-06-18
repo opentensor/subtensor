@@ -1010,6 +1010,73 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Delegates (or clears) a root validator's beta-basket weight vector to a `manager` root
+    /// validator. While delegated, `distribute_root_alpha_to_basket` resolves the delegator's
+    /// vector from the manager's `Weights[ROOT]` slot and skims the manager's `RootWeightTake`.
+    /// Delegating to oneself clears the delegation (self-manage).
+    pub fn do_set_root_weight_delegate(
+        origin: OriginFor<T>,
+        manager: T::AccountId,
+    ) -> dispatch::DispatchResult {
+        // --- 1. Signed by the delegator root validator hotkey.
+        let hotkey = ensure_signed(origin)?;
+
+        // --- 2. Delegator must be a registered root validator.
+        let delegator_uid = Self::get_uid_for_net_and_hotkey(NetUid::ROOT, &hotkey)?;
+
+        // --- 3. Self-delegation clears the pointer; otherwise the manager must also be a
+        // registered root validator.
+        if manager == hotkey {
+            RootWeightDelegate::<T>::remove(delegator_uid);
+            Self::deposit_event(Event::RootWeightDelegateSet(delegator_uid, delegator_uid));
+        } else {
+            let manager_uid = Self::get_uid_for_net_and_hotkey(NetUid::ROOT, &manager)?;
+            RootWeightDelegate::<T>::insert(delegator_uid, manager_uid);
+            Self::deposit_event(Event::RootWeightDelegateSet(delegator_uid, manager_uid));
+        }
+
+        Ok(())
+    }
+
+    /// Sets the curation take (basis points, `0..=MaxChildkeyTake`) a manager root validator
+    /// charges its delegators. `0` lets a manager curate for free. Bounded by the same ceiling as
+    /// childkey take.
+    pub fn do_set_root_weight_take(origin: OriginFor<T>, take: u16) -> dispatch::DispatchResult {
+        // --- 1. Signed by the manager root validator hotkey.
+        let hotkey = ensure_signed(origin)?;
+
+        // --- 2. Manager must be a registered root validator.
+        let manager_uid = Self::get_uid_for_net_and_hotkey(NetUid::ROOT, &hotkey)?;
+
+        // --- 3. Take must be within the allowed ceiling.
+        ensure!(
+            take <= Self::get_max_childkey_take(),
+            Error::<T>::InvalidRootWeightTake
+        );
+
+        // --- 4. Rate-limit *increases* only (same window as childkey take), so a manager cannot
+        // spike its take on already-committed delegators between their per-block distributions.
+        // Lowering the take is always allowed.
+        let current_block = Self::get_current_block_as_u64();
+        if take > RootWeightTake::<T>::get(manager_uid) {
+            ensure!(
+                TransactionType::SetRootWeightTake
+                    .passes_rate_limit_on_subnet::<T>(&hotkey, NetUid::ROOT),
+                Error::<T>::TxRootWeightTakeRateLimitExceeded
+            );
+        }
+
+        RootWeightTake::<T>::insert(manager_uid, take);
+        TransactionType::SetRootWeightTake.set_last_block_on_subnet::<T>(
+            &hotkey,
+            NetUid::ROOT,
+            current_block,
+        );
+        Self::deposit_event(Event::RootWeightTakeSet(manager_uid, take));
+
+        Ok(())
+    }
+
     /// ---- The implementation for the extrinsic set_weights.
     ///
     /// # Args:

@@ -4,9 +4,9 @@ use crate::tests::mock::*;
 use crate::{
     BasketPrincipal, DefaultMinRootClaimAmount, Error, Keys, MAX_NUM_ROOT_CLAIMS,
     MAX_ROOT_CLAIM_THRESHOLD, NetworksAdded, NumRootClaim, NumStakingColdkeys, RootClaimType,
-    RootClaimTypeEnum, RootClaimable, RootClaimableThreshold, RootClaimed, StakingColdkeys,
-    StakingColdkeysByIndex, SubnetAlphaIn, SubnetMovingPrice, SubnetProtocolFlow, SubnetTAO,
-    SubnetworkN, Tempo, TotalStake, Uids, Weights,
+    RootClaimTypeEnum, RootClaimable, RootClaimableThreshold, RootClaimed, RootWeightDelegate,
+    RootWeightTake, StakingColdkeys, StakingColdkeysByIndex, SubnetAlphaIn, SubnetMovingPrice,
+    SubnetProtocolFlow, SubnetTAO, SubnetworkN, Tempo, TotalStake, Uids, Weights,
 };
 use approx::assert_abs_diff_eq;
 use frame_support::dispatch::RawOrigin;
@@ -513,6 +513,103 @@ fn test_root_basket_records_symmetric_protocol_flow() {
         assert!(
             flow_c_after.abs() < flow_c,
             "round-trip residual on C should be smaller than the inflow: {flow_c_after} vs {flow_c}"
+        );
+    });
+}
+
+/// A root validator (the delegator) that sets no vector of its own but points at a manager via
+/// `RootWeightDelegate` has its dividend deployed per the *manager's* vector, and the manager's
+/// `RootWeightTake` is skimmed as a curation fee credited to the manager's own root stake.
+#[test]
+fn test_root_weight_delegation_uses_manager_vector_and_pays_take() {
+    new_test_ext(1).execute_with(|| {
+        // Manager (curator): owns the shared vector + take. Delegator: earns the dividend.
+        let owner_m = U256::from(1001);
+        let hotkey_m = U256::from(1002);
+        let owner_a = U256::from(2001);
+        let hotkey_a = U256::from(2002);
+        let coldkey_a = U256::from(2003);
+        let owner_b = U256::from(3001);
+        let hotkey_b = U256::from(3002);
+
+        // netuid_a = where the delegator earns its root dividend; netuid_b = manager's basket pick.
+        let netuid_a = add_dynamic_network(&hotkey_a, &owner_a);
+        let netuid_b = add_dynamic_network(&hotkey_b, &owner_b);
+        // Give the manager an Owner mapping (for the fee credit) via a throwaway registration.
+        add_dynamic_network(&hotkey_m, &owner_m);
+        remove_owner_registration_stake(netuid_a);
+        fund_pool(netuid_a);
+        fund_pool(netuid_b);
+
+        SubtensorModule::set_tao_weight(u64::MAX);
+        RootClaimableThreshold::<Test>::insert(netuid_b, I96F32::from_num(0));
+
+        // Manager root uid 0 with a vector pointing 100% at B; Keys[ROOT][0] for the fee credit.
+        set_root_weights_direct(&hotkey_m, 0, &[(netuid_b, u16::MAX)]);
+        Keys::<Test>::insert(NetUid::ROOT, 0u16, hotkey_m);
+
+        // Delegator root uid 1 with NO vector of its own — it relies on the manager.
+        Uids::<Test>::insert(NetUid::ROOT, hotkey_a, 1u16);
+        RootWeightDelegate::<Test>::insert(1u16, 0u16); // delegator -> manager
+        RootWeightTake::<Test>::insert(0u16, 1000u16); // manager charges 10%
+
+        // Delegator needs root stake to apportion against, and alpha on A to earn the dividend.
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_a,
+            &coldkey_a,
+            NetUid::ROOT,
+            2_000_000u64.into(),
+        );
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_a,
+            &owner_a,
+            netuid_a,
+            10_000_000u64.into(),
+        );
+
+        // Manager starts with no root stake — the fee must create it.
+        assert_eq!(root_stake_of(&hotkey_m, &owner_m), 0);
+
+        SubtensorModule::distribute_emission(
+            netuid_a,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
+            1_000_000u64.into(),
+            AlphaBalance::ZERO,
+        );
+
+        // The delegator's basket was built on B (the manager's pick), not on A or nowhere.
+        let basket_b = escrow_alpha(&hotkey_a, netuid_b);
+        assert!(basket_b > 0, "delegator basket should follow manager's vector into B");
+        assert_eq!(
+            escrow_alpha(&hotkey_a, netuid_a),
+            0,
+            "nothing should land on the origin subnet"
+        );
+
+        // The manager received the curation fee as its own root stake.
+        let fee = root_stake_of(&hotkey_m, &owner_m);
+        assert!(fee > 0, "manager should receive the curation take");
+
+        // The split is take-proportioned and independent of any validator take: with a 10% fee,
+        // the basket (~90% of gross, at pool price ~1) is ~9x the fee.
+        assert_abs_diff_eq!(basket_b as i64, fee as i64 * 9, epsilon = (fee as i64) / 20);
+
+        // With the take cleared, no fee would be charged — sanity that the fee is driven by the
+        // take alone.
+        RootWeightTake::<Test>::insert(0u16, 0u16);
+        let fee_before = root_stake_of(&hotkey_m, &owner_m);
+        SubtensorModule::distribute_emission(
+            netuid_a,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
+            1_000_000u64.into(),
+            AlphaBalance::ZERO,
+        );
+        assert_eq!(
+            root_stake_of(&hotkey_m, &owner_m),
+            fee_before,
+            "no take => no fee on the second distribution"
         );
     });
 }

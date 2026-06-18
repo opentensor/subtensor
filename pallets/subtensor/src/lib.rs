@@ -2517,6 +2517,24 @@ pub mod pallet {
         DefaultZeroAlpha<T>,
     >;
 
+    /// --- MAP ( delegator root uid ) --> manager root uid | delegated basket weight vector.
+    ///
+    /// A root validator can delegate the *choice* of its beta-basket weight vector to another
+    /// root validator (the manager). When set, `distribute_root_alpha_to_basket` reads the
+    /// manager's `Weights[ROOT]` slot instead of the delegator's own, so the manager curates one
+    /// shared vector for all of its delegators. uid-keyed (both sides) to match the vector itself:
+    /// it follows either validator through hotkey swaps with no migration. A stale/reused uid
+    /// resolves to an empty vector (safe recycle); the fee credit is additionally guarded so value
+    /// never lands on a vacant slot.
+    #[pallet::storage]
+    pub type RootWeightDelegate<T: Config> = StorageMap<_, Identity, u16, u16, OptionQuery>;
+
+    /// --- MAP ( manager root uid ) --> take (bps, 0..=10000) | curation fee a manager charges its
+    /// delegators for setting their basket weight vector. Skimmed from each delegator's root
+    /// dividend (in TAO) and credited to the manager's own root stake during distribution.
+    #[pallet::storage]
+    pub type RootWeightTake<T: Config> = StorageMap<_, Identity, u16, u16, ValueQuery>;
+
     #[pallet::storage] // -- MAP ( cold ) --> root_claim_type enum
     pub type RootClaimType<T: Config> = StorageMap<
         _,

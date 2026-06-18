@@ -165,6 +165,10 @@ mod errors {
         NewColdKeyIsHotkey,
         /// Childkey take is invalid.
         InvalidChildkeyTake,
+        /// Root-weight delegation curation take is invalid (exceeds the max).
+        InvalidRootWeightTake,
+        /// Root-weight curation take increase rate limit exceeded.
+        TxRootWeightTakeRateLimitExceeded,
         /// Childkey take rate limit exceeded.
         TxChildkeyTakeRateLimitExceeded,
         /// Invalid identity.

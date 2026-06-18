@@ -17,6 +17,7 @@ pub enum TransactionType {
     MechanismEmission,
     MaxUidsTrimming,
     AddStakeBurn,
+    SetRootWeightTake,
 }
 
 impl TransactionType {
@@ -25,6 +26,8 @@ impl TransactionType {
         match self {
             Self::SetChildren => 150, // 30 minutes
             Self::SetChildkeyTake => TxChildkeyTakeRateLimit::<T>::get(),
+            // Root-weight curation take reuses the childkey-take rate window.
+            Self::SetRootWeightTake => TxChildkeyTakeRateLimit::<T>::get(),
             Self::RegisterNetwork => NetworkRateLimit::<T>::get(),
             Self::MechanismCountUpdate => MechanismCountSetRateLimit::<T>::get(),
             Self::MechanismEmission => MechanismEmissionRateLimit::<T>::get(),
@@ -144,6 +147,7 @@ impl From<TransactionType> for u16 {
             TransactionType::MechanismEmission => 8,
             TransactionType::MaxUidsTrimming => 9,
             TransactionType::AddStakeBurn => 10,
+            TransactionType::SetRootWeightTake => 11,
         }
     }
 }
@@ -162,6 +166,7 @@ impl From<u16> for TransactionType {
             8 => TransactionType::MechanismEmission,
             9 => TransactionType::MaxUidsTrimming,
             10 => TransactionType::AddStakeBurn,
+            11 => TransactionType::SetRootWeightTake,
             _ => TransactionType::Unknown,
         }
     }

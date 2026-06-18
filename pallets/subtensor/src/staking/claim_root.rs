@@ -89,9 +89,13 @@ impl<T: Config> Pallet<T> {
 
         // Resolve the validator's basket weight vector w = Weights[ROOT][uid]. The vector follows
         // the validator's root uid (so it survives hotkey swaps automatically) and reuses the
-        // existing root weights plumbing.
+        // existing root weights plumbing. If the validator has delegated weight-setting to a
+        // manager, follow that pointer and use the manager's vector instead; the manager's
+        // `RootWeightTake` is skimmed as a curation fee below.
         let maybe_uid = Uids::<T>::try_get(NetUid::ROOT, hotkey).ok();
-        let weights = maybe_uid
+        let manager_uid: Option<u16> = maybe_uid.and_then(|uid| RootWeightDelegate::<T>::get(uid));
+        let vector_uid: Option<u16> = manager_uid.or(maybe_uid);
+        let weights = vector_uid
             .map(|uid| Weights::<T>::get(NetUidStorageIndex::ROOT, uid))
             .unwrap_or_default();
 
@@ -136,7 +140,31 @@ impl<T: Config> Pallet<T> {
             Self::record_protocol_outflow(origin_netuid, tao_total);
 
             // 2. Split the TAO across subnets per w and buy each subnet's alpha.
-            let tao_total_u64: u64 = tao_total.to_u64();
+            let mut tao_total_u64: u64 = tao_total.to_u64();
+
+            // 2a. If this dividend follows a manager's vector, skim the manager's curation take
+            // (bps) from the TAO and credit it to the manager's own root stake. Keeps the round
+            // trip TotalStake-neutral: sell - buys - fee == 0. The buy loop below redeploys only
+            // the post-fee remainder. Guarded by `Keys::try_get` so a stale/vacant manager uid is
+            // never credited (the remainder simply stays with the delegator's basket).
+            if let Some(m_uid) = manager_uid {
+                let take: u16 = RootWeightTake::<T>::get(m_uid);
+                if take > 0 {
+                    if let Ok(manager_hotkey) = Keys::<T>::try_get(NetUid::ROOT, m_uid) {
+                        let fee: u64 = U96F32::saturating_from_num(tao_total_u64)
+                            .saturating_mul(U96F32::saturating_from_num(take))
+                            .checked_div(U96F32::saturating_from_num(10_000u64))
+                            .unwrap_or_default()
+                            .saturating_to_num::<u64>();
+                        if fee > 0 {
+                            let manager_owner = Owner::<T>::get(&manager_hotkey);
+                            Self::credit_root_stake(&manager_hotkey, &manager_owner, fee.into());
+                            tao_total_u64 = tao_total_u64.saturating_sub(fee);
+                        }
+                    }
+                }
+            }
+
             let mut spent: u64 = 0;
             let last_idx = valid.len().saturating_sub(1);
             for (i, (dest_netuid, weight)) in valid.iter().enumerate() {
@@ -275,6 +303,24 @@ impl<T: Config> Pallet<T> {
         owed
     }
 
+    /// Credits `tao` of already-existing TAO as root stake to `(hotkey, coldkey)` and updates the
+    /// root pool totals (SubnetTAO / SubnetAlphaOut / TotalStake; root is 1:1 TAO:alpha). Shared
+    /// by the root-claim payout and the manager curation-fee path. Moves value that already left a
+    /// subnet pool (no mint), so the caller is responsible for the matching outflow record.
+    pub fn credit_root_stake(hotkey: &T::AccountId, coldkey: &T::AccountId, tao: TaoBalance) {
+        Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            hotkey,
+            coldkey,
+            NetUid::ROOT,
+            tao.to_u64().into(),
+        );
+        SubnetTAO::<T>::mutate(NetUid::ROOT, |total| *total = total.saturating_add(tao.into()));
+        SubnetAlphaOut::<T>::mutate(NetUid::ROOT, |total| {
+            *total = total.saturating_add(u64::from(tao).into())
+        });
+        TotalStake::<T>::mutate(|total| *total = total.saturating_add(tao.into()));
+    }
+
     pub fn get_root_owed_for_hotkey_coldkey(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
@@ -392,27 +438,8 @@ impl<T: Config> Pallet<T> {
             });
             Self::record_protocol_outflow(netuid, root_sell_tao);
 
-            Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
-                hotkey,
-                coldkey,
-                NetUid::ROOT,
-                owed_tao.amount_paid_out.to_u64().into(),
-            );
-
-            // Increase root subnet SubnetTAO
-            SubnetTAO::<T>::mutate(NetUid::ROOT, |total| {
-                *total = total.saturating_add(owed_tao.amount_paid_out.into());
-            });
-
-            // Increase root SubnetAlphaOut
-            SubnetAlphaOut::<T>::mutate(NetUid::ROOT, |total| {
-                *total = total.saturating_add(u64::from(owed_tao.amount_paid_out).into());
-            });
-
-            // Increase Total Stake
-            TotalStake::<T>::mutate(|total| {
-                *total = total.saturating_add(owed_tao.amount_paid_out.into());
-            });
+            // Credit the realized TAO as root stake to the claimer and update the root pool.
+            Self::credit_root_stake(hotkey, coldkey, owed_tao.amount_paid_out);
 
             Self::add_stake_adjust_root_claimed_for_hotkey_and_coldkey(
                 hotkey,
