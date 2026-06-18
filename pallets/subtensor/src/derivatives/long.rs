@@ -49,6 +49,15 @@ impl<T: Config> Pallet<T> {
         pos.omega_entry = omega_now;
     }
 
+    /// Drop the aggregate + active-set entry once the last long position closes,
+    /// so the decay tick stops visiting a subnet that only holds rounding dust.
+    fn cleanup_long_if_empty(netuid: NetUid) {
+        if LongPositionCount::<T>::get(netuid) == 0 {
+            LongAggregate::<T>::remove(netuid);
+            LongActiveSubnets::<T>::remove(netuid);
+        }
+    }
+
     fn sync_active_long(netuid: NetUid, agg: &LongAgg) {
         if agg.r_sigma.is_zero()
             && agg.e_sigma.is_zero()
@@ -260,6 +269,7 @@ impl<T: Config> Pallet<T> {
         if fraction_ppb == 1_000_000_000 || pos.p_floor.is_zero() {
             LongPositions::<T>::remove(netuid, &coldkey);
             LongPositionCount::<T>::mutate(netuid, |c| *c = c.saturating_sub(1));
+            Self::cleanup_long_if_empty(netuid);
         } else {
             LongPositions::<T>::insert(netuid, &coldkey, pos);
         }
@@ -292,7 +302,7 @@ impl<T: Config> Pallet<T> {
         );
         ensure!(
             Self::get_current_block_as_u64()
-                >= pos.last_active.saturating_add(ShortDefaultGrace::<T>::get()),
+                >= pos.last_active.saturating_add(LongDefaultGrace::<T>::get()),
             Error::<T>::PositionNotDefaultEligible
         );
 
@@ -307,6 +317,7 @@ impl<T: Config> Pallet<T> {
         LongAggregate::<T>::insert(netuid, agg);
         LongPositions::<T>::remove(netuid, &coldkey);
         LongPositionCount::<T>::mutate(netuid, |c| *c = c.saturating_sub(1));
+        Self::cleanup_long_if_empty(netuid);
 
         Self::deposit_event(Event::LongDefaulted { coldkey, netuid });
         Ok(())
@@ -386,7 +397,8 @@ impl<T: Config> Pallet<T> {
     // ---- governance setters --------------------------------------------
 
     pub fn set_long_kappa_ppb(kappa_ppb: u64) {
-        LongKappa::<T>::put(I64F64::from_num(kappa_ppb).safe_div(I64F64::from_num(1_000_000_000u64)));
+        let k = kappa_ppb.clamp(1, 2_000_000_000);
+        LongKappa::<T>::put(I64F64::from_num(k).safe_div(I64F64::from_num(1_000_000_000u64)));
     }
     pub fn set_long_base_ltv_ppb(ltv_ppb: u64) {
         let ltv = ltv_ppb.clamp(1, 999_999_999);

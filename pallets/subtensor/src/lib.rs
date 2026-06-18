@@ -1427,10 +1427,12 @@ pub mod pallet {
         TaoBalance::from(100_000_000u64)
     }
     #[pallet::type_value]
-    /// Max open short positions per subnet, bounding deregistration settlement
-    /// work so a heavily-shorted subnet stays prunable.
+    /// Max open positions per subnet per side. Bounds deregistration-settlement
+    /// work so a heavily-traded subnet stays prunable within block weight.
+    /// Kept conservative; production should move to incremental/paginated
+    /// terminal settlement before raising it materially.
     pub fn DefaultShortMaxPositions<T: Config>() -> u32 {
-        4096
+        128
     }
     #[pallet::type_value]
     /// Empty short-side aggregate.
@@ -1560,6 +1562,12 @@ pub mod pallet {
     #[pallet::storage]
     pub type LongMaxPositions<T: Config> =
         StorageValue<_, u32, ValueQuery, DefaultShortMaxPositions<T>>;
+
+    /// Long-side anti-snipe default grace period, in blocks (independent of the
+    /// short grace so the two sides can be tuned separately).
+    #[pallet::storage]
+    pub type LongDefaultGrace<T: Config> =
+        StorageValue<_, u64, ValueQuery, DefaultShortDefaultGrace<T>>;
 
     /// --- MAP ( netuid ) --> long-side aggregate + decay accumulator.
     #[pallet::storage]

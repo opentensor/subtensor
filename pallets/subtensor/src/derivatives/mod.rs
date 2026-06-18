@@ -1,10 +1,21 @@
 //! Fixed-liability covered continuous-unwind derivatives (spec v3.6.1).
 //!
-//! Launch scope is shorts (longs are gated by `LongsEnabled` and not yet built).
-//! Pool impact is realized as `SubnetTAO` mutations plus a dedicated per-subnet
-//! custody account that holds parked floor/buffer/escrow TAO, so pool reserves,
-//! `TotalStake`, and issuance stay consistent and derivative legs never write
-//! TaoFlow.
+//! Both sides are implemented and independently gated (`ShortsEnabled` /
+//! `LongsEnabled`, both default-off). Shorts live here; the long mirror is in
+//! `long.rs`. The client/RPC read layer (`quote_*`, `get_*`) currently exists
+//! for shorts only — long RPC parity is a tracked follow-up.
+//!
+//! Custody model. Shorts park floor/buffer/escrow TAO in a dedicated per-subnet
+//! custody account; longs have no custody account and instead track parked Alpha
+//! via issuance accounting (burned at open, minted back on restore/close). Pool
+//! reserves, `TotalStake`, and issuance move in lockstep and derivative legs
+//! never write TaoFlow.
+//!
+//! Custody solvency invariant. `custody_balance(netuid)` (shorts) and the burned
+//! Alpha (longs) equal `Σ materialized (P + R(t) + E(t))` **to within per-block
+//! floor rounding**. The aggregate Σ-decay floors faster than the per-position
+//! `exp` decay, so the drift is always in the safe direction (custody ≥
+//! obligations); residual dust is reclaimed by the terminal sweep at dereg.
 
 use super::*;
 use frame_support::traits::tokens::{Fortitude, Precision, Preservation, fungible::Balanced};
@@ -189,7 +200,8 @@ impl<T: Config> Pallet<T> {
     /// Computed directly from the series rather than `checked_ln(1 − δ)`, which
     /// is imprecise (and can return the wrong sign) for arguments just below 1.
     /// This keeps the aggregate factor `g = 1 − δ` and the per-position factor
-    /// `exp(−ΔΩ) = Π g` exactly consistent.
+    /// `exp(−ΔΩ) = Π g` consistent to within per-block floor rounding (the
+    /// 3-term series and `checked_exp`'s 7-term series are both truncations).
     fn neg_ln_one_minus(delta: I64F64) -> I64F64 {
         let d2 = delta.saturating_mul(delta);
         let d3 = d2.saturating_mul(delta);
@@ -198,11 +210,23 @@ impl<T: Config> Pallet<T> {
             .saturating_add(d3.saturating_mul(I64F64::from_num(1.0 / 3.0)))
     }
 
+    /// When the last position on a subnet closes, drop the aggregate and the
+    /// active-set entry so the per-block decay tick stops visiting it (otherwise
+    /// floor-rounding dust in `r_sigma` keeps the subnet "active" forever). Any
+    /// residual custody dust is reclaimed by the terminal sweep at dereg.
+    fn cleanup_short_if_empty(netuid: NetUid) {
+        if ShortPositionCount::<T>::get(netuid) == 0 {
+            ShortAggregate::<T>::remove(netuid);
+            ShortActiveSubnets::<T>::remove(netuid);
+        }
+    }
+
     /// Materialize a position to the current accumulator: `f = exp(−(Ω − Ω_entry))`.
     fn materialize_short(pos: &mut ShortPosition<T::AccountId>, omega_now: I64F64) {
-        // `Ω` only ever grows, so `arg ≤ 0` and `f ≤ 1`. Clamp defensively: a
-        // positive `arg` (which should be impossible) must never inflate a
-        // position by producing `f > 1`.
+        // `Ω` only ever grows, so `arg ≤ 0` and `f ≤ 1` (decay never inflates).
+        // The `unwrap_or(0)` below is correct, not a silent failure: a large
+        // negative `arg` legitimately decays the buffer toward 0. Clamp `arg ≤ 0`
+        // defensively so an (impossible) positive `arg` can't yield `f > 1`.
         let arg = pos
             .omega_entry
             .saturating_sub(omega_now)
@@ -427,6 +451,7 @@ impl<T: Config> Pallet<T> {
         if fraction_ppb == 1_000_000_000 || pos.p_floor.is_zero() {
             ShortPositions::<T>::remove(netuid, &coldkey);
             ShortPositionCount::<T>::mutate(netuid, |c| *c = c.saturating_sub(1));
+            Self::cleanup_short_if_empty(netuid);
         } else {
             ShortPositions::<T>::insert(netuid, &coldkey, pos);
         }
@@ -483,6 +508,7 @@ impl<T: Config> Pallet<T> {
         ShortAggregate::<T>::insert(netuid, agg);
         ShortPositions::<T>::remove(netuid, &coldkey);
         ShortPositionCount::<T>::mutate(netuid, |c| *c = c.saturating_sub(1));
+        Self::cleanup_short_if_empty(netuid);
 
         Self::deposit_event(Event::ShortDefaulted { coldkey, netuid });
         Ok(())
@@ -609,9 +635,11 @@ impl<T: Config> Pallet<T> {
     pub fn set_longs_enabled(enabled: bool) {
         LongsEnabled::<T>::put(enabled);
     }
-    /// `κ_S`, supplied scaled by 1e9.
+    /// `κ_S`, supplied scaled by 1e9. Clamped to `(0, 2.0]` so governance can't
+    /// freeze the market (`κ=0`) or remove the capacity guard entirely.
     pub fn set_short_kappa_ppb(kappa_ppb: u64) {
-        ShortKappa::<T>::put(I64F64::from_num(kappa_ppb).safe_div(I64F64::from_num(1_000_000_000u64)));
+        let k = kappa_ppb.clamp(1, 2_000_000_000);
+        ShortKappa::<T>::put(I64F64::from_num(k).safe_div(I64F64::from_num(1_000_000_000u64)));
     }
     /// `λ`, supplied scaled by 1e9. Clamped to `(0, 1)` so the open quadratic
     /// stays well-formed.
@@ -634,6 +662,9 @@ impl<T: Config> Pallet<T> {
     }
     pub fn set_short_default_grace(blocks: u64) {
         ShortDefaultGrace::<T>::put(blocks);
+    }
+    pub fn set_long_default_grace(blocks: u64) {
+        LongDefaultGrace::<T>::put(blocks);
     }
     pub fn set_short_min_input(min_input: TaoBalance) {
         ShortMinInput::<T>::put(min_input);

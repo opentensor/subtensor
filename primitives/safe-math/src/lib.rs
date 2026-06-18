@@ -375,6 +375,39 @@ mod tests {
     }
 
     #[test]
+    fn test_checked_exp() {
+        // exp(0) == 1
+        assert_eq!(I64F64::from_num(0).checked_exp(), Some(I64F64::from_num(1)));
+
+        // exp(1) ≈ e
+        assert!(
+            I64F64::from_num(1)
+                .checked_exp()
+                .unwrap()
+                .abs_diff(I64F64::from_num(core::f64::consts::E))
+                < I64F64::from_num(0.0001)
+        );
+
+        // Direct accuracy vs f64::exp across positive and negative args.
+        for x in [-5.0_f64, -1.0, 0.5, 2.0, 5.0] {
+            let got = I64F64::from_num(x).checked_exp().unwrap();
+            let want = x.exp();
+            assert!(
+                got.abs_diff(I64F64::from_num(want)) < I64F64::from_num(want * 0.0001 + 0.0001),
+                "exp({x}) = {got}, want {want}"
+            );
+        }
+
+        // Negative argument: 0 < exp(x) <= 1, and exp(-1) ≈ 1/e.
+        let neg = I64F64::from_num(-1).checked_exp().unwrap();
+        assert!(neg > I64F64::from_num(0) && neg <= I64F64::from_num(1));
+        assert!(neg.abs_diff(I64F64::from_num(1.0 / core::f64::consts::E)) < I64F64::from_num(0.0001));
+
+        // Large negative argument underflows toward 0 without panicking.
+        assert!(I64F64::from_num(-50).checked_exp().unwrap() < I64F64::from_num(0.0001));
+    }
+
+    #[test]
     fn test_checked_log() {
         let x = I64F64::from_num(10.0);
 

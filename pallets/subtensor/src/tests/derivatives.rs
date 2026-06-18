@@ -979,6 +979,9 @@ fn proof_full_lifecycle_conserves_tao_and_alpha() {
         assert_eq!(LongPositionCount::<Test>::get(netuid), 0);
         assert_eq!(ShortAggregate::<Test>::get(netuid).q_sigma.to_u64(), 0);
         assert_eq!(LongAggregate::<Test>::get(netuid).d_sigma.to_u64(), 0);
+        // cleanup-on-empty evicts fully-closed subnets from the decay tick.
+        assert!(!ShortActiveSubnets::<Test>::contains_key(netuid));
+        assert!(!LongActiveSubnets::<Test>::contains_key(netuid));
     });
 }
 
@@ -1006,6 +1009,7 @@ fn proof_default_recycles_exactly_the_floor() {
         let (l_cold, l_hot) = (U256::from(20), U256::from(21));
         give_alpha(l_hot, l_cold, netuid, AlphaBalance::from(500 * TAO));
         SubtensorModule::set_long_dust(AlphaBalance::from(10_000 * TAO));
+        SubtensorModule::set_long_default_grace(0);
         // Measure BEFORE open: long open burns alpha, default restores all but the
         // floor, so the net effect of open+default is exactly −floor.
         let alpha_before = alpha_issuance(netuid);
@@ -1163,7 +1167,7 @@ fn long_default_recycles_floor_and_restores_residual() {
         let pos = LongPositions::<Test>::get(netuid, trader).unwrap();
         let (p, n, e) = (pos.p_floor.to_u64(), pos.r_stored.to_u64(), pos.e_stored.to_u64());
         SubtensorModule::set_long_dust(AlphaBalance::from(1000 * TAO));
-        SubtensorModule::set_short_default_grace(0);
+        SubtensorModule::set_long_default_grace(0);
 
         let alpha_in0 = SubnetAlphaIn::<Test>::get(netuid).to_u64();
         let iss0 = alpha_issuance(netuid);
