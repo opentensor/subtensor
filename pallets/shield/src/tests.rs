@@ -388,10 +388,6 @@ fn try_unshield_tx_decrypts_extrinsic() {
     assert_eq!(decoded.encode(), inner_uxt.encode());
 }
 
-// ---------------------------------------------------------------------------
-// Migration tests
-// ---------------------------------------------------------------------------
-
 #[test]
 fn publish_ibe_epoch_public_key_requires_worker_public_atoms() {
     use mev_shield_ibe_runtime_api::{
@@ -1247,44 +1243,6 @@ mod encrypted_extrinsics_tests {
     }
 }
 
-fn test_ibe_epoch_key(
-    epoch: u64,
-    key_id: [u8; stp_mev_shield_ibe::KEY_ID_LEN],
-    first_block: u64,
-    last_block: u64,
-) -> stp_mev_shield_ibe::IbeEpochPublicKey {
-    stp_mev_shield_ibe::IbeEpochPublicKey {
-        epoch,
-        key_id,
-        master_public_key: BoundedVec::truncate_from(
-            vec![0x55; stp_mev_shield_ibe::COMPRESSED_MASTER_PUBLIC_KEY_LEN],
-        ),
-        total_weight: 100,
-        threshold_weight: 67,
-        public_atoms: Default::default(),
-        first_block,
-        last_block,
-    }
-}
-
-fn test_ibe_envelope(
-    epoch: u64,
-    target_block: u64,
-    key_id: [u8; stp_mev_shield_ibe::KEY_ID_LEN],
-    commitment_byte: u8,
-) -> BoundedVec<u8, crate::MaxEncryptedCallSize> {
-    let envelope = stp_mev_shield_ibe::IbeEncryptedExtrinsicV1 {
-        magic: stp_mev_shield_ibe::MEV_SHIELD_IBE_MAGIC,
-        version: stp_mev_shield_ibe::MEV_SHIELD_IBE_VERSION,
-        epoch,
-        target_block,
-        key_id,
-        commitment: sp_core::H256::repeat_byte(commitment_byte),
-        ciphertext: vec![commitment_byte; 32],
-    };
-    BoundedVec::truncate_from(codec::Encode::encode(&envelope))
-}
-
 #[test]
 fn ibe_v2_submit_accepts_built_target_in_build_block_or_next_block() {
     new_test_ext().execute_with(|| {
@@ -1554,4 +1512,140 @@ fn ibe_block_key_release_bundle_requires_exact_predecessor_finality_point_before
             Err(Error::<Test>::InvalidIbeBlockDecryptionKey)
         ));
     });
+}
+
+#[test]
+fn conditional_atblock_codec_index_is_stable_for_future_variants() {
+    let condition = crate::ConditionalIbeCondition::AtBlock { block: 42 };
+    let encoded = condition.encode();
+    assert_eq!(encoded.first().copied(), Some(0));
+
+    let decoded = <crate::ConditionalIbeCondition as codec::Decode>::decode(&mut &encoded[..]);
+    assert!(matches!(
+        decoded,
+        Ok(crate::ConditionalIbeCondition::AtBlock { block: 42 })
+    ));
+    assert_eq!(condition.target_block(), 42);
+    assert!(!condition.is_fired(41));
+    assert!(condition.is_fired(42));
+}
+
+#[test]
+fn conditional_submission_weight_scales_with_lifetime() {
+    new_test_ext().execute_with(|| {
+        let condition = crate::ConditionalIbeCondition::AtBlock { block: 20 };
+        let one_block = MevShield::conditional_encrypted_submission_weight(&condition, 1);
+        let many_blocks = MevShield::conditional_encrypted_submission_weight(&condition, 10);
+        assert!(many_blocks.ref_time() > one_block.ref_time());
+    });
+}
+
+#[test]
+fn fired_conditional_entries_are_visible_to_ibe_key_discovery() {
+    new_test_ext().execute_with(|| {
+        System::set_block_number(10);
+        let key_id = [9u8; stp_mev_shield_ibe::KEY_ID_LEN];
+        let commitment = sp_core::H256::repeat_byte(7);
+        crate::PendingConditionalIbeQueue::<Test>::insert(
+            0,
+            crate::PendingConditionalIbe::<Test> {
+                who: 1,
+                encrypted_call: BoundedVec::truncate_from(vec![0xAA; 32]),
+                condition: crate::ConditionalIbeCondition::AtBlock { block: 10 },
+                submitted_at: 1,
+                expires_at: 20,
+                epoch: 3,
+                target_block: 10,
+                key_id,
+                commitment,
+            },
+        );
+
+        let identities = MevShield::pending_ibe_identities(16);
+        assert!(identities.iter().any(|identity| {
+            identity.epoch == 3 && identity.target_block == 10 && identity.key_id == key_id
+        }));
+    });
+}
+
+#[test]
+fn expired_conditional_entries_are_not_key_release_identities() {
+    new_test_ext().execute_with(|| {
+        System::set_block_number(30);
+        let key_id = [8u8; stp_mev_shield_ibe::KEY_ID_LEN];
+        crate::PendingConditionalIbeQueue::<Test>::insert(
+            0,
+            crate::PendingConditionalIbe::<Test> {
+                who: 1,
+                encrypted_call: BoundedVec::truncate_from(vec![0xBB; 32]),
+                condition: crate::ConditionalIbeCondition::AtBlock { block: 10 },
+                submitted_at: 1,
+                expires_at: 29,
+                epoch: 4,
+                target_block: 10,
+                key_id,
+                commitment: sp_core::H256::repeat_byte(8),
+            },
+        );
+
+        let identities = MevShield::pending_ibe_identities(16);
+        assert!(!identities.iter().any(|identity| {
+            identity.epoch == 4 && identity.target_block == 10 && identity.key_id == key_id
+        }));
+    });
+}
+
+#[test]
+fn npos_transition_snapshot_hook_validates_and_freezes_authorities() {
+    new_test_ext().execute_with(|| {
+            let epoch = 77;
+
+            frame_support::assert_noop!(
+                MevShield::install_npos_dkg_authority_snapshot_from_transition(epoch, Vec::new()),
+                Error::<Test>::BadIbeDkgAuthoritySnapshot
+            );
+
+            let mut wrong_kind = babe_dkg_authority(1, 10);
+            wrong_kind.consensus_key_kind =
+                mev_shield_ibe_runtime_api::DkgConsensusKeyKind::AuraSr25519;
+            frame_support::assert_noop!(
+                MevShield::install_npos_dkg_authority_snapshot_from_transition(
+                    epoch,
+                    vec![wrong_kind],
+                ),
+                Error::<Test>::BadIbeDkgAuthoritySnapshot
+            );
+
+            frame_support::assert_noop!(
+                MevShield::install_npos_dkg_authority_snapshot_from_transition(
+                    epoch,
+                    vec![babe_dkg_authority(2, 10), babe_dkg_authority(2, 20)],
+                ),
+                Error::<Test>::BadIbeDkgAuthoritySnapshot
+            );
+
+            let authorities = vec![babe_dkg_authority(3, 10), babe_dkg_authority(4, 20)];
+            frame_support::assert_ok!(
+                MevShield::install_npos_dkg_authority_snapshot_from_transition(
+                    epoch,
+                    authorities.clone(),
+                )
+            );
+
+            let stored = crate::IbeNposDkgAuthoritySnapshots::<Test>::get(epoch);
+            assert_eq!(stored.len(), authorities.len());
+            assert!(
+                stored
+                    .iter()
+                    .any(|authority| authority.authority_id == authorities[0].authority_id)
+            );
+            assert!(
+                stored
+                    .iter()
+                    .any(|authority| authority.authority_id == authorities[1].authority_id)
+            );
+
+            let source = format!("{:?}", crate::IbeDkgConsensusSources::<Test>::get(epoch));
+            assert!(source.contains("PosBabeRootValidators"));
+        });
 }

@@ -267,3 +267,52 @@ pub fn build_wire_ciphertext(
     buf.extend_from_slice(aead_ct);
     buf
 }
+
+pub fn babe_dkg_authority(id: u8, stake: u128) -> mev_shield_ibe_runtime_api::DkgAuthorityInfo {
+    mev_shield_ibe_runtime_api::DkgAuthorityInfo {
+        hotkey_account_id: vec![id; 32],
+        consensus_key_kind: mev_shield_ibe_runtime_api::DkgConsensusKeyKind::BabeSr25519,
+        authority_id: vec![id.wrapping_add(100); 32],
+        stake,
+        dkg_x25519_public_key: [id.wrapping_add(200); 32],
+    }
+}
+
+pub fn test_ibe_epoch_key(
+    epoch: u64,
+    key_id: [u8; stp_mev_shield_ibe::KEY_ID_LEN],
+    first_block: u64,
+    last_block: u64,
+) -> stp_mev_shield_ibe::IbeEpochPublicKey {
+    stp_mev_shield_ibe::IbeEpochPublicKey {
+        epoch,
+        key_id,
+        master_public_key: BoundedVec::truncate_from(
+            vec![0x55; stp_mev_shield_ibe::COMPRESSED_MASTER_PUBLIC_KEY_LEN],
+        ),
+        total_weight: 100,
+        threshold_weight: 67,
+        public_atoms: Default::default(),
+        first_block,
+        last_block,
+    }
+}
+
+pub fn test_ibe_envelope(
+    epoch: u64,
+    target_block: u64,
+    key_id: [u8; stp_mev_shield_ibe::KEY_ID_LEN],
+    commitment_byte: u8,
+) -> BoundedVec<u8, crate::MaxEncryptedCallSize> {
+    let envelope = stp_mev_shield_ibe::IbeEncryptedExtrinsicV1 {
+        magic: stp_mev_shield_ibe::MEV_SHIELD_IBE_MAGIC,
+        version: stp_mev_shield_ibe::MEV_SHIELD_IBE_VERSION,
+        epoch,
+        target_block,
+        key_id,
+        commitment: sp_core::H256::repeat_byte(commitment_byte),
+        ciphertext: vec![commitment_byte; 32],
+    };
+    BoundedVec::truncate_from(codec::Encode::encode(&envelope))
+}
+
