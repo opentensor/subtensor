@@ -10,12 +10,15 @@
 //! via issuance accounting (burned at open, minted back on restore/close). Pool
 //! reserves, `TotalStake`, and issuance move in lockstep.
 //!
-//! Emissions flow. A single TaoFlow signal is written **at open**, scaled by the
-//! governance factor `χ` (`DerivativeFlowFactor`), based on the TAO swapped
-//! through the pool: a short sells alpha and extracts `N` TAO → negative flow;
-//! a long routes `D` TAO through the pool to buy alpha → positive flow. Unwinds
-//! (decay/close/default/dereg) do not write flow — the flow EMA decays the
-//! open-time pulse. `χ = 0` restores flow-neutral behavior (spec §4.5).
+//! Emissions flow. Open and close write opposite TaoFlow signals, scaled by the
+//! governance factor `χ` (`DerivativeFlowFactor`), tracking the alpha/TAO swap
+//! direction:
+//!   - short open: sell alpha, extract `N` TAO → negative flow;
+//!   - short close: rebuy `ρQ` alpha with TAO (valued at the EMA price) → positive;
+//!   - long open: route `D` TAO through the pool to buy alpha → positive flow;
+//!   - long close: sell the alpha exposure back for `ρD` TAO → negative.
+//! Decay/default/dereg do not write flow — the flow EMA decays the residual
+//! open-side signal. `χ = 0` restores flow-neutral behavior (spec §4.5).
 //!
 //! Custody solvency invariant. `custody_balance(netuid)` (shorts) and the burned
 //! Alpha (longs) equal `Σ materialized (P + R(t) + E(t))` **to within per-block
@@ -458,6 +461,10 @@ impl<T: Config> Pallet<T> {
         Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(&pos.hotkey, &coldkey, netuid, q_close);
         SubnetAlphaOut::<T>::mutate(netuid, |o| *o = o.saturating_sub(q_close));
         Self::increase_provided_alpha_reserve(netuid, q_close);
+        // Closing rebuys `ρQ` alpha with TAO: positive flow, reversing the open
+        // sell. Valued at the EMA price (bounded / not flash-manipulable).
+        let pema = I64F64::from_num(Self::get_moving_alpha_price(netuid));
+        Self::record_derivative_inflow(netuid, Self::to_tao(Self::alpha_f(q_close).saturating_mul(pema)));
 
         let custody = Self::short_custody_account(netuid);
         let subnet_account =

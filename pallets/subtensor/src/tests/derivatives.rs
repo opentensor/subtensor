@@ -1322,19 +1322,28 @@ fn derivatives_write_subnet_flow() {
         let s = U256::from(10);
         add_balance_to_coldkey_account(&s, t(1000 * TAO));
 
-        // Default χ = 1.0: a short open removes TAO and writes negative flow.
+        // Default χ = 1.0: a short open sells alpha → negative flow; closing it
+        // rebuys the alpha → positive flow (reversal).
+        let shk = U256::from(11);
+        give_alpha(shk, s, netuid, AlphaBalance::from(5000 * TAO)); // to repay Q on close
         let f0 = SubnetTaoFlow::<Test>::get(netuid);
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(s), U256::from(11), netuid, t(100 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(s), shk, netuid, t(100 * TAO)));
         let f1 = SubnetTaoFlow::<Test>::get(netuid);
         assert!(f1 < f0, "short open must write negative flow: {f1} !< {f0}");
+        assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(s), netuid, 1_000_000_000));
+        assert!(SubnetTaoFlow::<Test>::get(netuid) > f1, "short close must reverse to positive flow");
 
-        // A long open routes D TAO through the pool to buy alpha → positive flow.
+        // A long open buys alpha with D TAO → positive; closing sells back → negative.
         let lc = U256::from(20);
         let lh = U256::from(21);
         give_alpha(lh, lc, netuid, AlphaBalance::from(500 * TAO));
+        add_balance_to_coldkey_account(&lc, t(1000 * TAO)); // to repay D on close
         let f2 = SubnetTaoFlow::<Test>::get(netuid);
         assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(lc), lh, netuid, AlphaBalance::from(100 * TAO)));
-        assert!(SubnetTaoFlow::<Test>::get(netuid) > f2, "long open must write positive flow");
+        let f3 = SubnetTaoFlow::<Test>::get(netuid);
+        assert!(f3 > f2, "long open must write positive flow");
+        assert_ok!(SubtensorModule::close_long(RuntimeOrigin::signed(lc), netuid, 1_000_000_000));
+        assert!(SubnetTaoFlow::<Test>::get(netuid) < f3, "long close must reverse to negative flow");
 
         // χ = 0 → flow-neutral: another short open leaves flow untouched.
         SubtensorModule::set_derivative_flow_factor_ppb(0);

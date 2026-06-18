@@ -258,6 +258,9 @@ impl<T: Config> Pallet<T> {
             Self::increase_provided_tao_reserve(netuid, d_close);
             TotalStake::<T>::mutate(|t| *t = t.saturating_add(d_close));
         }
+        // Closing a long sells the alpha exposure back for TAO: negative flow,
+        // reversing the open buy.
+        Self::record_derivative_outflow(netuid, d_close);
         // Settle escrow back to the pool; return floor+buffer as stake (mint).
         Self::increase_provided_alpha_reserve(netuid, e_close);
         let returned = p_close.saturating_add(r_close);
