@@ -29,13 +29,6 @@ pub fn target_block_for_submission(current_block: u64) -> u64 {
 
 pub const IBE_DOMAIN: &[u8] = b"bittensor.mev-shield.v2.block-identity";
 
-/// Legacy body-inherent identifier retained for old clients only.
-///
-/// The MVP threshold-IBE block-key delivery path is the
-/// `IBE_BLOCK_DECRYPTION_KEYS_ENGINE_ID` pre-runtime digest, not this inherent
-/// identifier, so keys are visible to `on_initialize`.
-pub const IBE_BLOCK_DECRYPTION_KEYS_INHERENT_IDENTIFIER: [u8; 8] = *b"ibe_bkey";
-
 /// Pre-runtime digest engine id used to deliver threshold-IBE block-key release
 /// bundles before runtime initialization.
 pub const IBE_BLOCK_DECRYPTION_KEYS_ENGINE_ID: [u8; 4] = *b"ibek";
@@ -157,14 +150,6 @@ pub struct IbeBlockDecryptionKeyShareBundleV1 {
     /// Public partial shares used as the chain-visible threshold-release proof.
     pub shares: Vec<IbePartialDecryptionKeyShareV1>,
 }
-
-#[subtensor_macros::freeze_struct("e6b40f899cc7984a")]
-#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
-pub struct IbeBlockDecryptionKeyInherentData {
-    pub keys: Vec<IbeBlockDecryptionKeyV1>,
-    pub share_bundles: Vec<IbeBlockDecryptionKeyShareBundleV1>,
-}
-
 #[subtensor_macros::freeze_struct("882e735cbb91413")]
 #[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 pub struct IbeBlockDecryptionKeyPreRuntimeDigestData {
