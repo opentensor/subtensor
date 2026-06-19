@@ -1097,7 +1097,7 @@ fn test_staking_sets_div_variables() {
         );
 
         // Wait for 1 epoch
-        step_block(tempo + 1);
+        step_epochs(1, netuid);
 
         // Verify that divident variables have been set
         let stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(

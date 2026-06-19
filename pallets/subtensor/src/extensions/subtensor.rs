@@ -188,9 +188,9 @@ where
                     salt,
                     *version_key,
                 );
-                match Pallet::<T>::find_commit_block_via_hash(provided_hash) {
-                    Some(commit_block) => {
-                        if Pallet::<T>::is_reveal_block_range(*netuid, commit_block) {
+                match Pallet::<T>::find_commit_epoch_via_hash(provided_hash) {
+                    Some(commit_epoch) => {
+                        if Pallet::<T>::is_reveal_block_range(*netuid, commit_epoch) {
                             Ok((Default::default(), (), origin))
                         } else {
                             Err(CustomTransactionError::CommitBlockNotInRevealRange.into())
@@ -218,9 +218,9 @@ where
                     salt,
                     *version_key,
                 );
-                match Pallet::<T>::find_commit_block_via_hash(provided_hash) {
-                    Some(commit_block) => {
-                        if Pallet::<T>::is_reveal_block_range(*netuid, commit_block) {
+                match Pallet::<T>::find_commit_epoch_via_hash(provided_hash) {
+                    Some(commit_epoch) => {
+                        if Pallet::<T>::is_reveal_block_range(*netuid, commit_epoch) {
                             Ok((Default::default(), (), origin))
                         } else {
                             Err(CustomTransactionError::CommitBlockNotInRevealRange.into())
@@ -258,13 +258,13 @@ where
                         })
                         .collect::<Vec<_>>();
 
-                    let batch_reveal_block = provided_hashes
+                    let batch_reveal_epoch = provided_hashes
                         .iter()
-                        .filter_map(|hash| Pallet::<T>::find_commit_block_via_hash(*hash))
+                        .filter_map(|hash| Pallet::<T>::find_commit_epoch_via_hash(*hash))
                         .collect::<Vec<_>>();
 
-                    if provided_hashes.len() == batch_reveal_block.len() {
-                        if Pallet::<T>::is_batch_reveal_block_range(*netuid, batch_reveal_block) {
+                    if provided_hashes.len() == batch_reveal_epoch.len() {
+                        if Pallet::<T>::is_batch_reveal_epoch_range(*netuid, batch_reveal_epoch) {
                             Ok((Default::default(), (), origin))
                         } else {
                             Err(CustomTransactionError::CommitBlockNotInRevealRange.into())

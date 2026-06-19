@@ -501,19 +501,15 @@ mod pallet_benchmarks {
             salt.clone(),
             version_key,
         ));
-        let commit_block = Subtensor::<T>::get_current_block_as_u64();
         assert_ok!(Subtensor::<T>::commit_weights(
             RawOrigin::Signed(hotkey.clone()).into(),
             netuid,
             commit_hash,
         ));
 
-        let (first_reveal_block, _) = Subtensor::<T>::get_reveal_blocks(netuid, commit_block);
-        let reveal_block: BlockNumberFor<T> = first_reveal_block
-            .try_into()
-            .ok()
-            .expect("can't convert to block number");
-        frame_system::Pallet::<T>::set_block_number(reveal_block);
+        // Advance the epoch counter into the commit's reveal window.
+        let reveal_period = Subtensor::<T>::get_reveal_period(netuid);
+        SubnetEpochIndex::<T>::mutate(netuid, |e| *e = e.saturating_add(reveal_period));
 
         #[extrinsic_call]
         _(
@@ -737,7 +733,6 @@ mod pallet_benchmarks {
         let mut salts_list = Vec::new();
         let mut version_keys = Vec::new();
 
-        let commit_block = Subtensor::<T>::get_current_block_as_u64();
         for i in 0..num_commits {
             let uids = vec![0u16];
             let values = vec![i as u16];
@@ -765,12 +760,9 @@ mod pallet_benchmarks {
             version_keys.push(version_key_i);
         }
 
-        let (first_reveal_block, _) = Subtensor::<T>::get_reveal_blocks(netuid, commit_block);
-        let reveal_block: BlockNumberFor<T> = first_reveal_block
-            .try_into()
-            .ok()
-            .expect("can't convert to block number");
-        frame_system::Pallet::<T>::set_block_number(reveal_block);
+        // Advance the epoch counter into the reveal window for these commits.
+        let reveal_period = Subtensor::<T>::get_reveal_period(netuid);
+        SubnetEpochIndex::<T>::mutate(netuid, |e| *e = e.saturating_add(reveal_period));
 
         #[extrinsic_call]
         _(
@@ -2275,6 +2267,54 @@ mod pallet_benchmarks {
             AssociatedEvmAddress::<T>::get(netuid, uid),
             Some((evm_key, block_number))
         );
+    }
+
+    #[benchmark]
+    fn set_tempo() {
+        let netuid = NetUid::from(1);
+        let coldkey: T::AccountId = account("Owner", 0, 1);
+
+        Subtensor::<T>::init_new_network(netuid, 1u16);
+        SubnetOwner::<T>::insert(netuid, coldkey.clone());
+        SubtokenEnabled::<T>::insert(netuid, true);
+        Subtensor::<T>::set_commit_reveal_weights_enabled(netuid, false);
+        Subtensor::<T>::set_admin_freeze_window(0);
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(coldkey.clone()), netuid, MIN_TEMPO);
+    }
+
+    #[benchmark]
+    fn set_activity_cutoff_factor() {
+        let netuid = NetUid::from(1);
+        let coldkey: T::AccountId = account("Owner", 0, 1);
+
+        Subtensor::<T>::init_new_network(netuid, 1u16);
+        SubnetOwner::<T>::insert(netuid, coldkey.clone());
+        SubtokenEnabled::<T>::insert(netuid, true);
+        Subtensor::<T>::set_admin_freeze_window(0);
+
+        #[extrinsic_call]
+        _(
+            RawOrigin::Signed(coldkey.clone()),
+            netuid,
+            INITIAL_ACTIVITY_CUTOFF_FACTOR_MILLI,
+        );
+    }
+
+    #[benchmark]
+    fn trigger_epoch() {
+        let netuid = NetUid::from(1);
+        let coldkey: T::AccountId = account("Owner", 0, 1);
+
+        Subtensor::<T>::init_new_network(netuid, 1u16);
+        SubnetOwner::<T>::insert(netuid, coldkey.clone());
+        SubtokenEnabled::<T>::insert(netuid, true);
+        Subtensor::<T>::set_commit_reveal_weights_enabled(netuid, false);
+        Subtensor::<T>::set_admin_freeze_window(0);
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(coldkey.clone()), netuid);
     }
 
     impl_benchmark_test_suite!(

@@ -618,6 +618,42 @@ mod events {
             netuid: NetUid,
         },
 
+        /// Activity-cutoff factor (per-mille) set on a subnet by its owner.
+        ActivityCutoffFactorMilliSet {
+            /// The subnet identifier.
+            netuid: NetUid,
+            /// Factor (per-mille).
+            factor_milli: u32,
+        },
+
+        /// Owner manually triggered an epoch for their subnet.
+        EpochTriggered {
+            /// The subnet identifier.
+            netuid: NetUid,
+            /// The account that triggered the epoch.
+            by: T::AccountId,
+            /// The earliest block at which the triggered epoch may execute.
+            fires_at: u64,
+        },
+
+        /// An epoch slot was deferred to the next block due to the per-block epoch cap.
+        EpochDeferred {
+            /// The subnet identifier.
+            netuid: NetUid,
+            /// Block at which the epoch was originally scheduled.
+            from_block: u64,
+            /// Block to which the epoch was deferred.
+            to_block: u64,
+        },
+
+        /// Epoch execution skipped by `is_epoch_input_state_consistent` returned false or other errors.
+        EpochSkipped {
+            /// The subnet identifier.
+            netuid: NetUid,
+            /// The block at which the slot was consumed.
+            block: u64,
+        },
+
         /// Subnet ownership was reassigned by lock conviction.
         SubnetOwnerChanged {
             /// The subnet whose owner changed.
