@@ -25,9 +25,9 @@ fn call_remove_single_value(weight_meter: &mut WeightMeter, weight: Weight) -> b
 #[test]
 fn test_remove_single_value() {
     new_test_ext(0).execute_with(|| {
-        CurrentDissolveCleanupStatus::<Test>::set(Some(DissolveCleanupStatus::new(
-            NetUid::from(1),
-        )));
+        CurrentDissolveCleanupStatus::<Test>::set(Some(DissolveCleanupStatus::new(NetUid::from(
+            1,
+        ))));
         let w = Weight::from_parts(100_u64, 100_u64);
 
         let mut weight_meter = frame_support::weights::WeightMeter::with_limit(w);
@@ -39,9 +39,9 @@ fn test_remove_single_value() {
 #[test]
 fn test_remove_single_value_failed() {
     new_test_ext(0).execute_with(|| {
-        CurrentDissolveCleanupStatus::<Test>::set(Some(DissolveCleanupStatus::new(
-            NetUid::from(1),
-        )));
+        CurrentDissolveCleanupStatus::<Test>::set(Some(DissolveCleanupStatus::new(NetUid::from(
+            1,
+        ))));
         let w = Weight::from_parts(100_u64, 100_u64);
 
         let mut weight_meter =
@@ -465,9 +465,16 @@ fn test_destroy_alpha_in_out_stakes_settle_stakes() {
 
         // Add some stake to have alpha value
         let stake_tao: u64 = 1000;
-        setup_reserves(netuid, (stake_tao * 1_000_000).into(), (stake_tao * 10_000_000).into());
+        setup_reserves(
+            netuid,
+            (stake_tao * 1_000_000).into(),
+            (stake_tao * 10_000_000).into(),
+        );
         let amount: TaoBalance = (stake_tao).into();
-        assert_ok!(SubtensorModule::create_account_if_non_existent(&owner_cold, &owner_hot));
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &owner_cold,
+            &owner_hot
+        ));
         add_balance_to_coldkey_account(&owner_cold, amount);
         // Stake into subnet to create some alpha
         assert_ok!(SubtensorModule::stake_into_subnet(

@@ -183,7 +183,7 @@ fn remove_storage_entries_for_netuid_defers_removals_until_after_scan() {
                     self.scan_finished.set(true);
                     return None;
                 }
-                let item = self.items[self.index].ex;
+                let item = self.items[self.index].exp;
                 self.index += 1;
                 Some(item)
             }
