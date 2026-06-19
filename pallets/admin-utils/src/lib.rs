@@ -2282,10 +2282,10 @@ pub mod pallet {
 
         /// Sets the per-block cap on subnet epochs (dynamic tempo throttle).
         #[pallet::call_index(96)]
-        #[pallet::weight(<T as pallet::Config>::WeightInfo::sudo_set_tx_rate_limit())]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::sudo_set_max_epochs_per_block())]
         pub fn sudo_set_max_epochs_per_block(
             origin: OriginFor<T>,
-            max_epochs_per_block: u32,
+            max_epochs_per_block: u8,
         ) -> DispatchResult {
             ensure_root(origin)?;
             ensure!(max_epochs_per_block >= 1, Error::<T>::ValueNotInBounds);

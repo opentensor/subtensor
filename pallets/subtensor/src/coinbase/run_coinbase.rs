@@ -322,7 +322,7 @@ impl<T: Config> Pallet<T> {
     /// Subnets whose epoch slot is due *this* block but is deferred by the per-block
     /// cap (`MaxEpochsPerBlock`).
     pub fn epochs_deferred_this_block(subnets: &[NetUid], current_block: u64) -> BTreeSet<NetUid> {
-        let cap = Self::get_max_epochs_per_block();
+        let cap = Self::get_max_epochs_per_block() as u32;
         let mut deferred: BTreeSet<NetUid> = BTreeSet::new();
         let mut epochs_run_this_block: u32 = 0;
 
@@ -353,7 +353,7 @@ impl<T: Config> Pallet<T> {
         > = BTreeMap::new();
         // Per-block cap on number of epochs that may run; the rest are deferred 1 block forward
         // by setting `PendingEpochAt`.
-        let max_epochs_per_block = Self::get_max_epochs_per_block();
+        let max_epochs_per_block = Self::get_max_epochs_per_block() as u32;
         let mut epochs_run_this_block: u32 = 0;
 
         for &netuid in subnets.iter() {

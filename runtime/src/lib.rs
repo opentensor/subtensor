@@ -1032,7 +1032,7 @@ parameter_types! {
     pub const EvmKeyAssociateRateLimit: u64 = EVM_KEY_ASSOCIATE_RATELIMIT;
     pub const SubtensorPalletId: PalletId = PalletId(*b"subtensr");
     pub const BurnAccountId: PalletId = PalletId(*b"burntnsr");
-    pub const SubtensorMaxEpochsPerBlock: u32 = prod_or_fast!(2, 32);
+    pub const SubtensorMaxEpochsPerBlock: u8 = prod_or_fast!(2, 32);
 }
 
 impl pallet_subtensor::Config for Runtime {

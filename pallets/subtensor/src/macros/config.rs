@@ -286,6 +286,6 @@ mod config {
         /// execute in a single `block_step`; the rest are deferred 1 block forward via
         /// `PendingEpochAt`.
         #[pallet::constant]
-        type InitialMaxEpochsPerBlock: Get<u32>;
+        type InitialMaxEpochsPerBlock: Get<u8>;
     }
 }

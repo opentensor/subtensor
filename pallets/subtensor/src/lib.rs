@@ -925,7 +925,7 @@ pub mod pallet {
 
     /// Default per-block epoch cap, seeded from the runtime-configured initial value.
     #[pallet::type_value]
-    pub fn DefaultMaxEpochsPerBlock<T: Config>() -> u32 {
+    pub fn DefaultMaxEpochsPerBlock<T: Config>() -> u8 {
         T::InitialMaxEpochsPerBlock::get()
     }
 
@@ -2138,7 +2138,7 @@ pub mod pallet {
 
     /// --- ITEM ( max_epochs_per_block )
     #[pallet::storage]
-    pub type MaxEpochsPerBlock<T> = StorageValue<_, u32, ValueQuery, DefaultMaxEpochsPerBlock<T>>;
+    pub type MaxEpochsPerBlock<T> = StorageValue<_, u8, ValueQuery, DefaultMaxEpochsPerBlock<T>>;
 
     /// --- ITEM ( tx_rate_limit )
     #[pallet::storage]

@@ -110,7 +110,7 @@ mod events {
         /// setting min burn on a network.
         MinBurnSet(NetUid, TaoBalance),
         /// setting the per-block epoch cap (dynamic tempo throttle).
-        MaxEpochsPerBlockSet(u32),
+        MaxEpochsPerBlockSet(u8),
         /// setting the transaction rate limit.
         TxRateLimitSet(u64),
         /// setting the delegate take transaction rate limit.
