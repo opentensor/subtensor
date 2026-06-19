@@ -187,17 +187,7 @@ mod hooks {
         }
 
         fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
-            let mut dissolved_networks = DissolveCleanupQueue::<T>::get();
-
-            let (cleanup_completed, mut weight) = if dissolved_networks.is_empty() {
-                (false, Weight::from_parts(0, 0))
-            } else {
-                Self::remove_data_for_dissolved_networks(limit, &dissolved_networks.remove(0))
-            };
-
-            if cleanup_completed {
-                DissolveCleanupQueue::<T>::set(dissolved_networks);
-            }
+            let mut weight = Self::remove_data_for_dissolved_networks(limit);
 
             weight.saturating_accrue(Self::process_network_registration_queue());
 

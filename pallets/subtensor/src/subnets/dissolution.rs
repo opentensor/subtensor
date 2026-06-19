@@ -592,15 +592,25 @@ impl<T: Config> Pallet<T> {
     // # Returns:
     // 	* 'Weight': The weight used for the cleanup step.
     //
-    pub fn remove_data_for_dissolved_networks(
-        remaining_weight: Weight,
-        netuid: &NetUid,
-    ) -> (bool, Weight) {
-        let mut weight_meter = frame_support::weights::WeightMeter::with_limit(remaining_weight);
+    pub fn remove_data_for_dissolved_networks(remaining_weight: Weight) -> Weight {
         let w = T::DbWeight::get().writes(1);
         let r = T::DbWeight::get().reads(1);
+        let mut weight_meter = frame_support::weights::WeightMeter::with_limit(remaining_weight);
+
         if !weight_meter.can_consume(r) {
-            return (false, weight_meter.consumed());
+            return weight_meter.consumed();
+        }
+
+        let mut dissolved_networks = DissolveCleanupQueue::<T>::get();
+
+        if dissolved_networks.is_empty() {
+            return weight_meter.consumed();
+        }
+
+        let netuid = dissolved_networks.remove(0);
+
+        if !weight_meter.can_consume(r) {
+            return weight_meter.consumed();
         }
 
         // if no phase is set, set the first phase
@@ -608,7 +618,7 @@ impl<T: Config> Pallet<T> {
             weight_meter.consume(r);
 
             if !weight_meter.can_consume(w) {
-                return (false, weight_meter.consumed());
+                return weight_meter.consumed();
             }
             DissolvedNetworksCleanupPhase::<T>::set(Some(
                 DissolveCleanupPhase::SubnetRootDividendsRootClaimable { last_key: None },
@@ -623,7 +633,7 @@ impl<T: Config> Pallet<T> {
         while phase_done {
             // pre charge a read for phase get and write to update phase storage
             if !weight_meter.can_consume(r + w) {
-                return (false, weight_meter.consumed());
+                return weight_meter.consumed();
             }
             weight_meter.consume(r + w);
 
@@ -637,7 +647,7 @@ impl<T: Config> Pallet<T> {
                 let done = match phase {
                     DissolveCleanupPhase::SubnetRootDividendsRootClaimable { last_key } => {
                         let (done, new_key) = Self::clean_up_root_claimable_for_subnet(
-                            *netuid,
+                            netuid,
                             &mut weight_meter,
                             last_key,
                         );
@@ -658,7 +668,7 @@ impl<T: Config> Pallet<T> {
 
                     DissolveCleanupPhase::SubnetRootDividendsRootClaimed => {
                         let done =
-                            Self::clean_up_root_claimed_for_subnet(*netuid, &mut weight_meter);
+                            Self::clean_up_root_claimed_for_subnet(netuid, &mut weight_meter);
 
                         if done {
                             DissolvedNetworksCleanupPhase::<T>::set(Some(
@@ -673,7 +683,7 @@ impl<T: Config> Pallet<T> {
                     DissolveCleanupPhase::AlphaInOutStakesGetTotalAlphaValue { last_key } => {
                         let (done, new_key) =
                             Self::destroy_alpha_in_out_stakes_get_total_alpha_value(
-                                *netuid,
+                                netuid,
                                 &mut weight_meter,
                                 last_key,
                             );
@@ -697,7 +707,7 @@ impl<T: Config> Pallet<T> {
 
                     DissolveCleanupPhase::AlphaInOutStakesSettleStakes { last_key } => {
                         let (done, new_key) = Self::destroy_alpha_in_out_stakes_settle_stakes(
-                            *netuid,
+                            netuid,
                             &mut weight_meter,
                             last_key,
                         );
@@ -717,7 +727,7 @@ impl<T: Config> Pallet<T> {
 
                     DissolveCleanupPhase::AlphaInOutStakesAlpha { last_key } => {
                         let (done, new_key) = Self::destroy_alpha_in_out_stakes_clean_alpha(
-                            *netuid,
+                            netuid,
                             &mut weight_meter,
                             last_key,
                         );
@@ -737,7 +747,7 @@ impl<T: Config> Pallet<T> {
 
                     DissolveCleanupPhase::AlphaInOutStakesHotkeyTotals { last_key } => {
                         let (done, new_key) = Self::destroy_alpha_in_out_stakes_clear_hotkey_totals(
-                            *netuid,
+                            netuid,
                             &mut weight_meter,
                             last_key,
                         );
@@ -758,7 +768,7 @@ impl<T: Config> Pallet<T> {
 
                     DissolveCleanupPhase::AlphaInOutStakesLocks { last_key } => {
                         let (done, new_key) = Self::destroy_alpha_in_out_stakes_clear_locks(
-                            *netuid,
+                            netuid,
                             &mut weight_meter,
                             last_key,
                         );
@@ -778,7 +788,7 @@ impl<T: Config> Pallet<T> {
                     DissolveCleanupPhase::AlphaInOutStakesDecayingLocks { last_key } => {
                         let (done, new_key) =
                             Self::destroy_alpha_in_out_stakes_clear_decaying_locks(
-                                *netuid,
+                                netuid,
                                 &mut weight_meter,
                                 last_key,
                             );
@@ -797,7 +807,7 @@ impl<T: Config> Pallet<T> {
                     }
 
                     DissolveCleanupPhase::AlphaInOutStakes => {
-                        let done = Self::destroy_alpha_in_out_stakes(*netuid, &mut weight_meter);
+                        let done = Self::destroy_alpha_in_out_stakes(netuid, &mut weight_meter);
                         if done {
                             DissolvedNetworksCleanupPhase::<T>::set(Some(
                                 DissolveCleanupPhase::ProtocolLiquidity,
@@ -808,7 +818,7 @@ impl<T: Config> Pallet<T> {
 
                     DissolveCleanupPhase::ProtocolLiquidity => {
                         let done =
-                            T::SwapInterface::clear_protocol_liquidity(*netuid, &mut weight_meter);
+                            T::SwapInterface::clear_protocol_liquidity(netuid, &mut weight_meter);
 
                         if done {
                             DissolvedNetworksCleanupPhase::<T>::set(Some(
@@ -819,8 +829,7 @@ impl<T: Config> Pallet<T> {
                     }
 
                     DissolveCleanupPhase::PurgeNetuid => {
-                        let done =
-                            T::CommitmentsInterface::purge_netuid(*netuid, &mut weight_meter);
+                        let done = T::CommitmentsInterface::purge_netuid(netuid, &mut weight_meter);
 
                         if done {
                             DissolvedNetworksCleanupPhase::<T>::set(Some(
@@ -831,7 +840,7 @@ impl<T: Config> Pallet<T> {
                     }
                     DissolveCleanupPhase::NetworkIsNetworkMember { last_key } => {
                         let (done, new_key) = Self::remove_network_is_network_member(
-                            *netuid,
+                            netuid,
                             &mut weight_meter,
                             last_key,
                         );
@@ -848,7 +857,7 @@ impl<T: Config> Pallet<T> {
                         done
                     }
                     DissolveCleanupPhase::NetworkParameters => {
-                        let done = Self::remove_network_parameters(*netuid, &mut weight_meter);
+                        let done = Self::remove_network_parameters(netuid, &mut weight_meter);
 
                         if done {
                             DissolvedNetworksCleanupPhase::<T>::set(Some(
@@ -858,7 +867,7 @@ impl<T: Config> Pallet<T> {
                         done
                     }
                     DissolveCleanupPhase::NetworkMapParameters => {
-                        let done = Self::remove_network_map_parameters(*netuid, &mut weight_meter);
+                        let done = Self::remove_network_map_parameters(netuid, &mut weight_meter);
 
                         if done {
                             DissolvedNetworksCleanupPhase::<T>::set(Some(
@@ -869,7 +878,7 @@ impl<T: Config> Pallet<T> {
                     }
                     DissolveCleanupPhase::NetworkUpdateWeightsOnRoot { last_key } => {
                         let (done, new_key) = Self::remove_network_update_weights_on_root(
-                            *netuid,
+                            netuid,
                             &mut weight_meter,
                             last_key,
                         );
@@ -888,11 +897,8 @@ impl<T: Config> Pallet<T> {
                         done
                     }
                     DissolveCleanupPhase::NetworkChildkeyTake { last_key } => {
-                        let (done, new_key) = Self::remove_network_childkey_take(
-                            *netuid,
-                            &mut weight_meter,
-                            last_key,
-                        );
+                        let (done, new_key) =
+                            Self::remove_network_childkey_take(netuid, &mut weight_meter, last_key);
 
                         if done {
                             DissolvedNetworksCleanupPhase::<T>::set(Some(
@@ -907,7 +913,7 @@ impl<T: Config> Pallet<T> {
                     }
                     DissolveCleanupPhase::NetworkChildkeys { last_key } => {
                         let (done, new_key) =
-                            Self::remove_network_childkeys(*netuid, &mut weight_meter, last_key);
+                            Self::remove_network_childkeys(netuid, &mut weight_meter, last_key);
 
                         if done {
                             DissolvedNetworksCleanupPhase::<T>::set(Some(
@@ -922,7 +928,7 @@ impl<T: Config> Pallet<T> {
                     }
                     DissolveCleanupPhase::NetworkParentkeys { last_key } => {
                         let (done, new_key) =
-                            Self::remove_network_parentkeys(*netuid, &mut weight_meter, last_key);
+                            Self::remove_network_parentkeys(netuid, &mut weight_meter, last_key);
 
                         if done {
                             DissolvedNetworksCleanupPhase::<T>::set(Some(
@@ -939,7 +945,7 @@ impl<T: Config> Pallet<T> {
                     }
                     DissolveCleanupPhase::NetworkLastHotkeyEmissionOnNetuid { last_key } => {
                         let (done, new_key) = Self::remove_network_last_hotkey_emission_on_netuid(
-                            *netuid,
+                            netuid,
                             &mut weight_meter,
                             last_key,
                         );
@@ -961,7 +967,7 @@ impl<T: Config> Pallet<T> {
                     }
                     DissolveCleanupPhase::NetworkTotalHotkeyAlphaLastEpoch { last_key } => {
                         let (done, new_key) = Self::remove_network_total_hotkey_alpha_last_epoch(
-                            *netuid,
+                            netuid,
                             &mut weight_meter,
                             last_key,
                         );
@@ -983,7 +989,7 @@ impl<T: Config> Pallet<T> {
                     }
                     DissolveCleanupPhase::NetworkTransactionKeyLastBlock { last_key } => {
                         let (done, new_key) = Self::remove_network_transaction_key_last_block(
-                            *netuid,
+                            netuid,
                             &mut weight_meter,
                             last_key,
                         );
@@ -1002,7 +1008,7 @@ impl<T: Config> Pallet<T> {
                     }
                     DissolveCleanupPhase::NetworkLock { last_key } => {
                         let (done, new_key) =
-                            Self::remove_network_lock(*netuid, &mut weight_meter, last_key);
+                            Self::remove_network_lock(netuid, &mut weight_meter, last_key);
 
                         if done {
                             DissolvedNetworksCleanupPhase::<T>::set(Some(
@@ -1016,18 +1022,15 @@ impl<T: Config> Pallet<T> {
                         done
                     }
                     DissolveCleanupPhase::NetworkDecayingLock { last_key } => {
-                        let (done, new_key) = Self::remove_network_decaying_lock(
-                            *netuid,
-                            &mut weight_meter,
-                            last_key,
-                        );
+                        let (done, new_key) =
+                            Self::remove_network_decaying_lock(netuid, &mut weight_meter, last_key);
 
                         // if all phases are done, remove the network from the dissolved networks list and emit the event
                         if done {
                             DissolvedNetworksCleanupPhase::<T>::set(None);
                             cleanup_completed = true;
                             Self::deposit_event(Event::NetworkDissolveCleanupCompleted {
-                                netuid: *netuid,
+                                netuid: netuid,
                             });
                         } else {
                             DissolvedNetworksCleanupPhase::<T>::set(Some(
@@ -1042,12 +1045,13 @@ impl<T: Config> Pallet<T> {
 
                 // if phase is cleared, break since all phases are done
                 if cleanup_completed {
+                    DissolveCleanupQueue::<T>::set(dissolved_networks);
                     break;
                 }
             }
         }
 
-        (cleanup_completed, weight_meter.consumed())
+        weight_meter.consumed()
     }
 
     pub fn process_network_registration_queue() -> Weight {
