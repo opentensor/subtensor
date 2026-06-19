@@ -142,37 +142,43 @@ jobs:
         working-directory: ts-tests
         run: |
           set +e
-          cat > papi.mjs <<'PEOF'
-          const { ApiPromise, WsProvider } = await import('@polkadot/api');
-          const port = process.env.PROBE_PORT || '9944';
-          async function probe(url){
-            return await new Promise((resolve)=>{
-              const t=setTimeout(()=>resolve(url+' => TIMEOUT 20s (never ready)'),20000);
-              const provider=new WsProvider(url);
-              provider.on('connected',()=>console.log(url,'=> WS connected'));
-              provider.on('error',e=>console.log(url,'=> provider error:',(e&&e.message)||String(e)));
-              ApiPromise.create({provider})
-                .then(async(api)=>{const c=(await api.rpc.system.chain()).toString();await api.disconnect();clearTimeout(t);resolve(url+' => READY chain='+c);})
-                .catch(e=>{clearTimeout(t);resolve(url+' => FAIL '+((e&&e.message)||e));});
+          MWDIR="$PWD/$(find node_modules/.pnpm -maxdepth 1 -type d -name '@moonwall+cli*' | head -1)/node_modules/@moonwall/cli"
+          echo "moonwall dir: $MWDIR"
+          cat > probe.mjs <<'PEOF'
+          import { createRequire } from 'module';
+          const req = createRequire(process.env.MWDIR + '/');
+          const WebSocket = req('ws');
+          const port = process.env.P || '10144';
+          console.log('moonwall ws version:', req('ws/package.json').version);
+          function readiness(host){
+            return new Promise((resolve)=>{
+              const ws = new WebSocket('ws://'+host+':'+port);
+              const hard=setTimeout(()=>{try{ws.close()}catch(e){};resolve('[readiness] '+host+' => HANG (no open/error 10s)');},10000);
+              ws.on('open',()=>{ ws.send(JSON.stringify({jsonrpc:'2.0',id:1,method:'system_chain',params:[]}));
+                ws.on('message',d=>{try{const r=JSON.parse(d.toString());if(r.jsonrpc==='2.0'&&!r.error){clearTimeout(hard);ws.close();resolve('[readiness] '+host+' => READY ('+r.result+')');}}catch(e){}}); });
+              ws.on('error',e=>{clearTimeout(hard);resolve('[readiness] '+host+' => ERROR '+e.message);});
             });
           }
-          for (const h of ['127.0.0.1','localhost']) console.log(await probe('ws://'+h+':'+port));
+          async function papi(host){
+            try{ const { ApiPromise, WsProvider } = await import('@polkadot/api');
+              const api=await ApiPromise.create({provider:new WsProvider('ws://'+host+':'+port)});
+              const c=(await api.rpc.system.chain()).toString(); await api.disconnect();
+              return '[polkadot.js] '+host+' => READY ('+c+')';
+            }catch(e){ return '[polkadot.js] '+host+' => FAIL '+((e&&e.message)||e); }
+          }
+          for (const h of ['localhost','127.0.0.1']) console.log(await readiness(h));
+          for (const h of ['localhost','127.0.0.1']) console.log(await papi(h));
           process.exit(0);
           PEOF
-          for PROBE_PORT in 9944 10144; do
-            echo "######## PORT $PROBE_PORT (9944=control, 10144=moonwall dynamic range) ########"
-            ( ../target/release/node-subtensor --one --dev --force-authoring --rpc-cors=all \
-                --no-prometheus --no-telemetry --reserved-only --tmp --sealing=manual \
-                --pool-type=single-state --rpc-port $PROBE_PORT > /tmp/n_$PROBE_PORT.log 2>&1 & )
-            sleep 8
-            echo "-- ss listening on $PROBE_PORT --"; ss -ltnp 2>/dev/null | grep ":$PROBE_PORT" || echo "(nothing on $PROBE_PORT)"
-            echo "-- HTTP curl 127.0.0.1:$PROBE_PORT --"
-            curl -sS -m 5 -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"system_health","params":[]}' http://127.0.0.1:$PROBE_PORT || echo ">>> HTTP FAIL"
-            echo; echo "-- polkadot.js WS probe (what moonwall uses) --"; PROBE_PORT=$PROBE_PORT node papi.mjs
-            echo "-- node log tail --"; tail -4 /tmp/n_$PROBE_PORT.log
-            pkill -f "rpc-port $PROBE_PORT" 2>/dev/null || true
-            sleep 2
-          done
+          ( ../target/release/node-subtensor --one --dev --force-authoring --rpc-cors=all \
+              --no-prometheus --no-telemetry --reserved-only --tmp --sealing=manual \
+              --pool-type=single-state --rpc-port 10144 > /tmp/n.log 2>&1 & )
+          sleep 8
+          echo "== ss listening on 10144 =="; ss -ltnp 2>/dev/null | grep ':10144' || echo "(nothing)"
+          echo "== moonwall readiness-gate replica (ws 8.19.0) + polkadot.js control =="
+          MWDIR="$MWDIR" P=10144 node probe.mjs 2>&1 | grep -avE "REGISTRY:|API/INIT:"
+          echo "== node log tail =="; tail -4 /tmp/n.log
+          pkill -f "rpc-port 10144" 2>/dev/null || true
           true
 
       - name: Run tests
