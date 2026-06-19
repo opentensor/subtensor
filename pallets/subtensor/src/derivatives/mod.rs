@@ -515,6 +515,96 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Self-covering close (cash-settled): the protocol rebuys the `ρQ` Alpha
+    /// liability from the pool and charges the TAO cost against the trader's own
+    /// floor+buffer, so **no pre-held Alpha is required** — a short is TAO-in /
+    /// TAO-out. Buying `ρQ` and returning it to settle the synthetic debt is
+    /// Alpha-neutral, so it nets to a one-sided injection of `K` TAO into the
+    /// pool (`K` = current CPMM buyback cost). Rejected when `K` exceeds the
+    /// claim `ρ(P+R)` (underwater): close with own funds or let it default.
+    pub fn do_close_short_self(
+        origin: OriginFor<T>,
+        netuid: NetUid,
+        fraction_ppb: u64,
+    ) -> DispatchResult {
+        let coldkey = ensure_signed(origin)?;
+        ensure!(
+            fraction_ppb > 0 && fraction_ppb <= 1_000_000_000,
+            Error::<T>::InvalidCloseFraction
+        );
+        let rho = I64F64::from_num(fraction_ppb).safe_div(I64F64::from_num(1_000_000_000u64));
+
+        let mut pos =
+            ShortPositions::<T>::get(netuid, &coldkey).ok_or(Error::<T>::ShortPositionNotFound)?;
+        let mut agg = ShortAggregate::<T>::get(netuid);
+        Self::materialize_short(&mut pos, agg.omega);
+
+        let q_close = Self::mul_alpha(pos.q_liability, rho);
+        let r_close = Self::mul_tao(pos.r_stored, rho);
+        let e_close = Self::mul_tao(pos.e_stored, rho);
+        let p_close = Self::mul_tao(pos.p_floor, rho);
+        let b_close = Self::mul_tao(pos.b_stored, rho);
+
+        // Buyback cost to rebuy `ρQ` Alpha at the live pool, charged to the claim.
+        let claim = p_close.saturating_add(r_close);
+        let k = Self::to_tao(Self::short_spot_close_cost(netuid, q_close));
+        ensure!(k <= claim, Error::<T>::CloseCostExceedsClaim);
+
+        let custody = Self::short_custody_account(netuid);
+        let subnet_account =
+            Self::get_subnet_account_id(netuid).ok_or(Error::<T>::SubnetNotExists)?;
+
+        // K (buyback) + escrow E both restore the pool's TAO reserve. The rebuy is
+        // Alpha-neutral, so no Alpha reserve / `SubnetAlphaOut` movement occurs.
+        let to_pool = k.saturating_add(e_close);
+        if !to_pool.is_zero() {
+            Self::transfer_tao(&custody, &subnet_account, to_pool.into())?;
+            Self::increase_provided_tao_reserve(netuid, to_pool);
+            TotalStake::<T>::mutate(|t| *t = t.saturating_add(to_pool));
+        }
+        // Closing rebuys `ρQ` Alpha: positive flow on the same `Q·pEMA` basis as
+        // the open, reversing it proportionally.
+        let pema = I64F64::saturating_from_num(Self::get_moving_alpha_price(netuid));
+        Self::record_derivative_inflow(
+            netuid,
+            Self::to_tao(Self::alpha_f(q_close).saturating_mul(pema)),
+        );
+
+        let returned = claim.saturating_sub(k);
+        if !returned.is_zero() {
+            Self::transfer_tao(&custody, &coldkey, returned.into())?;
+        }
+
+        pos.q_liability = pos.q_liability.saturating_sub(q_close);
+        pos.r_stored = pos.r_stored.saturating_sub(r_close);
+        pos.e_stored = pos.e_stored.saturating_sub(e_close);
+        pos.p_floor = pos.p_floor.saturating_sub(p_close);
+        pos.b_stored = pos.b_stored.saturating_sub(b_close);
+
+        agg.q_sigma = agg.q_sigma.saturating_sub(q_close);
+        agg.r_sigma = agg.r_sigma.saturating_sub(r_close);
+        agg.e_sigma = agg.e_sigma.saturating_sub(e_close);
+        agg.b_sigma = agg.b_sigma.saturating_sub(b_close);
+        Self::sync_active_short(netuid, &agg);
+        ShortAggregate::<T>::insert(netuid, agg);
+
+        if fraction_ppb == 1_000_000_000 || pos.p_floor.is_zero() {
+            ShortPositions::<T>::remove(netuid, &coldkey);
+            ShortPositionCount::<T>::mutate(netuid, |c| *c = c.saturating_sub(1));
+            Self::cleanup_short_if_empty(netuid);
+        } else {
+            ShortPositions::<T>::insert(netuid, &coldkey, pos);
+        }
+        Self::deposit_event(Event::ShortClosed {
+            coldkey,
+            netuid,
+            fraction_ppb,
+            repaid_alpha: q_close,
+            returned,
+        });
+        Ok(())
+    }
+
     /// Permissionless default once the buffer has decayed to dust (spec §7.4).
     pub fn do_default_short(
         origin: OriginFor<T>,

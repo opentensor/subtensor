@@ -2683,5 +2683,33 @@ mod dispatches {
         ) -> DispatchResult {
             Self::do_default_long(origin, coldkey, netuid)
         }
+
+        /// Self-covering close of `fraction_ppb / 1e9` of a covered short: the
+        /// protocol rebuys the Alpha liability from the pool and charges the cost
+        /// against the position's floor+buffer, so no pre-held Alpha is required
+        /// (TAO-in / TAO-out). Rejected if underwater (`K > P+R`).
+        #[pallet::call_index(147)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(10, 8))]
+        pub fn close_short_self(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            fraction_ppb: u64,
+        ) -> DispatchResult {
+            Self::do_close_short_self(origin, netuid, fraction_ppb)
+        }
+
+        /// Self-covering close of `fraction_ppb / 1e9` of a covered long: the
+        /// protocol sells just enough of the Alpha claim into the pool to raise
+        /// and settle the TAO liability, so no pre-held TAO is required
+        /// (Alpha-in / Alpha-out). Rejected if underwater.
+        #[pallet::call_index(148)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(10, 8))]
+        pub fn close_long_self(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            fraction_ppb: u64,
+        ) -> DispatchResult {
+            Self::do_close_long_self(origin, netuid, fraction_ppb)
+        }
     }
 }

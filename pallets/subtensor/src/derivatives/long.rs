@@ -299,6 +299,100 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Alpha that must be sold into the live pool to raise `d` TAO (CPMM spot).
+    /// Mirrors `short_spot_close_cost`. Saturates when the pool can't yield `d`.
+    fn long_spot_close_cost(netuid: NetUid, d: TaoBalance) -> I64F64 {
+        let t = Self::tao_f(SubnetTAO::<T>::get(netuid));
+        let a = Self::alpha_f(SubnetAlphaIn::<T>::get(netuid));
+        let df = Self::tao_f(d);
+        if t <= df {
+            return I64F64::from_num(1e18);
+        }
+        a.saturating_mul(df).safe_div(t.saturating_sub(df))
+    }
+
+    /// Self-covering close (cash-settled): the protocol sells just enough of the
+    /// `ρ(P+R)` Alpha claim into the pool to raise the `ρD` TAO liability and
+    /// settle it, so **no pre-held TAO is required** — a long is Alpha-in /
+    /// Alpha-out. Selling `K'` Alpha for `ρD` TAO and returning the TAO to settle
+    /// is TAO-neutral, netting to a one-sided Alpha injection (`K'` + escrow).
+    /// Rejected when `K'` exceeds the claim (underwater).
+    pub fn do_close_long_self(
+        origin: OriginFor<T>,
+        netuid: NetUid,
+        fraction_ppb: u64,
+    ) -> DispatchResult {
+        let coldkey = ensure_signed(origin)?;
+        ensure!(
+            fraction_ppb > 0 && fraction_ppb <= 1_000_000_000,
+            Error::<T>::InvalidCloseFraction
+        );
+        let rho = I64F64::from_num(fraction_ppb).safe_div(I64F64::from_num(1_000_000_000u64));
+        let mut pos =
+            LongPositions::<T>::get(netuid, &coldkey).ok_or(Error::<T>::LongPositionNotFound)?;
+        let mut agg = LongAggregate::<T>::get(netuid);
+        Self::materialize_long(&mut pos, agg.omega);
+
+        let d_close = Self::mul_tao(pos.d_liability, rho);
+        let r_close = Self::mul_alpha(pos.r_stored, rho);
+        let e_close = Self::mul_alpha(pos.e_stored, rho);
+        let p_close = Self::mul_alpha(pos.p_floor, rho);
+        let b_close = Self::mul_alpha(pos.b_stored, rho);
+
+        // Alpha that must be sold to raise `ρD` TAO, charged to the claim.
+        let claim = p_close.saturating_add(r_close);
+        let k = Self::to_alpha(Self::long_spot_close_cost(netuid, d_close));
+        ensure!(k <= claim, Error::<T>::CloseCostExceedsClaim);
+
+        // The sell-for-D-and-settle is TAO-neutral; `K'` (sale) + escrow both
+        // restore the pool's Alpha reserve. No `SubnetTAO` movement occurs.
+        Self::increase_provided_alpha_reserve(netuid, k.saturating_add(e_close));
+        // Closing sells the Alpha exposure back for TAO: negative flow, reversing
+        // the open buy on the same `D` basis.
+        Self::record_derivative_outflow(netuid, d_close);
+
+        // Return the remaining claim as Alpha stake (mint), like the explicit close.
+        let returned = claim.saturating_sub(k);
+        if !returned.is_zero() {
+            Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                &pos.hotkey,
+                &coldkey,
+                netuid,
+                returned,
+            );
+            SubnetAlphaOut::<T>::mutate(netuid, |o| *o = o.saturating_add(returned));
+        }
+
+        pos.d_liability = pos.d_liability.saturating_sub(d_close);
+        pos.r_stored = pos.r_stored.saturating_sub(r_close);
+        pos.e_stored = pos.e_stored.saturating_sub(e_close);
+        pos.p_floor = pos.p_floor.saturating_sub(p_close);
+        pos.b_stored = pos.b_stored.saturating_sub(b_close);
+
+        agg.d_sigma = agg.d_sigma.saturating_sub(d_close);
+        agg.r_sigma = agg.r_sigma.saturating_sub(r_close);
+        agg.e_sigma = agg.e_sigma.saturating_sub(e_close);
+        agg.b_sigma = agg.b_sigma.saturating_sub(b_close);
+        Self::sync_active_long(netuid, &agg);
+        LongAggregate::<T>::insert(netuid, agg);
+
+        if fraction_ppb == 1_000_000_000 || pos.p_floor.is_zero() {
+            LongPositions::<T>::remove(netuid, &coldkey);
+            LongPositionCount::<T>::mutate(netuid, |c| *c = c.saturating_sub(1));
+            Self::cleanup_long_if_empty(netuid);
+        } else {
+            LongPositions::<T>::insert(netuid, &coldkey, pos);
+        }
+        Self::deposit_event(Event::LongClosed {
+            coldkey,
+            netuid,
+            fraction_ppb,
+            repaid_tao: d_close,
+            returned,
+        });
+        Ok(())
+    }
+
     /// Permissionless default once the buffer is dust and the grace window has
     /// elapsed. Restores residual Alpha, recycles the floor (left burned),
     /// extinguishes `D`.

@@ -319,6 +319,10 @@ mod errors {
         InvalidCloseFraction,
         /// Trader does not hold enough alpha to repay the liability.
         InsufficientAlphaToClose,
+        /// Self-covering close: the buyback/sellback cost to settle the liability
+        /// from the pool exceeds the position's floor+buffer claim (the position
+        /// is underwater). Close with own funds or let it default instead.
+        CloseCostExceedsClaim,
         /// Position has not decayed to dust and is not default-eligible.
         PositionNotDefaultEligible,
         /// Additional open targets a different hotkey than the existing position.
