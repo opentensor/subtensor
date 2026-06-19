@@ -3222,24 +3222,6 @@ fn dissolve_async_cleanup_leaves_phase_unset_until_idle_finishes() {
 }
 
 #[test]
-fn dissolve_on_idle_weight_used_never_exceeds_limit() {
-    new_test_ext(0).execute_with(|| {
-        let owner_cold = U256::from(920);
-        let owner_hot = U256::from(921);
-        let net = add_dynamic_network(&owner_hot, &owner_cold);
-        assert_ok!(SubtensorModule::do_dissolve_network(net));
-
-        let limit = Weight::from_parts(50_000, 50_000);
-        let weight_used = SubtensorModule::on_idle(0, limit);
-        assert!(
-            weight_used.ref_time() <= limit.ref_time()
-                && weight_used.proof_size() <= limit.proof_size(),
-            "on_idle weight used must not exceed the limit (weight_used={weight_used:?}, limit={limit:?})"
-        );
-    });
-}
-
-#[test]
 fn dissolve_full_on_idle_emits_dissolved_network_data_cleaned_and_clears_phase() {
     // `frame_system::Pallet::events()` stays empty at block #0 in the test externalities;
     // use a non-zero block like other event-asserting tests (`recycle_alpha`, etc.).

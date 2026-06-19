@@ -31,9 +31,10 @@ impl<T: Config> Pallet<T> {
                     break;
                 }
                 weight_meter.consume(w);
-                last_item = Some(item.clone());
-                to_rm.push(key_from_item(item));
+
+                to_rm.push(key_from_item(item.clone()));
             }
+            last_item = Some(item);
         }
 
         for hot in to_rm {
