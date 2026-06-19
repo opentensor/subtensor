@@ -930,7 +930,7 @@ impl<T: Config> Pallet<T> {
 
             if cleanup_completed {
                 CurrentDissolveCleanupStatus::<T>::kill();
-                Self::deposit_event(Event::NetworkDissolveCleanupCompleted { netuid: netuid });
+                Self::deposit_event(Event::NetworkDissolveCleanupCompleted { netuid });
                 break;
             }
 
