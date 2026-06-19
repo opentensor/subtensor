@@ -29,7 +29,8 @@
                             "--no-telemetry",
                             "--reserved-only",
                             "--tmp",
-                            "--sealing=manual"
+                            "--sealing=manual",
+                            "--pool-type=single-state"
                         ],
                         "disableDefaultEthProviders": true,
                         "newRpcBehaviour": true,
