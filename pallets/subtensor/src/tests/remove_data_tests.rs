@@ -1,7 +1,7 @@
 #![allow(clippy::expect_used, clippy::indexing_slicing, clippy::unwrap_used)]
 
 use super::mock::*;
-use crate::subnets::dissolution::DissolveCleanupPhase;
+use crate::subnets::dissolution::DissolveCleanupStatus;
 use crate::*;
 use frame_support::{assert_ok, weights::Weight};
 use sp_core::U256;
@@ -18,36 +18,36 @@ fn call_remove_single_value(weight_meter: &mut WeightMeter, weight: Weight) -> b
         return false;
     }
     weight_meter.consume(weight);
-    DissolvedNetworksCleanupPhase::<Test>::set(None);
+    CurrentDissolveCleanupStatus::<Test>::kill();
     true
 }
 
 #[test]
 fn test_remove_single_value() {
     new_test_ext(0).execute_with(|| {
-        DissolvedNetworksCleanupPhase::<Test>::set(Some(
-            DissolveCleanupPhase::SubnetRootDividendsRootClaimable { last_key: None },
-        ));
+        CurrentDissolveCleanupStatus::<Test>::set(Some(DissolveCleanupStatus::new(
+            NetUid::from(1),
+        )));
         let w = Weight::from_parts(100_u64, 100_u64);
 
         let mut weight_meter = frame_support::weights::WeightMeter::with_limit(w);
         assert!(call_remove_single_value(&mut weight_meter, w));
-        assert!(DissolvedNetworksCleanupPhase::<Test>::get().is_none());
+        assert!(CurrentDissolveCleanupStatus::<Test>::get().is_none());
     });
 }
 
 #[test]
 fn test_remove_single_value_failed() {
     new_test_ext(0).execute_with(|| {
-        DissolvedNetworksCleanupPhase::<Test>::set(Some(
-            DissolveCleanupPhase::SubnetRootDividendsRootClaimable { last_key: None },
-        ));
+        CurrentDissolveCleanupStatus::<Test>::set(Some(DissolveCleanupStatus::new(
+            NetUid::from(1),
+        )));
         let w = Weight::from_parts(100_u64, 100_u64);
 
         let mut weight_meter =
             frame_support::weights::WeightMeter::with_limit(Weight::from_parts(50_u64, 50_u64));
         assert!(!call_remove_single_value(&mut weight_meter, w));
-        assert!(DissolvedNetworksCleanupPhase::<Test>::get().is_some());
+        assert!(CurrentDissolveCleanupStatus::<Test>::get().is_some());
     });
 }
 
@@ -138,7 +138,7 @@ fn test_remove_data_for_dissolved_networks_all_phases() {
         // Verify the network has been fully removed
         assert!(!DissolveCleanupQueue::<Test>::get().contains(&netuid));
         assert_eq!(
-            DissolvedNetworksCleanupPhase::<Test>::get(),
+            CurrentDissolveCleanupStatus::<Test>::get(),
             None,
             "Cleanup phase should be None after completion"
         );
@@ -397,7 +397,7 @@ fn test_remove_data_for_dissolved_networks_via_on_idle() {
         // Verify the network has been fully removed
         assert!(!DissolveCleanupQueue::<Test>::get().contains(&netuid));
         assert_eq!(
-            DissolvedNetworksCleanupPhase::<Test>::get(),
+            CurrentDissolveCleanupStatus::<Test>::get(),
             None,
             "Cleanup phase should be None after completion"
         );
@@ -438,10 +438,18 @@ fn test_destroy_alpha_in_out_stakes_get_total_alpha_value() {
         let w = Weight::from_parts(u64::MAX, u64::MAX);
         let mut weight_meter = frame_support::weights::WeightMeter::with_limit(w);
         assert!(
-            run_resumable_netuid_cleanup(
+            run_resumable_netuid_cleanup_with_status(
                 netuid,
                 &mut weight_meter,
-                SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value,
+                &mut dissolve_cleanup_status(netuid),
+                |netuid, weight_meter, last_key, status| {
+                    SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value(
+                        netuid,
+                        weight_meter,
+                        last_key,
+                        status,
+                    )
+                },
             ),
             "destroy_alpha_in_out_stakes_get_total_alpha_value should return true when there is alpha to process"
         );
@@ -474,19 +482,41 @@ fn test_destroy_alpha_in_out_stakes_settle_stakes() {
         // First, we need to get the total alpha value (simulate the previous step)
         let w = Weight::from_parts(u64::MAX, u64::MAX);
         let mut weight_meter = frame_support::weights::WeightMeter::with_limit(w);
-        assert!(run_resumable_netuid_cleanup(
-            netuid,
-            &mut weight_meter,
-            SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value,
-        ));
-        DissolvedSubnetDistributedTao::<Test>::set(Some(0));
+        assert!({
+            let mut status = dissolve_cleanup_status(netuid);
+            run_resumable_netuid_cleanup_with_status(
+                netuid,
+                &mut weight_meter,
+                &mut status,
+                |netuid, weight_meter, last_key, status| {
+                    SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value(
+                        netuid,
+                        weight_meter,
+                        last_key,
+                        status,
+                    )
+                },
+            )
+        });
+        // distributed tao tracked in CurrentDissolveCleanupStatus;
         let mut weight_meter2 = frame_support::weights::WeightMeter::with_limit(w);
         assert!(
-            run_resumable_netuid_cleanup(
-                netuid,
-                &mut weight_meter2,
-                SubtensorModule::destroy_alpha_in_out_stakes_settle_stakes,
-            ),
+            {
+                let mut status = dissolve_cleanup_status(netuid);
+                run_resumable_netuid_cleanup_with_status(
+                    netuid,
+                    &mut weight_meter2,
+                    &mut status,
+                    |netuid, weight_meter, last_key, status| {
+                        SubtensorModule::destroy_alpha_in_out_stakes_settle_stakes(
+                            netuid,
+                            weight_meter,
+                            last_key,
+                            status,
+                        )
+                    },
+                )
+            },
             "destroy_alpha_in_out_stakes_settle_stakes should return true when there is alpha to settle"
         );
     });
@@ -518,18 +548,40 @@ fn test_destroy_alpha_in_out_stakes_clean_alpha() {
         // Simulate the previous two steps: get total alpha and settle stakes
         let w = Weight::from_parts(u64::MAX, u64::MAX);
         let mut weight_meter = frame_support::weights::WeightMeter::with_limit(w);
-        assert!(run_resumable_netuid_cleanup(
-            netuid,
-            &mut weight_meter,
-            SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value,
-        ));
-        DissolvedSubnetDistributedTao::<Test>::set(Some(0));
+        assert!({
+            let mut status = dissolve_cleanup_status(netuid);
+            run_resumable_netuid_cleanup_with_status(
+                netuid,
+                &mut weight_meter,
+                &mut status,
+                |netuid, weight_meter, last_key, status| {
+                    SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value(
+                        netuid,
+                        weight_meter,
+                        last_key,
+                        status,
+                    )
+                },
+            )
+        });
+        // distributed tao tracked in CurrentDissolveCleanupStatus;
         let mut weight_meter2 = frame_support::weights::WeightMeter::with_limit(w);
-        assert!(run_resumable_netuid_cleanup(
-            netuid,
-            &mut weight_meter2,
-            SubtensorModule::destroy_alpha_in_out_stakes_settle_stakes,
-        ));
+        assert!({
+            let mut status = dissolve_cleanup_status(netuid);
+            run_resumable_netuid_cleanup_with_status(
+                netuid,
+                &mut weight_meter2,
+                &mut status,
+                |netuid, weight_meter, last_key, status| {
+                    SubtensorModule::destroy_alpha_in_out_stakes_settle_stakes(
+                        netuid,
+                        weight_meter,
+                        last_key,
+                        status,
+                    )
+                },
+            )
+        });
         // Now test the clean_alpha function
         let mut weight_meter3 = frame_support::weights::WeightMeter::with_limit(w);
         assert!(
@@ -569,18 +621,40 @@ fn test_destroy_alpha_in_out_stakes_clear_hotkey_totals() {
         // Simulate the previous three steps
         let w = Weight::from_parts(u64::MAX, u64::MAX);
         let mut weight_meter = frame_support::weights::WeightMeter::with_limit(w);
-        assert!(run_resumable_netuid_cleanup(
-            netuid,
-            &mut weight_meter,
-            SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value,
-        ));
-        DissolvedSubnetDistributedTao::<Test>::set(Some(0));
+        assert!({
+            let mut status = dissolve_cleanup_status(netuid);
+            run_resumable_netuid_cleanup_with_status(
+                netuid,
+                &mut weight_meter,
+                &mut status,
+                |netuid, weight_meter, last_key, status| {
+                    SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value(
+                        netuid,
+                        weight_meter,
+                        last_key,
+                        status,
+                    )
+                },
+            )
+        });
+        // distributed tao tracked in CurrentDissolveCleanupStatus;
         let mut weight_meter2 = frame_support::weights::WeightMeter::with_limit(w);
-        assert!(run_resumable_netuid_cleanup(
-            netuid,
-            &mut weight_meter2,
-            SubtensorModule::destroy_alpha_in_out_stakes_settle_stakes,
-        ));
+        assert!({
+            let mut status = dissolve_cleanup_status(netuid);
+            run_resumable_netuid_cleanup_with_status(
+                netuid,
+                &mut weight_meter2,
+                &mut status,
+                |netuid, weight_meter, last_key, status| {
+                    SubtensorModule::destroy_alpha_in_out_stakes_settle_stakes(
+                        netuid,
+                        weight_meter,
+                        last_key,
+                        status,
+                    )
+                },
+            )
+        });
         let mut weight_meter3 = frame_support::weights::WeightMeter::with_limit(w);
         assert!(run_resumable_netuid_cleanup(
             netuid,
@@ -626,18 +700,40 @@ fn test_destroy_alpha_in_out_stakes_clear_locks() {
         // Simulate the previous four steps
         let w = Weight::from_parts(u64::MAX, u64::MAX);
         let mut weight_meter = frame_support::weights::WeightMeter::with_limit(w);
-        assert!(run_resumable_netuid_cleanup(
-            netuid,
-            &mut weight_meter,
-            SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value,
-        ));
-        DissolvedSubnetDistributedTao::<Test>::set(Some(0));
+        assert!({
+            let mut status = dissolve_cleanup_status(netuid);
+            run_resumable_netuid_cleanup_with_status(
+                netuid,
+                &mut weight_meter,
+                &mut status,
+                |netuid, weight_meter, last_key, status| {
+                    SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value(
+                        netuid,
+                        weight_meter,
+                        last_key,
+                        status,
+                    )
+                },
+            )
+        });
+        // distributed tao tracked in CurrentDissolveCleanupStatus;
         let mut weight_meter2 = frame_support::weights::WeightMeter::with_limit(w);
-        assert!(run_resumable_netuid_cleanup(
-            netuid,
-            &mut weight_meter2,
-            SubtensorModule::destroy_alpha_in_out_stakes_settle_stakes,
-        ));
+        assert!({
+            let mut status = dissolve_cleanup_status(netuid);
+            run_resumable_netuid_cleanup_with_status(
+                netuid,
+                &mut weight_meter2,
+                &mut status,
+                |netuid, weight_meter, last_key, status| {
+                    SubtensorModule::destroy_alpha_in_out_stakes_settle_stakes(
+                        netuid,
+                        weight_meter,
+                        last_key,
+                        status,
+                    )
+                },
+            )
+        });
         let mut weight_meter3 = frame_support::weights::WeightMeter::with_limit(w);
         assert!(run_resumable_netuid_cleanup(
             netuid,
@@ -689,9 +785,13 @@ fn test_destroy_alpha_in_out_stakes() {
         // Now test the main destroy function (which should call all the steps internally)
         let w = Weight::from_parts(u64::MAX, u64::MAX);
         let mut weight_meter = frame_support::weights::WeightMeter::with_limit(w);
-        DissolvedSubnetTotalAlphaValue::<Test>::set(Some(0));
-        DissolvedSubnetDistributedTao::<Test>::set(Some(0));
-        let result = SubtensorModule::destroy_alpha_in_out_stakes(netuid, &mut weight_meter);
+        // total alpha tracked in CurrentDissolveCleanupStatus;
+        // distributed tao tracked in CurrentDissolveCleanupStatus;
+        let result = {
+            let mut status = dissolve_cleanup_status(netuid);
+            status.subnet_total_alpha_value = Some(0);
+            SubtensorModule::destroy_alpha_in_out_stakes(netuid, &mut weight_meter, &mut status)
+        };
         assert!(result, "destroy_alpha_in_out_stakes should return true when it successfully processes the netuid");
     });
 }

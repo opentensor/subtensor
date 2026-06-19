@@ -7,6 +7,7 @@
 use core::num::NonZeroU64;
 
 use crate::utils::rate_limiting::TransactionType;
+use crate::subnets::dissolution::DissolveCleanupStatus;
 use crate::*;
 pub use frame_support::traits::Imbalance;
 use frame_support::traits::{Contains, Everything, InsideBoth, InstanceFilter};
@@ -1267,25 +1268,66 @@ where
     run_resumable_cleanup_step(|last_key| step(netuid, weight_meter, last_key))
 }
 
+/// Runs a resumable per-netuid cleanup helper that reads/writes dissolve cleanup status.
+pub fn run_resumable_netuid_cleanup_with_status<F>(
+    netuid: NetUid,
+    weight_meter: &mut WeightMeter,
+    status: &mut DissolveCleanupStatus,
+    mut step: F,
+) -> bool
+where
+    F: FnMut(
+        NetUid,
+        &mut WeightMeter,
+        Option<Vec<u8>>,
+        &mut DissolveCleanupStatus,
+    ) -> (bool, Option<Vec<u8>>),
+{
+    run_resumable_cleanup_step(|last_key| step(netuid, weight_meter, last_key, status))
+}
+
+pub fn dissolve_cleanup_status(netuid: NetUid) -> DissolveCleanupStatus {
+    let mut status = DissolveCleanupStatus::new(netuid);
+    status.subnet_distributed_tao = Some(0);
+    status
+}
+
 /// Runs the α-out destroy pipeline used during dissolved-network cleanup (through final destroy).
 pub fn run_destroy_alpha_in_out_stakes_full_pipeline(netuid: NetUid) {
     let w = Weight::from_parts(u64::MAX, u64::MAX);
     let mut weight_meter = WeightMeter::with_limit(w);
+    let mut status = dissolve_cleanup_status(netuid);
 
     assert!(
-        run_resumable_netuid_cleanup(
+        run_resumable_netuid_cleanup_with_status(
             netuid,
             &mut weight_meter,
-            SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value,
+            &mut status,
+            |netuid, weight_meter, last_key, status| {
+                SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value(
+                    netuid,
+                    weight_meter,
+                    last_key,
+                    status,
+                )
+            },
         ),
         "destroy_alpha_in_out_stakes_get_total_alpha_value incomplete"
     );
-    DissolvedSubnetDistributedTao::<Test>::set(Some(0));
+    status.subnet_distributed_tao = Some(0);
     assert!(
-        run_resumable_netuid_cleanup(
+        run_resumable_netuid_cleanup_with_status(
             netuid,
             &mut weight_meter,
-            SubtensorModule::destroy_alpha_in_out_stakes_settle_stakes,
+            &mut status,
+            |netuid, weight_meter, last_key, status| {
+                SubtensorModule::destroy_alpha_in_out_stakes_settle_stakes(
+                    netuid,
+                    weight_meter,
+                    last_key,
+                    status,
+                )
+            },
         ),
         "destroy_alpha_in_out_stakes_settle_stakes incomplete"
     );
@@ -1314,7 +1356,7 @@ pub fn run_destroy_alpha_in_out_stakes_full_pipeline(netuid: NetUid) {
         "destroy_alpha_in_out_stakes_clear_locks incomplete"
     );
     assert!(
-        SubtensorModule::destroy_alpha_in_out_stakes(netuid, &mut weight_meter),
+        SubtensorModule::destroy_alpha_in_out_stakes(netuid, &mut weight_meter, &mut status),
         "destroy_alpha_in_out_stakes incomplete"
     );
 }

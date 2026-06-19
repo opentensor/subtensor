@@ -84,7 +84,7 @@ pub mod pallet {
     use crate::RateLimitKey;
     use crate::migrations;
     use crate::staking::lock::LockState;
-    use crate::subnets::dissolution::DissolveCleanupPhase;
+    use crate::subnets::dissolution::DissolveCleanupStatus;
     use crate::subnets::leasing::{LeaseId, SubnetLeaseOf};
     use crate::subnets::subnet::NetworkRegistrationInfo;
     use crate::weights::WeightInfo;
@@ -325,8 +325,6 @@ pub mod pallet {
         pub additional: Vec<u8>,
     }
 
-    
-
     /// Enum for recycle or burn for the owner_uid(s)
     #[derive(TypeInfo, Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug)]
     pub enum RecycleOrBurnEnum {
@@ -356,7 +354,6 @@ pub mod pallet {
             subnets: BTreeSet<NetUid>,
         },
     }
-    
 
     /// The Max Burn HalfLife Settable
     #[pallet::type_value]
@@ -2131,19 +2128,9 @@ pub mod pallet {
     #[pallet::storage]
     pub type DissolveCleanupQueue<T> = StorageValue<_, Vec<NetUid>, ValueQuery>;
 
-    /// --- ITEM ( dissolved_networks_cleanup_phase ) Networks dissolved data cleanup phase.
+    /// --- ITEM ( current_dissolve_cleanup_status ) dissolve status for the network
     #[pallet::storage]
-    pub type DissolvedNetworksCleanupPhase<T> = StorageValue<_, DissolveCleanupPhase, OptionQuery>;
-
-    /// --- ITEM ( dissolved_subnet_total_alpha_value ) Total alpha value for the dissolved subnet.
-    /// It is only used during clean the data for dissolved networks.
-    #[pallet::storage]
-    pub type DissolvedSubnetTotalAlphaValue<T> = StorageValue<_, u128, OptionQuery>;
-
-    /// --- ITEM ( dissolved_subnet_settled_alpha_value ) Settled alpha value for the dissolved subnet.
-    /// It is only used during clean the data for dissolved networks.
-    #[pallet::storage]
-    pub type DissolvedSubnetDistributedTao<T> = StorageValue<_, u128, OptionQuery>;
+    pub type CurrentDissolveCleanupStatus<T> = StorageValue<_, DissolveCleanupStatus, OptionQuery>;
 
     /// --- ITEM ( network_registration_queue ) Network registrations waiting to be executed.
     #[pallet::storage]

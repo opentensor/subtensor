@@ -1,4 +1,5 @@
 use super::*;
+use crate::subnets::dissolution::DissolveCleanupStatus;
 use frame_support::weights::WeightMeter;
 use num_traits::ToPrimitive;
 use sp_std::collections::btree_map::BTreeMap;
@@ -425,14 +426,18 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn destroy_alpha_in_out_stakes(netuid: NetUid, weight_meter: &mut WeightMeter) -> bool {
-        let Some(total_alpha_value_u128) = DissolvedSubnetTotalAlphaValue::<T>::get() else {
-            log::warn!("DissolvedSubnetTotalAlphaValue not set");
+    pub fn destroy_alpha_in_out_stakes(
+        netuid: NetUid,
+        weight_meter: &mut WeightMeter,
+        status: &mut DissolveCleanupStatus,
+    ) -> bool {
+        let Some(total_alpha_value_u128) = status.subnet_total_alpha_value else {
+            log::warn!("DissolveCleanupStatus.subnet_total_alpha_value not set");
             return false;
         };
 
-        let Some(mut distributed_tao_value_u128) = DissolvedSubnetDistributedTao::<T>::get() else {
-            log::warn!("DissolvedSubnetDistributedTao not set");
+        let Some(mut distributed_tao_value_u128) = status.subnet_distributed_tao else {
+            log::warn!("DissolveCleanupStatus.subnet_distributed_tao not set");
             return false;
         };
 
@@ -541,8 +546,8 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        DissolvedSubnetTotalAlphaValue::<T>::set(None);
-        DissolvedSubnetDistributedTao::<T>::set(None);
+        status.subnet_total_alpha_value = None;
+        status.subnet_distributed_tao = None;
         SubnetTAO::<T>::remove(netuid);
 
         true
@@ -567,13 +572,14 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         weight_meter: &mut WeightMeter,
         last_key: Option<Vec<u8>>,
+        status: &mut DissolveCleanupStatus,
     ) -> (bool, Option<Vec<u8>>) {
         let r = T::DbWeight::get().reads(1);
         let mut read_all = true;
 
         let mut total_alpha_value_u128: u128;
 
-        if let Some(value) = DissolvedSubnetTotalAlphaValue::<T>::get() {
+        if let Some(value) = status.subnet_total_alpha_value {
             total_alpha_value_u128 = value;
         } else {
             let reg_at: u64 = NetworkRegisteredAt::<T>::get(netuid);
@@ -648,7 +654,7 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        DissolvedSubnetTotalAlphaValue::<T>::set(Some(total_alpha_value_u128));
+        status.subnet_total_alpha_value = Some(total_alpha_value_u128);
 
         (
             read_all,
@@ -660,6 +666,7 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         weight_meter: &mut WeightMeter,
         last_key: Option<Vec<u8>>,
+        status: &mut DissolveCleanupStatus,
     ) -> (bool, Option<Vec<u8>>) {
         let r = T::DbWeight::get().reads(1);
         let w = T::DbWeight::get().writes(1);
@@ -667,12 +674,12 @@ impl<T: Config> Pallet<T> {
         let mut read_all = true;
 
         let mut stakers: Vec<(T::AccountId, T::AccountId, u128)> = Vec::new();
-        let Some(total_alpha_value_u128) = DissolvedSubnetTotalAlphaValue::<T>::get() else {
-            log::warn!("DissolvedSubnetTotalAlphaValue not set");
+        let Some(total_alpha_value_u128) = status.subnet_total_alpha_value else {
+            log::warn!("DissolveCleanupStatus.subnet_total_alpha_value not set");
             return (false, None);
         };
-        let Some(mut distributed_tao_value_u128) = DissolvedSubnetDistributedTao::<T>::get() else {
-            log::warn!("DissolvedSubnetDistributedTao not set");
+        let Some(mut distributed_tao_value_u128) = status.subnet_distributed_tao else {
+            log::warn!("DissolveCleanupStatus.subnet_distributed_tao not set");
             return (false, None);
         };
 
@@ -836,7 +843,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // ignore the weight for handling the final operation, we must set the correct status for the next run
-        DissolvedSubnetDistributedTao::<T>::set(Some(distributed_tao_value_u128));
+        status.subnet_distributed_tao = Some(distributed_tao_value_u128);
 
         (
             read_all,

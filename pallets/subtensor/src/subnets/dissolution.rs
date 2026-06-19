@@ -6,42 +6,21 @@ use subtensor_swap_interface::SwapHandler;
 #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, DecodeWithMemTracking)]
 pub enum DissolveCleanupPhase {
     /// Phase 1.1: Remove root dividend claimable entries for the subnet.
-    SubnetRootDividendsRootClaimable {
-        /// Last key of the root dividend claimable entries.
-        last_key: Option<Vec<u8>>,
-    },
+    SubnetRootDividendsRootClaimable,
     /// Phase 1.2: Remove root dividend claimed entries for the subnet.
     SubnetRootDividendsRootClaimed,
     /// Phase 2.1: Get the total alpha value for the subnet.
-    AlphaInOutStakesGetTotalAlphaValue {
-        /// Last key of the alpha in and out stakes entries.
-        last_key: Option<Vec<u8>>,
-    },
+    AlphaInOutStakesGetTotalAlphaValue,
     /// Phase 2.2: Destroy alpha in and out stakes for the subnet.
-    AlphaInOutStakesSettleStakes {
-        /// Last key of the alpha in and out stakes entries.
-        last_key: Option<Vec<u8>>,
-    },
+    AlphaInOutStakesSettleStakes,
     /// Phase 2.3: Clean alpha entries for the subnet.
-    AlphaInOutStakesAlpha {
-        /// Last key of the alpha in and out stakes entries.
-        last_key: Option<Vec<u8>>,
-    },
+    AlphaInOutStakesAlpha,
     /// Phase 2.4: Clear hotkey totals for the subnet.
-    AlphaInOutStakesHotkeyTotals {
-        /// Last key of the hotkey totals entries.
-        last_key: Option<Vec<u8>>,
-    },
+    AlphaInOutStakesHotkeyTotals,
     /// Phase 2.5: Clear locks for the subnet.
-    AlphaInOutStakesLocks {
-        /// Last key of the lock entries.
-        last_key: Option<Vec<u8>>,
-    },
+    AlphaInOutStakesLocks,
     /// Phase 2.6: Clear locks for the subnet.
-    AlphaInOutStakesDecayingLocks {
-        /// Last key of the decaying lock entries.
-        last_key: Option<Vec<u8>>,
-    },
+    AlphaInOutStakesDecayingLocks,
     /// Phase 2.7: Destroy alpha in and out stakes for the subnet.
     AlphaInOutStakes,
     /// Phase 3: Clear protocol liquidity for the subnet on the swap layer.
@@ -49,64 +28,59 @@ pub enum DissolveCleanupPhase {
     /// Phase 4: Remove scalar `Network*` parameters, then continue with map and index cleanup phases.
     PurgeNetuid,
     /// Phase 5.1: Remove is network member entries for the subnet.
-    NetworkIsNetworkMember {
-        /// Last key of the is network member entries.
-        last_key: Option<Vec<u8>>,
-    },
+    NetworkIsNetworkMember,
     /// Phase 5.2: Recovery / legacy: scalar `Network*` removal; the hook advances to map cleanup like `PurgeNetuid` after `remove_network_parameters` completes.
     NetworkParameters,
     /// Phase 5.3: Remove map-backed subnet storage (keys, axons, per-mechanism weights, etc.).
     NetworkMapParameters,
     /// Phase 5.4: Clear root-network weight entries referencing this netuid.
-    NetworkUpdateWeightsOnRoot {
-        /// Last key of the update weights on root entries.
-        last_key: Option<Vec<u8>>,
-    },
+    NetworkUpdateWeightsOnRoot,
     /// Phase 5.5: Remove childkey take entries for this netuid.
-    NetworkChildkeyTake {
-        /// Last key of the childkey take entries.
-        last_key: Option<Vec<u8>>,
-    },
+    NetworkChildkeyTake,
     /// Phase 5.6: Remove child key bindings for this netuid.
-    NetworkChildkeys {
-        /// Last key of the child key entries.
-        last_key: Option<Vec<u8>>,
-    },
+    NetworkChildkeys,
     /// Phase 5.7: Remove parent key bindings for this netuid.
-    NetworkParentkeys {
-        /// Last key of the parent key entries.
-        last_key: Option<Vec<u8>>,
-    },
+    NetworkParentkeys,
     /// Phase 5.8: Remove last hotkey emission records for this netuid.
-    NetworkLastHotkeyEmissionOnNetuid {
-        /// Last key of the last hotkey emission entries.
-        last_key: Option<Vec<u8>>,
-    },
+    NetworkLastHotkeyEmissionOnNetuid,
     /// Phase 5.9: Remove total hotkey alpha last epoch entries for this netuid.
-    NetworkTotalHotkeyAlphaLastEpoch {
-        /// Last key of the total hotkey alpha last epoch entries.
-        last_key: Option<Vec<u8>>,
-    },
+    NetworkTotalHotkeyAlphaLastEpoch,
     /// Phase 5.10: Remove transaction key last-block rate limit entries for this netuid.
-    NetworkTransactionKeyLastBlock {
-        /// Last key of the transaction key last-block entries.
-        last_key: Option<Vec<u8>>,
-    },
+    NetworkTransactionKeyLastBlock,
     /// Phase 5.11: Remove lock entries for this netuid.
-    NetworkLock {
-        /// Last key of the lock entries.
-        last_key: Option<Vec<u8>>,
-    },
+    NetworkLock,
     /// Phase 5.12: Remove decaying lock entries for this netuid.
-    NetworkDecayingLock {
-        /// Last key of the decaying lock entries.
-        last_key: Option<Vec<u8>>,
-    },
+    NetworkDecayingLock,
 }
 
 impl Default for DissolveCleanupPhase {
     fn default() -> Self {
-        Self::SubnetRootDividendsRootClaimable { last_key: None }
+        Self::SubnetRootDividendsRootClaimable
+    }
+}
+
+#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, DecodeWithMemTracking)]
+pub struct DissolveCleanupStatus {
+    pub netuid: NetUid,
+    pub phase: DissolveCleanupPhase,
+    pub last_key: Option<Vec<u8>>,
+    pub subnet_total_alpha_value: Option<u128>,
+    pub subnet_distributed_tao: Option<u128>,
+}
+
+impl DissolveCleanupStatus {
+    pub fn new(netuid: NetUid) -> Self {
+        Self {
+            netuid,
+            phase: DissolveCleanupPhase::default(),
+            last_key: None,
+            subnet_total_alpha_value: None,
+            subnet_distributed_tao: None,
+        }
+    }
+
+    pub fn set_phase(&mut self, phase: DissolveCleanupPhase) {
+        self.phase = phase;
     }
 }
 
@@ -575,55 +549,52 @@ impl<T: Config> Pallet<T> {
         )
     }
 
-    // Cleans data for a dissolved network within the available block weight.
-    //
-    // The cleanup runs one stored phase at a time. `DissolvedNetworksCleanupPhase` is a
-    // single `StorageValue` that tracks progress for the head of `DissolveCleanupQueue`
-    // (the `netuid` passed here must be that head). If a phase completes, the next phase
-    // is stored. Once all phases complete, the subnet is removed from `DissolveCleanupQueue`
-    // and `NetworkDissolveCleanupCompleted` is emitted.
-    //
-    // # Args:
-    // 	* 'remaining_weight': (Weight):
-    // 		- The weight available for this cleanup step.
-    // 	* 'netuid': (&NetUid):
-    // 		- The subnet to clean dissolved-network data for.
-    //
-    // # Returns:
-    // 	* 'Weight': The weight used for the cleanup step.
-    //
     pub fn remove_data_for_dissolved_networks(remaining_weight: Weight) -> Weight {
-        let w = T::DbWeight::get().writes(1);
-        let r = T::DbWeight::get().reads(1);
+        let status_write = T::DbWeight::get().writes(1);
+        let queue_read = T::DbWeight::get().reads(1);
         let mut weight_meter = frame_support::weights::WeightMeter::with_limit(remaining_weight);
 
-        if !weight_meter.can_consume(r) {
-            return weight_meter.consumed();
+        if let Some(mut status) = CurrentDissolveCleanupStatus::<T>::get() {
+            return Self::clean_up_data_for_one_dissolved_network(&mut weight_meter, &mut status);
         }
 
-        let mut dissolved_networks = DissolveCleanupQueue::<T>::get();
+        if !weight_meter.can_consume(queue_read) {
+            return weight_meter.consumed();
+        }
+        weight_meter.consume(queue_read);
 
+        let mut dissolved_networks = DissolveCleanupQueue::<T>::get();
         if dissolved_networks.is_empty() {
             return weight_meter.consumed();
         }
 
         let netuid = dissolved_networks.remove(0);
 
-        if !weight_meter.can_consume(r) {
+        if !weight_meter.can_consume(status_write.saturating_add(queue_read)) {
+            dissolved_networks.insert(0, netuid);
+            DissolveCleanupQueue::<T>::set(dissolved_networks);
             return weight_meter.consumed();
         }
+        weight_meter.consume(status_write);
+        DissolveCleanupQueue::<T>::set(dissolved_networks);
 
-        // if no phase is set, set the first phase
-        if DissolvedNetworksCleanupPhase::<T>::get().is_none() {
-            weight_meter.consume(r);
+        let mut status = DissolveCleanupStatus::new(netuid);
+        weight_meter.consume(status_write);
 
-            if !weight_meter.can_consume(w) {
-                return weight_meter.consumed();
-            }
-            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                DissolveCleanupPhase::SubnetRootDividendsRootClaimable { last_key: None },
-            ));
-            weight_meter.consume(w);
+        Self::clean_up_data_for_one_dissolved_network(&mut weight_meter, &mut status)
+    }
+
+    pub fn clean_up_data_for_one_dissolved_network(
+        weight_meter: &mut WeightMeter,
+        status: &mut DissolveCleanupStatus,
+    ) -> Weight {
+        let w = T::DbWeight::get().writes(1);
+        let r = T::DbWeight::get().reads(1);
+
+        let netuid = status.netuid;
+
+        if !weight_meter.can_consume(r) {
+            return weight_meter.consumed();
         }
 
         // if one phase is done or exit because of weight limit
@@ -633,11 +604,13 @@ impl<T: Config> Pallet<T> {
         while phase_done {
             // pre charge a read for phase get and write to update phase storage
             if !weight_meter.can_consume(r + w) {
+                CurrentDissolveCleanupStatus::<T>::set(Some(status.clone()));
                 return weight_meter.consumed();
             }
             weight_meter.consume(r + w);
 
-            if let Some(phase) = DissolvedNetworksCleanupPhase::<T>::get() {
+            {
+                let phase = status.phase.clone();
                 log::debug!(
                     "dissolved_networks phase: {:?} for netuid: {:?}",
                     phase,
@@ -645,397 +618,324 @@ impl<T: Config> Pallet<T> {
                 );
 
                 let done = match phase {
-                    DissolveCleanupPhase::SubnetRootDividendsRootClaimable { last_key } => {
+                    DissolveCleanupPhase::SubnetRootDividendsRootClaimable => {
                         let (done, new_key) = Self::clean_up_root_claimable_for_subnet(
                             netuid,
-                            &mut weight_meter,
-                            last_key,
+                            weight_meter,
+                            status.last_key.clone(),
                         );
 
                         if done {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::SubnetRootDividendsRootClaimed,
-                            ));
+                            status.set_phase(DissolveCleanupPhase::SubnetRootDividendsRootClaimed);
+                            status.last_key = None;
                         } else {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::SubnetRootDividendsRootClaimable {
-                                    last_key: new_key,
-                                },
-                            ));
+                            status.last_key = new_key;
                         }
                         done
                     }
 
                     DissolveCleanupPhase::SubnetRootDividendsRootClaimed => {
-                        let done =
-                            Self::clean_up_root_claimed_for_subnet(netuid, &mut weight_meter);
+                        let done = Self::clean_up_root_claimed_for_subnet(netuid, weight_meter);
 
                         if done {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::AlphaInOutStakesGetTotalAlphaValue {
-                                    last_key: None,
-                                },
-                            ));
+                            status.set_phase(
+                                DissolveCleanupPhase::AlphaInOutStakesGetTotalAlphaValue,
+                            );
+                            status.last_key = None;
                         }
                         done
                     }
 
-                    DissolveCleanupPhase::AlphaInOutStakesGetTotalAlphaValue { last_key } => {
+                    DissolveCleanupPhase::AlphaInOutStakesGetTotalAlphaValue => {
                         let (done, new_key) =
                             Self::destroy_alpha_in_out_stakes_get_total_alpha_value(
                                 netuid,
-                                &mut weight_meter,
-                                last_key,
+                                weight_meter,
+                                status.last_key.clone(),
+                                status,
                             );
                         if done {
-                            DissolvedSubnetDistributedTao::<T>::set(Some(0));
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::AlphaInOutStakesSettleStakes {
-                                    last_key: None,
-                                },
-                            ));
+                            status.subnet_distributed_tao = Some(0);
+                            status.set_phase(DissolveCleanupPhase::AlphaInOutStakesSettleStakes);
+                            status.last_key = None;
                             weight_meter.consume(T::DbWeight::get().writes(2));
                         } else {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::AlphaInOutStakesGetTotalAlphaValue {
-                                    last_key: new_key,
-                                },
-                            ));
+                            status.last_key = new_key;
                         }
                         done
                     }
 
-                    DissolveCleanupPhase::AlphaInOutStakesSettleStakes { last_key } => {
+                    DissolveCleanupPhase::AlphaInOutStakesSettleStakes => {
                         let (done, new_key) = Self::destroy_alpha_in_out_stakes_settle_stakes(
                             netuid,
-                            &mut weight_meter,
-                            last_key,
+                            weight_meter,
+                            status.last_key.clone(),
+                            status,
                         );
                         if done {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::AlphaInOutStakesAlpha { last_key: None },
-                            ));
+                            status.set_phase(DissolveCleanupPhase::AlphaInOutStakesAlpha);
+                            status.last_key = None;
                         } else {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::AlphaInOutStakesSettleStakes {
-                                    last_key: new_key,
-                                },
-                            ));
+                            status.last_key = new_key;
                         }
                         done
                     }
 
-                    DissolveCleanupPhase::AlphaInOutStakesAlpha { last_key } => {
+                    DissolveCleanupPhase::AlphaInOutStakesAlpha => {
                         let (done, new_key) = Self::destroy_alpha_in_out_stakes_clean_alpha(
                             netuid,
-                            &mut weight_meter,
-                            last_key,
+                            weight_meter,
+                            status.last_key.clone(),
                         );
                         if done {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::AlphaInOutStakesHotkeyTotals {
-                                    last_key: None,
-                                },
-                            ));
+                            status.set_phase(DissolveCleanupPhase::AlphaInOutStakesHotkeyTotals);
+                            status.last_key = None;
                         } else {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::AlphaInOutStakesAlpha { last_key: new_key },
-                            ));
+                            status.last_key = new_key;
                         }
                         done
                     }
 
-                    DissolveCleanupPhase::AlphaInOutStakesHotkeyTotals { last_key } => {
+                    DissolveCleanupPhase::AlphaInOutStakesHotkeyTotals => {
                         let (done, new_key) = Self::destroy_alpha_in_out_stakes_clear_hotkey_totals(
                             netuid,
-                            &mut weight_meter,
-                            last_key,
+                            weight_meter,
+                            status.last_key.clone(),
                         );
 
                         if done {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::AlphaInOutStakesLocks { last_key: None },
-                            ));
+                            status.set_phase(DissolveCleanupPhase::AlphaInOutStakesLocks);
+                            status.last_key = None;
                         } else {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::AlphaInOutStakesHotkeyTotals {
-                                    last_key: new_key,
-                                },
-                            ));
+                            status.last_key = new_key;
                         }
                         done
                     }
 
-                    DissolveCleanupPhase::AlphaInOutStakesLocks { last_key } => {
+                    DissolveCleanupPhase::AlphaInOutStakesLocks => {
                         let (done, new_key) = Self::destroy_alpha_in_out_stakes_clear_locks(
                             netuid,
-                            &mut weight_meter,
-                            last_key,
+                            weight_meter,
+                            status.last_key.clone(),
                         );
                         if done {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::AlphaInOutStakesDecayingLocks {
-                                    last_key: None,
-                                },
-                            ));
+                            status.set_phase(DissolveCleanupPhase::AlphaInOutStakesDecayingLocks);
+                            status.last_key = None;
                         } else {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::AlphaInOutStakesLocks { last_key: new_key },
-                            ));
+                            status.last_key = new_key;
                         }
                         done
                     }
-                    DissolveCleanupPhase::AlphaInOutStakesDecayingLocks { last_key } => {
+                    DissolveCleanupPhase::AlphaInOutStakesDecayingLocks => {
                         let (done, new_key) =
                             Self::destroy_alpha_in_out_stakes_clear_decaying_locks(
                                 netuid,
-                                &mut weight_meter,
-                                last_key,
+                                weight_meter,
+                                status.last_key.clone(),
                             );
                         if done {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::AlphaInOutStakes,
-                            ));
+                            status.set_phase(DissolveCleanupPhase::AlphaInOutStakes);
+                            status.last_key = None;
                         } else {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::AlphaInOutStakesDecayingLocks {
-                                    last_key: new_key,
-                                },
-                            ));
+                            status.last_key = new_key;
                         }
                         done
                     }
 
                     DissolveCleanupPhase::AlphaInOutStakes => {
-                        let done = Self::destroy_alpha_in_out_stakes(netuid, &mut weight_meter);
+                        let done = Self::destroy_alpha_in_out_stakes(netuid, weight_meter, status);
                         if done {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::ProtocolLiquidity,
-                            ));
+                            status.set_phase(DissolveCleanupPhase::ProtocolLiquidity);
+                            status.last_key = None;
                         }
                         done
                     }
 
                     DissolveCleanupPhase::ProtocolLiquidity => {
-                        let done =
-                            T::SwapInterface::clear_protocol_liquidity(netuid, &mut weight_meter);
+                        let done = T::SwapInterface::clear_protocol_liquidity(netuid, weight_meter);
 
                         if done {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::PurgeNetuid,
-                            ));
+                            status.set_phase(DissolveCleanupPhase::PurgeNetuid);
+                            status.last_key = None;
                         }
                         done
                     }
 
                     DissolveCleanupPhase::PurgeNetuid => {
-                        let done = T::CommitmentsInterface::purge_netuid(netuid, &mut weight_meter);
+                        let done = T::CommitmentsInterface::purge_netuid(netuid, weight_meter);
 
                         if done {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::NetworkIsNetworkMember { last_key: None },
-                            ));
+                            status.set_phase(DissolveCleanupPhase::NetworkIsNetworkMember);
+                            status.last_key = None;
                         }
                         done
                     }
-                    DissolveCleanupPhase::NetworkIsNetworkMember { last_key } => {
+                    DissolveCleanupPhase::NetworkIsNetworkMember => {
                         let (done, new_key) = Self::remove_network_is_network_member(
                             netuid,
-                            &mut weight_meter,
-                            last_key,
+                            weight_meter,
+                            status.last_key.clone(),
                         );
 
                         if done {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::NetworkParameters,
-                            ));
+                            status.set_phase(DissolveCleanupPhase::NetworkParameters);
+                            status.last_key = None;
                         } else {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::NetworkIsNetworkMember { last_key: new_key },
-                            ));
+                            status.last_key = new_key;
                         }
                         done
                     }
                     DissolveCleanupPhase::NetworkParameters => {
-                        let done = Self::remove_network_parameters(netuid, &mut weight_meter);
+                        let done = Self::remove_network_parameters(netuid, weight_meter);
 
                         if done {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::NetworkMapParameters,
-                            ));
+                            status.set_phase(DissolveCleanupPhase::NetworkMapParameters);
+                            status.last_key = None;
                         }
                         done
                     }
                     DissolveCleanupPhase::NetworkMapParameters => {
-                        let done = Self::remove_network_map_parameters(netuid, &mut weight_meter);
+                        let done = Self::remove_network_map_parameters(netuid, weight_meter);
 
                         if done {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::NetworkUpdateWeightsOnRoot { last_key: None },
-                            ));
+                            status.set_phase(DissolveCleanupPhase::NetworkUpdateWeightsOnRoot);
+                            status.last_key = None;
                         }
                         done
                     }
-                    DissolveCleanupPhase::NetworkUpdateWeightsOnRoot { last_key } => {
+                    DissolveCleanupPhase::NetworkUpdateWeightsOnRoot => {
                         let (done, new_key) = Self::remove_network_update_weights_on_root(
                             netuid,
-                            &mut weight_meter,
-                            last_key,
+                            weight_meter,
+                            status.last_key.clone(),
                         );
 
                         if done {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::NetworkChildkeyTake { last_key: None },
-                            ));
+                            status.set_phase(DissolveCleanupPhase::NetworkChildkeyTake);
+                            status.last_key = None;
                         } else {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::NetworkUpdateWeightsOnRoot {
-                                    last_key: new_key,
-                                },
-                            ));
+                            status.last_key = new_key;
                         }
                         done
                     }
-                    DissolveCleanupPhase::NetworkChildkeyTake { last_key } => {
-                        let (done, new_key) =
-                            Self::remove_network_childkey_take(netuid, &mut weight_meter, last_key);
+                    DissolveCleanupPhase::NetworkChildkeyTake => {
+                        let (done, new_key) = Self::remove_network_childkey_take(
+                            netuid,
+                            weight_meter,
+                            status.last_key.clone(),
+                        );
 
                         if done {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::NetworkChildkeys { last_key: None },
-                            ));
+                            status.set_phase(DissolveCleanupPhase::NetworkChildkeys);
+                            status.last_key = None;
                         } else {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::NetworkChildkeyTake { last_key: new_key },
-                            ));
+                            status.last_key = new_key;
                         }
                         done
                     }
-                    DissolveCleanupPhase::NetworkChildkeys { last_key } => {
-                        let (done, new_key) =
-                            Self::remove_network_childkeys(netuid, &mut weight_meter, last_key);
+                    DissolveCleanupPhase::NetworkChildkeys => {
+                        let (done, new_key) = Self::remove_network_childkeys(
+                            netuid,
+                            weight_meter,
+                            status.last_key.clone(),
+                        );
 
                         if done {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::NetworkParentkeys { last_key: None },
-                            ));
+                            status.set_phase(DissolveCleanupPhase::NetworkParentkeys);
+                            status.last_key = None;
                         } else {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::NetworkChildkeys { last_key: new_key },
-                            ));
+                            status.last_key = new_key;
                         }
                         done
                     }
-                    DissolveCleanupPhase::NetworkParentkeys { last_key } => {
-                        let (done, new_key) =
-                            Self::remove_network_parentkeys(netuid, &mut weight_meter, last_key);
+                    DissolveCleanupPhase::NetworkParentkeys => {
+                        let (done, new_key) = Self::remove_network_parentkeys(
+                            netuid,
+                            weight_meter,
+                            status.last_key.clone(),
+                        );
 
                         if done {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::NetworkLastHotkeyEmissionOnNetuid {
-                                    last_key: None,
-                                },
-                            ));
+                            status
+                                .set_phase(DissolveCleanupPhase::NetworkLastHotkeyEmissionOnNetuid);
+                            status.last_key = None;
                         } else {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::NetworkParentkeys { last_key: new_key },
-                            ));
+                            status.last_key = new_key;
                         }
                         done
                     }
-                    DissolveCleanupPhase::NetworkLastHotkeyEmissionOnNetuid { last_key } => {
+                    DissolveCleanupPhase::NetworkLastHotkeyEmissionOnNetuid => {
                         let (done, new_key) = Self::remove_network_last_hotkey_emission_on_netuid(
                             netuid,
-                            &mut weight_meter,
-                            last_key,
+                            weight_meter,
+                            status.last_key.clone(),
                         );
 
                         if done {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::NetworkTotalHotkeyAlphaLastEpoch {
-                                    last_key: None,
-                                },
-                            ));
+                            status
+                                .set_phase(DissolveCleanupPhase::NetworkTotalHotkeyAlphaLastEpoch);
+                            status.last_key = None;
                         } else {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::NetworkLastHotkeyEmissionOnNetuid {
-                                    last_key: new_key,
-                                },
-                            ));
+                            status.last_key = new_key;
                         }
                         done
                     }
-                    DissolveCleanupPhase::NetworkTotalHotkeyAlphaLastEpoch { last_key } => {
+                    DissolveCleanupPhase::NetworkTotalHotkeyAlphaLastEpoch => {
                         let (done, new_key) = Self::remove_network_total_hotkey_alpha_last_epoch(
                             netuid,
-                            &mut weight_meter,
-                            last_key,
+                            weight_meter,
+                            status.last_key.clone(),
                         );
 
                         if done {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::NetworkTransactionKeyLastBlock {
-                                    last_key: None,
-                                },
-                            ));
+                            status.set_phase(DissolveCleanupPhase::NetworkTransactionKeyLastBlock);
+                            status.last_key = None;
                         } else {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::NetworkTotalHotkeyAlphaLastEpoch {
-                                    last_key: new_key,
-                                },
-                            ));
+                            status.last_key = new_key;
                         }
                         done
                     }
-                    DissolveCleanupPhase::NetworkTransactionKeyLastBlock { last_key } => {
+                    DissolveCleanupPhase::NetworkTransactionKeyLastBlock => {
                         let (done, new_key) = Self::remove_network_transaction_key_last_block(
                             netuid,
-                            &mut weight_meter,
-                            last_key,
+                            weight_meter,
+                            status.last_key.clone(),
                         );
                         if done {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::NetworkLock { last_key: None },
-                            ));
+                            status.set_phase(DissolveCleanupPhase::NetworkLock);
+                            status.last_key = None;
                         } else {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::NetworkTransactionKeyLastBlock {
-                                    last_key: new_key,
-                                },
-                            ));
+                            status.last_key = new_key;
                         }
                         done
                     }
-                    DissolveCleanupPhase::NetworkLock { last_key } => {
-                        let (done, new_key) =
-                            Self::remove_network_lock(netuid, &mut weight_meter, last_key);
+                    DissolveCleanupPhase::NetworkLock => {
+                        let (done, new_key) = Self::remove_network_lock(
+                            netuid,
+                            weight_meter,
+                            status.last_key.clone(),
+                        );
 
                         if done {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::NetworkDecayingLock { last_key: None },
-                            ));
+                            status.set_phase(DissolveCleanupPhase::NetworkDecayingLock);
+                            status.last_key = None;
                         } else {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::NetworkLock { last_key: new_key },
-                            ));
+                            status.last_key = new_key;
                         }
                         done
                     }
-                    DissolveCleanupPhase::NetworkDecayingLock { last_key } => {
-                        let (done, new_key) =
-                            Self::remove_network_decaying_lock(netuid, &mut weight_meter, last_key);
+                    DissolveCleanupPhase::NetworkDecayingLock => {
+                        let (done, new_key) = Self::remove_network_decaying_lock(
+                            netuid,
+                            weight_meter,
+                            status.last_key.clone(),
+                        );
 
                         // if all phases are done, remove the network from the dissolved networks list and emit the event
                         if done {
-                            DissolvedNetworksCleanupPhase::<T>::set(None);
                             cleanup_completed = true;
-                            Self::deposit_event(Event::NetworkDissolveCleanupCompleted {
-                                netuid: netuid,
-                            });
                         } else {
-                            DissolvedNetworksCleanupPhase::<T>::set(Some(
-                                DissolveCleanupPhase::NetworkDecayingLock { last_key: new_key },
-                            ));
+                            status.last_key = new_key;
                         }
                         done
                     }
@@ -1043,11 +943,13 @@ impl<T: Config> Pallet<T> {
 
                 phase_done = done;
 
-                // if phase is cleared, break since all phases are done
                 if cleanup_completed {
-                    DissolveCleanupQueue::<T>::set(dissolved_networks);
+                    CurrentDissolveCleanupStatus::<T>::kill();
+                    Self::deposit_event(Event::NetworkDissolveCleanupCompleted { netuid: netuid });
                     break;
                 }
+
+                CurrentDissolveCleanupStatus::<T>::set(Some(status.clone()));
             }
         }
 

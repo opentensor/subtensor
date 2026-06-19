@@ -1314,9 +1314,13 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
         // Run the path under test
         let mut weight_meter =
             frame_support::weights::WeightMeter::with_limit(Weight::from_parts(u64::MAX, u64::MAX));
-        DissolvedSubnetTotalAlphaValue::<Test>::set(Some(0));
-        DissolvedSubnetDistributedTao::<Test>::set(Some(0));
-        SubtensorModule::destroy_alpha_in_out_stakes(netuid, &mut weight_meter);
+        // total alpha tracked in CurrentDissolveCleanupStatus;
+        // distributed tao tracked in CurrentDissolveCleanupStatus;
+        {
+            let mut status = dissolve_cleanup_status(netuid);
+            status.subnet_total_alpha_value = Some(0);
+            SubtensorModule::destroy_alpha_in_out_stakes(netuid, &mut weight_meter, &mut status);
+        }
 
         // Owner received their refund…
         let owner_after = SubtensorModule::get_coldkey_balance(&owner_cold);
@@ -1365,9 +1369,13 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
         // Run the path under test
         let mut weight_meter =
             frame_support::weights::WeightMeter::with_limit(Weight::from_parts(u64::MAX, u64::MAX));
-        DissolvedSubnetTotalAlphaValue::<Test>::set(Some(0));
-        DissolvedSubnetDistributedTao::<Test>::set(Some(0));
-        SubtensorModule::destroy_alpha_in_out_stakes(netuid, &mut weight_meter);
+        // total alpha tracked in CurrentDissolveCleanupStatus;
+        // distributed tao tracked in CurrentDissolveCleanupStatus;
+        {
+            let mut status = dissolve_cleanup_status(netuid);
+            status.subnet_total_alpha_value = Some(0);
+            SubtensorModule::destroy_alpha_in_out_stakes(netuid, &mut weight_meter, &mut status);
+        }
 
         // No refund for non‑legacy
         let owner_after = SubtensorModule::get_coldkey_balance(&owner_cold);
@@ -1404,7 +1412,11 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
         let owner_before = SubtensorModule::get_coldkey_balance(&owner_cold);
         let mut weight_meter =
             frame_support::weights::WeightMeter::with_limit(Weight::from_parts(u64::MAX, u64::MAX));
-        SubtensorModule::destroy_alpha_in_out_stakes(netuid, &mut weight_meter);
+        {
+            let mut status = dissolve_cleanup_status(netuid);
+            status.subnet_total_alpha_value = Some(0);
+            SubtensorModule::destroy_alpha_in_out_stakes(netuid, &mut weight_meter, &mut status);
+        }
         let owner_after = SubtensorModule::get_coldkey_balance(&owner_cold);
 
         // No refund possible when lock = 0
@@ -3204,7 +3216,7 @@ fn dissolve_async_cleanup_leaves_phase_unset_until_idle_finishes() {
             "dissolved netuid should be queued for on_idle cleanup"
         );
         assert!(
-            DissolvedNetworksCleanupPhase::<Test>::get().is_none(),
+            CurrentDissolveCleanupStatus::<Test>::get().is_none(),
             "global cleanup phase is only driven from on_idle (not from do_dissolve_network)"
         );
 
@@ -3215,7 +3227,7 @@ fn dissolve_async_cleanup_leaves_phase_unset_until_idle_finishes() {
             "idle cleanup should drain the dissolved net from the queue"
         );
         assert!(
-            DissolvedNetworksCleanupPhase::<Test>::get().is_none(),
+            CurrentDissolveCleanupStatus::<Test>::get().is_none(),
             "when the queue is empty, global cleanup phase storage must be cleared"
         );
     });
@@ -3245,7 +3257,7 @@ fn dissolve_full_on_idle_emits_dissolved_network_data_cleaned_and_clears_phase()
             "expected NetworkDissolveCleanupCompleted after async dissolve pipeline"
         );
         assert!(
-            DissolvedNetworksCleanupPhase::<Test>::get().is_none(),
+            CurrentDissolveCleanupStatus::<Test>::get().is_none(),
             "global cleanup phase storage must be cleared when the queue is empty"
         );
     });
@@ -3274,7 +3286,7 @@ fn dissolve_two_networks_fifo_cleanup_drains_queue() {
         assert!(!SubtensorModule::if_subnet_exist(n1));
         assert!(!SubtensorModule::if_subnet_exist(n2));
         assert!(
-            DissolvedNetworksCleanupPhase::<Test>::get().is_none(),
+            CurrentDissolveCleanupStatus::<Test>::get().is_none(),
             "no stale phase after queue drain"
         );
     });
