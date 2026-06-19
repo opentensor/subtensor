@@ -123,26 +123,6 @@ jobs:
       - name: Make binary executable
         run: chmod +x target/release/node-subtensor
 
-      - name: Diagnose RPC reachability (dev only)
-        if: matrix.test == 'dev'
-        run: |
-          set +e
-          ( ./target/release/node-subtensor --one --dev --force-authoring --rpc-cors=all \
-              --no-prometheus --no-telemetry --reserved-only --tmp --sealing=manual \
-              --pool-type=single-state --rpc-port 9944 > /tmp/n.log 2>&1 & )
-          sleep 10
-          REQ='{"jsonrpc":"2.0","id":1,"method":"system_health","params":[]}'
-          echo "== what is listening on 9944 =="; ss -ltnp 2>/dev/null | grep -E '9944|State' || true
-          echo; echo "== curl 127.0.0.1:9944 =="
-          curl -sS -m 5 -H 'Content-Type: application/json' -d "$REQ" http://127.0.0.1:9944 || echo ">>> FAIL 127.0.0.1"
-          echo; echo "== curl [::1]:9944 =="
-          curl -sS -m 5 -H 'Content-Type: application/json' -d "$REQ" "http://[::1]:9944" || echo ">>> FAIL ::1"
-          echo; echo "== curl localhost:9944 =="
-          curl -sS -m 5 -H 'Content-Type: application/json' -d "$REQ" http://localhost:9944 || echo ">>> FAIL localhost"
-          echo; echo "== node log tail =="; tail -8 /tmp/n.log
-          pkill -f node-subtensor 2>/dev/null || true
-          true
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -157,17 +137,47 @@ jobs:
         working-directory: ts-tests
         run: pnpm install --frozen-lockfile
 
+      - name: Diagnose WS vs HTTP (dev only)
+        if: matrix.test == 'dev'
+        working-directory: ts-tests
+        run: |
+          set +e
+          cat > papi.mjs <<'PEOF'
+          const { ApiPromise, WsProvider } = await import('@polkadot/api');
+          const port = process.env.PROBE_PORT || '9944';
+          async function probe(url){
+            return await new Promise((resolve)=>{
+              const t=setTimeout(()=>resolve(url+' => TIMEOUT 20s (never ready)'),20000);
+              const provider=new WsProvider(url);
+              provider.on('connected',()=>console.log(url,'=> WS connected'));
+              provider.on('error',e=>console.log(url,'=> provider error:',(e&&e.message)||String(e)));
+              ApiPromise.create({provider})
+                .then(async(api)=>{const c=(await api.rpc.system.chain()).toString();await api.disconnect();clearTimeout(t);resolve(url+' => READY chain='+c);})
+                .catch(e=>{clearTimeout(t);resolve(url+' => FAIL '+((e&&e.message)||e));});
+            });
+          }
+          for (const h of ['127.0.0.1','localhost']) console.log(await probe('ws://'+h+':'+port));
+          process.exit(0);
+          PEOF
+          for PROBE_PORT in 9944 10144; do
+            echo "######## PORT $PROBE_PORT (9944=control, 10144=moonwall dynamic range) ########"
+            ( ../target/release/node-subtensor --one --dev --force-authoring --rpc-cors=all \
+                --no-prometheus --no-telemetry --reserved-only --tmp --sealing=manual \
+                --pool-type=single-state --rpc-port $PROBE_PORT > /tmp/n_$PROBE_PORT.log 2>&1 & )
+            sleep 8
+            echo "-- ss listening on $PROBE_PORT --"; ss -ltnp 2>/dev/null | grep ":$PROBE_PORT" || echo "(nothing on $PROBE_PORT)"
+            echo "-- HTTP curl 127.0.0.1:$PROBE_PORT --"
+            curl -sS -m 5 -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"system_health","params":[]}' http://127.0.0.1:$PROBE_PORT || echo ">>> HTTP FAIL"
+            echo; echo "-- polkadot.js WS probe (what moonwall uses) --"; PROBE_PORT=$PROBE_PORT node papi.mjs
+            echo "-- node log tail --"; tail -4 /tmp/n_$PROBE_PORT.log
+            pkill -f "rpc-port $PROBE_PORT" 2>/dev/null || true
+            sleep 2
+          done
+          true
+
       - name: Run tests
+        env:
+          DEBUG: api-ws
         run: |
           cd ts-tests
           pnpm moonwall test ${{ matrix.test }}
-
-      - name: Upload node logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: node-logs-${{ matrix.test }}
-          path: |
-            ts-tests/tmp/node_logs/
-            ts-tests/tmp/*.log
-          if-no-files-found: warn
