@@ -123,6 +123,26 @@ jobs:
       - name: Make binary executable
         run: chmod +x target/release/node-subtensor
 
+      - name: Diagnose RPC reachability (dev only)
+        if: matrix.test == 'dev'
+        run: |
+          set +e
+          ( ./target/release/node-subtensor --one --dev --force-authoring --rpc-cors=all \
+              --no-prometheus --no-telemetry --reserved-only --tmp --sealing=manual \
+              --pool-type=single-state --rpc-port 9944 > /tmp/n.log 2>&1 & )
+          sleep 10
+          REQ='{"jsonrpc":"2.0","id":1,"method":"system_health","params":[]}'
+          echo "== what is listening on 9944 =="; ss -ltnp 2>/dev/null | grep -E '9944|State' || true
+          echo; echo "== curl 127.0.0.1:9944 =="
+          curl -sS -m 5 -H 'Content-Type: application/json' -d "$REQ" http://127.0.0.1:9944 || echo ">>> FAIL 127.0.0.1"
+          echo; echo "== curl [::1]:9944 =="
+          curl -sS -m 5 -H 'Content-Type: application/json' -d "$REQ" "http://[::1]:9944" || echo ">>> FAIL ::1"
+          echo; echo "== curl localhost:9944 =="
+          curl -sS -m 5 -H 'Content-Type: application/json' -d "$REQ" http://localhost:9944 || echo ">>> FAIL localhost"
+          echo; echo "== node log tail =="; tail -8 /tmp/n.log
+          pkill -f node-subtensor 2>/dev/null || true
+          true
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -138,8 +158,6 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run tests
-        env:
-          NODE_OPTIONS: --dns-result-order=ipv4first
         run: |
           cd ts-tests
           pnpm moonwall test ${{ matrix.test }}
