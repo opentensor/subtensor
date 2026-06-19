@@ -426,6 +426,30 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    /// Credits a subnet account up to `required` liquid τ when on-chain balance lags storage.
+    fn credit_subnet_account_shortfall(
+        netuid: NetUid,
+        required: TaoBalance,
+        subtract_mint_from_total_issuance: bool,
+    ) {
+        if required.is_zero() {
+            return;
+        }
+        let Some(subnet_account) = Self::get_subnet_account_id(netuid) else {
+            return;
+        };
+        let balance = Self::get_coldkey_balance(&subnet_account);
+        if balance >= required {
+            return;
+        }
+        let shortfall = required.saturating_sub(balance);
+        let credit = Self::mint_tao(shortfall);
+        let _ = Self::spend_tao(&subnet_account, credit, shortfall);
+        if subtract_mint_from_total_issuance {
+            TotalIssuance::<T>::mutate(|ti| *ti = ti.saturating_sub(shortfall));
+        }
+    }
+
     pub fn destroy_alpha_in_out_stakes(
         netuid: NetUid,
         weight_meter: &mut WeightMeter,
@@ -522,6 +546,11 @@ impl<T: Config> Pallet<T> {
         if !refund.is_zero()
             && let Some(subnet_account) = Self::get_subnet_account_id(netuid)
         {
+            Self::credit_subnet_account_shortfall(
+                netuid,
+                refund.saturating_add(protocol_tao_share),
+                false,
+            );
             // Transfer maximum transferrable up to refund to owner
             let transferrable =
                 Self::get_coldkey_balance(&subnet_account).saturating_sub(protocol_tao_share);
@@ -769,6 +798,10 @@ impl<T: Config> Pallet<T> {
         // total TAO in the subnet pool
         let pot_tao: TaoBalance = SubnetTAO::<T>::get(netuid);
         let pot_u64: u64 = pot_tao.into();
+        if pot_u64 > 0 {
+            Self::credit_subnet_account_shortfall(netuid, pot_tao, true);
+            TotalStake::<T>::mutate(|total| *total = total.saturating_sub(pot_tao));
+        }
         struct Portion<A, C> {
             _hot: A,
             cold: C,

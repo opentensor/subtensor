@@ -1292,6 +1292,47 @@ pub fn dissolve_cleanup_status(netuid: NetUid) -> DissolveCleanupStatus {
     status
 }
 
+/// Runs `get_total_alpha_value` then `settle_stakes` with one shared dissolve status.
+pub fn run_destroy_alpha_get_total_and_settle(netuid: NetUid) -> DissolveCleanupStatus {
+    let w = Weight::from_parts(u64::MAX, u64::MAX);
+    let mut weight_meter = WeightMeter::with_limit(w);
+    let mut status = dissolve_cleanup_status(netuid);
+    assert!(
+        run_resumable_netuid_cleanup_with_status(
+            netuid,
+            &mut weight_meter,
+            &mut status,
+            |netuid, weight_meter, last_key, status| {
+                SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value(
+                    netuid,
+                    weight_meter,
+                    last_key,
+                    status,
+                )
+            },
+        ),
+        "destroy_alpha_in_out_stakes_get_total_alpha_value incomplete"
+    );
+    status.subnet_distributed_tao = Some(0);
+    assert!(
+        run_resumable_netuid_cleanup_with_status(
+            netuid,
+            &mut weight_meter,
+            &mut status,
+            |netuid, weight_meter, last_key, status| {
+                SubtensorModule::destroy_alpha_in_out_stakes_settle_stakes(
+                    netuid,
+                    weight_meter,
+                    last_key,
+                    status,
+                )
+            },
+        ),
+        "destroy_alpha_in_out_stakes_settle_stakes incomplete"
+    );
+    status
+}
+
 /// Runs the α-out destroy pipeline used during dissolved-network cleanup (through final destroy).
 pub fn run_destroy_alpha_in_out_stakes_full_pipeline(netuid: NetUid) {
     let w = Weight::from_parts(u64::MAX, u64::MAX);

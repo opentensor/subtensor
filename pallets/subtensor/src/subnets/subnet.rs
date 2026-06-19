@@ -606,9 +606,12 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_subnet_account_id(netuid: NetUid) -> Option<T::AccountId> {
+        let cleanup_in_progress = CurrentDissolveCleanupStatus::<T>::get()
+            .is_some_and(|status| status.netuid == netuid);
         if NetworksAdded::<T>::contains_key(netuid)
             || netuid == NetUid::ROOT
             || DissolveCleanupQueue::<T>::get().contains(&netuid)
+            || cleanup_in_progress
         {
             Some(T::SubtensorPalletId::get().into_sub_account_truncating(u16::from(netuid)))
         } else {
