@@ -59,6 +59,7 @@ impl Default for DissolveCleanupPhase {
     }
 }
 
+#[crate::freeze_struct("c524ea54893ae91a")]
 #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, DecodeWithMemTracking)]
 pub struct DissolveCleanupStatus {
     pub netuid: NetUid,
