@@ -44,6 +44,14 @@ mod events {
         WeightsSet(NetUidStorageIndex, u16),
         /// a root validator set its beta-basket distribution vector (uid on the root subnet).
         RootWeightsSet(u16),
+        /// a root validator authorized a manager to set its basket weight vector (or cleared it by
+        /// authorizing itself). Fields: (delegator_uid, manager_uid); equal uids = cleared.
+        RootWeightManagerSet(u16, u16),
+        /// a manager set a delegator's basket weight vector on its behalf. Fields:
+        /// (delegator_uid, manager_uid).
+        RootWeightsSetByManager(u16, u16),
+        /// a manager set the curation take it charges delegators. Fields: (manager_uid, take_bps).
+        RootWeightTakeSet(u16, u16),
         /// a new neuron account has been registered to the chain.
         NeuronRegistered(NetUid, u16, T::AccountId),
         /// multiple uids have been concurrently registered.

@@ -117,6 +117,56 @@ mod dispatches {
             Self::do_set_root_weights(origin, dests, weights, version_key)
         }
 
+        /// --- Authorizes `manager` (another root validator) to set this validator's beta-basket
+        /// weight vector via `set_root_weights_for`, or clears the authorization by passing the
+        /// caller's own hotkey. The manager also earns its curation take on this validator's basket.
+        ///
+        /// # Args:
+        /// * `origin`: the delegator root validator hotkey.
+        /// * `manager` (T::AccountId): the manager's root validator hotkey (self = clear).
+        #[pallet::call_index(140)]
+        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::set_childkey_take(), DispatchClass::Normal, Pays::Yes))]
+        pub fn set_root_weight_manager(
+            origin: OriginFor<T>,
+            manager: T::AccountId,
+        ) -> DispatchResult {
+            Self::do_set_root_weight_manager(origin, manager)
+        }
+
+        /// --- Sets the curation take (basis points) this root validator charges its
+        /// weight-vector delegators. Bounded by the childkey-take ceiling; `0` curates for free.
+        ///
+        /// # Args:
+        /// * `origin`: the manager root validator hotkey.
+        /// * `take` (u16): the take in basis points (0..=10000, capped at the childkey-take max).
+        #[pallet::call_index(141)]
+        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::set_childkey_take(), DispatchClass::Normal, Pays::Yes))]
+        pub fn set_root_weight_take(origin: OriginFor<T>, take: u16) -> DispatchResult {
+            Self::do_set_root_weight_take(origin, take)
+        }
+
+        /// --- Sets the beta-basket weight vector of a `delegator` root validator that has
+        /// authorized the caller as its manager. The vector is written into the delegator's own
+        /// slot, so one manager can curate an independent vector per delegator.
+        ///
+        /// # Args:
+        /// * `origin`: the manager root validator hotkey.
+        /// * `delegator` (T::AccountId): the delegator whose vector is being set.
+        /// * `dests` (Vec<u16>): destination subnet netuids.
+        /// * `weights` (Vec<u16>): per-subnet weights (normalized on use).
+        /// * `version_key` (u64): the network version key.
+        #[pallet::call_index(142)]
+        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::set_weights(), DispatchClass::Normal, Pays::No))]
+        pub fn set_root_weights_for(
+            origin: OriginFor<T>,
+            delegator: T::AccountId,
+            dests: Vec<u16>,
+            weights: Vec<u16>,
+            version_key: u64,
+        ) -> DispatchResult {
+            Self::do_set_root_weights_for(origin, delegator, dests, weights, version_key)
+        }
+
         /// --- Sets the caller weights for the incentive mechanism for mechanisms. The call
         /// can be made from the hotkey account so is potentially insecure, however, the damage
         /// of changing weights is minimal if caught early. This function includes all the

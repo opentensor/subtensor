@@ -87,13 +87,17 @@ impl<T: Config> Pallet<T> {
             return;
         }
 
-        // Resolve the validator's basket weight vector w = Weights[ROOT][uid]. The vector follows
-        // the validator's root uid (so it survives hotkey swaps automatically) and reuses the
-        // existing root weights plumbing.
+        // Resolve the validator's OWN basket weight vector w = Weights[ROOT][uid]. If a manager is
+        // authorized it writes a bespoke vector directly into this slot (see `set_root_weights_for`),
+        // so distribution reads the slot unconditionally. The vector follows the validator's root
+        // uid (surviving hotkey swaps) and reuses the existing root weights plumbing. The
+        // `RootWeightManager` pointer is read only to route the manager's `RootWeightTake` (skimmed
+        // as a curation fee below).
         let maybe_uid = Uids::<T>::try_get(NetUid::ROOT, hotkey).ok();
         let weights = maybe_uid
             .map(|uid| Weights::<T>::get(NetUidStorageIndex::ROOT, uid))
             .unwrap_or_default();
+        let manager_uid: Option<u16> = maybe_uid.and_then(|uid| RootWeightManager::<T>::get(uid));
 
         // Keep weights that point at root (uid 0) or an existing subnet. Root is a valid
         // destination: that slice is held as a root-stake (TAO) basket slot instead of being
@@ -145,7 +149,39 @@ impl<T: Config> Pallet<T> {
             Self::record_protocol_outflow(origin_netuid, tao_total);
 
             // 2. Split the TAO across subnets per w and buy each subnet's alpha.
-            let tao_total_u64: u64 = tao_total.to_u64();
+            let mut tao_total_u64: u64 = tao_total.to_u64();
+
+            // 2a. If an authorized manager curates this validator, skim the manager's curation take
+            // (bps) from the TAO and credit it to the manager's own root stake. Keeps the round
+            // trip TotalStake-neutral: sell - buys - fee == 0. The buy loop below redeploys only
+            // the post-fee remainder. Guarded by `Keys::try_get` so a stale/vacant manager uid is
+            // never credited (the remainder simply stays with the delegator's basket).
+            if let Some(m_uid) = manager_uid {
+                let take: u16 = RootWeightTake::<T>::get(m_uid);
+                if take > 0 {
+                    if let Ok(manager_hotkey) = Keys::<T>::try_get(NetUid::ROOT, m_uid) {
+                        let fee: u64 = U96F32::saturating_from_num(tao_total_u64)
+                            .saturating_mul(U96F32::saturating_from_num(take))
+                            .checked_div(U96F32::saturating_from_num(10_000u64))
+                            .unwrap_or_default()
+                            .saturating_to_num::<u64>();
+                        if fee > 0 {
+                            // Credit the fee as the manager's own root stake (mirrors the root-slot
+                            // and claim paths: stake the TAO, then book the root reserves).
+                            let manager_owner = Owner::<T>::get(&manager_hotkey);
+                            Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                                &manager_hotkey,
+                                &manager_owner,
+                                NetUid::ROOT,
+                                fee.into(),
+                            );
+                            Self::credit_root_reserves(fee.into());
+                            tao_total_u64 = tao_total_u64.saturating_sub(fee);
+                        }
+                    }
+                }
+            }
+
             let mut spent: u64 = 0;
             let last_idx = valid.len().saturating_sub(1);
             for (i, (dest_netuid, weight)) in valid.iter().enumerate() {

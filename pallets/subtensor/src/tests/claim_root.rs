@@ -4,9 +4,9 @@ use crate::tests::mock::*;
 use crate::{
     BasketPrincipal, DefaultMinRootClaimAmount, Error, Keys, MAX_NUM_ROOT_CLAIMS,
     MAX_ROOT_CLAIM_THRESHOLD, NetworksAdded, NumRootClaim, NumStakingColdkeys, RootClaimType,
-    RootClaimTypeEnum, RootClaimable, RootClaimableThreshold, RootClaimed, StakingColdkeys,
-    StakingColdkeysByIndex, SubnetAlphaIn, SubnetMovingPrice, SubnetProtocolFlow, SubnetTAO,
-    SubnetworkN, Tempo, TotalStake, Uids, Weights,
+    RootClaimTypeEnum, RootClaimable, RootClaimableThreshold, RootClaimed, RootWeightManager,
+    RootWeightTake, StakingColdkeys, StakingColdkeysByIndex, SubnetAlphaIn, SubnetMovingPrice,
+    SubnetProtocolFlow, SubnetTAO, SubnetworkN, Tempo, TotalStake, Uids, Weights,
 };
 use approx::assert_abs_diff_eq;
 use frame_support::dispatch::RawOrigin;
@@ -514,6 +514,219 @@ fn test_root_basket_records_symmetric_protocol_flow() {
             flow_c_after.abs() < flow_c,
             "round-trip residual on C should be smaller than the inflow: {flow_c_after} vs {flow_c}"
         );
+    });
+}
+
+/// Registers `hotkey` as root validator `uid` (Uids + Keys), enough for the root-weight
+/// extrinsics' identity/rate-limit checks.
+fn register_root(hotkey: &U256, uid: u16) {
+    Uids::<Test>::insert(NetUid::ROOT, hotkey, uid);
+    Keys::<Test>::insert(NetUid::ROOT, uid, *hotkey);
+}
+
+/// End-to-end via the extrinsics: a delegator authorizes a manager, the manager sets the
+/// delegator's *own* vector on its behalf (rejected before authorization), and the delegator's
+/// dividend then deploys per that vector with the manager's take skimmed to the manager's root
+/// stake.
+#[test]
+fn test_root_weight_manager_sets_delegator_vector_and_earns_take() {
+    new_test_ext(1).execute_with(|| {
+        let owner_m = U256::from(1001);
+        let hotkey_m = U256::from(1002);
+        let owner_a = U256::from(2001);
+        let hotkey_a = U256::from(2002);
+        let coldkey_a = U256::from(2003);
+        let owner_t = U256::from(3001);
+        let hotkey_t = U256::from(3002);
+
+        // netuid_a = delegator's dividend origin; netuid_t = the manager's chosen basket subnet.
+        let netuid_a = add_dynamic_network(&hotkey_a, &owner_a);
+        let netuid_t = add_dynamic_network(&hotkey_t, &owner_t);
+        add_dynamic_network(&hotkey_m, &owner_m); // Owner[M] for the fee credit
+        remove_owner_registration_stake(netuid_a);
+        fund_pool(netuid_a);
+        fund_pool(netuid_t);
+
+        SubtensorModule::set_tao_weight(u64::MAX);
+        RootClaimableThreshold::<Test>::insert(netuid_t, I96F32::from_num(0));
+
+        // Root subnet must exist for the weight extrinsics' rate-limit resolution.
+        add_network(NetUid::ROOT, 1, 0);
+        register_root(&hotkey_m, 0);
+        register_root(&hotkey_a, 1);
+
+        // Manager sets its take.
+        assert_ok!(SubtensorModule::set_root_weight_take(
+            RuntimeOrigin::signed(hotkey_m),
+            1000 // 10%
+        ));
+
+        // Before authorization the manager cannot set the delegator's vector.
+        assert_noop!(
+            SubtensorModule::set_root_weights_for(
+                RuntimeOrigin::signed(hotkey_m),
+                hotkey_a,
+                vec![u16::from(netuid_t)],
+                vec![u16::MAX],
+                0,
+            ),
+            Error::<Test>::NotRootWeightManager
+        );
+
+        // Delegator authorizes the manager; the manager then sets the delegator's OWN slot.
+        assert_ok!(SubtensorModule::set_root_weight_manager(
+            RuntimeOrigin::signed(hotkey_a),
+            hotkey_m
+        ));
+        assert_eq!(RootWeightManager::<Test>::get(1u16), Some(0u16));
+        assert_ok!(SubtensorModule::set_root_weights_for(
+            RuntimeOrigin::signed(hotkey_m),
+            hotkey_a,
+            vec![u16::from(netuid_t)],
+            vec![u16::MAX],
+            0,
+        ));
+        // The vector landed in the DELEGATOR's slot (uid 1), not the manager's.
+        assert!(!Weights::<Test>::get(NetUidStorageIndex::ROOT, 1u16).is_empty());
+        assert!(Weights::<Test>::get(NetUidStorageIndex::ROOT, 0u16).is_empty());
+
+        // Delegator needs root stake to apportion against, and alpha on A to earn the dividend.
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_a,
+            &coldkey_a,
+            NetUid::ROOT,
+            2_000_000u64.into(),
+        );
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_a,
+            &owner_a,
+            netuid_a,
+            10_000_000u64.into(),
+        );
+
+        assert_eq!(root_stake_of(&hotkey_m, &owner_m), 0);
+
+        SubtensorModule::distribute_emission(
+            netuid_a,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
+            1_000_000u64.into(),
+            AlphaBalance::ZERO,
+        );
+
+        // Basket built on the manager-chosen subnet; manager earned the take as root stake.
+        let basket = escrow_alpha(&hotkey_a, netuid_t);
+        let fee = root_stake_of(&hotkey_m, &owner_m);
+        assert!(basket > 0, "delegator basket should follow the manager-set vector");
+        assert!(fee > 0, "manager should receive the curation take");
+        // 10% take => basket (~90% of gross at pool price ~1) is ~9x the fee.
+        assert_abs_diff_eq!(basket as i64, fee as i64 * 9, epsilon = (fee as i64) / 20);
+    });
+}
+
+/// The core requirement: one manager runs *independent* vectors for two delegators (A -> X,
+/// B -> Y), not one shared vector both copy. Each delegator's dividend deploys into its own
+/// manager-set subnet, and the manager earns a take on each.
+#[test]
+fn test_root_weight_manager_runs_independent_vectors() {
+    new_test_ext(1).execute_with(|| {
+        let owner_m = U256::from(1001);
+        let hotkey_m = U256::from(1002);
+        let (owner_a, hotkey_a, coldkey_a) = (U256::from(2001), U256::from(2002), U256::from(2003));
+        let (owner_b, hotkey_b, coldkey_b) = (U256::from(3001), U256::from(3002), U256::from(3003));
+        let (owner_x, hotkey_x) = (U256::from(4001), U256::from(4002));
+        let (owner_y, hotkey_y) = (U256::from(5001), U256::from(5002));
+
+        // Origins where A and B earn dividends; X and Y are the two distinct basket targets.
+        let netuid_a = add_dynamic_network(&hotkey_a, &owner_a);
+        let netuid_b = add_dynamic_network(&hotkey_b, &owner_b);
+        let netuid_x = add_dynamic_network(&hotkey_x, &owner_x);
+        let netuid_y = add_dynamic_network(&hotkey_y, &owner_y);
+        add_dynamic_network(&hotkey_m, &owner_m); // Owner[M] for the fee credit
+        remove_owner_registration_stake(netuid_a);
+        remove_owner_registration_stake(netuid_b);
+        for n in [netuid_a, netuid_b, netuid_x, netuid_y] {
+            fund_pool(n);
+        }
+        SubtensorModule::set_tao_weight(u64::MAX);
+        RootClaimableThreshold::<Test>::insert(netuid_x, I96F32::from_num(0));
+        RootClaimableThreshold::<Test>::insert(netuid_y, I96F32::from_num(0));
+
+        // Root subnet must exist for the weight extrinsics' rate-limit resolution.
+        add_network(NetUid::ROOT, 1, 0);
+        register_root(&hotkey_m, 0);
+        register_root(&hotkey_a, 1);
+        register_root(&hotkey_b, 2);
+        RootWeightTake::<Test>::insert(0u16, 1000u16); // manager charges 10%
+
+        // Both delegators authorize the manager; the manager sets DIFFERENT vectors for each.
+        assert_ok!(SubtensorModule::set_root_weight_manager(
+            RuntimeOrigin::signed(hotkey_a),
+            hotkey_m
+        ));
+        assert_ok!(SubtensorModule::set_root_weight_manager(
+            RuntimeOrigin::signed(hotkey_b),
+            hotkey_m
+        ));
+        assert_ok!(SubtensorModule::set_root_weights_for(
+            RuntimeOrigin::signed(hotkey_m),
+            hotkey_a,
+            vec![u16::from(netuid_x)],
+            vec![u16::MAX],
+            0,
+        ));
+        assert_ok!(SubtensorModule::set_root_weights_for(
+            RuntimeOrigin::signed(hotkey_m),
+            hotkey_b,
+            vec![u16::from(netuid_y)],
+            vec![u16::MAX],
+            0,
+        ));
+
+        for (hk, ck, owner, origin) in [
+            (hotkey_a, coldkey_a, owner_a, netuid_a),
+            (hotkey_b, coldkey_b, owner_b, netuid_b),
+        ] {
+            mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+                &hk,
+                &ck,
+                NetUid::ROOT,
+                2_000_000u64.into(),
+            );
+            mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+                &hk,
+                &owner,
+                origin,
+                10_000_000u64.into(),
+            );
+        }
+
+        SubtensorModule::distribute_emission(
+            netuid_a,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
+            1_000_000u64.into(),
+            AlphaBalance::ZERO,
+        );
+        let fee_after_a = root_stake_of(&hotkey_m, &owner_m);
+        SubtensorModule::distribute_emission(
+            netuid_b,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
+            1_000_000u64.into(),
+            AlphaBalance::ZERO,
+        );
+        let fee_after_b = root_stake_of(&hotkey_m, &owner_m);
+
+        // Independent baskets: A lands only on X, B lands only on Y.
+        assert!(escrow_alpha(&hotkey_a, netuid_x) > 0, "A should hold X");
+        assert_eq!(escrow_alpha(&hotkey_a, netuid_y), 0, "A must not hold Y");
+        assert!(escrow_alpha(&hotkey_b, netuid_y) > 0, "B should hold Y");
+        assert_eq!(escrow_alpha(&hotkey_b, netuid_x), 0, "B must not hold X");
+
+        // Manager earned a take on each delegator's distribution.
+        assert!(fee_after_a > 0, "manager earns take on A");
+        assert!(fee_after_b > fee_after_a, "manager earns take on B too");
     });
 }
 

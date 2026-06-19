@@ -935,52 +935,46 @@ impl<T: Config> Pallet<T> {
     /// values as the proportion of the validator's root dividends to deploy into each subnet's
     /// alpha basket. Stored under `Weights[NetUidStorageIndex::ROOT][uid]` and consumed by
     /// `distribute_root_alpha_to_basket` during emission.
-    pub fn do_set_root_weights(
-        origin: OriginFor<T>,
+    /// Shared inner: validate and store a beta-basket weight vector into `Weights[ROOT][target_uid]`
+    /// for `target_hotkey` (the slot owner). Used by both the self path (`do_set_root_weights`) and
+    /// the manager-on-behalf path (`do_set_root_weights_for`); each does its own
+    /// identity/authorization check first, then calls this with the resolved slot owner.
+    fn apply_root_weights(
+        target_hotkey: &T::AccountId,
+        target_uid: u16,
         dests: Vec<u16>,
         values: Vec<u16>,
         version_key: u64,
     ) -> dispatch::DispatchResult {
-        // --- 1. Signed by the root validator hotkey.
-        let hotkey = ensure_signed(origin)?;
-        log::debug!("do_set_root_weights( hotkey:{hotkey:?}, dests:{dests:?}, values:{values:?} )");
-
-        // --- 2. Lengths match.
+        // --- Lengths match.
         ensure!(
             Self::uids_match_values(&dests, &values),
             Error::<T>::WeightVecNotEqualSize
         );
 
-        // --- 3. Caller must be a registered root validator.
+        // --- Slot owner must hold enough stake to carry a weighted basket.
         ensure!(
-            Self::is_hotkey_registered_on_network(NetUid::ROOT, &hotkey),
-            Error::<T>::HotKeyNotRegisteredInSubNet
-        );
-
-        // --- 4. Must hold enough stake to set weights.
-        ensure!(
-            Self::check_weights_min_stake(&hotkey, NetUid::ROOT),
+            Self::check_weights_min_stake(target_hotkey, NetUid::ROOT),
             Error::<T>::NotEnoughStakeToSetWeights
         );
 
-        // --- 5. Version key must be current.
+        // --- Version key must be current.
         ensure!(
             Self::check_version_key(NetUid::ROOT, version_key),
             Error::<T>::IncorrectWeightVersionKey
         );
 
-        // --- 6. Rate limit on the root weights index.
-        let neuron_uid = Self::get_uid_for_net_and_hotkey(NetUid::ROOT, &hotkey)?;
+        // --- Rate limit on the slot owner's root weights index.
         let current_block: u64 = Self::get_current_block_as_u64();
         ensure!(
-            Self::check_rate_limit(NetUidStorageIndex::ROOT, neuron_uid, current_block),
+            Self::check_rate_limit(NetUidStorageIndex::ROOT, target_uid, current_block),
             Error::<T>::SettingWeightsTooFast
         );
 
-        // --- 7. No duplicate destination subnets.
+        // --- No duplicate destination subnets.
         ensure!(!Self::has_duplicate_uids(&dests), Error::<T>::DuplicateUids);
 
-        // --- 8. Every destination must be root (uid 0) or an existing subnet. Root is a valid
+        // --- Every destination must be root (uid 0) or an existing subnet. Root is a valid
         // basket destination: that weight slice is held as root stake (TAO) instead of being
         // deployed into a subnet, letting a validator opt out of subnet exposure. This must mirror
         // the consumer filter in `distribute_root_alpha_to_basket`.
@@ -992,23 +986,130 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        // --- 9. Max-upscale the weights.
+        // --- Max-upscale and store under the root weights index (reusing the root plumbing).
         let max_upscaled_weights: Vec<u16> = vec_u16_max_upscale_to_u16(&values);
-
-        // --- 10. Zip and store under the root weights index (reusing the root weights plumbing).
         let zipped_weights: Vec<(u16, u16)> = dests
             .iter()
             .copied()
             .zip(max_upscaled_weights.iter().copied())
             .collect();
-        Weights::<T>::insert(NetUidStorageIndex::ROOT, neuron_uid, zipped_weights);
+        Weights::<T>::insert(NetUidStorageIndex::ROOT, target_uid, zipped_weights);
 
-        // --- 11. Record activity for the rate limit.
-        Self::set_last_update_for_uid(NetUidStorageIndex::ROOT, neuron_uid, current_block);
+        // --- Record activity for the rate limit and emit.
+        Self::set_last_update_for_uid(NetUidStorageIndex::ROOT, target_uid, current_block);
+        log::debug!("RootWeightsSet( uid:{target_uid:?} )");
+        Self::deposit_event(Event::RootWeightsSet(target_uid));
 
-        // --- 12. Emit event.
-        log::debug!("RootWeightsSet( uid:{neuron_uid:?} )");
-        Self::deposit_event(Event::RootWeightsSet(neuron_uid));
+        Ok(())
+    }
+
+    /// Sets the caller's own beta-basket weight vector on the root subnet (netuid 0).
+    pub fn do_set_root_weights(
+        origin: OriginFor<T>,
+        dests: Vec<u16>,
+        values: Vec<u16>,
+        version_key: u64,
+    ) -> dispatch::DispatchResult {
+        // --- Signed by, and registered as, a root validator.
+        let hotkey = ensure_signed(origin)?;
+        log::debug!("do_set_root_weights( hotkey:{hotkey:?}, dests:{dests:?}, values:{values:?} )");
+        ensure!(
+            Self::is_hotkey_registered_on_network(NetUid::ROOT, &hotkey),
+            Error::<T>::HotKeyNotRegisteredInSubNet
+        );
+        let neuron_uid = Self::get_uid_for_net_and_hotkey(NetUid::ROOT, &hotkey)?;
+
+        Self::apply_root_weights(&hotkey, neuron_uid, dests, values, version_key)
+    }
+
+    /// Sets the beta-basket weight vector of a `delegator` that has authorized the caller as its
+    /// manager (via `set_root_weight_manager`). The vector is written into the *delegator's own*
+    /// slot, so one manager can run an independent vector per delegator. The manager earns its
+    /// `RootWeightTake` on the delegator's distributions.
+    pub fn do_set_root_weights_for(
+        origin: OriginFor<T>,
+        delegator: T::AccountId,
+        dests: Vec<u16>,
+        values: Vec<u16>,
+        version_key: u64,
+    ) -> dispatch::DispatchResult {
+        // --- Signed by a registered root validator (the manager).
+        let manager = ensure_signed(origin)?;
+        let manager_uid = Self::get_uid_for_net_and_hotkey(NetUid::ROOT, &manager)?;
+
+        // --- The delegator must have authorized this manager.
+        let delegator_uid = Self::get_uid_for_net_and_hotkey(NetUid::ROOT, &delegator)?;
+        ensure!(
+            RootWeightManager::<T>::get(delegator_uid) == Some(manager_uid),
+            Error::<T>::NotRootWeightManager
+        );
+
+        Self::apply_root_weights(&delegator, delegator_uid, dests, values, version_key)?;
+        Self::deposit_event(Event::RootWeightsSetByManager(delegator_uid, manager_uid));
+        Ok(())
+    }
+
+    /// Authorizes (or clears) a `manager` root validator to set the caller's beta-basket weight
+    /// vector via `set_root_weights_for`. Authorizing oneself clears the authorization
+    /// (self-manage). The manager additionally earns its `RootWeightTake` on the caller's
+    /// distributions.
+    pub fn do_set_root_weight_manager(
+        origin: OriginFor<T>,
+        manager: T::AccountId,
+    ) -> dispatch::DispatchResult {
+        // --- Signed by the delegator root validator hotkey.
+        let hotkey = ensure_signed(origin)?;
+        let delegator_uid = Self::get_uid_for_net_and_hotkey(NetUid::ROOT, &hotkey)?;
+
+        // --- Authorizing oneself clears the manager; otherwise the manager must also be a
+        // registered root validator.
+        if manager == hotkey {
+            RootWeightManager::<T>::remove(delegator_uid);
+            Self::deposit_event(Event::RootWeightManagerSet(delegator_uid, delegator_uid));
+        } else {
+            let manager_uid = Self::get_uid_for_net_and_hotkey(NetUid::ROOT, &manager)?;
+            RootWeightManager::<T>::insert(delegator_uid, manager_uid);
+            Self::deposit_event(Event::RootWeightManagerSet(delegator_uid, manager_uid));
+        }
+
+        Ok(())
+    }
+
+    /// Sets the curation take (basis points, `0..=MaxChildkeyTake`) a manager root validator
+    /// charges its delegators. `0` lets a manager curate for free. Bounded by the same ceiling as
+    /// childkey take.
+    pub fn do_set_root_weight_take(origin: OriginFor<T>, take: u16) -> dispatch::DispatchResult {
+        // --- 1. Signed by the manager root validator hotkey.
+        let hotkey = ensure_signed(origin)?;
+
+        // --- 2. Manager must be a registered root validator.
+        let manager_uid = Self::get_uid_for_net_and_hotkey(NetUid::ROOT, &hotkey)?;
+
+        // --- 3. Take must be within the allowed ceiling.
+        ensure!(
+            take <= Self::get_max_childkey_take(),
+            Error::<T>::InvalidRootWeightTake
+        );
+
+        // --- 4. Rate-limit *increases* only (same window as childkey take), so a manager cannot
+        // spike its take on already-committed delegators between their per-block distributions.
+        // Lowering the take is always allowed.
+        let current_block = Self::get_current_block_as_u64();
+        if take > RootWeightTake::<T>::get(manager_uid) {
+            ensure!(
+                TransactionType::SetRootWeightTake
+                    .passes_rate_limit_on_subnet::<T>(&hotkey, NetUid::ROOT),
+                Error::<T>::TxRootWeightTakeRateLimitExceeded
+            );
+        }
+
+        RootWeightTake::<T>::insert(manager_uid, take);
+        TransactionType::SetRootWeightTake.set_last_block_on_subnet::<T>(
+            &hotkey,
+            NetUid::ROOT,
+            current_block,
+        );
+        Self::deposit_event(Event::RootWeightTakeSet(manager_uid, take));
 
         Ok(())
     }
