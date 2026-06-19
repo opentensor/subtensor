@@ -138,6 +138,18 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run tests
-        run: | 
+        env:
+          NODE_OPTIONS: --dns-result-order=ipv4first
+        run: |
           cd ts-tests
           pnpm moonwall test ${{ matrix.test }}
+
+      - name: Upload node logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: node-logs-${{ matrix.test }}
+          path: |
+            ts-tests/tmp/node_logs/
+            ts-tests/tmp/*.log
+          if-no-files-found: warn
