@@ -1634,3 +1634,264 @@ fn test_root_basket_end_to_end_via_coinbase() {
         assert!(root_stake_of(&hotkey, &coldkey) > root_before);
     });
 }
+
+// =============================================================================
+// Beta basket: root (UID 0) slot — "opt out of subnets, hold yield as root TAO"
+// =============================================================================
+
+/// A root-weighted (UID 0) slice is held as root stake under the escrow at 1:1, recorded as
+/// basket principal, and is TotalStake-neutral (the origin sell is balanced by the root-stake
+/// credit — no swap, since root has no AMM pool).
+#[test]
+fn test_root_basket_uid0_holds_as_root_stake() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let coldkey = U256::from(1003);
+        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+        remove_owner_registration_stake(netuid);
+        fund_pool(netuid);
+
+        SubtensorModule::set_tao_weight(u64::MAX);
+
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            2_000_000u64.into(),
+        );
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_coldkey,
+            netuid,
+            10_000_000u64.into(),
+        );
+
+        // Validator opts out of subnets: 100% of the basket weight on root (UID 0).
+        set_root_weights_direct(&hotkey, 0, &[(NetUid::ROOT, u16::MAX)]);
+
+        assert_eq!(escrow_alpha(&hotkey, NetUid::ROOT), 0);
+        assert_eq!(
+            u64::from(BasketPrincipal::<Test>::get(&hotkey, NetUid::ROOT)),
+            0
+        );
+
+        let ts_before = TotalStake::<Test>::get().to_u64();
+        let pending_root_alpha = 1_000_000u64;
+        SubtensorModule::distribute_emission(
+            netuid,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
+            pending_root_alpha.into(),
+            AlphaBalance::ZERO,
+        );
+        let ts_after = TotalStake::<Test>::get().to_u64();
+
+        // A root slot now exists: principal recorded, escrow holds root stake, claimable rate set.
+        let escrow_root = escrow_alpha(&hotkey, NetUid::ROOT);
+        let principal = u64::from(BasketPrincipal::<Test>::get(&hotkey, NetUid::ROOT));
+        assert!(escrow_root > 0, "escrow must hold root stake");
+        assert!(principal > 0, "root slot principal must be recorded");
+        assert!(RootClaimable::<Test>::get(hotkey).contains_key(&NetUid::ROOT.into()));
+
+        // Held at 1:1 (E/P starts at 1): escrow root stake ~= recorded principal.
+        assert_abs_diff_eq!(escrow_root, principal, epsilon = 10u64);
+
+        // No subnet alpha was bought for the root slice (no subnet escrow position created).
+        assert_eq!(escrow_alpha(&hotkey, netuid), 0);
+
+        // Sell-origin then credit-to-root nets to zero: distribution is TotalStake-neutral.
+        assert_eq!(ts_before, ts_after, "root deposit must be TotalStake-neutral");
+    });
+}
+
+/// Redeeming a root slot reassigns the escrow's root stake to the staker: the staker's root
+/// stake grows, the escrow drains, principal is consumed, and it is TotalStake-neutral (no swap,
+/// no minted TAO — total root stake is conserved, just moved between coldkeys).
+#[test]
+fn test_root_basket_uid0_claim_reassigns_no_swap() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let coldkey = U256::from(1003);
+        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+        remove_owner_registration_stake(netuid);
+        fund_pool(netuid);
+
+        SubtensorModule::set_tao_weight(u64::MAX);
+        RootClaimableThreshold::<Test>::insert(NetUid::ROOT, I96F32::from_num(0));
+
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            2_000_000u64.into(),
+        );
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_coldkey,
+            netuid,
+            10_000_000u64.into(),
+        );
+        set_root_weights_direct(&hotkey, 0, &[(NetUid::ROOT, u16::MAX)]);
+
+        SubtensorModule::distribute_emission(
+            netuid,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
+            1_000_000u64.into(),
+            AlphaBalance::ZERO,
+        );
+
+        let principal_before = u64::from(BasketPrincipal::<Test>::get(&hotkey, NetUid::ROOT));
+        let escrow_before = escrow_alpha(&hotkey, NetUid::ROOT);
+        let root_before = root_stake_of(&hotkey, &coldkey);
+        assert!(principal_before > 0);
+        assert!(escrow_before > 0);
+
+        let ts_before = TotalStake::<Test>::get().to_u64();
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(coldkey),
+            BTreeSet::from([NetUid::ROOT])
+        ));
+        let ts_after = TotalStake::<Test>::get().to_u64();
+
+        let gain = root_stake_of(&hotkey, &coldkey).saturating_sub(root_before);
+        let escrow_after = escrow_alpha(&hotkey, NetUid::ROOT);
+
+        // Staker gained root stake; the escrow gave up ~the same amount (a pure reassignment).
+        assert!(gain > 0, "staker must accumulate root TAO");
+        assert_abs_diff_eq!(gain, escrow_before.saturating_sub(escrow_after), epsilon = 10u64);
+
+        // Principal consumed, watermark advanced, TotalStake untouched (no swap, no mint).
+        assert!(u64::from(BasketPrincipal::<Test>::get(&hotkey, NetUid::ROOT)) < principal_before);
+        assert!(RootClaimed::<Test>::get((NetUid::ROOT, &hotkey, &coldkey)) > 0);
+        assert_eq!(ts_before, ts_after, "root claim must be TotalStake-neutral");
+    });
+}
+
+/// The root slot compounds like the alpha slots: if the escrow's root stake grows (root
+/// dividends) after accrual, the sole staker redeems strictly MORE than recorded principal.
+#[test]
+fn test_root_basket_uid0_compounds() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let coldkey = U256::from(1003);
+        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+        remove_owner_registration_stake(netuid);
+        fund_pool(netuid);
+
+        SubtensorModule::set_tao_weight(u64::MAX);
+        RootClaimableThreshold::<Test>::insert(NetUid::ROOT, I96F32::from_num(0));
+
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            2_000_000u64.into(),
+        );
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_coldkey,
+            netuid,
+            10_000_000u64.into(),
+        );
+        set_root_weights_direct(&hotkey, 0, &[(NetUid::ROOT, u16::MAX)]);
+
+        SubtensorModule::distribute_emission(
+            netuid,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
+            1_000_000u64.into(),
+            AlphaBalance::ZERO,
+        );
+
+        let principal = u64::from(BasketPrincipal::<Test>::get(&hotkey, NetUid::ROOT));
+        assert!(principal > 0);
+
+        // Simulate root dividends compounding the escrow's root stake (E grows, P fixed).
+        let escrow_before = escrow_alpha(&hotkey, NetUid::ROOT);
+        let escrow_ck = SubtensorModule::get_beta_escrow_account_id();
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &escrow_ck,
+            NetUid::ROOT,
+            5_000_000u64.into(),
+        );
+        assert!(escrow_alpha(&hotkey, NetUid::ROOT) > escrow_before);
+
+        let root_before = root_stake_of(&hotkey, &coldkey);
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(coldkey),
+            BTreeSet::from([NetUid::ROOT])
+        ));
+        let gain = root_stake_of(&hotkey, &coldkey).saturating_sub(root_before);
+
+        assert!(
+            gain > principal,
+            "compounding: realized {gain} must exceed principal {principal}"
+        );
+    });
+}
+
+/// The escrow's own root stake is excluded from the claimant base, so a sole staker's claim
+/// stays correct across repeated root deposits (no principal is stranded by denominator
+/// dilution): after accrual the staker can drain the escrow's root slot to ~zero.
+#[test]
+fn test_root_basket_uid0_excludes_escrow_from_denominator() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let coldkey = U256::from(1003);
+        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+        remove_owner_registration_stake(netuid);
+        fund_pool(netuid);
+
+        SubtensorModule::set_tao_weight(u64::MAX);
+        RootClaimableThreshold::<Test>::insert(NetUid::ROOT, I96F32::from_num(0));
+
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            2_000_000u64.into(),
+        );
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_coldkey,
+            netuid,
+            10_000_000u64.into(),
+        );
+        set_root_weights_direct(&hotkey, 0, &[(NetUid::ROOT, u16::MAX)]);
+
+        // Two deposits: the second runs while the escrow already holds root stake from the first.
+        // If the escrow's root stake were counted in the claimant base, the second deposit would
+        // under-credit the rate and strand principal in the escrow.
+        for _ in 0..2 {
+            SubtensorModule::distribute_emission(
+                netuid,
+                AlphaBalance::ZERO,
+                AlphaBalance::ZERO,
+                1_000_000u64.into(),
+                AlphaBalance::ZERO,
+            );
+        }
+
+        let escrow_before = escrow_alpha(&hotkey, NetUid::ROOT);
+        assert!(escrow_before > 0);
+
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(coldkey),
+            BTreeSet::from([NetUid::ROOT])
+        ));
+
+        // The sole real staker drains the whole root slot: no principal stranded by the escrow's
+        // own root holdings.
+        let escrow_after = escrow_alpha(&hotkey, NetUid::ROOT);
+        assert!(
+            escrow_after <= escrow_before / 1_000 + 10,
+            "root slot must drain to ~0; residual {escrow_after} of {escrow_before}"
+        );
+    });
+}
