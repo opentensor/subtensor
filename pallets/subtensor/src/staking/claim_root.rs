@@ -239,11 +239,7 @@ impl<T: Config> Pallet<T> {
                 // For root, mirror `swap_tao_for_alpha`'s reserve bookkeeping: the TAO slice now
                 // lives as root stake. (Subnets already did this inside the swap.)
                 if is_root_slot {
-                    SubnetTAO::<T>::mutate(NetUid::ROOT, |t| *t = t.saturating_add(tao_s.into()));
-                    SubnetAlphaOut::<T>::mutate(NetUid::ROOT, |o| {
-                        *o = o.saturating_add(tao_s.into())
-                    });
-                    TotalStake::<T>::mutate(|t| *t = t.saturating_add(tao_s.into()));
+                    Self::credit_root_reserves(tao_s.into());
                 }
 
                 // Record basket principal as NAV shares (not face alpha).
@@ -409,105 +405,83 @@ impl<T: Config> Pallet<T> {
 
                 TransactionOutcome::Commit(Ok::<(), DispatchError>(()))
             })?;
+        } else {
+            with_transaction(|| {
+                // Remove the payout alpha from the validator's basket (escrow position).
+                Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+                    hotkey,
+                    &escrow,
+                    netuid,
+                    payout.into(),
+                );
 
-            // Consume the claimed principal from the basket and advance the watermark.
-            BasketPrincipal::<T>::mutate(hotkey, netuid, |p| {
-                *p = p.saturating_sub(owed_principal.into());
-            });
-            RootClaimed::<T>::mutate((netuid, hotkey, coldkey), |root_claimed| {
-                *root_claimed = root_claimed.saturating_add(owed_principal.into());
-            });
+                // Swap the basket alpha to TAO.
+                let owed_tao = match Self::swap_alpha_for_tao(
+                    netuid,
+                    payout.into(),
+                    T::SwapInterface::min_price::<TaoBalance>(),
+                    true,
+                ) {
+                    Ok(owed_tao) => owed_tao,
+                    Err(err) => {
+                        log::error!("Error swapping basket alpha for TAO: {err:?}");
+                        return TransactionOutcome::Rollback(Err(err));
+                    }
+                };
 
-            return Ok(());
-        }
+                let root_subnet_account_id = match Self::get_subnet_account_id(NetUid::ROOT) {
+                    Some(account_id) => account_id,
+                    None => {
+                        return TransactionOutcome::Rollback(Err(
+                            Error::<T>::RootNetworkDoesNotExist.into(),
+                        ));
+                    }
+                };
 
-        with_transaction(|| {
-            // Remove the payout alpha from the validator's basket (escrow position).
-            Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
-                hotkey,
-                &escrow,
-                netuid,
-                payout.into(),
-            );
-
-            // Swap the basket alpha to TAO.
-            let owed_tao = match Self::swap_alpha_for_tao(
-                netuid,
-                payout.into(),
-                T::SwapInterface::min_price::<TaoBalance>(),
-                true,
-            ) {
-                Ok(owed_tao) => owed_tao,
-                Err(err) => {
-                    log::error!("Error swapping basket alpha for TAO: {err:?}");
+                if let Err(err) = Self::transfer_tao_from_subnet(
+                    netuid,
+                    &root_subnet_account_id,
+                    owed_tao.amount_paid_out.into(),
+                ) {
+                    log::error!("Error transferring root claim TAO from subnet: {err:?}");
                     return TransactionOutcome::Rollback(Err(err));
                 }
-            };
 
-            let root_subnet_account_id = match Self::get_subnet_account_id(NetUid::ROOT) {
-                Some(account_id) => account_id,
-                None => {
-                    return TransactionOutcome::Rollback(Err(
-                        Error::<T>::RootNetworkDoesNotExist.into()
-                    ));
-                }
-            };
+                // Record root sell as protocol outflow (reduces protocol cost).
+                let root_sell_tao: TaoBalance = owed_tao.amount_paid_out;
+                SubnetRootSellTao::<T>::mutate(netuid, |total| {
+                    *total = total.saturating_add(root_sell_tao);
+                });
+                Self::record_protocol_outflow(netuid, root_sell_tao);
 
-            if let Err(err) = Self::transfer_tao_from_subnet(
-                netuid,
-                &root_subnet_account_id,
-                owed_tao.amount_paid_out.into(),
-            ) {
-                log::error!("Error transferring root claim TAO from subnet: {err:?}");
-                return TransactionOutcome::Rollback(Err(err));
-            }
+                // Stake the realized TAO onto root for the staker and credit the root reserves.
+                Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                    hotkey,
+                    coldkey,
+                    NetUid::ROOT,
+                    owed_tao.amount_paid_out.to_u64().into(),
+                );
+                Self::credit_root_reserves(owed_tao.amount_paid_out);
 
-            // Record root sell as protocol outflow (reduces protocol cost).
-            let root_sell_tao: TaoBalance = owed_tao.amount_paid_out;
-            SubnetRootSellTao::<T>::mutate(netuid, |total| {
-                *total = total.saturating_add(root_sell_tao);
-            });
-            Self::record_protocol_outflow(netuid, root_sell_tao);
+                Self::add_stake_adjust_root_claimed_for_hotkey_and_coldkey(
+                    hotkey,
+                    coldkey,
+                    owed_tao.amount_paid_out.into(),
+                );
 
-            Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
-                hotkey,
-                coldkey,
-                NetUid::ROOT,
-                owed_tao.amount_paid_out.to_u64().into(),
-            );
+                Self::deposit_event(Event::BasketClaimed {
+                    hotkey: hotkey.clone(),
+                    coldkey: coldkey.clone(),
+                    netuid,
+                    tao: owed_tao.amount_paid_out,
+                });
 
-            // Increase root subnet SubnetTAO
-            SubnetTAO::<T>::mutate(NetUid::ROOT, |total| {
-                *total = total.saturating_add(owed_tao.amount_paid_out.into());
-            });
+                TransactionOutcome::Commit(Ok(()))
+            })?;
+        }
 
-            // Increase root SubnetAlphaOut
-            SubnetAlphaOut::<T>::mutate(NetUid::ROOT, |total| {
-                *total = total.saturating_add(u64::from(owed_tao.amount_paid_out).into());
-            });
-
-            // Increase Total Stake
-            TotalStake::<T>::mutate(|total| {
-                *total = total.saturating_add(owed_tao.amount_paid_out.into());
-            });
-
-            Self::add_stake_adjust_root_claimed_for_hotkey_and_coldkey(
-                hotkey,
-                coldkey,
-                owed_tao.amount_paid_out.into(),
-            );
-
-            Self::deposit_event(Event::BasketClaimed {
-                hotkey: hotkey.clone(),
-                coldkey: coldkey.clone(),
-                netuid,
-                tao: owed_tao.amount_paid_out,
-            });
-
-            TransactionOutcome::Commit(Ok(()))
-        })?;
-
-        // Consume the claimed principal from the basket and advance the watermark.
+        // Consume the claimed principal from the basket and advance the watermark. Shared by both
+        // slot types: redemption settlement is identical once the asset side has been realized.
         BasketPrincipal::<T>::mutate(hotkey, netuid, |p| {
             *p = p.saturating_sub(owed_principal.into());
         });
@@ -746,15 +720,7 @@ impl<T: Config> Pallet<T> {
             let tao_total: u64 = owed_tao.amount_paid_out.to_u64();
 
             // Move the TAO onto root (aggregate); per-coldkey shares are credited below.
-            SubnetTAO::<T>::mutate(NetUid::ROOT, |total| {
-                *total = total.saturating_add(owed_tao.amount_paid_out.into());
-            });
-            SubnetAlphaOut::<T>::mutate(NetUid::ROOT, |total| {
-                *total = total.saturating_add(u64::from(owed_tao.amount_paid_out).into());
-            });
-            TotalStake::<T>::mutate(|total| {
-                *total = total.saturating_add(owed_tao.amount_paid_out.into());
-            });
+            Self::credit_root_reserves(owed_tao.amount_paid_out);
 
             Self::deposit_event(Event::BasketLiquidated {
                 hotkey: hotkey.clone(),
@@ -840,6 +806,17 @@ impl<T: Config> Pallet<T> {
     // =========================================================================
     // Beta basket: read-only views (for RPC / dashboards)
     // =========================================================================
+
+    /// Credit `amount` TAO onto the root pool's reserves. Root has no AMM pool, so whenever TAO is
+    /// placed on root these three storages must be moved in lockstep by hand (subnets get this for
+    /// free inside `swap_tao_for_alpha`). Single source of truth for that invariant.
+    fn credit_root_reserves(amount: TaoBalance) {
+        SubnetTAO::<T>::mutate(NetUid::ROOT, |total| *total = total.saturating_add(amount));
+        SubnetAlphaOut::<T>::mutate(NetUid::ROOT, |total| {
+            *total = total.saturating_add(u64::from(amount).into())
+        });
+        TotalStake::<T>::mutate(|total| *total = total.saturating_add(amount));
+    }
 
     /// Mark-to-market TAO value of `alpha` on `netuid` at the current pool price.
     /// This is a *marked* value (price x amount); actual redemption realizes slightly less

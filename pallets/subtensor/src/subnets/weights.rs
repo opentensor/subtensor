@@ -980,11 +980,14 @@ impl<T: Config> Pallet<T> {
         // --- 7. No duplicate destination subnets.
         ensure!(!Self::has_duplicate_uids(&dests), Error::<T>::DuplicateUids);
 
-        // --- 8. Every destination must be an existing, non-root subnet.
+        // --- 8. Every destination must be root (uid 0) or an existing subnet. Root is a valid
+        // basket destination: that weight slice is held as root stake (TAO) instead of being
+        // deployed into a subnet, letting a validator opt out of subnet exposure. This must mirror
+        // the consumer filter in `distribute_root_alpha_to_basket`.
         for dest in dests.iter() {
             let dest_netuid = NetUid::from(*dest);
             ensure!(
-                !dest_netuid.is_root() && Self::if_subnet_exist(dest_netuid),
+                dest_netuid.is_root() || Self::if_subnet_exist(dest_netuid),
                 Error::<T>::UidVecContainInvalidOne
             );
         }

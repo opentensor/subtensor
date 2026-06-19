@@ -1211,6 +1211,44 @@ fn test_set_root_weights_stores_vector() {
     });
 }
 
+/// The `set_root_weights` extrinsic accepts root (uid 0) as a basket destination, so the
+/// held-as-root-TAO slot is reachable through the real on-chain path (not just direct storage
+/// writes). Producer validation must agree with the `distribute_root_alpha_to_basket` consumer.
+#[test]
+fn test_set_root_weights_accepts_root_destination() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let coldkey = U256::from(1003);
+        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+
+        NetworksAdded::<Test>::insert(NetUid::ROOT, true);
+        SubnetworkN::<Test>::insert(NetUid::ROOT, 1);
+        Uids::<Test>::insert(NetUid::ROOT, hotkey, 0u16);
+        Keys::<Test>::insert(NetUid::ROOT, 0u16, hotkey);
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            2_000_000u64.into(),
+        );
+
+        // A vector mixing root (uid 0) and a subnet is accepted and stored verbatim.
+        assert_ok!(SubtensorModule::set_root_weights(
+            RuntimeOrigin::signed(hotkey),
+            vec![u16::from(NetUid::ROOT), u16::from(netuid)],
+            vec![u16::MAX, u16::MAX],
+            0,
+        ));
+
+        let stored = Weights::<Test>::get(NetUidStorageIndex::ROOT, 0u16);
+        assert_eq!(
+            stored,
+            vec![(u16::from(NetUid::ROOT), u16::MAX), (u16::from(netuid), u16::MAX)]
+        );
+    });
+}
+
 // =============================================================================
 // Claims 1-4: the staker-facing guarantees, proven directly.
 // =============================================================================
