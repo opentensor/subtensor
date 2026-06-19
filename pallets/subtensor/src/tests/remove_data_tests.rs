@@ -1,6 +1,7 @@
 #![allow(clippy::expect_used, clippy::indexing_slicing, clippy::unwrap_used)]
 
 use super::mock::*;
+use crate::subnets::dissolution::DissolveCleanupPhase;
 use crate::*;
 use frame_support::{assert_ok, weights::Weight};
 use sp_core::U256;
@@ -25,7 +26,7 @@ fn call_remove_single_value(weight_meter: &mut WeightMeter, weight: Weight) -> b
 fn test_remove_single_value() {
     new_test_ext(0).execute_with(|| {
         DissolvedNetworksCleanupPhase::<Test>::set(Some(
-            DissolveCleanupPhase::CleanSubnetRootDividendsRootClaimable { last_key: None },
+            DissolveCleanupPhase::SubnetRootDividendsRootClaimable { last_key: None },
         ));
         let w = Weight::from_parts(100_u64, 100_u64);
 
@@ -39,7 +40,7 @@ fn test_remove_single_value() {
 fn test_remove_single_value_failed() {
     new_test_ext(0).execute_with(|| {
         DissolvedNetworksCleanupPhase::<Test>::set(Some(
-            DissolveCleanupPhase::CleanSubnetRootDividendsRootClaimable { last_key: None },
+            DissolveCleanupPhase::SubnetRootDividendsRootClaimable { last_key: None },
         ));
         let w = Weight::from_parts(100_u64, 100_u64);
 

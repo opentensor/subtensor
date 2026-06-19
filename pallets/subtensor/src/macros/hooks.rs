@@ -187,12 +187,19 @@ mod hooks {
         }
 
         fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
-            let dissolved_networks = DissolveCleanupQueue::<T>::get();
-            let weight = match dissolved_networks.get(0) {
-                Some(netuid) => Self::remove_data_for_dissolved_networks(limit, netuid),
-                None => Weight::from_parts(0, 0),
+            let mut dissolved_networks = DissolveCleanupQueue::<T>::get();
+
+            let (cleanup_completed, mut weight) = if dissolved_networks.is_empty() {
+                (false, Weight::from_parts(0, 0))
+            } else {
+                Self::remove_data_for_dissolved_networks(limit, &dissolved_networks.remove(0))
             };
-            Self::process_network_registration_queue();
+
+            if cleanup_completed {
+                DissolveCleanupQueue::<T>::set(dissolved_networks);
+            }
+
+            weight.saturating_accrue(Self::process_network_registration_queue());
 
             weight
         }

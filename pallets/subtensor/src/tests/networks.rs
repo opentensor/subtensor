@@ -3230,10 +3230,11 @@ fn dissolve_on_idle_weight_used_never_exceeds_limit() {
         assert_ok!(SubtensorModule::do_dissolve_network(net));
 
         let limit = Weight::from_parts(50_000, 50_000);
-        let used = SubtensorModule::on_idle(0, limit);
+        let weight_used = SubtensorModule::on_idle(0, limit);
         assert!(
-            used.ref_time() <= limit.ref_time() && used.proof_size() <= limit.proof_size(),
-            "reported weight must respect the on_idle budget (used={used:?} limit={limit:?})"
+            weight_used.ref_time() <= limit.ref_time()
+                && weight_used.proof_size() <= limit.proof_size(),
+            "on_idle weight used must not exceed the limit (weight_used={weight_used:?}, limit={limit:?})"
         );
     });
 }

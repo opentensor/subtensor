@@ -84,7 +84,9 @@ pub mod pallet {
     use crate::RateLimitKey;
     use crate::migrations;
     use crate::staking::lock::LockState;
+    use crate::subnets::dissolution::DissolveCleanupPhase;
     use crate::subnets::leasing::{LeaseId, SubnetLeaseOf};
+    use crate::subnets::subnet::NetworkRegistrationInfo;
     use crate::weights::WeightInfo;
     use frame_support::Twox64Concat;
     use frame_support::{
@@ -323,25 +325,7 @@ pub mod pallet {
         pub additional: Vec<u8>,
     }
 
-    /// Data structure for a pending network registration in the execution queue.
-    #[crate::freeze_struct("93f81374b91abeff")]
-    #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
-    pub struct NetworkRegistrationInfo<AccountId> {
-        /// The account that registered the network.
-        pub coldkey: AccountId,
-        /// The account that registered the network.
-        pub hotkey: AccountId,
-        /// The mechanism that registered the network.
-        pub mechid: u16,
-        /// The identity that registered the network.
-        pub identity: Option<SubnetIdentityOfV3>,
-        /// The lock amount that registered the network.
-        pub lock_amount: TaoBalance,
-        /// The median subnet alpha price that registered the network.
-        pub median_subnet_alpha_price: U64F64,
-        /// The block at which the network was registered.
-        pub registration_block: u64,
-    }
+    
 
     /// Enum for recycle or burn for the owner_uid(s)
     #[derive(TypeInfo, Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug)]
@@ -372,113 +356,7 @@ pub mod pallet {
             subnets: BTreeSet<NetUid>,
         },
     }
-    /// Enum for the dissolve cleanup phase.
-    #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, DecodeWithMemTracking)]
-    pub enum DissolveCleanupPhase {
-        /// Phase 1.1: Remove root dividend claimable entries for the subnet.
-        CleanSubnetRootDividendsRootClaimable {
-            /// Last key of the root dividend claimable entries.
-            last_key: Option<Vec<u8>>,
-        },
-        /// Phase 1.2: Remove root dividend claimed entries for the subnet.
-        CleanSubnetRootDividendsRootClaimed,
-        /// Phase 2.1: Get the total alpha value for the subnet.
-        DestroyAlphaInOutStakesGetTotalAlphaValue {
-            /// Last key of the alpha in and out stakes entries.
-            last_key: Option<Vec<u8>>,
-        },
-        /// Phase 2.2: Destroy alpha in and out stakes for the subnet.
-        DestroyAlphaInOutStakesSettleStakes {
-            /// Last key of the alpha in and out stakes entries.
-            last_key: Option<Vec<u8>>,
-        },
-        /// Phase 2.3: Clean alpha entries for the subnet.
-        DestroyAlphaInOutStakesCleanAlpha {
-            /// Last key of the alpha in and out stakes entries.
-            last_key: Option<Vec<u8>>,
-        },
-        /// Phase 2.4: Clear hotkey totals for the subnet.
-        DestroyAlphaInOutStakesClearHotkeyTotals {
-            /// Last key of the hotkey totals entries.
-            last_key: Option<Vec<u8>>,
-        },
-        /// Phase 2.5: Clear locks for the subnet.
-        DestroyAlphaInOutStakesClearLocks {
-            /// Last key of the lock entries.
-            last_key: Option<Vec<u8>>,
-        },
-        /// Phase 2.6: Clear locks for the subnet.
-        DestroyAlphaInOutStakesClearDecayingLocks {
-            /// Last key of the decaying lock entries.
-            last_key: Option<Vec<u8>>,
-        },
-        /// Phase 2.7: Destroy alpha in and out stakes for the subnet.
-        DestroyAlphaInOutStakes,
-        /// Phase 3: Clear protocol liquidity for the subnet on the swap layer.
-        ClearProtocolLiquidity,
-        /// Phase 4: Remove scalar `Network*` parameters, then continue with map and index cleanup phases.
-        PurgeNetuid,
-        /// Phase 5.1: Remove is network member entries for the subnet.
-        RemoveNetworkIsNetworkMember {
-            /// Last key of the is network member entries.
-            last_key: Option<Vec<u8>>,
-        },
-        /// Phase 5.2: Recovery / legacy: scalar `Network*` removal; the hook advances to map cleanup like `PurgeNetuid` after `remove_network_parameters` completes.
-        RemoveNetworkParameters,
-        /// Phase 5.3: Remove map-backed subnet storage (keys, axons, per-mechanism weights, etc.).
-        RemoveNetworkMapParameters,
-        /// Phase 5.4: Clear root-network weight entries referencing this netuid.
-        RemoveNetworkUpdateWeightsOnRoot {
-            /// Last key of the update weights on root entries.
-            last_key: Option<Vec<u8>>,
-        },
-        /// Phase 5.5: Remove childkey take entries for this netuid.
-        RemoveNetworkChildkeyTake {
-            /// Last key of the childkey take entries.
-            last_key: Option<Vec<u8>>,
-        },
-        /// Phase 5.6: Remove child key bindings for this netuid.
-        RemoveNetworkChildkeys {
-            /// Last key of the child key entries.
-            last_key: Option<Vec<u8>>,
-        },
-        /// Phase 5.7: Remove parent key bindings for this netuid.
-        RemoveNetworkParentkeys {
-            /// Last key of the parent key entries.
-            last_key: Option<Vec<u8>>,
-        },
-        /// Phase 5.8: Remove last hotkey emission records for this netuid.
-        RemoveNetworkLastHotkeyEmissionOnNetuid {
-            /// Last key of the last hotkey emission entries.
-            last_key: Option<Vec<u8>>,
-        },
-        /// Phase 5.9: Remove total hotkey alpha last epoch entries for this netuid.
-        RemoveNetworkTotalHotkeyAlphaLastEpoch {
-            /// Last key of the total hotkey alpha last epoch entries.
-            last_key: Option<Vec<u8>>,
-        },
-        /// Phase 5.10: Remove transaction key last-block rate limit entries for this netuid.
-        RemoveNetworkTransactionKeyLastBlock {
-            /// Last key of the transaction key last-block entries.
-            last_key: Option<Vec<u8>>,
-        },
-        /// Phase 5.11: Remove lock entries for this netuid.
-        RemoveNetworkLock {
-            /// Last key of the lock entries.
-            last_key: Option<Vec<u8>>,
-        },
-        /// Phase 5.12: Remove decaying lock entries for this netuid.
-        RemoveNetworkDecayingLock {
-            /// Last key of the decaying lock entries.
-            last_key: Option<Vec<u8>>,
-        },
-    }
-
-    impl Default for DissolveCleanupPhase {
-        fn default() -> Self {
-            Self::CleanSubnetRootDividendsRootClaimable { last_key: None }
-        }
-    }
+    
 
     /// The Max Burn HalfLife Settable
     #[pallet::type_value]
@@ -2266,10 +2144,6 @@ pub mod pallet {
     /// It is only used during clean the data for dissolved networks.
     #[pallet::storage]
     pub type DissolvedSubnetDistributedTao<T> = StorageValue<_, u128, OptionQuery>;
-
-    /// --- ITEM ( last_kept_raw_key ) Resume key for weight-limited cleanup within a phase.
-    #[pallet::storage]
-    pub type LastKeptRawKey<T> = StorageValue<_, Vec<u8>, OptionQuery>;
 
     /// --- ITEM ( network_registration_queue ) Network registrations waiting to be executed.
     #[pallet::storage]

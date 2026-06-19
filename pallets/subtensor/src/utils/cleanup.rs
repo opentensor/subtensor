@@ -11,6 +11,7 @@ impl<T: Config> Pallet<T> {
     ) -> (bool, Option<I::Item>)
     where
         I: Iterator,
+        I::Item: Clone,
     {
         let r = T::DbWeight::get().reads(1);
         let w = T::DbWeight::get().writes(writes_per_match);
@@ -21,17 +22,16 @@ impl<T: Config> Pallet<T> {
         for item in iter {
             if !weight_meter.can_consume(r) {
                 read_all = false;
-                last_item = Some(item);
                 break;
             }
             weight_meter.consume(r);
             if matches_netuid(&item) {
                 if !weight_meter.can_consume(w) {
                     read_all = false;
-                    last_item = Some(item);
                     break;
                 }
                 weight_meter.consume(w);
+                last_item = Some(item.clone());
                 to_rm.push(key_from_item(item));
             }
         }
