@@ -82,12 +82,15 @@ where
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::unwrap_used)]
 mod tests {
+    use super::CheckColdkeySwap;
     use crate::{ColdkeySwapAnnouncements, ColdkeySwapDisputes, Error, tests::mock::*};
-    use frame_support::{BoundedVec, assert_ok};
+    use frame_support::{
+        BoundedVec, assert_ok, dispatch::DispatchResultWithPostInfo, traits::ExtendedDispatchable,
+    };
     use frame_system::Call as SystemCall;
     use pallet_subtensor_proxy::Call as ProxyCall;
     use sp_core::U256;
-    use sp_runtime::traits::{Dispatchable, Hash};
+    use sp_runtime::traits::Hash;
     use subtensor_runtime_common::{ProxyType, TaoBalance};
 
     type HashingOf<T> = <T as frame_system::Config>::Hashing;
@@ -154,11 +157,17 @@ mod tests {
         let _ = SubtensorModule::spend_tao(coldkey, credit, tao).unwrap();
     }
 
+    fn dispatch_with_ext(call: RuntimeCall, origin: RuntimeOrigin) -> DispatchResultWithPostInfo {
+        <CheckColdkeySwap<Test> as ExtendedDispatchable<RuntimeCall>>::dispatch_with_extension(
+            origin, call,
+        )
+    }
+
     #[test]
     fn no_active_swap_allows_calls() {
         new_test_ext(1).execute_with(|| {
             let who = U256::from(1);
-            assert_ok!(remark_call().dispatch(RuntimeOrigin::signed(who)));
+            assert_ok!(dispatch_with_ext(remark_call(), RuntimeOrigin::signed(who)));
         });
     }
 
@@ -167,8 +176,7 @@ mod tests {
         new_test_ext(1).execute_with(|| {
             let who = U256::from(1);
             setup_swap_disputed(&who);
-
-            assert_ok!(remark_call().dispatch(RuntimeOrigin::none()));
+            assert_ok!(dispatch_with_ext(remark_call(), RuntimeOrigin::none()));
         });
     }
 
@@ -177,8 +185,7 @@ mod tests {
         new_test_ext(1).execute_with(|| {
             let who = U256::from(1);
             setup_swap_disputed(&who);
-
-            assert_ok!(remark_call().dispatch(RuntimeOrigin::root()));
+            assert_ok!(dispatch_with_ext(remark_call(), RuntimeOrigin::root()));
         });
     }
 
@@ -190,7 +197,9 @@ mod tests {
 
             for call in forbidden_calls() {
                 assert_eq!(
-                    call.dispatch(RuntimeOrigin::signed(who)).unwrap_err().error,
+                    dispatch_with_ext(call, RuntimeOrigin::signed(who))
+                        .unwrap_err()
+                        .error,
                     Error::<Test>::ColdkeySwapAnnounced.into()
                 );
             }
@@ -204,7 +213,7 @@ mod tests {
             setup_swap_announced(&who);
 
             for call in authorized_calls() {
-                if let Err(err) = call.dispatch(RuntimeOrigin::signed(who)) {
+                if let Err(err) = dispatch_with_ext(call, RuntimeOrigin::signed(who)) {
                     assert_ne!(
                         err.error,
                         Error::<Test>::ColdkeySwapAnnounced.into(),
@@ -229,7 +238,9 @@ mod tests {
 
             for call in all_calls {
                 assert_eq!(
-                    call.dispatch(RuntimeOrigin::signed(who)).unwrap_err().error,
+                    dispatch_with_ext(call, RuntimeOrigin::signed(who))
+                        .unwrap_err()
+                        .error,
                     Error::<Test>::ColdkeySwapDisputed.into()
                 );
             }
@@ -265,7 +276,10 @@ mod tests {
             });
 
             // The outer proxy call itself succeeds
-            assert_ok!(proxy_call.dispatch(RuntimeOrigin::signed(delegate)));
+            assert_ok!(dispatch_with_ext(
+                proxy_call,
+                RuntimeOrigin::signed(delegate)
+            ));
 
             // The inner call was blocked — check via LastCallResult storage.
             assert_eq!(
@@ -315,7 +329,10 @@ mod tests {
                 call: Box::new(inner_proxy),
             });
 
-            assert_ok!(outer_proxy.dispatch(RuntimeOrigin::signed(delegate2)));
+            assert_ok!(dispatch_with_ext(
+                outer_proxy,
+                RuntimeOrigin::signed(delegate2)
+            ));
 
             // The innermost call (remark as real) was blocked.
             assert_eq!(
