@@ -1,23 +1,57 @@
-use crate::{BalancesCall, Call, Config, Error, Pallet, TransactionType};
+use crate::{Config, Error};
 use codec::{Decode, DecodeWithMemTracking, Encode};
-use frame_support::dispatch::{DispatchInfo, PostDispatchInfo};
-use frame_support::traits::IsSubType;
+use frame_support::dispatch::{DispatchExtension, DispatchInfo, PostDispatchInfo};
 use scale_info::TypeInfo;
 use sp_runtime::traits::{
-    AsSystemOriginSigner, DispatchInfoOf, Dispatchable, Implication, TransactionExtension,
-    ValidateResult,
+    DispatchInfoOf, Dispatchable, Implication, TransactionExtension, ValidateResult,
 };
 use sp_runtime::{
-    impl_tx_ext_default,
-    transaction_validity::{TransactionSource, TransactionValidity, ValidTransaction},
+    DispatchError, impl_tx_ext_default,
+    transaction_validity::{TransactionSource, TransactionValidityError},
 };
 use sp_std::marker::PhantomData;
-use sp_std::vec::Vec;
 use subtensor_macros::freeze_struct;
-use subtensor_runtime_common::{CustomTransactionError, NetUid, NetUidStorageIndex};
+use subtensor_runtime_common::CustomTransactionError;
 
 type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 type OriginOf<T> = <T as frame_system::Config>::RuntimeOrigin;
+
+#[allow(deprecated)]
+impl<T: Config> From<Error<T>> for CustomTransactionError {
+    fn from(error: Error<T>) -> Self {
+        match error {
+            Error::<T>::AmountTooLow | Error::<T>::NotEnoughStakeToSetWeights => {
+                Self::StakeAmountTooLow
+            }
+            Error::<T>::SubnetNotExists => Self::SubnetNotExists,
+            Error::<T>::NotEnoughBalanceToStake => Self::BalanceTooLow,
+            Error::<T>::HotKeyAccountNotExists => Self::HotkeyAccountDoesntExist,
+            Error::<T>::NotEnoughStakeToWithdraw => Self::NotEnoughStakeToWithdraw,
+            Error::<T>::InsufficientLiquidity => Self::InsufficientLiquidity,
+            Error::<T>::SlippageTooHigh => Self::SlippageTooHigh,
+            Error::<T>::TransferDisallowed => Self::TransferDisallowed,
+            Error::<T>::HotKeyNotRegisteredInNetwork => Self::HotKeyNotRegisteredInNetwork,
+            Error::<T>::InvalidIpAddress => Self::InvalidIpAddress,
+            Error::<T>::ServingRateLimitExceeded => Self::ServingRateLimitExceeded,
+            Error::<T>::InvalidPort => Self::InvalidPort,
+            Error::<T>::NonAssociatedColdKey => Self::NonAssociatedColdKey,
+            Error::<T>::DelegateTakeTooLow => Self::DelegateTakeTooLow,
+            Error::<T>::DelegateTakeTooHigh => Self::DelegateTakeTooHigh,
+            Error::<T>::InputLengthsUnequal => Self::InputLengthsUnequal,
+            Error::<T>::NoWeightsCommitFound => Self::CommitNotFound,
+            Error::<T>::RevealTooEarly => Self::CommitBlockNotInRevealRange,
+            Error::<T>::InvalidRevealRound => Self::InvalidRevealRound,
+            Error::<T>::CommittingWeightsTooFast
+            | Error::<T>::SettingWeightsTooFast
+            | Error::<T>::NetworkTxRateLimitExceeded => Self::RateLimitExceeded,
+            Error::<T>::HotKeyNotRegisteredInSubNet => Self::UidNotFound,
+            Error::<T>::EvmKeyAssociateRateLimitExceeded => Self::EvmKeyAssociateRateLimitExceeded,
+            Error::<T>::ColdkeySwapAnnounced => Self::ColdkeyInSwapSchedule,
+            Error::<T>::ColdkeySwapDisputed => Self::ColdkeySwapDisputed,
+            _ => Self::BadRequest,
+        }
+    }
+}
 
 #[freeze_struct("2e02eb32e5cb25d3")]
 #[derive(Default, Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
@@ -29,87 +63,45 @@ impl<T: Config + Send + Sync + TypeInfo> sp_std::fmt::Debug for SubtensorTransac
     }
 }
 
-impl<T: Config + Send + Sync + TypeInfo> SubtensorTransactionExtension<T>
-where
-    CallOf<T>: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo> + IsSubType<Call<T>>,
-{
+impl<T: Config + Send + Sync + TypeInfo> SubtensorTransactionExtension<T> {
     pub fn new() -> Self {
         Self(Default::default())
     }
-    pub fn validity_ok(priority: u64) -> ValidTransaction {
-        ValidTransaction {
-            priority,
-            ..Default::default()
+
+    fn map_error(error: DispatchError) -> CustomTransactionError {
+        let DispatchError::Module(module_error) = error.stripped() else {
+            return CustomTransactionError::BadRequest;
+        };
+
+        if usize::from(module_error.index)
+            != <crate::Pallet<T> as frame_support::traits::PalletInfoAccess>::index()
+        {
+            return CustomTransactionError::BadRequest;
         }
+
+        <Error<T> as Decode>::decode(&mut &module_error.error[..])
+            .map(Into::into)
+            .unwrap_or(CustomTransactionError::BadRequest)
     }
 
-    pub fn check_weights_min_stake(who: &T::AccountId, netuid: NetUid) -> bool {
-        Pallet::<T>::check_weights_min_stake(who, netuid)
-    }
-
-    /// Mirror the per-neuron `WeightsSetRateLimit` throttle (otherwise only
-    /// enforced inside the dispatch body) into the transaction-validity gate so
-    /// over-rate `set_weights`/`commit_weights` transactions are rejected
-    /// pre-dispatch instead of being included for free (these calls are
-    /// `Pays::No`). Unregistered callers (whose UID cannot be resolved) pass
-    /// through here and are rejected by the dispatch body, preserving existing
-    /// error semantics.
-    pub fn check_weights_rate_limit(
-        who: &T::AccountId,
-        netuid: NetUid,
-        netuid_index: NetUidStorageIndex,
-    ) -> Result<(), CustomTransactionError> {
-        if let Ok(neuron_uid) = Pallet::<T>::get_uid_for_net_and_hotkey(netuid, who) {
-            let current_block = Pallet::<T>::get_current_block_as_u64();
-            if !Pallet::<T>::check_rate_limit(netuid_index, neuron_uid, current_block) {
-                return Err(CustomTransactionError::RateLimitExceeded);
-            }
-        }
-        Ok(())
-    }
-
-    pub fn result_to_validity(result: Result<(), Error<T>>, priority: u64) -> TransactionValidity {
-        match result {
-            Ok(()) => Ok(ValidTransaction {
-                priority,
-                ..Default::default()
-            }),
-            Err(err) => Err(match err {
-                Error::<T>::AmountTooLow => CustomTransactionError::StakeAmountTooLow,
-                Error::<T>::SubnetNotExists => CustomTransactionError::SubnetNotExists,
-                Error::<T>::NotEnoughBalanceToStake => CustomTransactionError::BalanceTooLow,
-                Error::<T>::HotKeyAccountNotExists => {
-                    CustomTransactionError::HotkeyAccountDoesntExist
-                }
-                Error::<T>::NotEnoughStakeToWithdraw => {
-                    CustomTransactionError::NotEnoughStakeToWithdraw
-                }
-                Error::<T>::InsufficientLiquidity => CustomTransactionError::InsufficientLiquidity,
-                Error::<T>::SlippageTooHigh => CustomTransactionError::SlippageTooHigh,
-                Error::<T>::TransferDisallowed => CustomTransactionError::TransferDisallowed,
-                Error::<T>::HotKeyNotRegisteredInNetwork => {
-                    CustomTransactionError::HotKeyNotRegisteredInNetwork
-                }
-                Error::<T>::InvalidIpAddress => CustomTransactionError::InvalidIpAddress,
-                Error::<T>::ServingRateLimitExceeded => {
-                    CustomTransactionError::ServingRateLimitExceeded
-                }
-                Error::<T>::InvalidPort => CustomTransactionError::InvalidPort,
-                Error::<T>::NonAssociatedColdKey => CustomTransactionError::NonAssociatedColdKey,
-                _ => CustomTransactionError::BadRequest,
-            }
-            .into()),
-        }
+    fn check(origin: &OriginOf<T>, call: &CallOf<T>) -> Result<(), DispatchError>
+    where
+        CallOf<T>: Dispatchable<RuntimeOrigin = OriginOf<T>>,
+    {
+        <<T as frame_system::Config>::DispatchExtension as DispatchExtension<CallOf<T>>>::pre_dispatch(
+            origin, call,
+        )
+        .map(|_| ())
+        .map_err(|error| error.error)
     }
 }
 
 impl<T> TransactionExtension<CallOf<T>> for SubtensorTransactionExtension<T>
 where
-    T: Config + Send + Sync + TypeInfo + pallet_balances::Config,
-    CallOf<T>: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
-        + IsSubType<Call<T>>
-        + IsSubType<BalancesCall<T>>,
-    OriginOf<T>: AsSystemOriginSigner<T::AccountId> + Clone,
+    T: Config + Send + Sync + TypeInfo,
+    CallOf<T>:
+        Dispatchable<RuntimeOrigin = OriginOf<T>, Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    OriginOf<T>: Clone,
 {
     const IDENTIFIER: &'static str = "SubtensorTransactionExtension";
 
@@ -127,330 +119,9 @@ where
         _inherited_implication: &impl Implication,
         _source: TransactionSource,
     ) -> ValidateResult<Self::Val, CallOf<T>> {
-        // Ensure the transaction is signed, else we just skip the extension.
-        let Some(who) = origin.as_system_origin_signer() else {
-            return Ok((Default::default(), (), origin));
-        };
-
-        match call.is_sub_type() {
-            Some(Call::commit_weights { netuid, .. }) => {
-                if !Self::check_weights_min_stake(who, *netuid) {
-                    return Err(CustomTransactionError::StakeAmountTooLow.into());
-                }
-                // Mirror the in-dispatch commit rate limit
-                // (internal_commit_weights always enforces it).
-                Self::check_weights_rate_limit(who, *netuid, NetUidStorageIndex::from(*netuid))?;
-                Ok((Default::default(), (), origin))
-            }
-            Some(Call::commit_mechanism_weights { netuid, mecid, .. }) => {
-                if !Self::check_weights_min_stake(who, *netuid) {
-                    return Err(CustomTransactionError::StakeAmountTooLow.into());
-                }
-                // Mirror the in-dispatch commit rate limit
-                // (internal_commit_weights always enforces it).
-                Self::check_weights_rate_limit(
-                    who,
-                    *netuid,
-                    Pallet::<T>::get_mechanism_storage_index(*netuid, *mecid),
-                )?;
-                Ok((Default::default(), (), origin))
-            }
-            Some(Call::batch_commit_weights {
-                netuids,
-                commit_hashes,
-            }) => {
-                if netuids.len() != commit_hashes.len() {
-                    return Err(CustomTransactionError::InputLengthsUnequal.into());
-                }
-                for netuid in netuids.iter() {
-                    let netuid: NetUid = (*netuid).into();
-                    if !Self::check_weights_min_stake(who, netuid) {
-                        return Err(CustomTransactionError::StakeAmountTooLow.into());
-                    }
-                }
-                Ok((Default::default(), (), origin))
-            }
-            Some(Call::reveal_weights {
-                netuid,
-                uids,
-                values,
-                salt,
-                version_key,
-            }) => {
-                if !Self::check_weights_min_stake(who, *netuid) {
-                    return Err(CustomTransactionError::StakeAmountTooLow.into());
-                }
-                let provided_hash = Pallet::<T>::get_commit_hash(
-                    who,
-                    NetUidStorageIndex::from(*netuid),
-                    uids,
-                    values,
-                    salt,
-                    *version_key,
-                );
-                match Pallet::<T>::find_commit_block_via_hash(provided_hash) {
-                    Some(commit_block) => {
-                        if Pallet::<T>::is_reveal_block_range(*netuid, commit_block) {
-                            Ok((Default::default(), (), origin))
-                        } else {
-                            Err(CustomTransactionError::CommitBlockNotInRevealRange.into())
-                        }
-                    }
-                    None => Err(CustomTransactionError::CommitNotFound.into()),
-                }
-            }
-            Some(Call::reveal_mechanism_weights {
-                netuid,
-                mecid,
-                uids,
-                values,
-                salt,
-                version_key,
-            }) => {
-                if !Self::check_weights_min_stake(who, *netuid) {
-                    return Err(CustomTransactionError::StakeAmountTooLow.into());
-                }
-                let provided_hash = Pallet::<T>::get_commit_hash(
-                    who,
-                    Pallet::<T>::get_mechanism_storage_index(*netuid, *mecid),
-                    uids,
-                    values,
-                    salt,
-                    *version_key,
-                );
-                match Pallet::<T>::find_commit_block_via_hash(provided_hash) {
-                    Some(commit_block) => {
-                        if Pallet::<T>::is_reveal_block_range(*netuid, commit_block) {
-                            Ok((Default::default(), (), origin))
-                        } else {
-                            Err(CustomTransactionError::CommitBlockNotInRevealRange.into())
-                        }
-                    }
-                    None => Err(CustomTransactionError::CommitNotFound.into()),
-                }
-            }
-            Some(Call::batch_reveal_weights {
-                netuid,
-                uids_list,
-                values_list,
-                salts_list,
-                version_keys,
-            }) => {
-                if !Self::check_weights_min_stake(who, *netuid) {
-                    return Err(CustomTransactionError::StakeAmountTooLow.into());
-                }
-
-                let num_reveals = uids_list.len();
-                if num_reveals == values_list.len()
-                    && num_reveals == salts_list.len()
-                    && num_reveals == version_keys.len()
-                {
-                    let provided_hashes = (0..num_reveals)
-                        .map(|i| {
-                            Pallet::<T>::get_commit_hash(
-                                who,
-                                NetUidStorageIndex::from(*netuid),
-                                uids_list.get(i).unwrap_or(&Vec::new()),
-                                values_list.get(i).unwrap_or(&Vec::new()),
-                                salts_list.get(i).unwrap_or(&Vec::new()),
-                                *version_keys.get(i).unwrap_or(&0_u64),
-                            )
-                        })
-                        .collect::<Vec<_>>();
-
-                    let batch_reveal_block = provided_hashes
-                        .iter()
-                        .filter_map(|hash| Pallet::<T>::find_commit_block_via_hash(*hash))
-                        .collect::<Vec<_>>();
-
-                    if provided_hashes.len() == batch_reveal_block.len() {
-                        if Pallet::<T>::is_batch_reveal_block_range(*netuid, batch_reveal_block) {
-                            Ok((Default::default(), (), origin))
-                        } else {
-                            Err(CustomTransactionError::CommitBlockNotInRevealRange.into())
-                        }
-                    } else {
-                        Err(CustomTransactionError::CommitNotFound.into())
-                    }
-                } else {
-                    Err(CustomTransactionError::InputLengthsUnequal.into())
-                }
-            }
-            Some(Call::set_weights { netuid, .. }) => {
-                if !Self::check_weights_min_stake(who, *netuid) {
-                    return Err(CustomTransactionError::StakeAmountTooLow.into());
-                }
-                // Mirror the in-dispatch rate limit (only enforced when
-                // commit-reveal is disabled, matching internal_set_weights).
-                if !Pallet::<T>::get_commit_reveal_weights_enabled(*netuid) {
-                    Self::check_weights_rate_limit(
-                        who,
-                        *netuid,
-                        NetUidStorageIndex::from(*netuid),
-                    )?;
-                }
-                Ok((Default::default(), (), origin))
-            }
-            Some(Call::set_mechanism_weights { netuid, mecid, .. }) => {
-                if !Self::check_weights_min_stake(who, *netuid) {
-                    return Err(CustomTransactionError::StakeAmountTooLow.into());
-                }
-                // Mirror the in-dispatch rate limit (only enforced when
-                // commit-reveal is disabled, matching internal_set_weights).
-                if !Pallet::<T>::get_commit_reveal_weights_enabled(*netuid) {
-                    Self::check_weights_rate_limit(
-                        who,
-                        *netuid,
-                        Pallet::<T>::get_mechanism_storage_index(*netuid, *mecid),
-                    )?;
-                }
-                Ok((Default::default(), (), origin))
-            }
-            Some(Call::batch_set_weights {
-                netuids,
-                weights,
-                version_keys,
-            }) => {
-                if netuids.len() != weights.len() || netuids.len() != version_keys.len() {
-                    return Err(CustomTransactionError::InputLengthsUnequal.into());
-                }
-                for netuid in netuids.iter() {
-                    let netuid: NetUid = (*netuid).into();
-                    if !Self::check_weights_min_stake(who, netuid) {
-                        return Err(CustomTransactionError::StakeAmountTooLow.into());
-                    }
-                }
-                Ok((Default::default(), (), origin))
-            }
-            Some(Call::commit_timelocked_weights {
-                netuid,
-                reveal_round,
-                ..
-            }) => {
-                if Self::check_weights_min_stake(who, *netuid) {
-                    if *reveal_round < pallet_drand::LastStoredRound::<T>::get() {
-                        return Err(CustomTransactionError::InvalidRevealRound.into());
-                    }
-                    Ok((Default::default(), (), origin))
-                } else {
-                    Err(CustomTransactionError::StakeAmountTooLow.into())
-                }
-            }
-            Some(Call::commit_timelocked_mechanism_weights {
-                netuid,
-                mecid: _,
-                reveal_round,
-                ..
-            })
-            | Some(Call::commit_crv3_mechanism_weights {
-                netuid,
-                mecid: _,
-                reveal_round,
-                ..
-            }) => {
-                if Self::check_weights_min_stake(who, *netuid) {
-                    if *reveal_round < pallet_drand::LastStoredRound::<T>::get() {
-                        return Err(CustomTransactionError::InvalidRevealRound.into());
-                    }
-                    Ok((Default::default(), (), origin))
-                } else {
-                    Err(CustomTransactionError::StakeAmountTooLow.into())
-                }
-            }
-            Some(Call::increase_take { hotkey, take })
-            | Some(Call::decrease_take { hotkey, take }) => {
-                if *take < Pallet::<T>::get_min_delegate_take() {
-                    return Err(CustomTransactionError::DelegateTakeTooLow.into());
-                }
-                if *take > Pallet::<T>::get_max_delegate_take() {
-                    return Err(CustomTransactionError::DelegateTakeTooHigh.into());
-                }
-                Self::result_to_validity(Pallet::<T>::do_take_checks(who, hotkey), 0u64)
-                    .map(|validity| (validity, (), origin.clone()))
-            }
-
-            Some(Call::serve_axon {
-                netuid,
-                version,
-                ip,
-                port,
-                ip_type,
-                protocol,
-                placeholder1,
-                placeholder2,
-            }) => {
-                // Fully validate the user input
-                Self::result_to_validity(
-                    Pallet::<T>::validate_serve_axon(
-                        who,
-                        *netuid,
-                        *version,
-                        *ip,
-                        *port,
-                        *ip_type,
-                        *protocol,
-                        *placeholder1,
-                        *placeholder2,
-                    ),
-                    0u64,
-                )
-                .map(|validity| (validity, (), origin.clone()))
-            }
-            Some(Call::serve_axon_tls {
-                netuid,
-                version,
-                ip,
-                port,
-                ip_type,
-                protocol,
-                placeholder1,
-                placeholder2,
-                certificate: _,
-            }) => Self::result_to_validity(
-                Pallet::<T>::validate_serve_axon(
-                    who,
-                    *netuid,
-                    *version,
-                    *ip,
-                    *port,
-                    *ip_type,
-                    *protocol,
-                    *placeholder1,
-                    *placeholder2,
-                ),
-                0u64,
-            )
-            .map(|validity| (validity, (), origin.clone())),
-            Some(Call::serve_prometheus {
-                netuid,
-                version,
-                ip,
-                port,
-                ip_type,
-            }) => Self::result_to_validity(
-                Pallet::<T>::validate_serve_prometheus(
-                    who, *netuid, *version, *ip, *port, *ip_type,
-                )
-                .map(|_| ()),
-                0u64,
-            )
-            .map(|validity| (validity, (), origin.clone())),
-            Some(Call::register_network { .. }) => {
-                if !TransactionType::RegisterNetwork.passes_rate_limit::<T>(who) {
-                    return Err(CustomTransactionError::RateLimitExceeded.into());
-                }
-
-                Ok((Default::default(), (), origin))
-            }
-            Some(Call::associate_evm_key { netuid, .. }) => {
-                let uid = Pallet::<T>::get_uid_for_net_and_hotkey(*netuid, who)
-                    .map_err(|_| CustomTransactionError::UidNotFound)?;
-                Pallet::<T>::ensure_evm_key_associate_rate_limit(*netuid, uid)
-                    .map_err(|_| CustomTransactionError::EvmKeyAssociateRateLimitExceeded)?;
-                Ok((Default::default(), (), origin))
-            }
-            _ => Ok((Default::default(), (), origin)),
-        }
+        Self::check(&origin, call)
+            .map(|()| (Default::default(), (), origin))
+            .map_err(|error| TransactionValidityError::from(Self::map_error(error)))
     }
 
     impl_tx_ext_default!(CallOf<T>; weight prepare);
