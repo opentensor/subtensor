@@ -129,6 +129,20 @@ mod tests {
         })
     }
 
+    fn serve_axon_tls_call(netuid: NetUid) -> RuntimeCall {
+        RuntimeCall::SubtensorModule(SubtensorCall::serve_axon_tls {
+            netuid,
+            version: 1,
+            ip: u128::from(u32::from_be_bytes([8, 8, 8, 8])),
+            port: 1,
+            ip_type: 4,
+            protocol: 0,
+            placeholder1: 0,
+            placeholder2: 0,
+            certificate: vec![],
+        })
+    }
+
     fn serve_prometheus_call(netuid: NetUid) -> RuntimeCall {
         RuntimeCall::SubtensorModule(SubtensorCall::serve_prometheus {
             netuid,
@@ -162,14 +176,14 @@ mod tests {
         new_test_ext(0).execute_with(|| {
             let netuid = NetUid::from(1);
             let hotkey = U256::from(1);
+            let calls = [serve_axon_call(netuid), serve_axon_tls_call(netuid)];
 
-            assert_eq!(
-                err(dispatch_with_ext(
-                    serve_axon_call(netuid),
-                    RuntimeOrigin::signed(hotkey)
-                )),
-                Error::<Test>::HotKeyNotRegisteredInNetwork.into()
-            );
+            for call in calls {
+                assert_eq!(
+                    err(dispatch_with_ext(call, RuntimeOrigin::signed(hotkey))),
+                    Error::<Test>::HotKeyNotRegisteredInNetwork.into()
+                );
+            }
         });
     }
 
@@ -179,11 +193,11 @@ mod tests {
             let netuid = NetUid::from(1);
             let hotkey = U256::from(1);
             register_hotkey(netuid, hotkey, U256::from(2));
+            let calls = [serve_axon_call(netuid), serve_axon_tls_call(netuid)];
 
-            assert_ok!(dispatch_with_ext(
-                serve_axon_call(netuid),
-                RuntimeOrigin::signed(hotkey)
-            ));
+            for call in calls {
+                assert_ok!(dispatch_with_ext(call, RuntimeOrigin::signed(hotkey)));
+            }
         });
     }
 

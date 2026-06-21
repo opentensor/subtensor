@@ -270,7 +270,7 @@ mod tests {
     };
     use frame_system::Call as SystemCall;
     use pallet_drand::LastStoredRound;
-    use sp_core::U256;
+    use sp_core::{H256, U256};
     use sp_runtime::DispatchError;
     use subtensor_runtime_common::{MechId, NetUid};
 
@@ -295,6 +295,27 @@ mod tests {
             netuid,
             dests: vec![uid],
             weights: vec![1],
+            version_key: 0,
+        })
+    }
+
+    fn reveal_weights_call(netuid: NetUid) -> RuntimeCall {
+        RuntimeCall::SubtensorModule(SubtensorCall::reveal_weights {
+            netuid,
+            uids: vec![0],
+            values: vec![1],
+            salt: vec![1],
+            version_key: 0,
+        })
+    }
+
+    fn reveal_mechanism_weights_call(netuid: NetUid, mecid: MechId) -> RuntimeCall {
+        RuntimeCall::SubtensorModule(SubtensorCall::reveal_mechanism_weights {
+            netuid,
+            mecid,
+            uids: vec![0],
+            values: vec![1],
+            salt: vec![1],
             version_key: 0,
         })
     }
@@ -345,24 +366,82 @@ mod tests {
     }
 
     #[test]
-    fn low_stake_weight_call_is_blocked() {
+    fn low_stake_weight_calls_are_blocked() {
         new_test_ext(0).execute_with(|| {
             let netuid = NetUid::from(1);
             let hotkey = U256::from(1);
             let coldkey = U256::from(2);
+            let bounded_commit =
+                BoundedVec::<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>::try_from(vec![0]).unwrap();
             add_network_disable_commit_reveal(netuid, 1, 0);
             setup_reserves(netuid, DEFAULT_RESERVE.into(), DEFAULT_RESERVE.into());
             SubtensorModule::append_neuron(netuid, &hotkey, 0);
             crate::Owner::<Test>::insert(hotkey, coldkey);
             SubtensorModule::set_stake_threshold(1_000_000_000_000_u64);
 
-            assert_eq!(
-                err(dispatch_with_ext(
-                    set_weights_call(netuid, 0),
-                    RuntimeOrigin::signed(hotkey)
-                )),
-                Error::<Test>::NotEnoughStakeToSetWeights.into()
-            );
+            let calls = [
+                set_weights_call(netuid, 0),
+                RuntimeCall::SubtensorModule(SubtensorCall::set_mechanism_weights {
+                    netuid,
+                    mecid: MechId::MAIN,
+                    dests: vec![0],
+                    weights: vec![1],
+                    version_key: 0,
+                }),
+                RuntimeCall::SubtensorModule(SubtensorCall::batch_set_weights {
+                    netuids: vec![Compact(netuid)],
+                    weights: vec![vec![(Compact(0_u16), Compact(1_u16))]],
+                    version_keys: vec![Compact(0_u64)],
+                }),
+                RuntimeCall::SubtensorModule(SubtensorCall::commit_weights {
+                    netuid,
+                    commit_hash: H256::zero(),
+                }),
+                RuntimeCall::SubtensorModule(SubtensorCall::commit_mechanism_weights {
+                    netuid,
+                    mecid: MechId::MAIN,
+                    commit_hash: H256::zero(),
+                }),
+                RuntimeCall::SubtensorModule(SubtensorCall::batch_commit_weights {
+                    netuids: vec![Compact(netuid)],
+                    commit_hashes: vec![H256::zero()],
+                }),
+                reveal_weights_call(netuid),
+                reveal_mechanism_weights_call(netuid, MechId::MAIN),
+                RuntimeCall::SubtensorModule(SubtensorCall::batch_reveal_weights {
+                    netuid,
+                    uids_list: vec![vec![0]],
+                    values_list: vec![vec![1]],
+                    salts_list: vec![vec![1]],
+                    version_keys: vec![0],
+                }),
+                RuntimeCall::SubtensorModule(SubtensorCall::commit_timelocked_weights {
+                    netuid,
+                    commit: bounded_commit.clone(),
+                    reveal_round: 0,
+                    commit_reveal_version: 0,
+                }),
+                RuntimeCall::SubtensorModule(SubtensorCall::commit_timelocked_mechanism_weights {
+                    netuid,
+                    mecid: MechId::MAIN,
+                    commit: bounded_commit.clone(),
+                    reveal_round: 0,
+                    commit_reveal_version: 0,
+                }),
+                RuntimeCall::SubtensorModule(SubtensorCall::commit_crv3_mechanism_weights {
+                    netuid,
+                    mecid: MechId::MAIN,
+                    commit: bounded_commit,
+                    reveal_round: 0,
+                }),
+            ];
+
+            for call in calls {
+                assert_eq!(
+                    err(dispatch_with_ext(call, RuntimeOrigin::signed(hotkey))),
+                    Error::<Test>::NotEnoughStakeToSetWeights.into()
+                );
+            }
         });
     }
 
@@ -393,63 +472,112 @@ mod tests {
             let coldkey = U256::from(2);
             register_neuron(netuid, hotkey, coldkey);
             SubtensorModule::set_stake_threshold(0);
-            let call = RuntimeCall::SubtensorModule(SubtensorCall::reveal_weights {
+            let calls = [
+                reveal_weights_call(netuid),
+                reveal_mechanism_weights_call(netuid, MechId::MAIN),
+                RuntimeCall::SubtensorModule(SubtensorCall::batch_reveal_weights {
+                    netuid,
+                    uids_list: vec![vec![0]],
+                    values_list: vec![vec![1]],
+                    salts_list: vec![vec![1]],
+                    version_keys: vec![0],
+                }),
+            ];
+
+            for call in calls {
+                assert_eq!(
+                    err(dispatch_with_ext(call, RuntimeOrigin::signed(hotkey))),
+                    Error::<Test>::NoWeightsCommitFound.into()
+                );
+            }
+        });
+    }
+
+    #[test]
+    fn reveal_before_window_is_blocked() {
+        new_test_ext(0).execute_with(|| {
+            let netuid = NetUid::from(1);
+            let hotkey = U256::from(1);
+            let coldkey = U256::from(2);
+            let uids = vec![0];
+            let values = vec![1];
+            let salt = vec![1];
+            let version_key = 0;
+            register_neuron(netuid, hotkey, coldkey);
+            SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+            SubtensorModule::set_stake_threshold(0);
+            let commit_hash = SubtensorModule::get_commit_hash(
+                &hotkey,
+                netuid.into(),
+                &uids,
+                &values,
+                &salt,
+                version_key,
+            );
+            assert_ok!(SubtensorModule::commit_weights(
+                RuntimeOrigin::signed(hotkey),
                 netuid,
-                uids: vec![0],
-                values: vec![1],
-                salt: vec![1],
-                version_key: 0,
-            });
+                commit_hash,
+            ));
 
             assert_eq!(
-                err(dispatch_with_ext(call, RuntimeOrigin::signed(hotkey))),
-                Error::<Test>::NoWeightsCommitFound.into()
+                err(dispatch_with_ext(
+                    reveal_weights_call(netuid),
+                    RuntimeOrigin::signed(hotkey)
+                )),
+                Error::<Test>::RevealTooEarly.into()
             );
         });
     }
 
     #[test]
     fn valid_mechanism_reveal_dispatches() {
-        new_test_ext(0).execute_with(|| {
-            let netuid = NetUid::from(1);
-            let hotkey = U256::from(1);
-            let coldkey = U256::from(2);
-            let mecid = MechId::from(1_u8);
-            let uids = vec![0];
-            let values = vec![1];
-            let salt = vec![1];
-            let version_key = 0;
-            register_neuron(netuid, hotkey, coldkey);
-            crate::MechanismCountCurrent::<Test>::insert(netuid, MechId::from(2_u8));
-            SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
-            SubtensorModule::set_stake_threshold(0);
+        for (mecid, mechanism_count) in [
+            (MechId::MAIN, None),
+            (MechId::from(1_u8), Some(MechId::from(2_u8))),
+        ] {
+            new_test_ext(0).execute_with(|| {
+                let netuid = NetUid::from(1);
+                let hotkey = U256::from(1);
+                let coldkey = U256::from(2);
+                let uids = vec![0];
+                let values = vec![1];
+                let salt = vec![1];
+                let version_key = 0;
+                register_neuron(netuid, hotkey, coldkey);
+                if let Some(mechanism_count) = mechanism_count {
+                    crate::MechanismCountCurrent::<Test>::insert(netuid, mechanism_count);
+                }
+                SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+                SubtensorModule::set_stake_threshold(0);
 
-            let commit_hash = SubtensorModule::get_commit_hash(
-                &hotkey,
-                SubtensorModule::get_mechanism_storage_index(netuid, mecid),
-                &uids,
-                &values,
-                &salt,
-                version_key,
-            );
-            assert_ok!(SubtensorModule::commit_mechanism_weights(
-                RuntimeOrigin::signed(hotkey),
-                netuid,
-                mecid,
-                commit_hash,
-            ));
-            step_epochs(1, netuid);
+                let commit_hash = SubtensorModule::get_commit_hash(
+                    &hotkey,
+                    SubtensorModule::get_mechanism_storage_index(netuid, mecid),
+                    &uids,
+                    &values,
+                    &salt,
+                    version_key,
+                );
+                assert_ok!(SubtensorModule::commit_mechanism_weights(
+                    RuntimeOrigin::signed(hotkey),
+                    netuid,
+                    mecid,
+                    commit_hash,
+                ));
+                step_epochs(1, netuid);
 
-            let call = RuntimeCall::SubtensorModule(SubtensorCall::reveal_mechanism_weights {
-                netuid,
-                mecid,
-                uids,
-                values,
-                salt,
-                version_key,
+                let call = RuntimeCall::SubtensorModule(SubtensorCall::reveal_mechanism_weights {
+                    netuid,
+                    mecid,
+                    uids,
+                    values,
+                    salt,
+                    version_key,
+                });
+                assert_ok!(dispatch_with_ext(call, RuntimeOrigin::signed(hotkey)));
             });
-            assert_ok!(dispatch_with_ext(call, RuntimeOrigin::signed(hotkey)));
-        });
+        }
     }
 
     #[test]
@@ -463,17 +591,34 @@ mod tests {
             SubtensorModule::set_stake_threshold(0);
             let commit =
                 BoundedVec::<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>::try_from(vec![0]).unwrap();
-            let call = RuntimeCall::SubtensorModule(SubtensorCall::commit_timelocked_weights {
-                netuid,
-                commit,
-                reveal_round: 999,
-                commit_reveal_version: 0,
-            });
+            let calls = [
+                RuntimeCall::SubtensorModule(SubtensorCall::commit_timelocked_weights {
+                    netuid,
+                    commit: commit.clone(),
+                    reveal_round: 999,
+                    commit_reveal_version: 0,
+                }),
+                RuntimeCall::SubtensorModule(SubtensorCall::commit_timelocked_mechanism_weights {
+                    netuid,
+                    mecid: MechId::MAIN,
+                    commit: commit.clone(),
+                    reveal_round: 999,
+                    commit_reveal_version: 0,
+                }),
+                RuntimeCall::SubtensorModule(SubtensorCall::commit_crv3_mechanism_weights {
+                    netuid,
+                    mecid: MechId::MAIN,
+                    commit,
+                    reveal_round: 999,
+                }),
+            ];
 
-            assert_eq!(
-                err(dispatch_with_ext(call, RuntimeOrigin::signed(hotkey))),
-                Error::<Test>::InvalidRevealRound.into()
-            );
+            for call in calls {
+                assert_eq!(
+                    err(dispatch_with_ext(call, RuntimeOrigin::signed(hotkey))),
+                    Error::<Test>::InvalidRevealRound.into()
+                );
+            }
         });
     }
 }

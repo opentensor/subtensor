@@ -126,3 +126,113 @@ where
 
     impl_tx_ext_default!(CallOf<T>; weight prepare);
 }
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+    use super::SubtensorTransactionExtension;
+    use crate::{ColdkeySwapAnnouncements, ColdkeySwapDisputes, tests::mock::*};
+    use frame_support::{
+        assert_ok,
+        dispatch::{GetDispatchInfo, Pays},
+    };
+    use frame_system::RawOrigin;
+    use sp_core::U256;
+    use sp_runtime::{
+        traits::{DispatchInfoOf, Hash, TransactionExtension, TxBaseImplication},
+        transaction_validity::{TransactionSource, TransactionValidityError, ValidTransaction},
+    };
+    use subtensor_runtime_common::{CustomTransactionError, MechId, NetUid};
+
+    fn dispatch_info()
+    -> sp_runtime::traits::DispatchInfoOf<<Test as frame_system::Config>::RuntimeCall> {
+        DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default()
+    }
+
+    fn validate_signed(
+        signer: U256,
+        call: &RuntimeCall,
+    ) -> Result<ValidTransaction, TransactionValidityError> {
+        SubtensorTransactionExtension::<Test>::new()
+            .validate(
+                RawOrigin::Signed(signer).into(),
+                call,
+                &dispatch_info(),
+                0,
+                (),
+                &TxBaseImplication(()),
+                TransactionSource::External,
+            )
+            .map(|(validity, _, _)| validity)
+    }
+
+    #[test]
+    fn validate_accepts_calls_allowed_by_dispatch_extensions() {
+        new_test_ext(1).execute_with(|| {
+            let call = RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
+
+            assert_ok!(validate_signed(U256::from(1), &call));
+        });
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn validate_maps_dispatch_extension_errors_to_transaction_errors() {
+        new_test_ext(1).execute_with(|| {
+            let coldkey = U256::from(1);
+            let call = RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
+            let new_coldkey_hash =
+                <Test as frame_system::Config>::Hashing::hash_of(&U256::from(99));
+
+            ColdkeySwapAnnouncements::<Test>::insert(
+                coldkey,
+                (System::block_number(), new_coldkey_hash),
+            );
+            let err = validate_signed(coldkey, &call).unwrap_err();
+            assert_eq!(err, CustomTransactionError::ColdkeyInSwapSchedule.into());
+
+            ColdkeySwapDisputes::<Test>::insert(coldkey, System::block_number());
+            let err = validate_signed(coldkey, &call).unwrap_err();
+            assert_eq!(err, CustomTransactionError::ColdkeySwapDisputed.into());
+        });
+    }
+
+    #[test]
+    fn pays_no_set_weights_validate_rejects_rate_limited_call() {
+        new_test_ext(0).execute_with(|| {
+            let netuid = NetUid::from(1);
+            let hotkey = U256::from(1);
+            let coldkey = U256::from(2);
+
+            add_network_disable_commit_reveal(netuid, 1, 0);
+            setup_reserves(
+                netuid,
+                1_000_000_000_000_u64.into(),
+                1_000_000_000_000_u64.into(),
+            );
+            register_ok_neuron(netuid, hotkey, coldkey, 0);
+            SubtensorModule::set_stake_threshold(0);
+
+            SubtensorModule::set_weights_set_rate_limit(netuid, 100);
+            System::set_block_number(10_u64);
+            let uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey).unwrap();
+            let netuid_index = SubtensorModule::get_mechanism_storage_index(netuid, MechId::MAIN);
+            SubtensorModule::set_last_update_for_uid(
+                netuid_index,
+                uid,
+                SubtensorModule::get_current_block_as_u64(),
+            );
+
+            let call = RuntimeCall::SubtensorModule(SubtensorCall::set_weights {
+                netuid,
+                dests: vec![uid],
+                weights: vec![1],
+                version_key: 0,
+            });
+
+            assert_eq!(call.get_dispatch_info().pays_fee, Pays::No);
+            let err = validate_signed(hotkey, &call).unwrap_err();
+            assert_eq!(err, CustomTransactionError::RateLimitExceeded.into());
+        });
+    }
+}

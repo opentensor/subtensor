@@ -169,4 +169,23 @@ mod tests {
             }
         });
     }
+
+    #[test]
+    fn rejects_missing_hotkey_owner() {
+        new_test_ext(0).execute_with(|| {
+            let owner = U256::from(1);
+            let hotkey = U256::from(99);
+            let take = SubtensorModule::get_max_delegate_take();
+
+            for call in [
+                increase_take_call(hotkey, take),
+                decrease_take_call(hotkey, take),
+            ] {
+                assert_eq!(
+                    err(dispatch_with_ext(call, RuntimeOrigin::signed(owner))),
+                    Error::<Test>::HotKeyAccountNotExists.into()
+                );
+            }
+        });
+    }
 }
