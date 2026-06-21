@@ -238,8 +238,11 @@ where
     type Pre = ();
 
     fn weight(_call: &CallOf<T>) -> Weight {
-        T::DbWeight::get()
-            .reads(1 + u64::from(T::InitialMaxAllowedUids::get()) + MAX_UNREVEALED_COMMITS)
+        T::DbWeight::get().reads(
+            1_u64
+                .saturating_add(T::InitialMaxAllowedUids::get().into())
+                .saturating_add(MAX_UNREVEALED_COMMITS),
+        )
     }
 
     fn pre_dispatch(

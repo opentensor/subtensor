@@ -15,6 +15,7 @@ use frame_support::{
 };
 use sp_io::hashing::twox_128;
 use sp_runtime::Saturating;
+use subtensor_macros::freeze_struct;
 
 type DbWeightOf<T> = <T as frame_system::Config>::DbWeight;
 #[cfg(feature = "try-runtime")]
@@ -248,6 +249,7 @@ fn map_reason(reason: OldRuntimeHoldReason) -> Option<RuntimeHoldReason> {
 
 #[cfg(feature = "try-runtime")]
 #[derive(Encode, Decode)]
+#[freeze_struct("d1c269899b95593c")]
 struct PreUpgradeState {
     total_issuance: BalanceOf<Runtime>,
     affected_accounts: Vec<AffectedAccount>,
@@ -255,6 +257,7 @@ struct PreUpgradeState {
 
 #[cfg(feature = "try-runtime")]
 #[derive(Encode, Decode)]
+#[freeze_struct("dd446b32ea403051")]
 struct AffectedAccount {
     account_id: AccountIdOf<Runtime>,
     free: BalanceOf<Runtime>,

@@ -60,7 +60,7 @@ where
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used)]
+#[allow(clippy::unwrap_used, clippy::arithmetic_side_effects)]
 mod tests {
     use super::CheckEvmKeyAssociation;
     use crate::{AssociatedEvmAddress, Error, tests::mock::*};
