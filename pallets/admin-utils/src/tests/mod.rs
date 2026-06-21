@@ -2042,7 +2042,7 @@ fn test_sudo_set_admin_freeze_window_and_rate() {
 fn test_freeze_window_blocks_root_and_owner() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(1);
-        let tempo = 10;
+        let tempo: u16 = 10;
         // Create subnet with tempo 10
         add_network(netuid, tempo);
         // Set freeze window to 3 blocks
@@ -2050,8 +2050,12 @@ fn test_freeze_window_blocks_root_and_owner() {
             <<Test as Config>::RuntimeOrigin>::root(),
             3
         ));
-        // Advance to a block where remaining < 3
-        run_to_block((tempo - 2).into());
+        // Pin the state-based scheduler so the next auto-epoch lands at
+        // `LastEpochBlock + tempo`. Freeze window covers blocks (next_auto - 3, next_auto].
+        pallet_subtensor::LastEpochBlock::<Test>::insert(netuid, 0);
+        let next_auto = tempo as u64;
+        // Advance to a block inside the freeze window (remaining < 3).
+        run_to_block(next_auto - 2);
 
         // Root should be blocked during freeze window
         assert_noop!(
@@ -2147,7 +2151,7 @@ fn test_owner_hyperparam_update_rate_limit_enforced() {
         SubnetOwner::<Test>::insert(netuid, owner);
 
         // Set tempo to 1 so owner hyperparam RL = 2 tempos = 2 blocks
-        SubtensorModule::set_tempo(netuid, 1);
+        SubtensorModule::set_tempo_unchecked(netuid, 1);
         // Disable admin freeze window to avoid blocking on small tempo
         assert_ok!(AdminUtils::sudo_set_admin_freeze_window(
             <<Test as Config>::RuntimeOrigin>::root(),
@@ -2202,7 +2206,7 @@ fn test_hyperparam_rate_limit_enforced_by_tempo() {
         SubnetOwner::<Test>::insert(netuid, owner);
 
         // Set tempo to 1 so RL = 2 blocks
-        SubtensorModule::set_tempo(netuid, 1);
+        SubtensorModule::set_tempo_unchecked(netuid, 1);
         // Disable admin freeze window to avoid blocking on small tempo
         assert_ok!(AdminUtils::sudo_set_admin_freeze_window(
             <<Test as Config>::RuntimeOrigin>::root(),
@@ -2250,7 +2254,7 @@ fn test_owner_hyperparam_rate_limit_independent_per_param() {
         SubnetOwner::<Test>::insert(netuid, owner);
 
         // Use small tempo to make RL short and deterministic (2 blocks when tempo=1)
-        SubtensorModule::set_tempo(netuid, 1);
+        SubtensorModule::set_tempo_unchecked(netuid, 1);
         // Disable admin freeze window so it doesn't interfere with small tempo
         assert_ok!(AdminUtils::sudo_set_admin_freeze_window(
             <<Test as Config>::RuntimeOrigin>::root(),
