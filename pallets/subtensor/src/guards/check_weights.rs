@@ -99,12 +99,12 @@ impl<T: Config> CheckWeights<T> {
         Pallet::<T>::get_commit_hash(who, netuid_index, uids, values, salt, version_key)
     }
 
-    fn commit_block(hash: H256) -> Result<u64, Error<T>> {
-        Pallet::<T>::find_commit_block_via_hash(hash).ok_or(Error::<T>::NoWeightsCommitFound)
+    fn commit_epoch(hash: H256) -> Result<u64, Error<T>> {
+        Pallet::<T>::find_commit_epoch_via_hash(hash).ok_or(Error::<T>::NoWeightsCommitFound)
     }
 
-    fn check_reveal_block_range(netuid: NetUid, commit_block: u64) -> Result<(), Error<T>> {
-        if Pallet::<T>::is_reveal_block_range(netuid, commit_block) {
+    fn check_reveal_epoch_range(netuid: NetUid, commit_epoch: u64) -> Result<(), Error<T>> {
+        if Pallet::<T>::is_reveal_block_range(netuid, commit_epoch) {
             Ok(())
         } else {
             Err(Error::<T>::RevealTooEarly)
@@ -112,7 +112,7 @@ impl<T: Config> CheckWeights<T> {
     }
 
     fn check_reveal_hash(netuid: NetUid, hash: H256) -> Result<(), Error<T>> {
-        Self::check_reveal_block_range(netuid, Self::commit_block(hash)?)
+        Self::check_reveal_epoch_range(netuid, Self::commit_epoch(hash)?)
     }
 
     fn check_reveal(
@@ -146,13 +146,13 @@ impl<T: Config> CheckWeights<T> {
         }
 
         let netuid_index = NetUidStorageIndex::from(netuid);
-        let commit_blocks = uids_list
+        let commit_epochs = uids_list
             .iter()
             .zip(values_list)
             .zip(salts_list)
             .zip(version_keys)
             .map(|(((uids, values), salt), version_key)| {
-                Self::commit_block(Self::commit_hash(
+                Self::commit_epoch(Self::commit_hash(
                     who,
                     netuid_index,
                     uids,
@@ -163,7 +163,7 @@ impl<T: Config> CheckWeights<T> {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        if Pallet::<T>::is_batch_reveal_block_range(netuid, commit_blocks) {
+        if Pallet::<T>::is_batch_reveal_epoch_range(netuid, commit_epochs) {
             Ok(())
         } else {
             Err(Error::<T>::RevealTooEarly)

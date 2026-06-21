@@ -15,6 +15,7 @@ use frame_support::{
 };
 use sp_io::hashing::twox_128;
 use sp_runtime::Saturating;
+#[cfg(feature = "try-runtime")]
 use subtensor_macros::freeze_struct;
 
 type DbWeightOf<T> = <T as frame_system::Config>::DbWeight;
