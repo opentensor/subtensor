@@ -68,7 +68,7 @@ async function setupTwoSubnetsWithClaimable(
     log(`Created netuid2: ${netuid2}`);
 
     for (const netuid of [netuid1, netuid2]) {
-        await sudoSetTempo(api, netuid, 1);
+        await sudoSetTempo(api, netuid, 5);
         await sudoSetEmaPriceHalvingPeriod(api, netuid, 1);
         await sudoSetRootClaimThreshold(api, netuid, 0n);
     }
@@ -91,14 +91,15 @@ async function setupTwoSubnetsWithClaimable(
     await addStake(api, owner1Coldkey, owner1Hotkey.address, netuid1, tao(50));
     await addStake(api, owner2Coldkey, owner2Hotkey.address, netuid2, tao(50));
 
-    log("Waiting 30 blocks for RootClaimable to accumulate on both subnets...");
-    await waitForBlocks(api, 30);
+    const waitBlocks = 90;
+    log(`Waiting ${waitBlocks} blocks for RootClaimable to accumulate on both subnets...`);
+    await waitForBlocks(api, waitBlocks);
 
     return { oldHotkey, oldHotkeyColdkey, newHotkey, netuid1, netuid2 };
 }
 
 describeSuite({
-    id: "0203_swap_hotkey_root_claimable",
+    id: "0204_claim-root_hotkey_swap",
     title: "▶ swap_hotkey RootClaimable per-subnet transfer",
     foundationMethods: "zombie",
     testCases: ({ it, context, log }) => {
