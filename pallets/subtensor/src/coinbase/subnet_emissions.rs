@@ -354,17 +354,21 @@ impl<T: Config> Pallet<T> {
     pub(crate) fn get_shares(subnets_to_emit_to: &[NetUid]) -> BTreeMap<NetUid, U64F64> {
         let price_shares = Self::get_shares_price_ema(subnets_to_emit_to);
 
-        // Reallocate emission away from subnets that burn miner emission: weight each
-        // subnet's price share by (1 - miner_burned_proportion), then renormalize so the
-        // block's total emission is preserved and redistributed toward subnets that are
-        // not burning their miner emission.
+        // Weight each subnet's price share by root_proportion * (1 - miner_burned), then
+        // renormalize. The effective emission is therefore proportional to
+        //   root_proportion_i * price_i * (1 - miner_burned_i).
+        // - root_proportion shrinks as a subnet's alpha issuance grows, so emission is
+        //   reallocated away from older subnets toward newer ones (easier entrance).
+        // - (1 - miner_burned) reallocates away from subnets that withhold miner emission.
         let zero = U64F64::saturating_from_num(0);
         let one = U64F64::saturating_from_num(1);
         let weighted: BTreeMap<NetUid, U64F64> = price_shares
             .iter()
             .map(|(netuid, share)| {
                 let burned = U64F64::saturating_from_num(MinerBurned::<T>::get(netuid)).min(one);
-                (*netuid, share.saturating_mul(one.saturating_sub(burned)))
+                let root_prop = U64F64::saturating_from_num(Self::root_proportion(*netuid));
+                let factor = root_prop.saturating_mul(one.saturating_sub(burned));
+                (*netuid, share.saturating_mul(factor))
             })
             .collect();
 
@@ -379,8 +383,9 @@ impl<T: Config> Pallet<T> {
                 .map(|(netuid, w)| (netuid, w.safe_div(total_weight)))
                 .collect()
         } else {
-            // Every eligible subnet is burning all of its miner emission; fall back to
-            // the unweighted price shares so the block's emission is not stranded.
+            // The combined weight zeroes out for every subnet (e.g. no root stake, or
+            // every subnet burning all of its miner emission); fall back to the
+            // unweighted price shares so the block's emission is not stranded.
             price_shares
         }
     }
