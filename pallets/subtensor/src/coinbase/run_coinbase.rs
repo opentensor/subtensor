@@ -1,9 +1,9 @@
 use super::*;
 use crate::coinbase::tao::CreditOf;
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, BTreeSet};
 use frame_support::traits::Imbalance;
 use safe_math::*;
-use substrate_fixed::types::U96F32;
+use substrate_fixed::types::{U64F64, U96F32};
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::SwapHandler;
 
@@ -85,12 +85,15 @@ impl<T: Config> Pallet<T> {
                 let tao_to_swap_with: TaoBalance =
                     tou64!(excess_tao.get(netuid_i).unwrap_or(&asfloat!(0))).into();
 
+                // Inject tao and alpha into protocol liquidity. In theorry, it may not always
+                // be a success (returned values are 0s) in case of high liquidity disbalance
+                let (actual_injected_tao, actual_injected_alpha) =
+                    T::SwapInterface::adjust_protocol_liquidity(*netuid_i, tao_in_i, alpha_in_i);
+
                 // Clear per-block pool-side emission counters up front so a subnet
                 // disabled this block does not display stale values from an earlier block.
                 SubnetExcessTao::<T>::insert(*netuid_i, TaoBalance::ZERO);
                 SubnetTaoInEmission::<T>::insert(*netuid_i, TaoBalance::ZERO);
-
-                T::SwapInterface::adjust_protocol_liquidity(*netuid_i, tao_in_i, alpha_in_i);
 
                 if tao_to_swap_with > TaoBalance::ZERO {
                     // Turn excess_tao portion of credit into TaoBalance on subnet account
@@ -128,37 +131,34 @@ impl<T: Config> Pallet<T> {
                 }
 
                 // Inject Alpha in.
-                let alpha_in_i =
-                    AlphaBalance::from(tou64!(*alpha_in.get(netuid_i).unwrap_or(&asfloat!(0))));
-                SubnetAlphaInEmission::<T>::insert(*netuid_i, alpha_in_i);
+                SubnetAlphaInEmission::<T>::insert(*netuid_i, actual_injected_alpha);
 
                 // Mint alpha and resolve to alpha reserve
-                Self::resolve_to_alpha_in(Self::mint_alpha(*netuid_i, alpha_in_i));
+                Self::resolve_to_alpha_in(Self::mint_alpha(*netuid_i, actual_injected_alpha));
 
                 // Inject TAO in.
-                let injected_tao: TaoBalance =
-                    tou64!(*tao_in.get(netuid_i).unwrap_or(&asfloat!(0))).into();
-                if !injected_tao.is_zero() {
-                    match Self::spend_tao(&subnet_account_id, remaining_credit, injected_tao) {
+                if !actual_injected_tao.is_zero() {
+                    match Self::spend_tao(&subnet_account_id, remaining_credit, actual_injected_tao)
+                    {
                         Ok(remainder) => {
                             remaining_credit = remainder;
 
-                            SubnetTaoInEmission::<T>::insert(*netuid_i, injected_tao);
+                            SubnetTaoInEmission::<T>::insert(*netuid_i, actual_injected_tao);
                             SubnetTAO::<T>::mutate(*netuid_i, |total| {
-                                *total = total.saturating_add(injected_tao);
+                                *total = total.saturating_add(actual_injected_tao);
                             });
                             TotalStake::<T>::mutate(|total| {
-                                *total = total.saturating_add(injected_tao);
+                                *total = total.saturating_add(actual_injected_tao);
                             });
 
                             // Record emission injection as protocol inflow.
-                            Self::record_protocol_inflow(*netuid_i, injected_tao);
+                            Self::record_protocol_inflow(*netuid_i, actual_injected_tao);
                         }
                         Err(remainder) => {
                             remaining_credit = remainder;
                             let remaining_balance = remaining_credit.peek();
                             log::error!(
-                                "Failed to spend credit: injected_tao = {injected_tao:?}, netuid_i = {netuid_i:?}, remaining_balance = {remaining_balance:?}"
+                                "Failed to spend credit: injected_tao = {actual_injected_tao:?}, netuid_i = {netuid_i:?}, remaining_balance = {remaining_balance:?}"
                             );
                         }
                     }
@@ -203,7 +203,8 @@ impl<T: Config> Pallet<T> {
             log::debug!("alpha_emission_i: {alpha_emission_i:?}");
 
             // Get subnet price.
-            let price_i: U96F32 = T::SwapInterface::current_alpha_price(netuid_i.into());
+            let price_i: U96F32 =
+                U96F32::saturating_from_num(T::SwapInterface::current_alpha_price(netuid_i.into()));
             log::debug!("price_i: {price_i:?}");
 
             let mut tao_in_i: U96F32 = tao_emission_i;
@@ -318,6 +319,29 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    /// Subnets whose epoch slot is due *this* block but is deferred by the per-block
+    /// cap (`MaxEpochsPerBlock`).
+    pub fn epochs_deferred_this_block(subnets: &[NetUid], current_block: u64) -> BTreeSet<NetUid> {
+        let cap = Self::get_max_epochs_per_block() as u32;
+        let mut deferred: BTreeSet<NetUid> = BTreeSet::new();
+        let mut epochs_run_this_block: u32 = 0;
+
+        for &netuid in subnets.iter() {
+            if !Self::should_run_epoch(netuid, current_block) {
+                continue;
+            }
+            // Per-block cap — due subnets beyond the limit are deferred.
+            if epochs_run_this_block >= cap {
+                deferred.insert(netuid);
+                continue;
+            }
+            if Self::is_epoch_input_state_consistent(netuid) {
+                epochs_run_this_block = epochs_run_this_block.saturating_add(1);
+            }
+        }
+        deferred
+    }
+
     pub fn drain_pending(
         subnets: &[NetUid],
         current_block: u64,
@@ -327,19 +351,36 @@ impl<T: Config> Pallet<T> {
             NetUid,
             (AlphaBalance, AlphaBalance, AlphaBalance, AlphaBalance),
         > = BTreeMap::new();
-        // --- Drain pending emissions for all subnets hat are at their tempo.
-        // Run the epoch for *all* subnets, even if we don't emit anything.
+        // Per-block cap on number of epochs that may run; the rest are deferred 1 block forward
+        // by setting `PendingEpochAt`.
+        let max_epochs_per_block = Self::get_max_epochs_per_block() as u32;
+        let mut epochs_run_this_block: u32 = 0;
+
         for &netuid in subnets.iter() {
-            // Increment blocks since last step.
+            // Increment blocks since last *successful* step (existing semantics).
             BlocksSinceLastStep::<T>::mutate(netuid, |total| *total = total.saturating_add(1));
 
-            // Run the epoch if applicable.
-            if Self::should_run_epoch(netuid, current_block)
-                && Self::is_epoch_input_state_consistent(netuid)
-            {
-                // Restart counters.
+            if !Self::should_run_epoch(netuid, current_block) {
+                continue;
+            }
+
+            // Per-block cap — defer if already at limit.
+            if epochs_run_this_block >= max_epochs_per_block {
+                let next_block = current_block.saturating_add(1);
+                PendingEpochAt::<T>::insert(netuid, next_block);
+                Self::deposit_event(Event::EpochDeferred {
+                    netuid,
+                    from_block: current_block,
+                    to_block: next_block,
+                });
+                continue;
+            }
+
+            if Self::is_epoch_input_state_consistent(netuid) {
+                // Reset blocks-since counter; LastMechansimStepBlock is written
+                // post-distribute (see the caller), so bonds masking can read the
+                // previous successful run.
                 BlocksSinceLastStep::<T>::insert(netuid, 0);
-                LastMechansimStepBlock::<T>::insert(netuid, current_block);
 
                 // Get and drain the subnet pending emission.
                 let pending_server_alpha = PendingServerEmission::<T>::get(netuid);
@@ -366,11 +407,24 @@ impl<T: Config> Pallet<T> {
                         owner_cut,
                     ),
                 );
+                epochs_run_this_block = epochs_run_this_block.saturating_add(1);
 
                 // Reserved for potential future enhancements.
                 // Ownership update logic based on conviction is currently inactive by design.
                 // Self::change_subnet_owner_if_needed(netuid);
+            } else {
+                // Schedule advances below; execution skipped. Pending emissions accumulate
+                // and will be drained by the next successful epoch.
+                Self::deposit_event(Event::EpochSkipped {
+                    netuid,
+                    block: current_block,
+                });
             }
+
+            // Advance the schedule unconditionally — the slot is consumed.
+            LastEpochBlock::<T>::insert(netuid, current_block);
+            PendingEpochAt::<T>::insert(netuid, 0);
+            SubnetEpochIndex::<T>::mutate(netuid, |idx| *idx = idx.saturating_add(1));
         }
         emissions_to_distribute
     }
@@ -381,6 +435,7 @@ impl<T: Config> Pallet<T> {
             (AlphaBalance, AlphaBalance, AlphaBalance, AlphaBalance),
         >,
     ) {
+        let current_block = Self::get_current_block_as_u64();
         for (
             &netuid,
             &(pending_server_alpha, pending_validator_alpha, pending_root_alpha, pending_owner_cut),
@@ -394,18 +449,19 @@ impl<T: Config> Pallet<T> {
                 pending_root_alpha,
                 pending_owner_cut,
             );
+            LastMechansimStepBlock::<T>::insert(netuid, current_block);
         }
     }
 
     pub fn get_network_root_sell_flag(subnets_to_emit_to: &[NetUid]) -> bool {
-        let total_ema_price: U96F32 = subnets_to_emit_to
+        let total_ema_price: U64F64 = subnets_to_emit_to
             .iter()
             .map(|netuid| Self::get_moving_alpha_price(*netuid))
             .sum();
 
         // If the total EMA price is less than or equal to 1
         // then we WILL NOT root sell.
-        total_ema_price > U96F32::saturating_from_num(1)
+        total_ema_price > U64F64::saturating_from_num(1)
     }
 
     pub fn calculate_dividends_and_incentives(
@@ -1009,28 +1065,57 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * `bool` - True if the epoch should run, false otherwise.
     pub fn should_run_epoch(netuid: NetUid, current_block: u64) -> bool {
-        Self::blocks_until_next_epoch(netuid, Self::get_tempo(netuid), current_block) == 0
+        let tempo = Self::get_tempo(netuid);
+        if tempo == 0 {
+            return false;
+        }
+        let pending = PendingEpochAt::<T>::get(netuid);
+        if pending > 0 && current_block >= pending {
+            return true;
+        }
+        if BlocksSinceLastStep::<T>::get(netuid) > MAX_TEMPO as u64 {
+            return true;
+        }
+        let last = LastEpochBlock::<T>::get(netuid);
+        let blocks_since = current_block.saturating_sub(last);
+        blocks_since >= tempo as u64
     }
 
-    /// Helper function which returns the number of blocks remaining before we will run the epoch on this
-    /// network. Networks run their epoch when (block_number + netuid + 1 ) % (tempo + 1) = 0
-    /// tempo | netuid | # first epoch block
-    ///   1        0               0
-    ///   1        1               1
-    ///   2        0               1
-    ///   2        1               0
-    ///   100      0              99
-    ///   100      1              98
-    /// Special case: tempo = 0, the network never runs.
-    ///
-    pub fn blocks_until_next_epoch(netuid: NetUid, tempo: u16, block_number: u64) -> u64 {
+    /// Returns the number of blocks remaining before the next automatic epoch under the
+    /// stateful scheduler (period `tempo`, anchored on `LastEpochBlock`). Does NOT account for:
+    ///     - `PendingEpochAt` (owner-triggered manual fire — could happen sooner),
+    ///     - `BlocksSinceLastStep > MAX_TEMPO` safety-net,
+    ///     - per-block-cap defer (could push the actual fire one or more blocks later)
+    /// Used by the admin-freeze-window predicate and external tooling. Returns `u64::MAX` when
+    /// `tempo == 0` (legacy defensive short-circuit).
+    pub fn blocks_until_next_auto_epoch(netuid: NetUid, tempo: u16, block_number: u64) -> u64 {
         if tempo == 0 {
             return u64::MAX;
         }
-        let netuid_plus_one = (u16::from(netuid) as u64).saturating_add(1);
-        let tempo_plus_one = (tempo as u64).saturating_add(1);
-        let adjusted_block = block_number.wrapping_add(netuid_plus_one);
-        let remainder = adjusted_block.checked_rem(tempo_plus_one).unwrap_or(0);
-        (tempo as u64).saturating_sub(remainder)
+        let last = LastEpochBlock::<T>::get(netuid);
+        // Period is `tempo`: next firing at `last + tempo`.
+        let next_auto = last.saturating_add(tempo as u64);
+        next_auto.saturating_sub(block_number)
+    }
+
+    /// Returns the absolute block number at which the next epoch is expected to fire for the
+    /// given subnet, considering both the automatic schedule (`LastEpochBlock + tempo`) and
+    /// any owner-triggered `PendingEpochAt`. Returns `None` if `tempo == 0` (subnet does not run).
+    /// Does NOT account for the per-block cap deferral or the `BlocksSinceLastStep > MAX_TEMPO`
+    /// safety-net (which can fire earlier under extreme drift).
+    pub fn get_next_epoch_start_block(netuid: NetUid) -> Option<u64> {
+        let tempo = Self::get_tempo(netuid);
+        if tempo == 0 {
+            return None;
+        }
+        let last = LastEpochBlock::<T>::get(netuid);
+        let auto_next = last.saturating_add(tempo as u64);
+
+        let pending = PendingEpochAt::<T>::get(netuid);
+        if pending > 0 {
+            Some(auto_next.min(pending))
+        } else {
+            Some(auto_next)
+        }
     }
 }

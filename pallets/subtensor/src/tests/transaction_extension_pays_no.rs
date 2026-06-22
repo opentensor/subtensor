@@ -238,7 +238,7 @@ fn extension_reveal_weights_rejects_commit_not_found() {
         crate::Owner::<Test>::insert(hotkey, coldkey);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
         SubtensorModule::set_stake_threshold(0);
-        add_balance_to_coldkey_account(&hotkey, u64::MAX.into());
+        add_balance_to_coldkey_account(&hotkey, 1_000_000_000_000_u64.into());
         assert_ok!(SubtensorModule::do_add_stake(
             RuntimeOrigin::signed(hotkey),
             hotkey,
@@ -274,7 +274,7 @@ fn extension_reveal_mechanism_weights_rejects_commit_not_found() {
         crate::Owner::<Test>::insert(hotkey, coldkey);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
         SubtensorModule::set_stake_threshold(0);
-        add_balance_to_coldkey_account(&hotkey, u64::MAX.into());
+        add_balance_to_coldkey_account(&hotkey, 1_000_000_000_000_u64.into());
         assert_ok!(SubtensorModule::do_add_stake(
             RuntimeOrigin::signed(hotkey),
             hotkey,
@@ -333,7 +333,7 @@ fn assert_reveal_mechanism_weights_accepts_valid_commit(
         }
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
         SubtensorModule::set_stake_threshold(0);
-        add_balance_to_coldkey_account(&hotkey, u64::MAX.into());
+        add_balance_to_coldkey_account(&hotkey, 1_000_000_000_000_u64.into());
         assert_ok!(SubtensorModule::do_add_stake(
             RuntimeOrigin::signed(hotkey),
             hotkey,

@@ -1823,7 +1823,7 @@ mod dispatches {
         /// May emit a `EvmKeyAssociated` event on success
         #[pallet::call_index(93)]
         #[pallet::weight((
-            Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().reads_writes(2, 1)),
+            <T as crate::pallet::Config>::WeightInfo::associate_evm_key(),
             DispatchClass::Normal,
             Pays::No
         ))]
@@ -2594,11 +2594,43 @@ mod dispatches {
             Self::do_set_perpetual_lock(&coldkey, netuid, enabled)
         }
 
+        /// Owner-side `set_tempo`. Validates `[MinTempo, MaxTempo]`, applies a fixed
+        /// `MinTempo`-block cooldown via `TransactionType::TempoUpdate`, respects the admin
+        /// freeze window, and resets the cycle (`LastEpochBlock = current_block`) on success.
+        #[pallet::call_index(139)]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::set_tempo())]
+        pub fn set_tempo(origin: OriginFor<T>, netuid: NetUid, tempo: u16) -> DispatchResult {
+            Self::do_set_tempo(origin, netuid, tempo)
+        }
+
+        /// `set_activity_cutoff_factor`. Per-mille (1/1000) units; `cutoff_blocks
+        /// = (factor × tempo) / 1000`. Validates `[MinActivityCutoffFactorMilli,
+        /// MaxActivityCutoffFactorMilli]`. Callable by the subnet owner (rate-limited
+        /// via `OwnerHyperparamUpdate`, respects the admin freeze window) or by root
+        /// (bypasses both).
+        #[pallet::call_index(140)]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::set_activity_cutoff_factor())]
+        pub fn set_activity_cutoff_factor(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            factor_milli: u32,
+        ) -> DispatchResult {
+            Self::do_set_activity_cutoff_factor(origin, netuid, factor_milli)
+        }
+
+        /// Owner-side `trigger_epoch`. Schedules an epoch to fire after `AdminFreezeWindow`
+        /// blocks. Rate-limited via the existing `OwnerHyperparamUpdate` pattern.
+        #[pallet::call_index(141)]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::trigger_epoch())]
+        pub fn trigger_epoch(origin: OriginFor<T>, netuid: NetUid) -> DispatchResult {
+            Self::do_trigger_epoch(origin, netuid)
+        }
+
         /// Sets or clears the caller's "reject locked alpha" account flag.
         ///
         /// When enabled, this coldkey cannot receive locked alpha from stake
         /// transfers or coldkey swaps.
-        #[pallet::call_index(139)]
+        #[pallet::call_index(142)]
         #[pallet::weight((
             <T as frame_system::Config>::DbWeight::get().reads_writes(1, 1),
             DispatchClass::Normal,
