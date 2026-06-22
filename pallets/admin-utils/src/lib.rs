@@ -611,6 +611,9 @@ pub mod pallet {
         /// The extrinsic sets the activity cutoff for a subnet.
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the activity cutoff.
+        // #[deprecated(
+        //     note = "Please use set_activity_cutoff_factor instead. This extrinsic will be removed soon."
+        // )]
         #[pallet::call_index(18)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::sudo_set_activity_cutoff())]
         pub fn sudo_set_activity_cutoff(
@@ -983,7 +986,7 @@ pub mod pallet {
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
-            pallet_subtensor::Pallet::<T>::set_tempo(netuid, tempo);
+            pallet_subtensor::Pallet::<T>::apply_tempo_with_cycle_reset(netuid, tempo);
             log::debug!("TempoSet( netuid: {netuid:?} tempo: {tempo:?} ) ");
             Ok(())
         }
