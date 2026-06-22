@@ -631,5 +631,13 @@ mod events {
             /// Whether this coldkey's locks are now perpetual.
             enabled: bool,
         },
+
+        /// A coldkey's reject locked alpha account flag was updated.
+        RejectLockedAlphaUpdated {
+            /// The coldkey whose flag changed.
+            coldkey: T::AccountId,
+            /// Whether this coldkey rejects incoming locked alpha.
+            enabled: bool,
+        },
     }
 }

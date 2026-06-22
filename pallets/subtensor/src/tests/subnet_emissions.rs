@@ -5,7 +5,7 @@ use alloc::{collections::BTreeMap, vec::Vec};
 use approx::assert_abs_diff_eq;
 use sp_core::U256;
 use substrate_fixed::types::{I64F64, I96F32, U64F64, U96F32};
-use subtensor_runtime_common::{NetUid, TaoBalance};
+use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance};
 
 fn u64f64(x: f64) -> U64F64 {
     U64F64::from_num(x)
@@ -151,122 +151,143 @@ fn inplace_pow_normalize_fractional_exponent() {
         })
 }
 
-#[allow(clippy::expect_used)]
+/// Configure a dynamic subnet with a given EMA price and miner-burned proportion so
+/// `get_shares` can be exercised. Also seeds a large root stake with full TAO weight so
+/// that, with zero alpha issuance on the test subnets, `root_proportion` is 1 and the
+/// root-proportion factor in `get_shares` is neutral (isolating the price/burn weighting).
+fn set_price_and_burn(netuid: NetUid, price: f64, burned: f64) {
+    SubnetTAO::<Test>::insert(
+        NetUid::ROOT,
+        TaoBalance::from(1_000_000_000_000_000_000_u64),
+    );
+    SubtensorModule::set_tao_weight(u64::MAX);
+    SubnetMechanism::<Test>::insert(netuid, 1);
+    SubnetMovingPrice::<Test>::insert(netuid, i96f32(price));
+    MinerBurned::<Test>::insert(netuid, U96F32::from_num(burned));
+}
+
+/// With no miner emission burned anywhere, `get_shares` is exactly the price-based
+/// share: e_i = p_i / sum(p_j).
 #[test]
-fn protocol_normalization_keeps_eligible_subnet_count_from_collapsing() {
+fn get_shares_no_burn_matches_price_shares() {
     new_test_ext(1).execute_with(|| {
-        let subnet_count = 70usize;
-        let user_flow = 100u64;
-        let protocol_flow_start = 40u64;
-        let protocol_flow_step = 4u64;
+        let n1 = NetUid::from(1);
+        let n2 = NetUid::from(2);
+        let n3 = NetUid::from(3);
+        set_price_and_burn(n1, 1.0, 0.0);
+        set_price_and_burn(n2, 2.0, 0.0);
+        set_price_and_burn(n3, 3.0, 0.0);
 
-        NetTaoFlowEnabled::<Test>::set(true);
-        FlowNormExponent::<Test>::set(u64f64(1.0));
-        TaoFlowCutoff::<Test>::set(i64f64(0.0));
-        FlowEmaSmoothingFactor::<Test>::set(i64::MAX as u64);
+        let shares = SubtensorModule::get_shares(&[n1, n2, n3]);
+        let s1 = shares.get(&n1).unwrap().to_num::<f64>();
+        let s2 = shares.get(&n2).unwrap().to_num::<f64>();
+        let s3 = shares.get(&n3).unwrap().to_num::<f64>();
 
-        let subnets = (0..subnet_count)
-            .map(|i| {
-                let netuid = NetUid::from((i + 1) as u16);
-                add_network(netuid, 360, 0);
-                SubnetEmissionEnabled::<Test>::insert(netuid, true);
+        assert_abs_diff_eq!(s1, 1.0 / 6.0, epsilon = 1e-9);
+        assert_abs_diff_eq!(s2, 2.0 / 6.0, epsilon = 1e-9);
+        assert_abs_diff_eq!(s3, 3.0 / 6.0, epsilon = 1e-9);
+        assert_abs_diff_eq!(s1 + s2 + s3, 1.0, epsilon = 1e-9);
+    });
+}
 
-                let protocol_flow = protocol_flow_start + protocol_flow_step.saturating_mul(i as u64);
-                SubtensorModule::record_tao_inflow(netuid, TaoBalance::from(user_flow));
-                SubtensorModule::record_protocol_inflow(netuid, TaoBalance::from(protocol_flow));
+/// A partial burn reallocates emission away from the burning subnet and toward the
+/// non-burning one, while shares still sum to 1.
+#[test]
+fn get_shares_partial_burn_reallocates_away_from_burner() {
+    new_test_ext(1).execute_with(|| {
+        let n1 = NetUid::from(1);
+        let n2 = NetUid::from(2);
+        // Equal prices so the price side is neutral; n1 burns 50% of its miner emission.
+        set_price_and_burn(n1, 1.0, 0.5);
+        set_price_and_burn(n2, 1.0, 0.0);
 
-                netuid
-            })
-            .collect::<Vec<_>>();
+        // weighted: n1 = 0.5 * (1 - 0.5) = 0.25, n2 = 0.5 * 1 = 0.5; total = 0.75
+        let shares = SubtensorModule::get_shares(&[n1, n2]);
+        let s1 = shares.get(&n1).unwrap().to_num::<f64>();
+        let s2 = shares.get(&n2).unwrap().to_num::<f64>();
 
-        let subnets_to_emit_to = SubtensorModule::get_subnets_to_emit_to(&subnets);
-        assert_eq!(
-            subnets_to_emit_to.len(),
-            subnets.len(),
-            "test setup should make every subnet structurally eligible before flow scoring"
-        );
-
-        let emissions = SubtensorModule::get_subnet_block_emissions(
-            &subnets_to_emit_to,
-            U96F32::saturating_from_num(1_000_000_000u64),
-        );
-
-        let ema_rows = subnets_to_emit_to
-            .iter()
-            .map(|netuid| {
-                let (_, user_ema) = SubnetEmaTaoFlow::<Test>::get(*netuid)
-                    .expect("user EMA should be initialized by get_subnet_block_emissions");
-                let (_, protocol_ema) = SubnetEmaProtocolFlow::<Test>::get(*netuid)
-                    .expect("protocol EMA should be initialized by get_subnet_block_emissions");
-
-                (*netuid, user_ema.to_num::<f64>(), protocol_ema.to_num::<f64>())
-            })
-            .collect::<Vec<_>>();
-
-        let positive_user_ema_count = ema_rows
-            .iter()
-            .filter(|(_, user_ema, _)| *user_ema > 0.0)
-            .count();
-        let dynamic_eligibility_floor = positive_user_ema_count / 2;
-
-        let sum_positive_user_ema: f64 = ema_rows
-            .iter()
-            .map(|(_, user_ema, _)| (*user_ema).max(0.0))
-            .sum();
-        let sum_positive_protocol_ema: f64 = ema_rows
-            .iter()
-            .map(|(_, _, protocol_ema)| (*protocol_ema).max(0.0))
-            .sum();
-        let protocol_norm_factor = if sum_positive_protocol_ema > 0.0 {
-            (sum_positive_user_ema / sum_positive_protocol_ema).min(1.0)
-        } else {
-            0.0
-        };
-
-        let unnormalized_eligible = ema_rows
-            .iter()
-            .filter(|(_, user_ema, protocol_ema)| *user_ema > *protocol_ema)
-            .count();
-        let expected_normalized_eligible = ema_rows
-            .iter()
-            .filter(|(_, user_ema, protocol_ema)| {
-                let scaled_protocol_ema = if *protocol_ema > 0.0 {
-                    protocol_norm_factor * *protocol_ema
-                } else {
-                    *protocol_ema
-                };
-                *user_ema > scaled_protocol_ema
-            })
-            .count();
-        let actual_eligible = emissions
-            .values()
-            .filter(|emission| emission.to_num::<f64>() > 0.0)
-            .count();
-        let total_emission: f64 = emissions
-            .values()
-            .map(|emission| emission.to_num::<f64>())
-            .sum();
-
-        assert_abs_diff_eq!(total_emission, 1_000_000_000.0_f64, epsilon = 1.0);
+        assert_abs_diff_eq!(s1, 1.0 / 3.0, epsilon = 1e-9);
+        assert_abs_diff_eq!(s2, 2.0 / 3.0, epsilon = 1e-9);
+        assert_abs_diff_eq!(s1 + s2, 1.0, epsilon = 1e-9);
         assert!(
-            unnormalized_eligible < dynamic_eligibility_floor,
-            "test setup should reproduce the old unnormalized collapse: unnormalized_eligible={unnormalized_eligible}, dynamic_eligibility_floor={dynamic_eligibility_floor}"
+            s2 > s1,
+            "non-burning subnet should receive more: s1={s1}, s2={s2}"
         );
+    });
+}
+
+/// A subnet burning 100% of its miner emission receives zero chain emission; the rest
+/// goes entirely to the non-burning subnet.
+#[test]
+fn get_shares_full_burn_gets_zero_emission() {
+    new_test_ext(1).execute_with(|| {
+        let n1 = NetUid::from(1);
+        let n2 = NetUid::from(2);
+        set_price_and_burn(n1, 1.0, 1.0);
+        set_price_and_burn(n2, 1.0, 0.0);
+
+        let shares = SubtensorModule::get_shares(&[n1, n2]);
+        let s1 = shares.get(&n1).unwrap().to_num::<f64>();
+        let s2 = shares.get(&n2).unwrap().to_num::<f64>();
+
+        assert_abs_diff_eq!(s1, 0.0, epsilon = 1e-9);
+        assert_abs_diff_eq!(s2, 1.0, epsilon = 1e-9);
+    });
+}
+
+/// When every subnet burns all of its miner emission, the reweighting would zero the
+/// total, so `get_shares` falls back to unweighted price shares (emission is not
+/// stranded).
+#[test]
+fn get_shares_all_full_burn_falls_back_to_price_shares() {
+    new_test_ext(1).execute_with(|| {
+        let n1 = NetUid::from(1);
+        let n2 = NetUid::from(2);
+        set_price_and_burn(n1, 1.0, 1.0);
+        set_price_and_burn(n2, 3.0, 1.0);
+
+        let shares = SubtensorModule::get_shares(&[n1, n2]);
+        let s1 = shares.get(&n1).unwrap().to_num::<f64>();
+        let s2 = shares.get(&n2).unwrap().to_num::<f64>();
+
+        // Fallback: price-proportional (1:3), not zeroed.
+        assert_abs_diff_eq!(s1, 1.0 / 4.0, epsilon = 1e-9);
+        assert_abs_diff_eq!(s2, 3.0 / 4.0, epsilon = 1e-9);
+        assert_abs_diff_eq!(s1 + s2, 1.0, epsilon = 1e-9);
+    });
+}
+
+/// With equal price and no burn, the root_proportion factor reallocates emission toward
+/// the newer subnet (lower alpha issuance => higher root_proportion) and away from the
+/// older one (higher alpha issuance => lower root_proportion).
+#[test]
+fn get_shares_root_proportion_favors_newer_subnets() {
+    new_test_ext(1).execute_with(|| {
+        let n1 = NetUid::from(1);
+        let n2 = NetUid::from(2);
+        // Equal price, no burn; root proportion factor is the only differentiator.
+        set_price_and_burn(n1, 1.0, 0.0);
+        set_price_and_burn(n2, 1.0, 0.0);
+
+        // tao_weight = 1.0 (u64::MAX), so tao_weight term = root_tao. Set root_tao = 1000
+        // and per-subnet alpha issuance to make root_proportion deterministic:
+        //   n1: issuance 1000 => root_prop = 1000 / (1000 + 1000) = 0.5
+        //   n2: issuance 3000 => root_prop = 1000 / (1000 + 3000) = 0.25
+        SubnetTAO::<Test>::insert(NetUid::ROOT, TaoBalance::from(1_000_u64));
+        SubnetAlphaOut::<Test>::insert(n1, AlphaBalance::from(1_000_u64));
+        SubnetAlphaOut::<Test>::insert(n2, AlphaBalance::from(3_000_u64));
+
+        // weighted: n1 = 0.5(price) * 0.5(root) = 0.25, n2 = 0.5 * 0.25 = 0.125; total 0.375
+        let shares = SubtensorModule::get_shares(&[n1, n2]);
+        let s1 = shares.get(&n1).unwrap().to_num::<f64>();
+        let s2 = shares.get(&n2).unwrap().to_num::<f64>();
+
+        assert_abs_diff_eq!(s1, 2.0 / 3.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(s2, 1.0 / 3.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(s1 + s2, 1.0, epsilon = 1e-9);
         assert!(
-            expected_normalized_eligible >= dynamic_eligibility_floor,
-            "test setup should keep enough subnets eligible after protocol normalization: expected_normalized_eligible={expected_normalized_eligible}, dynamic_eligibility_floor={dynamic_eligibility_floor}"
-        );
-        assert_eq!(
-            actual_eligible, expected_normalized_eligible,
-            "eligible subnet count should be derived from the normalized protocol-cost calculation"
-        );
-        assert!(
-            actual_eligible >= dynamic_eligibility_floor,
-            "eligible subnet count collapsed below the dynamic floor: actual_eligible={actual_eligible}, dynamic_eligibility_floor={dynamic_eligibility_floor}, unnormalized_eligible={unnormalized_eligible}"
-        );
-        assert!(
-            actual_eligible > unnormalized_eligible,
-            "normalization should preserve more eligible subnets than the old unnormalized path: actual_eligible={actual_eligible}, unnormalized_eligible={unnormalized_eligible}"
+            s1 > s2,
+            "newer subnet (higher root_prop) should get more: s1={s1}, s2={s2}"
         );
     });
 }

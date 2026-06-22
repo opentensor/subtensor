@@ -305,5 +305,7 @@ mod errors {
         CannotUseSystemAccount,
         /// Trying to unlock more than locked
         UnlockAmountTooHigh,
+        /// The destination coldkey rejects incoming locked alpha.
+        AccountRejectsLockedAlpha,
     }
 }

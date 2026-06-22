@@ -1139,11 +1139,15 @@ fn test_claim_root_coinbase_distribution() {
         run_to_block(2);
 
         let alpha_issuance = SubtensorModule::get_alpha_issuance(netuid);
-        // We went two blocks so we should have 2x the alpha emissions
-        assert_eq!(
-            initial_alpha_issuance + alpha_emissions.saturating_mul(2.into()),
-            alpha_issuance
-        );
+        // Net issuance grows by the block alpha emission (alpha_out) plus the
+        // root-proportion-capped alpha injection. Chain buys move alpha between the
+        // pool reserve and outstanding supply without changing net issuance, and with
+        // this subnet's small root proportion the injection is well under a second
+        // full emission.
+        let issuance_growth =
+            u64::from(alpha_issuance).saturating_sub(u64::from(initial_alpha_issuance));
+        assert!(issuance_growth >= u64::from(alpha_emissions));
+        assert!(issuance_growth < u64::from(alpha_emissions.saturating_mul(2.into())));
 
         let root_prop = initial_tao as f64 / (u64::from(alpha_issuance) + initial_tao) as f64;
         let root_validators_share = 0.5f64;
