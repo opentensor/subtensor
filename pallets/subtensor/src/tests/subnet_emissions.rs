@@ -151,6 +151,105 @@ fn inplace_pow_normalize_fractional_exponent() {
         })
 }
 
+/// Configure a dynamic subnet with a given EMA price and miner-burned proportion so
+/// `get_shares` (price-based, reweighted by `1 - miner_burned`) can be exercised.
+fn set_price_and_burn(netuid: NetUid, price: f64, burned: f64) {
+    SubnetMechanism::<Test>::insert(netuid, 1);
+    SubnetMovingPrice::<Test>::insert(netuid, i96f32(price));
+    MinerBurned::<Test>::insert(netuid, U96F32::from_num(burned));
+}
+
+/// With no miner emission burned anywhere, `get_shares` is exactly the price-based
+/// share: e_i = p_i / sum(p_j).
+#[test]
+fn get_shares_no_burn_matches_price_shares() {
+    new_test_ext(1).execute_with(|| {
+        let n1 = NetUid::from(1);
+        let n2 = NetUid::from(2);
+        let n3 = NetUid::from(3);
+        set_price_and_burn(n1, 1.0, 0.0);
+        set_price_and_burn(n2, 2.0, 0.0);
+        set_price_and_burn(n3, 3.0, 0.0);
+
+        let shares = SubtensorModule::get_shares(&[n1, n2, n3]);
+        let s1 = shares.get(&n1).unwrap().to_num::<f64>();
+        let s2 = shares.get(&n2).unwrap().to_num::<f64>();
+        let s3 = shares.get(&n3).unwrap().to_num::<f64>();
+
+        assert_abs_diff_eq!(s1, 1.0 / 6.0, epsilon = 1e-9);
+        assert_abs_diff_eq!(s2, 2.0 / 6.0, epsilon = 1e-9);
+        assert_abs_diff_eq!(s3, 3.0 / 6.0, epsilon = 1e-9);
+        assert_abs_diff_eq!(s1 + s2 + s3, 1.0, epsilon = 1e-9);
+    });
+}
+
+/// A partial burn reallocates emission away from the burning subnet and toward the
+/// non-burning one, while shares still sum to 1.
+#[test]
+fn get_shares_partial_burn_reallocates_away_from_burner() {
+    new_test_ext(1).execute_with(|| {
+        let n1 = NetUid::from(1);
+        let n2 = NetUid::from(2);
+        // Equal prices so the price side is neutral; n1 burns 50% of its miner emission.
+        set_price_and_burn(n1, 1.0, 0.5);
+        set_price_and_burn(n2, 1.0, 0.0);
+
+        // weighted: n1 = 0.5 * (1 - 0.5) = 0.25, n2 = 0.5 * 1 = 0.5; total = 0.75
+        let shares = SubtensorModule::get_shares(&[n1, n2]);
+        let s1 = shares.get(&n1).unwrap().to_num::<f64>();
+        let s2 = shares.get(&n2).unwrap().to_num::<f64>();
+
+        assert_abs_diff_eq!(s1, 1.0 / 3.0, epsilon = 1e-9);
+        assert_abs_diff_eq!(s2, 2.0 / 3.0, epsilon = 1e-9);
+        assert_abs_diff_eq!(s1 + s2, 1.0, epsilon = 1e-9);
+        assert!(
+            s2 > s1,
+            "non-burning subnet should receive more: s1={s1}, s2={s2}"
+        );
+    });
+}
+
+/// A subnet burning 100% of its miner emission receives zero chain emission; the rest
+/// goes entirely to the non-burning subnet.
+#[test]
+fn get_shares_full_burn_gets_zero_emission() {
+    new_test_ext(1).execute_with(|| {
+        let n1 = NetUid::from(1);
+        let n2 = NetUid::from(2);
+        set_price_and_burn(n1, 1.0, 1.0);
+        set_price_and_burn(n2, 1.0, 0.0);
+
+        let shares = SubtensorModule::get_shares(&[n1, n2]);
+        let s1 = shares.get(&n1).unwrap().to_num::<f64>();
+        let s2 = shares.get(&n2).unwrap().to_num::<f64>();
+
+        assert_abs_diff_eq!(s1, 0.0, epsilon = 1e-9);
+        assert_abs_diff_eq!(s2, 1.0, epsilon = 1e-9);
+    });
+}
+
+/// When every subnet burns all of its miner emission, the reweighting would zero the
+/// total, so `get_shares` falls back to unweighted price shares (emission is not
+/// stranded).
+#[test]
+fn get_shares_all_full_burn_falls_back_to_price_shares() {
+    new_test_ext(1).execute_with(|| {
+        let n1 = NetUid::from(1);
+        let n2 = NetUid::from(2);
+        set_price_and_burn(n1, 1.0, 1.0);
+        set_price_and_burn(n2, 3.0, 1.0);
+
+        let shares = SubtensorModule::get_shares(&[n1, n2]);
+        let s1 = shares.get(&n1).unwrap().to_num::<f64>();
+        let s2 = shares.get(&n2).unwrap().to_num::<f64>();
+
+        // Fallback: price-proportional (1:3), not zeroed.
+        assert_abs_diff_eq!(s1, 1.0 / 4.0, epsilon = 1e-9);
+        assert_abs_diff_eq!(s2, 3.0 / 4.0, epsilon = 1e-9);
+        assert_abs_diff_eq!(s1 + s2, 1.0, epsilon = 1e-9);
+    });
+}
+
 // /// Normal (moderate, non-zero) EMA flows across 3 subnets.
 // /// Expect: shares sum to ~1 and are monotonic with flows.
 // #[test]
