@@ -322,6 +322,7 @@ impl<T: Config> Pallet<T> {
         PendingServerEmission::<T>::remove(netuid);
         PendingRootAlphaDivs::<T>::remove(netuid);
         PendingOwnerCut::<T>::remove(netuid);
+        MinerBurned::<T>::remove(netuid);
         BlocksSinceLastStep::<T>::remove(netuid);
         LastMechansimStepBlock::<T>::remove(netuid);
         LastAdjustmentBlock::<T>::remove(netuid);
