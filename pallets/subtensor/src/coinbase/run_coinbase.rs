@@ -668,8 +668,12 @@ impl<T: Config> Pallet<T> {
         let subnet_owner_coldkey = SubnetOwner::<T>::get(netuid);
         let owner_hotkeys = Self::get_owner_hotkeys(netuid, &subnet_owner_coldkey);
         log::debug!("incentives: owner hotkeys: {owner_hotkeys:?}");
+        // Track total vs burned miner emission this tempo to record the burned proportion.
+        let mut total_incentive: AlphaBalance = AlphaBalance::ZERO;
+        let mut burned_incentive: AlphaBalance = AlphaBalance::ZERO;
         for (hotkey, incentive) in incentives {
             log::debug!("incentives: hotkey: {incentive:?}");
+            total_incentive = total_incentive.saturating_add(incentive);
 
             // Skip/burn miner-emission for immune keys
             if owner_hotkeys.contains(&hotkey) {
@@ -685,6 +689,7 @@ impl<T: Config> Pallet<T> {
                     Ok(RecycleOrBurnEnum::Burn) | Err(_) => {
                         log::debug!("burning {incentive:?}");
                         Self::burn_subnet_alpha(netuid, incentive);
+                        burned_incentive = burned_incentive.saturating_add(incentive);
                     }
                 }
                 continue;
@@ -714,6 +719,12 @@ impl<T: Config> Pallet<T> {
                 incentive,
             );
         }
+
+        // Record the proportion of this tempo's miner emission that was burned.
+        let burned_proportion: U96F32 = U96F32::saturating_from_num(burned_incentive.to_u64())
+            .checked_div(U96F32::saturating_from_num(total_incentive.to_u64()))
+            .unwrap_or_else(|| U96F32::saturating_from_num(0));
+        MinerBurned::<T>::insert(netuid, burned_proportion);
 
         // Distribute alpha divs.
         let _ = AlphaDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
