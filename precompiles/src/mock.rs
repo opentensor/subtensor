@@ -178,6 +178,14 @@ impl frame_system::Config for Runtime {
     type MaxConsumers = ConstU32<16>;
     type Block = Block;
     type Nonce = u64;
+    type DispatchExtension = (
+        pallet_subtensor::CheckColdkeySwap<Runtime>,
+        pallet_subtensor::CheckWeights<Runtime>,
+        pallet_subtensor::CheckRateLimits<Runtime>,
+        pallet_subtensor::CheckDelegateTake<Runtime>,
+        pallet_subtensor::CheckServingEndpoints<Runtime>,
+        pallet_subtensor::CheckEvmKeyAssociation<Runtime>,
+    );
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
