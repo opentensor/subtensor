@@ -1,24 +1,7 @@
 name: Publish Localnet Docker Image
 
 on:
-  release:
-    types: [published]
-  workflow_dispatch:
-    inputs:
-      branch-or-tag:
-        description: "The branch or tag to use as the Docker image tag (optional)."
-        required: false
-        default: ""
-      pr-number:
-        description: "PR number to build (e.g., 2283). If specified, creates tag pr-{number} and does not update latest."
-        required: false
-        default: ""
-  push:
-    branches:
-      - devnet-ready
-      - main
-      - testnet
-      - devnet
+  workflow_dispatch: {}
 
 concurrency:
   group: docker-localnet-${{ github.ref }}

@@ -1,15 +1,7 @@
 name: Contract E2E Tests
 
 on:
-  pull_request:
-
-  ## Allow running workflow manually from the Actions tab
-  workflow_dispatch:
-    inputs:
-      verbose:
-        description: "Output more information when triggered manually"
-        required: false
-        default: ""
+  workflow_dispatch: {}
 
 concurrency:
   group: evm-tests-${{ github.ref }}

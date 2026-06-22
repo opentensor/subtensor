@@ -1,20 +1,8 @@
 name: Publish Docker Image
 
 on:
-  release:
-    types: [published]
-  workflow_dispatch:
-    inputs:
-      branch-or-tag:
-        description: "Branch or tag to use for the Docker image tag and ref to checkout (optional)"
-        required: false
-        default: ""
-  push:
-    branches:
-      - devnet-ready
-      - devnet
-      - testnet
-      
+  workflow_dispatch: {}
+
 concurrency:
   group: docker-${{ github.ref }}
   cancel-in-progress: true

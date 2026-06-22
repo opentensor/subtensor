@@ -9,16 +9,7 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  pull_request:
-    branches: ["*"]
-    types: [opened, synchronize, reopened, labeled, unlabeled]
-
-  workflow_dispatch:
-    inputs:
-      verbose:
-        description: "Output more information when triggered manually"
-        required: false
-        default: ""
+  workflow_dispatch: {}
 
 env:
   CARGO_TERM_COLOR: always

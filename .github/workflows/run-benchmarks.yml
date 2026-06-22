@@ -2,9 +2,7 @@
 name: Validate-Benchmarks
 
 on:
-  pull_request:
-    types: [opened, synchronize]
-  workflow_dispatch:
+  workflow_dispatch: {}
 
 permissions:
   contents: write

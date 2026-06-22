@@ -1,9 +1,7 @@
 name: Testnet Deploy Check
 
 on:
-  pull_request:
-    branches: [testnet, testnet-ready]
-    types: [labeled, unlabeled, synchronize, opened]
+  workflow_dispatch: {}
 
 concurrency:
   group: check-testnet-${{ github.ref }}

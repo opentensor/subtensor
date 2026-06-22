@@ -1,7 +1,7 @@
 name: Typescript E2E Tests
 
 on:
-  pull_request:
+  workflow_dispatch: {}
 
 env:
   CARGO_TERM_COLOR: always

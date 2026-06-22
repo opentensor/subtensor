@@ -1,10 +1,7 @@
 name: on eco-tests change notification
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - 'eco-tests/**'
+  workflow_dispatch: {}
 
 permissions:
   contents: read

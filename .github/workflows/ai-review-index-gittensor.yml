@@ -1,9 +1,7 @@
 name: ai-review-index-gittensor
 
 on:
-  schedule:
-    - cron: '17 6 * * *'   # daily at 06:17 UTC
-  workflow_dispatch:
+  workflow_dispatch: {}
 
 # Default: no write access. Each job opts in to what it needs.
 permissions:

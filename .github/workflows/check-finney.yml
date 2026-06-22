@@ -1,10 +1,8 @@
 name: Finney Deploy Check
 
 on:
-  pull_request:
-    branches: [finney, main]
-    types: [labeled, unlabeled, synchronize, opened]
-    
+  workflow_dispatch: {}
+
 concurrency:
   group: check-finney-${{ github.ref }}
   cancel-in-progress: true

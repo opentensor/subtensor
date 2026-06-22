@@ -1,0 +1,102 @@
+name: dev-e2e-debug
+
+on:
+  push:
+    branches: [chore/dev-tests-timeout]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: read
+
+jobs:
+  dev-debug:
+    runs-on: [self-hosted, fireactions-heavy]
+    timeout-minutes: 30
+    env:
+      # "true"  -> apply the candidate fix (install lsof) and expect GREEN.
+      # "false" -> reproduce the FAILURE (no lsof) to confirm the cause.
+      INSTALL_LSOF: "true"
+
+    steps:
+      - name: Check-out repository
+        uses: actions/checkout@v4
+
+      - name: Stage prebuilt binary (no build)
+        run: |
+          mkdir -p target/release
+          cp ci-debug/node-subtensor target/release/node-subtensor
+          chmod +x target/release/node-subtensor
+          echo "== binary format (must be ELF x86-64) =="
+          file target/release/node-subtensor
+          ./target/release/node-subtensor --version || true
+
+      - name: "🔎 Diagnose runner: lsof vs ss, live-node port visibility"
+        run: |
+          set +e
+          echo "===== TOOLING ====="
+          for t in lsof ss ps pgrep curl; do printf '%-8s ' "$t:"; command -v "$t" || echo MISSING; done
+          echo "lsof version:"; lsof -v 2>&1 | head -3
+          echo "===== OS ====="; uname -a; head -2 /etc/os-release 2>/dev/null
+          echo "===== launch node on :9944, then compare ss (kernel) vs lsof (what moonwall uses) ====="
+          ./target/release/node-subtensor --one --dev --force-authoring --rpc-cors=all \
+            --no-prometheus --no-telemetry --reserved-only --tmp --sealing=manual \
+            --rpc-port 9944 >/tmp/n.log 2>&1 &
+          NODE_PID=$!
+          echo "node pid=$NODE_PID"
+          sleep 12
+          echo "--- ss -ltnp | grep 9944  (kernel-level: are the LISTEN sockets there?) ---"
+          ss -ltnp 2>/dev/null | grep -E ':9944' || echo "(ss: nothing on 9944)"
+          echo "--- lsof -p $NODE_PID -n -P | grep LISTEN   <-- EXACTLY moonwall's discovery cmd ---"
+          lsof -p "$NODE_PID" -n -P 2>/tmp/lsof.err | grep LISTEN
+          rc=$?
+          if [ "$rc" -ne 0 ]; then
+            echo ">>> lsof produced NO LISTEN lines (rc=$rc) — THIS is why moonwall times out"
+            echo "lsof stderr:"; cat /tmp/lsof.err
+          else
+            echo ">>> lsof CAN see the node ports (so cause is NOT a missing/blind lsof)"
+          fi
+          echo "--- node log tail ---"; tail -5 /tmp/n.log
+          kill "$NODE_PID" 2>/dev/null
+          true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ts-tests/.nvmrc
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install e2e dependencies
+        working-directory: ts-tests
+        run: pnpm install --frozen-lockfile
+
+      - name: "🛠 Install lsof + procps (candidate fix)"
+        if: env.INSTALL_LSOF == 'true'
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends lsof procps
+          echo -n "lsof now: "; command -v lsof && lsof -v 2>&1 | head -1
+
+      - name: "▶️ Run ONLY the dev moonwall suite (verbose)"
+        env:
+          # pino level for @moonwall/util -> surfaces launchNodeEffect "[T+..ms] Discovering RPC port" lines
+          LOG_LEVEL: debug
+          DEBUG: "*"
+        run: |
+          cd ts-tests
+          pnpm moonwall test dev
+
+      - name: "⬆️ Upload node logs"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: node-logs-dev-debug
+          path: |
+            ts-tests/tmp/node_logs/
+          if-no-files-found: warn

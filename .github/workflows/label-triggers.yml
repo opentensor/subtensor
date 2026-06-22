@@ -1,11 +1,6 @@
 name: Label Triggers
 on:
-  pull_request:
-    types:
-      - labeled
-      - unlabeled
-      - synchronize
-      - opened
+  workflow_dispatch: {}
 
 permissions:
   issues: write

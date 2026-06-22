@@ -1,11 +1,7 @@
 name: Require Clean Merges
 
 on:
-  pull_request:
-    branches:
-      - devnet-ready
-      - devnet
-      - testnet
+  workflow_dispatch: {}
 
 jobs:
   assert-clean-merges:

@@ -1,10 +1,7 @@
 name: Publish rustdocs
 
 on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
+  workflow_dispatch: {}
 
 concurrency:
   group: rustdocs-${{ github.ref }}

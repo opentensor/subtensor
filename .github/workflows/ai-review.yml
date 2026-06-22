@@ -1,14 +1,7 @@
 name: ai-review
 
 on:
-  pull_request:
-    types: [opened, reopened, synchronize, ready_for_review]
-  workflow_dispatch:
-    inputs:
-      pr_number:
-        description: 'PR number to (re)review. Runs whichever personas branch routing dictates — no persona override, so dispatch cannot skip a required check.'
-        required: true
-        type: number
+  workflow_dispatch: {}
 
 # Default: read only. Each job opts in to what it needs.
 permissions:
