@@ -2437,7 +2437,7 @@ mod pallet_benchmarks {
     #[benchmark]
     fn check_serving_endpoints_extension() {
         let hotkey: T::AccountId = account("hotkey", 0, 1);
-        let netuid = NetUid::from(GLOBAL_MAX_SUBNET_COUNT.saturating_sub(1));
+        let netuid = NetUid::from(1);
         let call = Call::<T>::serve_axon {
             netuid,
             version: 1,
@@ -2449,10 +2449,7 @@ mod pallet_benchmarks {
             placeholder2: 0,
         };
 
-        for index in 0..GLOBAL_MAX_SUBNET_COUNT.saturating_sub(1) {
-            IsNetworkMember::<T>::insert(&hotkey, NetUid::from(index), false);
-        }
-        IsNetworkMember::<T>::insert(&hotkey, netuid, true);
+        Uids::<T>::insert(netuid, &hotkey, 0);
 
         #[block]
         {
