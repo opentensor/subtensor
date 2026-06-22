@@ -1,4 +1,4 @@
-use crate::{Call, Config, Error, Pallet};
+use crate::{Call, Config, Error, Pallet, WeightCommits};
 use frame_support::{
     dispatch::{DispatchErrorWithPostInfo, DispatchExtension, DispatchInfo, PostDispatchInfo},
     pallet_prelude::*,
@@ -6,11 +6,12 @@ use frame_support::{
 };
 use sp_core::H256;
 use sp_runtime::traits::Dispatchable;
-use sp_std::{marker::PhantomData, vec::Vec};
+use sp_std::{collections::vec_deque::VecDeque, marker::PhantomData, vec::Vec};
 use subtensor_runtime_common::{NetUid, NetUidStorageIndex};
 
 type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 type DispatchableOriginOf<T> = <CallOf<T> as Dispatchable>::RuntimeOrigin;
+type WeightCommitQueue = VecDeque<(H256, u64, u64, u64)>;
 const MAX_UNREVEALED_COMMITS: u64 = 10;
 
 /// Dispatch extension for weight-setting preconditions.
@@ -27,31 +28,34 @@ impl<T: Config> CheckWeights<T> {
     }
 
     fn check_input_lengths(call: &Call<T>) -> Result<(), Error<T>> {
-        match call {
+        let lengths_match = match call {
             Call::batch_commit_weights {
                 netuids,
                 commit_hashes,
-            } if netuids.len() != commit_hashes.len() => Err(Error::<T>::InputLengthsUnequal),
+            } => netuids.len() == commit_hashes.len(),
             Call::batch_reveal_weights {
                 uids_list,
                 values_list,
                 salts_list,
                 version_keys,
                 ..
-            } if uids_list.len() != values_list.len()
-                || uids_list.len() != salts_list.len()
-                || uids_list.len() != version_keys.len() =>
-            {
-                Err(Error::<T>::InputLengthsUnequal)
+            } => {
+                uids_list.len() == values_list.len()
+                    && uids_list.len() == salts_list.len()
+                    && uids_list.len() == version_keys.len()
             }
             Call::batch_set_weights {
                 netuids,
                 weights,
                 version_keys,
-            } if netuids.len() != weights.len() || netuids.len() != version_keys.len() => {
-                Err(Error::<T>::InputLengthsUnequal)
-            }
-            _ => Ok(()),
+            } => netuids.len() == weights.len() && netuids.len() == version_keys.len(),
+            _ => true,
+        };
+
+        if lengths_match {
+            Ok(())
+        } else {
+            Err(Error::<T>::InputLengthsUnequal)
         }
     }
 
@@ -88,31 +92,12 @@ impl<T: Config> CheckWeights<T> {
         }
     }
 
-    fn commit_hash(
-        who: &T::AccountId,
-        netuid_index: NetUidStorageIndex,
-        uids: &[u16],
-        values: &[u16],
-        salt: &[u16],
-        version_key: u64,
-    ) -> H256 {
-        Pallet::<T>::get_commit_hash(who, netuid_index, uids, values, salt, version_key)
-    }
-
-    fn commit_epoch(hash: H256) -> Result<u64, Error<T>> {
-        Pallet::<T>::find_commit_epoch_via_hash(hash).ok_or(Error::<T>::NoWeightsCommitFound)
-    }
-
-    fn check_reveal_epoch_range(netuid: NetUid, commit_epoch: u64) -> Result<(), Error<T>> {
-        if Pallet::<T>::is_reveal_block_range(netuid, commit_epoch) {
-            Ok(())
-        } else {
-            Err(Error::<T>::RevealTooEarly)
-        }
-    }
-
-    fn check_reveal_hash(netuid: NetUid, hash: H256) -> Result<(), Error<T>> {
-        Self::check_reveal_epoch_range(netuid, Self::commit_epoch(hash)?)
+    fn find_commit_epoch(commits: &WeightCommitQueue, hash: H256) -> Option<u64> {
+        commits
+            .iter()
+            .find_map(|(commit_hash, commit_epoch, _, _)| {
+                (*commit_hash == hash).then_some(*commit_epoch)
+            })
     }
 
     fn check_reveal(
@@ -124,10 +109,17 @@ impl<T: Config> CheckWeights<T> {
         salt: &[u16],
         version_key: u64,
     ) -> Result<(), Error<T>> {
-        Self::check_reveal_hash(
-            netuid,
-            Self::commit_hash(who, netuid_index, uids, values, salt, version_key),
-        )
+        let commits =
+            WeightCommits::<T>::get(netuid_index, who).ok_or(Error::<T>::NoWeightsCommitFound)?;
+        let hash = Pallet::<T>::get_commit_hash(who, netuid_index, uids, values, salt, version_key);
+        let commit_epoch =
+            Self::find_commit_epoch(&commits, hash).ok_or(Error::<T>::NoWeightsCommitFound)?;
+
+        if Pallet::<T>::is_reveal_block_range(netuid, commit_epoch) {
+            Ok(())
+        } else {
+            Err(Error::<T>::RevealTooEarly)
+        }
     }
 
     fn check_batch_reveal(
@@ -146,28 +138,26 @@ impl<T: Config> CheckWeights<T> {
         }
 
         let netuid_index = NetUidStorageIndex::from(netuid);
-        let commit_epochs = uids_list
+        let commits =
+            WeightCommits::<T>::get(netuid_index, who).ok_or(Error::<T>::NoWeightsCommitFound)?;
+
+        for (((uids, values), salt), version_key) in uids_list
             .iter()
             .zip(values_list)
             .zip(salts_list)
             .zip(version_keys)
-            .map(|(((uids, values), salt), version_key)| {
-                Self::commit_epoch(Self::commit_hash(
-                    who,
-                    netuid_index,
-                    uids,
-                    values,
-                    salt,
-                    *version_key,
-                ))
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+        {
+            let hash =
+                Pallet::<T>::get_commit_hash(who, netuid_index, uids, values, salt, *version_key);
+            let commit_epoch =
+                Self::find_commit_epoch(&commits, hash).ok_or(Error::<T>::NoWeightsCommitFound)?;
 
-        if Pallet::<T>::is_batch_reveal_epoch_range(netuid, commit_epochs) {
-            Ok(())
-        } else {
-            Err(Error::<T>::RevealTooEarly)
+            if !Pallet::<T>::is_reveal_block_range(netuid, commit_epoch) {
+                return Err(Error::<T>::RevealTooEarly);
+            }
         }
+
+        Ok(())
     }
 
     fn check_commit_reveal(who: &T::AccountId, call: &Call<T>) -> Result<(), Error<T>> {
