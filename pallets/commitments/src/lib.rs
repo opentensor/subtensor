@@ -604,11 +604,15 @@ impl<T: Config> Pallet<T> {
             return false;
         }
 
-        // Ignore the weight for a single value update
-        TimelockedIndex::<T>::mutate(|index| {
-            index.retain(|(n, _)| *n != netuid);
-        });
-        true
+        if weight_meter.can_consume(write_weight) {
+            TimelockedIndex::<T>::mutate(|index| {
+                index.retain(|(n, _)| *n != netuid);
+            });
+            weight_meter.consume(write_weight);
+            true
+        } else {
+            false
+        }
     }
 }
 
