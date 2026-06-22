@@ -30,7 +30,7 @@ jobs:
           cp ci-debug/node-subtensor target/release/node-subtensor
           chmod +x target/release/node-subtensor
           echo "== binary format (must be ELF x86-64) =="
-          file target/release/node-subtensor
+          file target/release/node-subtensor || echo "(file not installed on this runner — minimal image)"
           ./target/release/node-subtensor --version || true
 
       - name: "🔎 Diagnose runner: lsof vs ss, live-node port visibility"
