@@ -7,25 +7,6 @@
 				"type": "uint16"
 			}
 		],
-		"name": "getActivityCutoff",
-		"outputs": [
-			{
-				"internalType": "uint16",
-				"name": "",
-				"type": "uint16"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint16",
-				"name": "netuid",
-				"type": "uint16"
-			}
-		],
 		"name": "getActivityCutoffFactor",
 		"outputs": [
 			{
@@ -589,24 +570,6 @@
 			}
 		],
 		"name": "registerNetwork",
-		"outputs": [],
-		"stateMutability": "payable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint16",
-				"name": "netuid",
-				"type": "uint16"
-			},
-			{
-				"internalType": "uint16",
-				"name": "activityCutoff",
-				"type": "uint16"
-			}
-		],
-		"name": "setActivityCutoff",
 		"outputs": [],
 		"stateMutability": "payable",
 		"type": "function"

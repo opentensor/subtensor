@@ -463,33 +463,6 @@ where
         )
     }
 
-    #[precompile::public("getActivityCutoff(uint16)")]
-    #[precompile::view]
-    fn get_activity_cutoff(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u16> {
-        handle.record_db_reads::<R>(1)?;
-        Ok(pallet_subtensor::ActivityCutoff::<R>::get(NetUid::from(
-            netuid,
-        )))
-    }
-
-    #[precompile::public("setActivityCutoff(uint16,uint16)")]
-    #[precompile::payable]
-    fn set_activity_cutoff(
-        handle: &mut impl PrecompileHandle,
-        netuid: u16,
-        activity_cutoff: u16,
-    ) -> EvmResult<()> {
-        let call = pallet_admin_utils::Call::<R>::sudo_set_activity_cutoff {
-            netuid: netuid.into(),
-            activity_cutoff,
-        };
-
-        handle.try_dispatch_runtime_call::<R, _>(
-            call,
-            RawOrigin::Signed(handle.caller_account_id::<R>()),
-        )
-    }
-
     #[precompile::public("getActivityCutoffFactor(uint16)")]
     #[precompile::view]
     fn get_activity_cutoff_factor(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u32> {
@@ -1154,32 +1127,6 @@ mod tests {
                 precompile_addr,
                 encode_with_selector(selector_u32("getRho(uint16)"), (TEST_NETUID_U16,)),
                 U256::from(110_u64),
-            );
-
-            let activity_cutoff = pallet_subtensor::MinActivityCutoff::<Runtime>::get() + 1;
-            precompiles
-                .prepare_test(
-                    caller,
-                    precompile_addr,
-                    encode_with_selector(
-                        selector_u32("setActivityCutoff(uint16,uint16)"),
-                        (TEST_NETUID_U16, activity_cutoff),
-                    ),
-                )
-                .execute_returns(());
-            assert_eq!(
-                pallet_subtensor::ActivityCutoff::<Runtime>::get(netuid),
-                activity_cutoff
-            );
-            assert_static_call(
-                &precompiles,
-                caller,
-                precompile_addr,
-                encode_with_selector(
-                    selector_u32("getActivityCutoff(uint16)"),
-                    (TEST_NETUID_U16,),
-                ),
-                U256::from(activity_cutoff),
             );
 
             let factor_milli: u32 = 1_500;

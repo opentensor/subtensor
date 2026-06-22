@@ -60,7 +60,10 @@ fn setup_epoch(neurons: Vec<Neuron>, mechanism_count: u8) {
     NetworksAdded::<Test>::insert(netuid, true);
     let network_n = neurons.len() as u16;
     SubnetworkN::<Test>::insert(netuid, network_n);
-    ActivityCutoff::<Test>::insert(netuid, ACTIVITY_CUTOFF);
+    ActivityCutoffFactorMilli::<Test>::insert(
+        netuid,
+        (ACTIVITY_CUTOFF as u32).saturating_mul(1_000) / TEMPO as u32,
+    );
     Tempo::<Test>::insert(netuid, TEMPO);
     SubtensorModule::set_weights_set_rate_limit(netuid, 0);
     MechanismCountCurrent::<Test>::insert(netuid, MechId::from(mechanism_count));

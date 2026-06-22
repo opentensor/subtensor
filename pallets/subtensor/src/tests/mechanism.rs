@@ -454,7 +454,7 @@ pub fn mock_epoch_state(netuid: NetUid, ck0: U256, hk0: U256, ck1: U256, hk1: U2
 
     // Make both ACTIVE: recent updates & old registrations.
     Tempo::<Test>::insert(netuid, 1u16);
-    ActivityCutoff::<Test>::insert(netuid, u16::MAX); // large cutoff keeps them active
+    ActivityCutoffFactorMilli::<Test>::insert(netuid, u32::MAX); // large cutoff keeps them active
     LastUpdate::<Test>::insert(idx0, vec![2, 2]);
     LastUpdate::<Test>::insert(idx1, vec![2, 2]);
     BlockAtRegistration::<Test>::insert(netuid, 0, 1u64); // registered long ago
@@ -1512,7 +1512,7 @@ fn epoch_mechanism_emergency_mode_distributes_by_stake() {
 
         // active + recent updates so they're all active
         let now = SubtensorModule::get_current_block_as_u64();
-        ActivityCutoff::<Test>::insert(netuid, 1_000u16);
+        ActivityCutoffFactorMilli::<Test>::insert(netuid, u32::MAX);
         LastUpdate::<Test>::insert(idx, vec![now, now, now, now]);
 
         // All staking validators permitted => active_stake = stake

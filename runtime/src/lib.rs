@@ -727,7 +727,7 @@ subtensor_macros::define_proxy_filters! {
         AdminUtils::sudo_set_min_allowed_weights,
         AdminUtils::sudo_set_kappa,
         AdminUtils::sudo_set_rho,
-        AdminUtils::sudo_set_activity_cutoff,
+        SubtensorModule::set_activity_cutoff_factor,
         AdminUtils::sudo_set_network_registration_allowed,
         AdminUtils::sudo_set_network_pow_registration_allowed,
         AdminUtils::sudo_set_max_burn,
@@ -975,7 +975,6 @@ parameter_types! {
     pub const SubtensorInitialAdjustmentAlpha: u64 = 0; // no weight to previous value.
     pub const SubtensorInitialTargetRegistrationsPerInterval: u16 = 2;
     pub const SubtensorInitialImmunityPeriod: u16 = 4096;
-    pub const SubtensorInitialActivityCutoff: u16 = 5000;
     pub const SubtensorInitialMaxRegistrationsPerBlock: u16 = 1;
     pub const SubtensorInitialPruningScore : u16 = u16::MAX;
     pub const SubtensorInitialBondsMovingAverage: u64 = 900_000;
@@ -1059,7 +1058,6 @@ impl pallet_subtensor::Config for Runtime {
     type InitialAdjustmentAlpha = SubtensorInitialAdjustmentAlpha;
     type InitialTargetRegistrationsPerInterval = SubtensorInitialTargetRegistrationsPerInterval;
     type InitialImmunityPeriod = SubtensorInitialImmunityPeriod;
-    type InitialActivityCutoff = SubtensorInitialActivityCutoff;
     type InitialMaxRegistrationsPerBlock = SubtensorInitialMaxRegistrationsPerBlock;
     type InitialPruningScore = SubtensorInitialPruningScore;
     type InitialMaxAllowedValidators = SubtensorInitialMaxAllowedValidators;

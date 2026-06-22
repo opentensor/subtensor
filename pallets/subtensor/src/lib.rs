@@ -799,12 +799,6 @@ pub mod pallet {
         T::InitialImmunityPeriod::get()
     }
 
-    /// Default activity cutoff.
-    #[pallet::type_value]
-    pub fn DefaultActivityCutoff<T: Config>() -> u16 {
-        T::InitialActivityCutoff::get()
-    }
-
     /// Default weights version key.
     #[pallet::type_value]
     pub fn DefaultWeightsVersionKey<T: Config>() -> u64 {
@@ -1057,12 +1051,6 @@ pub mod pallet {
         U64F64::saturating_from_num(0)
     }
 
-    /// Default value for minimum activity cutoff
-    #[pallet::type_value]
-    pub fn DefaultMinActivityCutoff<T: Config>() -> u16 {
-        360
-    }
-
     /// Default value for setting subnet owner hotkey rate limit
     #[pallet::type_value]
     pub fn DefaultSetSNOwnerHotkeyRateLimit<T: Config>() -> u64 {
@@ -1110,10 +1098,6 @@ pub mod pallet {
     pub fn DefaultAutoParentDelegationEnabled<T: Config>() -> bool {
         true
     }
-
-    #[pallet::storage]
-    pub type MinActivityCutoff<T: Config> =
-        StorageValue<_, u16, ValueQuery, DefaultMinActivityCutoff<T>>;
 
     /// Global window (in blocks) at the end of each tempo where admin ops are disallowed
     #[pallet::storage]
@@ -2001,11 +1985,6 @@ pub mod pallet {
     pub type ImmunityPeriod<T> =
         StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultImmunityPeriod<T>>;
 
-    /// --- MAP ( netuid ) --> activity_cutoff
-    // #[deprecated(note = "Replaced by `ActivityCutoffFactorMilli` (per-mille of `Tempo`).")]
-    #[pallet::storage]
-    pub type ActivityCutoff<T> =
-        StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultActivityCutoff<T>>;
     #[pallet::type_value]
     /// Default maximum weights limit.
     pub fn DefaultMaxWeightsLimit<T: Config>() -> u16 {

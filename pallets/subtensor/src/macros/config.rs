@@ -171,9 +171,6 @@ mod config {
         /// Immunity Period Constant.
         #[pallet::constant]
         type InitialImmunityPeriod: Get<u16>;
-        /// Activity constant.
-        #[pallet::constant]
-        type InitialActivityCutoff: Get<u16>;
         /// Initial max registrations per block.
         #[pallet::constant]
         type InitialMaxRegistrationsPerBlock: Get<u16>;

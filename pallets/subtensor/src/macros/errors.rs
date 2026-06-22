@@ -193,8 +193,6 @@ mod errors {
         SlippageTooHigh,
         /// Subnet disallows transfer.
         TransferDisallowed,
-        /// Activity cutoff is being set too low.
-        ActivityCutoffTooLow,
         /// Call is disabled
         CallDisabled,
         /// FirstEmissionBlockNumber is already set.

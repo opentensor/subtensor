@@ -3175,7 +3175,7 @@ fn test_mining_emission_distribution_with_no_root_sell() {
         BlockAtRegistration::<Test>::set(netuid, 2, 1);
         LastUpdate::<Test>::set(NetUidStorageIndex::from(netuid), vec![2, 2, 2]);
         Kappa::<Test>::set(netuid, u16::MAX / 5);
-        ActivityCutoff::<Test>::set(netuid, u16::MAX); // makes all stake active
+        ActivityCutoffFactorMilli::<Test>::set(netuid, u32::MAX); // makes all stake active
         ValidatorPermit::<Test>::insert(netuid, vec![true, true, false]);
 
         // Run run_coinbase until emissions are drained
@@ -3372,7 +3372,7 @@ fn test_mining_emission_distribution_with_root_sell() {
         BlockAtRegistration::<Test>::set(netuid, 2, 1);
         LastUpdate::<Test>::set(NetUidStorageIndex::from(netuid), vec![2, 2, 2]);
         Kappa::<Test>::set(netuid, u16::MAX / 5);
-        ActivityCutoff::<Test>::set(netuid, u16::MAX); // makes all stake active
+        ActivityCutoffFactorMilli::<Test>::set(netuid, u32::MAX); // makes all stake active
         ValidatorPermit::<Test>::insert(netuid, vec![true, true, false]);
 
         // Run run_coinbase until emissions are drained
@@ -4036,7 +4036,7 @@ fn test_disabling_owner_cut_sends_subnet_emission_to_miners_and_validators() {
         BlockAtRegistration::<Test>::set(netuid, miner_uid, 1);
         LastUpdate::<Test>::set(NetUidStorageIndex::from(netuid), vec![2; uid_count]);
         Kappa::<Test>::set(netuid, u16::MAX / 5);
-        ActivityCutoff::<Test>::set(netuid, u16::MAX);
+        ActivityCutoffFactorMilli::<Test>::set(netuid, u32::MAX);
         let mut validator_permit = vec![false; uid_count];
         validator_permit[validator_uid as usize] = true;
         ValidatorPermit::<Test>::insert(netuid, validator_permit);

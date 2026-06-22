@@ -221,22 +221,22 @@ export async function setSubnetOwnerCut(api: TypedApi<typeof devnet>, subnetOwne
     assert.equal(subnetOwnerCut, await api.query.SubtensorModule.SubnetOwnerCut.getValue())
 }
 
-export async function setActivityCutoff(api: TypedApi<typeof devnet>, netuid: number, activityCutoff: number) {
-    const value = await api.query.SubtensorModule.ActivityCutoff.getValue(netuid)
-    if (value === activityCutoff) {
+export async function setActivityCutoffFactor(api: TypedApi<typeof devnet>, netuid: number, factorMilli: number) {
+    const value = await api.query.SubtensorModule.ActivityCutoffFactorMilli.getValue(netuid)
+    if (value === factorMilli) {
         return;
     }
 
     const alice = getAliceSigner()
 
-    const internalCall = api.tx.AdminUtils.sudo_set_activity_cutoff({
+    const internalCall = api.tx.SubtensorModule.set_activity_cutoff_factor({
         netuid: netuid,
-        activity_cutoff: activityCutoff
+        factor_milli: factorMilli
     })
     const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
 
     await waitForTransactionWithRetry(api, tx, alice)
-    assert.equal(activityCutoff, await api.query.SubtensorModule.ActivityCutoff.getValue(netuid))
+    assert.equal(factorMilli, await api.query.SubtensorModule.ActivityCutoffFactorMilli.getValue(netuid))
 }
 
 export async function setMinDelegateTake(api: TypedApi<typeof devnet>, minDelegateTake: number) {

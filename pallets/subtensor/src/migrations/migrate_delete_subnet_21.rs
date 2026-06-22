@@ -96,7 +96,6 @@ pub fn migrate_delete_subnet_21<T: Config>() -> Weight {
         Difficulty::<T>::remove(netuid);
         MaxAllowedUids::<T>::remove(netuid);
         ImmunityPeriod::<T>::remove(netuid);
-        ActivityCutoff::<T>::remove(netuid);
         MinAllowedWeights::<T>::remove(netuid);
         RegistrationsThisInterval::<T>::remove(netuid);
         POWRegistrationsThisInterval::<T>::remove(netuid);

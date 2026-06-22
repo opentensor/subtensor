@@ -172,6 +172,8 @@ mod hooks {
                 .saturating_add(migrations::migrate_reset_tnet_conviction_locks::migrate_reset_tnet_conviction_locks::<T>())
                 // Seed LastEpochBlock for dynamic-tempo / owner-triggered-epochs feature
                 .saturating_add(migrations::migrate_dynamic_tempo::migrate_dynamic_tempo::<T>())
+                // Remove the legacy ActivityCutoff / MinActivityCutoff storage now converted to ActivityCutoffFactorMilli
+                .saturating_add(migrations::migrate_remove_activity_cutoff::migrate_remove_activity_cutoff::<T>())
                 // Populate locking reverse map.
                 .saturating_add(migrations::migrate_populate_locking_coldkeys::migrate_populate_locking_coldkeys::<T>())
                 // Capture the runtime-upgrade block for TAO-in refund cutover.

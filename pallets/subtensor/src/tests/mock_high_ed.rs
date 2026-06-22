@@ -183,7 +183,6 @@ parameter_types! {
     pub const InitialMaxAllowedValidators: u16 = 100;
     pub const InitialIssuance: u64 = 0;
     pub const InitialDifficulty: u64 = 10000;
-    pub const InitialActivityCutoff: u16 = 5000;
     pub const InitialAdjustmentInterval: u16 = 100;
     pub const InitialAdjustmentAlpha: u64 = 0; // no weight to previous value.
     pub const InitialMaxRegistrationsPerBlock: u16 = 3;
@@ -241,7 +240,6 @@ impl crate::Config for Test {
     type InitialValidatorPruneLen = InitialValidatorPruneLen;
     type InitialScalingLawPower = InitialScalingLawPower;
     type InitialImmunityPeriod = InitialImmunityPeriod;
-    type InitialActivityCutoff = InitialActivityCutoff;
     type InitialMaxRegistrationsPerBlock = InitialMaxRegistrationsPerBlock;
     type InitialPruningScore = InitialPruningScore;
     type InitialBondsMovingAverage = InitialBondsMovingAverage;

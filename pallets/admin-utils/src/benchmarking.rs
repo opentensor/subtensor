@@ -205,19 +205,6 @@ mod benchmarks {
     }
 
     #[benchmark]
-    fn sudo_set_activity_cutoff() {
-        // disable admin freeze window
-        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
-        pallet_subtensor::Pallet::<T>::init_new_network(
-            1u16.into(), /*netuid*/
-            1u16,        /*tempo*/
-        );
-
-        #[extrinsic_call]
-		_(RawOrigin::Root, 1u16.into()/*netuid*/, 361u16/*activity_cutoff*/)/*sudo_set_activity_cutoff*/;
-    }
-
-    #[benchmark]
     fn sudo_set_rho() {
         // disable admin freeze window
         pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);

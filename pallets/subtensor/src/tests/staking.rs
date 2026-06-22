@@ -2466,7 +2466,7 @@ fn test_mining_emission_distribution_validator_valiminer_miner() {
         BlockAtRegistration::<Test>::set(netuid, 2, 1);
         LastUpdate::<Test>::set(NetUidStorageIndex::from(netuid), vec![2, 2, 2]);
         Kappa::<Test>::set(netuid, u16::MAX / 5);
-        ActivityCutoff::<Test>::set(netuid, u16::MAX); // makes all stake active
+        ActivityCutoffFactorMilli::<Test>::set(netuid, u32::MAX); // makes all stake active
         ValidatorPermit::<Test>::insert(netuid, vec![true, true, false]);
 
         // Run run_coinbase until emissions are drained

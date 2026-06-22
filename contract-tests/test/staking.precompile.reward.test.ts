@@ -7,7 +7,7 @@ import { tao } from "../src/balance-math"
 import {
     forceSetBalanceToSs58Address, addNewSubnetwork, burnedRegister,
     setTxRateLimit, setTempo, setWeightsSetRateLimit, setSubnetOwnerCut,
-    setMinDelegateTake, setActivityCutoff, addStake, setWeight, rootRegister,
+    setMinDelegateTake, setActivityCutoffFactor, addStake, setWeight, rootRegister,
     startCall,
     disableAdminFreezeWindowAndOwnerHyperparamRateLimit,
     getStake
@@ -52,7 +52,8 @@ describe("Test neuron precompile reward", () => {
         await burnedRegister(api, netuid, convertPublicKeyToSs58(miner.publicKey), coldkey)
         await burnedRegister(api, netuid, convertPublicKeyToSs58(nominator.publicKey), coldkey)
         await setSubnetOwnerCut(api, 0)
-        await setActivityCutoff(api, netuid, 65535)
+        // 50_000 = MAX_ACTIVITY_CUTOFF_FACTOR_MILLI (50 tempos of blocks); keeps all stake active.
+        await setActivityCutoffFactor(api, netuid, 50000)
         await setMinDelegateTake(api, 0)
     })
 

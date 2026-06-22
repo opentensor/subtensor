@@ -608,48 +608,6 @@ pub mod pallet {
             Ok(())
         }
 
-        /// The extrinsic sets the activity cutoff for a subnet.
-        /// It is only callable by the root account or subnet owner.
-        /// The extrinsic will call the Subtensor pallet to set the activity cutoff.
-        // #[deprecated(
-        //     note = "Please use set_activity_cutoff_factor instead. This extrinsic will be removed soon."
-        // )]
-        #[pallet::call_index(18)]
-        #[pallet::weight(<T as pallet::Config>::WeightInfo::sudo_set_activity_cutoff())]
-        pub fn sudo_set_activity_cutoff(
-            origin: OriginFor<T>,
-            netuid: NetUid,
-            activity_cutoff: u16,
-        ) -> DispatchResult {
-            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
-                origin,
-                netuid,
-                &[Hyperparameter::ActivityCutoff.into()],
-            )?;
-            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
-
-            ensure!(
-                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
-                Error::<T>::SubnetDoesNotExist
-            );
-
-            ensure!(
-                activity_cutoff >= pallet_subtensor::MinActivityCutoff::<T>::get(),
-                pallet_subtensor::Error::<T>::ActivityCutoffTooLow
-            );
-
-            pallet_subtensor::Pallet::<T>::set_activity_cutoff(netuid, activity_cutoff);
-            log::debug!(
-                "ActivityCutoffSet( netuid: {netuid:?} activity_cutoff: {activity_cutoff:?} ) "
-            );
-            pallet_subtensor::Pallet::<T>::record_owner_rl(
-                maybe_owner,
-                netuid,
-                &[Hyperparameter::ActivityCutoff.into()],
-            );
-            Ok(())
-        }
-
         /// The extrinsic sets the network registration allowed for a subnet.
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the network registration allowed.
