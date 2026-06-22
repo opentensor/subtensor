@@ -329,31 +329,38 @@ mod tests {
     use alloc::vec::Vec;
 
     use codec::Encode;
+    use frame_support::traits::Get;
     use pallet_limit_orders::{
         LimitOrdersEnabled, Order, OrderStatus, OrderType, Orders, SignedOrder, VersionedOrder,
     };
+    use pallet_subtensor::Pallet as SubtensorPallet;
     use precompile_utils::prelude::Address;
     use precompile_utils::prelude::UnboundedBytes;
     use precompile_utils::solidity::{encode_return_value, encode_with_selector};
     use precompile_utils::testing::PrecompileTesterExt;
     use sp_core::{H160, H256, Pair, U256, sr25519};
     use sp_runtime::traits::AccountIdConversion;
+    use substrate_fixed::types::U64F64;
+    use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance};
+    use subtensor_swap_interface::OrderSwapInterface;
 
     use super::*;
     use crate::PrecompileExt;
-    use crate::limit_orders_mock::LimitOrdersMockSwap;
     use crate::mock::{
-        AccountId, Runtime, RuntimeOrigin, TEST_HOTKEY_ADDR_INDEX, TEST_SIGNER_ADDR_INDEX,
-        addr_from_index, assert_static_call, fund_account, mapped_account, new_test_ext,
-        precompiles, selector_u32,
+        AccountId, LimitOrdersPalletId, Runtime, RuntimeOrigin, TEST_HOTKEY_ADDR_INDEX,
+        TEST_SIGNER_ADDR_INDEX, addr_from_index, assert_static_call, fund_account, mapped_account,
+        new_test_ext, precompiles, selector_u32,
     };
 
     const CHAIN_ID: u64 = 945;
     const NETUID: u16 = 1;
     const FAR_FUTURE: u64 = u64::MAX;
-    const ORDER_AMOUNT: u64 = 1_000_000;
+    const ORDER_AMOUNT: u64 = 20_000_000;
     const LIMIT_PRICE: u64 = 10_000_000_000;
     const ACCOUNT_BALANCE: u64 = 100_000_000_000;
+    const RESERVE_TAO: u64 = 200_000_000_000;
+    const RESERVE_ALPHA: u64 = 100_000_000_000;
+    const SUBNET_TEMPO: u16 = 100;
 
     fn precompile_addr() -> H160 {
         addr_from_index(LimitOrdersPrecompile::<Runtime>::INDEX)
@@ -368,15 +375,34 @@ mod tests {
         (signer_address, hotkey_address, signer, pair)
     }
 
+    fn setup_limit_orders_subnet() {
+        let netuid = NetUid::from(NETUID);
+        SubtensorPallet::<Runtime>::init_new_network(netuid, SUBNET_TEMPO);
+        SubtensorPallet::<Runtime>::set_network_registration_allowed(netuid, true);
+        SubtensorPallet::<Runtime>::set_max_allowed_uids(netuid, 4096);
+        pallet_subtensor::FirstEmissionBlockNumber::<Runtime>::insert(netuid, 0);
+        pallet_subtensor::SubtokenEnabled::<Runtime>::insert(netuid, true);
+        pallet_subtensor::BurnHalfLife::<Runtime>::insert(netuid, 1);
+        pallet_subtensor::BurnIncreaseMult::<Runtime>::insert(netuid, U64F64::from_num(1));
+        pallet_subtensor::SubnetTAO::<Runtime>::insert(netuid, TaoBalance::from(RESERVE_TAO));
+        pallet_subtensor::SubnetAlphaIn::<Runtime>::insert(
+            netuid,
+            AlphaBalance::from(RESERVE_ALPHA),
+        );
+    }
+
+    fn register_order_hotkey(coldkey: &AccountId, hotkey: &AccountId) {
+        SubtensorPallet::<Runtime>::create_account_if_non_existent(coldkey, hotkey)
+            .expect("hotkey registration should succeed");
+    }
+
     fn init_limit_orders() {
-        LimitOrdersMockSwap::clear();
-        let pallet_account: AccountId =
-            crate::limit_orders_mock::LimitOrdersPalletId::get().into_account_truncating();
-        let pallet_hotkey = crate::limit_orders_mock::LimitOrdersPalletHotkey::get();
-        let _ = LimitOrdersMockSwap::register_hotkey(&pallet_account, &pallet_hotkey);
+        setup_limit_orders_subnet();
+        let pallet_account: AccountId = LimitOrdersPalletId::get().into_account_truncating();
+        let pallet_hotkey = <Runtime as pallet_limit_orders::Config>::PalletHotkey::get();
+        SubtensorPallet::<Runtime>::register_pallet_hotkey(&pallet_account, &pallet_hotkey)
+            .expect("pallet hotkey registration should succeed");
         LimitOrdersEnabled::<Runtime>::set(true);
-        LimitOrdersMockSwap::set_price(1.0);
-        LimitOrdersMockSwap::set_buy_alpha_return(ORDER_AMOUNT);
     }
 
     fn order_input(
@@ -605,7 +631,7 @@ mod tests {
         new_test_ext().execute_with(|| {
             init_limit_orders();
             let (signer, hotkey, signer_account, pair) = signer_setup();
-            LimitOrdersMockSwap::register_hotkey(&signer_account, &mapped_account(hotkey));
+            register_order_hotkey(&signer_account, &mapped_account(hotkey));
             let input = order_input(signer, hotkey, 0, vec![]);
             let order_id =
                 pallet_limit_orders::Pallet::<Runtime>::derive_order_id(
@@ -639,9 +665,8 @@ mod tests {
             init_limit_orders();
             let (signer, hotkey, signer_account, pair) = signer_setup();
             let relayer = addr_from_index(0x9003);
-            LimitOrdersMockSwap::register_hotkey(&signer_account, &mapped_account(hotkey));
-            LimitOrdersMockSwap::set_tao_balance(signer_account, ACCOUNT_BALANCE);
-            fund_account(&mapped_account(relayer), ACCOUNT_BALANCE);
+            register_order_hotkey(&signer_account, &mapped_account(hotkey));
+            fund_account(&signer_account, ACCOUNT_BALANCE);
 
             let signed = signed_order_from_pair(&pair, signer, hotkey, 0);
             let order_id = pallet_limit_orders::Pallet::<Runtime>::derive_order_id(
@@ -671,9 +696,8 @@ mod tests {
             init_limit_orders();
             let (signer, hotkey, signer_account, pair) = signer_setup();
             let relayer = addr_from_index(0x9004);
-            LimitOrdersMockSwap::register_hotkey(&signer_account, &mapped_account(hotkey));
-            LimitOrdersMockSwap::set_tao_balance(signer_account, ACCOUNT_BALANCE);
-            fund_account(&mapped_account(relayer), ACCOUNT_BALANCE);
+            register_order_hotkey(&signer_account, &mapped_account(hotkey));
+            fund_account(&signer_account, ACCOUNT_BALANCE);
 
             let signed = signed_order_from_pair(&pair, signer, hotkey, 0);
             let order_id = pallet_limit_orders::Pallet::<Runtime>::derive_order_id(
@@ -755,7 +779,7 @@ mod tests {
         new_test_ext().execute_with(|| {
             init_limit_orders();
             let (_signer, hotkey, signer_account, pair) = signer_setup();
-            LimitOrdersMockSwap::register_hotkey(&signer_account, &mapped_account(hotkey));
+            register_order_hotkey(&signer_account, &mapped_account(hotkey));
             let signed = pallet_signed_order(
                 &pair,
                 signer_account.clone(),
