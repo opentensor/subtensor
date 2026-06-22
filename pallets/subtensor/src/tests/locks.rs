@@ -104,7 +104,7 @@ fn test_account_flags_default_to_zero_and_reject_locked_alpha_setter_pays_fee() 
 
         assert_eq!(AccountFlags::<Test>::get(coldkey), 0);
         assert!(!AccountFlags::<Test>::contains_key(coldkey));
-        assert!(!SubtensorModule::account_rejects_locked_alpha(&coldkey));
+        assert!(SubtensorModule::account_rejects_locked_alpha(&coldkey));
 
         let call =
             RuntimeCall::SubtensorModule(crate::Call::set_reject_locked_alpha { enabled: true });
@@ -112,22 +112,22 @@ fn test_account_flags_default_to_zero_and_reject_locked_alpha_setter_pays_fee() 
 
         assert_ok!(SubtensorModule::set_reject_locked_alpha(
             RuntimeOrigin::signed(coldkey),
-            true,
+            false,
         ));
         assert_eq!(
             AccountFlags::<Test>::get(coldkey),
-            ACCOUNT_FLAGS_REJECT_LOCKED_ALPHA
+            ACCOUNT_FLAGS_ACCEPT_LOCKED_ALPHA
         );
         assert!(AccountFlags::<Test>::contains_key(coldkey));
-        assert!(SubtensorModule::account_rejects_locked_alpha(&coldkey));
+        assert!(!SubtensorModule::account_rejects_locked_alpha(&coldkey));
 
         assert_ok!(SubtensorModule::set_reject_locked_alpha(
             RuntimeOrigin::signed(coldkey),
-            false,
+            true,
         ));
         assert_eq!(AccountFlags::<Test>::get(coldkey), 0);
         assert!(!AccountFlags::<Test>::contains_key(coldkey));
-        assert!(!SubtensorModule::account_rejects_locked_alpha(&coldkey));
+        assert!(SubtensorModule::account_rejects_locked_alpha(&coldkey));
     });
 }
 
@@ -2187,6 +2187,10 @@ fn test_do_transfer_stake_same_subnet_transfers_lock_to_destination_coldkey() {
         let hotkey = U256::from(2);
         let netuid = setup_subnet_with_stake(coldkey_sender, hotkey, 100_000_000_000);
         DecayingLock::<Test>::insert(coldkey_receiver, netuid, false);
+        assert_ok!(SubtensorModule::set_reject_locked_alpha(
+            RuntimeOrigin::signed(coldkey_receiver),
+            false,
+        ));
 
         let total = SubtensorModule::total_coldkey_alpha_on_subnet(&coldkey_sender, netuid);
         let lock_half = total / 2.into();
@@ -3414,6 +3418,10 @@ fn test_coldkey_swap_swaps_lock() {
             &hotkey,
             5000u64.into(),
         ));
+        assert_ok!(SubtensorModule::set_reject_locked_alpha(
+            RuntimeOrigin::signed(new_coldkey),
+            false,
+        ));
 
         // Perform coldkey swap
         assert_ok!(SubtensorModule::do_swap_coldkey(&old_coldkey, &new_coldkey));
@@ -3447,6 +3455,10 @@ fn test_coldkey_swap_lock_blocks_unstake() {
             netuid,
             &hotkey,
             total,
+        ));
+        assert_ok!(SubtensorModule::set_reject_locked_alpha(
+            RuntimeOrigin::signed(new_coldkey),
+            false,
         ));
 
         // Swap coldkey

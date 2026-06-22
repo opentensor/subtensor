@@ -2626,10 +2626,11 @@ mod dispatches {
             Self::do_trigger_epoch(origin, netuid)
         }
 
-        /// Sets or clears the caller's "reject locked alpha" account flag.
+        /// Sets or clears whether the caller rejects incoming locked alpha.
         ///
-        /// When enabled, this coldkey cannot receive locked alpha from stake
-        /// transfers or coldkey swaps.
+        /// Coldkeys reject locked alpha by default. Passing `false` opts the
+        /// caller into receiving locked alpha from stake transfers or coldkey
+        /// swaps.
         #[pallet::call_index(142)]
         #[pallet::weight((
             <T as frame_system::Config>::DbWeight::get().reads_writes(1, 1),
@@ -2641,9 +2642,9 @@ mod dispatches {
             AccountFlags::<T>::mutate_exists(&coldkey, |maybe_flags| {
                 let mut flags = maybe_flags.unwrap_or_default();
                 if enabled {
-                    flags |= crate::ACCOUNT_FLAGS_REJECT_LOCKED_ALPHA;
+                    flags &= !crate::ACCOUNT_FLAGS_ACCEPT_LOCKED_ALPHA;
                 } else {
-                    flags &= !crate::ACCOUNT_FLAGS_REJECT_LOCKED_ALPHA;
+                    flags |= crate::ACCOUNT_FLAGS_ACCEPT_LOCKED_ALPHA;
                 }
                 *maybe_flags = if flags == 0 { None } else { Some(flags) };
             });

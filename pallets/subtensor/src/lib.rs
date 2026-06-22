@@ -69,8 +69,8 @@ pub const MAX_SUBNET_CLAIMS: usize = 5;
 
 pub const MAX_ROOT_CLAIM_THRESHOLD: u64 = 10_000_000;
 
-/// Account flag bit that rejects incoming locked alpha transfers.
-pub const ACCOUNT_FLAGS_REJECT_LOCKED_ALPHA: u128 = 1u128 << 0;
+/// Account flag bit that opts into receiving locked alpha transfers.
+pub const ACCOUNT_FLAGS_ACCEPT_LOCKED_ALPHA: u128 = 1u128 << 0;
 
 #[allow(deprecated)]
 #[deny(missing_docs)]
