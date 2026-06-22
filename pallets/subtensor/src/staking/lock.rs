@@ -456,7 +456,7 @@ impl ConvictionModel {
 
 impl<T: Config> Pallet<T> {
     pub fn account_rejects_locked_alpha(coldkey: &T::AccountId) -> bool {
-        AccountFlags::<T>::get(coldkey) & crate::ACCOUNT_FLAGS_REJECT_LOCKED_ALPHA != 0
+        AccountFlags::<T>::get(coldkey) & crate::ACCOUNT_FLAGS_ACCEPT_LOCKED_ALPHA != 1
     }
 
     pub fn ensure_can_receive_locked_alpha(
