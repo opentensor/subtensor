@@ -83,11 +83,9 @@ jobs:
           sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends lsof procps
           echo -n "lsof now: "; command -v lsof && lsof -v 2>&1 | head -1
 
-      - name: "▶️ Run ONLY the dev moonwall suite (verbose)"
-        env:
-          # pino level for @moonwall/util -> surfaces launchNodeEffect "[T+..ms] Discovering RPC port" lines
-          LOG_LEVEL: debug
-          DEBUG: "*"
+      - name: "▶️ Run ONLY the dev moonwall suite"
+        # NB: do NOT set DEBUG="*" / LOG_LEVEL=debug here — that logs every WS frame
+        # and slows the suite ~10x. The dev suite runs in ~70s single-thread when quiet.
         run: |
           cd ts-tests
           pnpm moonwall test dev
