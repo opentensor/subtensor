@@ -1,12 +1,18 @@
-use crate::{Config, Error};
+use crate::{
+    Call, CheckColdkeySwap, CheckDelegateTake, CheckEvmKeyAssociation, CheckRateLimits,
+    CheckServingEndpoints, CheckWeights, Config, Error,
+};
 use codec::{Decode, DecodeWithMemTracking, Encode};
-use frame_support::dispatch::{DispatchExtension, DispatchInfo, PostDispatchInfo};
+use frame_support::{
+    dispatch::{DispatchInfo, PostDispatchInfo},
+    traits::{IsSubType, OriginTrait},
+};
 use scale_info::TypeInfo;
 use sp_runtime::traits::{
     DispatchInfoOf, Dispatchable, Implication, TransactionExtension, ValidateResult,
 };
 use sp_runtime::{
-    DispatchError, impl_tx_ext_default,
+    impl_tx_ext_default,
     transaction_validity::{TransactionSource, TransactionValidityError},
 };
 use sp_std::marker::PhantomData;
@@ -68,40 +74,39 @@ impl<T: Config + Send + Sync + TypeInfo> SubtensorTransactionExtension<T> {
         Self(Default::default())
     }
 
-    fn map_error(error: DispatchError) -> CustomTransactionError {
-        let DispatchError::Module(module_error) = error.stripped() else {
-            return CustomTransactionError::BadRequest;
+    fn check(origin: &OriginOf<T>, call: &CallOf<T>) -> Result<(), Error<T>>
+    where
+        T: pallet_shield::Config,
+        CallOf<T>: Dispatchable<RuntimeOrigin = OriginOf<T>>
+            + IsSubType<Call<T>>
+            + IsSubType<pallet_shield::Call<T>>,
+        OriginOf<T>: OriginTrait<AccountId = T::AccountId>,
+    {
+        let Some(who) = origin.as_signer() else {
+            return Ok(());
         };
 
-        if usize::from(module_error.index)
-            != <crate::Pallet<T> as frame_support::traits::PalletInfoAccess>::index()
-        {
-            return CustomTransactionError::BadRequest;
-        }
+        CheckColdkeySwap::<T>::check(who, call)?;
 
-        <Error<T> as Decode>::decode(&mut &module_error.error[..])
-            .map(Into::into)
-            .unwrap_or(CustomTransactionError::BadRequest)
-    }
+        let Some(call) = call.is_sub_type() else {
+            return Ok(());
+        };
 
-    fn check(origin: &OriginOf<T>, call: &CallOf<T>) -> Result<(), DispatchError>
-    where
-        CallOf<T>: Dispatchable<RuntimeOrigin = OriginOf<T>>,
-    {
-        <<T as frame_system::Config>::DispatchExtension as DispatchExtension<CallOf<T>>>::pre_dispatch(
-            origin, call,
-        )
-        .map(|_| ())
-        .map_err(|error| error.error)
+        CheckWeights::<T>::check(who, call)?;
+        CheckRateLimits::<T>::check(who, call)?;
+        CheckDelegateTake::<T>::check(who, call)?;
+        CheckServingEndpoints::<T>::check(who, call)?;
+        CheckEvmKeyAssociation::<T>::check(who, call)
     }
 }
 
 impl<T> TransactionExtension<CallOf<T>> for SubtensorTransactionExtension<T>
 where
-    T: Config + Send + Sync + TypeInfo,
-    CallOf<T>:
-        Dispatchable<RuntimeOrigin = OriginOf<T>, Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-    OriginOf<T>: Clone,
+    T: Config + pallet_shield::Config + Send + Sync + TypeInfo,
+    CallOf<T>: Dispatchable<RuntimeOrigin = OriginOf<T>, Info = DispatchInfo, PostInfo = PostDispatchInfo>
+        + IsSubType<Call<T>>
+        + IsSubType<pallet_shield::Call<T>>,
+    OriginOf<T>: Clone + OriginTrait<AccountId = T::AccountId>,
 {
     const IDENTIFIER: &'static str = "SubtensorTransactionExtension";
 
@@ -121,7 +126,7 @@ where
     ) -> ValidateResult<Self::Val, CallOf<T>> {
         Self::check(&origin, call)
             .map(|()| (Default::default(), (), origin))
-            .map_err(|error| TransactionValidityError::from(Self::map_error(error)))
+            .map_err(|error| TransactionValidityError::from(CustomTransactionError::from(error)))
     }
 
     impl_tx_ext_default!(CallOf<T>; weight prepare);
