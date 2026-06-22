@@ -1442,6 +1442,10 @@ fn test_active_stake() {
                 assert_eq!(*i, I32F32::from_num(65_535)); // floor(0.5*(2^16-1))/(2^16-1), then max-upscale to 65_535
             }
         }
+        SubtensorModule::set_activity_cutoff_factor_milli(
+            netuid,
+            5_000u32.saturating_mul(1_000) / tempo as u32,
+        );
         let activity_cutoff: u64 = SubtensorModule::get_activity_cutoff_blocks(netuid);
         run_to_block_no_epoch(netuid, activity_cutoff + 2); // run to block where validator (uid 0, 1) weights become outdated
 
