@@ -6,6 +6,7 @@
 )]
 
 use approx::assert_abs_diff_eq;
+use frame_support::dispatch::{GetDispatchInfo, Pays};
 use frame_support::weights::Weight;
 use frame_support::{assert_noop, assert_ok};
 use safe_math::FixedExt;
@@ -94,6 +95,40 @@ fn roll_forward_individual_lock(
         hotkey == &SubnetOwnerHotkey::<Test>::get(netuid),
         DecayingLock::<Test>::get(coldkey, netuid) == Some(false),
     )
+}
+
+#[test]
+fn test_account_flags_default_to_zero_and_reject_locked_alpha_setter_pays_fee() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+
+        assert_eq!(AccountFlags::<Test>::get(coldkey), 0);
+        assert!(!AccountFlags::<Test>::contains_key(coldkey));
+        assert!(SubtensorModule::account_rejects_locked_alpha(&coldkey));
+
+        let call =
+            RuntimeCall::SubtensorModule(crate::Call::set_reject_locked_alpha { enabled: true });
+        assert_eq!(call.get_dispatch_info().pays_fee, Pays::Yes);
+
+        assert_ok!(SubtensorModule::set_reject_locked_alpha(
+            RuntimeOrigin::signed(coldkey),
+            false,
+        ));
+        assert_eq!(
+            AccountFlags::<Test>::get(coldkey),
+            ACCOUNT_FLAGS_ACCEPT_LOCKED_ALPHA
+        );
+        assert!(AccountFlags::<Test>::contains_key(coldkey));
+        assert!(!SubtensorModule::account_rejects_locked_alpha(&coldkey));
+
+        assert_ok!(SubtensorModule::set_reject_locked_alpha(
+            RuntimeOrigin::signed(coldkey),
+            true,
+        ));
+        assert_eq!(AccountFlags::<Test>::get(coldkey), 0);
+        assert!(!AccountFlags::<Test>::contains_key(coldkey));
+        assert!(SubtensorModule::account_rejects_locked_alpha(&coldkey));
+    });
 }
 
 fn roll_forward_hotkey_lock(lock: LockState, now: u64) -> LockState {
@@ -1599,6 +1634,10 @@ fn test_do_transfer_stake_same_subnet_transfers_lock_to_destination_coldkey() {
         let hotkey = U256::from(2);
         let netuid = setup_subnet_with_stake(coldkey_sender, hotkey, 100_000_000_000);
         DecayingLock::<Test>::insert(coldkey_receiver, netuid, false);
+        assert_ok!(SubtensorModule::set_reject_locked_alpha(
+            RuntimeOrigin::signed(coldkey_receiver),
+            false,
+        ));
 
         let total = SubtensorModule::total_coldkey_alpha_on_subnet(&coldkey_sender, netuid);
         let lock_half = total / 2.into();
@@ -1690,6 +1729,101 @@ fn test_move_stake_cross_subnet_blocked_by_lock() {
                 alpha,
             ),
             Error::<Test>::StakeUnavailable
+        );
+    });
+}
+
+#[test]
+fn test_do_transfer_stake_rejects_locked_alpha_to_flagged_destination() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey_sender = U256::from(1);
+        let coldkey_receiver = U256::from(5);
+        let hotkey = U256::from(2);
+        let netuid = setup_subnet_with_stake(coldkey_sender, hotkey, 100_000_000_000);
+
+        let total = SubtensorModule::total_coldkey_alpha_on_subnet(&coldkey_sender, netuid);
+        let lock_half = total / 2.into();
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey_sender,
+            netuid,
+            &hotkey,
+            lock_half,
+        ));
+        assert_ok!(SubtensorModule::set_reject_locked_alpha(
+            RuntimeOrigin::signed(coldkey_receiver),
+            true,
+        ));
+
+        let sender_lock_before =
+            Lock::<Test>::get((coldkey_sender, netuid, hotkey)).expect("sender lock should exist");
+        let sender_alpha_before =
+            SubtensorModule::total_coldkey_alpha_on_subnet(&coldkey_sender, netuid);
+        let receiver_alpha_before =
+            SubtensorModule::total_coldkey_alpha_on_subnet(&coldkey_receiver, netuid);
+
+        assert_noop!(
+            SubtensorModule::do_transfer_stake(
+                RuntimeOrigin::signed(coldkey_sender),
+                coldkey_receiver,
+                hotkey,
+                netuid,
+                netuid,
+                total,
+            ),
+            Error::<Test>::AccountRejectsLockedAlpha
+        );
+
+        assert_eq!(
+            Lock::<Test>::get((coldkey_sender, netuid, hotkey)),
+            Some(sender_lock_before)
+        );
+        assert!(Lock::<Test>::get((coldkey_receiver, netuid, hotkey)).is_none());
+        assert_eq!(
+            SubtensorModule::total_coldkey_alpha_on_subnet(&coldkey_sender, netuid),
+            sender_alpha_before
+        );
+        assert_eq!(
+            SubtensorModule::total_coldkey_alpha_on_subnet(&coldkey_receiver, netuid),
+            receiver_alpha_before
+        );
+    });
+}
+
+#[test]
+fn test_do_transfer_stake_allows_unlocked_alpha_to_flagged_destination() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey_sender = U256::from(1);
+        let coldkey_receiver = U256::from(5);
+        let hotkey = U256::from(2);
+        let netuid = setup_subnet_with_stake(coldkey_sender, hotkey, 100_000_000_000);
+
+        let total = SubtensorModule::total_coldkey_alpha_on_subnet(&coldkey_sender, netuid);
+        let lock_half = total / 2.into();
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey_sender,
+            netuid,
+            &hotkey,
+            lock_half,
+        ));
+        assert_ok!(SubtensorModule::set_reject_locked_alpha(
+            RuntimeOrigin::signed(coldkey_receiver),
+            true,
+        ));
+
+        let unlocked_transfer = lock_half / 2.into();
+        assert_ok!(SubtensorModule::do_transfer_stake(
+            RuntimeOrigin::signed(coldkey_sender),
+            coldkey_receiver,
+            hotkey,
+            netuid,
+            netuid,
+            unlocked_transfer,
+        ));
+
+        assert!(Lock::<Test>::get((coldkey_receiver, netuid, hotkey)).is_none());
+        assert_eq!(
+            SubtensorModule::total_coldkey_alpha_on_subnet(&coldkey_receiver, netuid),
+            unlocked_transfer
         );
     });
 }
@@ -2724,6 +2858,10 @@ fn test_coldkey_swap_swaps_lock() {
             &hotkey,
             5000u64.into(),
         ));
+        assert_ok!(SubtensorModule::set_reject_locked_alpha(
+            RuntimeOrigin::signed(new_coldkey),
+            false,
+        ));
 
         // Perform coldkey swap
         assert_ok!(SubtensorModule::do_swap_coldkey(&old_coldkey, &new_coldkey));
@@ -2753,6 +2891,10 @@ fn test_coldkey_swap_lock_blocks_unstake() {
             netuid,
             &hotkey,
             total,
+        ));
+        assert_ok!(SubtensorModule::set_reject_locked_alpha(
+            RuntimeOrigin::signed(new_coldkey),
+            false,
         ));
 
         // Swap coldkey
@@ -2885,6 +3027,49 @@ fn test_coldkey_swap_rejects_destination_lock() {
             "source lock should not be inserted under destination coldkey"
         );
         assert_eq!(Lock::<Test>::iter_prefix((new_coldkey, netuid)).count(), 1);
+    });
+}
+
+#[test]
+fn test_coldkey_swap_rejects_locked_alpha_to_flagged_destination() {
+    new_test_ext(1).execute_with(|| {
+        let old_coldkey = U256::from(1);
+        let new_coldkey = U256::from(10);
+        let old_hotkey = U256::from(2);
+        let netuid = subtensor_runtime_common::NetUid::from(1);
+
+        let old_locked = AlphaBalance::from(7_000u64);
+        let old_conviction = U64F64::from_num(77);
+
+        SubtensorModule::insert_lock_state(
+            &old_coldkey,
+            netuid,
+            &old_hotkey,
+            LockState {
+                locked_mass: old_locked,
+                conviction: old_conviction,
+                last_update: SubtensorModule::get_current_block_as_u64(),
+            },
+        );
+        assert_ok!(SubtensorModule::set_reject_locked_alpha(
+            RuntimeOrigin::signed(new_coldkey),
+            true,
+        ));
+
+        assert_noop!(
+            SubtensorModule::swap_coldkey_locks(&old_coldkey, &new_coldkey),
+            Error::<Test>::AccountRejectsLockedAlpha
+        );
+
+        let source_lock = Lock::<Test>::get((old_coldkey, netuid, old_hotkey))
+            .expect("source lock should remain after failed transfer");
+        assert_eq!(source_lock.locked_mass, old_locked);
+        assert_eq!(source_lock.conviction, old_conviction);
+        assert!(
+            Lock::<Test>::iter_prefix((new_coldkey, netuid))
+                .next()
+                .is_none()
+        );
     });
 }
 
