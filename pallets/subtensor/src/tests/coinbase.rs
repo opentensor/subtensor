@@ -2894,6 +2894,46 @@ fn test_run_coinbase_not_started_start_after() {
     });
 }
 
+/// Test that coinbase updates protocol liquidity accounting.
+/// cargo test --package pallet-subtensor --lib -- tests::coinbase::test_coinbase_v3_liquidity_update --exact --show-output
+#[test]
+fn test_coinbase_v3_liquidity_update() {
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(1);
+        let owner_coldkey = U256::from(2);
+
+        // add network
+        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        // Force the swap to initialize
+        SubtensorModule::swap_tao_for_alpha(
+            netuid,
+            TaoBalance::ZERO,
+            1_000_000_000_000_u64.into(),
+            false,
+        )
+        .unwrap();
+
+        let tao_before = SubnetTAO::<Test>::get(netuid);
+        let alpha_in_before = SubnetAlphaIn::<Test>::get(netuid);
+
+        // Enable emissions and run coinbase (which will adjust protocol liquidity)
+        let emission: u64 = 1_234_567;
+        let emission_credit = SubtensorModule::mint_tao(emission.into());
+        // Price-based emission shares require a non-zero moving price.
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(1));
+        // Keep root_proportion ~1 so the injection cap does not bind.
+        set_full_injection_root_stake();
+        FirstEmissionBlockNumber::<Test>::insert(netuid, 0);
+        SubtensorModule::run_coinbase(emission_credit);
+
+        assert!(!SubnetTaoInEmission::<Test>::get(netuid).is_zero());
+        assert!(!SubnetAlphaInEmission::<Test>::get(netuid).is_zero());
+        assert!(SubnetTAO::<Test>::get(netuid) > tao_before);
+        assert!(SubnetAlphaIn::<Test>::get(netuid) > alpha_in_before);
+    });
+}
+
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_drain_alpha_childkey_parentkey_with_burn --exact --show-output --nocapture
 #[test]
 fn test_drain_alpha_childkey_parentkey_with_burn() {
