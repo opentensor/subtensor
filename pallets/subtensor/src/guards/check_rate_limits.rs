@@ -24,13 +24,16 @@ impl<T: Config> CheckRateLimits<T> {
         netuid_index: NetUidStorageIndex,
         error: Error<T>,
     ) -> Result<(), Error<T>> {
-        if let Ok(neuron_uid) = Pallet::<T>::get_uid_for_net_and_hotkey(netuid, who) {
-            let current_block = Pallet::<T>::get_current_block_as_u64();
-            if !Pallet::<T>::check_rate_limit(netuid_index, neuron_uid, current_block) {
-                return Err(error);
-            }
+        let Ok(neuron_uid) = Pallet::<T>::get_uid_for_net_and_hotkey(netuid, who) else {
+            return Ok(());
+        };
+
+        let current_block = Pallet::<T>::get_current_block_as_u64();
+        if Pallet::<T>::check_rate_limit(netuid_index, neuron_uid, current_block) {
+            Ok(())
+        } else {
+            Err(error)
         }
-        Ok(())
     }
 
     pub fn check(who: &T::AccountId, call: &Call<T>) -> Result<(), Error<T>> {
@@ -47,36 +50,30 @@ impl<T: Config> CheckRateLimits<T> {
                 Pallet::<T>::get_mechanism_storage_index(*netuid, *mecid),
                 Error::<T>::CommittingWeightsTooFast,
             ),
-            Call::set_weights { netuid, .. } => {
-                if Pallet::<T>::get_commit_reveal_weights_enabled(*netuid) {
-                    Ok(())
-                } else {
-                    Self::check_weights_rate_limit(
-                        who,
-                        *netuid,
-                        NetUidStorageIndex::from(*netuid),
-                        Error::<T>::SettingWeightsTooFast,
-                    )
-                }
+            Call::set_weights { netuid, .. }
+                if !Pallet::<T>::get_commit_reveal_weights_enabled(*netuid) =>
+            {
+                Self::check_weights_rate_limit(
+                    who,
+                    *netuid,
+                    NetUidStorageIndex::from(*netuid),
+                    Error::<T>::SettingWeightsTooFast,
+                )
             }
-            Call::set_mechanism_weights { netuid, mecid, .. } => {
-                if Pallet::<T>::get_commit_reveal_weights_enabled(*netuid) {
-                    Ok(())
-                } else {
-                    Self::check_weights_rate_limit(
-                        who,
-                        *netuid,
-                        Pallet::<T>::get_mechanism_storage_index(*netuid, *mecid),
-                        Error::<T>::SettingWeightsTooFast,
-                    )
-                }
+            Call::set_mechanism_weights { netuid, mecid, .. }
+                if !Pallet::<T>::get_commit_reveal_weights_enabled(*netuid) =>
+            {
+                Self::check_weights_rate_limit(
+                    who,
+                    *netuid,
+                    Pallet::<T>::get_mechanism_storage_index(*netuid, *mecid),
+                    Error::<T>::SettingWeightsTooFast,
+                )
             }
-            Call::register_network { .. } => {
-                if TransactionType::RegisterNetwork.passes_rate_limit::<T>(who) {
-                    Ok(())
-                } else {
-                    Err(Error::<T>::NetworkTxRateLimitExceeded)
-                }
+            Call::register_network { .. }
+                if !TransactionType::RegisterNetwork.passes_rate_limit::<T>(who) =>
+            {
+                Err(Error::<T>::NetworkTxRateLimitExceeded)
             }
             _ => Ok(()),
         }
