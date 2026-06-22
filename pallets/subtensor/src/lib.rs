@@ -1278,6 +1278,7 @@ pub mod pallet {
     /// ==== Coinbase ====
     /// ==================
     /// --- ITEM ( global_block_emission )
+    #[deprecated]
     #[pallet::storage]
     pub type BlockEmission<T> = StorageValue<_, u64, ValueQuery, DefaultBlockEmission<T>>;
 

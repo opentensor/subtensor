@@ -83,6 +83,9 @@ pub trait SubtensorCustomApi<BlockHash> {
     ) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getSubnetState")]
     fn get_subnet_state(&self, netuid: NetUid, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+
+    #[method(name = "subnetInfo_getBlockEmission")]
+    fn get_block_emission(&self, at: Option<BlockHash>) -> RpcResult<TaoBalance>;
     #[method(name = "subnetInfo_getLockCost")]
     fn get_network_lock_cost(&self, at: Option<BlockHash>) -> RpcResult<TaoBalance>;
     #[method(name = "subnetInfo_getSelectiveMetagraph")]
@@ -467,6 +470,13 @@ where
         }
     }
 
+    fn get_block_emission(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<TaoBalance> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        api.get_block_emission(at)
+            .map_err(|e| Error::RuntimeError(format!("Unable to get block emission: {e:?}")).into())
+    }
     fn get_network_lock_cost(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<TaoBalance> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);

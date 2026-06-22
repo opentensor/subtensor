@@ -234,7 +234,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 421,
+    spec_version: 422,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -2530,6 +2530,13 @@ impl_runtime_apis! {
         fn get_next_epoch_start_block(netuid: NetUid) -> Option<u64> {
             SubtensorModule::get_next_epoch_start_block(netuid)
         }
+
+    fn get_block_emission() -> TaoBalance {
+        match SubtensorModule::calculate_block_emission() {
+            Ok(block_emission) => block_emission.into(),
+            Err(_) => TaoBalance::ZERO,
+        }
+    }
     }
 
     impl subtensor_custom_rpc_runtime_api::StakeInfoRuntimeApi<Block> for Runtime {
