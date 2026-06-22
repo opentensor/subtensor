@@ -157,7 +157,7 @@ parameter_types! {
     pub const EvmKeyAssociateRateLimit: u64 = 0;
     pub const SubtensorPalletId: PalletId = PalletId(*b"subtensr");
     pub const BurnAccountId: PalletId = PalletId(*b"burntnsr");
-    pub const MaxEpochsPerBlock: u32 = 32;
+    pub const MaxEpochsPerBlock: u8 = 32;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -483,7 +483,7 @@ impl pallet_subtensor::Config for Runtime {
     type AuthorshipProvider = MockAuthorshipProvider;
     type SubtensorPalletId = SubtensorPalletId;
     type BurnAccountId = BurnAccountId;
-    type MaxEpochsPerBlock = MaxEpochsPerBlock;
+    type InitialMaxEpochsPerBlock = MaxEpochsPerBlock;
     type WeightInfo = ();
 }
 

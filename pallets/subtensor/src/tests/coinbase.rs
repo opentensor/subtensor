@@ -4272,7 +4272,7 @@ fn test_get_subnet_terms_alpha_emissions_cap() {
 #[test]
 fn test_epochs_deferred_this_block_respects_cap() {
     new_test_ext(1).execute_with(|| {
-        let cap = <Test as Config>::MaxEpochsPerBlock::get() as usize;
+        let cap = SubtensorModule::get_max_epochs_per_block() as usize;
         let n = cap + 2;
 
         for i in 0..n {
@@ -4311,7 +4311,7 @@ fn test_epochs_deferred_this_block_respects_cap() {
 #[test]
 fn test_reveal_crv3_defers_with_capped_epoch() {
     new_test_ext(1).execute_with(|| {
-        let cap = <Test as Config>::MaxEpochsPerBlock::get() as usize;
+        let cap = SubtensorModule::get_max_epochs_per_block() as usize;
         let n = cap + 2;
         let mec0 = subtensor_runtime_common::MechId::from(0);
 
