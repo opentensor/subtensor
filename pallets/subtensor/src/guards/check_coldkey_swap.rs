@@ -26,6 +26,43 @@ type DispatchableOriginOf<T> = <CallOf<T> as Dispatchable>::RuntimeOrigin;
 /// resolved origin.
 pub struct CheckColdkeySwap<T: Config>(PhantomData<T>);
 
+impl<T> CheckColdkeySwap<T>
+where
+    T: Config + pallet_shield::Config,
+    CallOf<T>: IsSubType<Call<T>> + IsSubType<pallet_shield::Call<T>>,
+{
+    pub fn check(who: &T::AccountId, call: &CallOf<T>) -> Result<(), Error<T>> {
+        if !ColdkeySwapAnnouncements::<T>::contains_key(who) {
+            return Ok(());
+        }
+
+        if ColdkeySwapDisputes::<T>::contains_key(who) {
+            return Err(Error::<T>::ColdkeySwapDisputed);
+        }
+
+        if Self::is_allowed_during_swap(call) {
+            Ok(())
+        } else {
+            Err(Error::<T>::ColdkeySwapAnnounced)
+        }
+    }
+
+    fn is_allowed_during_swap(call: &CallOf<T>) -> bool {
+        matches!(
+            call.is_sub_type(),
+            Some(
+                Call::announce_coldkey_swap { .. }
+                    | Call::swap_coldkey_announced { .. }
+                    | Call::dispute_coldkey_swap { .. }
+                    | Call::clear_coldkey_swap_announcement { .. }
+            )
+        ) || matches!(
+            IsSubType::<pallet_shield::Call<T>>::is_sub_type(call),
+            Some(pallet_shield::Call::submit_encrypted { .. })
+        )
+    }
+}
+
 impl<T> DispatchExtension<<T as frame_system::Config>::RuntimeCall> for CheckColdkeySwap<T>
 where
     T: Config + pallet_shield::Config,
@@ -50,32 +87,7 @@ where
             return Ok(());
         };
 
-        if ColdkeySwapAnnouncements::<T>::contains_key(who) {
-            if ColdkeySwapDisputes::<T>::contains_key(who) {
-                return Err(Error::<T>::ColdkeySwapDisputed.into());
-            }
-
-            let is_allowed_direct = matches!(
-                call.is_sub_type(),
-                Some(
-                    Call::announce_coldkey_swap { .. }
-                        | Call::swap_coldkey_announced { .. }
-                        | Call::dispute_coldkey_swap { .. }
-                        | Call::clear_coldkey_swap_announcement { .. }
-                )
-            );
-
-            let is_mev_protected = matches!(
-                IsSubType::<pallet_shield::Call<T>>::is_sub_type(call),
-                Some(pallet_shield::Call::submit_encrypted { .. })
-            );
-
-            if !is_allowed_direct && !is_mev_protected {
-                return Err(Error::<T>::ColdkeySwapAnnounced.into());
-            }
-        }
-
-        Ok(())
+        Self::check(who, call).map_err(Into::into)
     }
 }
 
