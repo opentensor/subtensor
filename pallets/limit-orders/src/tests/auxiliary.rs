@@ -6,7 +6,7 @@
 use frame_support::{BoundedVec, assert_noop, assert_ok, traits::ConstU32};
 use sp_core::H256;
 use sp_keyring::Sr25519Keyring as AccountKeyring;
-use substrate_fixed::types::U96F32;
+use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::NetUid;
 
 use sp_runtime::Perbill;
@@ -24,14 +24,15 @@ use super::mock::*;
 fn net_amount_for_event_buy_dominant() {
     new_test_ext().execute_with(|| {
         // Buys = 1000 TAO net, sells TAO-equiv = 300 TAO → net 700 TAO buy-side
-        let price = U96F32::from_num(2u32); // 2 TAO/alpha
+        let price = U64F64::from_num(2u32); // 2 TAO/alpha
         let net = LimitOrders::<Test>::net_amount_for_event(
             &OrderSide::Buy,
             1_000u128, // total_buy_net (TAO)
             150u128,   // total_sell_net (alpha)  ← not used in Buy branch
             300u128,   // total_sell_tao_equiv
             price,
-        );
+        )
+        .expect("conversion does not overflow");
         assert_eq!(net, 700u64);
     });
 }
@@ -41,14 +42,15 @@ fn net_amount_for_event_sell_dominant() {
     new_test_ext().execute_with(|| {
         // Sells = 500 alpha net, buys TAO = 200 TAO at price 2 → buy_alpha_equiv = 100
         // net sell = 500 - 100 = 400 alpha
-        let price = U96F32::from_num(2u32); // 2 TAO/alpha → 1 alpha = 2 TAO
+        let price = U64F64::from_num(2u32); // 2 TAO/alpha → 1 alpha = 2 TAO
         let net = LimitOrders::<Test>::net_amount_for_event(
             &OrderSide::Sell,
             200u128, // total_buy_net (TAO)
             500u128, // total_sell_net (alpha)
             400u128, // total_sell_tao_equiv (not used in Sell branch directly)
             price,
-        );
+        )
+        .expect("conversion does not overflow");
         // buy_alpha_equiv = 200 / 2 = 100; net = 500 - 100 = 400
         assert_eq!(net, 400u64);
     });
@@ -58,15 +60,33 @@ fn net_amount_for_event_sell_dominant() {
 fn net_amount_for_event_perfectly_offset() {
     new_test_ext().execute_with(|| {
         // Buys = 200 TAO, sells TAO-equiv = 200 → net = 0 (buy-side result = 0)
-        let price = U96F32::from_num(2u32);
+        let price = U64F64::from_num(2u32);
         let net = LimitOrders::<Test>::net_amount_for_event(
             &OrderSide::Buy,
             200u128,
             100u128,
             200u128,
             price,
-        );
+        )
+        .expect("conversion does not overflow");
         assert_eq!(net, 0u64);
+    });
+}
+
+#[test]
+fn net_amount_for_event_sell_overflow_returns_error() {
+    new_test_ext().execute_with(|| {
+        let tiny_price = U64F64::from_bits(1);
+        assert_eq!(
+            LimitOrders::<Test>::net_amount_for_event(
+                &OrderSide::Sell,
+                u128::MAX,
+                500u128,
+                0u128,
+                tiny_price,
+            ),
+            Err(Error::<Test>::ArithmeticOverflow.into()),
+        );
     });
 }
 
@@ -112,7 +132,7 @@ fn validate_and_classify_separates_buys_and_sells() {
             netuid(),
             &orders,
             1_000_000u64,
-            U96F32::from_num(1u32),
+            U64F64::from_num(1u32),
             bob(),
         )
         .expect("validate_and_classify should succeed");
@@ -161,7 +181,7 @@ fn validate_and_classify_fails_for_wrong_netuid() {
                 netuid(), // batch is for netuid 1
                 &orders,
                 1_000_000u64,
-                U96F32::from_num(1u32),
+                U64F64::from_num(1u32),
                 bob()
             ),
             crate::Error::<Test>::OrderNetUidMismatch
@@ -195,7 +215,7 @@ fn validate_and_classify_fails_for_expired_order() {
                 netuid(),
                 &orders,
                 2_000_001u64,
-                U96F32::from_num(1u32),
+                U64F64::from_num(1u32),
                 bob()
             ),
             crate::Error::<Test>::OrderExpired
@@ -227,7 +247,7 @@ fn validate_and_classify_fails_for_price_condition_not_met_for_buy() {
                 netuid(),
                 &orders,
                 1_000_000u64,
-                U96F32::from_num(3u32), // current price = 3 > limit 2 → fails
+                U64F64::from_num(3u32), // current price = 3 > limit 2 → fails
                 bob()
             ),
             crate::Error::<Test>::PriceConditionNotMet
@@ -263,7 +283,7 @@ fn validate_and_classify_fails_for_already_processed_order() {
                 netuid(),
                 &orders,
                 1_000_000u64,
-                U96F32::from_num(1u32),
+                U64F64::from_num(1u32),
                 bob()
             ),
             crate::Error::<Test>::OrderAlreadyProcessed
@@ -296,7 +316,7 @@ fn validate_and_classify_applies_buy_fee_to_net() {
             netuid(),
             &orders,
             1_000_000u64,
-            U96F32::from_num(1u32),
+            U64F64::from_num(1u32),
             bob(),
         )
         .expect("validate_and_classify should succeed");
@@ -427,7 +447,7 @@ fn validate_and_classify_stores_effective_swap_limit_for_buy() {
             netuid(),
             &orders,
             1_000_000u64,
-            U96F32::from_num(1u32),
+            U64F64::from_num(1u32),
             bob(),
         )
         .expect("should succeed");
@@ -470,7 +490,7 @@ fn validate_and_classify_stores_effective_swap_limit_for_sell() {
             netuid(),
             &orders,
             1_000_000u64,
-            U96F32::from_num(2u32), // current_price=2.0, scaled=2_000_000_000 >= limit_price=1_000_000_000 ✓
+            U64F64::from_num(2u32), // current_price=2.0, scaled=2_000_000_000 >= limit_price=1_000_000_000 ✓
             bob(),
         )
         .expect("should succeed");
@@ -509,7 +529,7 @@ fn validate_and_classify_fails_for_wrong_relayer() {
                 netuid(),
                 &orders,
                 1_000_000u64,
-                U96F32::from_num(1u32),
+                U64F64::from_num(1u32),
                 bob() // wrong relayer
             ),
             crate::Error::<Test>::RelayerMissMatch
@@ -542,7 +562,7 @@ fn validate_and_classify_succeeds_for_correct_relayer() {
             netuid(),
             &orders,
             1_000_000u64,
-            U96F32::from_num(1u32),
+            U64F64::from_num(1u32),
             charlie(), // correct relayer
         )
         .expect("validate_and_classify should succeed");
@@ -700,7 +720,7 @@ fn distribute_alpha_pro_rata_buy_dominant_scenario_a() {
             1_000u128, // total_buy_net (TAO)
             200u128,   // total_sell_net (alpha passthrough)
             &OrderSide::Buy,
-            U96F32::from_num(1u32),
+            U64F64::from_num(1u32),
             &pallet_acct,
             &pallet_hk,
             netuid(),
@@ -771,7 +791,7 @@ fn distribute_alpha_pro_rata_sell_dominant_scenario_b() {
             1_000u128, // total_buy_net (TAO)
             999u128,   // total_sell_net — doesn't matter for sell-dominant logic
             &OrderSide::Sell,
-            U96F32::from_num(2u32), // price = 2 TAO/alpha
+            U64F64::from_num(2u32), // price = 2 TAO/alpha
             &pallet_acct,
             &pallet_hk,
             netuid(),
@@ -851,7 +871,7 @@ fn distribute_alpha_pro_rata_buy_dominant_scenario_c() {
             1_000u128, // total_buy_net (TAO)
             200u128,   // total_sell_net (alpha passthrough)
             &OrderSide::Buy,
-            U96F32::from_num(1u32),
+            U64F64::from_num(1u32),
             &pallet_acct,
             &pallet_hk,
             netuid(),
@@ -939,7 +959,7 @@ fn distribute_alpha_pro_rata_dust_remains_in_pallet_scenario_d() {
             3u128,  // total_buy_net (TAO) — not divisible into 10 evenly
             0u128,  // total_sell_net — no sellers
             &OrderSide::Buy,
-            U96F32::from_num(1u32),
+            U64F64::from_num(1u32),
             &pallet_acct,
             &pallet_hk,
             netuid(),
@@ -1076,7 +1096,7 @@ fn distribute_tao_pro_rata_sell_dominant_no_fee_scenario_a() {
             800u128,   // total_buy_net (buy passthrough TAO)
             2_000u128, // total_sell_tao_equiv (Alice 800 + Bob 1200)
             &OrderSide::Sell,
-            U96F32::from_num(2u32),
+            U64F64::from_num(2u32),
             &pallet_acct,
             netuid(),
         )
@@ -1137,7 +1157,7 @@ fn distribute_tao_pro_rata_sell_dominant_with_fee_scenario_b() {
             800u128,
             2_000u128,
             &OrderSide::Sell,
-            U96F32::from_num(2u32),
+            U64F64::from_num(2u32),
             &pallet_acct,
             netuid(),
         )
@@ -1198,7 +1218,7 @@ fn distribute_tao_pro_rata_buy_dominant_scenario_c() {
             0u128,     // total_buy_net unused in Buy-dominant branch
             1_000u128, // total_sell_tao_equiv (total_tao = this in Buy branch)
             &OrderSide::Buy,
-            U96F32::from_num(2u32),
+            U64F64::from_num(2u32),
             &pallet_acct,
             netuid(),
         )
@@ -1268,7 +1288,7 @@ fn distribute_tao_pro_rata_dust_remains_in_pallet_scenario_d() {
             0u128,  // total_buy_net — no buyers
             3u128,  // total_sell_tao_equiv — not divisible into 10 evenly
             &OrderSide::Sell,
-            U96F32::from_num(1u32),
+            U64F64::from_num(1u32),
             &pallet_acct,
             netuid(),
         )

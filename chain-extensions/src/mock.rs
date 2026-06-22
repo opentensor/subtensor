@@ -8,13 +8,13 @@ use core::num::NonZeroU64;
 
 use frame_support::dispatch::DispatchResult;
 use frame_support::pallet_prelude::Zero;
-use frame_support::traits::{Contains, Everything, InherentBuilder, InsideBoth};
+use frame_support::traits::{Contains, Everything, InsideBoth};
 use frame_support::weights::Weight;
 use frame_support::weights::constants::RocksDbWeight;
 use frame_support::{PalletId, derive_impl};
 use frame_support::{assert_ok, parameter_types, traits::PrivilegeCmp};
 use frame_system as system;
-use frame_system::{EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBase};
+use frame_system::{EnsureRoot, RawOrigin, limits};
 use pallet_contracts::HoldReason as ContractsHoldReason;
 use pallet_subtensor::*;
 use pallet_subtensor_proxy as pallet_proxy;
@@ -26,9 +26,7 @@ use sp_runtime::{
     traits::{BlakeTwo256, Convert, IdentityLookup},
 };
 use sp_std::{cell::RefCell, cmp::Ordering, sync::OnceLock};
-use subtensor_runtime_common::{
-    AlphaBalance, AuthorshipInfo, NetUid, Saturating, TaoBalance, Token,
-};
+use subtensor_runtime_common::{AlphaBalance, AuthorshipInfo, NetUid, Saturating, TaoBalance};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -315,6 +313,10 @@ parameter_types! {
     pub const InitialMaxBurn: u64 = 1_000_000_000;
     pub const MinBurnUpperBound: TaoBalance = TaoBalance::new(1_000_000_000); // 1 TAO
     pub const MaxBurnLowerBound: TaoBalance = TaoBalance::new(100_000_000); // 0.1 TAO
+    pub const MinTempo: u16 = pallet_subtensor::MIN_TEMPO;
+    pub const MaxTempo: u16 = pallet_subtensor::MAX_TEMPO;
+    pub const MinActivityCutoffFactorMilli: u32 = pallet_subtensor::MIN_ACTIVITY_CUTOFF_FACTOR_MILLI;
+    pub const MaxActivityCutoffFactorMilli: u32 = pallet_subtensor::MAX_ACTIVITY_CUTOFF_FACTOR_MILLI;
     pub const InitialValidatorPruneLen: u64 = 0;
     pub const InitialScalingLawPower: u16 = 50;
     pub const InitialMaxAllowedValidators: u16 = 100;
@@ -354,6 +356,7 @@ parameter_types! {
     pub const EvmKeyAssociateRateLimit: u64 = 10;
     pub const SubtensorPalletId: PalletId = PalletId(*b"subtensr");
     pub const BurnAccountId: PalletId = PalletId(*b"burntnsr");
+    pub const MaxEpochsPerBlock: u32 = 32;
 }
 
 impl pallet_subtensor::Config for Test {
@@ -402,6 +405,10 @@ impl pallet_subtensor::Config for Test {
     type InitialMinStake = InitialMinStake;
     type MinBurnUpperBound = MinBurnUpperBound;
     type MaxBurnLowerBound = MaxBurnLowerBound;
+    type MinTempo = MinTempo;
+    type MaxTempo = MaxTempo;
+    type MinActivityCutoffFactorMilli = MinActivityCutoffFactorMilli;
+    type MaxActivityCutoffFactorMilli = MaxActivityCutoffFactorMilli;
     type InitialRAORecycledForRegistration = InitialRAORecycledForRegistration;
     type InitialNetworkImmunityPeriod = InitialNetworkImmunityPeriod;
     type InitialNetworkMinLockCost = InitialNetworkMinLockCost;
@@ -433,6 +440,7 @@ impl pallet_subtensor::Config for Test {
     type AuthorshipProvider = MockAuthorshipProvider;
     type SubtensorPalletId = SubtensorPalletId;
     type BurnAccountId = BurnAccountId;
+    type MaxEpochsPerBlock = MaxEpochsPerBlock;
     type WeightInfo = ();
 }
 
@@ -440,7 +448,6 @@ impl pallet_subtensor::Config for Test {
 parameter_types! {
     pub const SwapProtocolId: PalletId = PalletId(*b"ten/swap");
     pub const SwapMaxFeeRate: u16 = 10000; // 15.26%
-    pub const SwapMaxPositions: u32 = 100;
     pub const SwapMinimumLiquidity: u64 = 1_000;
     pub const SwapMinimumReserve: NonZeroU64 = NonZeroU64::new(100).unwrap();
 }
@@ -452,7 +459,6 @@ impl pallet_subtensor_swap::Config for Test {
     type TaoReserve = TaoBalanceReserve<Self>;
     type AlphaReserve = AlphaBalanceReserve<Self>;
     type MaxFeeRate = SwapMaxFeeRate;
-    type MaxPositions = SwapMaxPositions;
     type MinimumLiquidity = SwapMinimumLiquidity;
     type MinimumReserve = SwapMinimumReserve;
     type WeightInfo = ();
@@ -620,28 +626,12 @@ where
     type RuntimeCall = RuntimeCall;
 }
 
-impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Test
+impl<LocalCall> frame_system::offchain::CreateBare<LocalCall> for Test
 where
     RuntimeCall: From<LocalCall>,
 {
     fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
-        UncheckedExtrinsic::new_inherent(call)
-    }
-}
-
-impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test
-where
-    RuntimeCall: From<LocalCall>,
-{
-    fn create_signed_transaction<
-        C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>,
-    >(
-        call: <Self as CreateTransactionBase<LocalCall>>::RuntimeCall,
-        _public: Self::Public,
-        _account: Self::AccountId,
-        nonce: Self::Nonce,
-    ) -> Option<Self::Extrinsic> {
-        Some(UncheckedExtrinsic::new_signed(call, nonce.into(), (), ()))
+        UncheckedExtrinsic::new_bare(call)
     }
 }
 
@@ -676,8 +666,7 @@ pub fn register_ok_neuron(
     // Ensure reserves exist for swap/burn path, but do NOT clobber reserves if the test already set them.
     let reserve: u64 = 1_000_000_000_000;
     let tao_reserve = SubnetTAO::<Test>::get(netuid);
-    let alpha_reserve = SubnetAlphaIn::<Test>::get(netuid)
-        .saturating_add(SubnetAlphaInProvided::<Test>::get(netuid));
+    let alpha_reserve = SubnetAlphaIn::<Test>::get(netuid);
 
     if tao_reserve.is_zero() && alpha_reserve.is_zero() {
         setup_reserves(netuid, reserve.into(), reserve.into());
@@ -763,11 +752,6 @@ pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> NetUid {
     FirstEmissionBlockNumber::<Test>::insert(netuid, 0);
     SubtokenEnabled::<Test>::insert(netuid, true);
     netuid
-}
-
-#[allow(dead_code)]
-pub(crate) fn remove_stake_rate_limit_for_tests(hotkey: &U256, coldkey: &U256, netuid: NetUid) {
-    StakingOperationRateLimiter::<Test>::remove((hotkey, coldkey, netuid));
 }
 
 #[allow(dead_code)]

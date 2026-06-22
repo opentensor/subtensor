@@ -21,7 +21,7 @@ use sp_runtime::{
     AccountId32, MultiSignature, Perbill,
     traits::{ConstBool, Verify},
 };
-use substrate_fixed::types::U96F32;
+use substrate_fixed::types::U64F64;
 use subtensor_macros::freeze_struct;
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::OrderSwapInterface;
@@ -199,9 +199,11 @@ pub mod pallet {
         PalletId,
         pallet_prelude::*,
         traits::{Get, UnixTime},
+        transactional,
     };
     use frame_system::pallet_prelude::*;
     use sp_runtime::traits::AccountIdConversion;
+    use sp_std::collections::btree_set::BTreeSet;
     use sp_std::vec::Vec;
 
     #[pallet::pallet]
@@ -346,6 +348,10 @@ pub mod pallet {
         /// Call on_runtime_upgrade or wait for genesis to complete registration
         /// before enabling the pallet.
         PalletHotkeyNotRegistered,
+        /// A TAO -> alpha conversion overflowed the fixed-point range.
+        ArithmeticOverflow,
+        /// The same order appears more than once in a single batch.
+        DuplicateOrderInBatch,
     }
 
     // ── Hooks ─────────────────────────────────────────────────────────────────
@@ -593,7 +599,7 @@ pub mod pallet {
             signed_order: &SignedOrder<T::AccountId>,
             order_id: H256,
             now_ms: u64,
-            current_price: U96F32,
+            current_price: U64F64,
             relayer: &T::AccountId,
         ) -> DispatchResult {
             let order = signed_order.order.inner();
@@ -624,7 +630,7 @@ pub mod pallet {
             // This allows sub-unity prices (e.g. 0.5 TAO/alpha = 500_000_000) to be
             // represented and compared correctly.
             let scaled_price = current_price
-                .saturating_mul(U96F32::from_num(1_000_000_000u64))
+                .saturating_mul(U64F64::from_num(1_000_000_000u64))
                 .saturating_to_num::<u64>();
             ensure!(
                 match order.order_type {
@@ -691,6 +697,12 @@ pub mod pallet {
 
         /// Attempt to execute one signed order. Returns an error on any
         /// validation or execution failure without panicking.
+        ///
+        /// `#[transactional]` makes the whole body a single storage layer: the
+        /// swap (`buy_alpha`/`sell_alpha`, themselves transactional), the fee
+        /// transfer, and the `Orders::insert` either all commit together or all
+        /// roll back together.
+        #[transactional]
         fn try_execute_order(
             signed_order: SignedOrder<T::AccountId>,
             order_id: H256,
@@ -867,7 +879,7 @@ pub mod pallet {
                 total_sell_net,
                 total_sell_tao_equiv,
                 current_price,
-            );
+            )?;
             Self::deposit_event(Event::GroupExecutionSummary {
                 netuid,
                 net_side,
@@ -889,7 +901,7 @@ pub mod pallet {
             netuid: NetUid,
             orders: &BoundedVec<SignedOrder<T::AccountId>, T::MaxOrdersPerBatch>,
             now_ms: u64,
-            current_price: U96F32,
+            current_price: U64F64,
             relayer: T::AccountId,
         ) -> Result<
             (
@@ -901,8 +913,20 @@ pub mod pallet {
             let mut buys = BoundedVec::new();
             let mut sells = BoundedVec::new();
 
+            // Track which order_ids we have already seen in this batch. A repeated
+            // order_id is never legitimate within a single batch.
+            let mut seen_order_ids: BTreeSet<H256> = BTreeSet::new();
+
             for signed_order in orders.iter() {
                 let order_id = Self::derive_order_id(&signed_order.order);
+
+                // Hard-fail on the first duplicate order_id in the batch (covers both
+                // buys and sells). BTreeSet::insert returns false if already present.
+                ensure!(
+                    seen_order_ids.insert(order_id),
+                    Error::<T>::DuplicateOrderInBatch
+                );
+
                 let order = signed_order.order.inner();
 
                 // Hard-fail if the order targets a different subnet than the batch netuid.
@@ -990,7 +1014,7 @@ pub mod pallet {
             total_buy_net: u128,
             total_sell_net: u128,
             total_sell_tao_equiv: u128,
-            current_price: U96F32,
+            current_price: U64F64,
             pallet_acct: &T::AccountId,
             pallet_hotkey: &T::AccountId,
             netuid: NetUid,
@@ -1015,7 +1039,7 @@ pub mod pallet {
                 };
                 Ok((OrderSide::Buy, actual_alpha))
             } else {
-                let total_buy_alpha_equiv = Self::tao_to_alpha(total_buy_net, current_price);
+                let total_buy_alpha_equiv = Self::tao_to_alpha(total_buy_net, current_price)?;
                 let net_alpha = (total_sell_net.saturating_sub(total_buy_alpha_equiv)) as u64;
                 let actual_tao = if net_alpha > 0 {
                     let out = T::SwapInterface::sell_alpha(
@@ -1047,14 +1071,14 @@ pub mod pallet {
             total_buy_net: u128,
             total_sell_net: u128,
             net_side: &OrderSide,
-            current_price: U96F32,
+            current_price: U64F64,
             pallet_acct: &T::AccountId,
             pallet_hotkey: &T::AccountId,
             netuid: NetUid,
         ) -> DispatchResult {
             let total_alpha: u128 = match net_side {
                 OrderSide::Buy => actual_out.saturating_add(total_sell_net),
-                OrderSide::Sell => Self::tao_to_alpha(total_buy_net, current_price),
+                OrderSide::Sell => Self::tao_to_alpha(total_buy_net, current_price)?,
             };
 
             for e in buys.iter() {
@@ -1106,7 +1130,7 @@ pub mod pallet {
             total_buy_net: u128,
             total_sell_tao_equiv: u128,
             net_side: &OrderSide,
-            current_price: U96F32,
+            current_price: U64F64,
             pallet_acct: &T::AccountId,
             netuid: NetUid,
         ) -> Result<Vec<(T::AccountId, u64)>, DispatchError> {
@@ -1205,31 +1229,36 @@ pub mod pallet {
             total_buy_net: u128,
             total_sell_net: u128,
             total_sell_tao_equiv: u128,
-            current_price: U96F32,
-        ) -> u64 {
+            current_price: U64F64,
+        ) -> Result<u64, DispatchError> {
             match net_side {
-                OrderSide::Buy => (total_buy_net.saturating_sub(total_sell_tao_equiv)) as u64,
+                OrderSide::Buy => Ok((total_buy_net.saturating_sub(total_sell_tao_equiv)) as u64),
                 OrderSide::Sell => {
-                    let buy_alpha_equiv = Self::tao_to_alpha(total_buy_net, current_price) as u64;
-                    (total_sell_net as u64).saturating_sub(buy_alpha_equiv)
+                    let buy_alpha_equiv = Self::tao_to_alpha(total_buy_net, current_price)? as u64;
+                    Ok((total_sell_net as u64).saturating_sub(buy_alpha_equiv))
                 }
             }
         }
 
         /// Convert a TAO amount to alpha at `price` (TAO/alpha).
-        /// Returns 0 when `price` is zero.
-        #[allow(clippy::arithmetic_side_effects)]
-        fn tao_to_alpha(tao: u128, price: U96F32) -> u128 {
-            if price == U96F32::from_num(0u32) {
-                return 0u128;
+        ///
+        /// A zero `price` yields `Ok(0)` (no alpha is purchasable). A genuine
+        /// fixed-point overflow returns `Err(ArithmeticOverflow)` so the caller
+        /// aborts the batch.
+        fn tao_to_alpha(tao: u128, price: U64F64) -> Result<u128, DispatchError> {
+            if price == U64F64::from_num(0u32) {
+                return Ok(0u128);
             }
-            (U96F32::from_num(tao) / price).saturating_to_num::<u128>()
+            U64F64::saturating_from_num(tao)
+                .checked_div(price)
+                .map(|alpha| alpha.saturating_to_num::<u128>())
+                .ok_or(Error::<T>::ArithmeticOverflow.into())
         }
 
         /// Convert an alpha amount to TAO at `price` (TAO/alpha).
-        fn alpha_to_tao(alpha: u128, price: U96F32) -> u128 {
+        fn alpha_to_tao(alpha: u128, price: U64F64) -> u128 {
             price
-                .saturating_mul(U96F32::from_num(alpha))
+                .saturating_mul(U64F64::saturating_from_num(alpha))
                 .saturating_to_num::<u128>()
         }
     }

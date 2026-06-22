@@ -47,6 +47,27 @@ where
         Pallet::<T>::check_weights_min_stake(who, netuid)
     }
 
+    /// Mirror the per-neuron `WeightsSetRateLimit` throttle (otherwise only
+    /// enforced inside the dispatch body) into the transaction-validity gate so
+    /// over-rate `set_weights`/`commit_weights` transactions are rejected
+    /// pre-dispatch instead of being included for free (these calls are
+    /// `Pays::No`). Unregistered callers (whose UID cannot be resolved) pass
+    /// through here and are rejected by the dispatch body, preserving existing
+    /// error semantics.
+    pub fn check_weights_rate_limit(
+        who: &T::AccountId,
+        netuid: NetUid,
+        netuid_index: NetUidStorageIndex,
+    ) -> Result<(), CustomTransactionError> {
+        if let Ok(neuron_uid) = Pallet::<T>::get_uid_for_net_and_hotkey(netuid, who) {
+            let current_block = Pallet::<T>::get_current_block_as_u64();
+            if !Pallet::<T>::check_rate_limit(netuid_index, neuron_uid, current_block) {
+                return Err(CustomTransactionError::RateLimitExceeded);
+            }
+        }
+        Ok(())
+    }
+
     pub fn result_to_validity(result: Result<(), Error<T>>, priority: u64) -> TransactionValidity {
         match result {
             Ok(()) => Ok(ValidTransaction {
@@ -112,13 +133,27 @@ where
         };
 
         match call.is_sub_type() {
-            Some(Call::commit_weights { netuid, .. })
-            | Some(Call::commit_mechanism_weights { netuid, .. }) => {
-                if Self::check_weights_min_stake(who, *netuid) {
-                    Ok((Default::default(), (), origin))
-                } else {
-                    Err(CustomTransactionError::StakeAmountTooLow.into())
+            Some(Call::commit_weights { netuid, .. }) => {
+                if !Self::check_weights_min_stake(who, *netuid) {
+                    return Err(CustomTransactionError::StakeAmountTooLow.into());
                 }
+                // Mirror the in-dispatch commit rate limit
+                // (internal_commit_weights always enforces it).
+                Self::check_weights_rate_limit(who, *netuid, NetUidStorageIndex::from(*netuid))?;
+                Ok((Default::default(), (), origin))
+            }
+            Some(Call::commit_mechanism_weights { netuid, mecid, .. }) => {
+                if !Self::check_weights_min_stake(who, *netuid) {
+                    return Err(CustomTransactionError::StakeAmountTooLow.into());
+                }
+                // Mirror the in-dispatch commit rate limit
+                // (internal_commit_weights always enforces it).
+                Self::check_weights_rate_limit(
+                    who,
+                    *netuid,
+                    Pallet::<T>::get_mechanism_storage_index(*netuid, *mecid),
+                )?;
+                Ok((Default::default(), (), origin))
             }
             Some(Call::batch_commit_weights {
                 netuids,
@@ -153,9 +188,9 @@ where
                     salt,
                     *version_key,
                 );
-                match Pallet::<T>::find_commit_block_via_hash(provided_hash) {
-                    Some(commit_block) => {
-                        if Pallet::<T>::is_reveal_block_range(*netuid, commit_block) {
+                match Pallet::<T>::find_commit_epoch_via_hash(provided_hash) {
+                    Some(commit_epoch) => {
+                        if Pallet::<T>::is_reveal_block_range(*netuid, commit_epoch) {
                             Ok((Default::default(), (), origin))
                         } else {
                             Err(CustomTransactionError::CommitBlockNotInRevealRange.into())
@@ -183,9 +218,9 @@ where
                     salt,
                     *version_key,
                 );
-                match Pallet::<T>::find_commit_block_via_hash(provided_hash) {
-                    Some(commit_block) => {
-                        if Pallet::<T>::is_reveal_block_range(*netuid, commit_block) {
+                match Pallet::<T>::find_commit_epoch_via_hash(provided_hash) {
+                    Some(commit_epoch) => {
+                        if Pallet::<T>::is_reveal_block_range(*netuid, commit_epoch) {
                             Ok((Default::default(), (), origin))
                         } else {
                             Err(CustomTransactionError::CommitBlockNotInRevealRange.into())
@@ -223,13 +258,13 @@ where
                         })
                         .collect::<Vec<_>>();
 
-                    let batch_reveal_block = provided_hashes
+                    let batch_reveal_epoch = provided_hashes
                         .iter()
-                        .filter_map(|hash| Pallet::<T>::find_commit_block_via_hash(*hash))
+                        .filter_map(|hash| Pallet::<T>::find_commit_epoch_via_hash(*hash))
                         .collect::<Vec<_>>();
 
-                    if provided_hashes.len() == batch_reveal_block.len() {
-                        if Pallet::<T>::is_batch_reveal_block_range(*netuid, batch_reveal_block) {
+                    if provided_hashes.len() == batch_reveal_epoch.len() {
+                        if Pallet::<T>::is_batch_reveal_epoch_range(*netuid, batch_reveal_epoch) {
                             Ok((Default::default(), (), origin))
                         } else {
                             Err(CustomTransactionError::CommitBlockNotInRevealRange.into())
@@ -241,13 +276,35 @@ where
                     Err(CustomTransactionError::InputLengthsUnequal.into())
                 }
             }
-            Some(Call::set_weights { netuid, .. })
-            | Some(Call::set_mechanism_weights { netuid, .. }) => {
-                if Self::check_weights_min_stake(who, *netuid) {
-                    Ok((Default::default(), (), origin))
-                } else {
-                    Err(CustomTransactionError::StakeAmountTooLow.into())
+            Some(Call::set_weights { netuid, .. }) => {
+                if !Self::check_weights_min_stake(who, *netuid) {
+                    return Err(CustomTransactionError::StakeAmountTooLow.into());
                 }
+                // Mirror the in-dispatch rate limit (only enforced when
+                // commit-reveal is disabled, matching internal_set_weights).
+                if !Pallet::<T>::get_commit_reveal_weights_enabled(*netuid) {
+                    Self::check_weights_rate_limit(
+                        who,
+                        *netuid,
+                        NetUidStorageIndex::from(*netuid),
+                    )?;
+                }
+                Ok((Default::default(), (), origin))
+            }
+            Some(Call::set_mechanism_weights { netuid, mecid, .. }) => {
+                if !Self::check_weights_min_stake(who, *netuid) {
+                    return Err(CustomTransactionError::StakeAmountTooLow.into());
+                }
+                // Mirror the in-dispatch rate limit (only enforced when
+                // commit-reveal is disabled, matching internal_set_weights).
+                if !Pallet::<T>::get_commit_reveal_weights_enabled(*netuid) {
+                    Self::check_weights_rate_limit(
+                        who,
+                        *netuid,
+                        Pallet::<T>::get_mechanism_storage_index(*netuid, *mecid),
+                    )?;
+                }
+                Ok((Default::default(), (), origin))
             }
             Some(Call::batch_set_weights {
                 netuids,

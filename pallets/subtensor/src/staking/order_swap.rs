@@ -2,7 +2,7 @@ use super::*;
 use frame_support::traits::fungible::Mutate;
 use frame_support::traits::tokens::Preservation;
 use frame_support::transactional;
-use substrate_fixed::types::U96F32;
+use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance};
 use subtensor_swap_interface::{Order, OrderSwapInterface, SwapHandler, SwapResult};
 
@@ -47,10 +47,7 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
             );
         }
         let alpha_out =
-            Self::stake_into_subnet(hotkey, coldkey, netuid, tao_amount, amm_limit, false, false)?;
-        if validate {
-            Self::set_stake_operation_limit(hotkey, coldkey, netuid);
-        }
+            Self::stake_into_subnet(hotkey, coldkey, netuid, tao_amount, amm_limit, false)?;
         Ok(alpha_out)
     }
 
@@ -101,7 +98,7 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
         Ok(tao_out)
     }
 
-    fn current_alpha_price(netuid: NetUid) -> U96F32 {
+    fn current_alpha_price(netuid: NetUid) -> U64F64 {
         T::SwapInterface::current_alpha_price(netuid)
     }
 
@@ -130,13 +127,12 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
             );
             ensure!(!amount.is_zero(), Error::<T>::AmountTooLow);
             let tao_equiv = T::SwapInterface::current_alpha_price(netuid)
-                .saturating_mul(U96F32::saturating_from_num(amount.to_u64()))
+                .saturating_mul(U64F64::saturating_from_num(amount.to_u64()))
                 .saturating_to_num::<u64>();
             ensure!(
                 TaoBalance::from(tao_equiv) >= DefaultMinStake::<T>::get(),
                 Error::<T>::AmountTooLow
             );
-            Self::ensure_stake_operation_limit_not_exceeded(from_hotkey, from_coldkey, netuid)?;
             Self::ensure_available_to_unstake(from_coldkey, netuid, amount)?;
         }
 
@@ -145,7 +141,6 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
                 Self::hotkey_account_exists(to_hotkey),
                 Error::<T>::HotKeyAccountNotExists
             );
-            Self::set_stake_operation_limit(to_hotkey, to_coldkey, netuid);
         }
 
         let available =

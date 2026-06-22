@@ -24,7 +24,7 @@ permissions:
 
 jobs:
   run:
-    runs-on: [self-hosted, type-ccx13]
+    runs-on: [self-hosted, fireactions-light]
     env:
       RUST_BACKTRACE: full
     steps:

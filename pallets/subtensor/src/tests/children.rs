@@ -2318,7 +2318,6 @@ fn test_do_remove_stake_clears_pending_childkeys() {
         assert!(pending_before.1 > 0);
 
         // Remove stake
-        remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid);
         assert_ok!(SubtensorModule::do_remove_stake(
             RuntimeOrigin::signed(coldkey),
             hotkey,
@@ -3143,6 +3142,9 @@ fn test_parent_child_chain_emission() {
         // Set pending emission to 0
         PendingValidatorEmission::<Test>::insert(netuid, AlphaBalance::ZERO);
         PendingServerEmission::<Test>::insert(netuid, AlphaBalance::ZERO);
+
+        // To trigger the epoch, block should be > tempo. So we advance it before
+        System::set_block_number(2);
 
         // Run epoch with emission value
         let emission_value = u64::from(emission.peek());
