@@ -477,6 +477,7 @@ where
         api.get_block_emission(at)
             .map_err(|e| Error::RuntimeError(format!("Unable to get block emission: {e:?}")).into())
     }
+
     fn get_network_lock_cost(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<TaoBalance> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);

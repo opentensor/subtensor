@@ -2531,12 +2531,12 @@ impl_runtime_apis! {
             SubtensorModule::get_next_epoch_start_block(netuid)
         }
 
-    fn get_block_emission() -> TaoBalance {
-        match SubtensorModule::calculate_block_emission() {
-            Ok(block_emission) => block_emission.into(),
-            Err(_) => TaoBalance::ZERO,
+        fn get_block_emission() -> TaoBalance {
+            match SubtensorModule::calculate_block_emission() {
+                Ok(block_emission) => block_emission.into(),
+                Err(_) => TaoBalance::ZERO,
+            }
         }
-    }
     }
 
     impl subtensor_custom_rpc_runtime_api::StakeInfoRuntimeApi<Block> for Runtime {
