@@ -193,10 +193,10 @@ parameter_types! {
     pub const InitialMaxBurn: TaoBalance = TaoBalance::new(1_000_000_000);
     pub const MinBurnUpperBound: TaoBalance = TaoBalance::new(1_000_000_000); // 1 TAO
     pub const MaxBurnLowerBound: TaoBalance = TaoBalance::new(100_000_000); // 0.1 TAO
-    pub const MinTempo: u16 = pallet_subtensor::MIN_TEMPO;
-    pub const MaxTempo: u16 = pallet_subtensor::MAX_TEMPO;
-    pub const MinActivityCutoffFactorMilli: u32 = pallet_subtensor::MIN_ACTIVITY_CUTOFF_FACTOR_MILLI;
-    pub const MaxActivityCutoffFactorMilli: u32 = pallet_subtensor::MAX_ACTIVITY_CUTOFF_FACTOR_MILLI;
+    pub const MinTempo: u16 = 360;
+    pub const MaxTempo: u16 = 50_400;
+    pub const MinActivityCutoffFactorMilli: u32 = 1_000;
+    pub const MaxActivityCutoffFactorMilli: u32 = 50_000;
     pub const InitialValidatorPruneLen: u64 = 0;
     pub const InitialScalingLawPower: u16 = 50;
     pub const InitialMaxAllowedValidators: u16 = 100;
