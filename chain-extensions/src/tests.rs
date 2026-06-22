@@ -1786,7 +1786,7 @@ fn get_coldkey_lock_returns_rolled_lock() {
         let lock = Option::<ColdkeyLock>::decode(&mut &env.output()[..])
             .unwrap()
             .unwrap();
-        assert_eq!(lock.locked_mass, u64::from(expected.locked_mass));
+        assert_eq!(lock.locked_mass, expected.locked_mass);
         assert_eq!(lock.conviction_bits, expected.conviction.to_bits());
         assert!(lock.conviction_bits > 0);
         assert_eq!(
@@ -1818,9 +1818,9 @@ fn get_stake_availability_returns_zeroes_without_stake_or_lock() {
             availability,
             StakeAvailability {
                 netuid,
-                total: 0,
-                locked: 0,
-                available: 0,
+                total: AlphaBalance::ZERO,
+                locked: AlphaBalance::ZERO,
+                available: AlphaBalance::ZERO,
             }
         );
     });
@@ -1863,9 +1863,9 @@ fn get_stake_availability_returns_partial_lock_breakdown() {
             availability,
             StakeAvailability {
                 netuid,
-                total: u64::from(stake),
-                locked: u64::from(lock_amount),
-                available: u64::from(stake) - u64::from(lock_amount),
+                total: stake,
+                locked: lock_amount,
+                available: stake.saturating_sub(lock_amount),
             }
         );
     });
@@ -1910,11 +1910,11 @@ fn get_stake_availability_uses_rolled_forward_lock() {
 
         let availability = StakeAvailability::decode(&mut &env.output()[..]).unwrap();
         assert_eq!(availability.netuid, netuid);
-        assert_eq!(availability.total, u64::from(stake));
-        assert_eq!(availability.locked, u64::from(expected_locked));
+        assert_eq!(availability.total, stake);
+        assert_eq!(availability.locked, expected_locked);
         assert_eq!(
             availability.available,
-            u64::from(stake).saturating_sub(u64::from(expected_locked))
+            stake.saturating_sub(expected_locked)
         );
     });
 }

@@ -620,7 +620,7 @@ where
                 let lock =
                     pallet_subtensor::Pallet::<T>::get_coldkey_lock(&coldkey, netuid).map(|lock| {
                         ColdkeyLock {
-                            locked_mass: u64::from(lock.locked_mass),
+                            locked_mass: lock.locked_mass,
                             conviction_bits: lock.conviction.to_bits(),
                             last_update: lock.last_update,
                         }
@@ -640,9 +640,9 @@ where
                     pallet_subtensor::Pallet::<T>::stake_availability(&coldkey, netuid);
                 let availability = StakeAvailability {
                     netuid,
-                    total: u64::from(total),
-                    locked: u64::from(locked),
-                    available: u64::from(available),
+                    total,
+                    locked,
+                    available,
                 };
 
                 env.write_output(&availability.encode())

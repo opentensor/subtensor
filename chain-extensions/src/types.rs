@@ -2,7 +2,7 @@ use codec::{Decode, Encode};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use sp_runtime::{DispatchError, ModuleError};
 use subtensor_macros::freeze_struct;
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{AlphaBalance, NetUid};
 
 #[repr(u16)]
 #[derive(TryFromPrimitive, IntoPrimitive, Decode, Encode)]
@@ -54,21 +54,21 @@ pub struct SubnetRegistrationState {
     pub registered_subnet_counter: u64,
 }
 
-#[freeze_struct("66308df56160c90c")]
+#[freeze_struct("bf4c1e249109618")]
 #[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, Debug, scale_info::TypeInfo)]
 pub struct ColdkeyLock {
-    pub locked_mass: u64,
+    pub locked_mass: AlphaBalance,
     pub conviction_bits: u128,
     pub last_update: u64,
 }
 
-#[freeze_struct("9bc2007bdf4287bc")]
+#[freeze_struct("fb12f00479cf6990")]
 #[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, Debug, scale_info::TypeInfo)]
 pub struct StakeAvailability {
     pub netuid: NetUid,
-    pub total: u64,
-    pub locked: u64,
-    pub available: u64,
+    pub total: AlphaBalance,
+    pub locked: AlphaBalance,
+    pub available: AlphaBalance,
 }
 
 #[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, Debug)]
