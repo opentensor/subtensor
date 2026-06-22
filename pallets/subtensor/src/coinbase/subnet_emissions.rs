@@ -347,14 +347,16 @@ impl<T: Config> Pallet<T> {
         offset_flows
     }
 
-    // Combines ema price method and tao flow method linearly over FlowHalfLife blocks
+    // Price-based emission shares: each subnet's share is its EMA price normalized
+    // by the sum of EMA prices. Emit-disabled subnets are zeroed and their share
+    // redistributed to enabled subnets in `get_subnet_block_emissions`, so the
+    // effective emission is e_i = p_i / sum(p_j) over emit-enabled subnets.
     pub(crate) fn get_shares(subnets_to_emit_to: &[NetUid]) -> BTreeMap<NetUid, U64F64> {
-        Self::get_shares_flow(subnets_to_emit_to)
-        // Self::get_shares_price_ema(subnets_to_emit_to)
+        Self::get_shares_price_ema(subnets_to_emit_to)
     }
 
-    // DEPRECATED: Implementation of shares that uses EMA prices will be gradually deprecated
-    #[allow(dead_code)]
+    // Implementation of shares that uses subnet EMA prices (SubnetMovingPrice),
+    // not the active/spot alpha price.
     fn get_shares_price_ema(subnets_to_emit_to: &[NetUid]) -> BTreeMap<NetUid, U64F64> {
         // Get sum of alpha moving prices
         let total_moving_prices = subnets_to_emit_to
