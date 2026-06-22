@@ -1883,6 +1883,18 @@ pub mod pallet {
     pub type PendingOwnerCut<T> =
         StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
 
+    /// Default miner-burned proportion.
+    #[pallet::type_value]
+    pub fn DefaultMinerBurned<T: Config>() -> U96F32 {
+        U96F32::saturating_from_num(0.0)
+    }
+    /// --- MAP ( netuid ) --> miner_burned | Proportion (0..1) of this tempo's miner
+    /// (incentive) emission that was burned during emission distribution because the
+    /// recipient hotkey is owned by the subnet owner (immune key).
+    #[pallet::storage]
+    pub type MinerBurned<T> =
+        StorageMap<_, Identity, NetUid, U96F32, ValueQuery, DefaultMinerBurned<T>>;
+
     /// --- MAP ( netuid ) --> blocks_since_last_step
     #[pallet::storage]
     pub type BlocksSinceLastStep<T> =
