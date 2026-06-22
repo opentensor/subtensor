@@ -62,6 +62,8 @@ mod uid_lookup;
 mod voting_power;
 
 #[cfg(test)]
+mod limit_orders_mock;
+#[cfg(test)]
 mod mock;
 
 pub struct Precompiles<R>(PhantomData<R>);

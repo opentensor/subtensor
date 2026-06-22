@@ -48,6 +48,7 @@ frame_support::construct_runtime!(
         Evm: pallet_evm = 12,
         AdminUtils: pallet_admin_utils = 13,
         EVMChainId: pallet_evm_chain_id = 14,
+        LimitOrders: pallet_limit_orders = 16,
     }
 );
 
@@ -251,7 +252,7 @@ impl pallet_evm::Config for Runtime {
     type BlockHashMapping = pallet_evm::SubstrateBlockHashMapping<Self>;
     type CallOrigin = EnsureAddressRoot<AccountId>;
     type WithdrawOrigin = EnsureAddressNever<AccountId>;
-    type AddressMapping = pallet_evm::HashedAddressMapping<BlakeTwo256>;
+    type AddressMapping = PrecompileTestAddressMapping;
     type Currency = Balances;
     type PrecompilesType = ();
     type PrecompilesValue = ();
@@ -516,6 +517,16 @@ impl pallet_subtensor_proxy::Config for Runtime {
     type BlockNumberProvider = System;
 }
 
+impl pallet_limit_orders::Config for Runtime {
+    type SwapInterface = crate::limit_orders_mock::LimitOrdersMockSwap;
+    type TimeProvider = crate::limit_orders_mock::LimitOrdersMockTime;
+    type MaxOrdersPerBatch = ConstU32<64>;
+    type PalletId = crate::limit_orders_mock::LimitOrdersPalletId;
+    type PalletHotkey = crate::limit_orders_mock::LimitOrdersPalletHotkey;
+    type WeightInfo = ();
+    type ChainId = crate::limit_orders_mock::LimitOrdersChainId;
+}
+
 pub(crate) struct SinglePrecompileSet<P>(PhantomData<P>);
 
 impl<P> Default for SinglePrecompileSet<P> {
@@ -577,6 +588,28 @@ pub(crate) fn execute_precompile<PSet: PrecompileSet>(
 
 pub(crate) fn addr_from_index(index: u64) -> H160 {
     H160::from_low_u64_be(index)
+}
+
+/// Reserved EVM address indices for limit-order tests that need sr25519-signable accounts.
+pub(crate) const TEST_SIGNER_ADDR_INDEX: u64 = 0xA11CE001;
+pub(crate) const TEST_HOTKEY_ADDR_INDEX: u64 = 0xB08B0001;
+
+pub struct PrecompileTestAddressMapping;
+
+impl AddressMapping<AccountId> for PrecompileTestAddressMapping {
+    fn into_account_id(address: H160) -> AccountId {
+        use sp_core::Pair;
+
+        if address == addr_from_index(TEST_SIGNER_ADDR_INDEX) {
+            let pair = sp_core::sr25519::Pair::from_string("//Alice", None).expect("valid seed");
+            AccountId::from(pair.public())
+        } else if address == addr_from_index(TEST_HOTKEY_ADDR_INDEX) {
+            let pair = sp_core::sr25519::Pair::from_string("//Bob", None).expect("valid seed");
+            AccountId::from(pair.public())
+        } else {
+            pallet_evm::HashedAddressMapping::<BlakeTwo256>::into_account_id(address)
+        }
+    }
 }
 
 pub(crate) fn mapped_account(address: H160) -> AccountId {
