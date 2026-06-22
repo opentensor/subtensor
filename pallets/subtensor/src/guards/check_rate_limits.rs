@@ -1,3 +1,4 @@
+use crate::weights::WeightInfo;
 use crate::{Call, Config, Error, Pallet, TransactionType};
 use frame_support::{
     dispatch::{DispatchErrorWithPostInfo, DispatchExtension, DispatchInfo, PostDispatchInfo},
@@ -89,7 +90,7 @@ where
     type Pre = ();
 
     fn weight(_call: &CallOf<T>) -> Weight {
-        T::DbWeight::get().reads(3)
+        <T as Config>::WeightInfo::check_rate_limits_extension()
     }
 
     fn pre_dispatch(

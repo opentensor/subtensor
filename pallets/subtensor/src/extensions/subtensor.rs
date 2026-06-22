@@ -4,8 +4,9 @@ use crate::{
 };
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
-    dispatch::{DispatchInfo, PostDispatchInfo},
+    dispatch::{DispatchExtension, DispatchInfo, PostDispatchInfo},
     traits::{IsSubType, OriginTrait},
+    weights::Weight,
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::{
@@ -114,6 +115,16 @@ where
     type Val = ();
     type Pre = ();
 
+    fn weight(&self, call: &CallOf<T>) -> Weight {
+        use DispatchExtension as DE;
+        <CheckColdkeySwap<T> as DE<CallOf<T>>>::weight(call)
+            .saturating_add(<CheckWeights<T> as DE<CallOf<T>>>::weight(call))
+            .saturating_add(<CheckRateLimits<T> as DE<CallOf<T>>>::weight(call))
+            .saturating_add(<CheckDelegateTake<T> as DE<CallOf<T>>>::weight(call))
+            .saturating_add(<CheckServingEndpoints<T> as DE<CallOf<T>>>::weight(call))
+            .saturating_add(<CheckEvmKeyAssociation<T> as DE<CallOf<T>>>::weight(call))
+    }
+
     fn validate(
         &self,
         origin: OriginOf<T>,
@@ -129,17 +140,21 @@ where
             .map_err(|error| TransactionValidityError::from(CustomTransactionError::from(error)))
     }
 
-    impl_tx_ext_default!(CallOf<T>; weight prepare);
+    impl_tx_ext_default!(CallOf<T>; prepare);
 }
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::SubtensorTransactionExtension;
-    use crate::{ColdkeySwapAnnouncements, ColdkeySwapDisputes, tests::mock::*};
+    use crate::{
+        CheckColdkeySwap, CheckDelegateTake, CheckEvmKeyAssociation, CheckRateLimits,
+        CheckServingEndpoints, CheckWeights, ColdkeySwapAnnouncements, ColdkeySwapDisputes,
+        tests::mock::*,
+    };
     use frame_support::{
         assert_ok,
-        dispatch::{GetDispatchInfo, Pays},
+        dispatch::{DispatchExtension, GetDispatchInfo, Pays},
     };
     use frame_system::RawOrigin;
     use sp_core::U256;
@@ -169,6 +184,20 @@ mod tests {
                 TransactionSource::External,
             )
             .map(|(validity, _, _)| validity)
+    }
+
+    fn expected_transaction_extension_weight(call: &RuntimeCall) -> frame_support::weights::Weight {
+        use DispatchExtension as DE;
+        <CheckColdkeySwap<Test> as DE<RuntimeCall>>::weight(call)
+            .saturating_add(<CheckWeights<Test> as DE<RuntimeCall>>::weight(call))
+            .saturating_add(<CheckRateLimits<Test> as DE<RuntimeCall>>::weight(call))
+            .saturating_add(<CheckDelegateTake<Test> as DE<RuntimeCall>>::weight(call))
+            .saturating_add(<CheckServingEndpoints<Test> as DE<RuntimeCall>>::weight(
+                call,
+            ))
+            .saturating_add(<CheckEvmKeyAssociation<Test> as DE<RuntimeCall>>::weight(
+                call,
+            ))
     }
 
     #[test]
@@ -238,6 +267,32 @@ mod tests {
             assert_eq!(call.get_dispatch_info().pays_fee, Pays::No);
             let err = validate_signed(hotkey, &call).unwrap_err();
             assert_eq!(err, CustomTransactionError::RateLimitExceeded.into());
+        });
+    }
+
+    #[test]
+    fn weight_matches_top_level_dispatch_extension_checks() {
+        new_test_ext(1).execute_with(|| {
+            let extension = SubtensorTransactionExtension::<Test>::new();
+            let calls = [
+                RuntimeCall::System(frame_system::Call::remark { remark: vec![] }),
+                RuntimeCall::SubtensorModule(SubtensorCall::set_weights {
+                    netuid: NetUid::from(1),
+                    dests: vec![0],
+                    weights: vec![1],
+                    version_key: 0,
+                }),
+                RuntimeCall::SubtensorModule(SubtensorCall::register_network {
+                    hotkey: U256::from(9),
+                }),
+            ];
+
+            for call in calls {
+                assert_eq!(
+                    TransactionExtension::weight(&extension, &call),
+                    expected_transaction_extension_weight(&call)
+                );
+            }
         });
     }
 }

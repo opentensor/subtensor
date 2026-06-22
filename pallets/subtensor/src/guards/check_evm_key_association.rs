@@ -1,3 +1,4 @@
+use crate::weights::WeightInfo;
 use crate::{Call, Config, Error, Pallet};
 use frame_support::{
     dispatch::{DispatchErrorWithPostInfo, DispatchExtension, DispatchInfo, PostDispatchInfo},
@@ -40,7 +41,7 @@ where
     type Pre = ();
 
     fn weight(_call: &CallOf<T>) -> Weight {
-        T::DbWeight::get().reads(2)
+        <T as Config>::WeightInfo::check_evm_key_association_extension()
     }
 
     fn pre_dispatch(

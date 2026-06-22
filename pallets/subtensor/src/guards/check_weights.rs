@@ -1,3 +1,4 @@
+use crate::weights::WeightInfo;
 use crate::{Call, Config, Error, Pallet, WeightCommits};
 use frame_support::{
     dispatch::{DispatchErrorWithPostInfo, DispatchExtension, DispatchInfo, PostDispatchInfo},
@@ -12,7 +13,6 @@ use subtensor_runtime_common::{NetUid, NetUidStorageIndex};
 type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 type DispatchableOriginOf<T> = <CallOf<T> as Dispatchable>::RuntimeOrigin;
 type WeightCommitQueue = VecDeque<(H256, u64, u64, u64)>;
-const MAX_UNREVEALED_COMMITS: u64 = 10;
 
 /// Dispatch extension for weight-setting preconditions.
 ///
@@ -228,11 +228,7 @@ where
     type Pre = ();
 
     fn weight(_call: &CallOf<T>) -> Weight {
-        T::DbWeight::get().reads(
-            1_u64
-                .saturating_add(T::InitialMaxAllowedUids::get().into())
-                .saturating_add(MAX_UNREVEALED_COMMITS),
-        )
+        <T as Config>::WeightInfo::check_weights_extension()
     }
 
     fn pre_dispatch(

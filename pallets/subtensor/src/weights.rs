@@ -31,6 +31,7 @@
 #![allow(missing_docs)]
 #![allow(dead_code)]
 
+use crate::subnets::mechanism::GLOBAL_MAX_SUBNET_COUNT;
 use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
 use core::marker::PhantomData;
 
@@ -96,6 +97,12 @@ pub trait WeightInfo {
 	fn set_tempo() -> Weight;
 	fn set_activity_cutoff_factor() -> Weight;
 	fn trigger_epoch() -> Weight;
+	fn check_coldkey_swap_extension() -> Weight;
+	fn check_weights_extension() -> Weight;
+	fn check_rate_limits_extension() -> Weight;
+	fn check_delegate_take_extension() -> Weight;
+	fn check_serving_endpoints_extension() -> Weight;
+	fn check_evm_key_association_extension() -> Weight;
 }
 
 /// Weights for `pallet_subtensor` using the Substrate node and recommended hardware.
@@ -2439,6 +2446,32 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(7_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
+	fn check_coldkey_swap_extension() -> Weight {
+		Weight::from_parts(0, 0)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+	}
+	fn check_weights_extension() -> Weight {
+		Weight::from_parts(0, 0)
+			.saturating_add(T::DbWeight::get().reads(4107_u64))
+	}
+	fn check_rate_limits_extension() -> Weight {
+		Weight::from_parts(0, 0)
+			.saturating_add(T::DbWeight::get().reads(8_u64))
+	}
+	fn check_delegate_take_extension() -> Weight {
+		Weight::from_parts(0, 0)
+			.saturating_add(T::DbWeight::get().reads(5_u64))
+	}
+	fn check_serving_endpoints_extension() -> Weight {
+		Weight::from_parts(0, 0)
+			.saturating_add(T::DbWeight::get().reads(
+				(GLOBAL_MAX_SUBNET_COUNT as u64).saturating_add(4_u64)
+			))
+	}
+	fn check_evm_key_association_extension() -> Weight {
+		Weight::from_parts(0, 0)
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -4780,5 +4813,31 @@ impl WeightInfo for () {
 		Weight::from_parts(28_000_000, 4318)
 			.saturating_add(RocksDbWeight::get().reads(7_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
+	}
+	fn check_coldkey_swap_extension() -> Weight {
+		Weight::from_parts(0, 0)
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+	}
+	fn check_weights_extension() -> Weight {
+		Weight::from_parts(0, 0)
+			.saturating_add(RocksDbWeight::get().reads(4107_u64))
+	}
+	fn check_rate_limits_extension() -> Weight {
+		Weight::from_parts(0, 0)
+			.saturating_add(RocksDbWeight::get().reads(8_u64))
+	}
+	fn check_delegate_take_extension() -> Weight {
+		Weight::from_parts(0, 0)
+			.saturating_add(RocksDbWeight::get().reads(5_u64))
+	}
+	fn check_serving_endpoints_extension() -> Weight {
+		Weight::from_parts(0, 0)
+			.saturating_add(RocksDbWeight::get().reads(
+				(GLOBAL_MAX_SUBNET_COUNT as u64).saturating_add(4_u64)
+			))
+	}
+	fn check_evm_key_association_extension() -> Weight {
+		Weight::from_parts(0, 0)
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
 	}
 }
