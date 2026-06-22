@@ -1366,10 +1366,6 @@ impl<T: Config> Pallet<T> {
             locks_to_transfer.push((netuid, hotkey, lock));
         }
 
-        for (netuid, decaying) in decaying_locks_to_transfer.iter() {
-            DecayingLock::<T>::insert(new_coldkey, *netuid, *decaying);
-        }
-
         let mut rolled_locks_to_transfer: Vec<(NetUid, T::AccountId, LockState, bool)> = Vec::new();
         for (netuid, hotkey, lock) in locks_to_transfer {
             let perpetual_lock = decaying_locks_to_transfer
@@ -1390,7 +1386,27 @@ impl<T: Config> Pallet<T> {
             rolled_locks_to_transfer.push((netuid, hotkey, old_lock, perpetual_lock));
         }
 
-        // Remove locks for old coldkey and insert for new
+        // Remove old locks and reduce old aggregate buckets before moving the
+        // perpetual-lock flags; aggregate selection depends on the old flag.
+        for (netuid, hotkey, old_lock, _) in rolled_locks_to_transfer.iter() {
+            Lock::<T>::remove((old_coldkey.clone(), *netuid, hotkey.clone()));
+            Self::reduce_aggregate_lock(
+                old_coldkey,
+                hotkey,
+                *netuid,
+                old_lock.locked_mass,
+                old_lock.conviction,
+            );
+        }
+
+        for (netuid, _) in decaying_locks_to_transfer {
+            if let Some(decaying) = DecayingLock::<T>::take(old_coldkey, netuid) {
+                DecayingLock::<T>::insert(new_coldkey, netuid, decaying);
+            }
+        }
+
+        // Insert locks for the new coldkey and add to the destination aggregate
+        // buckets after the flags have moved.
         for (netuid, hotkey, old_lock, perpetual_lock) in rolled_locks_to_transfer {
             let new_lock = ConvictionModel::roll_forward_lock(
                 old_lock.clone(),
@@ -1399,14 +1415,6 @@ impl<T: Config> Pallet<T> {
                 maturity_rate,
                 Self::is_subnet_owner_hotkey(netuid, &hotkey),
                 perpetual_lock,
-            );
-            Lock::<T>::remove((old_coldkey.clone(), netuid, hotkey.clone()));
-            Self::reduce_aggregate_lock(
-                old_coldkey,
-                &hotkey,
-                netuid,
-                old_lock.locked_mass,
-                old_lock.conviction,
             );
             Self::insert_lock_state(new_coldkey, netuid, &hotkey, new_lock.clone());
             Self::add_aggregate_lock(new_coldkey, &hotkey, netuid, new_lock);

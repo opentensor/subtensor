@@ -2940,6 +2940,7 @@ fn test_coldkey_swap_allows_destination_conviction_only_lock() {
                 last_update: SubtensorModule::get_current_block_as_u64(),
             },
         );
+        DecayingLock::<Test>::insert(old_coldkey, netuid, false);
         SubtensorModule::insert_lock_state(
             &new_coldkey,
             netuid,
@@ -2968,6 +2969,8 @@ fn test_coldkey_swap_allows_destination_conviction_only_lock() {
         assert_eq!(swapped_lock.locked_mass, AlphaBalance::ZERO);
         assert_eq!(swapped_lock.conviction, old_conviction);
         assert_eq!(Lock::<Test>::iter_prefix((new_coldkey, netuid)).count(), 2);
+        assert!(DecayingLock::<Test>::get(old_coldkey, netuid).is_none());
+        assert_eq!(DecayingLock::<Test>::get(new_coldkey, netuid), Some(false));
     });
 }
 
@@ -3051,6 +3054,7 @@ fn test_coldkey_swap_rejects_locked_alpha_to_flagged_destination() {
                 last_update: SubtensorModule::get_current_block_as_u64(),
             },
         );
+        DecayingLock::<Test>::insert(old_coldkey, netuid, false);
         assert_ok!(SubtensorModule::set_reject_locked_alpha(
             RuntimeOrigin::signed(new_coldkey),
             true,
@@ -3070,6 +3074,8 @@ fn test_coldkey_swap_rejects_locked_alpha_to_flagged_destination() {
                 .next()
                 .is_none()
         );
+        assert_eq!(DecayingLock::<Test>::get(old_coldkey, netuid), Some(false));
+        assert!(DecayingLock::<Test>::get(new_coldkey, netuid).is_none());
     });
 }
 
