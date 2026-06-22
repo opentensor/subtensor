@@ -5,7 +5,7 @@ use alloc::{collections::BTreeMap, vec::Vec};
 use approx::assert_abs_diff_eq;
 use sp_core::U256;
 use substrate_fixed::types::{I64F64, I96F32, U64F64, U96F32};
-use subtensor_runtime_common::{NetUid, TaoBalance};
+use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance};
 
 fn u64f64(x: f64) -> U64F64 {
     U64F64::from_num(x)
@@ -152,8 +152,15 @@ fn inplace_pow_normalize_fractional_exponent() {
 }
 
 /// Configure a dynamic subnet with a given EMA price and miner-burned proportion so
-/// `get_shares` (price-based, reweighted by `1 - miner_burned`) can be exercised.
+/// `get_shares` can be exercised. Also seeds a large root stake with full TAO weight so
+/// that, with zero alpha issuance on the test subnets, `root_proportion` is 1 and the
+/// root-proportion factor in `get_shares` is neutral (isolating the price/burn weighting).
 fn set_price_and_burn(netuid: NetUid, price: f64, burned: f64) {
+    SubnetTAO::<Test>::insert(
+        NetUid::ROOT,
+        TaoBalance::from(1_000_000_000_000_000_000_u64),
+    );
+    SubtensorModule::set_tao_weight(u64::MAX);
     SubnetMechanism::<Test>::insert(netuid, 1);
     SubnetMovingPrice::<Test>::insert(netuid, i96f32(price));
     MinerBurned::<Test>::insert(netuid, U96F32::from_num(burned));
@@ -247,6 +254,41 @@ fn get_shares_all_full_burn_falls_back_to_price_shares() {
         assert_abs_diff_eq!(s1, 1.0 / 4.0, epsilon = 1e-9);
         assert_abs_diff_eq!(s2, 3.0 / 4.0, epsilon = 1e-9);
         assert_abs_diff_eq!(s1 + s2, 1.0, epsilon = 1e-9);
+    });
+}
+
+/// With equal price and no burn, the root_proportion factor reallocates emission toward
+/// the newer subnet (lower alpha issuance => higher root_proportion) and away from the
+/// older one (higher alpha issuance => lower root_proportion).
+#[test]
+fn get_shares_root_proportion_favors_newer_subnets() {
+    new_test_ext(1).execute_with(|| {
+        let n1 = NetUid::from(1);
+        let n2 = NetUid::from(2);
+        // Equal price, no burn; root proportion factor is the only differentiator.
+        set_price_and_burn(n1, 1.0, 0.0);
+        set_price_and_burn(n2, 1.0, 0.0);
+
+        // tao_weight = 1.0 (u64::MAX), so tao_weight term = root_tao. Set root_tao = 1000
+        // and per-subnet alpha issuance to make root_proportion deterministic:
+        //   n1: issuance 1000 => root_prop = 1000 / (1000 + 1000) = 0.5
+        //   n2: issuance 3000 => root_prop = 1000 / (1000 + 3000) = 0.25
+        SubnetTAO::<Test>::insert(NetUid::ROOT, TaoBalance::from(1_000_u64));
+        SubnetAlphaOut::<Test>::insert(n1, AlphaBalance::from(1_000_u64));
+        SubnetAlphaOut::<Test>::insert(n2, AlphaBalance::from(3_000_u64));
+
+        // weighted: n1 = 0.5(price) * 0.5(root) = 0.25, n2 = 0.5 * 0.25 = 0.125; total 0.375
+        let shares = SubtensorModule::get_shares(&[n1, n2]);
+        let s1 = shares.get(&n1).unwrap().to_num::<f64>();
+        let s2 = shares.get(&n2).unwrap().to_num::<f64>();
+
+        assert_abs_diff_eq!(s1, 2.0 / 3.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(s2, 1.0 / 3.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(s1 + s2, 1.0, epsilon = 1e-9);
+        assert!(
+            s1 > s2,
+            "newer subnet (higher root_prop) should get more: s1={s1}, s2={s2}"
+        );
     });
 }
 
