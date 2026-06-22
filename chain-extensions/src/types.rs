@@ -46,27 +46,24 @@ pub enum FunctionId {
     GetStakeAvailabilityV1 = 36,
 }
 
-#[freeze_struct("cd2c2a7591a9d860")]
-#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, Debug)]
-#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+#[freeze_struct("5dc33d60abed5c08")]
+#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, Debug, scale_info::TypeInfo)]
 pub struct SubnetRegistrationState {
     pub netuid: NetUid,
     pub exists: bool,
     pub registered_subnet_counter: u64,
 }
 
-#[freeze_struct("15e8c8d2d16cae4e")]
-#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, Debug)]
-#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+#[freeze_struct("66308df56160c90c")]
+#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, Debug, scale_info::TypeInfo)]
 pub struct ColdkeyLock {
     pub locked_mass: u64,
     pub conviction_bits: u128,
     pub last_update: u64,
 }
 
-#[freeze_struct("40d916a395c4566a")]
-#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, Debug)]
-#[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+#[freeze_struct("9bc2007bdf4287bc")]
+#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, Debug, scale_info::TypeInfo)]
 pub struct StakeAvailability {
     pub netuid: NetUid,
     pub total: u64,
