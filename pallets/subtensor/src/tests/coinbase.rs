@@ -2896,6 +2896,59 @@ fn test_run_coinbase_not_started_start_after() {
     });
 }
 
+/// Test that coinbase updates protocol position liquidity
+/// cargo test --package pallet-subtensor --lib -- tests::coinbase::test_coinbase_v3_liquidity_update --exact --show-output
+#[test]
+fn test_coinbase_v3_liquidity_update() {
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(1);
+        let owner_coldkey = U256::from(2);
+
+        // add network
+        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        // Force the swap to initialize
+        SubtensorModule::swap_tao_for_alpha(
+            netuid,
+            TaoBalance::ZERO,
+            1_000_000_000_000_u64.into(),
+            false,
+        )
+        .unwrap();
+
+        let protocol_account_id = pallet_subtensor_swap::Pallet::<Test>::protocol_account_id();
+        let position = pallet_subtensor_swap::Positions::<Test>::get((
+            netuid,
+            protocol_account_id,
+            PositionId::from(1),
+        ))
+        .unwrap();
+        let liquidity_before = position.liquidity;
+
+        // Enable emissions and run coinbase (which will increase position liquidity)
+        let emission: u64 = 1_234_567;
+        let emission_credit = SubtensorModule::mint_tao(emission.into());
+        // Dynamic subnets register with emission disabled by default.
+        SubnetEmissionEnabled::<Test>::insert(netuid, true);
+        // Price-based emission shares require a non-zero moving price.
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(1));
+        // Keep root_proportion ~1 so the injection cap does not bind.
+        set_full_injection_root_stake();
+        FirstEmissionBlockNumber::<Test>::insert(netuid, 0);
+        SubtensorModule::run_coinbase(emission_credit);
+
+        let position_after = pallet_subtensor_swap::Positions::<Test>::get((
+            netuid,
+            protocol_account_id,
+            PositionId::from(1),
+        ))
+        .unwrap();
+        let liquidity_after = position_after.liquidity;
+
+        assert!(liquidity_before < liquidity_after);
+    });
+}
+
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_drain_alpha_childkey_parentkey_with_burn --exact --show-output --nocapture
 #[test]
 fn test_drain_alpha_childkey_parentkey_with_burn() {

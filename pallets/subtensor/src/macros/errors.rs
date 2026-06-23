@@ -303,6 +303,8 @@ mod errors {
         CannotUseSystemAccount,
         /// Trying to unlock more than locked
         UnlockAmountTooHigh,
+        /// The destination coldkey rejects incoming locked alpha.
+        AccountRejectsLockedAlpha,
         /// The supplied tempo is outside the allowed range.
         TempoOutOfBounds,
         /// The supplied activity-cutoff factor is outside the allowed range.
