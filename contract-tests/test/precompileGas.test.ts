@@ -1,14 +1,13 @@
 import * as assert from "assert";
-import { generateRandomEthersWallet, getPublicClient } from "../src/utils";
+import { generateRandomEthersWallet } from "../src/utils";
 import { ETH_LOCAL_URL } from "../src/config";
-import { getBalance, getDevnetApi } from "../src/substrate";
+import { getDevnetApi } from "../src/substrate";
 import { forceSetBalanceToEthAddress } from "../src/subtensor";
 import { PrecompileGas_CONTRACT_ABI, PrecompileGas_CONTRACT_BYTECODE } from "../src/contracts/precompileGas";
 import { ethers } from "ethers";
 import { TypedApi } from "polkadot-api";
 import { devnet } from "@polkadot-api/descriptors";
 import { disableWhiteListCheck } from "../src/subtensor";
-import { convertH160ToSS58, convertPublicKeyToSs58 } from "../src/address-utils";
 
 describe("SR25519 ED25519 Precompile Gas Test", () => {
     const wallet = generateRandomEthersWallet();
@@ -40,16 +39,10 @@ describe("SR25519 ED25519 Precompile Gas Test", () => {
         let oneIterationGas = BigInt(0);
 
         for (const iter of [1, 11, 101]) {
-            const balanceBefore = await getBalance(api, convertH160ToSS58(wallet.address));
             const contract = new ethers.Contract(result.target, PrecompileGas_CONTRACT_ABI, wallet);
             const iterations = iter;
             const tx = await contract.callED25519(iterations)
-            await tx.wait()
-
-            const balanceAfter = await getBalance(api, convertH160ToSS58(wallet.address));
-            assert.ok(balanceAfter < balanceBefore);
-
-            const usedGas = balanceBefore - balanceAfter;
+            const usedGas = await getTransactionFee(tx, baseFee);
             if (iterations === 1) {
                 oneIterationGas = usedGas;
                 continue;
@@ -63,16 +56,10 @@ describe("SR25519 ED25519 Precompile Gas Test", () => {
         }
 
         for (const iter of [1, 11, 101]) {
-            const balanceBefore = await getBalance(api, convertH160ToSS58(wallet.address));
             const contract = new ethers.Contract(result.target, PrecompileGas_CONTRACT_ABI, wallet);
             const iterations = iter;
             const tx = await contract.callSR25519(iterations)
-            await tx.wait()
-
-            const balanceAfter = await getBalance(api, convertH160ToSS58(wallet.address));
-            assert.ok(balanceAfter < balanceBefore);
-
-            const usedGas = balanceBefore - balanceAfter;
+            const usedGas = await getTransactionFee(tx, baseFee);
             if (iterations === 1) {
                 oneIterationGas = usedGas;
                 continue;
@@ -86,3 +73,10 @@ describe("SR25519 ED25519 Precompile Gas Test", () => {
         }
     });
 });
+
+async function getTransactionFee(tx: ethers.ContractTransactionResponse, baseFee: bigint) {
+    const receipt = await tx.wait();
+    assert.ok(receipt);
+    assert.equal(receipt.status, 1);
+    return receipt.gasUsed * baseFee;
+}
