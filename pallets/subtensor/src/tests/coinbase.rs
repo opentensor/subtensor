@@ -2894,7 +2894,7 @@ fn test_run_coinbase_not_started_start_after() {
     });
 }
 
-/// Test that coinbase updates protocol position liquidity
+/// Test that coinbase updates protocol liquidity accounting.
 /// cargo test --package pallet-subtensor --lib -- tests::coinbase::test_coinbase_v3_liquidity_update --exact --show-output
 #[test]
 fn test_coinbase_v3_liquidity_update() {
@@ -2914,16 +2914,10 @@ fn test_coinbase_v3_liquidity_update() {
         )
         .unwrap();
 
-        let protocol_account_id = pallet_subtensor_swap::Pallet::<Test>::protocol_account_id();
-        let position = pallet_subtensor_swap::Positions::<Test>::get((
-            netuid,
-            protocol_account_id,
-            PositionId::from(1),
-        ))
-        .unwrap();
-        let liquidity_before = position.liquidity;
+        let tao_before = SubnetTAO::<Test>::get(netuid);
+        let alpha_in_before = SubnetAlphaIn::<Test>::get(netuid);
 
-        // Enable emissions and run coinbase (which will increase position liquidity)
+        // Enable emissions and run coinbase (which will adjust protocol liquidity)
         let emission: u64 = 1_234_567;
         let emission_credit = SubtensorModule::mint_tao(emission.into());
         // Price-based emission shares require a non-zero moving price.
@@ -2933,15 +2927,10 @@ fn test_coinbase_v3_liquidity_update() {
         FirstEmissionBlockNumber::<Test>::insert(netuid, 0);
         SubtensorModule::run_coinbase(emission_credit);
 
-        let position_after = pallet_subtensor_swap::Positions::<Test>::get((
-            netuid,
-            protocol_account_id,
-            PositionId::from(1),
-        ))
-        .unwrap();
-        let liquidity_after = position_after.liquidity;
-
-        assert!(liquidity_before < liquidity_after);
+        assert!(!SubnetTaoInEmission::<Test>::get(netuid).is_zero());
+        assert!(!SubnetAlphaInEmission::<Test>::get(netuid).is_zero());
+        assert!(SubnetTAO::<Test>::get(netuid) > tao_before);
+        assert!(SubnetAlphaIn::<Test>::get(netuid) > alpha_in_before);
     });
 }
 
