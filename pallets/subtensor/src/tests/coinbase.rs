@@ -81,6 +81,8 @@ fn test_coinbase_tao_issuance_base() {
         let subnet_owner_ck = U256::from(1001);
         let subnet_owner_hk = U256::from(1002);
         let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+        // Dynamic subnets register with emission disabled by default.
+        SubnetEmissionEnabled::<Test>::insert(netuid, true);
         // Price-based emission shares require a non-zero moving price.
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(1));
         // Keep root_proportion ~1 so the injection cap does not bind.
