@@ -158,9 +158,7 @@ parameter_types! {
     pub const EvmKeyAssociateRateLimit: u64 = 0;
     pub const SubtensorPalletId: PalletId = PalletId(*b"subtensr");
     pub const BurnAccountId: PalletId = PalletId(*b"burntnsr");
-    pub const MaxEpochsPerBlock: u32 = 32;
-    pub const LimitOrdersPalletId: PalletId = PalletId(*b"bt/limit");
-    pub const LimitOrdersChainId: u64 = 945;
+    pub const MaxEpochsPerBlock: u8 = 32;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -181,6 +179,14 @@ impl frame_system::Config for Runtime {
     type MaxConsumers = ConstU32<16>;
     type Block = Block;
     type Nonce = u64;
+    type DispatchExtension = (
+        pallet_subtensor::CheckColdkeySwap<Runtime>,
+        pallet_subtensor::CheckWeights<Runtime>,
+        pallet_subtensor::CheckRateLimits<Runtime>,
+        pallet_subtensor::CheckDelegateTake<Runtime>,
+        pallet_subtensor::CheckServingEndpoints<Runtime>,
+        pallet_subtensor::CheckEvmKeyAssociation<Runtime>,
+    );
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
@@ -486,7 +492,7 @@ impl pallet_subtensor::Config for Runtime {
     type AuthorshipProvider = MockAuthorshipProvider;
     type SubtensorPalletId = SubtensorPalletId;
     type BurnAccountId = BurnAccountId;
-    type MaxEpochsPerBlock = MaxEpochsPerBlock;
+    type InitialMaxEpochsPerBlock = MaxEpochsPerBlock;
     type WeightInfo = ();
 }
 

@@ -187,11 +187,6 @@ impl<T: Config> Pallet<T> {
         let mut alpha_in: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         let mut alpha_out: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         let mut excess_tao: BTreeMap<NetUid, U96F32> = BTreeMap::new();
-        let tao_block_emission: U96F32 = U96F32::saturating_from_num(
-            Self::calculate_block_emission()
-                .unwrap_or(TaoBalance::ZERO)
-                .to_u64(),
-        );
 
         // Only calculate for subnets that we are emitting to.
         for (&netuid_i, &tao_emission_i) in subnet_emissions.iter() {
@@ -211,7 +206,14 @@ impl<T: Config> Pallet<T> {
             let alpha_out_i: U96F32 = alpha_emission_i;
             let mut alpha_in_i: U96F32 = tao_emission_i.safe_div_or(price_i, U96F32::from_num(0.0));
 
-            let alpha_injection_cap: U96F32 = alpha_emission_i.min(tao_block_emission);
+            // Cap alpha injection by the subnet's root proportion of its alpha emission.
+            // root_proportion = tao_weight / (tao_weight + alpha_issuance), so as a subnet
+            // ages its alpha issuance grows, root_proportion shrinks, and the injection cap
+            // falls. The TAO emission that can no longer be injected as liquidity becomes
+            // excess TAO and is routed into chain buys instead. This is what transitions
+            // older subnets from liquidity injection to chain buys over time.
+            let root_proportion_i: U96F32 = Self::root_proportion(netuid_i);
+            let alpha_injection_cap: U96F32 = root_proportion_i.saturating_mul(alpha_emission_i);
             if alpha_in_i > alpha_injection_cap {
                 alpha_in_i = alpha_injection_cap;
                 tao_in_i = alpha_in_i.saturating_mul(price_i);
@@ -322,7 +324,7 @@ impl<T: Config> Pallet<T> {
     /// Subnets whose epoch slot is due *this* block but is deferred by the per-block
     /// cap (`MaxEpochsPerBlock`).
     pub fn epochs_deferred_this_block(subnets: &[NetUid], current_block: u64) -> BTreeSet<NetUid> {
-        let cap = T::MaxEpochsPerBlock::get();
+        let cap = Self::get_max_epochs_per_block() as u32;
         let mut deferred: BTreeSet<NetUid> = BTreeSet::new();
         let mut epochs_run_this_block: u32 = 0;
 
@@ -353,6 +355,7 @@ impl<T: Config> Pallet<T> {
         > = BTreeMap::new();
         // Per-block cap on number of epochs that may run; the rest are deferred 1 block forward
         // by setting `PendingEpochAt`.
+        let max_epochs_per_block = Self::get_max_epochs_per_block() as u32;
         let mut epochs_run_this_block: u32 = 0;
 
         for &netuid in subnets.iter() {
@@ -364,7 +367,7 @@ impl<T: Config> Pallet<T> {
             }
 
             // Per-block cap — defer if already at limit.
-            if epochs_run_this_block >= T::MaxEpochsPerBlock::get() {
+            if epochs_run_this_block >= max_epochs_per_block {
                 let next_block = current_block.saturating_add(1);
                 PendingEpochAt::<T>::insert(netuid, next_block);
                 Self::deposit_event(Event::EpochDeferred {

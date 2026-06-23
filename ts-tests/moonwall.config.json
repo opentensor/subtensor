@@ -12,7 +12,7 @@
                 "suites/dev"
             ],
             "runScripts": [],
-            "multiThreads": false,
+            "multiThreads": true,
             "reporters": ["basic"],
             "foundation": {
                 "type": "dev",
