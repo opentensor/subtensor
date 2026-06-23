@@ -345,6 +345,21 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    pub fn do_root_claim_checked(
+        coldkey: T::AccountId,
+        subnets: BTreeSet<NetUid>,
+    ) -> Result<Weight, DispatchError> {
+        ensure!(!subnets.is_empty(), Error::<T>::InvalidSubnetNumber);
+        ensure!(
+            subnets.len() <= crate::MAX_SUBNET_CLAIMS,
+            Error::<T>::InvalidSubnetNumber
+        );
+
+        Self::maybe_add_coldkey_index(&coldkey);
+
+        Self::do_root_claim(coldkey, Some(subnets))
+    }
+
     pub fn do_root_claim(
         coldkey: T::AccountId,
         subnets: Option<BTreeSet<NetUid>>,

@@ -589,6 +589,69 @@ fn test_claim_root_with_changed_stake() {
 }
 
 #[test]
+fn test_claim_root_for_credits_target_not_caller() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let contract_coldkey = U256::from(1003);
+        let keeper = U256::from(2099);
+        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+        remove_owner_registration_stake(netuid);
+
+        SubtensorModule::set_tao_weight(u64::MAX);
+
+        let root_stake = 2_000_000u64;
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &contract_coldkey,
+            NetUid::ROOT,
+            root_stake.into(),
+        );
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_coldkey,
+            netuid,
+            10_000_000u64.into(),
+        );
+
+        SubtensorModule::distribute_emission(
+            netuid,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
+            1_000_000u64.into(),
+            AlphaBalance::ZERO,
+        );
+        assert!(
+            RootClaimable::<Test>::get(hotkey).contains_key(&netuid),
+            "claimable must have accrued"
+        );
+
+        let root_of = |coldkey: &U256| -> u64 {
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                coldkey,
+                NetUid::ROOT,
+            )
+            .into()
+        };
+        let contract_root_before = root_of(&contract_coldkey);
+        assert_eq!(contract_root_before, root_stake);
+        assert_eq!(root_of(&keeper), 0);
+
+        assert_ok!(SubtensorModule::claim_root_for(
+            RuntimeOrigin::signed(keeper),
+            contract_coldkey,
+            BTreeSet::from([netuid])
+        ));
+
+        assert!(root_of(&contract_coldkey) > contract_root_before);
+        assert_eq!(root_of(&keeper), 0);
+        assert!(RootClaimed::<Test>::get((netuid, &hotkey, &contract_coldkey)) > 0);
+        assert_eq!(RootClaimed::<Test>::get((netuid, &hotkey, &keeper)), 0);
+    });
+}
+
+#[test]
 fn test_claim_root_with_drain_emissions_and_swap_claim_type() {
     new_test_ext(1).execute_with(|| {
         let owner_coldkey = U256::from(1001);

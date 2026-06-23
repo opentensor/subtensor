@@ -312,6 +312,37 @@ interface IStaking {
     ) external payable;
 
     /**
+     * @dev Claims the caller's accrued beta-basket value, realizing it as root stake.
+     *
+     * Settles the caller's beta-basket positions on the listed subnets, swapping each to TAO and
+     * staking the proceeds onto root for the caller. The caller is the EVM account invoking this
+     * method — for a contract this is the contract's own derived coldkey — so a keyless contract
+     * (e.g. wrapped staked alpha) can settle its own baskets even though it cannot sign a native
+     * `claim_root` extrinsic.
+     *
+     * @param subnets The subnets to claim on (1..=5 entries).
+     *
+     * Requirements:
+     * - `subnets` must contain between 1 and 5 entries.
+     */
+    function claimRoot(uint16[] memory subnets) external;
+
+    /**
+     * @dev Claims a target coldkey's accrued beta-basket value on its behalf (permissionless).
+     *
+     * Realized value is always credited to `coldkey`, never to the caller; the caller only pays
+     * the transaction fee. This lets a keeper settle a keyless coldkey that cannot claim for
+     * itself.
+     *
+     * @param coldkey The coldkey whose baskets are claimed; all realized value is credited here.
+     * @param subnets The subnets to claim on (1..=5 entries).
+     *
+     * Requirements:
+     * - `subnets` must contain between 1 and 5 entries.
+     */
+    function claimRootFor(bytes32 coldkey, uint16[] memory subnets) external;
+
+    /**
      * @dev Set how much the caller approves the spender to use the provided amount of subnet tokens
      * on its behalf in a later call.
      *
