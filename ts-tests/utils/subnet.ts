@@ -1,9 +1,9 @@
-import { waitForTransactionWithRetry } from "./transactions.js";
-import { log } from "./logger.js";
 import type { KeyringPair } from "@moonwall/util";
-import { Keyring } from "@polkadot/keyring";
 import type { subtensor } from "@polkadot-api/descriptors";
+import { Keyring } from "@polkadot/keyring";
 import type { TypedApi } from "polkadot-api";
+import { log } from "./logger.js";
+import { waitForTransactionWithRetry } from "./transactions.js";
 
 export async function addNewSubnetwork(
     api: TypedApi<typeof subtensor>,

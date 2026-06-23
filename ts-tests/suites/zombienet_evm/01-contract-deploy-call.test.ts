@@ -1,5 +1,5 @@
 import { beforeAll, describeSuite, expect } from "@moonwall/cli";
-import { subtensor } from "@polkadot-api/descriptors";
+import { MultiAddress, subtensor } from "@polkadot-api/descriptors";
 import type { KeyringPair } from "@polkadot/keyring/types";
 import { u8aToHex } from "@polkadot/util";
 import { decodeAddress } from "@polkadot/util-crypto";
@@ -18,19 +18,15 @@ import {
     createEthersWallet,
     disableWhiteListCheck,
     forceSetBalance,
-    forceSetChainID,
     generateKeyringPair,
     getBalance,
     getProxies,
     getStake,
-    getTransferCallCode,
     IPROXY_ADDRESS,
     IProxyABI,
     ISTAKING_V2_ADDRESS,
     IStakingV2ABI,
     raoToEth,
-    reconnectEthersWallet,
-    refreshEthersProvider,
     STAKE_WRAP_ABI,
     STAKE_WRAP_BYTECODE,
     startCall,
@@ -46,6 +42,19 @@ async function expectDeployedContract(provider: ethers.Provider, contractAddress
     expect(code).toBeDefined();
     expect(code.length).toBeGreaterThan(100);
     expect(code.includes(DEPLOYED_BYTECODE_PREFIX)).toBe(true);
+}
+
+export async function getTransferCallCode(
+    api: TypedApi<typeof subtensor>,
+    receiver: KeyringPair,
+    transferAmount: number
+): Promise<number[]> {
+    const unsignedTx = api.tx.Balances.transfer_keep_alive({
+        dest: MultiAddress.Id(convertPublicKeyToSs58(receiver.publicKey)),
+        value: BigInt(transferAmount),
+    });
+    const encodedCallDataBytes = await unsignedTx.getEncodedData();
+    return [...encodedCallDataBytes.asBytes()];
 }
 
 describeSuite({
@@ -160,27 +169,6 @@ describeSuite({
             const delegates = proxies[0].map((proxy) => proxy.delegate);
             expect(delegates.length).toEqual(expectedCount);
             return delegates;
-        }
-
-        function refreshProviderAndWallets(): void {
-            provider = refreshEthersProvider(provider);
-            ethWallet = reconnectEthersWallet(ethWallet, provider);
-            if (proxyWalletsReady) {
-                stakeWallet = reconnectEthersWallet(stakeWallet, provider);
-                proxyWallet1 = reconnectEthersWallet(proxyWallet1, provider);
-                proxyWallet2 = reconnectEthersWallet(proxyWallet2, provider);
-                proxyWallet3 = reconnectEthersWallet(proxyWallet3, provider);
-                proxyWallet4 = reconnectEthersWallet(proxyWallet4, provider);
-            }
-        }
-
-        async function ensureChainIdStable(): Promise<void> {
-            const chainId = await api.query.EVMChainId.ChainId.getValue();
-            if (chainId !== BigInt(42)) {
-                await forceSetChainID(api, BigInt(42));
-                await waitForFinalizedBlocks(api, 1);
-            }
-            refreshProviderAndWallets();
         }
 
         async function waitForBalanceIncrease(
@@ -366,7 +354,6 @@ describeSuite({
             title: "Call createPureProxy, then use proxy to call transfer",
             test: async () => {
                 await ensureProxyWalletsReady();
-                await ensureChainIdStable();
 
                 const proxies = await getProxies(api, convertH160ToSS58(proxyWallet1.address));
                 const contract = new ethers.Contract(IPROXY_ADDRESS, IProxyABI, proxyWallet1);
@@ -404,7 +391,6 @@ describeSuite({
             title: "Call createPureProxy, add multiple proxies",
             test: async () => {
                 await ensureProxyWalletsReady();
-                await ensureChainIdStable();
 
                 const contract = new ethers.Contract(IPROXY_ADDRESS, IProxyABI, proxyWallet1);
                 const type = 0;
@@ -427,7 +413,6 @@ describeSuite({
             title: "Call createPureProxy, edge cases, call via wrong proxy",
             test: async () => {
                 await ensureProxyWalletsReady();
-                await ensureChainIdStable();
 
                 const contract = new ethers.Contract(IPROXY_ADDRESS, IProxyABI, proxyWallet2);
                 const amount = 1_000_000_000;
@@ -446,7 +431,6 @@ describeSuite({
             title: "Call createProxy, then use proxy to call transfer",
             test: async () => {
                 await ensureProxyWalletsReady();
-                await ensureChainIdStable();
 
                 const proxies = await api.query.Proxy.Proxies.getValue(convertH160ToSS58(proxyWallet2.address));
                 const contract = new ethers.Contract(IPROXY_ADDRESS, IProxyABI, proxyWallet2);
@@ -502,7 +486,6 @@ describeSuite({
             title: "Call addProxy many times, then check getProxies is correct",
             test: async () => {
                 await ensureProxyWalletsReady();
-                await ensureChainIdStable();
 
                 const proxies = await api.query.Proxy.Proxies.getValue(convertH160ToSS58(proxyWallet4.address));
                 const contract = new ethers.Contract(IPROXY_ADDRESS, IProxyABI, proxyWallet4);

@@ -1,70 +1,12 @@
 import { MultiAddress, subtensor } from "@polkadot-api/descriptors";
-import { Keyring } from "@polkadot/keyring";
 import type { KeyringPair } from "@polkadot/keyring/types";
 import type { TypedApi } from "polkadot-api";
 import { Binary } from "polkadot-api";
 import { convertPublicKeyToSs58 } from "./address.ts";
 import { getBalance } from "./balance.ts";
-import { sudoSetAdminFreezeWindow } from "./staking.ts";
 import { sendTransaction, waitForFinalizedBlocks, waitForTransactionWithRetry } from "./transactions.ts";
 
 export const BITTENSOR_WASM_PATH = "./ink/bittensor.wasm";
-
-export async function getTransferCallCode(
-    api: TypedApi<typeof subtensor>,
-    receiver: KeyringPair,
-    transferAmount: number
-): Promise<number[]> {
-    const unsignedTx = api.tx.Balances.transfer_keep_alive({
-        dest: MultiAddress.Id(convertPublicKeyToSs58(receiver.publicKey)),
-        value: BigInt(transferAmount),
-    });
-    const encodedCallDataBytes = await unsignedTx.getEncodedData();
-    return [...encodedCallDataBytes.asBytes()];
-}
-
-export async function getProxies(api: TypedApi<typeof subtensor>, address: string): Promise<string[]> {
-    const entries = await api.query.Proxy.Proxies.getEntries();
-    const result: string[] = [];
-    for (const entry of entries) {
-        const proxyAddress = entry.keyArgs[0];
-        const values = entry.value;
-        const proxies = values[0];
-        for (const proxy of proxies) {
-            if (proxy.delegate === address) {
-                result.push(proxyAddress);
-            }
-        }
-    }
-    return result;
-}
-
-export async function setAdminFreezeWindow(api: TypedApi<typeof subtensor>): Promise<void> {
-    await sudoSetAdminFreezeWindow(api, 0);
-    const window = await api.query.SubtensorModule.AdminFreezeWindow.getValue();
-    if (window !== 0) {
-        throw new Error(`Expected AdminFreezeWindow=0, got ${window}`);
-    }
-}
-
-export async function setTargetRegistrationsPerInterval(
-    api: TypedApi<typeof subtensor>,
-    netuid: number
-): Promise<void> {
-    const keyring = new Keyring({ type: "sr25519" });
-    const alice = keyring.addFromUri("//Alice");
-    const internalTx = api.tx.AdminUtils.sudo_set_target_registrations_per_interval({
-        netuid,
-        target_registrations_per_interval: 1000,
-    });
-    const tx = api.tx.Sudo.sudo({ call: internalTx.decodedCall });
-    await waitForTransactionWithRetry(api, tx, alice, "sudo_set_target_registrations_per_interval");
-
-    const target = await api.query.SubtensorModule.TargetRegistrationsPerInterval.getValue(netuid);
-    if (target !== 1000) {
-        throw new Error(`Expected TargetRegistrationsPerInterval=1000 for netuid ${netuid}, got ${target}`);
-    }
-}
 
 export async function sendWasmContractExtrinsic(
     api: TypedApi<typeof subtensor>,
@@ -104,16 +46,6 @@ export async function sendWasmContractExtrinsicAllowFailure(
         storage_deposit_limit: BigInt(1_000_000_000),
     });
     await sendTransaction(tx, coldkey);
-}
-
-export async function getStakeInfoForHotkeyColdkeyNetuid(
-    api: TypedApi<typeof subtensor>,
-    hotkey: string,
-    coldkey: string,
-    netuid: number
-): Promise<bigint | undefined> {
-    return (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(hotkey, coldkey, netuid))
-        ?.stake;
 }
 
 export async function instantiateWasmContract(

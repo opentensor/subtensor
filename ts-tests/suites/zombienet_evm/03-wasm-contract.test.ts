@@ -15,9 +15,9 @@ import {
     instantiateWasmContract,
     sendWasmContractExtrinsic,
     sendWasmContractExtrinsicAllowFailure,
-    setAdminFreezeWindow,
     setTargetRegistrationsPerInterval,
     startCall,
+    sudoSetAdminFreezeWindow,
     sudoSetLockReductionInterval,
     tao,
     waitForFinalizedBlocks,
@@ -127,7 +127,7 @@ describeSuite({
             api = context.papi("Node").getTypedApi(subtensor);
             await waitForFinalizedBlocks(api, 2);
             await sudoSetLockReductionInterval(api, 1);
-            await setAdminFreezeWindow(api);
+            await sudoSetAdminFreezeWindow(api, 0);
 
             inkClient = getInkClient(contracts.bittensor);
             faucet = generateKeyringPair("sr25519");

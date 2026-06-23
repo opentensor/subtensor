@@ -31,16 +31,6 @@ export async function getEthChainId(provider: ethers.JsonRpcProvider): Promise<b
     return BigInt(chainId);
 }
 
-/** Recreate the provider so a mid-run chain-id change does not abort later calls. */
-export function refreshEthersProvider(provider: ethers.JsonRpcProvider): ethers.JsonRpcProvider {
-    const url = provider._getConnection().url;
-    return new ethers.JsonRpcProvider(url);
-}
-
-export function reconnectEthersWallet(wallet: ethers.Wallet, provider: ethers.JsonRpcProvider): ethers.Wallet {
-    return wallet.connect(provider) as ethers.Wallet;
-}
-
 export async function forceSetChainID(api: TypedApi<typeof subtensor>, chainId: bigint): Promise<void> {
     const value = await api.query.EVMChainId.ChainId.getValue();
     if (value === chainId) {
