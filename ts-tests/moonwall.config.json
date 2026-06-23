@@ -6,7 +6,7 @@
     "environments": [
         {
             "name": "dev",
-            "timeout": 600000,
+            "timeout": 120000,
             "envVars": ["DEBUG_COLORS=1"],
             "testFileDir": [
                 "suites/dev"
@@ -36,7 +36,7 @@
                         ],
                         "disableDefaultEthProviders": true,
                         "newRpcBehaviour": true,
-                        "maxStartupTimeout": 600000,
+                        "maxStartupTimeout": 120000,
                         "connectTimeout": 30000
                     }
                 ]

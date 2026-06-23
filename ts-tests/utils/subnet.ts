@@ -25,7 +25,7 @@ export async function addNewSubnetwork(
     const registerNetworkTx = api.tx.SubtensorModule.register_network({
         hotkey: hotkey.address,
     });
-    await waitForTransactionWithRetry(api, registerNetworkTx, coldkey, "register_network", 5);
+    await waitForTransactionWithRetry(api, registerNetworkTx, coldkey, "register_network");
 
     return totalNetworks;
 }
@@ -44,7 +44,7 @@ export async function burnedRegister(
 
     await new Promise((resolve) => setTimeout(resolve, 1000));
     const tx = api.tx.SubtensorModule.burned_register({ hotkey: hotkeyAddress, netuid: netuid });
-    await waitForTransactionWithRetry(api, tx, coldkey, "burned_register", 5);
+    await waitForTransactionWithRetry(api, tx, coldkey, "burned_register");
 }
 
 export async function startCall(api: TypedApi<typeof subtensor>, netuid: number, coldkey: KeyringPair): Promise<void> {
@@ -66,7 +66,7 @@ export async function startCall(api: TypedApi<typeof subtensor>, netuid: number,
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
     const tx = api.tx.SubtensorModule.start_call({ netuid: netuid });
-    await waitForTransactionWithRetry(api, tx, coldkey, "start_call", 5);
+    await waitForTransactionWithRetry(api, tx, coldkey, "start_call");
 
     await new Promise((resolve) => setTimeout(resolve, 1000));
 }
