@@ -8,10 +8,10 @@
 //! WASM-EXECUTION: `Compiled`, CHAIN: `None`, DB CACHE: `1024`
 
 // Executed Command:
-// /home/runner/work/subtensor/subtensor/target/production/node-subtensor
+// /Users/user/Work/subtensor/target/production/node-subtensor
 // benchmark
 // pallet
-// --runtime=/home/runner/work/subtensor/subtensor/target/production/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm
+// --runtime=/Users/user/Work/subtensor/target/production/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm
 // --genesis-builder=runtime
 // --genesis-builder-preset=benchmark
 // --wasm-execution=compiled
@@ -96,6 +96,12 @@ pub trait WeightInfo {
 	fn set_tempo() -> Weight;
 	fn set_activity_cutoff_factor() -> Weight;
 	fn trigger_epoch() -> Weight;
+	fn check_coldkey_swap_extension() -> Weight;
+	fn check_weights_extension() -> Weight;
+	fn check_rate_limits_extension() -> Weight;
+	fn check_delegate_take_extension() -> Weight;
+	fn check_serving_endpoints_extension() -> Weight;
+	fn check_evm_key_association_extension() -> Weight;
 }
 
 /// Weights for `pallet_subtensor` using the Substrate node and recommended hardware.
@@ -298,8 +304,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(32_u64))
 			.saturating_add(T::DbWeight::get().writes(16_u64))
 	}
-	/// Storage: `SubtensorModule::IsNetworkMember` (r:2 w:0)
-	/// Proof: `SubtensorModule::IsNetworkMember` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::Uids` (r:1 w:0)
+	/// Proof: `SubtensorModule::Uids` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::Axons` (r:1 w:1)
 	/// Proof: `SubtensorModule::Axons` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::ServingRateLimit` (r:1 w:0)
@@ -313,8 +319,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	/// Storage: `SubtensorModule::IsNetworkMember` (r:2 w:0)
-	/// Proof: `SubtensorModule::IsNetworkMember` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::Uids` (r:1 w:0)
+	/// Proof: `SubtensorModule::Uids` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::Prometheus` (r:1 w:1)
 	/// Proof: `SubtensorModule::Prometheus` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::ServingRateLimit` (r:1 w:0)
@@ -1633,8 +1639,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(38_u64))
 			.saturating_add(T::DbWeight::get().writes(47_u64))
 	}
-	/// Storage: `SubtensorModule::IsNetworkMember` (r:2 w:0)
-	/// Proof: `SubtensorModule::IsNetworkMember` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::Uids` (r:1 w:0)
+	/// Proof: `SubtensorModule::Uids` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::Axons` (r:1 w:1)
 	/// Proof: `SubtensorModule::Axons` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::ServingRateLimit` (r:1 w:0)
@@ -2676,8 +2682,8 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(32_u64))
 			.saturating_add(RocksDbWeight::get().writes(16_u64))
 	}
-	/// Storage: `SubtensorModule::IsNetworkMember` (r:2 w:0)
-	/// Proof: `SubtensorModule::IsNetworkMember` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::Uids` (r:1 w:0)
+	/// Proof: `SubtensorModule::Uids` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::Axons` (r:1 w:1)
 	/// Proof: `SubtensorModule::Axons` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::ServingRateLimit` (r:1 w:0)
@@ -2691,8 +2697,8 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	/// Storage: `SubtensorModule::IsNetworkMember` (r:2 w:0)
-	/// Proof: `SubtensorModule::IsNetworkMember` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::Uids` (r:1 w:0)
+	/// Proof: `SubtensorModule::Uids` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::Prometheus` (r:1 w:1)
 	/// Proof: `SubtensorModule::Prometheus` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::ServingRateLimit` (r:1 w:0)
@@ -4011,8 +4017,8 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(38_u64))
 			.saturating_add(RocksDbWeight::get().writes(47_u64))
 	}
-	/// Storage: `SubtensorModule::IsNetworkMember` (r:2 w:0)
-	/// Proof: `SubtensorModule::IsNetworkMember` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::Uids` (r:1 w:0)
+	/// Proof: `SubtensorModule::Uids` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::Axons` (r:1 w:1)
 	/// Proof: `SubtensorModule::Axons` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::ServingRateLimit` (r:1 w:0)

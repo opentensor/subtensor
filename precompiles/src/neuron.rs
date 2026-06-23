@@ -260,8 +260,8 @@ mod tests {
     use super::*;
     use crate::PrecompileExt;
     use crate::mock::{
-        AccountId, Runtime, addr_from_index, execute_precompile, mapped_account, new_test_ext,
-        precompiles, selector_u32,
+        AccountId, Runtime, System, addr_from_index, execute_precompile, mapped_account,
+        new_test_ext, precompiles, selector_u32,
     };
     use precompile_utils::solidity::encode_with_selector;
     use precompile_utils::testing::PrecompileTesterExt;
@@ -612,6 +612,48 @@ mod tests {
             assert_eq!(axon.protocol, SERVE_PROTOCOL);
             assert_eq!(axon.placeholder1, SERVE_PLACEHOLDER1);
             assert_eq!(axon.placeholder2, SERVE_PLACEHOLDER2);
+        });
+    }
+
+    #[test]
+    fn neuron_precompile_dispatch_runs_subtensor_dispatch_extensions() {
+        new_test_ext().execute_with(|| {
+            let caller = addr_from_index(0x5A34);
+            let (netuid, caller_account) = setup_registered_caller(caller);
+            let new_coldkey_hash =
+                <Runtime as frame_system::Config>::Hashing::hash_of(&AccountId::new([0x99; 32]));
+
+            pallet_subtensor::ColdkeySwapAnnouncements::<Runtime>::insert(
+                &caller_account,
+                (System::block_number(), new_coldkey_hash),
+            );
+
+            let rejected = execute_precompile(
+                &precompiles::<NeuronPrecompile<Runtime>>(),
+                addr_from_index(NeuronPrecompile::<Runtime>::INDEX),
+                caller,
+                encode_with_selector(
+                    selector_u32("serveAxon(uint16,uint32,uint128,uint16,uint8,uint8,uint8,uint8)"),
+                    (
+                        TEST_NETUID_U16,
+                        SERVE_VERSION,
+                        SERVE_IP,
+                        SERVE_PORT,
+                        SERVE_IP_TYPE,
+                        SERVE_PROTOCOL,
+                        SERVE_PLACEHOLDER1,
+                        SERVE_PLACEHOLDER2,
+                    ),
+                ),
+                U256::zero(),
+            )
+            .expect("serve axon should route to neuron precompile");
+
+            assert!(rejected.is_err());
+            assert!(
+                pallet_subtensor::Axons::<Runtime>::get(netuid, caller_account).is_none(),
+                "dispatch extension rejection must happen before the call writes endpoint metadata"
+            );
         });
     }
 
