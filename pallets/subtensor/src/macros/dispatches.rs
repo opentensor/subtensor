@@ -2594,8 +2594,40 @@ mod dispatches {
             Self::do_set_perpetual_lock(&coldkey, netuid, enabled)
         }
 
-        /// Open (or merge into) a covered short with floor input `position_input`.
+        /// Owner-side `set_tempo`. Validates `[MinTempo, MaxTempo]`, applies a fixed
+        /// `MinTempo`-block cooldown via `TransactionType::TempoUpdate`, respects the admin
+        /// freeze window, and resets the cycle (`LastEpochBlock = current_block`) on success.
         #[pallet::call_index(139)]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::set_tempo())]
+        pub fn set_tempo(origin: OriginFor<T>, netuid: NetUid, tempo: u16) -> DispatchResult {
+            Self::do_set_tempo(origin, netuid, tempo)
+        }
+
+        /// `set_activity_cutoff_factor`. Per-mille (1/1000) units; `cutoff_blocks
+        /// = (factor × tempo) / 1000`. Validates `[MinActivityCutoffFactorMilli,
+        /// MaxActivityCutoffFactorMilli]`. Callable by the subnet owner (rate-limited
+        /// via `OwnerHyperparamUpdate`, respects the admin freeze window) or by root
+        /// (bypasses both).
+        #[pallet::call_index(140)]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::set_activity_cutoff_factor())]
+        pub fn set_activity_cutoff_factor(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            factor_milli: u32,
+        ) -> DispatchResult {
+            Self::do_set_activity_cutoff_factor(origin, netuid, factor_milli)
+        }
+
+        /// Owner-side `trigger_epoch`. Schedules an epoch to fire after `AdminFreezeWindow`
+        /// blocks. Rate-limited via the existing `OwnerHyperparamUpdate` pattern.
+        #[pallet::call_index(141)]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::trigger_epoch())]
+        pub fn trigger_epoch(origin: OriginFor<T>, netuid: NetUid) -> DispatchResult {
+            Self::do_trigger_epoch(origin, netuid)
+        }
+
+        /// Open (or merge into) a covered short with floor input `position_input`.
+        #[pallet::call_index(142)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(12, 8))]
         pub fn open_short(
             origin: OriginFor<T>,
@@ -2607,7 +2639,7 @@ mod dispatches {
         }
 
         /// Top up a covered short's carry buffer with fresh capital.
-        #[pallet::call_index(140)]
+        #[pallet::call_index(143)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(5, 4))]
         pub fn top_up_short(
             origin: OriginFor<T>,
@@ -2618,7 +2650,7 @@ mod dispatches {
         }
 
         /// Close `fraction_ppb / 1e9` of a covered short (`1e9` = full close).
-        #[pallet::call_index(141)]
+        #[pallet::call_index(144)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(10, 8))]
         pub fn close_short(
             origin: OriginFor<T>,
@@ -2629,7 +2661,7 @@ mod dispatches {
         }
 
         /// Permissionlessly default a covered short whose buffer reached dust.
-        #[pallet::call_index(142)]
+        #[pallet::call_index(145)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(7, 6))]
         pub fn default_short(
             origin: OriginFor<T>,
@@ -2640,7 +2672,7 @@ mod dispatches {
         }
 
         /// Open (or merge into) a covered long with floor Alpha `position_input`.
-        #[pallet::call_index(143)]
+        #[pallet::call_index(146)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(12, 8))]
         pub fn open_long(
             origin: OriginFor<T>,
@@ -2652,7 +2684,7 @@ mod dispatches {
         }
 
         /// Top up a covered long's carry buffer with fresh Alpha.
-        #[pallet::call_index(144)]
+        #[pallet::call_index(147)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(5, 4))]
         pub fn top_up_long(
             origin: OriginFor<T>,
@@ -2663,7 +2695,7 @@ mod dispatches {
         }
 
         /// Close `fraction_ppb / 1e9` of a covered long (`1e9` = full close).
-        #[pallet::call_index(145)]
+        #[pallet::call_index(148)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(10, 8))]
         pub fn close_long(
             origin: OriginFor<T>,
@@ -2674,7 +2706,7 @@ mod dispatches {
         }
 
         /// Permissionlessly default a covered long whose buffer reached dust.
-        #[pallet::call_index(146)]
+        #[pallet::call_index(149)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(7, 6))]
         pub fn default_long(
             origin: OriginFor<T>,
@@ -2688,7 +2720,7 @@ mod dispatches {
         /// protocol rebuys the Alpha liability from the pool and charges the cost
         /// against the position's floor+buffer, so no pre-held Alpha is required
         /// (TAO-in / TAO-out). Rejected if underwater (`K > P+R`).
-        #[pallet::call_index(147)]
+        #[pallet::call_index(150)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(10, 8))]
         pub fn close_short_self(
             origin: OriginFor<T>,
@@ -2702,7 +2734,7 @@ mod dispatches {
         /// protocol sells just enough of the Alpha claim into the pool to raise
         /// and settle the TAO liability, so no pre-held TAO is required
         /// (Alpha-in / Alpha-out). Rejected if underwater.
-        #[pallet::call_index(148)]
+        #[pallet::call_index(151)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(10, 8))]
         pub fn close_long_self(
             origin: OriginFor<T>,

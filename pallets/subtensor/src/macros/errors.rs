@@ -243,6 +243,8 @@ mod errors {
         SymbolAlreadyInUse,
         /// Incorrect commit-reveal version.
         IncorrectCommitRevealVersion,
+        /// Reveal round is older than the most recently stored DRAND round.
+        InvalidRevealRound,
         /// Reveal period is too large.
         RevealPeriodTooLarge,
         /// Reveal period is too small.
@@ -341,5 +343,19 @@ mod errors {
         LongHotkeyMismatch,
         /// Trader does not hold enough alpha collateral to open/extend the long.
         InsufficientCollateral,
+        /// The supplied tempo is outside the allowed range.
+        TempoOutOfBounds,
+        /// The supplied activity-cutoff factor is outside the allowed range.
+        ActivityCutoffFactorMilliOutOfBounds,
+        /// An epoch trigger is already pending for this subnet; wait for it to fire
+        /// before triggering again.
+        EpochTriggerAlreadyPending,
+        /// The next automatic epoch is already imminent; a manual trigger would have
+        /// no effect.
+        AutoEpochAlreadyImminent,
+        /// `trigger_epoch` is blocked because commit-reveal is enabled for this subnet:
+        /// an out-of-band epoch would desync the CRv3 reveal window from the wall-clock
+        /// Drand schedule and silently drop committed weights.
+        DynamicTempoBlockedByCommitReveal,
     }
 }

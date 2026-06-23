@@ -33,7 +33,7 @@ mod swap_coldkey;
 mod swap_hotkey;
 mod swap_hotkey_with_subnet;
 mod tao;
-mod transaction_extension_pays_no;
+mod tempo_control;
 mod uids;
 mod voting_power;
 mod weights;

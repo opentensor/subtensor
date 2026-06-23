@@ -40,9 +40,11 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
     }
 
     fn try_set_pending_children(block_number: u64) {
+        // Called *after* `run_coinbase` has advanced `LastEpochBlock` for any
+        // subnet whose epoch slot fired this block — `should_run_epoch` is no
+        // longer true. Detect "epoch just fired" by `LastEpochBlock == block`.
         for netuid in Self::get_all_subnet_netuids() {
-            if Self::should_run_epoch(netuid, block_number) {
-                // Set pending children on the epoch.
+            if LastEpochBlock::<T>::get(netuid) == block_number {
                 Self::do_set_pending_children(netuid);
             }
         }
@@ -81,8 +83,18 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
     }
 
     pub fn reveal_crv3_commits() {
-        let netuids: Vec<NetUid> = Self::get_all_subnet_netuids();
-        for netuid in netuids.into_iter().filter(|netuid| *netuid != NetUid::ROOT) {
+        let current_block = Self::get_current_block_as_u64();
+        let subnets: Vec<NetUid> = Self::get_all_subnet_netuids()
+            .into_iter()
+            .filter(|netuid| *netuid != NetUid::ROOT)
+            .collect();
+        // Subnets whose epoch is due this block but deferred by the per-block cap.
+        let deferred = Self::epochs_deferred_this_block(&subnets, current_block);
+
+        for netuid in subnets.into_iter() {
+            if deferred.contains(&netuid) {
+                continue;
+            }
             // Reveal matured weights.
             if let Err(e) = Self::reveal_crv3_commits_for_subnet(netuid) {
                 log::warn!("Failed to reveal commits for subnet {netuid} due to error: {e:?}");

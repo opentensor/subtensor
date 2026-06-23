@@ -611,6 +611,9 @@ pub mod pallet {
         /// The extrinsic sets the activity cutoff for a subnet.
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the activity cutoff.
+        // #[deprecated(
+        //     note = "Please use set_activity_cutoff_factor instead. This extrinsic will be removed soon."
+        // )]
         #[pallet::call_index(18)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::sudo_set_activity_cutoff())]
         pub fn sudo_set_activity_cutoff(
@@ -983,7 +986,7 @@ pub mod pallet {
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
-            pallet_subtensor::Pallet::<T>::set_tempo(netuid, tempo);
+            pallet_subtensor::Pallet::<T>::apply_tempo_with_cycle_reset(netuid, tempo);
             log::debug!("TempoSet( netuid: {netuid:?} tempo: {tempo:?} ) ");
             Ok(())
         }
@@ -2277,8 +2280,21 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Enable or disable short-side covered derivatives (launch gate).
+        /// Sets the per-block cap on subnet epochs (dynamic tempo throttle).
         #[pallet::call_index(96)]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::sudo_set_max_epochs_per_block())]
+        pub fn sudo_set_max_epochs_per_block(
+            origin: OriginFor<T>,
+            max_epochs_per_block: u8,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            ensure!(max_epochs_per_block >= 1, Error::<T>::ValueNotInBounds);
+            pallet_subtensor::Pallet::<T>::set_max_epochs_per_block(max_epochs_per_block);
+            Ok(())
+        }
+
+        /// Enable or disable short-side covered derivatives (launch gate).
+        #[pallet::call_index(97)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(0, 1))]
         pub fn sudo_set_shorts_enabled(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
             ensure_root(origin)?;
@@ -2287,7 +2303,7 @@ pub mod pallet {
         }
 
         /// Set the short footprint-cap factor `κ_S` (scaled by 1e9).
-        #[pallet::call_index(97)]
+        #[pallet::call_index(98)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(0, 1))]
         pub fn sudo_set_short_kappa(origin: OriginFor<T>, kappa_ppb: u64) -> DispatchResult {
             ensure_root(origin)?;
@@ -2296,7 +2312,7 @@ pub mod pallet {
         }
 
         /// Set the base short LTV `λ` (scaled by 1e9).
-        #[pallet::call_index(98)]
+        #[pallet::call_index(99)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(0, 1))]
         pub fn sudo_set_short_base_ltv(origin: OriginFor<T>, ltv_ppb: u64) -> DispatchResult {
             ensure_root(origin)?;
@@ -2305,7 +2321,7 @@ pub mod pallet {
         }
 
         /// Set the daily decay bounds `d_min`, `d_max` (scaled by 1e9).
-        #[pallet::call_index(99)]
+        #[pallet::call_index(100)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(0, 2))]
         pub fn sudo_set_short_decay_bounds(
             origin: OriginFor<T>,
@@ -2318,7 +2334,7 @@ pub mod pallet {
         }
 
         /// Set the retained-buffer dust threshold `R_dust` (in rao).
-        #[pallet::call_index(100)]
+        #[pallet::call_index(101)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(0, 1))]
         pub fn sudo_set_short_dust(origin: OriginFor<T>, dust_rao: u64) -> DispatchResult {
             ensure_root(origin)?;
@@ -2327,7 +2343,7 @@ pub mod pallet {
         }
 
         /// Set the anti-snipe default grace period (in blocks).
-        #[pallet::call_index(101)]
+        #[pallet::call_index(102)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(0, 1))]
         pub fn sudo_set_short_default_grace(origin: OriginFor<T>, blocks: u64) -> DispatchResult {
             ensure_root(origin)?;
@@ -2336,7 +2352,7 @@ pub mod pallet {
         }
 
         /// Set the minimum short open input (in rao).
-        #[pallet::call_index(102)]
+        #[pallet::call_index(103)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(0, 1))]
         pub fn sudo_set_short_min_input(origin: OriginFor<T>, min_input_rao: u64) -> DispatchResult {
             ensure_root(origin)?;
@@ -2345,7 +2361,7 @@ pub mod pallet {
         }
 
         /// Set the maximum number of open short positions per subnet.
-        #[pallet::call_index(103)]
+        #[pallet::call_index(104)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(0, 1))]
         pub fn sudo_set_short_max_positions(origin: OriginFor<T>, max: u32) -> DispatchResult {
             ensure_root(origin)?;
@@ -2354,7 +2370,7 @@ pub mod pallet {
         }
 
         /// Enable or disable long-side covered derivatives (launch gate).
-        #[pallet::call_index(104)]
+        #[pallet::call_index(105)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(0, 1))]
         pub fn sudo_set_longs_enabled(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
             ensure_root(origin)?;
@@ -2363,7 +2379,7 @@ pub mod pallet {
         }
 
         /// Set the long footprint-cap factor `κ_L` (scaled by 1e9).
-        #[pallet::call_index(105)]
+        #[pallet::call_index(106)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(0, 1))]
         pub fn sudo_set_long_kappa(origin: OriginFor<T>, kappa_ppb: u64) -> DispatchResult {
             ensure_root(origin)?;
@@ -2372,7 +2388,7 @@ pub mod pallet {
         }
 
         /// Set the base long LTV `λ_L` (scaled by 1e9).
-        #[pallet::call_index(106)]
+        #[pallet::call_index(107)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(0, 1))]
         pub fn sudo_set_long_base_ltv(origin: OriginFor<T>, ltv_ppb: u64) -> DispatchResult {
             ensure_root(origin)?;
@@ -2381,7 +2397,7 @@ pub mod pallet {
         }
 
         /// Set the long retained-buffer dust threshold (in rao of Alpha).
-        #[pallet::call_index(107)]
+        #[pallet::call_index(108)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(0, 1))]
         pub fn sudo_set_long_dust(origin: OriginFor<T>, dust_rao: u64) -> DispatchResult {
             ensure_root(origin)?;
@@ -2390,7 +2406,7 @@ pub mod pallet {
         }
 
         /// Set the minimum long open input (in rao of Alpha).
-        #[pallet::call_index(108)]
+        #[pallet::call_index(109)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(0, 1))]
         pub fn sudo_set_long_min_input(origin: OriginFor<T>, min_input_rao: u64) -> DispatchResult {
             ensure_root(origin)?;
@@ -2399,7 +2415,7 @@ pub mod pallet {
         }
 
         /// Set the maximum number of open long positions per subnet.
-        #[pallet::call_index(109)]
+        #[pallet::call_index(110)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(0, 1))]
         pub fn sudo_set_long_max_positions(origin: OriginFor<T>, max: u32) -> DispatchResult {
             ensure_root(origin)?;
@@ -2408,7 +2424,7 @@ pub mod pallet {
         }
 
         /// Set the long-side anti-snipe default grace period (in blocks).
-        #[pallet::call_index(110)]
+        #[pallet::call_index(111)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(0, 1))]
         pub fn sudo_set_long_default_grace(origin: OriginFor<T>, blocks: u64) -> DispatchResult {
             ensure_root(origin)?;
@@ -2418,7 +2434,7 @@ pub mod pallet {
 
         /// Set the derivative emissions-flow factor `χ` (scaled by 1e9; `0` =
         /// flow-neutral). Governs how strongly shorts/longs move subnet TaoFlow.
-        #[pallet::call_index(111)]
+        #[pallet::call_index(112)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(0, 1))]
         pub fn sudo_set_derivative_flow_factor(origin: OriginFor<T>, chi_ppb: u64) -> DispatchResult {
             ensure_root(origin)?;
