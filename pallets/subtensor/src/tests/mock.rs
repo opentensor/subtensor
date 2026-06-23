@@ -157,7 +157,14 @@ impl system::Config for Test {
     type MaxConsumers = frame_support::traits::ConstU32<16>;
     type Nonce = u64;
     type Block = Block;
-    type DispatchExtension = crate::CheckColdkeySwap<Test>;
+    type DispatchExtension = (
+        crate::CheckColdkeySwap<Test>,
+        crate::CheckWeights<Test>,
+        crate::CheckRateLimits<Test>,
+        crate::CheckDelegateTake<Test>,
+        crate::CheckServingEndpoints<Test>,
+        crate::CheckEvmKeyAssociation<Test>,
+    );
 }
 
 parameter_types! {
@@ -257,7 +264,7 @@ parameter_types! {
     pub const EvmKeyAssociateRateLimit: u64 = 10;
     pub const SubtensorPalletId: PalletId = PalletId(*b"subtensr");
     pub const BurnAccountId: PalletId = PalletId(*b"burntnsr");
-    pub const MaxEpochsPerBlock: u32 = 32;
+    pub const MaxEpochsPerBlock: u8 = 32;
 }
 
 impl crate::Config for Test {
@@ -341,7 +348,7 @@ impl crate::Config for Test {
     type AuthorshipProvider = MockAuthorshipProvider;
     type SubtensorPalletId = SubtensorPalletId;
     type BurnAccountId = BurnAccountId;
-    type MaxEpochsPerBlock = MaxEpochsPerBlock;
+    type InitialMaxEpochsPerBlock = MaxEpochsPerBlock;
     type WeightInfo = ();
 }
 

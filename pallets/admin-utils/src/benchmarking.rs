@@ -689,5 +689,16 @@ mod benchmarks {
         ); /* sudo_set_min_non_immune_uids() */
     }
 
+    #[benchmark]
+    fn sudo_set_max_epochs_per_block() {
+        #[extrinsic_call]
+        _(RawOrigin::Root, 8u8);
+
+        assert_eq!(
+            pallet_subtensor::Pallet::<T>::get_max_epochs_per_block(),
+            8u8
+        );
+    }
+
     impl_benchmark_test_suite!(AdminUtils, mock::new_test_ext(), mock::Test);
 }

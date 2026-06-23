@@ -243,6 +243,8 @@ mod errors {
         SymbolAlreadyInUse,
         /// Incorrect commit-reveal version.
         IncorrectCommitRevealVersion,
+        /// Reveal round is older than the most recently stored DRAND round.
+        InvalidRevealRound,
         /// Reveal period is too large.
         RevealPeriodTooLarge,
         /// Reveal period is too small.
