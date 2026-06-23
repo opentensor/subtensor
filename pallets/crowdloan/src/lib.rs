@@ -620,6 +620,9 @@ pub mod pallet {
             ensure!(crowdloan.raised == crowdloan.cap, Error::<T>::CapNotRaised);
             ensure!(!crowdloan.finalized, Error::<T>::AlreadyFinalized);
 
+            crowdloan.finalized = true;
+            Crowdloans::<T>::insert(crowdloan_id, &crowdloan);
+
             match (&crowdloan.call, &crowdloan.target_address) {
                 (Some(call), None) => {
                     // Set the current crowdloan id so the dispatched call
@@ -658,9 +661,6 @@ pub mod pallet {
                     return Err(Error::<T>::InvalidFinalizationConfig)?;
                 }
             }
-
-            crowdloan.finalized = true;
-            Crowdloans::<T>::insert(crowdloan_id, &crowdloan);
 
             Self::deposit_event(Event::<T>::Finalized { crowdloan_id });
 
