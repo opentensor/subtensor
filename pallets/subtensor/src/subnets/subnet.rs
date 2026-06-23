@@ -287,6 +287,9 @@ impl<T: Config> Pallet<T> {
         log::info!("NetworkAdded( netuid:{netuid_to_register:?}, mechanism:{mechid:?} )");
         Self::deposit_event(Event::NetworkAdded(netuid_to_register, mechid));
 
+        // --- 20. Default emission off
+        SubnetEmissionEnabled::<T>::insert(netuid_to_register, false);
+
         // --- 20. Return success.
         Ok(())
     }
