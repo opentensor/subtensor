@@ -137,7 +137,13 @@ jobs:
         working-directory: ts-tests
         run: pnpm install --frozen-lockfile
 
+      - name: Install lsof (dev foundation RPC port discovery)
+        if: matrix.test == 'dev'
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends lsof
+
       - name: Run tests
-        run: | 
+        run: |
           cd ts-tests
           pnpm moonwall test ${{ matrix.test }}

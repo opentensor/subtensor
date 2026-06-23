@@ -711,7 +711,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// The lock is subnet-wide: it blocks unstaking from any hotkey on that subnet,
     /// not from a single hotkey position.
-    pub(crate) fn stake_availability(
+    pub fn stake_availability(
         coldkey: &T::AccountId,
         netuid: NetUid,
     ) -> (AlphaBalance, AlphaBalance, AlphaBalance) {

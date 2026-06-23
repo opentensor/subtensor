@@ -17,8 +17,6 @@ use frame_support::{
     pallet_prelude::*,
     traits::tokens::fungible,
 };
-use pallet_balances::Call as BalancesCall;
-// use pallet_scheduler as Scheduler;
 use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_runtime::DispatchError;
@@ -925,6 +923,12 @@ pub mod pallet {
     // pub fn DefaultHotkeyEmissionTempo<T: Config>() -> u64 {
     //     T::InitialHotkeyEmissionTempo::get()
     // } (DEPRECATED)
+
+    /// Default per-block epoch cap, seeded from the runtime-configured initial value.
+    #[pallet::type_value]
+    pub fn DefaultMaxEpochsPerBlock<T: Config>() -> u8 {
+        T::InitialMaxEpochsPerBlock::get()
+    }
 
     /// Default value for rate limiting
     #[pallet::type_value]
@@ -2151,6 +2155,10 @@ pub mod pallet {
         ValueQuery,
         DefaultRAORecycledForRegistration<T>,
     >;
+
+    /// --- ITEM ( max_epochs_per_block )
+    #[pallet::storage]
+    pub type MaxEpochsPerBlock<T> = StorageValue<_, u8, ValueQuery, DefaultMaxEpochsPerBlock<T>>;
 
     /// --- ITEM ( tx_rate_limit )
     #[pallet::storage]
