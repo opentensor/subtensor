@@ -30,7 +30,6 @@
 // The allowance is specific to a pair of `(spender, netuid)`, but doesn't specify the `hotkey` which is instead
 // provided only in `transferStakeFrom`.
 
-use alloc::collections::BTreeSet;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 use frame_support::Blake2_128Concat;
@@ -290,29 +289,6 @@ where
             amount: amount.into(),
             netuid: netuid.into(),
         };
-
-        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
-    }
-
-    #[precompile::public("claimRoot(uint16[])")]
-    fn claim_root(handle: &mut impl PrecompileHandle, subnets: Vec<u16>) -> EvmResult<()> {
-        let account_id = handle.caller_account_id::<R>();
-        let subnets: BTreeSet<NetUid> = subnets.into_iter().map(NetUid::from).collect();
-        let call = pallet_subtensor::Call::<R>::claim_root { subnets };
-
-        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
-    }
-
-    #[precompile::public("claimRootFor(bytes32,uint16[])")]
-    fn claim_root_for(
-        handle: &mut impl PrecompileHandle,
-        coldkey: H256,
-        subnets: Vec<u16>,
-    ) -> EvmResult<()> {
-        let account_id = handle.caller_account_id::<R>();
-        let coldkey = R::AccountId::from(coldkey.0);
-        let subnets: BTreeSet<NetUid> = subnets.into_iter().map(NetUid::from).collect();
-        let call = pallet_subtensor::Call::<R>::claim_root_for { coldkey, subnets };
 
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
     }
