@@ -56,6 +56,10 @@ importers:
       ps-node:
         specifier: 0.1.6
         version: 0.1.6
+    optionalDependencies:
+      '@polkadot-api/descriptors':
+        specifier: file:.papi/descriptors
+        version: file:.papi/descriptors(polkadot-api@1.19.2(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.2))
     devDependencies:
       '@acala-network/chopsticks':
         specifier: 1.2.3
@@ -138,10 +142,6 @@ importers:
       yargs:
         specifier: 18.0.0
         version: 18.0.0
-    optionalDependencies:
-      '@polkadot-api/descriptors':
-        specifier: file:.papi/descriptors
-        version: file:.papi/descriptors(polkadot-api@1.19.2(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.2))
 
 packages:
 
@@ -213,28 +213,24 @@ packages:
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [linux]
-    libc: [glibc]
 
   '@ast-grep/napi-linux-arm64-musl@0.40.5':
     resolution: {integrity: sha512-/qKsmds5FMoaEj6FdNzepbmLMtlFuBLdrAn9GIWCqOIcVcYvM1Nka8+mncfeXB/MFZKOrzQsQdPTWqrrQzXLrA==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [linux]
-    libc: [musl]
 
   '@ast-grep/napi-linux-x64-gnu@0.40.5':
     resolution: {integrity: sha512-DP4oDbq7f/1A2hRTFLhJfDFR6aI5mRWdEfKfHzRItmlKsR9WlcEl1qDJs/zX9R2EEtIDsSKRzuJNfJllY3/W8Q==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
-    libc: [glibc]
 
   '@ast-grep/napi-linux-x64-musl@0.40.5':
     resolution: {integrity: sha512-BRZUvVBPUNpWPo6Ns8chXVzxHPY+k9gpsubGTHy92Q26ecZULd/dTkWWdnvfhRqttsSQ9Pe/XQdi5+hDQ6RYcg==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
-    libc: [musl]
 
   '@ast-grep/napi-win32-arm64-msvc@0.40.5':
     resolution: {integrity: sha512-y95zSEwc7vhxmcrcH0GnK4ZHEBQrmrszRBNQovzaciF9GUqEcCACNLoBesn4V47IaOp4fYgD2/EhGRTIBFb2Ug==}
@@ -291,28 +287,24 @@ packages:
     engines: {node: '>=14.21.3'}
     cpu: [arm64]
     os: [linux]
-    libc: [musl]
 
   '@biomejs/cli-linux-arm64@1.9.4':
     resolution: {integrity: sha512-fJIW0+LYujdjUgJJuwesP4EjIBl/N/TcOX3IvIHJQNsAqvV2CHIogsmA94BPG6jZATS4Hi+xv4SkBBQSt1N4/g==}
     engines: {node: '>=14.21.3'}
     cpu: [arm64]
     os: [linux]
-    libc: [glibc]
 
   '@biomejs/cli-linux-x64-musl@1.9.4':
     resolution: {integrity: sha512-gEhi/jSBhZ2m6wjV530Yy8+fNqG8PAinM3oV7CyO+6c3CEh16Eizm21uHVsyVBEB6RIM8JHIl6AGYCv6Q6Q9Tg==}
     engines: {node: '>=14.21.3'}
     cpu: [x64]
     os: [linux]
-    libc: [musl]
 
   '@biomejs/cli-linux-x64@1.9.4':
     resolution: {integrity: sha512-lRCJv/Vi3Vlwmbd6K+oQ0KhLHMAysN8lXoCI7XeHlxaajk06u7G+UsFSO01NAs5iYuWKmVZjmiOzJ0OJmGsMwg==}
     engines: {node: '>=14.21.3'}
     cpu: [x64]
     os: [linux]
-    libc: [glibc]
 
   '@biomejs/cli-win32-arm64@1.9.4':
     resolution: {integrity: sha512-tlbhLk+WXZmgwoIKwHIHEBZUwxml7bRJgk0X2sPyNR3S93cdRq6XulAZRQJ17FYGGzWne0fgrXBKpl7l4M87Hg==}
@@ -1131,42 +1123,36 @@ packages:
     engines: {node: '>= 10.0.0'}
     cpu: [arm]
     os: [linux]
-    libc: [glibc]
 
   '@parcel/watcher-linux-arm-musl@2.5.6':
     resolution: {integrity: sha512-Ve3gUCG57nuUUSyjBq/MAM0CzArtuIOxsBdQ+ftz6ho8n7s1i9E1Nmk/xmP323r2YL0SONs1EuwqBp2u1k5fxg==}
     engines: {node: '>= 10.0.0'}
     cpu: [arm]
     os: [linux]
-    libc: [musl]
 
   '@parcel/watcher-linux-arm64-glibc@2.5.6':
     resolution: {integrity: sha512-f2g/DT3NhGPdBmMWYoxixqYr3v/UXcmLOYy16Bx0TM20Tchduwr4EaCbmxh1321TABqPGDpS8D/ggOTaljijOA==}
     engines: {node: '>= 10.0.0'}
     cpu: [arm64]
     os: [linux]
-    libc: [glibc]
 
   '@parcel/watcher-linux-arm64-musl@2.5.6':
     resolution: {integrity: sha512-qb6naMDGlbCwdhLj6hgoVKJl2odL34z2sqkC7Z6kzir8b5W65WYDpLB6R06KabvZdgoHI/zxke4b3zR0wAbDTA==}
     engines: {node: '>= 10.0.0'}
     cpu: [arm64]
     os: [linux]
-    libc: [musl]
 
   '@parcel/watcher-linux-x64-glibc@2.5.6':
     resolution: {integrity: sha512-kbT5wvNQlx7NaGjzPFu8nVIW1rWqV780O7ZtkjuWaPUgpv2NMFpjYERVi0UYj1msZNyCzGlaCWEtzc+exjMGbQ==}
     engines: {node: '>= 10.0.0'}
     cpu: [x64]
     os: [linux]
-    libc: [glibc]
 
   '@parcel/watcher-linux-x64-musl@2.5.6':
     resolution: {integrity: sha512-1JRFeC+h7RdXwldHzTsmdtYR/Ku8SylLgTU/reMuqdVD7CtLwf0VR1FqeprZ0eHQkO0vqsbvFLXUmYm/uNKJBg==}
     engines: {node: '>= 10.0.0'}
     cpu: [x64]
     os: [linux]
-    libc: [musl]
 
   '@parcel/watcher-win32-arm64@2.5.6':
     resolution: {integrity: sha512-3ukyebjc6eGlw9yRt678DxVF7rjXatWiHvTXqphZLvo7aC5NdEgFufVwjFfY51ijYEWpXbqF5jtrK275z52D4Q==}
@@ -1643,79 +1629,66 @@ packages:
     resolution: {integrity: sha512-t4ONHboXi/3E0rT6OZl1pKbl2Vgxf9vJfWgmUoCEVQVxhW6Cw/c8I6hbbu7DAvgp82RKiH7TpLwxnJeKv2pbsw==}
     cpu: [arm]
     os: [linux]
-    libc: [glibc]
 
   '@rollup/rollup-linux-arm-musleabihf@4.59.0':
     resolution: {integrity: sha512-CikFT7aYPA2ufMD086cVORBYGHffBo4K8MQ4uPS/ZnY54GKj36i196u8U+aDVT2LX4eSMbyHtyOh7D7Zvk2VvA==}
     cpu: [arm]
     os: [linux]
-    libc: [musl]
 
   '@rollup/rollup-linux-arm64-gnu@4.59.0':
     resolution: {integrity: sha512-jYgUGk5aLd1nUb1CtQ8E+t5JhLc9x5WdBKew9ZgAXg7DBk0ZHErLHdXM24rfX+bKrFe+Xp5YuJo54I5HFjGDAA==}
     cpu: [arm64]
     os: [linux]
-    libc: [glibc]
 
   '@rollup/rollup-linux-arm64-musl@4.59.0':
     resolution: {integrity: sha512-peZRVEdnFWZ5Bh2KeumKG9ty7aCXzzEsHShOZEFiCQlDEepP1dpUl/SrUNXNg13UmZl+gzVDPsiCwnV1uI0RUA==}
     cpu: [arm64]
     os: [linux]
-    libc: [musl]
 
   '@rollup/rollup-linux-loong64-gnu@4.59.0':
     resolution: {integrity: sha512-gbUSW/97f7+r4gHy3Jlup8zDG190AuodsWnNiXErp9mT90iCy9NKKU0Xwx5k8VlRAIV2uU9CsMnEFg/xXaOfXg==}
     cpu: [loong64]
     os: [linux]
-    libc: [glibc]
 
   '@rollup/rollup-linux-loong64-musl@4.59.0':
     resolution: {integrity: sha512-yTRONe79E+o0FWFijasoTjtzG9EBedFXJMl888NBEDCDV9I2wGbFFfJQQe63OijbFCUZqxpHz1GzpbtSFikJ4Q==}
     cpu: [loong64]
     os: [linux]
-    libc: [musl]
 
   '@rollup/rollup-linux-ppc64-gnu@4.59.0':
     resolution: {integrity: sha512-sw1o3tfyk12k3OEpRddF68a1unZ5VCN7zoTNtSn2KndUE+ea3m3ROOKRCZxEpmT9nsGnogpFP9x6mnLTCaoLkA==}
     cpu: [ppc64]
     os: [linux]
-    libc: [glibc]
 
   '@rollup/rollup-linux-ppc64-musl@4.59.0':
     resolution: {integrity: sha512-+2kLtQ4xT3AiIxkzFVFXfsmlZiG5FXYW7ZyIIvGA7Bdeuh9Z0aN4hVyXS/G1E9bTP/vqszNIN/pUKCk/BTHsKA==}
     cpu: [ppc64]
     os: [linux]
-    libc: [musl]
 
   '@rollup/rollup-linux-riscv64-gnu@4.59.0':
     resolution: {integrity: sha512-NDYMpsXYJJaj+I7UdwIuHHNxXZ/b/N2hR15NyH3m2qAtb/hHPA4g4SuuvrdxetTdndfj9b1WOmy73kcPRoERUg==}
     cpu: [riscv64]
     os: [linux]
-    libc: [glibc]
 
   '@rollup/rollup-linux-riscv64-musl@4.59.0':
     resolution: {integrity: sha512-nLckB8WOqHIf1bhymk+oHxvM9D3tyPndZH8i8+35p/1YiVoVswPid2yLzgX7ZJP0KQvnkhM4H6QZ5m0LzbyIAg==}
     cpu: [riscv64]
     os: [linux]
-    libc: [musl]
 
   '@rollup/rollup-linux-s390x-gnu@4.59.0':
     resolution: {integrity: sha512-oF87Ie3uAIvORFBpwnCvUzdeYUqi2wY6jRFWJAy1qus/udHFYIkplYRW+wo+GRUP4sKzYdmE1Y3+rY5Gc4ZO+w==}
     cpu: [s390x]
     os: [linux]
-    libc: [glibc]
 
   '@rollup/rollup-linux-x64-gnu@4.59.0':
     resolution: {integrity: sha512-3AHmtQq/ppNuUspKAlvA8HtLybkDflkMuLK4DPo77DfthRb71V84/c4MlWJXixZz4uruIH4uaa07IqoAkG64fg==}
     cpu: [x64]
     os: [linux]
-    libc: [glibc]
 
   '@rollup/rollup-linux-x64-musl@4.59.0':
     resolution: {integrity: sha512-2UdiwS/9cTAx7qIUZB/fWtToJwvt0Vbo0zmnYt7ED35KPg13Q0ym1g442THLC7VyI6JfYTP4PiSOWyoMdV2/xg==}
     cpu: [x64]
     os: [linux]
-    libc: [musl]
 
   '@rollup/rollup-openbsd-x64@4.59.0':
     resolution: {integrity: sha512-M3bLRAVk6GOwFlPTIxVBSYKUaqfLrn8l0psKinkCFxl4lQvOSz8ZrKDz2gxcBwHFpci0B6rttydI4IpS4IS/jQ==}
@@ -3391,7 +3364,6 @@ packages:
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [linux]
-    libc: [glibc]
 
   napi-maybe-compressed-blob-linux-x64-gnu@0.0.11:
     resolution: {integrity: sha512-JKY8KcZpQtKiL1smMKfukcOmsDVeZaw9fKXKsWC+wySc2wsvH7V2wy8PffSQ0lWERkI7Yn3k7xPjB463m/VNtg==}
@@ -5571,7 +5543,7 @@ snapshots:
       '@effect/sql': 0.48.6(@effect/experimental@0.57.11(@effect/platform@0.93.8(effect@3.19.19))(effect@3.19.19))(@effect/platform@0.93.8(effect@3.19.19))(effect@3.19.19)
       '@effect/workflow': 0.15.2(@effect/experimental@0.57.11(@effect/platform@0.93.8(effect@3.19.19))(effect@3.19.19))(@effect/platform@0.93.8(effect@3.19.19))(@effect/rpc@0.72.2(@effect/platform@0.93.8(effect@3.19.19))(effect@3.19.19))(effect@3.19.19)
       '@inquirer/prompts': 8.3.0(@types/node@25.3.5)
-      '@moonwall/types': 5.18.3(@polkadot/api-base@16.5.4)(@polkadot/api@16.5.4)(@polkadot/keyring@14.0.1(@polkadot/util-crypto@14.0.1(@polkadot/util@14.0.1))(@polkadot/util@14.0.1))(@polkadot/types@16.5.4)(@polkadot/util-crypto@14.0.1(@polkadot/util@14.0.1))(@polkadot/util@14.0.1)(@types/debug@4.1.12)(@vitest/ui@3.2.4)(chokidar@3.6.0)(encoding@0.1.13)(jsdom@23.2.0)(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(typescript@5.8.3)(yaml@2.8.2)(zod@3.25.76)
+      '@moonwall/types': 5.18.3(@polkadot/api-base@16.5.4)(@polkadot/api@16.5.4)(@polkadot/keyring@14.0.1(@polkadot/util-crypto@14.0.1(@polkadot/util@14.0.1))(@polkadot/util@14.0.1))(@polkadot/types@16.5.4)(@polkadot/util-crypto@14.0.1(@polkadot/util@14.0.1))(@polkadot/util@14.0.1)(@types/debug@4.1.12)(@vitest/ui@3.2.4(vitest@3.2.4(@types/debug@4.1.12)(@types/node@25.3.5)(@vitest/ui@3.1.3)(jsdom@23.2.0)(tsx@4.21.0)(yaml@2.8.2)))(chokidar@3.6.0)(encoding@0.1.13)(jsdom@23.2.0)(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(typescript@5.8.3)(yaml@2.8.2)(zod@3.25.76)
       '@moonwall/util': 5.18.3(@polkadot/api-base@16.5.4)(@polkadot/api-derive@16.5.4)(@polkadot/api@16.5.4)(@polkadot/keyring@14.0.1(@polkadot/util-crypto@14.0.1(@polkadot/util@14.0.1))(@polkadot/util@14.0.1))(@polkadot/rpc-provider@16.5.4)(@polkadot/types-codec@16.5.4)(@polkadot/types@16.5.4)(@polkadot/util-crypto@14.0.1(@polkadot/util@14.0.1))(@polkadot/util@14.0.1)(@types/debug@4.1.12)(@types/node@25.3.5)(chokidar@3.6.0)(encoding@0.1.13)(jsdom@23.2.0)(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(typescript@5.8.3)(yaml@2.8.2)(zod@3.25.76)
       '@octokit/rest': 22.0.1
       '@polkadot/api': 16.5.4
@@ -5584,7 +5556,7 @@ snapshots:
       '@polkadot/util-crypto': 14.0.1(@polkadot/util@14.0.1)
       '@types/react': 19.2.7
       '@types/tmp': 0.2.6
-      '@vitest/ui': 3.2.4(vitest@3.2.4)
+      '@vitest/ui': 3.2.4(vitest@3.2.4(@types/debug@4.1.12)(@types/node@25.3.5)(@vitest/ui@3.1.3)(jsdom@23.2.0)(tsx@4.21.0)(yaml@2.8.2))
       '@zombienet/orchestrator': 0.0.113(@polkadot/util@14.0.1)(@types/node@25.3.5)(chokidar@3.6.0)
       '@zombienet/utils': 0.0.30(@types/node@25.3.5)(chokidar@3.6.0)(typescript@5.8.3)
       arkregex: 0.0.4
@@ -5609,7 +5581,7 @@ snapshots:
       tiny-invariant: 1.3.3
       tmp: 0.2.5
       viem: 2.41.2(typescript@5.8.3)(zod@3.25.76)
-      vitest: 3.2.4(@types/debug@4.1.12)(@types/node@25.3.5)(@vitest/ui@3.2.4)(jsdom@23.2.0)(tsx@4.21.0)(yaml@2.8.2)
+      vitest: 3.2.4(@types/debug@4.1.12)(@types/node@25.3.5)(@vitest/ui@3.2.4(vitest@3.2.4(@types/debug@4.1.12)(@types/node@25.3.5)(@vitest/ui@3.1.3)(jsdom@23.2.0)(tsx@4.21.0)(yaml@2.8.2)))(jsdom@23.2.0)(tsx@4.21.0)(yaml@2.8.2)
       web3: 4.16.0(encoding@0.1.13)(typescript@5.8.3)(zod@3.25.76)
       web3-providers-ws: 4.0.8
       ws: 8.19.0
@@ -5667,7 +5639,7 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@moonwall/types@5.18.3(@polkadot/api-base@16.5.4)(@polkadot/api@16.5.4)(@polkadot/keyring@14.0.1(@polkadot/util-crypto@14.0.1(@polkadot/util@14.0.1))(@polkadot/util@14.0.1))(@polkadot/types@16.5.4)(@polkadot/util-crypto@14.0.1(@polkadot/util@14.0.1))(@polkadot/util@14.0.1)(@types/debug@4.1.12)(@vitest/ui@3.2.4)(chokidar@3.6.0)(encoding@0.1.13)(jsdom@23.2.0)(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(typescript@5.8.3)(yaml@2.8.2)(zod@3.25.76)':
+  '@moonwall/types@5.18.3(@polkadot/api-base@16.5.4)(@polkadot/api@16.5.4)(@polkadot/keyring@14.0.1(@polkadot/util-crypto@14.0.1(@polkadot/util@14.0.1))(@polkadot/util@14.0.1))(@polkadot/types@16.5.4)(@polkadot/util-crypto@14.0.1(@polkadot/util@14.0.1))(@polkadot/util@14.0.1)(@types/debug@4.1.12)(@vitest/ui@3.2.4(vitest@3.2.4(@types/debug@4.1.12)(@types/node@25.3.5)(@vitest/ui@3.1.3)(jsdom@23.2.0)(tsx@4.21.0)(yaml@2.8.2)))(chokidar@3.6.0)(encoding@0.1.13)(jsdom@23.2.0)(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(typescript@5.8.3)(yaml@2.8.2)(zod@3.25.76)':
     dependencies:
       '@polkadot/api': 16.5.4
       '@polkadot/api-base': 16.5.4
@@ -5681,7 +5653,7 @@ snapshots:
       ethers: 6.16.0
       polkadot-api: 1.19.2(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.2)
       viem: 2.41.2(typescript@5.8.3)(zod@3.25.76)
-      vitest: 3.2.4(@types/debug@4.1.12)(@types/node@24.12.0)(@vitest/ui@3.2.4)(jsdom@23.2.0)(tsx@4.21.0)(yaml@2.8.2)
+      vitest: 3.2.4(@types/debug@4.1.12)(@types/node@24.12.0)(@vitest/ui@3.2.4(vitest@3.2.4(@types/debug@4.1.12)(@types/node@25.3.5)(@vitest/ui@3.1.3)(jsdom@23.2.0)(tsx@4.21.0)(yaml@2.8.2)))(jsdom@23.2.0)(tsx@4.21.0)(yaml@2.8.2)
       web3: 4.16.0(encoding@0.1.13)(typescript@5.8.3)(zod@3.25.76)
     transitivePeerDependencies:
       - '@edge-runtime/vm'
@@ -5717,7 +5689,7 @@ snapshots:
   '@moonwall/util@5.18.3(@polkadot/api-base@16.5.4)(@polkadot/api-derive@16.5.4)(@polkadot/api@16.5.4)(@polkadot/keyring@14.0.1(@polkadot/util-crypto@14.0.1(@polkadot/util@14.0.1))(@polkadot/util@14.0.1))(@polkadot/rpc-provider@16.5.4)(@polkadot/types-codec@16.5.4)(@polkadot/types@16.5.4)(@polkadot/util-crypto@14.0.1(@polkadot/util@14.0.1))(@polkadot/util@14.0.1)(@types/debug@4.1.12)(@types/node@25.3.5)(chokidar@3.6.0)(encoding@0.1.13)(jsdom@23.2.0)(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(typescript@5.8.3)(yaml@2.8.2)(zod@3.25.76)':
     dependencies:
       '@inquirer/prompts': 8.3.0(@types/node@25.3.5)
-      '@moonwall/types': 5.18.3(@polkadot/api-base@16.5.4)(@polkadot/api@16.5.4)(@polkadot/keyring@14.0.1(@polkadot/util-crypto@14.0.1(@polkadot/util@14.0.1))(@polkadot/util@14.0.1))(@polkadot/types@16.5.4)(@polkadot/util-crypto@14.0.1(@polkadot/util@14.0.1))(@polkadot/util@14.0.1)(@types/debug@4.1.12)(@vitest/ui@3.2.4)(chokidar@3.6.0)(encoding@0.1.13)(jsdom@23.2.0)(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(typescript@5.8.3)(yaml@2.8.2)(zod@3.25.76)
+      '@moonwall/types': 5.18.3(@polkadot/api-base@16.5.4)(@polkadot/api@16.5.4)(@polkadot/keyring@14.0.1(@polkadot/util-crypto@14.0.1(@polkadot/util@14.0.1))(@polkadot/util@14.0.1))(@polkadot/types@16.5.4)(@polkadot/util-crypto@14.0.1(@polkadot/util@14.0.1))(@polkadot/util@14.0.1)(@types/debug@4.1.12)(@vitest/ui@3.2.4(vitest@3.2.4(@types/debug@4.1.12)(@types/node@25.3.5)(@vitest/ui@3.1.3)(jsdom@23.2.0)(tsx@4.21.0)(yaml@2.8.2)))(chokidar@3.6.0)(encoding@0.1.13)(jsdom@23.2.0)(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(typescript@5.8.3)(yaml@2.8.2)(zod@3.25.76)
       '@polkadot/api': 16.5.4
       '@polkadot/api-derive': 16.5.4
       '@polkadot/keyring': 14.0.1(@polkadot/util-crypto@14.0.1(@polkadot/util@14.0.1))(@polkadot/util@14.0.1)
@@ -5726,7 +5698,7 @@ snapshots:
       '@polkadot/types-codec': 16.5.4
       '@polkadot/util': 14.0.1
       '@polkadot/util-crypto': 14.0.1(@polkadot/util@14.0.1)
-      '@vitest/ui': 3.2.4(vitest@3.2.4)
+      '@vitest/ui': 3.2.4(vitest@3.2.4(@types/debug@4.1.12)(@types/node@25.3.5)(@vitest/ui@3.1.3)(jsdom@23.2.0)(tsx@4.21.0)(yaml@2.8.2))
       arkregex: 0.0.4
       bottleneck: 2.19.5
       chalk: 5.6.2
@@ -5740,7 +5712,7 @@ snapshots:
       semver: 7.7.4
       tiny-invariant: 1.3.3
       viem: 2.41.2(typescript@5.8.3)(zod@3.25.76)
-      vitest: 3.2.4(@types/debug@4.1.12)(@types/node@25.3.5)(@vitest/ui@3.2.4)(jsdom@23.2.0)(tsx@4.21.0)(yaml@2.8.2)
+      vitest: 3.2.4(@types/debug@4.1.12)(@types/node@25.3.5)(@vitest/ui@3.2.4(vitest@3.2.4(@types/debug@4.1.12)(@types/node@25.3.5)(@vitest/ui@3.1.3)(jsdom@23.2.0)(tsx@4.21.0)(yaml@2.8.2)))(jsdom@23.2.0)(tsx@4.21.0)(yaml@2.8.2)
       web3: 4.16.0(encoding@0.1.13)(typescript@5.8.3)(zod@3.25.76)
       ws: 8.19.0
       yargs: 18.0.0
@@ -7135,7 +7107,7 @@ snapshots:
       tinyrainbow: 2.0.0
       vitest: 3.2.4(@types/debug@4.1.12)(@types/node@25.3.5)(@vitest/ui@3.1.3)(jsdom@23.2.0)(tsx@4.21.0)(yaml@2.8.2)
 
-  '@vitest/ui@3.2.4(vitest@3.2.4)':
+  '@vitest/ui@3.2.4(vitest@3.2.4(@types/debug@4.1.12)(@types/node@25.3.5)(@vitest/ui@3.1.3)(jsdom@23.2.0)(tsx@4.21.0)(yaml@2.8.2))':
     dependencies:
       '@vitest/utils': 3.2.4
       fflate: 0.8.2
@@ -9963,7 +9935,7 @@ snapshots:
       tsx: 4.21.0
       yaml: 2.8.2
 
-  vitest@3.2.4(@types/debug@4.1.12)(@types/node@24.12.0)(@vitest/ui@3.2.4)(jsdom@23.2.0)(tsx@4.21.0)(yaml@2.8.2):
+  vitest@3.2.4(@types/debug@4.1.12)(@types/node@24.12.0)(@vitest/ui@3.2.4(vitest@3.2.4(@types/debug@4.1.12)(@types/node@25.3.5)(@vitest/ui@3.1.3)(jsdom@23.2.0)(tsx@4.21.0)(yaml@2.8.2)))(jsdom@23.2.0)(tsx@4.21.0)(yaml@2.8.2):
     dependencies:
       '@types/chai': 5.2.3
       '@vitest/expect': 3.2.4
@@ -9991,7 +9963,7 @@ snapshots:
     optionalDependencies:
       '@types/debug': 4.1.12
       '@types/node': 24.12.0
-      '@vitest/ui': 3.2.4(vitest@3.2.4)
+      '@vitest/ui': 3.2.4(vitest@3.2.4(@types/debug@4.1.12)(@types/node@25.3.5)(@vitest/ui@3.1.3)(jsdom@23.2.0)(tsx@4.21.0)(yaml@2.8.2))
       jsdom: 23.2.0
     transitivePeerDependencies:
       - jiti
@@ -10051,7 +10023,7 @@ snapshots:
       - tsx
       - yaml
 
-  vitest@3.2.4(@types/debug@4.1.12)(@types/node@25.3.5)(@vitest/ui@3.2.4)(jsdom@23.2.0)(tsx@4.21.0)(yaml@2.8.2):
+  vitest@3.2.4(@types/debug@4.1.12)(@types/node@25.3.5)(@vitest/ui@3.2.4(vitest@3.2.4(@types/debug@4.1.12)(@types/node@25.3.5)(@vitest/ui@3.1.3)(jsdom@23.2.0)(tsx@4.21.0)(yaml@2.8.2)))(jsdom@23.2.0)(tsx@4.21.0)(yaml@2.8.2):
     dependencies:
       '@types/chai': 5.2.3
       '@vitest/expect': 3.2.4
@@ -10079,7 +10051,7 @@ snapshots:
     optionalDependencies:
       '@types/debug': 4.1.12
       '@types/node': 25.3.5
-      '@vitest/ui': 3.2.4(vitest@3.2.4)
+      '@vitest/ui': 3.2.4(vitest@3.2.4(@types/debug@4.1.12)(@types/node@25.3.5)(@vitest/ui@3.1.3)(jsdom@23.2.0)(tsx@4.21.0)(yaml@2.8.2))
       jsdom: 23.2.0
     transitivePeerDependencies:
       - jiti
