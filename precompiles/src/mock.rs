@@ -158,7 +158,7 @@ parameter_types! {
     pub const EvmKeyAssociateRateLimit: u64 = 0;
     pub const SubtensorPalletId: PalletId = PalletId(*b"subtensr");
     pub const BurnAccountId: PalletId = PalletId(*b"burntnsr");
-    pub const MaxEpochsPerBlock: u32 = 32;
+    pub const MaxEpochsPerBlock: u8 = 32;
     pub const LimitOrdersPalletId: PalletId = PalletId(*b"bt/limit");
     pub const LimitOrdersChainId: u64 = 945;
 }
