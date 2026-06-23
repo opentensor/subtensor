@@ -93,6 +93,9 @@ pub trait WeightInfo {
 	fn lock_stake() -> Weight;
 	fn move_lock() -> Weight;
 	fn associate_evm_key() -> Weight;
+	fn set_tempo() -> Weight;
+	fn set_activity_cutoff_factor() -> Weight;
+	fn trigger_epoch() -> Weight;
 }
 
 /// Weights for `pallet_subtensor` using the Substrate node and recommended hardware.
@@ -2365,6 +2368,77 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	/// Storage: `SubtensorModule::SubnetOwner` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetOwner` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::CommitRevealWeightsEnabled` (r:1 w:0)
+	/// Proof: `SubtensorModule::CommitRevealWeightsEnabled` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::Tempo` (r:1 w:1)
+	/// Proof: `SubtensorModule::Tempo` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::PendingEpochAt` (r:1 w:0)
+	/// Proof: `SubtensorModule::PendingEpochAt` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::LastEpochBlock` (r:1 w:1)
+	/// Proof: `SubtensorModule::LastEpochBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::AdminFreezeWindow` (r:1 w:0)
+	/// Proof: `SubtensorModule::AdminFreezeWindow` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::TransactionKeyLastBlock` (r:1 w:1)
+	/// Proof: `SubtensorModule::TransactionKeyLastBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn set_tempo() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1015`
+		//  Estimated: `4480`
+		// Minimum execution time: 34_000_000 picoseconds.
+		Weight::from_parts(35_000_000, 4480)
+			.saturating_add(T::DbWeight::get().reads(7_u64))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
+	}
+	/// Storage: `SubtensorModule::SubnetOwner` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetOwner` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::Tempo` (r:1 w:0)
+	/// Proof: `SubtensorModule::Tempo` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::PendingEpochAt` (r:1 w:0)
+	/// Proof: `SubtensorModule::PendingEpochAt` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::LastEpochBlock` (r:1 w:0)
+	/// Proof: `SubtensorModule::LastEpochBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::AdminFreezeWindow` (r:1 w:0)
+	/// Proof: `SubtensorModule::AdminFreezeWindow` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::OwnerHyperparamRateLimit` (r:1 w:0)
+	/// Proof: `SubtensorModule::OwnerHyperparamRateLimit` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::LastRateLimitedBlock` (r:1 w:1)
+	/// Proof: `SubtensorModule::LastRateLimitedBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::ActivityCutoffFactorMilli` (r:0 w:1)
+	/// Proof: `SubtensorModule::ActivityCutoffFactorMilli` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn set_activity_cutoff_factor() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `889`
+		//  Estimated: `4354`
+		// Minimum execution time: 29_000_000 picoseconds.
+		Weight::from_parts(31_000_000, 4354)
+			.saturating_add(T::DbWeight::get().reads(7_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
+	/// Storage: `SubtensorModule::SubnetOwner` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetOwner` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::CommitRevealWeightsEnabled` (r:1 w:0)
+	/// Proof: `SubtensorModule::CommitRevealWeightsEnabled` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::PendingEpochAt` (r:1 w:1)
+	/// Proof: `SubtensorModule::PendingEpochAt` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::OwnerHyperparamRateLimit` (r:1 w:0)
+	/// Proof: `SubtensorModule::OwnerHyperparamRateLimit` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::Tempo` (r:1 w:0)
+	/// Proof: `SubtensorModule::Tempo` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::LastRateLimitedBlock` (r:1 w:1)
+	/// Proof: `SubtensorModule::LastRateLimitedBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::AdminFreezeWindow` (r:1 w:0)
+	/// Proof: `SubtensorModule::AdminFreezeWindow` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	fn trigger_epoch() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `853`
+		//  Estimated: `4318`
+		// Minimum execution time: 25_000_000 picoseconds.
+		Weight::from_parts(28_000_000, 4318)
+			.saturating_add(T::DbWeight::get().reads(7_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -4635,5 +4709,76 @@ impl WeightInfo for () {
 		Weight::from_parts(712_594_000, 4415)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `SubtensorModule::SubnetOwner` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetOwner` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::CommitRevealWeightsEnabled` (r:1 w:0)
+	/// Proof: `SubtensorModule::CommitRevealWeightsEnabled` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::Tempo` (r:1 w:1)
+	/// Proof: `SubtensorModule::Tempo` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::PendingEpochAt` (r:1 w:0)
+	/// Proof: `SubtensorModule::PendingEpochAt` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::LastEpochBlock` (r:1 w:1)
+	/// Proof: `SubtensorModule::LastEpochBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::AdminFreezeWindow` (r:1 w:0)
+	/// Proof: `SubtensorModule::AdminFreezeWindow` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::TransactionKeyLastBlock` (r:1 w:1)
+	/// Proof: `SubtensorModule::TransactionKeyLastBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn set_tempo() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1015`
+		//  Estimated: `4480`
+		// Minimum execution time: 34_000_000 picoseconds.
+		Weight::from_parts(35_000_000, 4480)
+			.saturating_add(RocksDbWeight::get().reads(7_u64))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
+	}
+	/// Storage: `SubtensorModule::SubnetOwner` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetOwner` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::Tempo` (r:1 w:0)
+	/// Proof: `SubtensorModule::Tempo` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::PendingEpochAt` (r:1 w:0)
+	/// Proof: `SubtensorModule::PendingEpochAt` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::LastEpochBlock` (r:1 w:0)
+	/// Proof: `SubtensorModule::LastEpochBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::AdminFreezeWindow` (r:1 w:0)
+	/// Proof: `SubtensorModule::AdminFreezeWindow` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::OwnerHyperparamRateLimit` (r:1 w:0)
+	/// Proof: `SubtensorModule::OwnerHyperparamRateLimit` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::LastRateLimitedBlock` (r:1 w:1)
+	/// Proof: `SubtensorModule::LastRateLimitedBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::ActivityCutoffFactorMilli` (r:0 w:1)
+	/// Proof: `SubtensorModule::ActivityCutoffFactorMilli` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn set_activity_cutoff_factor() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `889`
+		//  Estimated: `4354`
+		// Minimum execution time: 29_000_000 picoseconds.
+		Weight::from_parts(31_000_000, 4354)
+			.saturating_add(RocksDbWeight::get().reads(7_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
+	}
+	/// Storage: `SubtensorModule::SubnetOwner` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetOwner` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::CommitRevealWeightsEnabled` (r:1 w:0)
+	/// Proof: `SubtensorModule::CommitRevealWeightsEnabled` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::PendingEpochAt` (r:1 w:1)
+	/// Proof: `SubtensorModule::PendingEpochAt` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::OwnerHyperparamRateLimit` (r:1 w:0)
+	/// Proof: `SubtensorModule::OwnerHyperparamRateLimit` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::Tempo` (r:1 w:0)
+	/// Proof: `SubtensorModule::Tempo` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::LastRateLimitedBlock` (r:1 w:1)
+	/// Proof: `SubtensorModule::LastRateLimitedBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::AdminFreezeWindow` (r:1 w:0)
+	/// Proof: `SubtensorModule::AdminFreezeWindow` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	fn trigger_epoch() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `853`
+		//  Estimated: `4318`
+		// Minimum execution time: 25_000_000 picoseconds.
+		Weight::from_parts(28_000_000, 4318)
+			.saturating_add(RocksDbWeight::get().reads(7_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 }

@@ -907,6 +907,9 @@ fn test_claim_root_with_run_coinbase() {
                 .into();
         assert_eq!(initial_stake, 0u64);
 
+        // To trigger the epoch, block should be > tempo. So we advance it before
+        System::set_block_number(2);
+
         let block_emissions = SubtensorModule::mint_tao(1_000_000u64.into());
         SubtensorModule::run_coinbase(block_emissions);
 
@@ -1098,6 +1101,7 @@ fn test_populate_staking_maps() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::claim_root::test_claim_root_coinbase_distribution --exact --show-output
 #[test]
 fn test_claim_root_coinbase_distribution() {
     new_test_ext(1).execute_with(|| {
@@ -1106,7 +1110,10 @@ fn test_claim_root_coinbase_distribution() {
         let coldkey = U256::from(1003);
         let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
 
-        Tempo::<Test>::insert(netuid, 1);
+        // Period is `tempo`; with `tempo = 2` and the scheduler re-anchored at the
+        // current block, the epoch fires two steps later (at `run_to_block(3)`).
+        Tempo::<Test>::insert(netuid, 2);
+        crate::LastEpochBlock::<Test>::insert(netuid, SubtensorModule::get_current_block_as_u64());
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
 
         let root_stake = 200_000_000u64;
@@ -1155,11 +1162,15 @@ fn test_claim_root_coinbase_distribution() {
         run_to_block(2);
 
         let alpha_issuance = SubtensorModule::get_alpha_issuance(netuid);
-        // We went two blocks so we should have 2x the alpha emissions
-        assert_eq!(
-            initial_alpha_issuance + alpha_emissions.saturating_mul(2.into()),
-            alpha_issuance
-        );
+        // Net issuance grows by the block alpha emission (alpha_out) plus the
+        // root-proportion-capped alpha injection. Chain buys move alpha between the
+        // pool reserve and outstanding supply without changing net issuance, and with
+        // this subnet's small root proportion the injection is well under a second
+        // full emission.
+        let issuance_growth =
+            u64::from(alpha_issuance).saturating_sub(u64::from(initial_alpha_issuance));
+        assert!(issuance_growth >= u64::from(alpha_emissions));
+        assert!(issuance_growth < u64::from(alpha_emissions.saturating_mul(2.into())));
 
         let root_prop = initial_tao as f64 / (u64::from(alpha_issuance) + initial_tao) as f64;
         let root_validators_share = 0.5f64;

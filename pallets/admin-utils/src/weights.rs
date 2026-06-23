@@ -66,6 +66,7 @@ pub trait WeightInfo {
 	fn sudo_set_commit_reveal_weights_enabled() -> Weight;
 	fn sudo_set_commit_reveal_version() -> Weight;
 	fn sudo_set_tx_rate_limit() -> Weight;
+	fn sudo_set_max_epochs_per_block() -> Weight;
 	fn sudo_set_total_issuance() -> Weight;
 	fn sudo_set_rao_recycled() -> Weight;
 	fn sudo_set_stake_threshold() -> Weight;
@@ -573,6 +574,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `0`
 		// Minimum execution time: 5_130_000 picoseconds.
 		Weight::from_parts(5_500_000, 0)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Storage: `SubtensorModule::MaxEpochsPerBlock` (r:0 w:1)
+	/// Proof: `SubtensorModule::MaxEpochsPerBlock` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	fn sudo_set_max_epochs_per_block() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 4_000_000 picoseconds.
+		Weight::from_parts(4_000_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_total_issuance() -> Weight {
@@ -1405,6 +1416,16 @@ impl WeightInfo for () {
 		//  Estimated: `0`
 		// Minimum execution time: 5_130_000 picoseconds.
 		Weight::from_parts(5_500_000, 0)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `SubtensorModule::MaxEpochsPerBlock` (r:0 w:1)
+	/// Proof: `SubtensorModule::MaxEpochsPerBlock` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	fn sudo_set_max_epochs_per_block() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 4_000_000 picoseconds.
+		Weight::from_parts(4_000_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_total_issuance() -> Weight {
