@@ -907,14 +907,15 @@ fn test_swap_owner_new_hotkey_already_exists() {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-        let another_coldkey = U256::from(4);
 
         let netuid = add_dynamic_network(&new_hotkey, &coldkey);
         add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_u64.into());
 
-        // Initialize Owner for old_hotkey and new_hotkey
+        // old_hotkey is owned by coldkey; new_hotkey was already registered on `netuid`
+        // by add_dynamic_network (the condition under test). Do NOT reassign new_hotkey to
+        // a foreign coldkey — the new_hotkey-ownership check (NonAssociatedColdKey) would
+        // then fire before the already-registered-in-subnet check this test targets.
         Owner::<Test>::insert(old_hotkey, coldkey);
-        Owner::<Test>::insert(new_hotkey, another_coldkey);
 
         // Perform the swap
         System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
@@ -2927,7 +2928,7 @@ fn test_swap_hotkey_root_claims_unchanged_if_not_root() {
         let netuid = add_dynamic_network(&neuron_hotkey, &owner_coldkey);
         let new_hotkey = U256::from(10030);
 
-        add_balance_to_coldkey_account(&owner_coldkey, u64::MAX.into());
+        add_balance_to_coldkey_account(&owner_coldkey, 20_000_000_000_000_000_u64.into());
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
 
         let root_stake = 2_000_000_000u64;
@@ -3013,7 +3014,7 @@ fn test_swap_hotkey_root_claims_changed_if_root() {
         // Use neuron_hotkey as subnet creator so it receives root dividends
         let netuid_1 = add_dynamic_network(&neuron_hotkey, &owner_coldkey);
 
-        add_balance_to_coldkey_account(&owner_coldkey, u64::MAX.into());
+        add_balance_to_coldkey_account(&owner_coldkey, 20_000_000_000_000_000_u64.into());
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
 
         let root_stake = 2_000_000_000u64;
@@ -3102,7 +3103,7 @@ fn test_swap_hotkey_root_claims_changed_if_all_subnets() {
         // Use neuron_hotkey as subnet creator so it receives root dividends
         let netuid_1 = add_dynamic_network(&neuron_hotkey, &owner_coldkey);
 
-        add_balance_to_coldkey_account(&owner_coldkey, u64::MAX.into());
+        add_balance_to_coldkey_account(&owner_coldkey, 20_000_000_000_000_000_u64.into());
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
 
         let root_stake = 2_000_000_000u64;
@@ -3183,7 +3184,7 @@ fn test_swap_hotkey_auto_parent_delegation_transferred_on_root() {
         let new_hotkey = U256::from(1005);
 
         let _ = add_dynamic_network(&old_hotkey, &owner_coldkey);
-        add_balance_to_coldkey_account(&owner_coldkey, u64::MAX.into());
+        add_balance_to_coldkey_account(&owner_coldkey, 20_000_000_000_000_000_u64.into());
 
         // Opt out of auto parent delegation on the old hotkey.
         AutoParentDelegationEnabled::<Test>::insert(old_hotkey, false);
@@ -3224,7 +3225,7 @@ fn test_swap_hotkey_auto_parent_delegation_transferred_on_all_subnets() {
         NetworksAdded::<Test>::insert(NetUid::ROOT, true);
 
         let _ = add_dynamic_network(&old_hotkey, &owner_coldkey);
-        add_balance_to_coldkey_account(&owner_coldkey, u64::MAX.into());
+        add_balance_to_coldkey_account(&owner_coldkey, 20_000_000_000_000_000_u64.into());
 
         AutoParentDelegationEnabled::<Test>::insert(old_hotkey, false);
 
@@ -3256,7 +3257,7 @@ fn test_swap_hotkey_auto_parent_delegation_not_transferred_on_non_root() {
         let new_hotkey = U256::from(1005);
 
         let netuid = add_dynamic_network(&old_hotkey, &owner_coldkey);
-        add_balance_to_coldkey_account(&owner_coldkey, u64::MAX.into());
+        add_balance_to_coldkey_account(&owner_coldkey, 20_000_000_000_000_000_u64.into());
 
         AutoParentDelegationEnabled::<Test>::insert(old_hotkey, false);
 

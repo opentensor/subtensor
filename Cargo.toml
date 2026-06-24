@@ -57,8 +57,8 @@ useless_conversion = "allow"     # until polkadot is patched
 pallet-alpha-assets = { path = "pallets/alpha-assets", default-features = false }
 node-subtensor-runtime = { path = "runtime", default-features = false }
 pallet-admin-utils = { path = "pallets/admin-utils", default-features = false }
+pallet-limit-orders = { path = "pallets/limit-orders", default-features = false }
 pallet-commitments = { path = "pallets/commitments", default-features = false }
-pallet-registry = { path = "pallets/registry", default-features = false }
 pallet-crowdloan = { path = "pallets/crowdloan", default-features = false }
 pallet-subtensor = { path = "pallets/subtensor", default-features = false }
 pallet-subtensor-swap = { path = "pallets/swap", default-features = false }
@@ -66,6 +66,7 @@ pallet-subtensor-swap-runtime-api = { path = "pallets/swap/runtime-api", default
 pallet-subtensor-swap-rpc = { path = "pallets/swap/rpc", default-features = false }
 pallet-multi-collective = { path = "pallets/multi-collective", default-features = false }
 procedural-fork = { path = "support/procedural-fork", default-features = false }
+safe-bigmath = { package = "safe-bigmath", default-features = false, git = "https://github.com/sam0x17/safe-bigmath", rev = "013c49984910e1c9a23289e8c85e7a856e263a02" }
 safe-math = { path = "primitives/safe-math", default-features = false }
 share-pool = { path = "primitives/share-pool", default-features = false }
 subtensor-macros = { path = "support/macros", default-features = false }
@@ -73,7 +74,7 @@ subtensor-custom-rpc = { default-features = false, path = "pallets/subtensor/rpc
 subtensor-custom-rpc-runtime-api = { default-features = false, path = "pallets/subtensor/runtime-api" }
 subtensor-precompiles = { default-features = false, path = "precompiles" }
 subtensor-runtime-common = { default-features = false, path = "common" }
-subtensor-swap-interface = { default-features = false, path = "pallets/swap-interface" }
+subtensor-swap-interface = { default-features = false, path = "primitives/swap-interface" }
 subtensor-transaction-fee = { default-features = false, path = "pallets/transaction-fee" }
 subtensor-chain-extensions = { default-features = false, path = "chain-extensions" }
 stp-shield = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "7cc54bf2d50ae3921d718736dfeb0de9468539c7", default-features = false }
@@ -321,3 +322,5 @@ pow-faucet = []
 
 [patch.crates-io]
 w3f-bls = { git = "https://github.com/opentensor/bls", branch = "fix-no-std" }
+zstd-sys = { git = "https://github.com/gztensor/zstd-sys" }
+zstd-safe = { git = "https://github.com/gztensor/zstd-safe", rev = "42cc34ef6abe5d35d982f6afefb5d7e4e69f5f18" }

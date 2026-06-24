@@ -7,7 +7,7 @@ mod tests;
 
 pub mod types;
 
-use crate::types::{FunctionId, Output};
+use crate::types::{ColdkeyLock, FunctionId, Output, StakeAvailability, SubnetRegistrationState};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{DebugNoBound, traits::Get};
 use frame_system::RawOrigin;
@@ -19,7 +19,7 @@ use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_proxy::WeightInfo;
 use sp_runtime::{DispatchError, Weight, traits::StaticLookup};
 use sp_std::marker::PhantomData;
-use substrate_fixed::types::U96F32;
+use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{AlphaBalance, NetUid, ProxyType, TaoBalance};
 use subtensor_swap_interface::SwapHandler;
 
@@ -595,6 +595,61 @@ where
 
                 Ok(RetVal::Converging(Output::Success as u32))
             }
+            FunctionId::GetSubnetRegistrationStateV1 => {
+                let netuid: NetUid = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let state = SubnetRegistrationState {
+                    netuid,
+                    exists: pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                    registered_subnet_counter:
+                        pallet_subtensor::Pallet::<T>::get_registered_subnet_counter(netuid),
+                };
+
+                env.write_output(&state.encode())
+                    .map_err(|_| DispatchError::Other("Failed to write output"))?;
+
+                Ok(RetVal::Converging(Output::Success as u32))
+            }
+            FunctionId::GetColdkeyLockV1 => {
+                let (coldkey, netuid): (T::AccountId, NetUid) = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let lock =
+                    pallet_subtensor::Pallet::<T>::get_coldkey_lock(&coldkey, netuid).map(|lock| {
+                        ColdkeyLock {
+                            locked_mass: lock.locked_mass,
+                            conviction_bits: lock.conviction.to_bits(),
+                            last_update: lock.last_update,
+                        }
+                    });
+
+                env.write_output(&lock.encode())
+                    .map_err(|_| DispatchError::Other("Failed to write output"))?;
+
+                Ok(RetVal::Converging(Output::Success as u32))
+            }
+            FunctionId::GetStakeAvailabilityV1 => {
+                let (coldkey, netuid): (T::AccountId, NetUid) = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let (total, locked, available) =
+                    pallet_subtensor::Pallet::<T>::stake_availability(&coldkey, netuid);
+                let availability = StakeAvailability {
+                    netuid,
+                    total,
+                    locked,
+                    available,
+                };
+
+                env.write_output(&availability.encode())
+                    .map_err(|_| DispatchError::Other("Failed to write output"))?;
+
+                Ok(RetVal::Converging(Output::Success as u32))
+            }
             FunctionId::AddStakeV1 => {
                 let origin = RawOrigin::Signed(env.caller());
                 Self::dispatch_add_stake_v1(env, origin)
@@ -719,7 +774,7 @@ where
                         netuid.into(),
                     );
 
-                let price = current_alpha_price.saturating_mul(U96F32::from_num(1_000_000_000));
+                let price = current_alpha_price.saturating_mul(U64F64::from_num(1_000_000_000));
                 let price: u64 = price.saturating_to_num();
 
                 let encoded_result = price.encode();

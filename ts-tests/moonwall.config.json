@@ -32,7 +32,9 @@
                             "--sealing=manual"
                         ],
                         "disableDefaultEthProviders": true,
-                        "newRpcBehaviour": true
+                        "newRpcBehaviour": true,
+                        "maxStartupTimeout": 120000,
+                        "connectTimeout": 30000
                     }
                 ]
             }

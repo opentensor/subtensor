@@ -40,6 +40,9 @@ pub enum FunctionId {
     CallerSetColdkeyAutoStakeHotkeyV1 = 31,
     CallerAddProxyV1 = 32,
     CallerRemoveProxyV1 = 33,
+    GetSubnetRegistrationStateV1 = 34,
+    GetColdkeyLockV1 = 35,
+    GetStakeAvailabilityV1 = 36,
 }
 
 #[ink::chain_extension(extension = 0x1000)]
@@ -269,6 +272,21 @@ pub trait RuntimeReadWrite {
 
     #[ink(function = 33)]
     fn caller_remove_proxy(delegate: <CustomEnvironment as ink::env::Environment>::AccountId);
+
+    #[ink(function = 34)]
+    fn get_subnet_registration_state(netuid: u16) -> SubnetRegistrationState;
+
+    #[ink(function = 35)]
+    fn get_coldkey_lock(
+        coldkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+        netuid: u16,
+    ) -> Option<ColdkeyLock>;
+
+    #[ink(function = 36)]
+    fn get_stake_availability(
+        coldkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+        netuid: u16,
+    ) -> StakeAvailability;
 }
 
 #[ink::scale_derive(Encode, Decode, TypeInfo)]
@@ -311,6 +329,28 @@ pub struct StakeInfo<AccountId> {
     tao_emission: Compact<u64>,
     drain: Compact<u64>,
     is_registered: bool,
+}
+
+#[ink::scale_derive(Encode, Decode, TypeInfo)]
+pub struct SubnetRegistrationState {
+    netuid: u16,
+    exists: bool,
+    registered_subnet_counter: u64,
+}
+
+#[ink::scale_derive(Encode, Decode, TypeInfo)]
+pub struct ColdkeyLock {
+    locked_mass: u64,
+    conviction_bits: u128,
+    last_update: u64,
+}
+
+#[ink::scale_derive(Encode, Decode, TypeInfo)]
+pub struct StakeAvailability {
+    netuid: u16,
+    total: u64,
+    locked: u64,
+    available: u64,
 }
 
 #[ink::contract(env = crate::CustomEnvironment)]
@@ -800,6 +840,41 @@ mod bittensor {
                 .extension()
                 .caller_remove_proxy(delegate.into())
                 .map_err(|_e| ReadWriteErrorCode::WriteFailed)
+        }
+
+        #[ink(message)]
+        pub fn get_subnet_registration_state(
+            &self,
+            netuid: u16,
+        ) -> Result<SubnetRegistrationState, ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .get_subnet_registration_state(netuid)
+                .map_err(|_e| ReadWriteErrorCode::ReadFailed)
+        }
+
+        #[ink(message)]
+        pub fn get_coldkey_lock(
+            &self,
+            coldkey: [u8; 32],
+            netuid: u16,
+        ) -> Result<Option<ColdkeyLock>, ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .get_coldkey_lock(coldkey.into(), netuid)
+                .map_err(|_e| ReadWriteErrorCode::ReadFailed)
+        }
+
+        #[ink(message)]
+        pub fn get_stake_availability(
+            &self,
+            coldkey: [u8; 32],
+            netuid: u16,
+        ) -> Result<StakeAvailability, ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .get_stake_availability(coldkey.into(), netuid)
+                .map_err(|_e| ReadWriteErrorCode::ReadFailed)
         }
     }
 }
