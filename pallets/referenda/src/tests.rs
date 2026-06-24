@@ -1592,6 +1592,17 @@ fn set_alarm_replaces_existing_or_arms_fresh() {
             Some(submitted + DECISION_PERIOD)
         );
 
+        let events_before_noop = System::events().len();
+        assert_ok!(Pallet::<Test>::set_alarm(
+            index,
+            submitted + DECISION_PERIOD
+        ));
+        assert_eq!(System::events().len(), events_before_noop);
+        assert_eq!(
+            scheduler_alarm_block(index),
+            Some(submitted + DECISION_PERIOD)
+        );
+
         // Replace.
         assert_ok!(Pallet::<Test>::set_alarm(index, current_block() + 5));
         assert_eq!(scheduler_alarm_block(index), Some(current_block() + 5));

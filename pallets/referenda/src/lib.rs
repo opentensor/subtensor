@@ -117,8 +117,8 @@
 //!
 //! Each referendum has at most one alarm (`alarm_name(index)`) and at
 //! most one enactment task (`task_name(index)`). [`set_alarm`] is
-//! idempotent: it cancels any prior alarm with the same name before
-//! scheduling a new one.
+//! idempotent: it reschedules an existing alarm when possible and only
+//! schedules a fresh alarm when none is pending.
 //!
 //! `Adjustable` enactment tasks can move earlier or later than the
 //! initial schedule via interpolation on net votes (see
@@ -1026,11 +1026,17 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Idempotent: cancels any prior alarm with the same name, so callers
+    /// Idempotent: reschedules any prior alarm with the same name, so callers
     /// do not need to track whether one is currently pending.
     fn set_alarm(index: ReferendumIndex, when: BlockNumberFor<T>) -> Result<(), DispatchError> {
+        if let Ok(existing) = T::Scheduler::next_dispatch_time(alarm_name(index)) {
+            if existing == when {
+                return Ok(());
+            }
+            return T::Scheduler::reschedule_named(alarm_name(index), DispatchTime::At(when))
+                .map(|_| ());
+        }
         let call = T::Preimages::bound(CallOf::<T>::from(Call::advance_referendum { index }))?;
-        let _ = T::Scheduler::cancel_named(alarm_name(index));
         let res = T::Scheduler::schedule_named(
             alarm_name(index),
             DispatchTime::At(when),
