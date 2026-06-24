@@ -12,6 +12,7 @@
                 "suites/dev"
             ],
             "runScripts": [
+                "generate-types.sh"
             ],
             "multiThreads": true,
             "reporters": ["basic"],
