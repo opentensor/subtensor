@@ -142,7 +142,14 @@ impl system::Config for Test {
     type MaxConsumers = frame_support::traits::ConstU32<16>;
     type Nonce = u64;
     type Block = Block;
-    type DispatchExtension = pallet_subtensor::CheckColdkeySwap<Test>;
+    type DispatchExtension = (
+        pallet_subtensor::CheckColdkeySwap<Test>,
+        pallet_subtensor::CheckWeights<Test>,
+        pallet_subtensor::CheckRateLimits<Test>,
+        pallet_subtensor::CheckDelegateTake<Test>,
+        pallet_subtensor::CheckServingEndpoints<Test>,
+        pallet_subtensor::CheckEvmKeyAssociation<Test>,
+    );
 }
 
 parameter_types! {
@@ -199,6 +206,12 @@ parameter_types! {
     pub const InitialMaxBurn: u64 = 1_000_000_000;
     pub const MinBurnUpperBound: TaoBalance = TaoBalance::new(1_000_000_000); // 1 TAO
     pub const MaxBurnLowerBound: TaoBalance = TaoBalance::new(100_000_000); // 0.1 TAO
+    pub const MinTempo: u16 = pallet_subtensor::MIN_TEMPO;
+    pub const MaxTempo: u16 = pallet_subtensor::MAX_TEMPO;
+    pub const MinActivityCutoffFactorMilli: u32 =
+        pallet_subtensor::MIN_ACTIVITY_CUTOFF_FACTOR_MILLI;
+    pub const MaxActivityCutoffFactorMilli: u32 =
+        pallet_subtensor::MAX_ACTIVITY_CUTOFF_FACTOR_MILLI;
     pub const InitialValidatorPruneLen: u64 = 0;
     pub const InitialScalingLawPower: u16 = 50;
     pub const InitialMaxAllowedValidators: u16 = 100;
@@ -238,6 +251,7 @@ parameter_types! {
     pub const EvmKeyAssociateRateLimit: u64 = 10;
     pub const SubtensorPalletId: PalletId = PalletId(*b"subtensr");
     pub const BurnAccountId: PalletId = PalletId(*b"burntnsr");
+    pub const MaxEpochsPerBlock: u8 = 32;
 }
 
 impl pallet_subtensor::Config for Test {
@@ -286,6 +300,10 @@ impl pallet_subtensor::Config for Test {
     type InitialMinStake = InitialMinStake;
     type MinBurnUpperBound = MinBurnUpperBound;
     type MaxBurnLowerBound = MaxBurnLowerBound;
+    type MinTempo = MinTempo;
+    type MaxTempo = MaxTempo;
+    type MinActivityCutoffFactorMilli = MinActivityCutoffFactorMilli;
+    type MaxActivityCutoffFactorMilli = MaxActivityCutoffFactorMilli;
     type InitialRAORecycledForRegistration = InitialRAORecycledForRegistration;
     type InitialNetworkImmunityPeriod = InitialNetworkImmunityPeriod;
     type InitialNetworkMinLockCost = InitialNetworkMinLockCost;
@@ -316,6 +334,7 @@ impl pallet_subtensor::Config for Test {
     type AuthorshipProvider = MockAuthorshipProvider;
     type SubtensorPalletId = SubtensorPalletId;
     type BurnAccountId = BurnAccountId;
+    type InitialMaxEpochsPerBlock = MaxEpochsPerBlock;
     type WeightInfo = ();
     type AlphaAssets = AlphaAssets;
 }

@@ -1499,6 +1499,79 @@ fn test_sudo_set_coldkey_swap_reannouncement_delay() {
 }
 
 #[test]
+fn test_sudo_set_max_epochs_per_block() {
+    new_test_ext().execute_with(|| {
+        let root = RuntimeOrigin::root();
+        let non_root = RuntimeOrigin::signed(U256::from(1));
+        let init_value = SubtensorModule::get_max_epochs_per_block();
+        let to_be_set: u8 = init_value.saturating_add(3);
+
+        // Non-root is rejected and leaves the value untouched.
+        assert_noop!(
+            AdminUtils::sudo_set_max_epochs_per_block(non_root, to_be_set),
+            DispatchError::BadOrigin
+        );
+        assert_eq!(SubtensorModule::get_max_epochs_per_block(), init_value);
+
+        // Zero is rejected by the `>= 1` guard (a zero cap would halt all subnet epochs).
+        assert_noop!(
+            AdminUtils::sudo_set_max_epochs_per_block(root.clone(), 0u8),
+            Error::<Test>::ValueNotInBounds
+        );
+        assert_eq!(SubtensorModule::get_max_epochs_per_block(), init_value);
+
+        // Root succeeds: storage is updated and the event is emitted.
+        assert_ok!(AdminUtils::sudo_set_max_epochs_per_block(root, to_be_set));
+        assert_eq!(SubtensorModule::get_max_epochs_per_block(), to_be_set);
+        System::assert_last_event(Event::MaxEpochsPerBlockSet(to_be_set).into());
+    });
+}
+
+#[test]
+fn test_sudo_set_max_epochs_per_block_changes_deferrals() {
+    new_test_ext().execute_with(|| {
+        let root = RuntimeOrigin::root();
+
+        // Create several subnets and force each to be "due this block".
+        let created: u16 = 4;
+        for i in 0..created {
+            let netuid = NetUid::from(i + 1);
+            add_network(netuid, 100 /*tempo*/);
+            pallet_subtensor::PendingEpochAt::<Test>::insert(netuid, 1);
+        }
+
+        let block = SubtensorModule::get_current_block_as_u64();
+        let subnets: Vec<NetUid> = SubtensorModule::get_all_subnet_netuids()
+            .into_iter()
+            .filter(|x| *x != NetUid::ROOT)
+            .collect();
+        let due = subnets
+            .iter()
+            .filter(|n| SubtensorModule::should_run_epoch(**n, block))
+            .count();
+        assert!(due >= created as usize);
+
+        // Tight cap (1): every due subnet beyond the first is deferred.
+        assert_ok!(AdminUtils::sudo_set_max_epochs_per_block(root.clone(), 1u8));
+        let deferred_tight = SubtensorModule::epochs_deferred_this_block(&subnets, block).len();
+        assert_eq!(deferred_tight, due.saturating_sub(1));
+
+        // Raising the cap above the due count clears all deferrals — proving the
+        // admin-set cap directly drives which epochs are deferred.
+        assert_ok!(AdminUtils::sudo_set_max_epochs_per_block(
+            root,
+            (due as u8).saturating_add(2)
+        ));
+        let deferred_loose = SubtensorModule::epochs_deferred_this_block(&subnets, block).len();
+        assert_eq!(deferred_loose, 0);
+        assert!(
+            deferred_loose < deferred_tight,
+            "raising MaxEpochsPerBlock must defer fewer epochs"
+        );
+    });
+}
+
+#[test]
 fn test_sudo_set_dissolve_network_schedule_duration() {
     new_test_ext().execute_with(|| {
         // Arrange
@@ -2042,7 +2115,7 @@ fn test_sudo_set_admin_freeze_window_and_rate() {
 fn test_freeze_window_blocks_root_and_owner() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(1);
-        let tempo = 10;
+        let tempo: u16 = 10;
         // Create subnet with tempo 10
         add_network(netuid, tempo);
         // Set freeze window to 3 blocks
@@ -2050,8 +2123,12 @@ fn test_freeze_window_blocks_root_and_owner() {
             <<Test as Config>::RuntimeOrigin>::root(),
             3
         ));
-        // Advance to a block where remaining < 3
-        run_to_block((tempo - 2).into());
+        // Pin the state-based scheduler so the next auto-epoch lands at
+        // `LastEpochBlock + tempo`. Freeze window covers blocks (next_auto - 3, next_auto].
+        pallet_subtensor::LastEpochBlock::<Test>::insert(netuid, 0);
+        let next_auto = tempo as u64;
+        // Advance to a block inside the freeze window (remaining < 3).
+        run_to_block(next_auto - 2);
 
         // Root should be blocked during freeze window
         assert_noop!(
@@ -2147,7 +2224,7 @@ fn test_owner_hyperparam_update_rate_limit_enforced() {
         SubnetOwner::<Test>::insert(netuid, owner);
 
         // Set tempo to 1 so owner hyperparam RL = 2 tempos = 2 blocks
-        SubtensorModule::set_tempo(netuid, 1);
+        SubtensorModule::set_tempo_unchecked(netuid, 1);
         // Disable admin freeze window to avoid blocking on small tempo
         assert_ok!(AdminUtils::sudo_set_admin_freeze_window(
             <<Test as Config>::RuntimeOrigin>::root(),
@@ -2202,7 +2279,7 @@ fn test_hyperparam_rate_limit_enforced_by_tempo() {
         SubnetOwner::<Test>::insert(netuid, owner);
 
         // Set tempo to 1 so RL = 2 blocks
-        SubtensorModule::set_tempo(netuid, 1);
+        SubtensorModule::set_tempo_unchecked(netuid, 1);
         // Disable admin freeze window to avoid blocking on small tempo
         assert_ok!(AdminUtils::sudo_set_admin_freeze_window(
             <<Test as Config>::RuntimeOrigin>::root(),
@@ -2250,7 +2327,7 @@ fn test_owner_hyperparam_rate_limit_independent_per_param() {
         SubnetOwner::<Test>::insert(netuid, owner);
 
         // Use small tempo to make RL short and deterministic (2 blocks when tempo=1)
-        SubtensorModule::set_tempo(netuid, 1);
+        SubtensorModule::set_tempo_unchecked(netuid, 1);
         // Disable admin freeze window so it doesn't interfere with small tempo
         assert_ok!(AdminUtils::sudo_set_admin_freeze_window(
             <<Test as Config>::RuntimeOrigin>::root(),

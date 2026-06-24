@@ -25,7 +25,6 @@ substrate-fixed.workspace = true
 subtensor-macros.workspace = true
 runtime-common.workspace = true
 approx = { workspace = true, optional = true }
-impl-trait-for-tuples.workspace = true
 
 [lints]
 workspace = true
