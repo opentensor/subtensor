@@ -142,7 +142,14 @@ impl system::Config for Test {
     type MaxConsumers = frame_support::traits::ConstU32<16>;
     type Nonce = u64;
     type Block = Block;
-    type DispatchExtension = pallet_subtensor::CheckColdkeySwap<Test>;
+    type DispatchExtension = (
+        pallet_subtensor::CheckColdkeySwap<Test>,
+        pallet_subtensor::CheckWeights<Test>,
+        pallet_subtensor::CheckRateLimits<Test>,
+        pallet_subtensor::CheckDelegateTake<Test>,
+        pallet_subtensor::CheckServingEndpoints<Test>,
+        pallet_subtensor::CheckEvmKeyAssociation<Test>,
+    );
 }
 
 parameter_types! {

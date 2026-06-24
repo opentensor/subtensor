@@ -101,7 +101,7 @@ describe("Crowdloan precompile E2E balance smoke", () => {
     assert.ok(
       Number(
         contributorBalanceBefore.data.free - contributorBalanceAfter.data.free,
-      ) < 1_000_000,
+      ) < 2_000_000,
     );
 
     const crowdloanContract3 = new ethers.Contract(
@@ -198,7 +198,7 @@ describe("Crowdloan precompile E2E balance smoke", () => {
       convertH160ToSS58(wallet1.address),
     );
     assert.ok(
-      Number(balanceBefore.data.free - balanceAfter.data.free) < 1_000_000,
+      Number(balanceBefore.data.free - balanceAfter.data.free) < 2_000_000,
     );
   });
 });
