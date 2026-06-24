@@ -1156,16 +1156,23 @@ fn execute_batched_orders_buy_only_fulfills_orders_and_distributes_alpha() {
 /// alpha, and the order was permanently closed.
 ///
 /// Fix: `distribute_alpha_pro_rata` now `ensure!(share > 0, ZeroShareInBatch)`,
-/// hard-failing the whole `execute_batched_orders` call. FRAME's per-dispatch
-/// storage layer then rolls back `collect_assets` and the pool swap, so NO signer
-/// is debited and NO order is stored.
+/// hard-failing the whole `execute_batched_orders` call. In production FRAME's
+/// per-dispatch storage layer then rolls back `collect_assets` and the pool swap,
+/// so no signer is debited and no order is stored.
 ///
-/// `assert_noop!` asserts both the error AND that no storage mutation persisted,
-/// directly proving the rollback. The explicit balance/`Orders` checks below the
-/// `assert_noop!` would each have FAILED against the old code (victim debited, big
-/// buyer debited, both orders `Fulfilled`).
+/// `assert_noop!` asserts both the error AND that no on-chain storage mutation
+/// persisted — i.e. neither order is written, so neither is marked `Fulfilled`.
+/// Against the old code this call returned `Ok` and wrote `Fulfilled`, so the
+/// `assert_noop!` (storage-root-unchanged) would have FAILED.
+///
+/// NOTE: we deliberately do NOT assert the victim's TAO balance was refunded.
+/// `MockSwap` keeps balances in a `thread_local!` map that lives OUTSIDE the
+/// substrate storage overlay, so `collect_assets`' debit is not transactional in
+/// the mock and is not rolled back here. The balance refund is a property of the
+/// real `frame_system` balances under the dispatch storage layer (exercised by the
+/// L2/integration PoC), not something this mock can model.
 #[test]
-fn execute_batched_orders_zero_share_buyer_hard_fails_and_refunds() {
+fn execute_batched_orders_zero_share_buyer_hard_fails() {
     new_test_ext().execute_with(|| {
         // Buy-only batch, price 1.0, pool alpha output pinned to 1000.
         //   big buyer net   = 1_000_000 TAO
@@ -1207,10 +1214,9 @@ fn execute_batched_orders_zero_share_buyer_hard_fails_and_refunds() {
         let big_id = order_id(&big_buyer.order);
         let victim_id = order_id(&victim.order);
 
-        let victim_tao_before = MockSwap::tao_balance(&bob());
-        let big_tao_before = MockSwap::tao_balance(&alice());
-
-        // The whole batch must hard-fail; assert_noop! also proves NO state changed.
+        // The whole batch must hard-fail with ZeroShareInBatch. assert_noop! also asserts
+        // the storage root is unchanged, so neither order was written/marked Fulfilled —
+        // the core of the fix. (Old code: returned Ok and wrote Fulfilled → this fails.)
         assert_noop!(
             LimitOrders::execute_batched_orders(
                 RuntimeOrigin::signed(charlie()),
@@ -1220,11 +1226,7 @@ fn execute_batched_orders_zero_share_buyer_hard_fails_and_refunds() {
             Error::<Test>::ZeroShareInBatch
         );
 
-        // Explicit rollback evidence (these would all have broken on the old code).
-        assert_eq!(MockSwap::tao_balance(&bob()), victim_tao_before);
-        assert_eq!(MockSwap::tao_balance(&alice()), big_tao_before);
-        assert_eq!(MockSwap::alpha_balance(&bob(), &dave(), netuid()), 0);
-        assert_eq!(MockSwap::alpha_balance(&alice(), &dave(), netuid()), 0);
+        // Explicit, redundant-with-assert_noop! statement of intent: no order is terminal.
         assert_eq!(Orders::<Test>::get(victim_id), None);
         assert_eq!(Orders::<Test>::get(big_id), None);
     });
@@ -1291,8 +1293,11 @@ fn execute_batched_orders_all_nonzero_shares_still_succeeds() {
 
 /// Sell-side analogue of the zero-share regression. A seller whose `net_share`
 /// floors to 0 in `distribute_tao_pro_rata` must hard-fail the whole batch with
-/// `ZeroShareInBatch`, and the dispatch storage layer must roll everything back
-/// (victim seller not debited alpha, no order stored).
+/// `ZeroShareInBatch`. `assert_noop!` proves no on-chain storage mutation persisted
+/// (neither order is written/marked Fulfilled). As in the buy-side test, the
+/// seller's collected alpha is not refunded *in the mock* (MockSwap balances are
+/// thread_local, outside the storage overlay); the refund is a real-balance
+/// property under the dispatch storage layer, not modelled here.
 #[test]
 fn execute_batched_orders_zero_share_seller_hard_fails() {
     new_test_ext().execute_with(|| {
@@ -1336,9 +1341,8 @@ fn execute_batched_orders_zero_share_seller_hard_fails() {
         let big_id = order_id(&big_seller.order);
         let victim_id = order_id(&victim.order);
 
-        let victim_alpha_before = MockSwap::alpha_balance(&bob(), &dave(), netuid());
-        let big_alpha_before = MockSwap::alpha_balance(&alice(), &dave(), netuid());
-
+        // The whole batch must hard-fail with ZeroShareInBatch; assert_noop! also asserts
+        // the storage root is unchanged, so neither order was written/marked Fulfilled.
         assert_noop!(
             LimitOrders::execute_batched_orders(
                 RuntimeOrigin::signed(charlie()),
@@ -1348,17 +1352,7 @@ fn execute_batched_orders_zero_share_seller_hard_fails() {
             Error::<Test>::ZeroShareInBatch
         );
 
-        // Rollback evidence: no alpha debited, no TAO paid out, no order stored.
-        assert_eq!(
-            MockSwap::alpha_balance(&bob(), &dave(), netuid()),
-            victim_alpha_before
-        );
-        assert_eq!(
-            MockSwap::alpha_balance(&alice(), &dave(), netuid()),
-            big_alpha_before
-        );
-        assert_eq!(MockSwap::tao_balance(&bob()), 0);
-        assert_eq!(MockSwap::tao_balance(&alice()), 0);
+        // Explicit, redundant-with-assert_noop! statement of intent: no order is terminal.
         assert_eq!(Orders::<Test>::get(victim_id), None);
         assert_eq!(Orders::<Test>::get(big_id), None);
     });
