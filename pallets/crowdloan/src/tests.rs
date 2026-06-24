@@ -1875,6 +1875,78 @@ fn test_finalize_fails_if_call_fails() {
         });
 }
 
+#[test]
+fn test_finalize_fails_if_another_finalize_is_in_progress() {
+    TestState::default()
+        .with_balance(U256::from(1), 300.into())
+        .with_balance(U256::from(2), 300.into())
+        .build_and_execute(|| {
+            let creator: AccountOf<Test> = U256::from(1);
+            let contributor: AccountOf<Test> = U256::from(2);
+            let deposit: BalanceOf<Test> = 50.into();
+            let min_contribution: BalanceOf<Test> = 10.into();
+            let cap: BalanceOf<Test> = 100.into();
+            let end: BlockNumberFor<Test> = 50;
+            let first_crowdloan_id: CrowdloanId = 0;
+            let second_crowdloan_id: CrowdloanId = 1;
+
+            let nested_finalize_call = Box::new(RuntimeCall::Crowdloan(pallet_crowdloan::Call::<
+                Test,
+            >::finalize {
+                crowdloan_id: second_crowdloan_id,
+            }));
+
+            assert_ok!(Crowdloan::create(
+                RuntimeOrigin::signed(creator),
+                deposit,
+                min_contribution,
+                cap,
+                end,
+                Some(nested_finalize_call),
+                None,
+            ));
+            assert_ok!(Crowdloan::create(
+                RuntimeOrigin::signed(creator),
+                deposit,
+                min_contribution,
+                cap,
+                end,
+                Some(noop_call()),
+                None,
+            ));
+
+            run_to_block(10);
+
+            assert_ok!(Crowdloan::contribute(
+                RuntimeOrigin::signed(contributor),
+                first_crowdloan_id,
+                50.into()
+            ));
+            assert_ok!(Crowdloan::contribute(
+                RuntimeOrigin::signed(contributor),
+                second_crowdloan_id,
+                50.into()
+            ));
+
+            run_to_block(60);
+
+            assert_err!(
+                Crowdloan::finalize(RuntimeOrigin::signed(creator), first_crowdloan_id),
+                pallet_crowdloan::Error::<Test>::AlreadyFinalizing
+            );
+
+            assert_eq!(pallet_crowdloan::CurrentCrowdloanId::<Test>::get(), None);
+            assert!(
+                pallet_crowdloan::Crowdloans::<Test>::get(first_crowdloan_id)
+                    .is_some_and(|c| !c.finalized)
+            );
+            assert!(
+                pallet_crowdloan::Crowdloans::<Test>::get(second_crowdloan_id)
+                    .is_some_and(|c| !c.finalized)
+            );
+        });
+}
+
 // The finalize `call` cannot re-enter `withdraw` on the same crowdloan: it is rejected and
 // the extrinsic reverts, so no funds move and `raised` stays consistent with the real balance.
 #[test]
