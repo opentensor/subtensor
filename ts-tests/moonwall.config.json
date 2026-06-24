@@ -12,8 +12,6 @@
                 "suites/dev"
             ],
             "runScripts": [
-                "generate-types.sh",
-                "build-spec.sh"
             ],
             "multiThreads": true,
             "reporters": ["basic"],
