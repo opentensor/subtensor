@@ -93,6 +93,7 @@ pub trait WeightInfo {
 	fn sudo_trim_to_max_allowed_uids() -> Weight;
 	fn sudo_set_min_non_immune_uids() -> Weight;
 	fn sudo_set_max_epochs_per_block() -> Weight;
+	fn sudo_set_activity_cutoff() -> Weight;
 }
 
 /// Weights for `pallet_admin_utils` using the Substrate node and recommended hardware.
