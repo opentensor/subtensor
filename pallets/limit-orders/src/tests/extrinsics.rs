@@ -1146,6 +1146,224 @@ fn execute_batched_orders_buy_only_fulfills_orders_and_distributes_alpha() {
     });
 }
 
+/// Regression test for the zero-share batch fund-loss bug.
+///
+/// Bug (pre-fix): `collect_assets` debited every buyer's full TAO input up front,
+/// then `distribute_alpha_pro_rata` floored each buyer's alpha share. When a
+/// buyer's `share = floor(total_alpha * net / total_buy_net)` floored to 0, the
+/// old code silently SKIPPED the alpha transfer (`if share > 0 { .. }`) yet STILL
+/// marked the order `Fulfilled`. The victim therefore paid full TAO, received zero
+/// alpha, and the order was permanently closed.
+///
+/// Fix: `distribute_alpha_pro_rata` now `ensure!(share > 0, ZeroShareInBatch)`,
+/// hard-failing the whole `execute_batched_orders` call. FRAME's per-dispatch
+/// storage layer then rolls back `collect_assets` and the pool swap, so NO signer
+/// is debited and NO order is stored.
+///
+/// `assert_noop!` asserts both the error AND that no storage mutation persisted,
+/// directly proving the rollback. The explicit balance/`Orders` checks below the
+/// `assert_noop!` would each have FAILED against the old code (victim debited, big
+/// buyer debited, both orders `Fulfilled`).
+#[test]
+fn execute_batched_orders_zero_share_buyer_hard_fails_and_refunds() {
+    new_test_ext().execute_with(|| {
+        // Buy-only batch, price 1.0, pool alpha output pinned to 1000.
+        //   big buyer net   = 1_000_000 TAO
+        //   victim buyer net = 1 TAO
+        //   total_buy_net   = 1_000_001
+        //   total_alpha     = actual_out(1000) + total_sell_net(0) = 1000
+        //   victim share    = floor(1000 * 1 / 1_000_001) = 0 → ZeroShareInBatch
+        MockTime::set(1_000_000);
+        MockSwap::set_price(1.0);
+        MockSwap::set_buy_alpha_return(1000);
+        // Distinct signer coldkeys; each buyer must be able to cover its own input.
+        MockSwap::set_tao_balance(alice(), 1_000_000); // big buyer (Alice)
+        MockSwap::set_tao_balance(bob(), 1); // victim (Bob)
+
+        let big_buyer = make_signed_order(
+            AccountKeyring::Alice,
+            dave(),
+            netuid(),
+            OrderType::LimitBuy,
+            1_000_000,
+            u64::MAX,
+            FAR_FUTURE,
+            Perbill::zero(),
+            fee_recipient(),
+            None,
+        );
+        let victim = make_signed_order(
+            AccountKeyring::Bob,
+            dave(),
+            netuid(),
+            OrderType::LimitBuy,
+            1,
+            u64::MAX,
+            FAR_FUTURE,
+            Perbill::zero(),
+            fee_recipient(),
+            None,
+        );
+        let big_id = order_id(&big_buyer.order);
+        let victim_id = order_id(&victim.order);
+
+        let victim_tao_before = MockSwap::tao_balance(&bob());
+        let big_tao_before = MockSwap::tao_balance(&alice());
+
+        // The whole batch must hard-fail; assert_noop! also proves NO state changed.
+        assert_noop!(
+            LimitOrders::execute_batched_orders(
+                RuntimeOrigin::signed(charlie()),
+                netuid(),
+                bounded(vec![big_buyer, victim]),
+            ),
+            Error::<Test>::ZeroShareInBatch
+        );
+
+        // Explicit rollback evidence (these would all have broken on the old code).
+        assert_eq!(MockSwap::tao_balance(&bob()), victim_tao_before);
+        assert_eq!(MockSwap::tao_balance(&alice()), big_tao_before);
+        assert_eq!(MockSwap::alpha_balance(&bob(), &dave(), netuid()), 0);
+        assert_eq!(MockSwap::alpha_balance(&alice(), &dave(), netuid()), 0);
+        assert_eq!(Orders::<Test>::get(victim_id), None);
+        assert_eq!(Orders::<Test>::get(big_id), None);
+    });
+}
+
+/// Guards against over-restriction: the `ZeroShareInBatch` fix must NOT reject a
+/// legitimate multi-buyer batch where every buyer's floored share is at least 1.
+#[test]
+fn execute_batched_orders_all_nonzero_shares_still_succeeds() {
+    new_test_ext().execute_with(|| {
+        // Buy-only, price 1.0, pool alpha output = 1000, comparable buyer nets so
+        // neither share floors to zero:
+        //   Alice net = 600, Bob net = 400, total_buy_net = 1000, total_alpha = 1000
+        //   Alice share = floor(1000 * 600 / 1000) = 600
+        //   Bob   share = floor(1000 * 400 / 1000) = 400
+        MockTime::set(1_000_000);
+        MockSwap::set_price(1.0);
+        MockSwap::set_buy_alpha_return(1000);
+        MockSwap::set_tao_balance(alice(), 600);
+        MockSwap::set_tao_balance(bob(), 400);
+
+        let alice_order = make_signed_order(
+            AccountKeyring::Alice,
+            dave(),
+            netuid(),
+            OrderType::LimitBuy,
+            600,
+            u64::MAX,
+            FAR_FUTURE,
+            Perbill::zero(),
+            fee_recipient(),
+            None,
+        );
+        let bob_order = make_signed_order(
+            AccountKeyring::Bob,
+            dave(),
+            netuid(),
+            OrderType::LimitBuy,
+            400,
+            u64::MAX,
+            FAR_FUTURE,
+            Perbill::zero(),
+            fee_recipient(),
+            None,
+        );
+        let alice_id = order_id(&alice_order.order);
+        let bob_id = order_id(&bob_order.order);
+
+        assert_ok!(LimitOrders::execute_batched_orders(
+            RuntimeOrigin::signed(charlie()),
+            netuid(),
+            bounded(vec![alice_order, bob_order]),
+        ));
+
+        // Both orders fulfilled and both buyers received non-zero alpha.
+        assert_eq!(Orders::<Test>::get(alice_id), Some(OrderStatus::Fulfilled));
+        assert_eq!(Orders::<Test>::get(bob_id), Some(OrderStatus::Fulfilled));
+        assert_eq!(MockSwap::alpha_balance(&alice(), &dave(), netuid()), 600);
+        assert_eq!(MockSwap::alpha_balance(&bob(), &dave(), netuid()), 400);
+        assert!(MockSwap::alpha_balance(&alice(), &dave(), netuid()) > 0);
+        assert!(MockSwap::alpha_balance(&bob(), &dave(), netuid()) > 0);
+    });
+}
+
+/// Sell-side analogue of the zero-share regression. A seller whose `net_share`
+/// floors to 0 in `distribute_tao_pro_rata` must hard-fail the whole batch with
+/// `ZeroShareInBatch`, and the dispatch storage layer must roll everything back
+/// (victim seller not debited alpha, no order stored).
+#[test]
+fn execute_batched_orders_zero_share_seller_hard_fails() {
+    new_test_ext().execute_with(|| {
+        // Sell-only batch, price 1.0, pool TAO output pinned to 1000.
+        //   big seller alpha    = 1_000_000 → sell_tao_equiv 1_000_000
+        //   victim seller alpha = 1         → sell_tao_equiv 1
+        //   total_sell_tao_equiv = 1_000_001
+        //   total_tao = actual_out(1000) + total_buy_net(0) = 1000
+        //   victim gross_share = floor(1000 * 1 / 1_000_001) = 0
+        //   net_share = 0 → ZeroShareInBatch
+        MockTime::set(1_000_000);
+        MockSwap::set_price(1.0);
+        MockSwap::set_sell_tao_return(1000);
+        MockSwap::set_alpha_balance(alice(), dave(), netuid(), 1_000_000); // big seller
+        MockSwap::set_alpha_balance(bob(), dave(), netuid(), 1); // victim seller
+
+        let big_seller = make_signed_order(
+            AccountKeyring::Alice,
+            dave(),
+            netuid(),
+            OrderType::TakeProfit,
+            1_000_000,
+            0, // limit=0 → accept any price
+            FAR_FUTURE,
+            Perbill::zero(),
+            fee_recipient(),
+            None,
+        );
+        let victim = make_signed_order(
+            AccountKeyring::Bob,
+            dave(),
+            netuid(),
+            OrderType::TakeProfit,
+            1,
+            0,
+            FAR_FUTURE,
+            Perbill::zero(),
+            fee_recipient(),
+            None,
+        );
+        let big_id = order_id(&big_seller.order);
+        let victim_id = order_id(&victim.order);
+
+        let victim_alpha_before = MockSwap::alpha_balance(&bob(), &dave(), netuid());
+        let big_alpha_before = MockSwap::alpha_balance(&alice(), &dave(), netuid());
+
+        assert_noop!(
+            LimitOrders::execute_batched_orders(
+                RuntimeOrigin::signed(charlie()),
+                netuid(),
+                bounded(vec![big_seller, victim]),
+            ),
+            Error::<Test>::ZeroShareInBatch
+        );
+
+        // Rollback evidence: no alpha debited, no TAO paid out, no order stored.
+        assert_eq!(
+            MockSwap::alpha_balance(&bob(), &dave(), netuid()),
+            victim_alpha_before
+        );
+        assert_eq!(
+            MockSwap::alpha_balance(&alice(), &dave(), netuid()),
+            big_alpha_before
+        );
+        assert_eq!(MockSwap::tao_balance(&bob()), 0);
+        assert_eq!(MockSwap::tao_balance(&alice()), 0);
+        assert_eq!(Orders::<Test>::get(victim_id), None);
+        assert_eq!(Orders::<Test>::get(big_id), None);
+    });
+}
+
 #[test]
 fn execute_batched_orders_sell_only_fulfills_orders_and_distributes_tao() {
     new_test_ext().execute_with(|| {

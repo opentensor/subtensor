@@ -352,6 +352,11 @@ pub mod pallet {
         ArithmeticOverflow,
         /// The same order appears more than once in a single batch.
         DuplicateOrderInBatch,
+        /// An order's pro-rata share in the batch rounded down to zero. The whole
+        /// batch is rejected so the order's input is never consumed without
+        /// delivering any output (conservation), and the order stays retryable in a
+        /// differently-composed batch.
+        ZeroShareInBatch,
     }
 
     // ── Hooks ─────────────────────────────────────────────────────────────────
@@ -794,6 +799,11 @@ pub mod pallet {
         }
 
         /// Thin orchestrator for `execute_batched_orders`.
+        ///
+        /// All-or-nothing: any `Err` returned here (e.g. a `ZeroShareInBatch` rejection
+        /// during distribution) rolls back the whole batch — including the up-front
+        /// `collect_assets` debits and the pool swap — via FRAME's default per-dispatch
+        /// storage layer, so no signer is left debited without receiving output.
         fn do_execute_batched_orders(
             netuid: NetUid,
             orders: BoundedVec<SignedOrder<T::AccountId>, T::MaxOrdersPerBatch>,
@@ -1103,18 +1113,23 @@ pub mod pallet {
                 } else {
                     0
                 };
-                if share > 0 {
-                    T::SwapInterface::transfer_staked_alpha(
-                        pallet_acct,
-                        pallet_hotkey,
-                        &e.signer,
-                        &e.hotkey,
-                        netuid,
-                        AlphaBalance::from(share),
-                        false, // validate_sender: skip — pallet intermediary needs no validation
-                        true,  // set_receiver_limit: rate-limit the buyer after they receive stake
-                    )?;
-                }
+                // A floored-to-zero share means this buyer's input was already collected
+                // by `collect_assets` but the pool/offset alpha cannot pay them even one
+                // unit. Hard-fail the whole batch (FRAME's per-dispatch storage layer rolls
+                // back `collect_assets` and the pool swap) rather than silently skipping the
+                // transfer while still marking the order terminal — which would consume the
+                // signer's TAO for zero alpha and permanently close the order.
+                ensure!(share > 0, Error::<T>::ZeroShareInBatch);
+                T::SwapInterface::transfer_staked_alpha(
+                    pallet_acct,
+                    pallet_hotkey,
+                    &e.signer,
+                    &e.hotkey,
+                    netuid,
+                    AlphaBalance::from(share),
+                    false, // validate_sender: skip — pallet intermediary needs no validation
+                    true,  // set_receiver_limit: rate-limit the buyer after they receive stake
+                )?;
                 let status = Self::compute_order_status(e.order_id, e.partial_fill, e.order_amount);
                 Orders::<T>::insert(e.order_id, status);
                 Self::deposit_event(Event::OrderExecuted {
@@ -1167,6 +1182,13 @@ pub mod pallet {
                 };
                 let fee = e.fee_rate.mul_floor(gross_share);
                 let net_share = gross_share.saturating_sub(fee);
+
+                // A floored-to-zero payout means this seller's alpha was already collected
+                // by `collect_assets` but the pool/offset TAO cannot pay them even one unit
+                // (after fee). Hard-fail the whole batch (rolled back by the dispatch storage
+                // layer) rather than no-op the transfer while still marking the order terminal,
+                // which would consume the seller's alpha for zero TAO and close the order.
+                ensure!(net_share > 0, Error::<T>::ZeroShareInBatch);
 
                 if fee > 0 {
                     if let Some(entry) = sell_fees.iter_mut().find(|(r, _)| r == &e.fee_recipient) {
