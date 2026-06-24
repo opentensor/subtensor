@@ -2846,6 +2846,61 @@ fn execute_orders_partial_fill_exceeding_remaining_is_skipped() {
     });
 }
 
+#[test]
+fn execute_orders_partial_fill_none_on_partially_filled_is_skipped() {
+    new_test_ext().execute_with(|| {
+        MockTime::set(1_000_000);
+        MockSwap::set_price(1.0);
+        MockSwap::set_tao_balance(alice(), 1_000);
+
+        // Pre-fill 700 of 1000.
+        let signed = make_partial_fill_order(
+            AccountKeyring::Alice,
+            bob(),
+            netuid(),
+            OrderType::LimitBuy,
+            1_000,
+            u64::MAX,
+            FAR_FUTURE,
+            charlie(),
+            700,
+        );
+        let id = order_id(&signed.order);
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie()),
+            bounded(vec![signed.clone()]),
+            false,
+        ));
+        assert_eq!(
+            Orders::<Test>::get(id),
+            Some(OrderStatus::PartiallyFilled(700))
+        );
+
+        // Re-submit the same signed order with partial_fill = None against an
+        // order already PartiallyFilled. The one-shot full-execution path must
+        // not fire here: it would re-swap the full order.amount (over-debiting
+        // the signer) and mark the order Fulfilled, discarding the 700 already
+        // filled. The fix rejects this with IncorrectPartialFillAmount → skipped.
+        let mut none_fill = signed.clone();
+        none_fill.partial_fill = None;
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie()),
+            bounded(vec![none_fill]),
+            false,
+        ));
+
+        // Status unchanged — NOT over-filled and NOT marked Fulfilled.
+        assert_eq!(
+            Orders::<Test>::get(id),
+            Some(OrderStatus::PartiallyFilled(700))
+        );
+        assert_event(Event::OrderSkipped {
+            order_id: id,
+            reason: Error::<Test>::IncorrectPartialFillAmount.into(),
+        });
+    });
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Partial fills — execute_batched_orders
 // ─────────────────────────────────────────────────────────────────────────────

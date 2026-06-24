@@ -664,6 +664,19 @@ pub mod pallet {
                     partial_fill > 0 && partial_fill <= max_fill,
                     Error::<T>::IncorrectPartialFillAmount
                 );
+            } else {
+                // `partial_fill == None` means a one-shot full execution of `order.amount`
+                // (see `compute_order_status`, which returns `Fulfilled` for `None`). This is
+                // only valid for an order that has not been filled yet. Against an order that is
+                // already `PartiallyFilled(n)` the cumulative-fill cap above is skipped, so the
+                // execution path would re-run the full `order.amount` on top of the `n` already
+                // filled — over-debiting the signer and breaking the `sum(fills) <= order.amount`
+                // conservation invariant. Reject it: the remaining amount must be completed with an
+                // explicit `partial_fill = Some(order.amount - n)`.
+                ensure!(
+                    !matches!(order_status, Some(OrderStatus::PartiallyFilled(_))),
+                    Error::<T>::IncorrectPartialFillAmount
+                );
             }
             Ok(())
         }
