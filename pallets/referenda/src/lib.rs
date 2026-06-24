@@ -137,7 +137,10 @@
 //! * Every `ApprovalAction::Review { track }` references a track that
 //!   exists and uses the `Adjustable` strategy.
 //! * `PassOrFail` tracks have non-zero `decision_period`,
-//!   `approve_threshold`, and `reject_threshold`.
+//!   `approve_threshold`, and `reject_threshold`;
+//!   `approve_threshold + reject_threshold > 100%` so the reject branch
+//!   cannot be masked by an approval that fires first on the same tally
+//!   split.
 //! * `Adjustable` tracks have non-zero `initial_delay`,
 //!   `fast_track_threshold`, and `cancel_threshold`;
 //!   `max_delay >= initial_delay`; and

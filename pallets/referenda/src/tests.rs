@@ -1742,6 +1742,24 @@ fn check_integrity_rejects_zero_reject_threshold() {
 }
 
 #[test]
+fn check_integrity_rejects_passorfail_thresholds_summing_to_at_most_100_percent() {
+    let mut t = passorfail_track(0);
+    if let DecisionStrategy::PassOrFail {
+        ref mut approve_threshold,
+        ref mut reject_threshold,
+        ..
+    } = t.info.decision_strategy
+    {
+        *approve_threshold = Perbill::from_percent(50);
+        *reject_threshold = Perbill::from_percent(50);
+    }
+    assert_check_integrity_err(
+        vec![t],
+        "PassOrFail: approve_threshold + reject_threshold must exceed 100%",
+    );
+}
+
+#[test]
 fn check_integrity_rejects_zero_initial_delay() {
     let mut t = adjustable_track(0);
     if let DecisionStrategy::Adjustable {

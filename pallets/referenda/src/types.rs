@@ -246,7 +246,10 @@ pub trait TracksInfo<Name, AccountId, Call, BlockNumber> {
     /// default-zero tally auto-concludes on first alarm fire):
     ///
     /// * `PassOrFail`: `decision_period`, `approve_threshold`, and
-    ///   `reject_threshold` must all be non-zero.
+    ///   `reject_threshold` must all be non-zero;
+    ///   `approve_threshold + reject_threshold > 100%` so the reject
+    ///   branch cannot be masked by an approval that fires first on the
+    ///   same tally split.
     /// * `Adjustable`: `initial_delay`, `fast_track_threshold`, and
     ///   `cancel_threshold` must all be non-zero;
     ///   `max_delay >= initial_delay` (else net rejection cannot extend
@@ -283,6 +286,14 @@ pub trait TracksInfo<Name, AccountId, Call, BlockNumber> {
                     }
                     if *reject_threshold == Perbill::zero() {
                         return Err("PassOrFail: reject_threshold must be non-zero");
+                    }
+                    let sum = approve_threshold
+                        .deconstruct()
+                        .saturating_add(reject_threshold.deconstruct());
+                    if sum <= Perbill::one().deconstruct() {
+                        return Err(
+                            "PassOrFail: approve_threshold + reject_threshold must exceed 100%",
+                        );
                     }
                     if let ApprovalAction::Review {
                         track: review_track,

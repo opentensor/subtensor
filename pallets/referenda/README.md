@@ -150,7 +150,10 @@ misconfigured track table:
 - `ApprovalAction::Review { track }` referencing an unknown track or
   one whose strategy is not `Adjustable`.
 - `PassOrFail` with zero `decision_period`, `approve_threshold`, or
-  `reject_threshold`.
+  `reject_threshold`; or with
+  `approve_threshold + reject_threshold ≤ 100%` so the reject branch
+  could be masked by an approval that fires first on the same tally
+  split.
 - `Adjustable` with zero `initial_delay`, `fast_track_threshold`, or
   `cancel_threshold`; with `max_delay < initial_delay` (so net
   rejection cannot extend the delay); or with
