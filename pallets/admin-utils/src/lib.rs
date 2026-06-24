@@ -611,6 +611,9 @@ pub mod pallet {
         /// The extrinsic sets the activity cutoff for a subnet.
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the activity cutoff.
+        // #[deprecated(
+        //     note = "Please use set_activity_cutoff_factor instead. This extrinsic will be removed soon."
+        // )]
         #[pallet::call_index(18)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::sudo_set_activity_cutoff())]
         pub fn sudo_set_activity_cutoff(
@@ -983,7 +986,7 @@ pub mod pallet {
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
-            pallet_subtensor::Pallet::<T>::set_tempo(netuid, tempo);
+            pallet_subtensor::Pallet::<T>::apply_tempo_with_cycle_reset(netuid, tempo);
             log::debug!("TempoSet( netuid: {netuid:?} tempo: {tempo:?} ) ");
             Ok(())
         }
@@ -2273,6 +2276,20 @@ pub mod pallet {
             pallet_subtensor::SubnetEmissionEnabled::<T>::insert(netuid, enabled);
             Self::deposit_event(Event::SubnetEmissionEnabledSet { netuid, enabled });
             log::debug!("SubnetEmissionEnabledSet( netuid: {netuid:?}, enabled: {enabled:?} )");
+
+            Ok(())
+        }
+
+        /// Sets the per-block cap on subnet epochs (dynamic tempo throttle).
+        #[pallet::call_index(96)]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::sudo_set_max_epochs_per_block())]
+        pub fn sudo_set_max_epochs_per_block(
+            origin: OriginFor<T>,
+            max_epochs_per_block: u8,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            ensure!(max_epochs_per_block >= 1, Error::<T>::ValueNotInBounds);
+            pallet_subtensor::Pallet::<T>::set_max_epochs_per_block(max_epochs_per_block);
 
             Ok(())
         }

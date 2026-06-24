@@ -122,6 +122,14 @@ impl<T: Config> Pallet<T> {
                 }
             }
         }
+
+        // All of the old coldkey's root stake for this subnet has been moved to the new
+        // coldkey, so the old coldkey no longer holds any root stake. Remove its stale
+        // entry from the auto-claim staking-coldkey index (it is added for new_coldkey
+        // above) so swaps do not orphan dead entries.
+        if netuid == NetUid::ROOT {
+            Self::maybe_remove_coldkey_index(old_coldkey);
+        }
     }
 
     /// Transfer staking hotkeys from the old coldkey to the new coldkey.

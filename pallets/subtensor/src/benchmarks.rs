@@ -4,27 +4,37 @@
 
 use crate::Pallet as Subtensor;
 use crate::staking::lock::LockState;
+use crate::subnets::mechanism::GLOBAL_MAX_SUBNET_COUNT;
 use crate::*;
-use codec::Compact;
+use codec::{Compact, Encode};
 use frame_benchmarking::v2::*;
-use frame_support::{StorageDoubleMap, assert_ok};
+use frame_support::{
+    StorageDoubleMap, assert_ok,
+    dispatch::{DispatchInfo, PostDispatchInfo},
+    traits::{Get, IsSubType, OriginTrait},
+};
 use frame_system::{RawOrigin, pallet_prelude::BlockNumberFor};
 pub use pallet::*;
-use sp_core::H256;
+use sp_core::{H160, H256, ecdsa};
 use sp_runtime::{
     BoundedVec, Percent,
-    traits::{BlakeTwo256, Hash},
+    traits::{BlakeTwo256, Dispatchable, Hash},
 };
-use sp_std::collections::btree_set::BTreeSet;
+use sp_std::collections::{btree_set::BTreeSet, vec_deque::VecDeque};
 use sp_std::vec;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance};
+use subtensor_runtime_common::{AlphaBalance, NetUid, NetUidStorageIndex, TaoBalance};
 use subtensor_swap_interface::SwapHandler;
 
 #[benchmarks(
     where
-        T: pallet_balances::Config,
+        T: pallet_balances::Config + pallet_shield::Config,
         <T as pallet_balances::Config>::ExistentialDeposit: Get<TaoBalance>,
+        <T as frame_system::Config>::RuntimeCall:
+            Dispatchable<RuntimeOrigin = OriginFor<T>, Info = DispatchInfo, PostInfo = PostDispatchInfo>
+            + IsSubType<Call<T>>
+            + IsSubType<pallet_shield::Call<T>>,
+        OriginFor<T>: Clone + OriginTrait<AccountId = T::AccountId>,
 )]
 mod pallet_benchmarks {
     use super::*;
@@ -83,6 +93,86 @@ mod pallet_benchmarks {
                 last_update: 0,
             },
         );
+    }
+
+    fn set_benchmark_block_number<T: Config>(block_number: u64) {
+        let block_number: BlockNumberFor<T> = match block_number.try_into() {
+            Ok(block_number) => block_number,
+            Err(_) => panic!("benchmark block number must fit into BlockNumberFor<T>"),
+        };
+
+        frame_system::Pallet::<T>::set_block_number(block_number);
+    }
+
+    fn runtime_call<T: Config>(call: Call<T>) -> <T as frame_system::Config>::RuntimeCall {
+        <T as Config>::RuntimeCall::from(call).into()
+    }
+
+    fn setup_extension_neuron<T: Config>(netuid: NetUid, hotkey: &T::AccountId) {
+        Subtensor::<T>::init_new_network(netuid, 0);
+        Subtensor::<T>::set_max_allowed_uids(netuid, GLOBAL_MAX_SUBNET_COUNT);
+        Subtensor::<T>::append_neuron(netuid, hotkey, 0);
+    }
+
+    fn benchmark_evm_secret_key() -> libsecp256k1::SecretKey {
+        let seed = [42u8; 32];
+
+        match libsecp256k1::SecretKey::parse(&seed) {
+            Ok(secret_key) => secret_key,
+            Err(_) => panic!("benchmark EVM secret key must be valid"),
+        }
+    }
+
+    fn evm_key_from_secret_key(secret_key: &libsecp256k1::SecretKey) -> H160 {
+        let public_key = libsecp256k1::PublicKey::from_secret_key(secret_key);
+        let uncompressed = public_key.serialize();
+
+        let public_key_without_prefix = match uncompressed.get(1..) {
+            Some(public_key_without_prefix) => public_key_without_prefix,
+            None => panic!("uncompressed secp256k1 public key must contain a prefix byte"),
+        };
+
+        let hashed_public_key = sp_io::hashing::keccak_256(public_key_without_prefix);
+
+        let evm_key_bytes = match hashed_public_key.get(12..) {
+            Some(evm_key_bytes) => evm_key_bytes,
+            None => panic!("keccak256 hash must be 32 bytes"),
+        };
+
+        H160::from_slice(evm_key_bytes)
+    }
+
+    fn signature_for_associate_evm_key<T: Config>(
+        hotkey: &T::AccountId,
+        block_number: u64,
+        secret_key: &libsecp256k1::SecretKey,
+    ) -> ecdsa::Signature {
+        let block_hash = sp_io::hashing::keccak_256(block_number.encode().as_ref());
+
+        let mut message = hotkey.encode();
+        message.extend_from_slice(&block_hash);
+
+        let message_hash = Subtensor::<T>::hash_message_eip191(message);
+        let secp_message = libsecp256k1::Message::parse(&message_hash);
+
+        let (secp_signature, recovery_id) = libsecp256k1::sign(&secp_message, secret_key);
+
+        let mut signature = [0u8; 65];
+        let serialized_signature = secp_signature.serialize();
+
+        let signature_bytes = match signature.get_mut(..64) {
+            Some(signature_bytes) => signature_bytes,
+            None => panic!("benchmark ECDSA signature buffer must contain 64 signature bytes"),
+        };
+        signature_bytes.copy_from_slice(&serialized_signature);
+
+        let recovery_id_byte = match signature.get_mut(64) {
+            Some(recovery_id_byte) => recovery_id_byte,
+            None => panic!("benchmark ECDSA signature buffer must contain a recovery id byte"),
+        };
+        *recovery_id_byte = recovery_id.serialize();
+
+        ecdsa::Signature::from_raw(signature)
     }
 
     #[benchmark]
@@ -440,19 +530,15 @@ mod pallet_benchmarks {
             salt.clone(),
             version_key,
         ));
-        let commit_block = Subtensor::<T>::get_current_block_as_u64();
         assert_ok!(Subtensor::<T>::commit_weights(
             RawOrigin::Signed(hotkey.clone()).into(),
             netuid,
             commit_hash,
         ));
 
-        let (first_reveal_block, _) = Subtensor::<T>::get_reveal_blocks(netuid, commit_block);
-        let reveal_block: BlockNumberFor<T> = first_reveal_block
-            .try_into()
-            .ok()
-            .expect("can't convert to block number");
-        frame_system::Pallet::<T>::set_block_number(reveal_block);
+        // Advance the epoch counter into the commit's reveal window.
+        let reveal_period = Subtensor::<T>::get_reveal_period(netuid);
+        SubnetEpochIndex::<T>::mutate(netuid, |e| *e = e.saturating_add(reveal_period));
 
         #[extrinsic_call]
         _(
@@ -676,7 +762,6 @@ mod pallet_benchmarks {
         let mut salts_list = Vec::new();
         let mut version_keys = Vec::new();
 
-        let commit_block = Subtensor::<T>::get_current_block_as_u64();
         for i in 0..num_commits {
             let uids = vec![0u16];
             let values = vec![i as u16];
@@ -704,12 +789,9 @@ mod pallet_benchmarks {
             version_keys.push(version_key_i);
         }
 
-        let (first_reveal_block, _) = Subtensor::<T>::get_reveal_blocks(netuid, commit_block);
-        let reveal_block: BlockNumberFor<T> = first_reveal_block
-            .try_into()
-            .ok()
-            .expect("can't convert to block number");
-        frame_system::Pallet::<T>::set_block_number(reveal_block);
+        // Advance the epoch counter into the reveal window for these commits.
+        let reveal_period = Subtensor::<T>::get_reveal_period(netuid);
+        SubnetEpochIndex::<T>::mutate(netuid, |e| *e = e.saturating_add(reveal_period));
 
         #[extrinsic_call]
         _(
@@ -2132,6 +2214,268 @@ mod pallet_benchmarks {
             Lock::<T>::iter_prefix((coldkey, netuid))
                 .any(|(locked_hotkey, _)| locked_hotkey == hotkey_dest)
         );
+    }
+
+    #[benchmark]
+    fn associate_evm_key() {
+        let netuid = NetUid::from(1);
+        let tempo: u16 = 1;
+
+        let coldkey: T::AccountId = account("Test", 0, 1);
+        let hotkey: T::AccountId = account("Alice", 0, 1);
+
+        Subtensor::<T>::init_new_network(netuid, tempo);
+        SubtokenEnabled::<T>::insert(netuid, true);
+        Subtensor::<T>::set_network_registration_allowed(netuid, true);
+        Subtensor::<T>::set_max_allowed_uids(netuid, 4096);
+        Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
+
+        seed_swap_reserves::<T>(netuid);
+        fund_for_registration::<T>(netuid, &coldkey);
+
+        assert_ok!(Subtensor::<T>::burned_register(
+            RawOrigin::Signed(coldkey.clone()).into(),
+            netuid,
+            hotkey.clone()
+        ));
+
+        let uid = match Subtensor::<T>::get_uid_for_net_and_hotkey(netuid, &hotkey) {
+            Ok(uid) => uid,
+            Err(_) => panic!("registered benchmark hotkey must have a uid"),
+        };
+
+        // No existing association means `block_associated` is treated as 0.
+        // Move the block forward enough to satisfy:
+        // now - 0 >= T::EvmKeyAssociateRateLimit::get()
+        let benchmark_block_number = T::EvmKeyAssociateRateLimit::get().saturating_add(1);
+
+        let benchmark_block: BlockNumberFor<T> = match benchmark_block_number.try_into() {
+            Ok(benchmark_block) => benchmark_block,
+            Err(_) => panic!("benchmark block number must fit into BlockNumberFor<T>"),
+        };
+
+        frame_system::Pallet::<T>::set_block_number(benchmark_block);
+
+        let block_number = Subtensor::<T>::get_current_block_as_u64();
+
+        let evm_secret_key = benchmark_evm_secret_key();
+        let evm_key = evm_key_from_secret_key(&evm_secret_key);
+
+        let signature =
+            signature_for_associate_evm_key::<T>(&hotkey, block_number, &evm_secret_key);
+
+        #[extrinsic_call]
+        _(
+            RawOrigin::Signed(hotkey.clone()),
+            netuid,
+            evm_key,
+            block_number,
+            signature,
+        );
+
+        assert_eq!(
+            AssociatedEvmAddress::<T>::get(netuid, uid),
+            Some((evm_key, block_number))
+        );
+    }
+
+    #[benchmark]
+    fn set_tempo() {
+        let netuid = NetUid::from(1);
+        let coldkey: T::AccountId = account("Owner", 0, 1);
+
+        Subtensor::<T>::init_new_network(netuid, 1u16);
+        SubnetOwner::<T>::insert(netuid, coldkey.clone());
+        SubtokenEnabled::<T>::insert(netuid, true);
+        Subtensor::<T>::set_commit_reveal_weights_enabled(netuid, false);
+        Subtensor::<T>::set_admin_freeze_window(0);
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(coldkey.clone()), netuid, MIN_TEMPO);
+    }
+
+    #[benchmark]
+    fn set_activity_cutoff_factor() {
+        let netuid = NetUid::from(1);
+        let coldkey: T::AccountId = account("Owner", 0, 1);
+
+        Subtensor::<T>::init_new_network(netuid, 1u16);
+        SubnetOwner::<T>::insert(netuid, coldkey.clone());
+        SubtokenEnabled::<T>::insert(netuid, true);
+        Subtensor::<T>::set_admin_freeze_window(0);
+
+        #[extrinsic_call]
+        _(
+            RawOrigin::Signed(coldkey.clone()),
+            netuid,
+            INITIAL_ACTIVITY_CUTOFF_FACTOR_MILLI,
+        );
+    }
+
+    #[benchmark]
+    fn trigger_epoch() {
+        let netuid = NetUid::from(1);
+        let coldkey: T::AccountId = account("Owner", 0, 1);
+
+        Subtensor::<T>::init_new_network(netuid, 1u16);
+        SubnetOwner::<T>::insert(netuid, coldkey.clone());
+        SubtokenEnabled::<T>::insert(netuid, true);
+        Subtensor::<T>::set_commit_reveal_weights_enabled(netuid, false);
+        Subtensor::<T>::set_admin_freeze_window(0);
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(coldkey.clone()), netuid);
+    }
+
+    #[benchmark]
+    fn check_coldkey_swap_extension() {
+        let coldkey: T::AccountId = account("coldkey", 0, 1);
+        let new_coldkey: T::AccountId = account("new_coldkey", 0, 1);
+        let hotkey: T::AccountId = account("hotkey", 0, 1);
+        let new_coldkey_hash: T::Hash = <T as frame_system::Config>::Hashing::hash_of(&new_coldkey);
+        let now = frame_system::Pallet::<T>::block_number();
+        let call = runtime_call::<T>(Call::<T>::register_network { hotkey });
+
+        ColdkeySwapAnnouncements::<T>::insert(&coldkey, (now, new_coldkey_hash));
+        ColdkeySwapDisputes::<T>::insert(&coldkey, now);
+
+        #[block]
+        {
+            assert_eq!(
+                CheckColdkeySwap::<T>::check(&coldkey, &call),
+                Err(Error::<T>::ColdkeySwapDisputed)
+            );
+        }
+    }
+
+    #[benchmark]
+    fn check_weights_extension() {
+        let netuid = NetUid::from(1);
+        let hotkey: T::AccountId = account("hotkey", 0, 1);
+        let netuid_index = NetUidStorageIndex::from(netuid);
+        let uids: Vec<u16> = vec![0];
+        let values: Vec<u16> = vec![10];
+        let salt: Vec<u16> = vec![8];
+        let version_key = 0_u64;
+
+        setup_extension_neuron::<T>(netuid, &hotkey);
+        Subtensor::<T>::set_stake_threshold(0);
+
+        let commit_hash = Subtensor::<T>::get_commit_hash(
+            &hotkey,
+            netuid_index,
+            &uids,
+            &values,
+            &salt,
+            version_key,
+        );
+        let mut commits = VecDeque::new();
+        for i in 0..9 {
+            commits.push_back((H256::repeat_byte(i + 1), 0, 0, 0));
+        }
+        commits.push_back((commit_hash, 0, 0, 0));
+        WeightCommits::<T>::insert(netuid_index, &hotkey, commits);
+
+        let reveal_period = Subtensor::<T>::get_reveal_period(netuid);
+        SubnetEpochIndex::<T>::insert(netuid, reveal_period);
+
+        let call = Call::<T>::reveal_weights {
+            netuid,
+            uids,
+            values,
+            salt,
+            version_key,
+        };
+
+        #[block]
+        {
+            assert_ok!(CheckWeights::<T>::check(&hotkey, &call));
+        }
+    }
+
+    #[benchmark]
+    fn check_rate_limits_extension() {
+        let netuid = NetUid::from(1);
+        let hotkey: T::AccountId = account("hotkey", 0, 1);
+        let netuid_index = NetUidStorageIndex::from(netuid);
+        let call = Call::<T>::set_weights {
+            netuid,
+            dests: vec![0],
+            weights: vec![1],
+            version_key: 0,
+        };
+
+        setup_extension_neuron::<T>(netuid, &hotkey);
+        Subtensor::<T>::set_commit_reveal_weights_enabled(netuid, false);
+        Subtensor::<T>::set_weights_set_rate_limit(netuid, 1);
+        Subtensor::<T>::set_last_update_for_uid(netuid_index, 0, 1);
+        set_benchmark_block_number::<T>(3);
+
+        #[block]
+        {
+            assert_ok!(CheckRateLimits::<T>::check(&hotkey, &call));
+        }
+    }
+
+    #[benchmark]
+    fn check_delegate_take_extension() {
+        let coldkey: T::AccountId = account("coldkey", 0, 1);
+        let hotkey: T::AccountId = account("hotkey", 0, 1);
+        let call = Call::<T>::increase_take {
+            hotkey: hotkey.clone(),
+            take: Subtensor::<T>::get_max_delegate_take(),
+        };
+
+        Owner::<T>::insert(&hotkey, &coldkey);
+
+        #[block]
+        {
+            assert_ok!(CheckDelegateTake::<T>::check(&coldkey, &call));
+        }
+    }
+
+    #[benchmark]
+    fn check_serving_endpoints_extension() {
+        let hotkey: T::AccountId = account("hotkey", 0, 1);
+        let netuid = NetUid::from(1);
+        let call = Call::<T>::serve_axon {
+            netuid,
+            version: 1,
+            ip: u128::from(u32::from_be_bytes([8, 8, 8, 8])),
+            port: 1,
+            ip_type: 4,
+            protocol: 0,
+            placeholder1: 0,
+            placeholder2: 0,
+        };
+
+        Uids::<T>::insert(netuid, &hotkey, 0);
+
+        #[block]
+        {
+            assert_ok!(CheckServingEndpoints::<T>::check(&hotkey, &call));
+        }
+    }
+
+    #[benchmark]
+    fn check_evm_key_association_extension() {
+        let netuid = NetUid::from(1);
+        let hotkey: T::AccountId = account("hotkey", 0, 1);
+        let block_number = T::EvmKeyAssociateRateLimit::get().saturating_add(1);
+        let call = Call::<T>::associate_evm_key {
+            netuid,
+            evm_key: H160::zero(),
+            block_number,
+            signature: ecdsa::Signature::from_raw([0_u8; 65]),
+        };
+
+        setup_extension_neuron::<T>(netuid, &hotkey);
+        set_benchmark_block_number::<T>(block_number);
+
+        #[block]
+        {
+            assert_ok!(CheckEvmKeyAssociation::<T>::check(&hotkey, &call));
+        }
     }
 
     impl_benchmark_test_suite!(
