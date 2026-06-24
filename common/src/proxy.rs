@@ -126,7 +126,7 @@ pub enum CallConstraint {
 }
 
 /// Runtime call identity exposed in proxy filter metadata.
-#[freeze_struct("3456abe21137256b")]
+#[freeze_struct("920ff354ab2ba4d2")]
 #[derive(Clone, PartialEq, Eq, Encode, Decode, Debug, TypeInfo)]
 pub struct CallInfo {
     /// Runtime pallet name.
