@@ -79,6 +79,7 @@ impl<T: Config> Pallet<T> {
         hotkey: T::AccountId,
         netuid: NetUid,
         position_input: AlphaBalance,
+        limit_price: Option<u64>,
     ) -> DispatchResult {
         let coldkey = ensure_signed(origin)?;
         ensure!(LongsEnabled::<T>::get(), Error::<T>::LongsDisabled);
@@ -177,6 +178,10 @@ impl<T: Config> Pallet<T> {
         LongAggregate::<T>::insert(netuid, agg);
         LongActiveSubnets::<T>::insert(netuid, ());
 
+        // Slippage guard: a long raises the price, so reject if it ended up above
+        // the caller's ceiling (sandwich/MEV protection). `None` = no bound.
+        Self::ensure_price_at_most(netuid, limit_price)?;
+
         Self::deposit_event(Event::LongOpened {
             coldkey,
             netuid,
@@ -193,6 +198,9 @@ impl<T: Config> Pallet<T> {
         origin: OriginFor<T>,
         netuid: NetUid,
         amount: AlphaBalance,
+        // Accepted for interface symmetry; top-up never touches the pool, so there
+        // is no execution price to bound. Intentionally unused.
+        _limit_price: Option<u64>,
     ) -> DispatchResult {
         let coldkey = ensure_signed(origin)?;
         ensure!(!amount.is_zero(), Error::<T>::AmountTooLow);
@@ -232,6 +240,7 @@ impl<T: Config> Pallet<T> {
         origin: OriginFor<T>,
         netuid: NetUid,
         fraction_ppb: u64,
+        limit_price: Option<u64>,
     ) -> DispatchResult {
         let coldkey = ensure_signed(origin)?;
         ensure!(
@@ -268,6 +277,9 @@ impl<T: Config> Pallet<T> {
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(&pos.hotkey, &coldkey, netuid, returned);
             SubnetAlphaOut::<T>::mutate(netuid, |o| *o = o.saturating_add(returned));
         }
+        // Slippage guard: a long unwind pushes the price down, so reject if it
+        // ended up below the caller's floor (sandwich/MEV protection).
+        Self::ensure_price_at_least(netuid, limit_price)?;
 
         pos.d_liability = pos.d_liability.saturating_sub(d_close);
         pos.r_stored = pos.r_stored.saturating_sub(r_close);
@@ -308,7 +320,9 @@ impl<T: Config> Pallet<T> {
         if t <= df {
             return I64F64::from_num(1e18);
         }
-        a.saturating_mul(df).safe_div(t.saturating_sub(df))
+        // Ratio first to avoid I64F64 overflow on the rao-scale `a·d` product
+        // (see short_spot_close_cost for the full explanation).
+        a.saturating_mul(df.safe_div(t.saturating_sub(df)))
     }
 
     /// Self-covering close (cash-settled): the protocol sells just enough of the
@@ -321,6 +335,7 @@ impl<T: Config> Pallet<T> {
         origin: OriginFor<T>,
         netuid: NetUid,
         fraction_ppb: u64,
+        limit_price: Option<u64>,
     ) -> DispatchResult {
         let coldkey = ensure_signed(origin)?;
         ensure!(
@@ -362,6 +377,9 @@ impl<T: Config> Pallet<T> {
             );
             SubnetAlphaOut::<T>::mutate(netuid, |o| *o = o.saturating_add(returned));
         }
+        // Slippage guard: the self-cover sale pushes the price down, so reject if
+        // it ended up below the caller's floor (sandwich/MEV protection).
+        Self::ensure_price_at_least(netuid, limit_price)?;
 
         pos.d_liability = pos.d_liability.saturating_sub(d_close);
         pos.r_stored = pos.r_stored.saturating_sub(r_close);

@@ -285,6 +285,7 @@ impl<T: Config> Pallet<T> {
         hotkey: T::AccountId,
         netuid: NetUid,
         position_input: TaoBalance,
+        limit_price: Option<u64>,
     ) -> DispatchResult {
         let coldkey = ensure_signed(origin)?;
         ensure!(ShortsEnabled::<T>::get(), Error::<T>::ShortsDisabled);
@@ -386,6 +387,10 @@ impl<T: Config> Pallet<T> {
         ShortAggregate::<T>::insert(netuid, agg);
         ShortActiveSubnets::<T>::insert(netuid, ());
 
+        // Slippage guard: a short lowers the price, so reject if it ended up
+        // below the caller's floor (sandwich/MEV protection). `None` = no bound.
+        Self::ensure_price_at_least(netuid, limit_price)?;
+
         Self::deposit_event(Event::ShortOpened {
             coldkey,
             netuid,
@@ -402,6 +407,10 @@ impl<T: Config> Pallet<T> {
         origin: OriginFor<T>,
         netuid: NetUid,
         amount: TaoBalance,
+        // Accepted for CLI/interface symmetry. Top-up only credits the carry
+        // buffer in custody and never touches the pool, so there is no execution
+        // price and nothing to bound; the parameter is intentionally unused.
+        _limit_price: Option<u64>,
     ) -> DispatchResult {
         let coldkey = ensure_signed(origin)?;
         ensure!(!amount.is_zero(), Error::<T>::AmountTooLow);
@@ -430,6 +439,7 @@ impl<T: Config> Pallet<T> {
         origin: OriginFor<T>,
         netuid: NetUid,
         fraction_ppb: u64,
+        limit_price: Option<u64>,
     ) -> DispatchResult {
         let coldkey = ensure_signed(origin)?;
         ensure!(
@@ -484,6 +494,9 @@ impl<T: Config> Pallet<T> {
         if !returned.is_zero() {
             Self::transfer_tao(&custody, &coldkey, returned.into())?;
         }
+        // Slippage guard: settling escrow raises the price, so reject if it ended
+        // up above the caller's ceiling (sandwich/MEV protection). `None` = no bound.
+        Self::ensure_price_at_most(netuid, limit_price)?;
 
         pos.q_liability = pos.q_liability.saturating_sub(q_close);
         pos.r_stored = pos.r_stored.saturating_sub(r_close);
@@ -526,6 +539,7 @@ impl<T: Config> Pallet<T> {
         origin: OriginFor<T>,
         netuid: NetUid,
         fraction_ppb: u64,
+        limit_price: Option<u64>,
     ) -> DispatchResult {
         let coldkey = ensure_signed(origin)?;
         ensure!(
@@ -574,6 +588,9 @@ impl<T: Config> Pallet<T> {
         if !returned.is_zero() {
             Self::transfer_tao(&custody, &coldkey, returned.into())?;
         }
+        // Slippage guard: the buyback raises the price, so reject if it ended up
+        // above the caller's ceiling (sandwich/MEV protection). `None` = no bound.
+        Self::ensure_price_at_most(netuid, limit_price)?;
 
         pos.q_liability = pos.q_liability.saturating_sub(q_close);
         pos.r_stored = pos.r_stored.saturating_sub(r_close);
@@ -773,7 +790,50 @@ impl<T: Config> Pallet<T> {
             // Liability un-buyable from the pool: saturate so cover = C, equity = 0.
             return I64F64::from_num(1e18);
         }
-        t.saturating_mul(qf).safe_div(a.saturating_sub(qf))
+        // Compute the ratio `q/(a−q)` (which is O(1)) BEFORE multiplying by `t`.
+        // The naive `t·q` overflows: `t` and `q` are both rao-scale (~1e13–1e15),
+        // so the product (~1e27) saturates I64F64 (int range ~9.2e18) and collapses
+        // the cost to a garbage near-zero value — making the close return only the
+        // escrow to the pool (permanent ~N drain) and defeating the underwater guard.
+        t.saturating_mul(qf.safe_div(a.saturating_sub(qf)))
+    }
+
+    // ---- slippage / limit-price protection (caller-supplied) -----------
+
+    /// Executable alpha price (TAO per alpha) scaled by 1e9, computed in `u128`
+    /// to avoid the rao×1e9 overflow. `u64::MAX` when the pool has no alpha.
+    pub fn executable_price_ppb(netuid: NetUid) -> u64 {
+        let t = u128::from(SubnetTAO::<T>::get(netuid).to_u64());
+        let a = u128::from(SubnetAlphaIn::<T>::get(netuid).to_u64());
+        if a == 0 {
+            return u64::MAX;
+        }
+        // `a > 0` here, so plain division is safe (and `u128` has no `safe_div`).
+        u64::try_from(t.saturating_mul(1_000_000_000u128) / a).unwrap_or(u64::MAX)
+    }
+
+    /// Reject if the post-trade executable price fell below `limit` (used by the
+    /// price-lowering legs: short open, long close). `None` = no protection.
+    fn ensure_price_at_least(netuid: NetUid, limit: Option<u64>) -> DispatchResult {
+        if let Some(min) = limit {
+            ensure!(
+                Self::executable_price_ppb(netuid) >= min,
+                Error::<T>::SlippageExceeded
+            );
+        }
+        Ok(())
+    }
+
+    /// Reject if the post-trade executable price rose above `limit` (used by the
+    /// price-raising legs: short close, long open). `None` = no protection.
+    fn ensure_price_at_most(netuid: NetUid, limit: Option<u64>) -> DispatchResult {
+        if let Some(max) = limit {
+            ensure!(
+                Self::executable_price_ppb(netuid) <= max,
+                Error::<T>::SlippageExceeded
+            );
+        }
+        Ok(())
     }
 
     // ---- governance setters (spec §14.6) -------------------------------

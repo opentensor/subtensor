@@ -2634,8 +2634,9 @@ mod dispatches {
             hotkey: T::AccountId,
             netuid: NetUid,
             position_input: TaoBalance,
+            limit_price: Option<u64>,
         ) -> DispatchResult {
-            Self::do_open_short(origin, hotkey, netuid, position_input)
+            Self::do_open_short(origin, hotkey, netuid, position_input, limit_price)
         }
 
         /// Top up a covered short's carry buffer with fresh capital.
@@ -2645,8 +2646,9 @@ mod dispatches {
             origin: OriginFor<T>,
             netuid: NetUid,
             amount: TaoBalance,
+            limit_price: Option<u64>,
         ) -> DispatchResult {
-            Self::do_top_up_short(origin, netuid, amount)
+            Self::do_top_up_short(origin, netuid, amount, limit_price)
         }
 
         /// Close `fraction_ppb / 1e9` of a covered short (`1e9` = full close).
@@ -2656,8 +2658,9 @@ mod dispatches {
             origin: OriginFor<T>,
             netuid: NetUid,
             fraction_ppb: u64,
+            limit_price: Option<u64>,
         ) -> DispatchResult {
-            Self::do_close_short(origin, netuid, fraction_ppb)
+            Self::do_close_short(origin, netuid, fraction_ppb, limit_price)
         }
 
         /// Permissionlessly default a covered short whose buffer reached dust.
@@ -2679,8 +2682,9 @@ mod dispatches {
             hotkey: T::AccountId,
             netuid: NetUid,
             position_input: AlphaBalance,
+            limit_price: Option<u64>,
         ) -> DispatchResult {
-            Self::do_open_long(origin, hotkey, netuid, position_input)
+            Self::do_open_long(origin, hotkey, netuid, position_input, limit_price)
         }
 
         /// Top up a covered long's carry buffer with fresh Alpha.
@@ -2690,8 +2694,9 @@ mod dispatches {
             origin: OriginFor<T>,
             netuid: NetUid,
             amount: AlphaBalance,
+            limit_price: Option<u64>,
         ) -> DispatchResult {
-            Self::do_top_up_long(origin, netuid, amount)
+            Self::do_top_up_long(origin, netuid, amount, limit_price)
         }
 
         /// Close `fraction_ppb / 1e9` of a covered long (`1e9` = full close).
@@ -2701,8 +2706,9 @@ mod dispatches {
             origin: OriginFor<T>,
             netuid: NetUid,
             fraction_ppb: u64,
+            limit_price: Option<u64>,
         ) -> DispatchResult {
-            Self::do_close_long(origin, netuid, fraction_ppb)
+            Self::do_close_long(origin, netuid, fraction_ppb, limit_price)
         }
 
         /// Permissionlessly default a covered long whose buffer reached dust.
@@ -2726,8 +2732,9 @@ mod dispatches {
             origin: OriginFor<T>,
             netuid: NetUid,
             fraction_ppb: u64,
+            limit_price: Option<u64>,
         ) -> DispatchResult {
-            Self::do_close_short_self(origin, netuid, fraction_ppb)
+            Self::do_close_short_self(origin, netuid, fraction_ppb, limit_price)
         }
 
         /// Self-covering close of `fraction_ppb / 1e9` of a covered long: the
@@ -2740,8 +2747,9 @@ mod dispatches {
             origin: OriginFor<T>,
             netuid: NetUid,
             fraction_ppb: u64,
+            limit_price: Option<u64>,
         ) -> DispatchResult {
-            Self::do_close_long_self(origin, netuid, fraction_ppb)
+            Self::do_close_long_self(origin, netuid, fraction_ppb, limit_price)
         }
     }
 }

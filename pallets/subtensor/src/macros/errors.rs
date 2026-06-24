@@ -343,6 +343,9 @@ mod errors {
         LongHotkeyMismatch,
         /// Trader does not hold enough alpha collateral to open/extend the long.
         InsufficientCollateral,
+        /// The post-trade executable price violated the caller-supplied
+        /// `limit_price` slippage bound (sandwich/MEV protection).
+        SlippageExceeded,
         /// The supplied tempo is outside the allowed range.
         TempoOutOfBounds,
         /// The supplied activity-cutoff factor is outside the allowed range.
