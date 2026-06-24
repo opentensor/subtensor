@@ -243,6 +243,8 @@ mod errors {
         SymbolAlreadyInUse,
         /// Incorrect commit-reveal version.
         IncorrectCommitRevealVersion,
+        /// Reveal round is older than the most recently stored DRAND round.
+        InvalidRevealRound,
         /// Reveal period is too large.
         RevealPeriodTooLarge,
         /// Reveal period is too small.
@@ -315,5 +317,7 @@ mod errors {
         /// an out-of-band epoch would desync the CRv3 reveal window from the wall-clock
         /// Drand schedule and silently drop committed weights.
         DynamicTempoBlockedByCommitReveal,
+        /// The destination coldkey rejects incoming locked alpha.
+        AccountRejectsLockedAlpha,
     }
 }

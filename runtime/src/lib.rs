@@ -234,7 +234,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 422,
+    spec_version: 423,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -347,7 +347,14 @@ impl frame_system::Config for Runtime {
     type PostInherents = ();
     type PostTransactions = ();
     type ExtensionsWeightInfo = frame_system::SubstrateExtensionsWeight<Runtime>;
-    type DispatchExtension = pallet_subtensor::CheckColdkeySwap<Runtime>;
+    type DispatchExtension = (
+        pallet_subtensor::CheckColdkeySwap<Runtime>,
+        pallet_subtensor::CheckWeights<Runtime>,
+        pallet_subtensor::CheckRateLimits<Runtime>,
+        pallet_subtensor::CheckDelegateTake<Runtime>,
+        pallet_subtensor::CheckServingEndpoints<Runtime>,
+        pallet_subtensor::CheckEvmKeyAssociation<Runtime>,
+    );
 }
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}

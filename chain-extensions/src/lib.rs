@@ -7,7 +7,7 @@ mod tests;
 
 pub mod types;
 
-use crate::types::{FunctionId, Output};
+use crate::types::{ColdkeyLock, FunctionId, Output, StakeAvailability, SubnetRegistrationState};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{DebugNoBound, traits::Get};
 use frame_system::RawOrigin;
@@ -591,6 +591,61 @@ where
                 let encoded_result = stake_info.encode();
 
                 env.write_output(&encoded_result)
+                    .map_err(|_| DispatchError::Other("Failed to write output"))?;
+
+                Ok(RetVal::Converging(Output::Success as u32))
+            }
+            FunctionId::GetSubnetRegistrationStateV1 => {
+                let netuid: NetUid = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let state = SubnetRegistrationState {
+                    netuid,
+                    exists: pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                    registered_subnet_counter:
+                        pallet_subtensor::Pallet::<T>::get_registered_subnet_counter(netuid),
+                };
+
+                env.write_output(&state.encode())
+                    .map_err(|_| DispatchError::Other("Failed to write output"))?;
+
+                Ok(RetVal::Converging(Output::Success as u32))
+            }
+            FunctionId::GetColdkeyLockV1 => {
+                let (coldkey, netuid): (T::AccountId, NetUid) = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let lock =
+                    pallet_subtensor::Pallet::<T>::get_coldkey_lock(&coldkey, netuid).map(|lock| {
+                        ColdkeyLock {
+                            locked_mass: lock.locked_mass,
+                            conviction_bits: lock.conviction.to_bits(),
+                            last_update: lock.last_update,
+                        }
+                    });
+
+                env.write_output(&lock.encode())
+                    .map_err(|_| DispatchError::Other("Failed to write output"))?;
+
+                Ok(RetVal::Converging(Output::Success as u32))
+            }
+            FunctionId::GetStakeAvailabilityV1 => {
+                let (coldkey, netuid): (T::AccountId, NetUid) = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let (total, locked, available) =
+                    pallet_subtensor::Pallet::<T>::stake_availability(&coldkey, netuid);
+                let availability = StakeAvailability {
+                    netuid,
+                    total,
+                    locked,
+                    available,
+                };
+
+                env.write_output(&availability.encode())
                     .map_err(|_| DispatchError::Other("Failed to write output"))?;
 
                 Ok(RetVal::Converging(Output::Success as u32))

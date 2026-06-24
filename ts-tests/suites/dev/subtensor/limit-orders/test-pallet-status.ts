@@ -1,7 +1,7 @@
 import { beforeAll, describeSuite, expect } from "@moonwall/cli";
-import type { ApiPromise } from "@polkadot/api";
 import type { KeyringPair } from "@moonwall/util";
-import { tao } from "../../../../utils";
+import type { ApiPromise } from "@polkadot/api";
+import { tao } from "../../../../utils/balance.js";
 import { devForceSetBalance } from "../../../../utils/dev-helpers.js";
 import { buildSignedOrder, FAR_FUTURE, filterEvents, registerLimitOrderTypes } from "../../../../utils/limit-orders.js";
 

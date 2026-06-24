@@ -157,7 +157,14 @@ impl system::Config for Test {
     type MaxConsumers = frame_support::traits::ConstU32<16>;
     type Nonce = u64;
     type Block = Block;
-    type DispatchExtension = crate::CheckColdkeySwap<Test>;
+    type DispatchExtension = (
+        crate::CheckColdkeySwap<Test>,
+        crate::CheckWeights<Test>,
+        crate::CheckRateLimits<Test>,
+        crate::CheckDelegateTake<Test>,
+        crate::CheckServingEndpoints<Test>,
+        crate::CheckEvmKeyAssociation<Test>,
+    );
 }
 
 parameter_types! {

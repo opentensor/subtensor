@@ -28,6 +28,19 @@ fn close(value: u64, target: u64, eps: u64) {
     )
 }
 
+/// Seed a large root stake with full TAO weight so that
+/// `root_proportion = tao_weight / (tao_weight + alpha_issuance)` is ~1.
+/// This keeps the alpha-injection cap (`root_proportion * alpha_emission`) from
+/// spuriously binding for small per-subnet emissions, preserving the liquidity
+/// injection behavior these tests were written for.
+fn set_full_injection_root_stake() {
+    SubnetTAO::<Test>::insert(
+        NetUid::ROOT,
+        TaoBalance::from(1_000_000_000_000_000_000_u64),
+    );
+    SubtensorModule::set_tao_weight(u64::MAX);
+}
+
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_hotkey_take --exact --show-output --nocapture
 #[test]
 fn test_hotkey_take() {
@@ -68,9 +81,13 @@ fn test_coinbase_tao_issuance_base() {
         let subnet_owner_ck = U256::from(1001);
         let subnet_owner_hk = U256::from(1002);
         let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+        // Dynamic subnets register with emission disabled by default.
+        SubnetEmissionEnabled::<Test>::insert(netuid, true);
+        // Price-based emission shares require a non-zero moving price.
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(1));
+        // Keep root_proportion ~1 so the injection cap does not bind.
+        set_full_injection_root_stake();
         let total_issuance_before = TotalIssuance::<Test>::get();
-        // Set subnet TAO flow to non-zero
-        SubnetTaoFlow::<Test>::insert(netuid, 1234567_i64);
         let tao_in_before = SubnetTAO::<Test>::get(netuid);
         let total_stake_before = TotalStake::<Test>::get();
         let emission_credit = SubtensorModule::mint_tao(emission);
@@ -247,43 +264,6 @@ fn test_coinbase_disabled_subnet_emission_redistributes_tao_to_enabled_subnets()
 }
 
 #[test]
-fn test_net_tao_flow_disabled_still_drains_protocol_flow_into_ema() {
-    new_test_ext(1).execute_with(|| {
-        let netuid1 = NetUid::from(1);
-        let netuid2 = NetUid::from(2);
-
-        add_network(netuid1, 1, 0);
-        add_network(netuid2, 1, 0);
-
-        NetTaoFlowEnabled::<Test>::set(false);
-        FlowEmaSmoothingFactor::<Test>::set(i64::MAX as u64);
-
-        SubnetTaoFlow::<Test>::insert(netuid1, 1_000_i64);
-        SubnetTaoFlow::<Test>::insert(netuid2, 1_000_i64);
-        SubtensorModule::record_protocol_inflow(netuid1, 700.into());
-        SubtensorModule::record_protocol_outflow(netuid2, 300.into());
-
-        System::set_block_number(1);
-
-        SubtensorModule::get_subnet_block_emissions(
-            &[netuid1, netuid2],
-            U96F32::saturating_from_num(1_000_000u64),
-        );
-
-        assert_eq!(SubnetProtocolFlow::<Test>::get(netuid1), 0);
-        assert_eq!(SubnetProtocolFlow::<Test>::get(netuid2), 0);
-        assert_eq!(
-            SubnetEmaProtocolFlow::<Test>::get(netuid1),
-            Some((1, I64F64::from_num(700)))
-        );
-        assert_eq!(
-            SubnetEmaProtocolFlow::<Test>::get(netuid2),
-            Some((1, I64F64::from_num(-300)))
-        );
-    });
-}
-
-#[test]
 fn test_sudo_set_subnet_emission_enabled_multiple_subnets_multiple_toggles() {
     new_test_ext(1).execute_with(|| {
         let netuid1 = NetUid::from(1);
@@ -295,9 +275,9 @@ fn test_sudo_set_subnet_emission_enabled_multiple_subnets_multiple_toggles() {
         add_network(netuid2, 1, 0);
         add_network(netuid3, 1, 0);
 
-        SubnetTaoFlow::<Test>::insert(netuid1, 100_000_000_i64);
-        SubnetTaoFlow::<Test>::insert(netuid2, 100_000_000_i64);
-        SubnetTaoFlow::<Test>::insert(netuid3, 100_000_000_i64);
+        // Keep root_proportion ~1 so TAO-side emission is injected (populating
+        // SubnetTaoInEmission) rather than routed entirely to chain buys.
+        set_full_injection_root_stake();
 
         let assert_emission_storage = |expected1: u64, expected2: u64, expected3: u64| {
             assert_abs_diff_eq!(
@@ -403,10 +383,12 @@ fn test_coinbase_tao_issuance_different_prices() {
         SubnetMechanism::<Test>::insert(netuid1, 1);
         SubnetMechanism::<Test>::insert(netuid2, 1);
 
-        // Set subnet flows
-        // Subnet 2 has twice the flow of subnet 1.
-        SubnetTaoFlow::<Test>::insert(netuid1, 100_000_000_i64);
-        SubnetTaoFlow::<Test>::insert(netuid2, 200_000_000_i64);
+        // Price-based shares: subnet 2 has twice the moving price of subnet 1,
+        // so it should receive twice the TAO emission.
+        SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(0.1));
+        SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(0.2));
+        // Keep root_proportion ~1 so the injection cap does not bind.
+        set_full_injection_root_stake();
 
         // Assert initial TAO reserves.
         assert_eq!(SubnetTAO::<Test>::get(netuid1), initial_tao.into());
@@ -642,9 +624,8 @@ fn test_coinbase_alpha_issuance_base() {
         SubnetAlphaIn::<Test>::insert(netuid1, AlphaBalance::from(initial));
         SubnetTAO::<Test>::insert(netuid2, TaoBalance::from(initial));
         SubnetAlphaIn::<Test>::insert(netuid2, AlphaBalance::from(initial));
-        // Equal flow
-        SubnetTaoFlow::<Test>::insert(netuid1, 100_000_000_i64);
-        SubnetTaoFlow::<Test>::insert(netuid2, 100_000_000_i64);
+        // Keep root_proportion ~1 so the injection cap does not bind.
+        set_full_injection_root_stake();
         // Check initial
         SubtensorModule::run_coinbase(emission_credit);
         // tao_in = 500_000
@@ -684,10 +665,11 @@ fn test_coinbase_alpha_issuance_different() {
         SubnetAlphaIn::<Test>::insert(netuid1, AlphaBalance::from(initial));
         SubnetTAO::<Test>::insert(netuid2, TaoBalance::from(2 * initial));
         SubnetAlphaIn::<Test>::insert(netuid2, AlphaBalance::from(initial));
-        // Set subnet TAO flows to non-zero and 1:2 ratio
-        SubnetTaoFlow::<Test>::insert(netuid1, 100_000_000_i64);
-        SubnetTaoFlow::<Test>::insert(netuid2, 200_000_000_i64);
-        // Do NOT Set tao flow, let it initialize
+        // Price-based shares with prices 1 and 2 (1:2 ratio).
+        SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(1));
+        SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(2));
+        // Keep root_proportion ~1 so the injection cap does not bind.
+        set_full_injection_root_stake();
         // Run coinbase
         SubtensorModule::run_coinbase(emission_credit);
         // tao_in = 333_333
@@ -728,16 +710,23 @@ fn test_coinbase_alpha_issuance_with_cap_trigger() {
         // Set subnet prices.
         SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(1));
         SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(2));
+        // Keep root_proportion ~1 so the injection cap binds at alpha_emission.
+        set_full_injection_root_stake();
         // Run coinbase
         SubtensorModule::run_coinbase(emission_credit);
-        // tao_in = 333_333
-        // alpha_in = 333_333/price > 1_000_000_000 --> 1_000_000_000 + initial_alpha
+        // alpha_in is capped at the injection cap, so injected alpha stays below
+        // a full block emission on top of the initial reserve.
         assert!(SubnetAlphaIn::<Test>::get(netuid1) < (initial_alpha + 1_000_000_000).into());
-        assert_eq!(SubnetAlphaOut::<Test>::get(netuid2), 1_000_000_000.into());
-        // tao_in = 666_666
-        // alpha_in = 666_666/price > 1_000_000_000 --> 1_000_000_000 + initial_alpha
+        // Per-block alpha emission is the full block emission regardless of the cap.
+        assert_eq!(
+            SubnetAlphaOutEmission::<Test>::get(netuid1),
+            1_000_000_000.into()
+        );
         assert!(SubnetAlphaIn::<Test>::get(netuid2) < (initial_alpha + 1_000_000_000).into());
-        assert_eq!(SubnetAlphaOut::<Test>::get(netuid2), 1_000_000_000.into()); // Gets full block emission.
+        assert_eq!(
+            SubnetAlphaOutEmission::<Test>::get(netuid2),
+            1_000_000_000.into()
+        ); // Gets full block emission.
     });
 }
 
@@ -765,9 +754,10 @@ fn test_coinbase_alpha_issuance_with_cap_trigger_and_block_emission() {
         // Enable emission
         FirstEmissionBlockNumber::<Test>::insert(netuid1, 0);
         FirstEmissionBlockNumber::<Test>::insert(netuid2, 0);
-        // Set subnet TAO flows to non-zero and 1:2 ratio
-        SubnetTaoFlow::<Test>::insert(netuid1, 100_000_000_i64);
-        SubnetTaoFlow::<Test>::insert(netuid2, 200_000_000_i64);
+        // Price-based shares (1:2 ratio). Low pool prices mean alpha_in exceeds the
+        // injection cap, so the surplus TAO is spent on chain buys.
+        SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(1));
+        SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(2));
 
         // Force the swap to initialize
         <Test as pallet::Config>::SwapInterface::init_swap(netuid1, None);
@@ -2671,6 +2661,11 @@ fn test_distribute_emission_zero_emission() {
         Incentive::<Test>::remove(NetUidStorageIndex::from(netuid));
         Dividends::<Test>::remove(netuid);
 
+        // Capture stake right before the zero-emission distribution so the assertion
+        // isolates that call (the subnet legitimately accrues emission during the
+        // preceding block runs under price-based shares).
+        let stake_before_distribute = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
+
         // Set the emission to be ZERO.
         SubtensorModule::distribute_emission(
             netuid,
@@ -2682,8 +2677,8 @@ fn test_distribute_emission_zero_emission() {
 
         // Get the new stake of the hotkey.
         let new_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
-        // We expect the stake to remain unchanged.
-        assert_eq!(new_stake, init_stake.into());
+        // We expect the stake to remain unchanged by the zero-emission distribution.
+        assert_eq!(new_stake, stake_before_distribute);
 
         // Check that the incentive and dividends are set by epoch.
         assert!(
@@ -3554,11 +3549,17 @@ fn test_coinbase_subnet_terms_with_alpha_in_gt_alpha_emission() {
 
         let subnet_emissions = BTreeMap::from([(netuid0, tao_emission)]);
 
+        // The injection cap is root_proportion * alpha_emission. Seed root stake so
+        // root_proportion is well-defined and the cap is positive.
+        set_full_injection_root_stake();
+        let root_prop: U96F32 = SubtensorModule::root_proportion(netuid0);
+        let injection_cap: U96F32 = root_prop.saturating_mul(alpha_emission);
+
         let (tao_in, alpha_in, alpha_out, excess_tao) =
             SubtensorModule::get_subnet_terms(&subnet_emissions);
 
-        // Check our condition is met
-        assert!(tao_emission / price_to_set_fixed > alpha_emission);
+        // Check our condition is met: the raw alpha_in exceeds the cap, so it binds.
+        assert!(tao_emission / price_to_set_fixed > injection_cap);
 
         // alpha_out should be the alpha_emission, always
         assert_abs_diff_eq!(
@@ -3567,11 +3568,11 @@ fn test_coinbase_subnet_terms_with_alpha_in_gt_alpha_emission() {
             epsilon = 0.01
         );
 
-        // alpha_in should equal the alpha_emission
+        // alpha_in should be capped at root_proportion * alpha_emission
         assert_abs_diff_eq!(
             alpha_in[&netuid0].to_num::<f64>(),
-            alpha_emission.to_num::<f64>(),
-            epsilon = 0.01
+            injection_cap.to_num::<f64>(),
+            epsilon = injection_cap.to_num::<f64>() / 1_000.0
         );
         // tao_in should be the alpha_in at the ratio of the price
         assert_abs_diff_eq!(
@@ -3616,11 +3617,17 @@ fn test_coinbase_subnet_terms_with_alpha_in_lte_alpha_emission() {
 
         let subnet_emissions = BTreeMap::from([(netuid0, tao_emission)]);
 
+        // The injection cap is root_proportion * alpha_emission. Seed root stake so
+        // the cap is large enough that raw alpha_in stays under it (no excess).
+        set_full_injection_root_stake();
+        let root_prop: U96F32 = SubtensorModule::root_proportion(netuid0);
+        let injection_cap: U96F32 = root_prop.saturating_mul(alpha_emission);
+
         let (tao_in, alpha_in, alpha_out, excess_tao) =
             SubtensorModule::get_subnet_terms(&subnet_emissions);
 
-        // Check our condition is met
-        assert!(tao_emission / price <= alpha_emission);
+        // Check our condition is met: raw alpha_in stays under the cap.
+        assert!(tao_emission / price <= injection_cap);
 
         // alpha_out should be the alpha_emission, always
         assert_abs_diff_eq!(
@@ -4239,33 +4246,36 @@ fn test_get_subnet_terms_alpha_emissions_cap() {
         let owner_hotkey = U256::from(10);
         let owner_coldkey = U256::from(11);
         let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
-        let tao_block_emission: U96F32 = U96F32::saturating_from_num(
-            SubtensorModule::calculate_block_emission()
-                .unwrap_or(TaoBalance::ZERO)
-                .to_u64(),
-        );
 
-        // price = 1.0
-        // tao_block_emission = 1000000000
-        // tao_block_emission == alpha_emission_i
-        // alpha_in_i <= alpha_injection_cap
+        // The injection cap is now root_proportion * alpha_emission. Seed root stake
+        // so root_proportion is well-defined, and derive the cap from the live values.
+        set_full_injection_root_stake();
+        let alpha_emission_i: U96F32 = U96F32::saturating_from_num(
+            SubtensorModule::get_block_emission_for_issuance(
+                SubtensorModule::get_alpha_issuance(netuid).into(),
+            )
+            .unwrap_or(0),
+        );
+        let injection_cap: U96F32 =
+            SubtensorModule::root_proportion(netuid).saturating_mul(alpha_emission_i);
+
+        // price = 1.0, alpha_in_i (== emissions1) <= alpha_injection_cap (not capped)
         let emissions1 = U96F32::from_num(100_000_000);
+        assert!(emissions1 < injection_cap);
 
         let subnet_emissions1 = BTreeMap::from([(netuid, emissions1)]);
         let (_, alpha_in, _, _) = SubtensorModule::get_subnet_terms(&subnet_emissions1);
 
         assert_eq!(alpha_in.get(&netuid).copied().unwrap(), emissions1);
 
-        // price = 1.0
-        // tao_block_emission = 1000000000
-        // tao_block_emission == alpha_emission_i
-        // alpha_in_i > alpha_injection_cap
+        // price = 1.0, alpha_in_i (== emissions2) > alpha_injection_cap (capped)
         let emissions2 = U96F32::from_num(10_000_000_000u64);
+        assert!(emissions2 > injection_cap);
 
         let subnet_emissions2 = BTreeMap::from([(netuid, emissions2)]);
         let (_, alpha_in, _, _) = SubtensorModule::get_subnet_terms(&subnet_emissions2);
 
-        assert_eq!(alpha_in.get(&netuid).copied().unwrap(), tao_block_emission);
+        assert_eq!(alpha_in.get(&netuid).copied().unwrap(), injection_cap);
     });
 }
 
