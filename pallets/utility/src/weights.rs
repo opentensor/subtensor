@@ -57,10 +57,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `518`
 		//  Estimated: `3983`
-		// Minimum execution time: 5_059_000 picoseconds.
-		Weight::from_parts(17_296_401, 3983)
-			// Standard Error: 1_652
-			.saturating_add(Weight::from_parts(6_062_970, 0).saturating_mul(c.into()))
+		// Minimum execution time: 3_776_000 picoseconds.
+		Weight::from_parts(6_854_015, 3983)
+			// Standard Error: 9_188
+			.saturating_add(Weight::from_parts(5_596_974, 0).saturating_mul(c.into()))
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 	}
 	/// Storage: `SafeMode::EnteredUntil` (r:1 w:0)
@@ -84,10 +84,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `518`
 		//  Estimated: `3983`
-		// Minimum execution time: 5_100_000 picoseconds.
-		Weight::from_parts(21_219_754, 3983)
-			// Standard Error: 2_134
-			.saturating_add(Weight::from_parts(6_279_706, 0).saturating_mul(c.into()))
+		// Minimum execution time: 3_836_000 picoseconds.
+		Weight::from_parts(5_699_915, 3983)
+			// Standard Error: 5_645
+			.saturating_add(Weight::from_parts(5_831_836, 0).saturating_mul(c.into()))
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 	}
 	fn dispatch_as() -> Weight {
@@ -144,10 +144,10 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `518`
 		//  Estimated: `3983`
-		// Minimum execution time: 5_059_000 picoseconds.
-		Weight::from_parts(17_296_401, 3983)
-			// Standard Error: 1_652
-			.saturating_add(Weight::from_parts(6_062_970, 0).saturating_mul(c.into()))
+		// Minimum execution time: 3_776_000 picoseconds.
+		Weight::from_parts(6_854_015, 3983)
+			// Standard Error: 9_188
+			.saturating_add(Weight::from_parts(5_596_974, 0).saturating_mul(c.into()))
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 	}
 	/// Storage: `SafeMode::EnteredUntil` (r:1 w:0)
@@ -171,10 +171,10 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `518`
 		//  Estimated: `3983`
-		// Minimum execution time: 5_100_000 picoseconds.
-		Weight::from_parts(21_219_754, 3983)
-			// Standard Error: 2_134
-			.saturating_add(Weight::from_parts(6_279_706, 0).saturating_mul(c.into()))
+		// Minimum execution time: 3_836_000 picoseconds.
+		Weight::from_parts(5_699_915, 3983)
+			// Standard Error: 5_645
+			.saturating_add(Weight::from_parts(5_831_836, 0).saturating_mul(c.into()))
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 	}
 	fn dispatch_as() -> Weight {
