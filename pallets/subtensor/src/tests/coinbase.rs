@@ -3738,6 +3738,34 @@ fn test_coinbase_failed_tao_materialization_does_not_activate_current_tao() {
 }
 
 #[test]
+fn test_alpha_reservoir_counts_toward_subnet_issuance_across_blocks() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = add_dynamic_network(&U256::from(1), &U256::from(2));
+        let alpha_in = AlphaBalance::from(10_000_u64);
+        let alpha_out = AlphaBalance::from(20_000_u64);
+        let reservoir_alpha = AlphaBalance::from(30_000_u64);
+
+        SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
+        SubnetAlphaOut::<Test>::insert(netuid, alpha_out);
+        pallet_subtensor_swap::BalancerAlphaReservoir::<Test>::insert(netuid, reservoir_alpha);
+
+        let expected = alpha_in
+            .saturating_add(alpha_out)
+            .saturating_add(reservoir_alpha);
+        assert_eq!(SubtensorModule::get_alpha_issuance(netuid), expected);
+
+        System::set_block_number(System::block_number().saturating_add(1));
+
+        assert_eq!(SubnetAlphaIn::<Test>::get(netuid), alpha_in);
+        assert_eq!(
+            pallet_subtensor_swap::BalancerAlphaReservoir::<Test>::get(netuid),
+            reservoir_alpha
+        );
+        assert_eq!(SubtensorModule::get_alpha_issuance(netuid), expected);
+    });
+}
+
+#[test]
 fn test_coinbase_drain_pending_increments_blockssincelaststep() {
     new_test_ext(1).execute_with(|| {
         let zero = U96F32::saturating_from_num(0);

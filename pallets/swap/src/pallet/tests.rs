@@ -870,11 +870,10 @@ fn print_current_price(netuid: NetUid) {
     log::trace!("Current price: {current_price:.6}");
 }
 
-/// Simple palswap path: PalSwap is initialized, but no positions, only protocol; function
-/// must still clear any residual storages and succeed.
-/// TODO: Revise when user liquidity is available
+/// Reservoir liquidity is already materialized but not price-active; direct
+/// cleanup materializes it into the reserve abstraction before clearing.
 #[test]
-fn test_liquidate_pal_simple_ok_and_clears() {
+fn test_clear_protocol_liquidity_clears_nonzero_reservoirs() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(202);
 
@@ -890,10 +889,8 @@ fn test_liquidate_pal_simple_ok_and_clears() {
         // Sanity: PalSwap is not initialized
         assert!(PalSwapInitialized::<Test>::get(netuid));
 
-        // ACT
-        assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
+        Pallet::<Test>::do_clear_protocol_liquidity(netuid);
 
-        // All single-key maps should not have the key after liquidation
         assert!(!FeeRate::<Test>::contains_key(netuid));
         assert!(!PalSwapInitialized::<Test>::contains_key(netuid));
         assert!(!SwapBalancer::<Test>::contains_key(netuid));
@@ -917,7 +914,7 @@ fn test_clear_protocol_liquidity_green_path() {
 
         // --- Act ---
         // Green path: just clear protocol liquidity and wipe all V3 state.
-        assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
+        Pallet::<Test>::do_clear_protocol_liquidity(netuid);
 
         // Flags
         assert!(!PalSwapInitialized::<Test>::contains_key(netuid));
@@ -926,7 +923,7 @@ fn test_clear_protocol_liquidity_green_path() {
         assert!(!FeeRate::<Test>::contains_key(netuid));
 
         // --- And it's idempotent ---
-        assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
+        Pallet::<Test>::do_clear_protocol_liquidity(netuid);
         assert!(!PalSwapInitialized::<Test>::contains_key(netuid));
     });
 }
