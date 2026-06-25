@@ -1254,7 +1254,6 @@ describeSuite({
             id: "T37",
             title: "Can get coldkey lock",
             test: async () => {
-                const coldkeyAddress = convertPublicKeyToSs58(coldkey.publicKey);
                 const queryMessage = inkClient.message("get_coldkey_lock");
                 const queryArgs = {
                     coldkey: Binary.fromBytes(coldkey.publicKey),
@@ -1317,8 +1316,6 @@ describeSuite({
             id: "T38",
             title: "Can get stake availability",
             test: async () => {
-                const coldkeyAddress = convertPublicKeyToSs58(coldkey.publicKey);
-
                 const queryMessage = inkClient.message("get_stake_availability");
 
                 const data = queryMessage.encode({
