@@ -123,8 +123,7 @@ mod pallet {
     /// the Uniswap V3 implementation. It is refreshed whenever the price changes via
     /// [`Pallet::refresh_alpha_sqrt_price`].
     #[pallet::storage]
-    pub type AlphaSqrtPrice<T> =
-        StorageMap<_, Twox64Concat, NetUid, U64F64, ValueQuery>;
+    pub type AlphaSqrtPrice<T> = StorageMap<_, Twox64Concat, NetUid, U64F64, ValueQuery>;
 
     /// --- Storage for migration run status
     #[pallet::storage]

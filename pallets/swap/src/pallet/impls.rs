@@ -42,8 +42,8 @@ impl<T: Config> Pallet<T> {
     pub(crate) fn refresh_alpha_sqrt_price(netuid: NetUid) {
         let price = Self::current_price(netuid);
         // Epsilon for the bisection sqrt: 1e-9 is well below the price precision consumers need.
-        let epsilon = U64F64::saturating_from_num(1)
-            .safe_div(U64F64::saturating_from_num(1_000_000_000_u64));
+        let epsilon =
+            U64F64::saturating_from_num(1).safe_div(U64F64::saturating_from_num(1_000_000_000_u64));
         let sqrt_price = price.checked_sqrt(epsilon).unwrap_or_default();
         AlphaSqrtPrice::<T>::insert(netuid, sqrt_price);
     }
