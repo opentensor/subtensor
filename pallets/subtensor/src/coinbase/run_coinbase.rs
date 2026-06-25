@@ -140,7 +140,7 @@ impl<T: Config> Pallet<T> {
                             remaining_credit = remainder;
                             let remaining_balance = remaining_credit.peek();
                             log::error!(
-                                "Failed to spend credit: tao_to_materialize = {tao_in_i:?}, netuid_i = {netuid_i:?}, remaining_balance = {remaining_balance:?}"
+                                "Failed to spend credit: tao_delta = {tao_in_i:?}, netuid_i = {netuid_i:?}, remaining_balance = {remaining_balance:?}"
                             );
                             TaoBalance::ZERO
                         }
@@ -150,22 +150,18 @@ impl<T: Config> Pallet<T> {
                 // Decide which current/reservoir liquidity can become price-active
                 // without pushing balancer weights out of range. Only already
                 // materialized current TAO is offered to the swap pallet.
-                let (
-                    price_active_tao,
-                    _tao_to_materialize,
-                    price_active_alpha,
-                    alpha_to_materialize,
-                ) = T::SwapInterface::adjust_protocol_liquidity(
-                    *netuid_i,
-                    materialized_tao_delta,
-                    alpha_in_i,
-                );
+                let (price_active_tao, price_active_alpha) =
+                    T::SwapInterface::adjust_protocol_liquidity(
+                        *netuid_i,
+                        materialized_tao_delta,
+                        alpha_in_i,
+                    );
 
                 // Materialize this block's alpha emission, then add only the
                 // price-active portion to the pool reserve. The price-active
                 // portion may include alpha that was materialized in an earlier
                 // block and held in the reservoir.
-                let _ = Self::mint_alpha(*netuid_i, alpha_to_materialize);
+                let _ = Self::mint_alpha(*netuid_i, alpha_in_i);
                 SubnetAlphaInEmission::<T>::insert(*netuid_i, price_active_alpha);
                 Self::increase_provided_alpha_reserve(*netuid_i, price_active_alpha);
 

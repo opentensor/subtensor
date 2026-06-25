@@ -88,21 +88,18 @@ impl<T: Config> Pallet<T> {
     ///
     /// Returns:
     /// 1. price-active TAO delta to add to `SubnetTAO`
-    /// 2. TAO delta to materialize by the caller
-    /// 3. price-active Alpha delta to add to `SubnetAlphaIn`
-    /// 4. Alpha delta to materialize by the caller
+    /// 2. price-active Alpha delta to add to `SubnetAlphaIn`
     ///
     /// Amounts that would push weights out of range are materialized but left in
     /// per-subnet reservoirs for a later balancer update.
     ///
-    /// Reservoir amounts may be included in the balancer update, but they are not
-    /// returned for materialization because they were already materialized when
-    /// first stored.
+    /// The caller is responsible for materializing the current `tao_delta` and
+    /// `alpha_delta`; reservoir amounts were materialized when first stored.
     pub(super) fn adjust_protocol_liquidity(
         netuid: NetUid,
         tao_delta: TaoBalance,
         alpha_delta: AlphaBalance,
-    ) -> (TaoBalance, TaoBalance, AlphaBalance, AlphaBalance) {
+    ) -> (TaoBalance, AlphaBalance) {
         // Get reserves
         let alpha_reserve = T::AlphaReserve::reserve(netuid.into());
         let tao_reserve = T::TaoReserve::reserve(netuid.into());
@@ -121,7 +118,7 @@ impl<T: Config> Pallet<T> {
             BalancerTaoReservoir::<T>::insert(netuid, TaoBalance::ZERO);
             BalancerAlphaReservoir::<T>::insert(netuid, AlphaBalance::ZERO);
             SwapBalancer::<T>::insert(netuid, new_balancer);
-            return (pending_tao, tao_delta, pending_alpha, alpha_delta);
+            return (pending_tao, pending_alpha);
         }
 
         if let Some(new_balancer) = Self::try_update_balancer(
@@ -134,7 +131,7 @@ impl<T: Config> Pallet<T> {
             BalancerTaoReservoir::<T>::insert(netuid, pending_tao);
             BalancerAlphaReservoir::<T>::insert(netuid, AlphaBalance::ZERO);
             SwapBalancer::<T>::insert(netuid, new_balancer);
-            return (TaoBalance::ZERO, tao_delta, pending_alpha, alpha_delta);
+            return (TaoBalance::ZERO, pending_alpha);
         }
 
         if let Some(new_balancer) = Self::try_update_balancer(
@@ -147,7 +144,7 @@ impl<T: Config> Pallet<T> {
             BalancerTaoReservoir::<T>::insert(netuid, TaoBalance::ZERO);
             BalancerAlphaReservoir::<T>::insert(netuid, pending_alpha);
             SwapBalancer::<T>::insert(netuid, new_balancer);
-            return (pending_tao, tao_delta, AlphaBalance::ZERO, alpha_delta);
+            return (pending_tao, AlphaBalance::ZERO);
         }
 
         BalancerTaoReservoir::<T>::insert(netuid, pending_tao);
@@ -165,7 +162,7 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        (TaoBalance::ZERO, tao_delta, AlphaBalance::ZERO, alpha_delta)
+        (TaoBalance::ZERO, AlphaBalance::ZERO)
     }
 
     fn try_update_balancer(
@@ -467,7 +464,7 @@ impl<T: Config> SwapHandler for Pallet<T> {
         netuid: NetUid,
         tao_delta: TaoBalance,
         alpha_delta: AlphaBalance,
-    ) -> (TaoBalance, TaoBalance, AlphaBalance, AlphaBalance) {
+    ) -> (TaoBalance, AlphaBalance) {
         Self::adjust_protocol_liquidity(netuid, tao_delta, alpha_delta)
     }
 

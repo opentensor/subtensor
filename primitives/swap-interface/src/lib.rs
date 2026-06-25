@@ -46,7 +46,7 @@ pub trait SwapHandler {
         netuid: NetUid,
         tao_delta: TaoBalance,
         alpha_delta: AlphaBalance,
-    ) -> (TaoBalance, TaoBalance, AlphaBalance, AlphaBalance);
+    ) -> (TaoBalance, AlphaBalance);
     fn protocol_alpha_reservoir(netuid: NetUid) -> AlphaBalance;
     fn protocol_tao_reservoir(netuid: NetUid) -> TaoBalance;
     fn clear_protocol_liquidity_reservoirs(netuid: NetUid);
