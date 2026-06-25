@@ -126,7 +126,7 @@ pub enum CallConstraint {
 }
 
 /// Runtime call identity exposed in proxy filter metadata.
-#[freeze_struct("920ff354ab2ba4d2")]
+#[freeze_struct("85f86877d3d9b870")]
 #[derive(Clone, PartialEq, Eq, Encode, Decode, Debug, TypeInfo)]
 pub struct CallInfo {
     /// Runtime pallet name.
@@ -138,7 +138,7 @@ pub struct CallInfo {
     /// Pallet call index.
     pub call_index: u8,
     /// Optional value or nested-call constraint.
-    pub condition: Option<CallConstraint>,
+    pub constraint: Option<CallConstraint>,
 }
 
 pub fn call_info_by_name<P: PalletInfoAccess, C: GetCallName + GetCallIndex>(
@@ -159,7 +159,7 @@ pub fn call_info_by_name<P: PalletInfoAccess, C: GetCallName + GetCallIndex>(
             .get(pos)
             .copied()
             .unwrap_or_else(|| panic!("Call '{}' index out of bounds in '{}'", name, P::name())),
-        condition: None,
+        constraint: None,
     }
 }
 
@@ -182,7 +182,7 @@ impl CallFilterMetadata for () {
     }
 }
 
-#[impl_trait_for_tuples::impl_for_tuples(1, 10)]
+#[impl_trait_for_tuples::impl_for_tuples(1, 32)]
 impl CallFilterMetadata for Tuple {
     fn call_infos() -> Vec<CallInfo> {
         let mut infos = Vec::new();
