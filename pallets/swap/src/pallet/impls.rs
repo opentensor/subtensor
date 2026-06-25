@@ -34,18 +34,26 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Refresh the backwards-compatibility `AlphaSqrtPrice` storage for a subnet.
+    /// Store `sqrt(price)` into the backwards-compatibility `AlphaSqrtPrice` map for a subnet.
     ///
     /// The balancer derives price on the fly, but external consumers still read the legacy
-    /// `Swap::AlphaSqrtPrice` map directly. Call this whenever the price may have changed
-    /// (swaps, protocol-liquidity adjustments, initialization) to keep that map in sync.
-    pub(crate) fn refresh_alpha_sqrt_price(netuid: NetUid) {
-        let price = Self::current_price(netuid);
+    /// `Swap::AlphaSqrtPrice` map directly, so we mirror the price wherever it changes:
+    /// initialization, protocol-liquidity adjustment (emission), and each swap. The price is
+    /// passed in rather than re-read from reserves because a swap commits its reserve deltas in
+    /// the caller (outside this pallet) — at swap time we use the swap step's computed
+    /// post-swap price instead.
+    pub(crate) fn store_alpha_sqrt_price(netuid: NetUid, price: U64F64) {
         // Epsilon for the bisection sqrt: 1e-9 is well below the price precision consumers need.
         let epsilon =
             U64F64::saturating_from_num(1).safe_div(U64F64::saturating_from_num(1_000_000_000_u64));
         let sqrt_price = price.checked_sqrt(epsilon).unwrap_or_default();
         AlphaSqrtPrice::<T>::insert(netuid, sqrt_price);
+    }
+
+    /// Refresh `AlphaSqrtPrice` from the current derived price. Safe to call where reserves are
+    /// already up to date (initialization, emission) — not on the swap path.
+    pub(crate) fn refresh_alpha_sqrt_price(netuid: NetUid) {
+        Self::store_alpha_sqrt_price(netuid, Self::current_price(netuid));
     }
 
     // initializes pal-swap (balancer) for a subnet if needed
@@ -90,7 +98,7 @@ impl<T: Config> Pallet<T> {
 
         PalSwapInitialized::<T>::insert(netuid, true);
 
-        // Keep the legacy AlphaSqrtPrice map in sync for backwards compatibility.
+        // Seed the legacy AlphaSqrtPrice mirror for backwards compatibility.
         Self::refresh_alpha_sqrt_price(netuid);
 
         Ok(())
@@ -129,7 +137,8 @@ impl<T: Config> Pallet<T> {
             (TaoBalance::ZERO, AlphaBalance::ZERO)
         } else {
             SwapBalancer::<T>::insert(netuid, balancer);
-            // Keep the legacy AlphaSqrtPrice map in sync for backwards compatibility.
+            // Emission changed reserves/weights; refresh the legacy AlphaSqrtPrice mirror.
+            // Reserves are already committed here, so deriving from current_price is correct.
             Self::refresh_alpha_sqrt_price(netuid);
             (tao_delta, alpha_delta)
         }
@@ -237,9 +246,11 @@ impl<T: Config> Pallet<T> {
         log::trace!("Fees: {}", swap_result.fee_paid);
         log::trace!("======== End Swap ========");
 
-        // Keep the legacy AlphaSqrtPrice map in sync for backwards compatibility. This runs
-        // inside the swap's transactional scope, so it is rolled back on simulation.
-        Self::refresh_alpha_sqrt_price(netuid);
+        // Mirror the post-swap price into the legacy AlphaSqrtPrice map for backwards
+        // compatibility. We use the swap step's computed final price because the reserve deltas
+        // are applied by the caller (outside this pallet) and aren't visible yet. This runs in
+        // the swap's transactional scope, so it is rolled back on simulated swaps.
+        Self::store_alpha_sqrt_price(netuid, swap_result.final_price);
 
         Ok(SwapResult {
             amount_paid_in: swap_result.delta_in,

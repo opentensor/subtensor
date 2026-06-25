@@ -870,3 +870,77 @@ fn test_migrate_swapv3_to_balancer_falls_back_to_default_when_price_init_fails()
         assert!(HasMigrationRun::<Test>::get(&migration_name));
     });
 }
+
+// Backwards-compat: the legacy `AlphaSqrtPrice` mirror is seeded on init, tracks the post-swap
+// price, is unaffected by simulated swaps, and is cleared on dissolve.
+// cargo test --package pallet-subtensor-swap --lib -- pallet::tests::test_alpha_sqrt_price_backcompat_mirror --exact --nocapture
+#[test]
+fn test_alpha_sqrt_price_backcompat_mirror() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1);
+
+        // No mirror entry before the subnet is initialized.
+        assert!(!AlphaSqrtPrice::<Test>::contains_key(netuid));
+
+        // Initialize at price 0.25 (tao/alpha = 1e9 / 4e9).
+        let initial_tao = TaoBalance::from(1_000_000_000u64);
+        let initial_alpha = AlphaBalance::from(4_000_000_000u64);
+        TaoReserve::set_mock_reserve(netuid, initial_tao);
+        AlphaReserve::set_mock_reserve(netuid, initial_alpha);
+        assert_ok!(Pallet::<Test>::maybe_initialize_palswap(netuid, None));
+
+        // Init seeds the mirror with sqrt(0.25) = 0.5, and mirror^2 == the derived price.
+        let seeded = AlphaSqrtPrice::<Test>::get(netuid).to_num::<f64>();
+        assert_abs_diff_eq!(seeded, 0.5, epsilon = 0.0001);
+        assert_abs_diff_eq!(
+            seeded * seeded,
+            Pallet::<Test>::current_price(netuid).to_num::<f64>(),
+            epsilon = 0.0001
+        );
+
+        // Buy alpha with tao -> price rises. The mirror tracks the post-swap price even though
+        // the reserve deltas are applied by the caller afterwards.
+        let order = GetAlphaForTao::with_amount(100_000_000);
+        let swap_result =
+            Pallet::<Test>::do_swap(netuid, order, U64F64::from_num(1000.0), false, false).unwrap();
+
+        // Apply the reserve deltas the way the real caller (stake_utils) does.
+        TaoReserve::set_mock_reserve(
+            netuid,
+            TaoBalance::from(
+                (u64::from(initial_tao) as i128 + swap_result.paid_in_reserve_delta()) as u64,
+            ),
+        );
+        AlphaReserve::set_mock_reserve(
+            netuid,
+            AlphaBalance::from(
+                (u64::from(initial_alpha) as i128 + swap_result.paid_out_reserve_delta()) as u64,
+            ),
+        );
+
+        // Mirror rose and, once reserves are committed, mirror^2 == the new derived price.
+        let after = AlphaSqrtPrice::<Test>::get(netuid).to_num::<f64>();
+        assert!(after > seeded);
+        assert_abs_diff_eq!(
+            after * after,
+            Pallet::<Test>::current_price(netuid).to_num::<f64>(),
+            epsilon = 0.001
+        );
+
+        // A simulated swap must not move the mirror (the write is rolled back).
+        let before_sim = AlphaSqrtPrice::<Test>::get(netuid);
+        let _ = Pallet::<Test>::do_swap(
+            netuid,
+            GetAlphaForTao::with_amount(100_000_000),
+            U64F64::from_num(1000.0),
+            false,
+            true, // simulate
+        )
+        .unwrap();
+        assert_eq!(AlphaSqrtPrice::<Test>::get(netuid), before_sim);
+
+        // Dissolve clears the mirror.
+        assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
+        assert!(!AlphaSqrtPrice::<Test>::contains_key(netuid));
+    });
+}

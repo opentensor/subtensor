@@ -130,6 +130,7 @@ where
             delta_in: self.delta_in,
             delta_out,
             fee_to_block_author,
+            final_price: self.final_price,
         })
     }
 }
@@ -256,4 +257,7 @@ where
     pub(crate) delta_in: PaidIn,
     pub(crate) delta_out: PaidOut,
     pub(crate) fee_to_block_author: PaidIn,
+    /// Price after this swap step. Used to keep the backwards-compatibility
+    /// `AlphaSqrtPrice` mirror in sync without re-reading not-yet-committed reserves.
+    pub(crate) final_price: U64F64,
 }
