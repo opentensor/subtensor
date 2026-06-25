@@ -34,6 +34,7 @@ use safe_math::FixedExt;
 use sp_runtime::traits::AccountIdConversion;
 use substrate_fixed::types::I64F64;
 use subtensor_runtime_common::Token;
+use subtensor_swap_interface::SwapHandler;
 
 pub mod long;
 pub mod types;
@@ -781,21 +782,14 @@ impl<T: Config> Pallet<T> {
         ShortPositionCount::<T>::remove(netuid);
     }
 
-    /// Slippage-aware TAO cost to buy `q` alpha on the live pool (CPMM core).
+    /// Fee+weight-aware TAO cost to buy `q` alpha on the live pool, quoted
+    /// through the swap engine (exact-output). Saturates to a sentinel when the
+    /// pool cannot supply `q` so cover = C, equity = 0.
     fn short_spot_close_cost(netuid: NetUid, q: AlphaBalance) -> I64F64 {
-        let t = Self::tao_f(SubnetTAO::<T>::get(netuid));
-        let a = Self::alpha_f(SubnetAlphaIn::<T>::get(netuid));
-        let qf = Self::alpha_f(q);
-        if a <= qf {
-            // Liability un-buyable from the pool: saturate so cover = C, equity = 0.
-            return I64F64::from_num(1e18);
+        match T::SwapInterface::sim_tao_in_for_alpha_out(netuid.into(), q) {
+            Ok(tao) => Self::tao_f(tao),
+            Err(_) => I64F64::from_num(1e18),
         }
-        // Compute the ratio `q/(a−q)` (which is O(1)) BEFORE multiplying by `t`.
-        // The naive `t·q` overflows: `t` and `q` are both rao-scale (~1e13–1e15),
-        // so the product (~1e27) saturates I64F64 (int range ~9.2e18) and collapses
-        // the cost to a garbage near-zero value — making the close return only the
-        // escrow to the pool (permanent ~N drain) and defeating the underwater guard.
-        t.saturating_mul(qf.safe_div(a.saturating_sub(qf)))
     }
 
     // ---- slippage / limit-price protection (caller-supplied) -----------

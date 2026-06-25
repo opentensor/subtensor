@@ -311,18 +311,15 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Alpha that must be sold into the live pool to raise `d` TAO (CPMM spot).
-    /// Mirrors `short_spot_close_cost`. Saturates when the pool can't yield `d`.
+    /// Fee+weight-aware Alpha that must be sold into the live pool to raise `d`
+    /// TAO, quoted through the swap engine (exact-output). Mirrors
+    /// `short_spot_close_cost`. Saturates to a sentinel when the pool can't
+    /// yield `d`.
     fn long_spot_close_cost(netuid: NetUid, d: TaoBalance) -> I64F64 {
-        let t = Self::tao_f(SubnetTAO::<T>::get(netuid));
-        let a = Self::alpha_f(SubnetAlphaIn::<T>::get(netuid));
-        let df = Self::tao_f(d);
-        if t <= df {
-            return I64F64::from_num(1e18);
+        match T::SwapInterface::sim_alpha_in_for_tao_out(netuid.into(), d) {
+            Ok(alpha) => Self::alpha_f(alpha),
+            Err(_) => I64F64::from_num(1e18),
         }
-        // Ratio first to avoid I64F64 overflow on the rao-scale `a·d` product
-        // (see short_spot_close_cost for the full explanation).
-        a.saturating_mul(df.safe_div(t.saturating_sub(df)))
     }
 
     /// Self-covering close (cash-settled): the protocol sells just enough of the
@@ -489,8 +486,9 @@ impl<T: Config> Pallet<T> {
     // ---- terminal deregistration settlement (spec §11.5) ---------------
 
     /// Settle all longs on a subnet at deregistration: escrow Alpha rejoins the
-    /// pool; collateral is valued at the price EMA; the alpha covering the TAO
-    /// debt stays burned (recycled); the equity remainder returns as stake.
+    /// pool; the `D` TAO debt is covered at the conservative
+    /// `max(spot, EMA)` alpha cost (mirror of the short's `K_D`); the cover
+    /// alpha stays burned (recycled); the equity remainder returns as stake.
     pub fn settle_longs_on_dereg(netuid: NetUid) {
         let agg = LongAggregate::<T>::get(netuid);
         let price = I64F64::saturating_from_num(Self::get_moving_alpha_price(netuid));
@@ -502,13 +500,20 @@ impl<T: Config> Pallet<T> {
             Self::increase_provided_alpha_reserve(netuid, pos.e_stored);
 
             let c_l = Self::alpha_f(pos.p_floor.saturating_add(pos.r_stored));
-            let d = Self::tao_f(pos.d_liability);
-            // Alpha needed to cover the TAO debt at the terminal price.
-            let cover = if price > I64F64::from_num(0) {
-                c_l.min(d.safe_div(price))
+            // Cover the `D` TAO debt at the price that is conservative for the
+            // pool: the MORE alpha-expensive of the live spot cost and the EMA
+            // valuation. Mirrors the short's `K_D = max(K_spot, Q·pEMA)`. Using
+            // the EMA alone (`D/pEMA`) would let a stale-high EMA after a fast
+            // price drop under-seize, leaking equity to the long.
+            let k_spot = Self::long_spot_close_cost(netuid, pos.d_liability);
+            // Flat EMA cover `D/pEMA`; zero when the EMA is cold so the `max`
+            // falls back to spot (mirrors the short's `Q·pEMA == 0` case).
+            let k_ema = if price > I64F64::from_num(0) {
+                Self::tao_f(pos.d_liability).safe_div(price)
             } else {
-                c_l
+                I64F64::from_num(0)
             };
+            let cover = c_l.min(k_spot.max(k_ema));
             let equity = Self::to_alpha(c_l.saturating_sub(cover));
             if !equity.is_zero() {
                 Self::increase_stake_for_hotkey_and_coldkey_on_subnet(&pos.hotkey, &coldkey, netuid, equity);

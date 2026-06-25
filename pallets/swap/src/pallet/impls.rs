@@ -247,6 +247,23 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    /// Gross up a net (post-fee) swap input by the subnet fee, so the result is
+    /// the total a trader pays in. Inverse of `swap_step`'s
+    /// `net = amount·(1 − rate)` where `rate = FeeRate / u16::MAX`. Saturates if
+    /// the fee rate is degenerate (≥ u16::MAX).
+    pub(crate) fn gross_up_fee(netuid: NetUid, net_in: u64) -> u64 {
+        let fee_rate = u128::from(FeeRate::<T>::get(netuid));
+        let u16_max = u128::from(u16::MAX);
+        let denom = u16_max.saturating_sub(fee_rate);
+        if denom == 0 {
+            return u64::MAX;
+        }
+        u128::from(net_in)
+            .saturating_mul(u16_max)
+            .safe_div(denom)
+            .min(u128::from(u64::MAX)) as u64
+    }
+
     /// Returns the protocol account ID
     ///
     /// # Returns
@@ -366,6 +383,60 @@ impl<T: Config> SwapHandler for Pallet<T> {
                     fee_paid: 0.into(),
                     fee_to_block_author: 0.into(),
                 })
+            }
+        }
+    }
+
+    fn sim_tao_in_for_alpha_out(
+        netuid: NetUid,
+        alpha_out: AlphaBalance,
+    ) -> Result<TaoBalance, DispatchError> {
+        match T::SubnetInfo::mechanism(netuid) {
+            1 => {
+                let alpha_reserve = T::AlphaReserve::reserve(netuid);
+                let tao_reserve = T::TaoReserve::reserve(netuid);
+                ensure!(alpha_reserve > alpha_out, Error::<T>::InsufficientLiquidity);
+                let balancer = SwapBalancer::<T>::get(netuid);
+                let net_in = balancer.get_quote_needed_for_base(
+                    tao_reserve.into(),
+                    alpha_reserve.into(),
+                    alpha_out.into(),
+                );
+                Ok(Self::gross_up_fee(netuid, net_in).into())
+            }
+            _ => {
+                ensure!(
+                    T::SubnetInfo::exists(netuid),
+                    Error::<T>::InsufficientLiquidity
+                );
+                Ok(alpha_out.to_u64().into())
+            }
+        }
+    }
+
+    fn sim_alpha_in_for_tao_out(
+        netuid: NetUid,
+        tao_out: TaoBalance,
+    ) -> Result<AlphaBalance, DispatchError> {
+        match T::SubnetInfo::mechanism(netuid) {
+            1 => {
+                let alpha_reserve = T::AlphaReserve::reserve(netuid);
+                let tao_reserve = T::TaoReserve::reserve(netuid);
+                ensure!(tao_reserve > tao_out, Error::<T>::InsufficientLiquidity);
+                let balancer = SwapBalancer::<T>::get(netuid);
+                let net_in = balancer.get_base_needed_for_quote(
+                    tao_reserve.into(),
+                    alpha_reserve.into(),
+                    tao_out.into(),
+                );
+                Ok(Self::gross_up_fee(netuid, net_in).into())
+            }
+            _ => {
+                ensure!(
+                    T::SubnetInfo::exists(netuid),
+                    Error::<T>::InsufficientLiquidity
+                );
+                Ok(tao_out.to_u64().into())
             }
         }
     }

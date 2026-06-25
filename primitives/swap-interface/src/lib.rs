@@ -38,6 +38,22 @@ pub trait SwapHandler {
     where
         Self: SwapEngine<O>;
 
+    /// Exact-output quote: TAO that must be paid in (including fee) to buy
+    /// `alpha_out` Alpha out of the pool, fee+weight aware. Read-only.
+    /// `Err` when the pool cannot supply `alpha_out`.
+    fn sim_tao_in_for_alpha_out(
+        netuid: NetUid,
+        alpha_out: AlphaBalance,
+    ) -> Result<TaoBalance, DispatchError>;
+
+    /// Exact-output quote: Alpha that must be paid in (including fee) to raise
+    /// `tao_out` TAO out of the pool, fee+weight aware. Read-only.
+    /// `Err` when the pool cannot supply `tao_out`.
+    fn sim_alpha_in_for_tao_out(
+        netuid: NetUid,
+        tao_out: TaoBalance,
+    ) -> Result<AlphaBalance, DispatchError>;
+
     fn approx_fee_amount<T: Token>(netuid: NetUid, amount: T) -> T;
     fn current_alpha_price(netuid: NetUid) -> U64F64;
     fn max_price<C: Token>() -> C;

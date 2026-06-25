@@ -394,6 +394,26 @@ impl Balancer {
             .saturating_mul(e.saturating_sub(one))
             .saturating_to_num::<u64>()
     }
+
+    /// Calculates amount of TAO that needs to be paid in to buy a given amount
+    /// of Alpha out. Mirror of `get_base_needed_for_quote` with the currencies
+    /// swapped (∆x = delta_alpha is the base taken out, ∆y the quote paid in):
+    ///
+    ///   ∆y = y * ((x / (x - ∆x))^(w1/w2) - 1)
+    pub fn get_quote_needed_for_base(
+        &self,
+        tao_reserve: u64,
+        alpha_reserve: u64,
+        delta_alpha: u64,
+    ) -> u64 {
+        let e = self.exp_scaled(alpha_reserve, (delta_alpha as i128).neg(), true);
+        let one = U64F64::from_num(1);
+        let tao_reserve_fixed = U64F64::from_num(tao_reserve);
+        // e > 1 in this case
+        tao_reserve_fixed
+            .saturating_mul(e.saturating_sub(one))
+            .saturating_to_num::<u64>()
+    }
 }
 
 // cargo test --package pallet-subtensor-swap --lib -- pallet::balancer::tests --nocapture
