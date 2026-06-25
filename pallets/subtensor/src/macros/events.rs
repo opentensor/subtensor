@@ -779,5 +779,12 @@ mod events {
             /// Terminal equity (Alpha) returned to the trader.
             equity: AlphaBalance,
         },
+        /// A coldkey's reject locked alpha account flag was updated.
+        RejectLockedAlphaUpdated {
+            /// The coldkey whose flag changed.
+            coldkey: T::AccountId,
+            /// Whether this coldkey rejects incoming locked alpha.
+            enabled: bool,
+        },
     }
 }

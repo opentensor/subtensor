@@ -65,6 +65,7 @@ sp_api::decl_runtime_apis! {
         fn get_subnet_to_prune() -> Option<NetUid>;
         fn get_subnet_account_id(netuid: NetUid) -> Option<AccountId32>;
         fn get_next_epoch_start_block(netuid: NetUid) -> Option<u64>;
+        fn get_block_emission() -> TaoBalance;
     }
 
     pub trait StakeInfoRuntimeApi {

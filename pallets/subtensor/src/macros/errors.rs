@@ -360,5 +360,7 @@ mod errors {
         /// an out-of-band epoch would desync the CRv3 reveal window from the wall-clock
         /// Drand schedule and silently drop committed weights.
         DynamicTempoBlockedByCommitReveal,
+        /// The destination coldkey rejects incoming locked alpha.
+        AccountRejectsLockedAlpha,
     }
 }

@@ -2626,8 +2626,34 @@ mod dispatches {
             Self::do_trigger_epoch(origin, netuid)
         }
 
-        /// Open (or merge into) a covered short with floor input `position_input`.
+        /// Sets or clears whether the caller rejects incoming locked alpha.
+        ///
+        /// Coldkeys reject locked alpha by default. Passing `false` opts the
+        /// caller into receiving locked alpha from stake transfers or coldkey
+        /// swaps.
         #[pallet::call_index(142)]
+        #[pallet::weight((
+            <T as frame_system::Config>::DbWeight::get().reads_writes(1, 1),
+            DispatchClass::Normal,
+            Pays::Yes
+        ))]
+        pub fn set_reject_locked_alpha(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
+            let coldkey = ensure_signed(origin)?;
+            AccountFlags::<T>::mutate_exists(&coldkey, |maybe_flags| {
+                let mut flags = maybe_flags.unwrap_or_default();
+                if enabled {
+                    flags &= !crate::ACCOUNT_FLAGS_ACCEPT_LOCKED_ALPHA;
+                } else {
+                    flags |= crate::ACCOUNT_FLAGS_ACCEPT_LOCKED_ALPHA;
+                }
+                *maybe_flags = if flags == 0 { None } else { Some(flags) };
+            });
+            Self::deposit_event(Event::RejectLockedAlphaUpdated { coldkey, enabled });
+            Ok(())
+        }
+
+        /// Open (or merge into) a covered short with floor input `position_input`.
+        #[pallet::call_index(143)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(12, 8))]
         pub fn open_short(
             origin: OriginFor<T>,
@@ -2640,7 +2666,7 @@ mod dispatches {
         }
 
         /// Top up a covered short's carry buffer with fresh capital.
-        #[pallet::call_index(143)]
+        #[pallet::call_index(144)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(5, 4))]
         pub fn top_up_short(
             origin: OriginFor<T>,
@@ -2652,7 +2678,7 @@ mod dispatches {
         }
 
         /// Close `fraction_ppb / 1e9` of a covered short (`1e9` = full close).
-        #[pallet::call_index(144)]
+        #[pallet::call_index(145)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(10, 8))]
         pub fn close_short(
             origin: OriginFor<T>,
@@ -2664,7 +2690,7 @@ mod dispatches {
         }
 
         /// Permissionlessly default a covered short whose buffer reached dust.
-        #[pallet::call_index(145)]
+        #[pallet::call_index(146)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(7, 6))]
         pub fn default_short(
             origin: OriginFor<T>,
@@ -2675,7 +2701,7 @@ mod dispatches {
         }
 
         /// Open (or merge into) a covered long with floor Alpha `position_input`.
-        #[pallet::call_index(146)]
+        #[pallet::call_index(147)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(12, 8))]
         pub fn open_long(
             origin: OriginFor<T>,
@@ -2688,7 +2714,7 @@ mod dispatches {
         }
 
         /// Top up a covered long's carry buffer with fresh Alpha.
-        #[pallet::call_index(147)]
+        #[pallet::call_index(148)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(5, 4))]
         pub fn top_up_long(
             origin: OriginFor<T>,
@@ -2700,7 +2726,7 @@ mod dispatches {
         }
 
         /// Close `fraction_ppb / 1e9` of a covered long (`1e9` = full close).
-        #[pallet::call_index(148)]
+        #[pallet::call_index(149)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(10, 8))]
         pub fn close_long(
             origin: OriginFor<T>,
@@ -2712,7 +2738,7 @@ mod dispatches {
         }
 
         /// Permissionlessly default a covered long whose buffer reached dust.
-        #[pallet::call_index(149)]
+        #[pallet::call_index(150)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(7, 6))]
         pub fn default_long(
             origin: OriginFor<T>,
@@ -2726,7 +2752,7 @@ mod dispatches {
         /// protocol rebuys the Alpha liability from the pool and charges the cost
         /// against the position's floor+buffer, so no pre-held Alpha is required
         /// (TAO-in / TAO-out). Rejected if underwater (`K > P+R`).
-        #[pallet::call_index(150)]
+        #[pallet::call_index(151)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(10, 8))]
         pub fn close_short_self(
             origin: OriginFor<T>,
@@ -2741,7 +2767,7 @@ mod dispatches {
         /// protocol sells just enough of the Alpha claim into the pool to raise
         /// and settle the TAO liability, so no pre-held TAO is required
         /// (Alpha-in / Alpha-out). Rejected if underwater.
-        #[pallet::call_index(151)]
+        #[pallet::call_index(152)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(10, 8))]
         pub fn close_long_self(
             origin: OriginFor<T>,
