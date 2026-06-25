@@ -1322,6 +1322,130 @@ fn test_migrate_remove_add_stake_burn_rate_limit() {
 }
 
 #[test]
+fn test_migrate_populate_locking_coldkeys() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &[u8] = b"migrate_populate_locking_coldkeys";
+
+        let netuid = NetUid::from(1);
+        let coldkey_1 = U256::from(1001);
+        let coldkey_2 = U256::from(1002);
+        let hotkey = U256::from(2001);
+        let expired_hotkey = U256::from(2002);
+
+        Lock::<Test>::insert(
+            (coldkey_1, netuid, hotkey),
+            LockState {
+                locked_mass: AlphaBalance::from(1_000_u64),
+                conviction: U64F64::from_num(0),
+                last_update: 1,
+            },
+        );
+        Lock::<Test>::insert(
+            (coldkey_2, netuid, hotkey),
+            LockState {
+                locked_mass: AlphaBalance::from(2_000_u64),
+                conviction: U64F64::from_num(0),
+                last_update: 1,
+            },
+        );
+        Lock::<Test>::insert(
+            (coldkey_1, netuid, expired_hotkey),
+            LockState {
+                locked_mass: AlphaBalance::ZERO,
+                conviction: U64F64::from_num(1),
+                last_update: 1,
+            },
+        );
+
+        assert_eq!(
+            LockingColdkeys::<Test>::iter_prefix((netuid, hotkey)).count(),
+            0
+        );
+        assert_eq!(
+            LockingColdkeys::<Test>::iter_prefix((netuid, expired_hotkey)).count(),
+            0
+        );
+        assert!(!HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
+
+        let weight =
+            crate::migrations::migrate_populate_locking_coldkeys::migrate_populate_locking_coldkeys::<Test>();
+
+        assert!(!weight.is_zero(), "migration weight should be non-zero");
+        assert!(LockingColdkeys::<Test>::contains_key((
+            netuid, hotkey, coldkey_1
+        )));
+        assert!(LockingColdkeys::<Test>::contains_key((
+            netuid, hotkey, coldkey_2
+        )));
+        assert_eq!(
+            LockingColdkeys::<Test>::iter_prefix((netuid, hotkey)).count(),
+            2
+        );
+        assert_eq!(
+            LockingColdkeys::<Test>::iter_prefix((netuid, expired_hotkey)).count(),
+            0
+        );
+        assert!(Lock::<Test>::get((coldkey_1, netuid, expired_hotkey)).is_none());
+        assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
+
+        let _ = LockingColdkeys::<Test>::clear_prefix((netuid, hotkey), u32::MAX, None);
+        let second_weight =
+            crate::migrations::migrate_populate_locking_coldkeys::migrate_populate_locking_coldkeys::<Test>();
+
+        assert_eq!(
+            second_weight,
+            <Test as frame_system::Config>::DbWeight::get().reads(1),
+            "second run should only read the migration flag"
+        );
+        assert_eq!(
+            LockingColdkeys::<Test>::iter_prefix((netuid, hotkey)).count(),
+            0
+        );
+    });
+}
+
+#[test]
+fn test_migrate_populate_locking_coldkeys_removes_dust_from_aggregate() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        let coldkey_1 = U256::from(1101);
+        let coldkey_2 = U256::from(1102);
+        let hotkey = U256::from(2101);
+        let dust_lock = LockState {
+            locked_mass: AlphaBalance::from(60_u64),
+            conviction: U64F64::from_num(0),
+            last_update: 1,
+        };
+
+        DecayingLock::<Test>::insert(coldkey_1, netuid, false);
+        DecayingLock::<Test>::insert(coldkey_2, netuid, false);
+        Lock::<Test>::insert((coldkey_1, netuid, hotkey), dust_lock.clone());
+        Lock::<Test>::insert((coldkey_2, netuid, hotkey), dust_lock);
+        HotkeyLock::<Test>::insert(
+            netuid,
+            hotkey,
+            LockState {
+                locked_mass: AlphaBalance::from(120_u64),
+                conviction: U64F64::from_num(0),
+                last_update: 1,
+            },
+        );
+
+        crate::migrations::migrate_populate_locking_coldkeys::migrate_populate_locking_coldkeys::<
+            Test,
+        >();
+
+        assert!(Lock::<Test>::get((coldkey_1, netuid, hotkey)).is_none());
+        assert!(Lock::<Test>::get((coldkey_2, netuid, hotkey)).is_none());
+        assert!(HotkeyLock::<Test>::get(netuid, hotkey).is_none());
+        assert_eq!(
+            LockingColdkeys::<Test>::iter_prefix((netuid, hotkey)).count(),
+            0
+        );
+    });
+}
+
+#[test]
 fn test_migrate_fix_staking_hot_keys() {
     new_test_ext(1).execute_with(|| {
         const MIGRATION_NAME: &[u8] = b"migrate_fix_staking_hot_keys";
@@ -2800,9 +2924,11 @@ fn test_migrate_reset_unactive_sn() {
                 PendingRootAlphaDivs::<Test>::get(netuid),
                 AlphaBalance::ZERO
             );
-            assert!(pallet_subtensor_swap::AlphaSqrtPrice::<Test>::contains_key(
-                netuid
-            ));
+            assert_eq!(
+                // not modified
+                RAORecycledForRegistration::<Test>::get(netuid),
+                *rao_recycled_before.get(&netuid).unwrap()
+            );
             assert_eq!(PendingOwnerCut::<Test>::get(netuid), AlphaBalance::ZERO);
             assert_ne!(SubnetTAO::<Test>::get(netuid), initial_tao);
             assert_ne!(SubnetAlphaIn::<Test>::get(netuid), initial_alpha);
@@ -2884,9 +3010,6 @@ fn test_migrate_reset_unactive_sn() {
                 SubnetAlphaOutEmission::<Test>::get(netuid),
                 AlphaBalance::ZERO
             );
-            assert!(pallet_subtensor_swap::AlphaSqrtPrice::<Test>::contains_key(
-                netuid
-            ));
             assert_ne!(PendingOwnerCut::<Test>::get(netuid), AlphaBalance::ZERO);
             assert_ne!(SubnetTAO::<Test>::get(netuid), initial_tao);
             assert_ne!(SubnetAlphaIn::<Test>::get(netuid), initial_alpha);
@@ -3050,6 +3173,54 @@ fn test_migrate_remove_unknown_neuron_axon_cert_prom() {
             assert!(!Prometheus::<Test>::contains_key(netuid, hk));
         }
     }
+}
+
+// cargo test --package pallet-subtensor --lib -- tests::migration::test_migrate_cleanup_swap_v3 --exact --nocapture
+#[test]
+fn test_migrate_cleanup_swap_v3() {
+    use crate::migrations::migrate_cleanup_swap_v3::deprecated_swap_maps;
+    use substrate_fixed::types::U64F64;
+
+    new_test_ext(1).execute_with(|| {
+        let migration = crate::migrations::migrate_cleanup_swap_v3::migrate_cleanup_swap_v3::<Test>;
+
+        const MIGRATION_NAME: &str = "migrate_cleanup_swap_v3";
+
+        let provided: u64 = 9876;
+        let reserves: u64 = 1_000_000;
+
+        SubnetTAO::<Test>::insert(NetUid::from(1), TaoBalance::from(reserves));
+        SubnetAlphaIn::<Test>::insert(NetUid::from(1), AlphaBalance::from(reserves));
+
+        // Insert deprecated maps values
+        deprecated_swap_maps::SubnetTaoProvided::<Test>::insert(
+            NetUid::from(1),
+            TaoBalance::from(provided),
+        );
+        deprecated_swap_maps::SubnetAlphaInProvided::<Test>::insert(
+            NetUid::from(1),
+            AlphaBalance::from(provided),
+        );
+
+        // Run migration
+        let weight = migration();
+
+        // Test that values are removed from state
+        assert!(!deprecated_swap_maps::SubnetTaoProvided::<Test>::contains_key(NetUid::from(1)),);
+        assert!(
+            !deprecated_swap_maps::SubnetAlphaInProvided::<Test>::contains_key(NetUid::from(1)),
+        );
+
+        // Provided got added to reserves
+        assert_eq!(
+            u64::from(SubnetTAO::<Test>::get(NetUid::from(1))),
+            reserves + provided
+        );
+        assert_eq!(
+            u64::from(SubnetAlphaIn::<Test>::get(NetUid::from(1))),
+            reserves + provided
+        );
+    });
 }
 
 #[test]
@@ -4644,6 +4815,122 @@ fn test_migrate_reset_tnet_conviction_locks() {
             Lock::<Test>::iter().count(),
             1,
             "migration must not run more than once"
+        );
+    });
+}
+
+#[test]
+fn test_migrate_dynamic_tempo_aligns_first_post_upgrade_fire() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "dynamic_tempo_v1";
+        let netuid = NetUid::from(7u16);
+        let tempo: u16 = 360;
+
+        add_network(netuid, tempo, 0);
+        let current_block = 1234u64;
+        run_to_block(current_block);
+
+        // Compute next-fire block
+        let netuid_plus_one = (u16::from(netuid) as u64) + 1;
+        let tempo_plus_one = (tempo as u64) + 1;
+        let adjusted = current_block + netuid_plus_one;
+        let remainder = adjusted % tempo_plus_one;
+        let legacy_blocks_until_next = (tempo as u64) - remainder;
+        let expected_next_fire = current_block + legacy_blocks_until_next;
+
+        crate::migrations::migrate_dynamic_tempo::migrate_dynamic_tempo::<Test>();
+
+        // New formula: next fire = LastEpochBlock + tempo.
+        let last_epoch = LastEpochBlock::<Test>::get(netuid);
+        assert_eq!(
+            last_epoch + tempo as u64,
+            expected_next_fire,
+            "back-fill should make new scheduler fire at the same block as legacy modulo"
+        );
+        assert!(HasMigrationRun::<Test>::get(
+            MIGRATION_NAME.as_bytes().to_vec()
+        ));
+    });
+}
+
+#[test]
+fn test_migrate_dynamic_tempo_preserves_non_standard_tempo() {
+    new_test_ext(1).execute_with(|| {
+        // Three subnets — one standard, two with non-standard tempo
+        // (simulates the 2 mainnet subnets root configured outside MIN/MAX bounds).
+        let standard = NetUid::from(1u16);
+        let small = NetUid::from(2u16);
+        let large = NetUid::from(3u16);
+
+        add_network(standard, 360, 0);
+        add_network(small, 10, 0); // < MIN_TEMPO (360)
+        add_network(large, 60_000, 0); // > MAX_TEMPO (50_400)
+
+        crate::migrations::migrate_dynamic_tempo::migrate_dynamic_tempo::<Test>();
+
+        // Tempo values preserved as-is — no clamp.
+        assert_eq!(Tempo::<Test>::get(standard), 360);
+        assert_eq!(Tempo::<Test>::get(small), 10);
+        assert_eq!(Tempo::<Test>::get(large), 60_000);
+
+        // All non-zero tempos got LastEpochBlock seeded.
+        assert!(LastEpochBlock::<Test>::contains_key(standard));
+        assert!(LastEpochBlock::<Test>::contains_key(small));
+        assert!(LastEpochBlock::<Test>::contains_key(large));
+    });
+}
+
+#[test]
+fn test_migrate_dynamic_tempo_activity_cutoff_round_trips_production_values() {
+    new_test_ext(1).execute_with(|| {
+        // (cutoff_blocks, tempo) combinations from production data.
+        let cases: [(u16, u16); 6] = [
+            (5000, 360),
+            (6000, 360),
+            (7200, 360),
+            (12000, 360),
+            (1000, 360),
+            (360, 360),
+        ];
+
+        for (i, &(cutoff, tempo)) in cases.iter().enumerate() {
+            let netuid = NetUid::from((i + 1) as u16);
+            add_network(netuid, tempo, 0);
+            ActivityCutoff::<Test>::insert(netuid, cutoff);
+        }
+
+        crate::migrations::migrate_dynamic_tempo::migrate_dynamic_tempo::<Test>();
+
+        for (i, &(cutoff, _)) in cases.iter().enumerate() {
+            let netuid = NetUid::from((i + 1) as u16);
+            // get_activity_cutoff_blocks = factor * tempo / 1000 must equal original cutoff exactly.
+            assert_eq!(
+                crate::Pallet::<Test>::get_activity_cutoff_blocks(netuid),
+                cutoff as u64,
+                "ceiling division must round-trip cutoff exactly for netuid {}",
+                u16::from(netuid)
+            );
+        }
+    });
+}
+
+#[test]
+fn test_migrate_dynamic_tempo_idempotent() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1u16);
+        add_network(netuid, 360, 0);
+
+        crate::migrations::migrate_dynamic_tempo::migrate_dynamic_tempo::<Test>();
+        let last_epoch_first = LastEpochBlock::<Test>::get(netuid);
+
+        // Mutate state to verify second run is a no-op.
+        run_to_block(crate::Pallet::<Test>::get_current_block_as_u64() + 100);
+        crate::migrations::migrate_dynamic_tempo::migrate_dynamic_tempo::<Test>();
+
+        assert_eq!(
+            LastEpochBlock::<Test>::get(netuid),
+            last_epoch_first,
+            "second migration call must be a no-op"
         );
     });
 }

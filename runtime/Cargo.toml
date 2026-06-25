@@ -61,6 +61,7 @@ sp-authority-discovery.workspace = true
 subtensor-runtime-common.workspace = true
 subtensor-precompiles.workspace = true
 sp-weights.workspace = true
+sp-io.workspace = true
 
 # Temporary sudo
 pallet-sudo.workspace = true
@@ -87,9 +88,6 @@ pallet-transaction-payment-rpc-runtime-api.workspace = true
 # Used for runtime benchmarking
 frame-benchmarking = { workspace = true, optional = true }
 frame-system-benchmarking = { workspace = true, optional = true }
-
-# Identity registry pallet for registering project info
-pallet-registry.workspace = true
 
 # Metadata commitment pallet
 pallet-commitments.workspace = true
@@ -151,6 +149,9 @@ ark-serialize = { workspace = true, features = ["derive"] }
 # Crowdloan
 pallet-crowdloan.workspace = true
 
+# Limit Orders
+pallet-limit-orders.workspace = true
+
 # Mev Shield
 pallet-shield.workspace = true
 stp-shield.workspace = true
@@ -159,8 +160,8 @@ ethereum.workspace = true
 
 [dev-dependencies]
 frame-metadata.workspace = true
-sp-io.workspace = true
 sp-tracing.workspace = true
+sp-keyring.workspace = true
 precompile-utils = { workspace = true, features = ["testing"] }
 
 [build-dependencies]
@@ -214,12 +215,12 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"substrate-wasm-builder",
-	"pallet-registry/std",
 	"pallet-admin-utils/std",
 	"subtensor-custom-rpc-runtime-api/std",
 	"subtensor-transaction-fee/std",
 	"serde_json/std",
 	"sp-io/std",
+	"sp-keyring/std",
 	"sp-tracing/std",
 	"log/std",
 	"safe-math/std",
@@ -227,6 +228,7 @@ std = [
 	"sp-genesis-builder/std",
 	"subtensor-precompiles/std",
 	"subtensor-runtime-common/std",
+	"pallet-limit-orders/std",
 	"pallet-crowdloan/std",
 	"pallet-babe/std",
 	"pallet-session/std",
@@ -296,7 +298,6 @@ runtime-benchmarks = [
 	"pallet-safe-mode/runtime-benchmarks",
 	"pallet-subtensor/runtime-benchmarks",
 	"pallet-subtensor-proxy/runtime-benchmarks",
-	"pallet-registry/runtime-benchmarks",
 	"pallet-commitments/runtime-benchmarks",
 	"pallet-admin-utils/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
@@ -330,7 +331,9 @@ runtime-benchmarks = [
 	"pallet-shield/runtime-benchmarks",
 	
 	"subtensor-runtime-common/runtime-benchmarks",
-	"subtensor-chain-extensions/runtime-benchmarks"
+	"subtensor-chain-extensions/runtime-benchmarks",
+	"pallet-limit-orders/runtime-benchmarks",
+	"subtensor-swap-interface/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-try-runtime/try-runtime",
@@ -354,7 +357,6 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 	"pallet-admin-utils/try-runtime",
 	"pallet-commitments/try-runtime",
-	"pallet-registry/try-runtime",
 	"pallet-crowdloan/try-runtime",
 	"pallet-babe/try-runtime",
 	"pallet-session/try-runtime",
