@@ -1273,10 +1273,10 @@ describeSuite({
                     expect(response.result.success).toBeTruthy();
                     return queryMessage.decode(response.result.value).value.value as
                         | {
-                              locked_mass: bigint;
-                              conviction_bits: bigint;
-                              last_update: bigint;
-                          }
+                            locked_mass: bigint;
+                            conviction_bits: bigint;
+                            last_update: bigint;
+                        }
                         | undefined;
                 }
 
