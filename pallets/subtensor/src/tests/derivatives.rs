@@ -66,7 +66,7 @@ fn open_short_rejected_when_disabled() {
         let trader = U256::from(10);
         add_balance_to_coldkey_account(&trader, t(1000 * TAO));
         assert_noop!(
-            SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO)),
+            SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO), None),
             Error::<Test>::ShortsDisabled
         );
     });
@@ -80,7 +80,7 @@ fn open_short_rejected_on_stable_subnet() {
         let trader = U256::from(10);
         add_balance_to_coldkey_account(&trader, t(1000 * TAO));
         assert_noop!(
-            SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO)),
+            SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO), None),
             Error::<Test>::SubnetNotDynamic
         );
     });
@@ -93,7 +93,7 @@ fn open_short_rejects_zero_input() {
         let trader = U256::from(10);
         add_balance_to_coldkey_account(&trader, t(1000 * TAO));
         assert_noop!(
-            SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(0)),
+            SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(0), None),
             Error::<Test>::AmountTooLow
         );
     });
@@ -134,7 +134,7 @@ fn open_matches_quote_and_moves_pool() {
         let tao_before = SubnetTAO::<Test>::get(netuid).to_u64();
         let trader_before = bal(&trader);
 
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), hotkey, netuid, t(p)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), hotkey, netuid, t(p), None));
 
         let pos = ShortPositions::<Test>::get(netuid, trader).unwrap();
         // Position fields equal the pure quote (same code path).
@@ -173,7 +173,7 @@ fn open_rejected_when_capacity_exceeded() {
         let trader = U256::from(10);
         add_balance_to_coldkey_account(&trader, t(1000 * TAO));
         assert_noop!(
-            SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO)),
+            SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO), None),
             Error::<Test>::ShortCapacityExceeded
         );
     });
@@ -190,9 +190,9 @@ fn stacked_opens_share_capacity() {
         add_balance_to_coldkey_account(&a, t(1000 * TAO));
         add_balance_to_coldkey_account(&b, t(1000 * TAO));
 
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(a), U256::from(11), netuid, t(50 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(a), U256::from(11), netuid, t(50 * TAO), None));
         assert_noop!(
-            SubtensorModule::open_short(RuntimeOrigin::signed(b), U256::from(21), netuid, t(50 * TAO)),
+            SubtensorModule::open_short(RuntimeOrigin::signed(b), U256::from(21), netuid, t(50 * TAO), None),
             Error::<Test>::ShortCapacityExceeded
         );
     });
@@ -210,7 +210,7 @@ fn low_liquidity_rejects_oversized_open() {
         add_balance_to_coldkey_account(&trader, t(1000 * TAO));
         // P far larger than the pool can collateralize → retained proceeds ≤ 0.
         assert_noop!(
-            SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO)),
+            SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO), None),
             Error::<Test>::EffectiveLtvNonPositive
         );
     });
@@ -232,7 +232,7 @@ fn small_open_on_fresh_subnet_with_cold_ema() {
 
         let trader = U256::from(10);
         add_balance_to_coldkey_account(&trader, t(1000 * TAO));
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(50 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(50 * TAO), None));
         assert!(ShortPositions::<Test>::get(netuid, trader).is_some());
     });
 }
@@ -247,7 +247,7 @@ fn decay_shrinks_buffer_and_restores_tao() {
         let netuid = setup_market(1000 * TAO, 1000 * TAO, 1.0);
         let trader = U256::from(10);
         add_balance_to_coldkey_account(&trader, t(1000 * TAO));
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO), None));
 
         let r0 = ShortAggregate::<Test>::get(netuid).r_sigma.to_u64();
         let tao0 = SubnetTAO::<Test>::get(netuid).to_u64();
@@ -279,7 +279,7 @@ fn block_step_runs_decay() {
         let netuid = setup_market(1000 * TAO, 1000 * TAO, 1.0);
         let trader = U256::from(10);
         add_balance_to_coldkey_account(&trader, t(1000 * TAO));
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO), None));
         let r0 = ShortAggregate::<Test>::get(netuid).r_sigma.to_u64();
         step_block(5);
         assert!(ShortAggregate::<Test>::get(netuid).r_sigma.to_u64() < r0);
@@ -296,11 +296,11 @@ fn top_up_adds_buffer_only() {
         let netuid = setup_market(1000 * TAO, 1000 * TAO, 1.0);
         let trader = U256::from(10);
         add_balance_to_coldkey_account(&trader, t(1000 * TAO));
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO), None));
 
         let pos0 = ShortPositions::<Test>::get(netuid, trader).unwrap();
         let custody0 = custody_bal(netuid);
-        assert_ok!(SubtensorModule::top_up_short(RuntimeOrigin::signed(trader), netuid, t(10 * TAO)));
+        assert_ok!(SubtensorModule::top_up_short(RuntimeOrigin::signed(trader), netuid, t(10 * TAO), None));
         let pos1 = ShortPositions::<Test>::get(netuid, trader).unwrap();
 
         assert_eq!(pos1.r_stored, pos0.r_stored + t(10 * TAO));
@@ -318,7 +318,7 @@ fn top_up_requires_position() {
         let trader = U256::from(10);
         add_balance_to_coldkey_account(&trader, t(1000 * TAO));
         assert_noop!(
-            SubtensorModule::top_up_short(RuntimeOrigin::signed(trader), netuid, t(TAO)),
+            SubtensorModule::top_up_short(RuntimeOrigin::signed(trader), netuid, t(TAO), None),
             Error::<Test>::ShortPositionNotFound
         );
     });
@@ -336,9 +336,9 @@ fn additional_open_merges_into_position() {
         let hotkey = U256::from(11);
         add_balance_to_coldkey_account(&trader, t(1000 * TAO));
 
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), hotkey, netuid, t(50 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), hotkey, netuid, t(50 * TAO), None));
         let p1 = ShortPositions::<Test>::get(netuid, trader).unwrap();
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), hotkey, netuid, t(50 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), hotkey, netuid, t(50 * TAO), None));
         let p2 = ShortPositions::<Test>::get(netuid, trader).unwrap();
 
         assert_eq!(p2.p_floor, t(100 * TAO));
@@ -361,7 +361,7 @@ fn full_close_conserves_value() {
         let hotkey = U256::from(11);
         add_balance_to_coldkey_account(&trader, t(1000 * TAO));
         let p = 100 * TAO;
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), hotkey, netuid, t(p)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), hotkey, netuid, t(p), None));
 
         let pos = ShortPositions::<Test>::get(netuid, trader).unwrap();
         let (n, e, q) = (pos.r_stored.to_u64(), pos.e_stored.to_u64(), pos.q_liability);
@@ -372,7 +372,7 @@ fn full_close_conserves_value() {
         give_alpha(hotkey, trader, netuid, AlphaBalance::from(q.to_u64() + 10 * TAO));
         let trader_before_close = bal(&trader);
 
-        assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(trader), netuid, 1_000_000_000));
+        assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(trader), netuid, 1_000_000_000, None));
 
         // Position gone, aggregate empty.
         assert!(ShortPositions::<Test>::get(netuid, trader).is_none());
@@ -396,13 +396,13 @@ fn partial_close_reduces_prorata() {
         let trader = U256::from(10);
         let hotkey = U256::from(11);
         add_balance_to_coldkey_account(&trader, t(1000 * TAO));
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), hotkey, netuid, t(100 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), hotkey, netuid, t(100 * TAO), None));
 
         let pos0 = ShortPositions::<Test>::get(netuid, trader).unwrap();
         give_alpha(hotkey, trader, netuid, AlphaBalance::from(pos0.q_liability.to_u64()));
 
         // Close half.
-        assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(trader), netuid, 500_000_000));
+        assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(trader), netuid, 500_000_000, None));
         let pos1 = ShortPositions::<Test>::get(netuid, trader).unwrap();
 
         assert_approx(pos1.p_floor.to_u64(), pos0.p_floor.to_u64() / 2, 2, "p/2");
@@ -418,10 +418,10 @@ fn close_without_alpha_rejected() {
         let netuid = setup_market(1000 * TAO, 1000 * TAO, 1.0);
         let trader = U256::from(10);
         add_balance_to_coldkey_account(&trader, t(1000 * TAO));
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO), None));
         // No alpha staked at the hotkey → cannot repay the liability.
         assert_noop!(
-            SubtensorModule::close_short(RuntimeOrigin::signed(trader), netuid, 1_000_000_000),
+            SubtensorModule::close_short(RuntimeOrigin::signed(trader), netuid, 1_000_000_000, None),
             Error::<Test>::InsufficientAlphaToClose
         );
     });
@@ -433,13 +433,13 @@ fn close_invalid_fraction_rejected() {
         let netuid = setup_market(1000 * TAO, 1000 * TAO, 1.0);
         let trader = U256::from(10);
         add_balance_to_coldkey_account(&trader, t(1000 * TAO));
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO), None));
         assert_noop!(
-            SubtensorModule::close_short(RuntimeOrigin::signed(trader), netuid, 0),
+            SubtensorModule::close_short(RuntimeOrigin::signed(trader), netuid, 0, None),
             Error::<Test>::InvalidCloseFraction
         );
         assert_noop!(
-            SubtensorModule::close_short(RuntimeOrigin::signed(trader), netuid, 1_000_000_001),
+            SubtensorModule::close_short(RuntimeOrigin::signed(trader), netuid, 1_000_000_001, None),
             Error::<Test>::InvalidCloseFraction
         );
     });
@@ -455,7 +455,7 @@ fn default_rejected_when_buffer_above_dust() {
         let netuid = setup_market(1000 * TAO, 1000 * TAO, 1.0);
         let trader = U256::from(10);
         add_balance_to_coldkey_account(&trader, t(1000 * TAO));
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO), None));
         let poker = U256::from(99);
         assert_noop!(
             SubtensorModule::default_short(RuntimeOrigin::signed(poker), trader, netuid),
@@ -470,7 +470,7 @@ fn default_recycles_floor_and_restores_residual() {
         let netuid = setup_market(1000 * TAO, 1000 * TAO, 1.0);
         let trader = U256::from(10);
         add_balance_to_coldkey_account(&trader, t(1000 * TAO));
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO), None));
 
         let pos = ShortPositions::<Test>::get(netuid, trader).unwrap();
         let (p, n, e) = (pos.p_floor.to_u64(), pos.r_stored.to_u64(), pos.e_stored.to_u64());
@@ -515,7 +515,7 @@ fn dereg_settles_in_the_money_short() {
         let trader = U256::from(10);
         let hotkey = U256::from(11);
         add_balance_to_coldkey_account(&trader, t(1000 * TAO));
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), hotkey, netuid, t(100 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), hotkey, netuid, t(100 * TAO), None));
 
         let pos = ShortPositions::<Test>::get(netuid, trader).unwrap();
         let c = pos.p_floor.to_u64() + pos.r_stored.to_u64(); // P + R
@@ -539,7 +539,7 @@ fn dereg_settles_underwater_short_with_zero_equity() {
         let trader = U256::from(10);
         let hotkey = U256::from(11);
         add_balance_to_coldkey_account(&trader, t(1000 * TAO));
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), hotkey, netuid, t(100 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), hotkey, netuid, t(100 * TAO), None));
 
         // Drive the EMA liability reference far above the collateral claim.
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(50.0));
@@ -562,7 +562,7 @@ fn dissolve_network_clears_shorts() {
         let netuid = setup_market(1000 * TAO, 1000 * TAO, 1.0);
         let trader = U256::from(10);
         add_balance_to_coldkey_account(&trader, t(1000 * TAO));
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO), None));
         assert!(ShortPositions::<Test>::get(netuid, trader).is_some());
 
         assert_ok!(SubtensorModule::do_dissolve_network(netuid));
@@ -586,10 +586,10 @@ fn merge_with_mismatched_hotkey_rejected() {
         let netuid = setup_market(1000 * TAO, 1000 * TAO, 1.0);
         let trader = U256::from(10);
         add_balance_to_coldkey_account(&trader, t(1000 * TAO));
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(50 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(50 * TAO), None));
         // Second open with a different hotkey must be rejected, leaving state intact.
         assert_noop!(
-            SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(12), netuid, t(50 * TAO)),
+            SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(12), netuid, t(50 * TAO), None),
             Error::<Test>::ShortHotkeyMismatch
         );
         let pos = ShortPositions::<Test>::get(netuid, trader).unwrap();
@@ -608,11 +608,11 @@ fn open_below_min_input_rejected() {
         SubtensorModule::set_short_min_input(t(TAO)); // 1 TAO floor
 
         assert_noop!(
-            SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(TAO / 2)),
+            SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(TAO / 2), None),
             Error::<Test>::AmountTooLow
         );
         // At/above the floor it succeeds.
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(TAO), None));
     });
 }
 
@@ -624,7 +624,7 @@ fn permissionless_default_respects_grace_window() {
         let netuid = setup_market(1000 * TAO, 1000 * TAO, 1.0);
         let trader = U256::from(10);
         add_balance_to_coldkey_account(&trader, t(1000 * TAO));
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO), None));
 
         // Make the buffer dust-eligible, set a short grace window.
         SubtensorModule::set_short_dust(t(1000 * TAO));
@@ -651,13 +651,13 @@ fn top_up_resets_default_grace() {
         let netuid = setup_market(1000 * TAO, 1000 * TAO, 1.0);
         let trader = U256::from(10);
         add_balance_to_coldkey_account(&trader, t(1000 * TAO));
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO), None));
         SubtensorModule::set_short_dust(t(1000 * TAO));
         SubtensorModule::set_short_default_grace(5);
 
         step_block(6); // grace from open has elapsed
         // Owner tops up, resetting last_active to the current block.
-        assert_ok!(SubtensorModule::top_up_short(RuntimeOrigin::signed(trader), netuid, t(TAO)));
+        assert_ok!(SubtensorModule::top_up_short(RuntimeOrigin::signed(trader), netuid, t(TAO), None));
 
         // A snipe is now blocked again for another grace window.
         let poker = U256::from(99);
@@ -681,12 +681,12 @@ fn active_subnet_set_tracks_membership() {
         // No shorts yet → not tracked.
         assert!(!ShortActiveSubnets::<Test>::contains_key(netuid));
 
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), hotkey, netuid, t(100 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), hotkey, netuid, t(100 * TAO), None));
         assert!(ShortActiveSubnets::<Test>::contains_key(netuid));
 
         let pos = ShortPositions::<Test>::get(netuid, trader).unwrap();
         give_alpha(hotkey, trader, netuid, AlphaBalance::from(pos.q_liability.to_u64() + 10 * TAO));
-        assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(trader), netuid, 1_000_000_000));
+        assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(trader), netuid, 1_000_000_000, None));
 
         // Fully closed → no longer tracked, so decay skips this subnet.
         assert!(!ShortActiveSubnets::<Test>::contains_key(netuid));
@@ -705,7 +705,7 @@ fn position_view_materializes_decay() {
         let netuid = setup_market(1000 * TAO, 1000 * TAO, 1.0);
         let trader = U256::from(10);
         add_balance_to_coldkey_account(&trader, t(1000 * TAO));
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO), None));
         SubtensorModule::set_decay_bounds_ppb(1_000_000_000, 1_000_000_000); // strong decay
 
         let raw = ShortPositions::<Test>::get(netuid, trader).unwrap().r_stored.to_u64();
@@ -734,7 +734,7 @@ fn position_view_reports_default_window() {
         let netuid = setup_market(1000 * TAO, 1000 * TAO, 1.0);
         let trader = U256::from(10);
         add_balance_to_coldkey_account(&trader, t(1000 * TAO));
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO), None));
         SubtensorModule::set_short_dust(t(1000 * TAO)); // buffer is dust
         SubtensorModule::set_short_default_grace(5);
 
@@ -755,7 +755,7 @@ fn market_view_reports_capacity() {
         let netuid = setup_market(1000 * TAO, 1000 * TAO, 1.0);
         let trader = U256::from(10);
         add_balance_to_coldkey_account(&trader, t(1000 * TAO));
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO), None));
 
         let pos = ShortPositions::<Test>::get(netuid, trader).unwrap();
         let m = SubtensorModule::get_subnet_short_state(netuid).unwrap();
@@ -779,7 +779,7 @@ fn close_quote_matches_position() {
         let netuid = setup_market(1000 * TAO, 1000 * TAO, 1.0);
         let trader = U256::from(10);
         add_balance_to_coldkey_account(&trader, t(1000 * TAO));
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO), None));
         let pos = ShortPositions::<Test>::get(netuid, trader).unwrap();
 
         let full = SubtensorModule::quote_close_short(&trader, netuid, 1_000_000_000).unwrap();
@@ -805,7 +805,7 @@ fn materialize_never_inflates() {
         let netuid = setup_market(1000 * TAO, 1000 * TAO, 1.0);
         let trader = U256::from(10);
         add_balance_to_coldkey_account(&trader, t(1000 * TAO));
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO), None));
 
         // Corrupt the invariant: set omega_entry far above the aggregate omega.
         let mut pos = ShortPositions::<Test>::get(netuid, trader).unwrap();
@@ -830,12 +830,12 @@ fn open_close_roundtrip_is_not_profitable() {
         add_balance_to_coldkey_account(&trader, t(1000 * TAO));
 
         let before = bal(&trader);
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), hotkey, netuid, t(100 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), hotkey, netuid, t(100 * TAO), None));
         let pos = ShortPositions::<Test>::get(netuid, trader).unwrap();
         let n = pos.r_stored.to_u64();
         // Seed exactly the liability alpha so the round trip is self-contained.
         give_alpha(hotkey, trader, netuid, pos.q_liability);
-        assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(trader), netuid, 1_000_000_000));
+        assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(trader), netuid, 1_000_000_000, None));
 
         // TAO-only delta is +N (the retained proceeds); the trader still had to
         // source Q alpha, whose pool buy-cost strictly exceeds N — so no free TAO.
@@ -853,7 +853,7 @@ fn close_guards_against_alpha_mint() {
         let trader = U256::from(10);
         let hotkey = U256::from(11);
         add_balance_to_coldkey_account(&trader, t(1000 * TAO));
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), hotkey, netuid, t(100 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), hotkey, netuid, t(100 * TAO), None));
         let pos = ShortPositions::<Test>::get(netuid, trader).unwrap();
         give_alpha(hotkey, trader, netuid, pos.q_liability);
 
@@ -862,7 +862,7 @@ fn close_guards_against_alpha_mint() {
         SubnetAlphaOut::<Test>::insert(netuid, AlphaBalance::from(0));
         let alpha_in_before = SubnetAlphaIn::<Test>::get(netuid);
         assert_noop!(
-            SubtensorModule::close_short(RuntimeOrigin::signed(trader), netuid, 1_000_000_000),
+            SubtensorModule::close_short(RuntimeOrigin::signed(trader), netuid, 1_000_000_000, None),
             Error::<Test>::InsufficientAlphaToClose
         );
         assert_eq!(SubnetAlphaIn::<Test>::get(netuid), alpha_in_before); // no mint
@@ -892,26 +892,26 @@ fn position_count_cap_enforced_and_maintained() {
             add_balance_to_coldkey_account(&k, t(1000 * TAO));
         }
 
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(a), U256::from(11), netuid, t(20 * TAO)));
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(b), U256::from(21), netuid, t(20 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(a), U256::from(11), netuid, t(20 * TAO), None));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(b), U256::from(21), netuid, t(20 * TAO), None));
         assert_eq!(ShortPositionCount::<Test>::get(netuid), 2);
 
         // Third distinct position exceeds the cap.
         assert_noop!(
-            SubtensorModule::open_short(RuntimeOrigin::signed(c), U256::from(31), netuid, t(20 * TAO)),
+            SubtensorModule::open_short(RuntimeOrigin::signed(c), U256::from(31), netuid, t(20 * TAO), None),
             Error::<Test>::ShortPositionLimit
         );
 
         // Closing one frees a slot; the count is decremented and reusable.
         let pos = ShortPositions::<Test>::get(netuid, a).unwrap();
         give_alpha(U256::from(11), a, netuid, pos.q_liability);
-        assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(a), netuid, 1_000_000_000));
+        assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(a), netuid, 1_000_000_000, None));
         assert_eq!(ShortPositionCount::<Test>::get(netuid), 1);
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(c), U256::from(31), netuid, t(20 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(c), U256::from(31), netuid, t(20 * TAO), None));
         assert_eq!(ShortPositionCount::<Test>::get(netuid), 2);
 
         // A merge (same coldkey, same hotkey) does not consume a new slot.
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(c), U256::from(31), netuid, t(20 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(c), U256::from(31), netuid, t(20 * TAO), None));
         assert_eq!(ShortPositionCount::<Test>::get(netuid), 2);
     });
 }
@@ -941,8 +941,8 @@ fn proof_full_lifecycle_conserves_tao_and_alpha() {
         let tao0 = TotalIssuance::<Test>::get().to_u64();
         let alpha0 = alpha_issuance(netuid);
 
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(s_cold), s_hot, netuid, t(100 * TAO)));
-        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(l_cold), l_hot, netuid, AlphaBalance::from(100 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(s_cold), s_hot, netuid, t(100 * TAO), None));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(l_cold), l_hot, netuid, AlphaBalance::from(100 * TAO), None));
 
         // Continuous unwind on both sides.
         for _ in 0..500 {
@@ -951,12 +951,12 @@ fn proof_full_lifecycle_conserves_tao_and_alpha() {
         }
 
         // Mid-life owner actions.
-        assert_ok!(SubtensorModule::top_up_short(RuntimeOrigin::signed(s_cold), netuid, t(10 * TAO)));
-        assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(s_cold), netuid, 500_000_000)); // half
+        assert_ok!(SubtensorModule::top_up_short(RuntimeOrigin::signed(s_cold), netuid, t(10 * TAO), None));
+        assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(s_cold), netuid, 500_000_000, None)); // half
 
         // Close everything out.
-        assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(s_cold), netuid, 1_000_000_000));
-        assert_ok!(SubtensorModule::close_long(RuntimeOrigin::signed(l_cold), netuid, 1_000_000_000));
+        assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(s_cold), netuid, 1_000_000_000, None));
+        assert_ok!(SubtensorModule::close_long(RuntimeOrigin::signed(l_cold), netuid, 1_000_000_000, None));
 
         // CONSERVATION.
         // TAO only ever *moves* between accounts (no recycle on this all-close
@@ -996,7 +996,7 @@ fn proof_default_recycles_exactly_the_floor() {
         add_balance_to_coldkey_account(&s_cold, t(1000 * TAO));
         SubtensorModule::set_short_default_grace(0);
         SubtensorModule::set_short_dust(t(10_000 * TAO));
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(s_cold), s_hot, netuid, t(100 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(s_cold), s_hot, netuid, t(100 * TAO), None));
         let tao_before = TotalIssuance::<Test>::get().to_u64();
         assert_ok!(SubtensorModule::default_short(RuntimeOrigin::signed(U256::from(99)), s_cold, netuid));
         assert_eq!(
@@ -1013,7 +1013,7 @@ fn proof_default_recycles_exactly_the_floor() {
         // Measure BEFORE open: long open burns alpha, default restores all but the
         // floor, so the net effect of open+default is exactly −floor.
         let alpha_before = alpha_issuance(netuid);
-        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(l_cold), l_hot, netuid, AlphaBalance::from(100 * TAO)));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(l_cold), l_hot, netuid, AlphaBalance::from(100 * TAO), None));
         assert_ok!(SubtensorModule::default_long(RuntimeOrigin::signed(U256::from(98)), l_cold, netuid));
         assert_eq!(
             alpha_issuance(netuid),
@@ -1052,10 +1052,10 @@ fn proof_multi_position_decay_conserves() {
         let alpha0 = alpha_issuance(netuid);
 
         for (c, h, p) in shorts {
-            assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(c), h, netuid, t(p)));
+            assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(c), h, netuid, t(p), None));
         }
         for (c, h, p) in longs {
-            assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(c), h, netuid, AlphaBalance::from(p)));
+            assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(c), h, netuid, AlphaBalance::from(p), None));
         }
 
         for _ in 0..300 {
@@ -1064,10 +1064,10 @@ fn proof_multi_position_decay_conserves() {
         }
 
         for (c, _, _) in shorts {
-            assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(c), netuid, 1_000_000_000));
+            assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(c), netuid, 1_000_000_000, None));
         }
         for (c, _, _) in longs {
-            assert_ok!(SubtensorModule::close_long(RuntimeOrigin::signed(c), netuid, 1_000_000_000));
+            assert_ok!(SubtensorModule::close_long(RuntimeOrigin::signed(c), netuid, 1_000_000_000, None));
         }
 
         const TOL: u64 = 10_000_000; // 0.01 token
@@ -1095,11 +1095,11 @@ fn short_many_partial_closes_drain_cleanly() {
         give_alpha(hotkey, trader, netuid, AlphaBalance::from(5000 * TAO));
 
         let tao0 = TotalIssuance::<Test>::get().to_u64();
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), hotkey, netuid, t(100 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), hotkey, netuid, t(100 * TAO), None));
         for _ in 0..9 {
-            assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(trader), netuid, 100_000_000)); // 10% of remaining
+            assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(trader), netuid, 100_000_000, None)); // 10% of remaining
         }
-        assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(trader), netuid, 1_000_000_000));
+        assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(trader), netuid, 1_000_000_000, None));
 
         assert!(ShortPositions::<Test>::get(netuid, trader).is_none());
         assert_eq!(TotalIssuance::<Test>::get().to_u64(), tao0);
@@ -1152,13 +1152,13 @@ fn cleanup_evicts_only_after_last_short_closes() {
         }
         give_alpha(U256::from(11), a, netuid, AlphaBalance::from(5000 * TAO));
         give_alpha(U256::from(21), b, netuid, AlphaBalance::from(5000 * TAO));
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(a), U256::from(11), netuid, t(50 * TAO)));
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(b), U256::from(21), netuid, t(50 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(a), U256::from(11), netuid, t(50 * TAO), None));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(b), U256::from(21), netuid, t(50 * TAO), None));
 
-        assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(a), netuid, 1_000_000_000));
+        assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(a), netuid, 1_000_000_000, None));
         assert!(ShortActiveSubnets::<Test>::contains_key(netuid), "still active while b open");
 
-        assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(b), netuid, 1_000_000_000));
+        assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(b), netuid, 1_000_000_000, None));
         assert!(!ShortActiveSubnets::<Test>::contains_key(netuid), "evicted after last close");
     });
 }
@@ -1173,7 +1173,7 @@ fn long_capacity_cap_enforced() {
         let hotkey = U256::from(11);
         give_alpha(hotkey, trader, netuid, AlphaBalance::from(500 * TAO));
         assert_noop!(
-            SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO)),
+            SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO), None),
             Error::<Test>::LongCapacityExceeded
         );
     });
@@ -1188,10 +1188,10 @@ fn long_partial_close_reduces_prorata() {
         let hotkey = U256::from(11);
         give_alpha(hotkey, trader, netuid, AlphaBalance::from(500 * TAO));
         add_balance_to_coldkey_account(&trader, t(1000 * TAO));
-        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO)));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO), None));
         let p0 = LongPositions::<Test>::get(netuid, trader).unwrap();
 
-        assert_ok!(SubtensorModule::close_long(RuntimeOrigin::signed(trader), netuid, 500_000_000));
+        assert_ok!(SubtensorModule::close_long(RuntimeOrigin::signed(trader), netuid, 500_000_000, None));
         let p1 = LongPositions::<Test>::get(netuid, trader).unwrap();
         assert_approx(p1.p_floor.to_u64(), p0.p_floor.to_u64() / 2, 2, "p/2");
         assert_approx(p1.d_liability.to_u64(), p0.d_liability.to_u64() / 2, 2, "d/2");
@@ -1208,7 +1208,7 @@ fn long_dereg_underwater_pays_zero_equity() {
         let trader = U256::from(10);
         let hotkey = U256::from(11);
         give_alpha(hotkey, trader, netuid, AlphaBalance::from(500 * TAO));
-        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO)));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO), None));
 
         // Crash the price: D/price ≫ collateral ⇒ cover = C_L, equity = 0.
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(0.0001));
@@ -1234,7 +1234,7 @@ fn open_long_guards_against_alpha_mint() {
         // Corrupt outstanding alpha below the collateral; open must refuse.
         SubnetAlphaOut::<Test>::insert(netuid, AlphaBalance::from(0));
         assert_noop!(
-            SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO)),
+            SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO), None),
             Error::<Test>::InsufficientCollateral
         );
     });
@@ -1248,11 +1248,11 @@ fn long_top_up_adds_buffer_and_resets_grace() {
         let trader = U256::from(10);
         let hotkey = U256::from(11);
         give_alpha(hotkey, trader, netuid, AlphaBalance::from(500 * TAO));
-        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO)));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO), None));
         let r0 = LongPositions::<Test>::get(netuid, trader).unwrap().r_stored;
         let stake0 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &trader, netuid);
 
-        assert_ok!(SubtensorModule::top_up_long(RuntimeOrigin::signed(trader), netuid, AlphaBalance::from(10 * TAO)));
+        assert_ok!(SubtensorModule::top_up_long(RuntimeOrigin::signed(trader), netuid, AlphaBalance::from(10 * TAO), None));
         let pos = LongPositions::<Test>::get(netuid, trader).unwrap();
         assert_eq!(pos.r_stored, r0 + AlphaBalance::from(10 * TAO));
         assert_eq!(
@@ -1269,11 +1269,11 @@ fn long_merge_mismatch_and_position_cap() {
         let netuid = setup_long(1000 * TAO, 1000 * TAO, 1.0);
         let a = U256::from(10);
         give_alpha(U256::from(11), a, netuid, AlphaBalance::from(500 * TAO));
-        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(a), U256::from(11), netuid, AlphaBalance::from(20 * TAO)));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(a), U256::from(11), netuid, AlphaBalance::from(20 * TAO), None));
         // Same coldkey, different hotkey → rejected.
         give_alpha(U256::from(12), a, netuid, AlphaBalance::from(100 * TAO));
         assert_noop!(
-            SubtensorModule::open_long(RuntimeOrigin::signed(a), U256::from(12), netuid, AlphaBalance::from(20 * TAO)),
+            SubtensorModule::open_long(RuntimeOrigin::signed(a), U256::from(12), netuid, AlphaBalance::from(20 * TAO), None),
             Error::<Test>::LongHotkeyMismatch
         );
 
@@ -1282,7 +1282,7 @@ fn long_merge_mismatch_and_position_cap() {
         let b = U256::from(20);
         give_alpha(U256::from(21), b, netuid, AlphaBalance::from(100 * TAO));
         assert_noop!(
-            SubtensorModule::open_long(RuntimeOrigin::signed(b), U256::from(21), netuid, AlphaBalance::from(20 * TAO)),
+            SubtensorModule::open_long(RuntimeOrigin::signed(b), U256::from(21), netuid, AlphaBalance::from(20 * TAO), None),
             Error::<Test>::LongPositionLimit
         );
     });
@@ -1298,16 +1298,16 @@ fn long_close_invalid_fraction_and_min_input() {
         give_alpha(hotkey, trader, netuid, AlphaBalance::from(500 * TAO));
         SubtensorModule::set_long_min_input(AlphaBalance::from(TAO));
         assert_noop!(
-            SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(TAO / 2)),
+            SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(TAO / 2), None),
             Error::<Test>::AmountTooLow
         );
-        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO)));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO), None));
         assert_noop!(
-            SubtensorModule::close_long(RuntimeOrigin::signed(trader), netuid, 0),
+            SubtensorModule::close_long(RuntimeOrigin::signed(trader), netuid, 0, None),
             Error::<Test>::InvalidCloseFraction
         );
         assert_noop!(
-            SubtensorModule::close_long(RuntimeOrigin::signed(trader), netuid, 1_000_000_001),
+            SubtensorModule::close_long(RuntimeOrigin::signed(trader), netuid, 1_000_000_001, None),
             Error::<Test>::InvalidCloseFraction
         );
     });
@@ -1328,10 +1328,10 @@ fn derivatives_write_subnet_flow() {
         let shk = U256::from(11);
         give_alpha(shk, s, netuid, AlphaBalance::from(5000 * TAO)); // to repay Q on close
         let f0 = SubnetTaoFlow::<Test>::get(netuid);
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(s), shk, netuid, t(100 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(s), shk, netuid, t(100 * TAO), None));
         let f1 = SubnetTaoFlow::<Test>::get(netuid);
         assert!(f1 < f0, "short open must write negative flow: {f1} !< {f0}");
-        assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(s), netuid, 1_000_000_000));
+        assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(s), netuid, 1_000_000_000, None));
         let f_rt = SubnetTaoFlow::<Test>::get(netuid);
         let tol = (TAO as i64) / 1000; // generous rounding tolerance
         assert!(f_rt > f1, "short close must reverse toward positive flow");
@@ -1346,7 +1346,7 @@ fn derivatives_write_subnet_flow() {
         let sdh = U256::from(41);
         add_balance_to_coldkey_account(&sd, t(1000 * TAO));
         let fd0 = SubnetTaoFlow::<Test>::get(netuid);
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(sd), sdh, netuid, t(100 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(sd), sdh, netuid, t(100 * TAO), None));
         SubtensorModule::set_short_dust(t(10_000 * TAO));
         SubtensorModule::set_short_default_grace(0);
         assert_ok!(SubtensorModule::default_short(RuntimeOrigin::signed(U256::from(99)), sd, netuid));
@@ -1363,10 +1363,10 @@ fn derivatives_write_subnet_flow() {
         give_alpha(lh, lc, netuid, AlphaBalance::from(500 * TAO));
         add_balance_to_coldkey_account(&lc, t(1000 * TAO)); // to repay D on close
         let f2 = SubnetTaoFlow::<Test>::get(netuid);
-        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(lc), lh, netuid, AlphaBalance::from(100 * TAO)));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(lc), lh, netuid, AlphaBalance::from(100 * TAO), None));
         let f3 = SubnetTaoFlow::<Test>::get(netuid);
         assert!(f3 > f2, "long open must write positive flow");
-        assert_ok!(SubtensorModule::close_long(RuntimeOrigin::signed(lc), netuid, 1_000_000_000));
+        assert_ok!(SubtensorModule::close_long(RuntimeOrigin::signed(lc), netuid, 1_000_000_000, None));
         let lf_rt = SubnetTaoFlow::<Test>::get(netuid);
         assert!(lf_rt < f3, "long close must reverse toward negative flow");
         assert!(
@@ -1379,7 +1379,7 @@ fn derivatives_write_subnet_flow() {
         let ldh = U256::from(51);
         give_alpha(ldh, ld, netuid, AlphaBalance::from(500 * TAO));
         let lfd0 = SubnetTaoFlow::<Test>::get(netuid);
-        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(ld), ldh, netuid, AlphaBalance::from(100 * TAO)));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(ld), ldh, netuid, AlphaBalance::from(100 * TAO), None));
         SubtensorModule::set_long_dust(AlphaBalance::from(10_000 * TAO));
         SubtensorModule::set_long_default_grace(0);
         assert_ok!(SubtensorModule::default_long(RuntimeOrigin::signed(U256::from(98)), ld, netuid));
@@ -1394,7 +1394,7 @@ fn derivatives_write_subnet_flow() {
         let s2 = U256::from(30);
         add_balance_to_coldkey_account(&s2, t(1000 * TAO));
         let f3 = SubnetTaoFlow::<Test>::get(netuid);
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(s2), U256::from(31), netuid, t(100 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(s2), U256::from(31), netuid, t(100 * TAO), None));
         assert_eq!(SubnetTaoFlow::<Test>::get(netuid), f3, "χ=0 must be flow-neutral");
     });
 }
@@ -1408,8 +1408,8 @@ fn default_grace_independent_per_side() {
         let (lc, lh) = (U256::from(20), U256::from(21));
         add_balance_to_coldkey_account(&sc, t(1000 * TAO));
         give_alpha(lh, lc, netuid, AlphaBalance::from(500 * TAO));
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(sc), sh, netuid, t(100 * TAO)));
-        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(lc), lh, netuid, AlphaBalance::from(100 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(sc), sh, netuid, t(100 * TAO), None));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(lc), lh, netuid, AlphaBalance::from(100 * TAO), None));
 
         SubtensorModule::set_short_dust(t(10_000 * TAO));
         SubtensorModule::set_long_dust(AlphaBalance::from(10_000 * TAO));
@@ -1439,7 +1439,7 @@ fn long_open_quote_matches_position() {
         give_alpha(hotkey, trader, netuid, AlphaBalance::from(500 * TAO));
 
         let q = SubtensorModule::quote_open_long(netuid, AlphaBalance::from(100 * TAO)).unwrap();
-        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO)));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO), None));
         let pos = LongPositions::<Test>::get(netuid, trader).unwrap();
         assert_eq!(pos.r_stored, q.retained_proceeds);
         assert_eq!(pos.d_liability, q.tao_liability);
@@ -1466,7 +1466,7 @@ fn long_position_view_materializes_decay() {
         let trader = U256::from(10);
         let hotkey = U256::from(11);
         give_alpha(hotkey, trader, netuid, AlphaBalance::from(500 * TAO));
-        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO)));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO), None));
         SubtensorModule::set_decay_bounds_ppb(1_000_000_000, 1_000_000_000);
 
         let raw = LongPositions::<Test>::get(netuid, trader).unwrap().r_stored.to_u64();
@@ -1490,7 +1490,7 @@ fn long_market_view_reports_capacity() {
         let trader = U256::from(10);
         let hotkey = U256::from(11);
         give_alpha(hotkey, trader, netuid, AlphaBalance::from(500 * TAO));
-        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO)));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO), None));
 
         let pos = LongPositions::<Test>::get(netuid, trader).unwrap();
         let m = SubtensorModule::get_subnet_long_state(netuid).unwrap();
@@ -1514,7 +1514,7 @@ fn long_close_quote_matches_position() {
         let trader = U256::from(10);
         let hotkey = U256::from(11);
         give_alpha(hotkey, trader, netuid, AlphaBalance::from(500 * TAO));
-        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO)));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO), None));
         let pos = LongPositions::<Test>::get(netuid, trader).unwrap();
 
         let full = SubtensorModule::quote_close_long(&trader, netuid, 1_000_000_000).unwrap();
@@ -1539,8 +1539,8 @@ fn list_long_positions_across_subnets() {
         let trader = U256::from(10);
         give_alpha(U256::from(11), trader, n1, AlphaBalance::from(200 * TAO));
         give_alpha(U256::from(12), trader, n2, AlphaBalance::from(200 * TAO));
-        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), U256::from(11), n1, AlphaBalance::from(50 * TAO)));
-        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), U256::from(12), n2, AlphaBalance::from(50 * TAO)));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), U256::from(11), n1, AlphaBalance::from(50 * TAO), None));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), U256::from(12), n2, AlphaBalance::from(50 * TAO), None));
 
         let all = SubtensorModule::get_long_positions(&trader);
         assert_eq!(all.len(), 2);
@@ -1560,7 +1560,7 @@ fn decay_rate_matches_closed_form() {
         let netuid = setup_market(1000 * TAO, 1000 * TAO, 1.0);
         let trader = U256::from(10);
         add_balance_to_coldkey_account(&trader, t(1000 * TAO));
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, t(100 * TAO), None));
         SubtensorModule::set_decay_bounds_ppb(1_000_000_000, 1_000_000_000); // d = 1.0/day
 
         let r0 = ShortAggregate::<Test>::get(netuid).r_sigma.to_u64();
@@ -1603,7 +1603,7 @@ fn open_long_rejected_when_disabled() {
         let hotkey = U256::from(11);
         give_alpha(hotkey, trader, netuid, AlphaBalance::from(500 * TAO));
         assert_noop!(
-            SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO)),
+            SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO), None),
             Error::<Test>::LongsDisabled
         );
     });
@@ -1620,7 +1620,7 @@ fn open_long_moves_alpha_off_issuance() {
         let alpha_in0 = SubnetAlphaIn::<Test>::get(netuid).to_u64();
         let stake0 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &trader, netuid).to_u64();
 
-        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO)));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO), None));
         let pos = LongPositions::<Test>::get(netuid, trader).unwrap();
         let (n, e, d) = (pos.r_stored.to_u64(), pos.e_stored.to_u64(), pos.d_liability.to_u64());
 
@@ -1648,12 +1648,12 @@ fn full_close_long_conserves_value() {
         add_balance_to_coldkey_account(&trader, t(1000 * TAO)); // TAO to repay D
 
         let iss0 = alpha_issuance(netuid);
-        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO)));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO), None));
         let pos = LongPositions::<Test>::get(netuid, trader).unwrap();
         let d = pos.d_liability.to_u64();
         let tao0 = SubnetTAO::<Test>::get(netuid).to_u64();
 
-        assert_ok!(SubtensorModule::close_long(RuntimeOrigin::signed(trader), netuid, 1_000_000_000));
+        assert_ok!(SubtensorModule::close_long(RuntimeOrigin::signed(trader), netuid, 1_000_000_000, None));
 
         assert!(LongPositions::<Test>::get(netuid, trader).is_none());
         assert!(!LongActiveSubnets::<Test>::contains_key(netuid));
@@ -1673,7 +1673,7 @@ fn long_decay_restores_alpha_to_pool() {
         let trader = U256::from(10);
         let hotkey = U256::from(11);
         give_alpha(hotkey, trader, netuid, AlphaBalance::from(500 * TAO));
-        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO)));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO), None));
 
         let r0 = LongAggregate::<Test>::get(netuid).r_sigma.to_u64();
         let alpha_in0 = SubnetAlphaIn::<Test>::get(netuid).to_u64();
@@ -1692,7 +1692,7 @@ fn long_default_recycles_floor_and_restores_residual() {
         let trader = U256::from(10);
         let hotkey = U256::from(11);
         give_alpha(hotkey, trader, netuid, AlphaBalance::from(500 * TAO));
-        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO)));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO), None));
         let pos = LongPositions::<Test>::get(netuid, trader).unwrap();
         let (p, n, e) = (pos.p_floor.to_u64(), pos.r_stored.to_u64(), pos.e_stored.to_u64());
         SubtensorModule::set_long_dust(AlphaBalance::from(1000 * TAO));
@@ -1717,7 +1717,7 @@ fn dereg_settles_longs() {
         let trader = U256::from(10);
         let hotkey = U256::from(11);
         give_alpha(hotkey, trader, netuid, AlphaBalance::from(500 * TAO));
-        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO)));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(100 * TAO), None));
         assert!(LongPositions::<Test>::get(netuid, trader).is_some());
 
         assert_ok!(SubtensorModule::do_dissolve_network(netuid));
@@ -1743,7 +1743,7 @@ fn open_long_respects_stake_lock() {
 
         // A long against the locked alpha is rejected (would otherwise free it).
         assert_noop!(
-            SubtensorModule::open_long(RuntimeOrigin::signed(cold), hot, netuid, AlphaBalance::from(100 * TAO)),
+            SubtensorModule::open_long(RuntimeOrigin::signed(cold), hot, netuid, AlphaBalance::from(100 * TAO), None),
             Error::<Test>::StakeUnavailable
         );
     });
@@ -1760,9 +1760,9 @@ fn short_and_long_flags_are_independent() {
         give_alpha(hotkey, trader, netuid, AlphaBalance::from(500 * TAO));
 
         // Shorts enabled, longs disabled.
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), hotkey, netuid, t(50 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), hotkey, netuid, t(50 * TAO), None));
         assert_noop!(
-            SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(50 * TAO)),
+            SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(50 * TAO), None),
             Error::<Test>::LongsDisabled
         );
 
@@ -1771,10 +1771,10 @@ fn short_and_long_flags_are_independent() {
         SubtensorModule::set_longs_enabled(true);
         SubtensorModule::set_long_kappa_ppb(900_000_000);
         assert_noop!(
-            SubtensorModule::open_short(RuntimeOrigin::signed(U256::from(20)), hotkey, netuid, t(50 * TAO)),
+            SubtensorModule::open_short(RuntimeOrigin::signed(U256::from(20)), hotkey, netuid, t(50 * TAO), None),
             Error::<Test>::ShortsDisabled
         );
-        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(50 * TAO)));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(50 * TAO), None));
     });
 }
 
@@ -1786,8 +1786,8 @@ fn list_positions_across_subnets() {
         let n2 = setup_market(1000 * TAO, 1000 * TAO, 1.0);
         let trader = U256::from(10);
         add_balance_to_coldkey_account(&trader, t(1000 * TAO));
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), n1, t(50 * TAO)));
-        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(12), n2, t(50 * TAO)));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), n1, t(50 * TAO), None));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(12), n2, t(50 * TAO), None));
 
         let all = SubtensorModule::get_short_positions(&trader);
         assert_eq!(all.len(), 2);
