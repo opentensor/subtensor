@@ -9,8 +9,10 @@ use super::mock::*;
 use crate::*;
 use frame_support::{assert_noop, assert_ok};
 use sp_core::U256;
-use substrate_fixed::types::{I64F64, I96F32};
+use safe_math::FixedExt;
+use substrate_fixed::types::{I64F64, I96F32, U64F64};
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
+use subtensor_swap_interface::{Order, SimSwapOpts, SwapHandler};
 
 const TAO: u64 = 1_000_000_000;
 
@@ -1775,6 +1777,286 @@ fn short_and_long_flags_are_independent() {
             Error::<Test>::ShortsDisabled
         );
         assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hotkey, netuid, AlphaBalance::from(50 * TAO), None));
+    });
+}
+
+// ===========================================================================
+// Engine-routed settlement: weight/fee-aware cover + asymmetry invariants
+//
+// The cover/settlement spot leg is now quoted through the live swap engine
+// (fee + Balancer-weight aware) rather than a hand-rolled fee-less CPMM. These
+// tests exercise the derivatives against a pool with NON-0.5 weights and a
+// non-trivial fee — the regime where the old formula silently mispriced — and
+// prove every quantity that must be invariant against the engine itself, not a
+// re-implemented formula.
+// ===========================================================================
+
+/// Set the per-subnet swap fee (u16-normalized) directly.
+fn set_fee(netuid: NetUid, rate: u16) {
+    pallet_subtensor_swap::FeeRate::<Test>::insert(netuid, rate);
+}
+
+/// Force the pool onto explicit Balancer weights derived from `price` (so spot
+/// becomes `price`; with reserves whose ratio ≠ `price` the weights are ≠ 0.5),
+/// and set the swap fee. Marks the pool initialized so later swaps don't reset
+/// the weights back to 0.5.
+fn skew_pool(netuid: NetUid, price: f64, fee_rate: u16) {
+    pallet_subtensor_swap::PalSwapInitialized::<Test>::insert(netuid, false);
+    assert_ok!(
+        pallet_subtensor_swap::Pallet::<Test>::maybe_initialize_palswap(
+            netuid,
+            Some(U64F64::from_num(price)),
+        )
+    );
+    set_fee(netuid, fee_rate);
+}
+
+fn sim_tao_in_for_alpha_out(netuid: NetUid, q: AlphaBalance, opts: SimSwapOpts) -> Option<u64> {
+    <Test as pallet::Config>::SwapInterface::sim_tao_in_for_alpha_out(netuid.into(), q, opts)
+        .ok()
+        .map(|x| x.to_u64())
+}
+
+fn sim_alpha_in_for_tao_out(netuid: NetUid, d: TaoBalance, opts: SimSwapOpts) -> Option<u64> {
+    <Test as pallet::Config>::SwapInterface::sim_alpha_in_for_tao_out(netuid.into(), d, opts)
+        .ok()
+        .map(|x| x.to_u64())
+}
+
+// PROOF: the exact-output short cover is the true inverse of the engine's
+// exact-input buy — under non-0.5 weights AND a fee. Quoting "TAO needed to buy
+// Q alpha" and then spending exactly that TAO must yield ~Q alpha back.
+#[test]
+fn engine_cover_inverts_real_swap_short() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_market(10_000 * TAO, 10_000 * TAO, 1.0);
+        skew_pool(netuid, 1.6, 2_000); // weights ≈ 0.38/0.62, fee ≈ 3%
+        let q = AlphaBalance::from(123 * TAO);
+
+        let tao_in = sim_tao_in_for_alpha_out(netuid, q, SimSwapOpts::WITH_FEES).unwrap();
+        let got = <Test as pallet::Config>::SwapInterface::sim_swap(
+            netuid.into(),
+            GetAlphaForTao::<Test>::with_amount(t(tao_in)),
+        )
+        .unwrap()
+        .amount_paid_out
+        .to_u64();
+
+        assert_approx(got, q.to_u64(), q.to_u64() / 1_000 + 10, "buy(quote(Q)) ≈ Q");
+    });
+}
+
+// PROOF: the exact-output long cover inverts the engine's exact-input sell.
+#[test]
+fn engine_cover_inverts_real_swap_long() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_market(10_000 * TAO, 10_000 * TAO, 1.0);
+        skew_pool(netuid, 0.7, 2_000);
+        let d = t(77 * TAO);
+
+        let alpha_in = sim_alpha_in_for_tao_out(netuid, d, SimSwapOpts::WITH_FEES).unwrap();
+        let got = <Test as pallet::Config>::SwapInterface::sim_swap(
+            netuid.into(),
+            GetTaoForAlpha::<Test>::with_amount(AlphaBalance::from(alpha_in)),
+        )
+        .unwrap()
+        .amount_paid_out
+        .to_u64();
+
+        assert_approx(got, d.to_u64(), d.to_u64() / 1_000 + 10, "sell(quote(D)) ≈ D");
+    });
+}
+
+// PROOF: under weights+fee the engine cover diverges materially (>1%) from the
+// old pure-CPMM fee-less formula `t·q/(a−q)` — i.e. the fix is not a no-op and
+// the old path was genuinely mispricing the cover.
+#[test]
+fn engine_cover_diverges_from_naive_cpmm() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_market(10_000 * TAO, 10_000 * TAO, 1.0);
+        skew_pool(netuid, 1.6, 2_000);
+        let q = AlphaBalance::from(200 * TAO);
+
+        let k_engine = sim_tao_in_for_alpha_out(netuid, q, SimSwapOpts::WITH_FEES).unwrap();
+        let tt = SubnetTAO::<Test>::get(netuid).to_u64() as u128;
+        let aa = SubnetAlphaIn::<Test>::get(netuid).to_u64() as u128;
+        let qq = q.to_u64() as u128;
+        let k_cpmm = (tt.saturating_mul(qq) / (aa - qq)) as u64; // pure, fee-less
+
+        assert!(
+            k_engine.abs_diff(k_cpmm) as u128 * 100 > k_cpmm as u128,
+            "engine {k_engine} vs naive cpmm {k_cpmm}: divergence < 1% (fix would be a no-op)"
+        );
+    });
+}
+
+// PROOF: `SimSwapOpts::NO_FEES` removes exactly the swap fee — the no-fee quote
+// grossed up by the fee rate equals the fee-inclusive quote.
+#[test]
+fn sim_no_fees_flag_drops_exactly_the_fee() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_market(10_000 * TAO, 10_000 * TAO, 1.0);
+        let fee: u16 = 2_000;
+        skew_pool(netuid, 1.3, fee);
+        let q = AlphaBalance::from(150 * TAO);
+
+        let with = sim_tao_in_for_alpha_out(netuid, q, SimSwapOpts::WITH_FEES).unwrap();
+        let without = sim_tao_in_for_alpha_out(netuid, q, SimSwapOpts::NO_FEES).unwrap();
+        assert!(with > without, "fee-inclusive cover must exceed no-fee cover");
+
+        let max = u16::MAX as u128;
+        let expected_with = (without as u128 * max / (max - fee as u128)) as u64;
+        assert_approx(with, expected_with, with / 100_000 + 4, "no_fees grosses up to with_fees");
+    });
+}
+
+// PROOF: an exact-output quote for more than the pool can supply errs (the
+// derivative cover helpers map this to the seize-full-claim sentinel).
+#[test]
+fn sim_exact_output_errs_when_pool_too_thin() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_market(1_000 * TAO, 1_000 * TAO, 1.0);
+        assert!(sim_tao_in_for_alpha_out(netuid, AlphaBalance::from(1_000 * TAO), SimSwapOpts::WITH_FEES).is_none());
+        assert!(sim_alpha_in_for_tao_out(netuid, t(1_000 * TAO), SimSwapOpts::WITH_FEES).is_none());
+    });
+}
+
+// ASYMMETRY PROOF (short, fast pump): when spot values the liability above the
+// stale-low EMA, terminal settlement collects `max(spot, EMA) = spot`, so the
+// lagging EMA can NOT be used to under-collect. Equity equals the spot-based
+// formula and never exceeds what an EMA-only settlement would have paid out.
+#[test]
+fn short_dereg_collects_max_spot_over_stale_low_ema() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_market(100_000 * TAO, 100_000 * TAO, 1.0);
+        set_fee(netuid, 1_000);
+        let trader = U256::from(10);
+        let hot = U256::from(11);
+        add_balance_to_coldkey_account(&trader, t(10_000 * TAO));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), hot, netuid, t(50 * TAO), None));
+
+        let pos = ShortPositions::<Test>::get(netuid, trader).unwrap();
+        let c = pos.p_floor.to_u64() + pos.r_stored.to_u64();
+        let q = pos.q_liability;
+
+        // Fast pump: EMA lags low while spot (~1.0) values Q far higher.
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(0.2));
+        let pema = I64F64::saturating_from_num(SubtensorModule::get_moving_alpha_price(netuid));
+        let k_ema = (I64F64::saturating_from_num(q.to_u64()).saturating_mul(pema)).to_num::<u64>();
+        // Settlement returns escrow E to the TAO reserve BEFORE quoting the spot
+        // cover, so quote against that same post-escrow reserve to match.
+        let e = pos.e_stored;
+        SubnetTAO::<Test>::mutate(netuid, |x| *x = x.saturating_add(e));
+        let k_spot = sim_tao_in_for_alpha_out(netuid, q, SimSwapOpts::WITH_FEES).unwrap();
+        SubnetTAO::<Test>::mutate(netuid, |x| *x = x.saturating_sub(e));
+        assert!(k_spot > k_ema, "setup: spot {k_spot} must exceed stale EMA {k_ema} (pump)");
+
+        let k_d = k_spot.max(k_ema);
+        let expected_equity = c.saturating_sub(k_d.min(c));
+
+        let before = bal(&trader);
+        SubtensorModule::settle_shorts_on_dereg(netuid);
+        let equity = bal(&trader) - before;
+
+        assert_approx(equity, expected_equity, c / 100_000 + 50, "equity uses max(spot,EMA)=spot");
+        let ema_only_equity = c.saturating_sub(k_ema.min(c));
+        assert!(equity <= ema_only_equity, "settled spot must not pay more equity than stale EMA");
+    });
+}
+
+// ASYMMETRY PROOF (long, fast drop): the mirror. When spot needs more alpha to
+// cover the TAO debt than the stale-HIGH EMA implies, settlement seizes
+// `max(spot, EMA) = spot` alpha, so a lagging EMA can NOT under-seize. This is
+// the regression guard for the long-dereg `max(spot, EMA)` cover fix.
+#[test]
+fn long_dereg_collects_max_spot_over_stale_high_ema() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_long(100_000 * TAO, 100_000 * TAO, 1.0);
+        set_fee(netuid, 1_000);
+        let trader = U256::from(10);
+        let hot = U256::from(11);
+        give_alpha(hot, trader, netuid, AlphaBalance::from(50_000 * TAO));
+        assert_ok!(SubtensorModule::open_long(RuntimeOrigin::signed(trader), hot, netuid, AlphaBalance::from(50 * TAO), None));
+
+        let pos = LongPositions::<Test>::get(netuid, trader).unwrap();
+        let c_l = pos.p_floor.to_u64() + pos.r_stored.to_u64();
+        let d = pos.d_liability;
+
+        // Fast drop: EMA lags HIGH, so D/pEMA understates the alpha cover; spot
+        // (~1.0) needs far more alpha.
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(5.0));
+        let pema = I64F64::saturating_from_num(SubtensorModule::get_moving_alpha_price(netuid));
+        let k_ema = I64F64::saturating_from_num(d.to_u64()).safe_div(pema).to_num::<u64>();
+        // Settlement returns escrow E to the alpha reserve BEFORE quoting the
+        // spot cover, so quote against that same post-escrow reserve to match.
+        let e = pos.e_stored;
+        SubnetAlphaIn::<Test>::mutate(netuid, |x| *x = x.saturating_add(e));
+        let k_spot = sim_alpha_in_for_tao_out(netuid, d, SimSwapOpts::WITH_FEES).unwrap();
+        SubnetAlphaIn::<Test>::mutate(netuid, |x| *x = x.saturating_sub(e));
+        assert!(k_spot > k_ema, "setup: spot cover {k_spot} must exceed stale EMA cover {k_ema} (drop)");
+
+        let cover = c_l.min(k_spot.max(k_ema));
+        let expected_equity = c_l.saturating_sub(cover);
+
+        let before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot, &trader, netuid).to_u64();
+        SubtensorModule::settle_longs_on_dereg(netuid);
+        let equity = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot, &trader, netuid).to_u64() - before;
+
+        assert_approx(equity, expected_equity, c_l / 100_000 + 50, "alpha equity uses max(spot,EMA)=spot");
+        let ema_only_equity = c_l.saturating_sub(k_ema.min(c_l));
+        assert!(equity <= ema_only_equity, "settled spot must not return more equity than stale EMA");
+    });
+}
+
+// INVARIANT: the self-cover close refuses to settle underwater — it can never
+// charge the trader (or the pool) more than the claim `P + R`.
+#[test]
+fn short_self_close_rejects_when_underwater() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_market(10_000 * TAO, 10_000 * TAO, 1.0);
+        let trader = U256::from(10);
+        let hot = U256::from(11);
+        add_balance_to_coldkey_account(&trader, t(10_000 * TAO));
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), hot, netuid, t(100 * TAO), None));
+        let pos = ShortPositions::<Test>::get(netuid, trader).unwrap();
+        let q = pos.q_liability;
+        let claim = pos.p_floor.to_u64() + pos.r_stored.to_u64();
+
+        // Violent pump against the short: 100x the TAO reserve so the alpha
+        // buyback cost dwarfs the claim (without hitting reserve-thin edges).
+        SubnetTAO::<Test>::insert(netuid, t(1_000_000 * TAO));
+        let k = sim_tao_in_for_alpha_out(netuid, q, SimSwapOpts::WITH_FEES).unwrap();
+        assert!(k > claim, "setup: buyback {k} must exceed claim {claim}");
+        assert_noop!(
+            SubtensorModule::do_close_short_self(RuntimeOrigin::signed(trader), netuid, 1_000_000_000, None),
+            Error::<Test>::CloseCostExceedsClaim
+        );
+    });
+}
+
+// CONSERVATION under weights + fee: a full open → decay → in-kind close round
+// trip conserves TAO supply EXACTLY even on a skewed, fee-charging pool (the
+// normal close is settled in-kind, so no engine fee leaks on this path).
+#[test]
+fn short_lifecycle_conserves_tao_under_weights_and_fee() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_market(10_000 * TAO, 10_000 * TAO, 1.0);
+        skew_pool(netuid, 1.4, 2_000);
+        let trader = U256::from(10);
+        let hot = U256::from(11);
+        add_balance_to_coldkey_account(&trader, t(10_000 * TAO));
+        give_alpha(hot, trader, netuid, AlphaBalance::from(50_000 * TAO));
+
+        let tao0 = TotalIssuance::<Test>::get().to_u64();
+        assert_ok!(SubtensorModule::open_short(RuntimeOrigin::signed(trader), hot, netuid, t(100 * TAO), None));
+        for _ in 0..200 {
+            SubtensorModule::run_short_decay();
+        }
+        assert_ok!(SubtensorModule::close_short(RuntimeOrigin::signed(trader), netuid, 1_000_000_000, None));
+
+        assert_eq!(TotalIssuance::<Test>::get().to_u64(), tao0, "TAO supply not conserved under weights+fee");
+        assert!(custody_bal(netuid) <= 1_000_000, "custody not drained");
+        assert!(ShortPositions::<Test>::get(netuid, trader).is_none());
     });
 }
 

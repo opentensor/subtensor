@@ -34,7 +34,7 @@ use safe_math::FixedExt;
 use sp_runtime::traits::AccountIdConversion;
 use substrate_fixed::types::I64F64;
 use subtensor_runtime_common::Token;
-use subtensor_swap_interface::SwapHandler;
+use subtensor_swap_interface::{SimSwapOpts, SwapHandler};
 
 pub mod long;
 pub mod types;
@@ -786,7 +786,7 @@ impl<T: Config> Pallet<T> {
     /// through the swap engine (exact-output). Saturates to a sentinel when the
     /// pool cannot supply `q` so cover = C, equity = 0.
     fn short_spot_close_cost(netuid: NetUid, q: AlphaBalance) -> I64F64 {
-        match T::SwapInterface::sim_tao_in_for_alpha_out(netuid.into(), q) {
+        match T::SwapInterface::sim_tao_in_for_alpha_out(netuid.into(), q, SimSwapOpts::WITH_FEES) {
             Ok(tao) => Self::tao_f(tao),
             Err(_) => I64F64::from_num(1e18),
         }

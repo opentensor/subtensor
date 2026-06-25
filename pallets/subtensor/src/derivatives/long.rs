@@ -316,7 +316,7 @@ impl<T: Config> Pallet<T> {
     /// `short_spot_close_cost`. Saturates to a sentinel when the pool can't
     /// yield `d`.
     fn long_spot_close_cost(netuid: NetUid, d: TaoBalance) -> I64F64 {
-        match T::SwapInterface::sim_alpha_in_for_tao_out(netuid.into(), d) {
+        match T::SwapInterface::sim_alpha_in_for_tao_out(netuid.into(), d, SimSwapOpts::WITH_FEES) {
             Ok(alpha) => Self::alpha_f(alpha),
             Err(_) => I64F64::from_num(1e18),
         }

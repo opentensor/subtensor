@@ -10,7 +10,7 @@ use sp_runtime::{DispatchResult, traits::AccountIdConversion};
 use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{AlphaBalance, NetUid, SubnetInfo, TaoBalance, Token, TokenReserve};
 use subtensor_swap_interface::{
-    DefaultPriceLimit, Order as OrderT, SwapEngine, SwapHandler, SwapResult,
+    DefaultPriceLimit, Order as OrderT, SimSwapOpts, SwapEngine, SwapHandler, SwapResult,
 };
 
 use super::pallet::*;
@@ -250,8 +250,12 @@ impl<T: Config> Pallet<T> {
     /// Gross up a net (post-fee) swap input by the subnet fee, so the result is
     /// the total a trader pays in. Inverse of `swap_step`'s
     /// `net = amount·(1 − rate)` where `rate = FeeRate / u16::MAX`. Saturates if
-    /// the fee rate is degenerate (≥ u16::MAX).
-    pub(crate) fn gross_up_fee(netuid: NetUid, net_in: u64) -> u64 {
+    /// the fee rate is degenerate (≥ u16::MAX). With `drop_fees` the net amount
+    /// is returned unchanged (no-fee simulation).
+    pub(crate) fn gross_up_fee(netuid: NetUid, net_in: u64, drop_fees: bool) -> u64 {
+        if drop_fees {
+            return net_in;
+        }
         let fee_rate = u128::from(FeeRate::<T>::get(netuid));
         let u16_max = u128::from(u16::MAX);
         let denom = u16_max.saturating_sub(fee_rate);
@@ -390,6 +394,7 @@ impl<T: Config> SwapHandler for Pallet<T> {
     fn sim_tao_in_for_alpha_out(
         netuid: NetUid,
         alpha_out: AlphaBalance,
+        opts: SimSwapOpts,
     ) -> Result<TaoBalance, DispatchError> {
         match T::SubnetInfo::mechanism(netuid) {
             1 => {
@@ -402,7 +407,7 @@ impl<T: Config> SwapHandler for Pallet<T> {
                     alpha_reserve.into(),
                     alpha_out.into(),
                 );
-                Ok(Self::gross_up_fee(netuid, net_in).into())
+                Ok(Self::gross_up_fee(netuid, net_in, opts.drop_fees).into())
             }
             _ => {
                 ensure!(
@@ -417,6 +422,7 @@ impl<T: Config> SwapHandler for Pallet<T> {
     fn sim_alpha_in_for_tao_out(
         netuid: NetUid,
         tao_out: TaoBalance,
+        opts: SimSwapOpts,
     ) -> Result<AlphaBalance, DispatchError> {
         match T::SubnetInfo::mechanism(netuid) {
             1 => {
@@ -429,7 +435,7 @@ impl<T: Config> SwapHandler for Pallet<T> {
                     alpha_reserve.into(),
                     tao_out.into(),
                 );
-                Ok(Self::gross_up_fee(netuid, net_in).into())
+                Ok(Self::gross_up_fee(netuid, net_in, opts.drop_fees).into())
             }
             _ => {
                 ensure!(
