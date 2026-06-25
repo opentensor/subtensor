@@ -435,10 +435,15 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        // --- 10. Emit the NetworkAdded event.
+        // --- 10. Default emission off
+        SubnetEmissionEnabled::<T>::insert(netuid_to_register, false);
+        weight.saturating_accrue(db_weight.writes(1));
+
+        // --- 11. Emit the NetworkAdded event.
         log::info!("NetworkAdded( netuid:{netuid_to_register:?}, mechanism:{mechid:?} )");
         Self::deposit_event(Event::NetworkAdded(netuid_to_register, mechid));
 
+        // --- 12. Return success.
         Ok(Some(weight).into())
     }
 

@@ -234,7 +234,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 421,
+    spec_version: 424,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -347,7 +347,14 @@ impl frame_system::Config for Runtime {
     type PostInherents = ();
     type PostTransactions = ();
     type ExtensionsWeightInfo = frame_system::SubstrateExtensionsWeight<Runtime>;
-    type DispatchExtension = pallet_subtensor::CheckColdkeySwap<Runtime>;
+    type DispatchExtension = (
+        pallet_subtensor::CheckColdkeySwap<Runtime>,
+        pallet_subtensor::CheckWeights<Runtime>,
+        pallet_subtensor::CheckRateLimits<Runtime>,
+        pallet_subtensor::CheckDelegateTake<Runtime>,
+        pallet_subtensor::CheckServingEndpoints<Runtime>,
+        pallet_subtensor::CheckEvmKeyAssociation<Runtime>,
+    );
 }
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
@@ -1036,7 +1043,7 @@ parameter_types! {
     pub const EvmKeyAssociateRateLimit: u64 = EVM_KEY_ASSOCIATE_RATELIMIT;
     pub const SubtensorPalletId: PalletId = PalletId(*b"subtensr");
     pub const BurnAccountId: PalletId = PalletId(*b"burntnsr");
-    pub const SubtensorMaxEpochsPerBlock: u32 = prod_or_fast!(2, 32);
+    pub const SubtensorMaxEpochsPerBlock: u8 = prod_or_fast!(2, 32);
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -1120,7 +1127,7 @@ impl pallet_subtensor::Config for Runtime {
     type AuthorshipProvider = BlockAuthorFromAura<Aura>;
     type SubtensorPalletId = SubtensorPalletId;
     type BurnAccountId = BurnAccountId;
-    type MaxEpochsPerBlock = SubtensorMaxEpochsPerBlock;
+    type InitialMaxEpochsPerBlock = SubtensorMaxEpochsPerBlock;
     type WeightInfo = pallet_subtensor::weights::SubstrateWeight<Runtime>;
 }
 

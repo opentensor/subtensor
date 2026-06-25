@@ -142,7 +142,14 @@ impl system::Config for Test {
     type MaxConsumers = frame_support::traits::ConstU32<16>;
     type Nonce = u64;
     type Block = Block;
-    type DispatchExtension = pallet_subtensor::CheckColdkeySwap<Test>;
+    type DispatchExtension = (
+        pallet_subtensor::CheckColdkeySwap<Test>,
+        pallet_subtensor::CheckWeights<Test>,
+        pallet_subtensor::CheckRateLimits<Test>,
+        pallet_subtensor::CheckDelegateTake<Test>,
+        pallet_subtensor::CheckServingEndpoints<Test>,
+        pallet_subtensor::CheckEvmKeyAssociation<Test>,
+    );
 }
 
 parameter_types! {
@@ -244,7 +251,7 @@ parameter_types! {
     pub const EvmKeyAssociateRateLimit: u64 = 10;
     pub const SubtensorPalletId: PalletId = PalletId(*b"subtensr");
     pub const BurnAccountId: PalletId = PalletId(*b"burntnsr");
-    pub const MaxEpochsPerBlock: u32 = 32;
+    pub const MaxEpochsPerBlock: u8 = 32;
 }
 
 impl pallet_subtensor::Config for Test {
@@ -327,7 +334,7 @@ impl pallet_subtensor::Config for Test {
     type AuthorshipProvider = MockAuthorshipProvider;
     type SubtensorPalletId = SubtensorPalletId;
     type BurnAccountId = BurnAccountId;
-    type MaxEpochsPerBlock = MaxEpochsPerBlock;
+    type InitialMaxEpochsPerBlock = MaxEpochsPerBlock;
     type WeightInfo = ();
     type AlphaAssets = AlphaAssets;
 }

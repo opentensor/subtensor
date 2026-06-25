@@ -109,6 +109,8 @@ mod events {
         MaxBurnSet(NetUid, TaoBalance),
         /// setting min burn on a network.
         MinBurnSet(NetUid, TaoBalance),
+        /// setting the per-block epoch cap (dynamic tempo throttle).
+        MaxEpochsPerBlockSet(u8),
         /// setting the transaction rate limit.
         TxRateLimitSet(u64),
         /// setting the delegate take transaction rate limit.
@@ -690,6 +692,14 @@ mod events {
             median_subnet_alpha_price: U64F64,
             /// The block at which the network was registered.
             registration_block: u64,
+        },
+
+        /// A coldkey's reject locked alpha account flag was updated.
+        RejectLockedAlphaUpdated {
+            /// The coldkey whose flag changed.
+            coldkey: T::AccountId,
+            /// Whether this coldkey rejects incoming locked alpha.
+            enabled: bool,
         },
     }
 }

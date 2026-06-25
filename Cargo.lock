@@ -10231,23 +10231,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-multi-collective"
-version = "1.0.0"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "impl-trait-for-tuples",
- "num-traits",
- "parity-scale-codec",
- "scale-info",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "subtensor-runtime-common",
-]
-
-[[package]]
 name = "pallet-multisig"
 version = "41.0.0"
 source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=7cc54bf2d50ae3921d718736dfeb0de9468539c7#7cc54bf2d50ae3921d718736dfeb0de9468539c7"
@@ -18459,6 +18442,7 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "substrate-fixed",
+ "subtensor-macros",
  "subtensor-runtime-common",
  "subtensor-swap-interface",
 ]
@@ -18555,7 +18539,6 @@ dependencies = [
  "approx",
  "environmental",
  "frame-support",
- "impl-trait-for-tuples",
  "num-traits",
  "parity-scale-codec",
  "polkadot-runtime-common",

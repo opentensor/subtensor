@@ -299,9 +299,9 @@ impl<T: Config> Pallet<T> {
         placeholder1: u8,
         placeholder2: u8,
     ) -> Result<(), Error<T>> {
-        // Ensure the hotkey is registered somewhere.
+        // Ensure the hotkey is registered on the subnet it is serving.
         ensure!(
-            Self::is_hotkey_registered_on_any_network(hotkey_id),
+            Self::is_hotkey_registered_on_network(netuid, hotkey_id),
             Error::<T>::HotKeyNotRegisteredInNetwork
         );
 
@@ -356,7 +356,7 @@ impl<T: Config> Pallet<T> {
         );
 
         ensure!(
-            Self::is_hotkey_registered_on_any_network(hotkey_id),
+            Self::is_hotkey_registered_on_network(netuid, hotkey_id),
             Error::<T>::HotKeyNotRegisteredInNetwork
         );
 

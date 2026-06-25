@@ -107,6 +107,8 @@ jobs:
             binary: fast
           - test: zombienet_subnets
             binary: fast
+          - test: zombienet_evm
+            binary: fast
 
     name: "typescript-e2e-${{ matrix.test }}"
 
@@ -136,6 +138,12 @@ jobs:
       - name: Install e2e dependencies
         working-directory: ts-tests
         run: pnpm install --frozen-lockfile
+
+      - name: Install lsof (dev foundation RPC port discovery)
+        if: matrix.test == 'dev'
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends lsof
 
       - name: Run tests
         run: |
