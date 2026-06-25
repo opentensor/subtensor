@@ -234,7 +234,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 423,
+    spec_version: 425,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -2582,6 +2582,76 @@ impl_runtime_apis! {
     impl subtensor_custom_rpc_runtime_api::SubnetRegistrationRuntimeApi<Block> for Runtime {
         fn get_network_registration_cost() -> TaoBalance {
             SubtensorModule::get_network_lock_cost()
+        }
+    }
+
+    impl subtensor_custom_rpc_runtime_api::DerivativesRuntimeApi<Block> for Runtime {
+        fn quote_open_short(
+            netuid: NetUid,
+            position_input: TaoBalance,
+        ) -> Option<pallet_subtensor::derivatives::ShortOpenQuote> {
+            SubtensorModule::quote_open_short(netuid, position_input)
+        }
+
+        fn quote_close_short(
+            coldkey: AccountId32,
+            netuid: NetUid,
+            fraction_ppb: u64,
+        ) -> Option<pallet_subtensor::derivatives::CloseShortQuote> {
+            SubtensorModule::quote_close_short(&coldkey, netuid, fraction_ppb)
+        }
+
+        fn get_short_position(
+            coldkey: AccountId32,
+            netuid: NetUid,
+        ) -> Option<pallet_subtensor::derivatives::ShortPositionInfo<AccountId32>> {
+            SubtensorModule::get_short_position(&coldkey, netuid)
+        }
+
+        fn get_short_positions(
+            coldkey: AccountId32,
+        ) -> Vec<pallet_subtensor::derivatives::ShortPositionInfo<AccountId32>> {
+            SubtensorModule::get_short_positions(&coldkey)
+        }
+
+        fn get_subnet_short_state(
+            netuid: NetUid,
+        ) -> Option<pallet_subtensor::derivatives::ShortMarketInfo> {
+            SubtensorModule::get_subnet_short_state(netuid)
+        }
+
+        fn quote_open_long(
+            netuid: NetUid,
+            position_input: AlphaBalance,
+        ) -> Option<pallet_subtensor::derivatives::LongOpenQuote> {
+            SubtensorModule::quote_open_long(netuid, position_input)
+        }
+
+        fn quote_close_long(
+            coldkey: AccountId32,
+            netuid: NetUid,
+            fraction_ppb: u64,
+        ) -> Option<pallet_subtensor::derivatives::CloseLongQuote> {
+            SubtensorModule::quote_close_long(&coldkey, netuid, fraction_ppb)
+        }
+
+        fn get_long_position(
+            coldkey: AccountId32,
+            netuid: NetUid,
+        ) -> Option<pallet_subtensor::derivatives::LongPositionInfo<AccountId32>> {
+            SubtensorModule::get_long_position(&coldkey, netuid)
+        }
+
+        fn get_long_positions(
+            coldkey: AccountId32,
+        ) -> Vec<pallet_subtensor::derivatives::LongPositionInfo<AccountId32>> {
+            SubtensorModule::get_long_positions(&coldkey)
+        }
+
+        fn get_subnet_long_state(
+            netuid: NetUid,
+        ) -> Option<pallet_subtensor::derivatives::LongMarketInfo> {
+            SubtensorModule::get_subnet_long_state(netuid)
         }
     }
 

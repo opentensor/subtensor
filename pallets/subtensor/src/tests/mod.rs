@@ -5,6 +5,7 @@ mod claim_root;
 mod coinbase;
 mod consensus;
 mod delegate_info;
+mod derivatives;
 mod emission;
 mod ensure;
 mod epoch;

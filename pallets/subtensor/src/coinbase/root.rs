@@ -212,6 +212,11 @@ impl<T: Config> Pallet<T> {
 
         Self::finalize_all_subnet_root_dividends(netuid);
 
+        // --- Settle covered derivatives before the pool is drained, so restored
+        //     escrow joins terminal distribution and liabilities are bounded.
+        Self::settle_shorts_on_dereg(netuid);
+        Self::settle_longs_on_dereg(netuid);
+
         // --- Perform the cleanup before removing the network.
         Self::destroy_alpha_in_out_stakes(netuid)?;
         T::SwapInterface::clear_protocol_liquidity(netuid)?;

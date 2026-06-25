@@ -38,6 +38,26 @@ pub trait SwapHandler {
     where
         Self: SwapEngine<O>;
 
+    /// Exact-output quote: TAO that must be paid in to buy `alpha_out` Alpha out
+    /// of the pool, weight aware (and fee aware unless `opts.drop_fees`).
+    /// Read-only — never mutates state. `Err` when the pool cannot supply
+    /// `alpha_out`.
+    fn sim_tao_in_for_alpha_out(
+        netuid: NetUid,
+        alpha_out: AlphaBalance,
+        opts: SimSwapOpts,
+    ) -> Result<TaoBalance, DispatchError>;
+
+    /// Exact-output quote: Alpha that must be paid in to raise `tao_out` TAO out
+    /// of the pool, weight aware (and fee aware unless `opts.drop_fees`).
+    /// Read-only — never mutates state. `Err` when the pool cannot supply
+    /// `tao_out`.
+    fn sim_alpha_in_for_tao_out(
+        netuid: NetUid,
+        tao_out: TaoBalance,
+        opts: SimSwapOpts,
+    ) -> Result<AlphaBalance, DispatchError>;
+
     fn approx_fee_amount<T: Token>(netuid: NetUid, amount: T) -> T;
     fn current_alpha_price(netuid: NetUid) -> U64F64;
     fn max_price<C: Token>() -> C;
@@ -192,6 +212,26 @@ where
     PaidOut: Token,
 {
     fn default_price_limit<C: Token>() -> C;
+}
+
+/// Options controlling how a swap is *simulated* (read-only quoting).
+///
+/// Kept deliberately small but extensible: the simulation entrypoints take this
+/// by value so future knobs (e.g. ignore-price-limit, partial-fill behaviour)
+/// can be added as fields without churning every call site. `Default` = a
+/// faithful quote (fees included).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct SimSwapOpts {
+    /// Quote as if the subnet swap fee were zero. Use for "ideal" / no-fee
+    /// valuations; leave `false` for the realistic, fee-inclusive cost.
+    pub drop_fees: bool,
+}
+
+impl SimSwapOpts {
+    /// Faithful, fee-inclusive simulation (the default).
+    pub const WITH_FEES: Self = Self { drop_fees: false };
+    /// Fee-excluded simulation (`sim(no_fees = true)`).
+    pub const NO_FEES: Self = Self { drop_fees: true };
 }
 
 /// Externally used swap result (for RPC)

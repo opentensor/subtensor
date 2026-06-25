@@ -595,6 +595,17 @@ impl<T: Config> Pallet<T> {
 
         // 8. Swap dividend records
         if !keep_stake {
+            // 8.0 Re-home covered short/long positions recorded against
+            // `old_hotkey`. The backing stake migrates in this same `!keep_stake`
+            // branch (section 8.5 below), so the positions' recorded hotkey must
+            // move with it or their close/default/settle math would chase empty
+            // stake — and the open-time merge guard blocks re-opening at the new
+            // hotkey, permanently stranding the position. Bounded by the
+            // per-subnet position caps; charge the iteration weight.
+            let (pos_reads, pos_writes) =
+                Self::swap_positions_for_hotkey_swap(old_hotkey, new_hotkey, netuid);
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(pos_reads, pos_writes));
+
             // 8.1 Swap TotalHotkeyAlphaLastEpoch
             let old_alpha = TotalHotkeyAlphaLastEpoch::<T>::take(old_hotkey, netuid);
             let new_total_hotkey_alpha = TotalHotkeyAlphaLastEpoch::<T>::get(new_hotkey, netuid);

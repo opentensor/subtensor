@@ -14,6 +14,10 @@ use pallet_subtensor::rpc_info::{
         SubnetHyperparams, SubnetHyperparamsV2, SubnetHyperparamsV3, SubnetInfo, SubnetInfov2,
     },
 };
+use pallet_subtensor::derivatives::{
+    CloseLongQuote, CloseShortQuote, LongMarketInfo, LongOpenQuote, LongPositionInfo,
+    ShortMarketInfo, ShortOpenQuote, ShortPositionInfo,
+};
 use pallet_subtensor::staking::lock::LockState;
 use sp_runtime::AccountId32;
 use substrate_fixed::types::U64F64;
@@ -82,5 +86,19 @@ sp_api::decl_runtime_apis! {
     pub trait ProxyFilterRuntimeApi {
         fn get_proxy_types() -> Vec<ProxyTypeInfo>;
         fn get_proxy_filter(proxy_type: Option<u8>) -> Vec<ProxyFilterInfo>;
+    }
+
+    pub trait DerivativesRuntimeApi {
+        fn quote_open_short(netuid: NetUid, position_input: TaoBalance) -> Option<ShortOpenQuote>;
+        fn quote_close_short(coldkey: AccountId32, netuid: NetUid, fraction_ppb: u64) -> Option<CloseShortQuote>;
+        fn get_short_position(coldkey: AccountId32, netuid: NetUid) -> Option<ShortPositionInfo<AccountId32>>;
+        fn get_short_positions(coldkey: AccountId32) -> Vec<ShortPositionInfo<AccountId32>>;
+        fn get_subnet_short_state(netuid: NetUid) -> Option<ShortMarketInfo>;
+
+        fn quote_open_long(netuid: NetUid, position_input: AlphaBalance) -> Option<LongOpenQuote>;
+        fn quote_close_long(coldkey: AccountId32, netuid: NetUid, fraction_ppb: u64) -> Option<CloseLongQuote>;
+        fn get_long_position(coldkey: AccountId32, netuid: NetUid) -> Option<LongPositionInfo<AccountId32>>;
+        fn get_long_positions(coldkey: AccountId32) -> Vec<LongPositionInfo<AccountId32>>;
+        fn get_subnet_long_state(netuid: NetUid) -> Option<LongMarketInfo>;
     }
 }

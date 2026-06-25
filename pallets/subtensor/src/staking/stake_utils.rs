@@ -68,6 +68,19 @@ impl<T: Config> Pallet<T> {
         let new_moving: I96F32 =
             I96F32::saturating_from_num(current_price.saturating_add(current_moving));
         SubnetMovingPrice::<T>::insert(netuid, new_moving);
+
+        // Tick the Alpha-reserve EMA (`A_EMA`) on the SAME smoothing as the price
+        // EMA, so derivative references read a block-lagged reserve depth that an
+        // in-block swap cannot move. Spot `SubnetAlphaIn` only feeds the EMA once
+        // per block (here), after coinbase — never read live by the references.
+        let reserve_sample = alpha
+            .saturating_mul(U64F64::saturating_from_num(SubnetAlphaIn::<T>::get(netuid).to_u64()));
+        let reserve_carry = one_minus_alpha
+            .saturating_mul(SubnetAlphaInMovingReserve::<T>::get(netuid));
+        SubnetAlphaInMovingReserve::<T>::insert(
+            netuid,
+            reserve_sample.saturating_add(reserve_carry),
+        );
     }
 
     /// Gets the Median Subnet Alpha Price

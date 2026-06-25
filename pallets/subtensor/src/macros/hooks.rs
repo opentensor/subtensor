@@ -177,7 +177,10 @@ mod hooks {
                 // Capture the runtime-upgrade block for TAO-in refund cutover.
                 .saturating_add(migrations::migrate_tao_in_refund_deployment_block::migrate_tao_in_refund_deployment_block::<T>())
                 // Fix lock state left behind by subnet-scoped hotkey swaps.
-                .saturating_add(migrations::migrate_fix_subnet_hotkey_lock_swaps::migrate_fix_subnet_hotkey_lock_swaps::<T>());
+                .saturating_add(migrations::migrate_fix_subnet_hotkey_lock_swaps::migrate_fix_subnet_hotkey_lock_swaps::<T>())
+                // Seed the Alpha-reserve EMA from live reserves so the derivative
+                // references start warm (no cold-start spot-reserve fallback window).
+                .saturating_add(migrations::migrate_seed_alpha_in_moving_reserve::migrate_seed_alpha_in_moving_reserve::<T>());
             weight
         }
 

@@ -303,6 +303,49 @@ mod errors {
         CannotUseSystemAccount,
         /// Trying to unlock more than locked
         UnlockAmountTooHigh,
+        /// Short-side derivatives are disabled.
+        ShortsDisabled,
+        /// The subnet is not a dynamic (AMM) subnet.
+        SubnetNotDynamic,
+        /// No short position exists for this coldkey on the subnet.
+        ShortPositionNotFound,
+        /// Effective LTV is non-positive at current utilization.
+        EffectiveLtvNonPositive,
+        /// Retained proceeds would be non-positive.
+        RetainedProceedsNonPositive,
+        /// Open would exceed the active short footprint cap.
+        ShortCapacityExceeded,
+        /// Open violates the remove-and-sell-back square-root domain.
+        ReserveDomainExceeded,
+        /// Close fraction must be in (0, 1e9].
+        InvalidCloseFraction,
+        /// Trader does not hold enough alpha to repay the liability.
+        InsufficientAlphaToClose,
+        /// Self-covering close: the buyback/sellback cost to settle the liability
+        /// from the pool exceeds the position's floor+buffer claim (the position
+        /// is underwater). Close with own funds or let it default instead.
+        CloseCostExceedsClaim,
+        /// Position has not decayed to dust and is not default-eligible.
+        PositionNotDefaultEligible,
+        /// Additional open targets a different hotkey than the existing position.
+        ShortHotkeyMismatch,
+        /// The subnet has reached its maximum number of open short positions.
+        ShortPositionLimit,
+        /// Long-side derivatives are disabled.
+        LongsDisabled,
+        /// No long position exists for this coldkey on the subnet.
+        LongPositionNotFound,
+        /// Open would exceed the active long footprint cap.
+        LongCapacityExceeded,
+        /// The subnet has reached its maximum number of open long positions.
+        LongPositionLimit,
+        /// Additional open targets a different hotkey than the existing position.
+        LongHotkeyMismatch,
+        /// Trader does not hold enough alpha collateral to open/extend the long.
+        InsufficientCollateral,
+        /// The post-trade executable price violated the caller-supplied
+        /// `limit_price` slippage bound (sandwich/MEV protection).
+        SlippageExceeded,
         /// The supplied tempo is outside the allowed range.
         TempoOutOfBounds,
         /// The supplied activity-cutoff factor is outside the allowed range.

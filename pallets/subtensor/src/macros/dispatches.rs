@@ -2651,5 +2651,131 @@ mod dispatches {
             Self::deposit_event(Event::RejectLockedAlphaUpdated { coldkey, enabled });
             Ok(())
         }
+
+        /// Open (or merge into) a covered short with floor input `position_input`.
+        #[pallet::call_index(143)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(12, 8))]
+        pub fn open_short(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            netuid: NetUid,
+            position_input: TaoBalance,
+            limit_price: Option<u64>,
+        ) -> DispatchResult {
+            Self::do_open_short(origin, hotkey, netuid, position_input, limit_price)
+        }
+
+        /// Top up a covered short's carry buffer with fresh capital.
+        #[pallet::call_index(144)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(5, 4))]
+        pub fn top_up_short(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            amount: TaoBalance,
+            limit_price: Option<u64>,
+        ) -> DispatchResult {
+            Self::do_top_up_short(origin, netuid, amount, limit_price)
+        }
+
+        /// Close `fraction_ppb / 1e9` of a covered short (`1e9` = full close).
+        #[pallet::call_index(145)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(10, 8))]
+        pub fn close_short(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            fraction_ppb: u64,
+            limit_price: Option<u64>,
+        ) -> DispatchResult {
+            Self::do_close_short(origin, netuid, fraction_ppb, limit_price)
+        }
+
+        /// Permissionlessly default a covered short whose buffer reached dust.
+        #[pallet::call_index(146)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(7, 6))]
+        pub fn default_short(
+            origin: OriginFor<T>,
+            coldkey: T::AccountId,
+            netuid: NetUid,
+        ) -> DispatchResult {
+            Self::do_default_short(origin, coldkey, netuid)
+        }
+
+        /// Open (or merge into) a covered long with floor Alpha `position_input`.
+        #[pallet::call_index(147)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(12, 8))]
+        pub fn open_long(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            netuid: NetUid,
+            position_input: AlphaBalance,
+            limit_price: Option<u64>,
+        ) -> DispatchResult {
+            Self::do_open_long(origin, hotkey, netuid, position_input, limit_price)
+        }
+
+        /// Top up a covered long's carry buffer with fresh Alpha.
+        #[pallet::call_index(148)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(5, 4))]
+        pub fn top_up_long(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            amount: AlphaBalance,
+            limit_price: Option<u64>,
+        ) -> DispatchResult {
+            Self::do_top_up_long(origin, netuid, amount, limit_price)
+        }
+
+        /// Close `fraction_ppb / 1e9` of a covered long (`1e9` = full close).
+        #[pallet::call_index(149)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(10, 8))]
+        pub fn close_long(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            fraction_ppb: u64,
+            limit_price: Option<u64>,
+        ) -> DispatchResult {
+            Self::do_close_long(origin, netuid, fraction_ppb, limit_price)
+        }
+
+        /// Permissionlessly default a covered long whose buffer reached dust.
+        #[pallet::call_index(150)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(7, 6))]
+        pub fn default_long(
+            origin: OriginFor<T>,
+            coldkey: T::AccountId,
+            netuid: NetUid,
+        ) -> DispatchResult {
+            Self::do_default_long(origin, coldkey, netuid)
+        }
+
+        /// Self-covering close of `fraction_ppb / 1e9` of a covered short: the
+        /// protocol rebuys the Alpha liability from the pool and charges the cost
+        /// against the position's floor+buffer, so no pre-held Alpha is required
+        /// (TAO-in / TAO-out). Rejected if underwater (`K > P+R`).
+        #[pallet::call_index(151)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(10, 8))]
+        pub fn close_short_self(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            fraction_ppb: u64,
+            limit_price: Option<u64>,
+        ) -> DispatchResult {
+            Self::do_close_short_self(origin, netuid, fraction_ppb, limit_price)
+        }
+
+        /// Self-covering close of `fraction_ppb / 1e9` of a covered long: the
+        /// protocol sells just enough of the Alpha claim into the pool to raise
+        /// and settle the TAO liability, so no pre-held TAO is required
+        /// (Alpha-in / Alpha-out). Rejected if underwater.
+        #[pallet::call_index(152)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(10, 8))]
+        pub fn close_long_self(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            fraction_ppb: u64,
+            limit_price: Option<u64>,
+        ) -> DispatchResult {
+            Self::do_close_long_self(origin, netuid, fraction_ppb, limit_price)
+        }
     }
 }

@@ -670,6 +670,115 @@ mod events {
             enabled: bool,
         },
 
+        /// A covered short was opened (or merged).
+        ShortOpened {
+            /// Position owner coldkey.
+            coldkey: T::AccountId,
+            /// Subnet the short is on.
+            netuid: NetUid,
+            /// Floor TAO supplied by the trader.
+            position_input: TaoBalance,
+            /// Retained proceeds booked as the initial buffer.
+            retained_proceeds: TaoBalance,
+            /// Fixed alpha liability created.
+            alpha_liability: AlphaBalance,
+            /// Linked TAO escrow created.
+            escrow: TaoBalance,
+        },
+        /// A covered short's carry buffer was topped up.
+        ShortToppedUp {
+            /// Position owner coldkey.
+            coldkey: T::AccountId,
+            /// Subnet the short is on.
+            netuid: NetUid,
+            /// TAO added to the buffer.
+            amount: TaoBalance,
+        },
+        /// A covered short was (partially) closed.
+        ShortClosed {
+            /// Position owner coldkey.
+            coldkey: T::AccountId,
+            /// Subnet the short is on.
+            netuid: NetUid,
+            /// Closed fraction in parts-per-billion.
+            fraction_ppb: u64,
+            /// Alpha repaid to extinguish the liability slice.
+            repaid_alpha: AlphaBalance,
+            /// TAO (floor + buffer) returned to the trader.
+            returned: TaoBalance,
+        },
+        /// A covered short defaulted after its buffer reached dust.
+        ShortDefaulted {
+            /// Position owner coldkey.
+            coldkey: T::AccountId,
+            /// Subnet the short was on.
+            netuid: NetUid,
+        },
+        /// A covered short was settled at subnet deregistration.
+        ShortTerminalSettled {
+            /// Position owner coldkey.
+            coldkey: T::AccountId,
+            /// Subnet that deregistered.
+            netuid: NetUid,
+            /// Terminal equity paid to the trader.
+            equity: TaoBalance,
+            /// Liability-cover recycled outside terminal distribution.
+            liability_cover: TaoBalance,
+        },
+
+        /// A covered long was opened (or merged).
+        LongOpened {
+            /// Position owner coldkey.
+            coldkey: T::AccountId,
+            /// Subnet the long is on.
+            netuid: NetUid,
+            /// Floor Alpha supplied by the trader.
+            position_input: AlphaBalance,
+            /// Retained Alpha proceeds booked as the initial buffer.
+            retained_proceeds: AlphaBalance,
+            /// Fixed TAO liability created.
+            tao_liability: TaoBalance,
+            /// Linked Alpha escrow created.
+            escrow: AlphaBalance,
+        },
+        /// A covered long's carry buffer was topped up.
+        LongToppedUp {
+            /// Position owner coldkey.
+            coldkey: T::AccountId,
+            /// Subnet the long is on.
+            netuid: NetUid,
+            /// Alpha added to the buffer.
+            amount: AlphaBalance,
+        },
+        /// A covered long was (partially) closed.
+        LongClosed {
+            /// Position owner coldkey.
+            coldkey: T::AccountId,
+            /// Subnet the long is on.
+            netuid: NetUid,
+            /// Closed fraction in parts-per-billion.
+            fraction_ppb: u64,
+            /// TAO repaid to extinguish the liability slice.
+            repaid_tao: TaoBalance,
+            /// Alpha (floor + buffer) returned to the trader.
+            returned: AlphaBalance,
+        },
+        /// A covered long defaulted after its buffer reached dust.
+        LongDefaulted {
+            /// Position owner coldkey.
+            coldkey: T::AccountId,
+            /// Subnet the long was on.
+            netuid: NetUid,
+        },
+        /// A covered long was settled at subnet deregistration.
+        LongTerminalSettled {
+            /// Position owner coldkey.
+            coldkey: T::AccountId,
+            /// Subnet that deregistered.
+            netuid: NetUid,
+            /// Terminal equity (Alpha) returned to the trader.
+            equity: AlphaBalance,
+        },
         /// A coldkey's reject locked alpha account flag was updated.
         RejectLockedAlphaUpdated {
             /// The coldkey whose flag changed.

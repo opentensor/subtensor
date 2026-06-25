@@ -58,3 +58,9 @@ __pycache__/
 # Claude Code configuration (skills are checked in; everything else is ignored)
 .claude/*
 !.claude/skills/
+
+# Local-only clones (not tracked)
+/bittensor/
+/btcli/
+/derivtest/
+shorting.pdf
