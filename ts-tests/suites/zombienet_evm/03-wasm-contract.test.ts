@@ -115,6 +115,28 @@ describeSuite({
             return stake as bigint;
         }
 
+        async function queryContractMessage(
+            messageName:
+                | "get_subnet_registration_state"
+                | "get_coldkey_lock"
+                | "get_stake_availability",
+            args: Record<string, unknown>
+        ): Promise<unknown> {
+            const message = inkClient.message(messageName);
+            const data = message.encode(args as never);
+            const response = await api.apis.ContractsApi.call(
+                convertPublicKeyToSs58(hotkey.publicKey),
+                contractAddress,
+                BigInt(0),
+                undefined,
+                undefined,
+                Binary.fromBytes(data.asBytes())
+            );
+
+            expect(response.result.success).toBeTruthy();
+            return message.decode(response.result.value as never).value.value;
+        }
+
         async function initSecondColdAndHotkey() {
             hotkey2 = generateKeyringPair("sr25519");
             coldkey2 = generateKeyringPair("sr25519");
@@ -1211,6 +1233,134 @@ describeSuite({
                 expect(balanceBefore - balanceAfter < 10_000_000).toBeTruthy();
                 expect(stakeAfter).toEqual(stakeBefore);
                 expect(alphaOutAfter > alphaOutBefore).toBeTruthy();
+            },
+        });
+
+        it({
+            id: "T36",
+            title: "Can get subnet registration state",
+            test: async () => {
+                const result = (await queryContractMessage("get_subnet_registration_state", {
+                    netuid,
+                })) as {
+                    netuid: number;
+                    exists: boolean;
+                    registered_subnet_counter: bigint;
+                };
+
+                const expectedCounter =
+                    await api.query.SubtensorModule.RegisteredSubnetCounter.getValue(netuid);
+                const networkAdded = await api.query.SubtensorModule.NetworksAdded.getValue(netuid);
+
+                expect(result.netuid).toEqual(netuid);
+                expect(result.exists).toEqual(networkAdded ?? false);
+                expect(result.registered_subnet_counter).toEqual(expectedCounter);
+            },
+        });
+
+        it({
+            id: "T37",
+            title: "Can get coldkey lock",
+            test: async () => {
+                const coldkeyAddress = convertPublicKeyToSs58(coldkey.publicKey);
+
+                const lockBefore = (await queryContractMessage("get_coldkey_lock", {
+                    coldkey: Binary.fromBytes(coldkey.publicKey),
+                    netuid,
+                })) as
+                    | {
+                        locked_mass: bigint;
+                        conviction_bits: bigint;
+                        last_update: bigint;
+                    }
+                    | undefined;
+                expect(lockBefore).toBeUndefined();
+
+                await addStakeViaContract(false);
+
+                const lockAmount = tao(40);
+                const lockTx = api.tx.SubtensorModule.lock_stake({
+                    hotkey: convertPublicKeyToSs58(hotkey.publicKey),
+                    netuid: netuid,
+                    amount: lockAmount,
+                });
+                await waitForTransactionWithRetry(api, lockTx, coldkey, "lock_stake", 5);
+
+                const lockAfter = (await queryContractMessage("get_coldkey_lock", {
+                    coldkey: Binary.fromBytes(coldkey.publicKey),
+                    netuid,
+                })) as {
+                    locked_mass: bigint;
+                    conviction_bits: bigint;
+                    last_update: bigint;
+                };
+                const expectedLock = await api.apis.StakeInfoRuntimeApi.get_coldkey_lock(
+                    coldkeyAddress,
+                    netuid
+                );
+
+                expect(expectedLock).toBeDefined();
+                expect(lockAfter.locked_mass).toEqual(expectedLock!.locked_mass);
+                expect(lockAfter.conviction_bits).toEqual(expectedLock!.conviction);
+                expect(lockAfter.last_update).toEqual(expectedLock!.last_update);
+            },
+        });
+
+        it({
+            id: "T38",
+            title: "Can get stake availability",
+            test: async () => {
+                const coldkeyAddress = convertPublicKeyToSs58(coldkey.publicKey);
+
+                const availabilityBefore = (await queryContractMessage("get_stake_availability", {
+                    coldkey: Binary.fromBytes(coldkey.publicKey),
+                    netuid,
+                })) as {
+                    netuid: number;
+                    total: bigint;
+                    locked: bigint;
+                    available: bigint;
+                };
+
+                expect(availabilityBefore.netuid).toEqual(netuid);
+                expect(availabilityBefore.total).toEqual(BigInt(0));
+                expect(availabilityBefore.locked).toEqual(BigInt(0));
+                expect(availabilityBefore.available).toEqual(BigInt(0));
+
+                await addStakeViaContract(false);
+
+                const lockAmount = tao(40);
+                const lockTx = api.tx.SubtensorModule.lock_stake({
+                    hotkey: convertPublicKeyToSs58(hotkey.publicKey),
+                    netuid: netuid,
+                    amount: lockAmount,
+                });
+                await waitForTransactionWithRetry(api, lockTx, coldkey, "lock_stake", 5);
+
+                const availabilityAfter = (await queryContractMessage("get_stake_availability", {
+                    coldkey: Binary.fromBytes(coldkey.publicKey),
+                    netuid,
+                })) as {
+                    netuid: number;
+                    total: bigint;
+                    locked: bigint;
+                    available: bigint;
+                };
+                const expectedAvailability =
+                    await api.apis.StakeInfoRuntimeApi.get_stake_availability_for_coldkeys(
+                        [coldkeyAddress],
+                        [netuid]
+                    );
+                const expected = expectedAvailability[coldkeyAddress]?.[netuid];
+
+                expect(expected).toBeDefined();
+                expect(availabilityAfter.netuid).toEqual(netuid);
+                expect(availabilityAfter.total).toEqual(expected!.total);
+                expect(availabilityAfter.locked).toEqual(expected!.locked);
+                expect(availabilityAfter.available).toEqual(expected!.available);
+                expect(availabilityAfter.available).toEqual(
+                    availabilityAfter.total - availabilityAfter.locked
+                );
             },
         });
     },
