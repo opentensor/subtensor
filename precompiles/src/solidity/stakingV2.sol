@@ -312,6 +312,21 @@ interface IStaking {
     ) external payable;
 
     /**
+     * @dev Claims the caller's own accrued root (netuid 0) emissions.
+     *
+     * The claim is settled for the coldkey derived from the caller's address, so a keyless
+     * smart contract can claim its own root dividends without an off-chain private key. There
+     * is no "claim on behalf of another coldkey" variant: a caller can only ever claim for
+     * itself.
+     *
+     * @param subnets The subnets to claim on (at most MAX_SUBNET_CLAIMS entries).
+     *
+     * Requirements:
+     * - `subnets` must be non-empty and contain at most MAX_SUBNET_CLAIMS unique entries.
+     */
+    function claimRoot(uint16[] memory subnets) external;
+
+    /**
      * @dev Set how much the caller approves the spender to use the provided amount of subnet tokens
      * on its behalf in a later call.
      *

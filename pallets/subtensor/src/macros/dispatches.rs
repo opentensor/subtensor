@@ -2172,28 +2172,6 @@ mod dispatches {
             Ok((Some(weight), Pays::Yes).into())
         }
 
-        /// --- Claims the root emissions on behalf of any coldkey.
-        /// # Args:
-        /// * 'origin': any signed account; only authorizes (and pays for) the call.
-        /// * 'coldkey': the coldkey whose claims are settled; all realized value is credited here.
-        /// * 'subnets': the subnets to claim on (1..=MAX_SUBNET_CLAIMS).
-        ///
-        /// # Event:
-        /// * RootClaimed;
-        /// 	- On successfully claiming the root emissions for `coldkey`.
-        #[pallet::call_index(142)]
-        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::claim_root())]
-        pub fn claim_root_for(
-            origin: OriginFor<T>,
-            coldkey: T::AccountId,
-            subnets: BTreeSet<NetUid>,
-        ) -> DispatchResultWithPostInfo {
-            let _who: T::AccountId = ensure_signed(origin)?;
-
-            let weight = Self::do_root_claim_checked(coldkey, subnets)?;
-            Ok((Some(weight), Pays::Yes).into())
-        }
-
         /// --- Sets the root claim type for the coldkey.
         /// # Args:
         /// * 'origin': (<T as frame_system::Config>Origin):
