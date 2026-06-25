@@ -2,6 +2,7 @@ use core::num::NonZeroU64;
 
 use frame_support::{PalletId, pallet_prelude::*, traits::Get};
 use frame_system::pallet_prelude::*;
+use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{
     AlphaBalance, BalanceOps, NetUid, SubnetInfo, TaoBalance, TokenReserve,
 };
@@ -112,6 +113,18 @@ mod pallet {
     /// Storage to determine whether balancer swap was initialized for a specific subnet.
     #[pallet::storage]
     pub type PalSwapInitialized<T> = StorageMap<_, Twox64Concat, NetUid, bool, ValueQuery>;
+
+    /// Square root of the current alpha price per subnet.
+    ///
+    /// This map is NOT used by the balancer (price is derived on the fly from reserves and
+    /// weights via [`Pallet::current_price`]). It is maintained purely for backwards
+    /// compatibility: external consumers (indexers, dashboards, wallets, SDKs) read the
+    /// `Swap::AlphaSqrtPrice` storage directly to obtain the subnet price, as they did under
+    /// the Uniswap V3 implementation. It is refreshed whenever the price changes via
+    /// [`Pallet::refresh_alpha_sqrt_price`].
+    #[pallet::storage]
+    pub type AlphaSqrtPrice<T> =
+        StorageMap<_, Twox64Concat, NetUid, U64F64, ValueQuery>;
 
     /// --- Storage for migration run status
     #[pallet::storage]

@@ -806,8 +806,9 @@ fn test_migrate_swapv3_to_balancer() {
             crate::migrations::migrate_swapv3_to_balancer::migrate_swapv3_to_balancer::<Test>;
         let netuid = NetUid::from(1);
 
-        // Insert deprecated maps values
-        deprecated_swap_maps::AlphaSqrtPrice::<Test>::insert(netuid, U64F64::from_num(1.23));
+        // Insert deprecated maps values. AlphaSqrtPrice is retained for backwards
+        // compatibility, so it is inserted via the live pallet storage.
+        AlphaSqrtPrice::<Test>::insert(netuid, U64F64::from_num(1.23));
         deprecated_swap_maps::ScrapReservoirTao::<Test>::insert(netuid, TaoBalance::from(9876));
         deprecated_swap_maps::ScrapReservoirAlpha::<Test>::insert(netuid, AlphaBalance::from(9876));
 
@@ -818,10 +819,13 @@ fn test_migrate_swapv3_to_balancer() {
         // Run migration
         migration();
 
-        // Test that values are removed from state
-        assert!(!deprecated_swap_maps::AlphaSqrtPrice::<Test>::contains_key(
-            netuid
-        ));
+        // V3-only state is removed, but AlphaSqrtPrice is retained as a backwards-compat seed.
+        assert!(AlphaSqrtPrice::<Test>::contains_key(netuid));
+        assert_abs_diff_eq!(
+            AlphaSqrtPrice::<Test>::get(netuid).to_num::<f64>(),
+            1.23,
+            epsilon = 0.001
+        );
         assert!(!deprecated_swap_maps::ScrapReservoirAlpha::<Test>::contains_key(netuid));
 
         // Test that subnet price is still 1.23^2
@@ -845,7 +849,7 @@ fn test_migrate_swapv3_to_balancer_falls_back_to_default_when_price_init_fails()
             frame_support::BoundedVec::truncate_from(b"migrate_swapv3_to_balancer".to_vec());
         let netuid = NetUid::from(1);
 
-        deprecated_swap_maps::AlphaSqrtPrice::<Test>::insert(netuid, U64F64::from_num(1));
+        AlphaSqrtPrice::<Test>::insert(netuid, U64F64::from_num(1));
         deprecated_swap_maps::ScrapReservoirTao::<Test>::insert(netuid, TaoBalance::from(9876));
         deprecated_swap_maps::ScrapReservoirAlpha::<Test>::insert(netuid, AlphaBalance::from(9876));
 
@@ -854,9 +858,8 @@ fn test_migrate_swapv3_to_balancer_falls_back_to_default_when_price_init_fails()
 
         migration();
 
-        assert!(!deprecated_swap_maps::AlphaSqrtPrice::<Test>::contains_key(
-            netuid
-        ));
+        // AlphaSqrtPrice is retained even when the balancer falls back to default.
+        assert!(AlphaSqrtPrice::<Test>::contains_key(netuid));
         assert!(!deprecated_swap_maps::ScrapReservoirTao::<Test>::contains_key(netuid));
         assert!(!deprecated_swap_maps::ScrapReservoirAlpha::<Test>::contains_key(netuid));
         assert!(PalSwapInitialized::<Test>::get(netuid));

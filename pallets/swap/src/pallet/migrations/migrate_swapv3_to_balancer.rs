@@ -2,14 +2,9 @@ use super::*;
 use crate::HasMigrationRun;
 use frame_support::{storage_alias, traits::Get, weights::Weight};
 use scale_info::prelude::string::String;
-use substrate_fixed::types::U64F64;
 
 pub mod deprecated_swap_maps {
     use super::*;
-
-    #[storage_alias]
-    pub type AlphaSqrtPrice<T: Config> =
-        StorageMap<Pallet<T>, Twox64Concat, NetUid, U64F64, ValueQuery>;
 
     /// TAO reservoir for scraps of protocol claimed fees.
     #[storage_alias]
@@ -42,7 +37,10 @@ pub fn migrate_swapv3_to_balancer<T: Config>() -> Weight {
     // ------------------------------
     // Step 1: Initialize swaps with price before price removal
     // ------------------------------
-    for (netuid, price_sqrt) in deprecated_swap_maps::AlphaSqrtPrice::<T>::iter() {
+    // NOTE: `AlphaSqrtPrice` is intentionally NOT cleared below. It is retained as a
+    // backwards-compatibility map (see its definition in the pallet) and the V3 values read
+    // here serve as its initial seed; it is refreshed on every subsequent price change.
+    for (netuid, price_sqrt) in AlphaSqrtPrice::<T>::iter() {
         let price = price_sqrt.saturating_mul(price_sqrt);
         if let Err(error) = crate::Pallet::<T>::maybe_initialize_palswap(netuid, Some(price)) {
             log::warn!(
@@ -60,7 +58,6 @@ pub fn migrate_swapv3_to_balancer<T: Config>() -> Weight {
     // ------------------------------
     // Step 2: Clear Map entries
     // ------------------------------
-    remove_prefix::<T>("Swap", "AlphaSqrtPrice", &mut weight);
     remove_prefix::<T>("Swap", "CurrentTick", &mut weight);
     remove_prefix::<T>("Swap", "EnabledUserLiquidity", &mut weight);
     remove_prefix::<T>("Swap", "FeeGlobalTao", &mut weight);
