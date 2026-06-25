@@ -1235,7 +1235,6 @@ describeSuite({
 
                 expect(response.result.success).toBeTruthy();
                 const result = queryMessage.decode(response.result.value).value.value;
-
                 if (
                     typeof result === "object" &&
                     "netuid" in result &&
@@ -1256,34 +1255,59 @@ describeSuite({
             id: "T37",
             title: "Can get coldkey lock",
             test: async () => {
+                const coldkeyAddress = convertPublicKeyToSs58(coldkey.publicKey);
                 const queryMessage = inkClient.message("get_coldkey_lock");
-
-                const data = queryMessage.encode({
+                const queryArgs = {
                     coldkey: Binary.fromBytes(coldkey.publicKey),
                     netuid: netuid,
-                });
+                };
 
-                const response = await api.apis.ContractsApi.call(
-                    convertPublicKeyToSs58(hotkey.publicKey),
-                    contractAddress,
-                    BigInt(0),
-                    undefined,
-                    undefined,
-                    Binary.fromBytes(data.asBytes())
-                );
+                async function queryColdkeyLock() {
+                    const data = queryMessage.encode(queryArgs);
+                    const response = await api.apis.ContractsApi.call(
+                        convertPublicKeyToSs58(hotkey.publicKey),
+                        contractAddress,
+                        BigInt(0),
+                        undefined,
+                        undefined,
+                        Binary.fromBytes(data.asBytes())
+                    );
+                    expect(response.result.success).toBeTruthy();
+                    return queryMessage.decode(response.result.value).value.value as
+                        | {
+                            locked_mass: bigint;
+                            conviction_bits: bigint;
+                            last_update: bigint;
+                        }
+                        | undefined;
+                }
 
-                expect(response.result.success).toBeTruthy();
-                const result = queryMessage.decode(response.result.value).value.value;
+                let lock = await queryColdkeyLock();
+                if (!lock) {
+                    await addStakeViaContract(false);
+
+                    const lockAmount = tao(1);
+                    const lockTx = api.tx.SubtensorModule.lock_stake({
+                        hotkey: convertPublicKeyToSs58(hotkey.publicKey),
+                        netuid: netuid,
+                        amount: lockAmount,
+                    });
+                    await waitForTransactionWithRetry(api, lockTx, coldkey, "lock_stake");
+
+                    lock = await queryColdkeyLock();
+                }
+
+                expect(lock).toBeDefined();
 
                 if (
-                    typeof result === "object" &&
-                    "netuid" in result &&
-                    "coldkey" in result &&
-                    "lock" in result
+                    typeof lock === "object" &&
+                    "locked_mass" in lock &&
+                    "conviction_bits" in lock &&
+                    "last_update" in lock
                 ) {
-                    expect(result.netuid).toEqual(netuid);
-                    expect(result.lock).toBeGreaterThanOrEqual(BigInt(0));
-                    expect(result.coldkey).toEqual(convertPublicKeyToSs58(coldkey.publicKey));
+                    expect(lock.locked_mass).toBeGreaterThanOrEqual(BigInt(0));
+                    expect(lock.conviction_bits).toBeGreaterThanOrEqual(BigInt(0));
+                    expect(lock.last_update).toBeGreaterThanOrEqual(BigInt(0));
                 } else {
                     throw new Error("result is not an object");
                 }
@@ -1314,16 +1338,17 @@ describeSuite({
 
                 expect(response.result.success).toBeTruthy();
                 const result = queryMessage.decode(response.result.value).value.value;
-
                 if (
                     typeof result === "object" &&
                     "netuid" in result &&
-                    "coldkey" in result &&
-                    "stake_availability" in result
+                    "locked" in result &&
+                    "available" in result &&
+                    "total" in result
                 ) {
                     expect(result.netuid).toEqual(netuid);
-                    expect(result.stake_availability).toBeGreaterThanOrEqual(BigInt(0));
-                    expect(result.coldkey).toEqual(coldkeyAddress);
+                    expect(result.locked).toBeGreaterThanOrEqual(BigInt(0));
+                    expect(result.available).toBeGreaterThanOrEqual(BigInt(0));
+                    expect(result.total).toBeGreaterThanOrEqual(BigInt(0));
                 } else {
                     throw new Error("result is not an object");
                 }
