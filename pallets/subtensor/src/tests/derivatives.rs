@@ -44,6 +44,9 @@ fn setup_market(tao_reserve: u64, alpha_reserve: u64, price: f64) -> NetUid {
     let sa = SubtensorModule::get_subnet_account_id(netuid).unwrap();
     add_balance_to_coldkey_account(&sa, t(tao_reserve));
     SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(price));
+    // Warm the Alpha-reserve EMA to the live reserve (production warms it over
+    // blocks via `update_moving_price`; tests start warm so references are stable).
+    SubnetAlphaInMovingReserve::<Test>::insert(netuid, U64F64::from_num(alpha_reserve));
     SubtensorModule::set_shorts_enabled(true);
     SubtensorModule::set_short_kappa_ppb(900_000_000); // κ = 0.9, generous
     netuid
@@ -2078,5 +2081,318 @@ fn list_positions_across_subnets() {
         let mut want = vec![n1, n2];
         want.sort();
         assert_eq!(netuids, want);
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Key-swap re-homing (hotkey / coldkey swaps must follow the position)
+// ---------------------------------------------------------------------------
+
+/// `keep_stake = false` hotkey swap migrates the trader's stake AND re-homes the
+/// recorded position hotkey, so the staked-alpha close path keeps working.
+/// Without the re-home, `do_close_short` would chase the now-empty old hotkey
+/// and revert `InsufficientAlphaToClose`.
+#[test]
+fn hotkey_swap_rehomes_short_and_close_still_works() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_market(1000 * TAO, 1000 * TAO, 1.0);
+        let trader = U256::from(10);
+        let old_hotkey = U256::from(11);
+        let new_hotkey = U256::from(12);
+        // Trader must own the hotkey to swap it.
+        register_ok_neuron(netuid, old_hotkey, trader, 0);
+        add_balance_to_coldkey_account(&trader, t(1000 * TAO));
+
+        assert_ok!(SubtensorModule::open_short(
+            RuntimeOrigin::signed(trader),
+            old_hotkey,
+            netuid,
+            t(100 * TAO),
+            None
+        ));
+        let q = ShortPositions::<Test>::get(netuid, trader).unwrap().q_liability;
+        give_alpha(old_hotkey, trader, netuid, AlphaBalance::from(q.to_u64() + 10 * TAO));
+
+        add_balance_to_coldkey_account(
+            &trader,
+            (SubtensorModule::get_key_swap_cost() + 1000.into()).into(),
+        );
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            RuntimeOrigin::signed(trader),
+            &old_hotkey,
+            &new_hotkey,
+            None,
+            false,
+        ));
+
+        // The position followed the stake to the new hotkey.
+        let pos = ShortPositions::<Test>::get(netuid, trader).unwrap();
+        assert_eq!(pos.hotkey, new_hotkey, "position hotkey must re-home");
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&old_hotkey, &trader, netuid)
+                .to_u64(),
+            0,
+            "stake left the old hotkey"
+        );
+        assert!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&new_hotkey, &trader, netuid)
+                >= q,
+            "stake now reachable at the new hotkey"
+        );
+
+        // The staked-alpha close path resolves against the migrated stake.
+        assert_ok!(SubtensorModule::close_short(
+            RuntimeOrigin::signed(trader),
+            netuid,
+            1_000_000_000,
+            None
+        ));
+        assert!(ShortPositions::<Test>::get(netuid, trader).is_none());
+    });
+}
+
+/// A third party's swap of their own hotkey must re-home a *delegator's*
+/// position recorded against that hotkey — the delegator's stake is moved by the
+/// same swap, so leaving their position behind would silently strand it.
+#[test]
+fn hotkey_swap_rehomes_third_party_delegator_position() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_market(1000 * TAO, 1000 * TAO, 1.0);
+        let owner = U256::from(20);
+        let old_hotkey = U256::from(21);
+        let new_hotkey = U256::from(22);
+        let delegator = U256::from(30);
+        register_ok_neuron(netuid, old_hotkey, owner, 0);
+        add_balance_to_coldkey_account(&delegator, t(1000 * TAO));
+
+        // Delegator opens a short against the owner's hotkey and stakes there.
+        assert_ok!(SubtensorModule::open_short(
+            RuntimeOrigin::signed(delegator),
+            old_hotkey,
+            netuid,
+            t(100 * TAO),
+            None
+        ));
+        let q = ShortPositions::<Test>::get(netuid, delegator).unwrap().q_liability;
+        give_alpha(old_hotkey, delegator, netuid, AlphaBalance::from(q.to_u64() + 10 * TAO));
+
+        // The hotkey OWNER swaps — not the delegator.
+        add_balance_to_coldkey_account(
+            &owner,
+            (SubtensorModule::get_key_swap_cost() + 1000.into()).into(),
+        );
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            RuntimeOrigin::signed(owner),
+            &old_hotkey,
+            &new_hotkey,
+            None,
+            false,
+        ));
+
+        let pos = ShortPositions::<Test>::get(netuid, delegator).unwrap();
+        assert_eq!(pos.hotkey, new_hotkey, "delegator position must re-home");
+        assert_ok!(SubtensorModule::close_short(
+            RuntimeOrigin::signed(delegator),
+            netuid,
+            1_000_000_000,
+            None
+        ));
+        assert!(ShortPositions::<Test>::get(netuid, delegator).is_none());
+    });
+}
+
+/// A coldkey swap re-keys the position to the new coldkey (hotkey unchanged) so
+/// the new coldkey can still close against the migrated stake.
+#[test]
+fn coldkey_swap_rekeys_short_and_close_still_works() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_market(1000 * TAO, 1000 * TAO, 1.0);
+        let old_cold = U256::from(40);
+        let new_cold = U256::from(41);
+        let hotkey = U256::from(42);
+        add_balance_to_coldkey_account(&old_cold, t(1000 * TAO));
+
+        assert_ok!(SubtensorModule::open_short(
+            RuntimeOrigin::signed(old_cold),
+            hotkey,
+            netuid,
+            t(100 * TAO),
+            None
+        ));
+        let q = ShortPositions::<Test>::get(netuid, old_cold).unwrap().q_liability;
+        give_alpha(hotkey, old_cold, netuid, AlphaBalance::from(q.to_u64() + 10 * TAO));
+
+        assert_ok!(SubtensorModule::do_swap_coldkey(&old_cold, &new_cold));
+
+        // Position re-keyed old → new, hotkey preserved.
+        assert!(ShortPositions::<Test>::get(netuid, old_cold).is_none());
+        let pos = ShortPositions::<Test>::get(netuid, new_cold).unwrap();
+        assert_eq!(pos.hotkey, hotkey, "hotkey unchanged on coldkey swap");
+        assert_eq!(
+            ShortPositionCount::<Test>::get(netuid),
+            1,
+            "count not double-charged"
+        );
+
+        assert_ok!(SubtensorModule::close_short(
+            RuntimeOrigin::signed(new_cold),
+            netuid,
+            1_000_000_000,
+            None
+        ));
+        assert!(ShortPositions::<Test>::get(netuid, new_cold).is_none());
+    });
+}
+
+// ---------------------------------------------------------------------------
+// T_ref manipulation resistance (regression guards for the `A_EMA` reference)
+//
+// `short_t_ref = min(T_live, pEMA·A_EMA)` now derives its upper bound from two
+// block-lagged factors (the price EMA and the Alpha-reserve EMA), so an in-block
+// reserve nudge along the CPMM curve `T_live·A_live = k` cannot move it up. The
+// live `T_live` term only pulls the reference *down* (conservative). These tests
+// guard against regressing to the old spot-`A_live` reference, where the `min`
+// peaked at the crossover `A* = √(k/pEMA)` and let an attacker inflate T_ref,
+// retained proceeds, and capacity.
+// ---------------------------------------------------------------------------
+
+// A naive over-pump still can't raise T_ref (it only collapses the live floor).
+#[test]
+fn naive_single_side_pump_cannot_raise_t_ref() {
+    new_test_ext(1).execute_with(|| {
+        // Honest: T_live=1500, A_live=1000 (spot 1.5), pEMA=1.0, A_EMA=1000.
+        // T_ref = min(1500, 1.0·1000) = 1000 TAO.
+        let netuid = setup_market(1500 * TAO, 1000 * TAO, 1.0);
+        let honest = SubtensorModule::get_subnet_short_state(netuid).unwrap().t_ref.to_u64();
+        assert_approx(honest, 1000 * TAO, TAO, "honest T_ref = lagged branch");
+
+        // Dump alpha so A_live=4000 (T_live=k/A=375). The EMA factor (A_EMA=1000)
+        // is unchanged, so the upper bound stays 1000; the live floor drops to 375
+        // and the min selects it — never above honest.
+        setup_reserves(netuid, t(375 * TAO), AlphaBalance::from(4000 * TAO));
+        let pumped = SubtensorModule::get_subnet_short_state(netuid).unwrap().t_ref.to_u64();
+        assert!(
+            pumped <= honest,
+            "pump must not raise T_ref: pumped {pumped} !<= honest {honest}"
+        );
+    });
+}
+
+// GUARD (read/quote level): a two-sided nudge to the would-be crossover no longer
+// moves T_ref, retained proceeds, or capacity headroom — the EMA factor is frozen
+// intra-block, so the upper bound is immune and the live floor stays above it.
+#[test]
+fn crossover_nudge_does_not_inflate_t_ref_proceeds_or_capacity() {
+    new_test_ext(1).execute_with(|| {
+        // Honest: spot 1.5, pEMA 1.0, A_EMA 1000 ⇒ T_ref = min(1500, 1000) = 1000.
+        let netuid = setup_market(1500 * TAO, 1000 * TAO, 1.0);
+        let p = t(100 * TAO);
+
+        let honest_state = SubtensorModule::get_subnet_short_state(netuid).unwrap();
+        let honest_t_ref = honest_state.t_ref.to_u64();
+        let honest_headroom = honest_state.footprint_remaining.to_u64();
+        let honest_n = SubtensorModule::quote_open_short(netuid, p).unwrap().retained_proceeds.to_u64();
+
+        // Nudge live reserves to the old crossover A* = √k ≈ 1224.74 (product k
+        // fixed). With the spot reference this peaked T_ref at the geometric mean;
+        // with the lagged reference the EMA factor is untouched, so nothing moves.
+        let cross = 1_224_744_871_000u64;
+        setup_reserves(netuid, t(cross), AlphaBalance::from(cross));
+
+        let attack_state = SubtensorModule::get_subnet_short_state(netuid).unwrap();
+        let attack_t_ref = attack_state.t_ref.to_u64();
+        let attack_headroom = attack_state.footprint_remaining.to_u64();
+        let attack_n = SubtensorModule::quote_open_short(netuid, p).unwrap().retained_proceeds.to_u64();
+
+        // T_ref pinned to the lagged upper bound pEMA·A_EMA = 1000 (live T_live now
+        // 1224.7 ≥ that, so the min still selects the lagged value, unchanged).
+        assert_approx(attack_t_ref, honest_t_ref, TAO, "T_ref immune to in-block nudge");
+        assert!(
+            attack_t_ref <= honest_t_ref,
+            "nudged T_ref {attack_t_ref} must not exceed honest {honest_t_ref}"
+        );
+        assert!(
+            attack_n <= honest_n,
+            "nudged retained proceeds {attack_n} must not exceed honest {honest_n}"
+        );
+        assert!(
+            attack_headroom <= honest_headroom,
+            "nudged headroom {attack_headroom} must not exceed honest {honest_headroom}"
+        );
+    });
+}
+
+// GUARD (end-to-end): the sandwich that previously bypassed the capacity cap now
+// fails. An open rejected at the honest reserve is STILL rejected after nudging
+// reserves to the old crossover, because T_ref no longer reads the spot reserve.
+#[test]
+fn sandwich_open_cannot_breach_capacity_cap() {
+    new_test_ext(1).execute_with(|| {
+        // spot 1.5, pEMA 1.0, A_EMA 1000 ⇒ T_ref = 1000. κ = 0.08 ⇒ cap = 80 TAO.
+        // A P=100 open needs B≈92 TAO > 80, so it must be rejected either way.
+        let netuid = setup_market(1500 * TAO, 1000 * TAO, 1.0);
+        SubtensorModule::set_short_kappa_ppb(80_000_000); // κ = 0.08
+        let p = t(100 * TAO);
+
+        let honest_cap = SubtensorModule::get_subnet_short_state(netuid).unwrap().footprint_cap.to_u64();
+        assert_approx(honest_cap, 80 * TAO, TAO, "honest cap = κ·T_ref_honest");
+
+        // CONTROL: at the honest reserve, this open exceeds κ·T_ref_honest.
+        let ctrl = U256::from(98);
+        add_balance_to_coldkey_account(&ctrl, t(10_000 * TAO));
+        assert_noop!(
+            SubtensorModule::open_short(RuntimeOrigin::signed(ctrl), U256::from(97), netuid, p, None),
+            Error::<Test>::ShortCapacityExceeded
+        );
+
+        // ATTACK: nudge reserves to the old crossover. T_ref is pinned to the
+        // lagged bound (1000), so the cap is unchanged and the open still fails.
+        let cross = 1_224_744_871_000u64;
+        setup_reserves(netuid, t(cross), AlphaBalance::from(cross));
+        let trader = U256::from(10);
+        add_balance_to_coldkey_account(&trader, t(10_000 * TAO));
+        assert_noop!(
+            SubtensorModule::open_short(RuntimeOrigin::signed(trader), U256::from(11), netuid, p, None),
+            Error::<Test>::ShortCapacityExceeded
+        );
+
+        // No position was created; footprint stays empty, cap unchanged.
+        assert!(ShortPositions::<Test>::get(netuid, trader).is_none());
+        let b_sigma = ShortAggregate::<Test>::get(netuid).b_sigma.to_u64();
+        assert_eq!(b_sigma, 0, "no footprint: open rejected under the lagged reference");
+    });
+}
+
+// GUARD (long mirror): the symmetric reference `A_ref = min(A_live, A_EMA)` is
+// likewise immune to an in-block reserve nudge. Previously `A_ref = min(A_live,
+// T_live/pEMA)` peaked at the same crossover; with the lagged `A_EMA` the upper
+// bound is frozen intra-block.
+#[test]
+fn crossover_nudge_does_not_inflate_a_ref_or_capacity() {
+    new_test_ext(1).execute_with(|| {
+        // spot 1.5, pEMA 1.0, A_EMA 1000 ⇒ A_ref = min(1000, 1000) = 1000.
+        let netuid = setup_long(1500 * TAO, 1000 * TAO, 1.0);
+
+        let honest = SubtensorModule::get_subnet_long_state(netuid).unwrap();
+        let honest_a_ref = honest.a_ref.to_u64();
+        let honest_headroom = honest.footprint_remaining.to_u64();
+        assert_approx(honest_a_ref, 1000 * TAO, TAO, "honest A_ref = lagged branch");
+
+        // Nudge to the old crossover A* = √k ≈ 1224.74 (product k fixed). The old
+        // spot reference peaked A_ref here; the lagged reference does not budge.
+        let cross = 1_224_744_871_000u64;
+        setup_reserves(netuid, t(cross), AlphaBalance::from(cross));
+
+        let attack = SubtensorModule::get_subnet_long_state(netuid).unwrap();
+        assert!(
+            attack.a_ref.to_u64() <= honest_a_ref,
+            "nudged A_ref {} must not exceed honest {honest_a_ref}",
+            attack.a_ref.to_u64()
+        );
+        assert!(
+            attack.footprint_remaining.to_u64() <= honest_headroom,
+            "nudged long headroom {} must not exceed honest {honest_headroom}",
+            attack.footprint_remaining.to_u64()
+        );
     });
 }

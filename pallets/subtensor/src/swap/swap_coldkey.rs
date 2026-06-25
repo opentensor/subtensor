@@ -27,6 +27,9 @@ impl<T: Config> Pallet<T> {
             Self::transfer_subnet_ownership(netuid, old_coldkey, new_coldkey);
             Self::transfer_auto_stake_destination(netuid, old_coldkey, new_coldkey);
             Self::transfer_coldkey_stake(netuid, old_coldkey, new_coldkey);
+            // Positions are keyed by coldkey, so the stake moved above would be
+            // orphaned from the position unless it is re-keyed to the new coldkey.
+            Self::swap_positions_for_coldkey_swap(netuid, old_coldkey, new_coldkey);
         }
         Self::transfer_staking_hotkeys(old_coldkey, new_coldkey);
         Self::transfer_hotkeys_ownership(old_coldkey, new_coldkey)?;

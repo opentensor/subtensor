@@ -1041,6 +1041,13 @@ pub mod pallet {
         I96F32::saturating_from_num(0.0)
     }
 
+    /// Default lagged Alpha-reserve EMA (`A_EMA`). `0` = cold (not yet warmed),
+    /// which the derivative references read as "fall back to the live reserve".
+    #[pallet::type_value]
+    pub fn DefaultAlphaInMovingReserve<T: Config>() -> U64F64 {
+        U64F64::saturating_from_num(0)
+    }
+
     /// Default subnet root proportion.
     #[pallet::type_value]
     pub fn DefaultRootProp<T: Config>() -> U96F32 {
@@ -1333,6 +1340,14 @@ pub mod pallet {
     #[pallet::storage]
     pub type SubnetMovingPrice<T: Config> =
         StorageMap<_, Identity, NetUid, I96F32, ValueQuery, DefaultMovingPrice<T>>;
+
+    /// --- MAP ( netuid ) --> A_EMA | Block-lagged EMA of the `SubnetAlphaIn`
+    /// reserve (rao), ticked each block alongside the price EMA. Derivative
+    /// references (`short_t_ref`, `long_a_ref`) use this lagged depth instead of
+    /// the spot reserve so an in-block reserve nudge cannot inflate capacity.
+    #[pallet::storage]
+    pub type SubnetAlphaInMovingReserve<T: Config> =
+        StorageMap<_, Identity, NetUid, U64F64, ValueQuery, DefaultAlphaInMovingReserve<T>>;
 
     /// --- MAP ( netuid ) --> root_prop | The subnet root proportion.
     #[pallet::storage]

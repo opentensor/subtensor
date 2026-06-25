@@ -29,7 +29,7 @@ closed-forms (Appendix A.1) used for quoting/sizing.
 
 | Function | Spec | Returns |
 |---|---|---|
-| `short_t_ref(netuid)` | §3.1, §4 | `min(SubnetTAO, pEMA·A_live)` |
+| `short_t_ref(netuid)` | §3.1, §4 | `min(SubnetTAO, pEMA·A_EMA)` (`A_EMA` = `SubnetAlphaInMovingReserve`, lagged) |
 | `solve_collateral(p, t_ref, lambda, s)` | §4.2 | `(C, N)` via quadratic; reject `N ≤ 0` |
 | `lambda_eff(...)` | §4.1 | effective LTV; reject `≤ 0` |
 | `solve_phi(n, t_live)` | §4.3 | `ϕ = (1 − √(1 − 4N/T))/2`; reject `4N > T` |

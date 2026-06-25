@@ -18,17 +18,19 @@ use subtensor_runtime_common::Token;
 const BLOCKS_PER_DAY: u64 = 7200;
 
 impl<T: Config> Pallet<T> {
-    /// Conservative Alpha reference `A_ref = min(A_live, A_EMA)`, with
-    /// `A_EMA = T_live / pEMA` reconstructed from the price EMA. Cold EMA falls
-    /// back to the live reserve.
+    /// Conservative Alpha reference `A_ref = min(A_live, A_EMA)`, where `A_EMA`
+    /// is the block-lagged Alpha-reserve EMA (`SubnetAlphaInMovingReserve`, ticked
+    /// once per block in `update_moving_price`). The lagged factor caps `A_ref`
+    /// from above so an in-block reserve nudge cannot inflate capacity; the live
+    /// `A_live` floor can only pull it *down* (conservative). Cold EMA falls back
+    /// to the live reserve until it warms.
     fn long_a_ref(netuid: NetUid) -> I64F64 {
         let a_live = Self::alpha_f(SubnetAlphaIn::<T>::get(netuid));
-        let t_live = Self::tao_f(SubnetTAO::<T>::get(netuid));
-        let pema = I64F64::saturating_from_num(Self::get_moving_alpha_price(netuid));
-        if pema <= I64F64::from_num(0) {
+        let a_ema = I64F64::saturating_from_num(SubnetAlphaInMovingReserve::<T>::get(netuid));
+        if a_ema <= I64F64::from_num(0) {
             return a_live;
         }
-        a_live.min(t_live.safe_div(pema))
+        a_live.min(a_ema)
     }
 
     /// Current long daily decay rate at the live long footprint.

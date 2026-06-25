@@ -128,14 +128,19 @@ impl<T: Config> Pallet<T> {
     // ---- references (spec §3, §4) --------------------------------------
 
     /// Conservative TAO reference `T_ref = min(T_live, T_EMA)`, with
-    /// `T_EMA = pEMA · A_live` reconstructed from the existing price EMA.
+    /// `T_EMA = pEMA · A_EMA` from two block-lagged factors: the price EMA and
+    /// the Alpha-reserve EMA (`SubnetAlphaInMovingReserve`). Both are ticked once
+    /// per block in `update_moving_price`, so the upper bound on `T_ref` cannot be
+    /// moved by an in-block reserve nudge — only the live `T_live` floor can pull
+    /// it *down* (conservative, and self-defeating for an attacker).
     fn short_t_ref(netuid: NetUid) -> I64F64 {
         let t_live = Self::tao_f(SubnetTAO::<T>::get(netuid));
-        let a_live = Self::alpha_f(SubnetAlphaIn::<T>::get(netuid));
+        let a_ema = I64F64::saturating_from_num(SubnetAlphaInMovingReserve::<T>::get(netuid));
         let pema = I64F64::saturating_from_num(Self::get_moving_alpha_price(netuid));
-        let t_ema = pema.saturating_mul(a_live);
-        // A cold price EMA (`pema == 0`, e.g. a freshly created subnet) must not
-        // lock the market; fall back to the live reserve until it warms up.
+        let t_ema = pema.saturating_mul(a_ema);
+        // A cold EMA (`t_ema == 0`, e.g. a freshly created subnet whose reserve or
+        // price EMA has not warmed) must not lock the market; fall back to the
+        // live reserve until it warms up.
         if t_ema <= I64F64::from_num(0) {
             t_live
         } else {
@@ -1055,5 +1060,92 @@ impl<T: Config> Pallet<T> {
                 repay_alpha.to_u64().saturating_sub(alpha_held.to_u64()),
             ),
         })
+    }
+
+    // ---- key-swap support (called from swap_hotkey / swap_coldkey) -----
+
+    /// Re-home every short/long position on `netuid` that records `old_hotkey`
+    /// to `new_hotkey`. Called from the hotkey swap ONLY on the
+    /// `keep_stake = false` branch, where the backing stake actually migrates:
+    /// a position's recorded hotkey is the key its close/default/settle math
+    /// reads and writes stake under (`do_close_short` repays `ρQ` from it;
+    /// `do_*_long` source/return the collateral alpha from it), so it must follow
+    /// the stake or the collateral becomes unreachable — and re-opening at the
+    /// new hotkey is blocked by the open-time merge guard, permanently stranding
+    /// the position.
+    ///
+    /// Every coldkey's matching position is rewritten, not just the swapping
+    /// owner's: a delegator who opened against `old_hotkey` has their stake moved
+    /// by the same swap, so leaving their recorded hotkey behind would let a
+    /// third party silently break their position. Positions are keyed by
+    /// `(netuid, coldkey)`, so rewriting the value's `hotkey` field never
+    /// collides (at most one position per coldkey).
+    ///
+    /// Bounded by `ShortMaxPositions + LongMaxPositions` (each clamped ≤ 4096)
+    /// per subnet, matching the existing dereg-settlement iteration. Returns
+    /// `(reads, writes)` so the caller can charge weight.
+    pub(crate) fn swap_positions_for_hotkey_swap(
+        old_hotkey: &T::AccountId,
+        new_hotkey: &T::AccountId,
+        netuid: NetUid,
+    ) -> (u64, u64) {
+        let mut reads: u64 = 0;
+        let mut writes: u64 = 0;
+
+        let shorts: Vec<(T::AccountId, ShortPosition<T::AccountId>)> =
+            ShortPositions::<T>::iter_prefix(netuid).collect();
+        reads = reads.saturating_add(shorts.len() as u64);
+        for (coldkey, mut pos) in shorts {
+            if pos.hotkey == *old_hotkey {
+                pos.hotkey = new_hotkey.clone();
+                ShortPositions::<T>::insert(netuid, &coldkey, pos);
+                writes = writes.saturating_add(1);
+            }
+        }
+
+        let longs: Vec<(T::AccountId, LongPosition<T::AccountId>)> =
+            LongPositions::<T>::iter_prefix(netuid).collect();
+        reads = reads.saturating_add(longs.len() as u64);
+        for (coldkey, mut pos) in longs {
+            if pos.hotkey == *old_hotkey {
+                pos.hotkey = new_hotkey.clone();
+                LongPositions::<T>::insert(netuid, &coldkey, pos);
+                writes = writes.saturating_add(1);
+            }
+        }
+
+        (reads, writes)
+    }
+
+    /// Re-key a coldkey's short/long positions from `old_coldkey` to
+    /// `new_coldkey` on `netuid` during a coldkey swap. Positions are keyed by
+    /// coldkey (the recorded hotkey is unchanged, since the hotkey identity does
+    /// not move), so this is an O(1) take+insert per side rather than the
+    /// hotkey-swap's bounded iteration.
+    ///
+    /// `do_swap_coldkey` asserts `new_coldkey` is fresh, so a pre-existing
+    /// position on the destination is not expected; if one is found we drop the
+    /// migrated position and decrement the per-subnet count rather than
+    /// clobbering it and leaving `ShortPositionCount` / `LongPositionCount`
+    /// double-counted.
+    pub(crate) fn swap_positions_for_coldkey_swap(
+        netuid: NetUid,
+        old_coldkey: &T::AccountId,
+        new_coldkey: &T::AccountId,
+    ) {
+        if let Some(pos) = ShortPositions::<T>::take(netuid, old_coldkey) {
+            if ShortPositions::<T>::contains_key(netuid, new_coldkey) {
+                ShortPositionCount::<T>::mutate(netuid, |c| *c = c.saturating_sub(1));
+            } else {
+                ShortPositions::<T>::insert(netuid, new_coldkey, pos);
+            }
+        }
+        if let Some(pos) = LongPositions::<T>::take(netuid, old_coldkey) {
+            if LongPositions::<T>::contains_key(netuid, new_coldkey) {
+                LongPositionCount::<T>::mutate(netuid, |c| *c = c.saturating_sub(1));
+            } else {
+                LongPositions::<T>::insert(netuid, new_coldkey, pos);
+            }
+        }
     }
 }

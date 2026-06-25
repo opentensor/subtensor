@@ -23,7 +23,7 @@ and that single fact drives most of the design decisions.
 | User can remove/add liquidity | User LP is **deprecated** (`add_liquidity`/`remove_liquidity` → `Error::Deprecated`) | The "remove-and-sell-back" open and the restoration/settlement zaps are realized as **protocol reserve mutations**, not user LP ops. |
 | Reserves `T`, `A` | `SubnetTAO` (TAO, the quote reserve), `SubnetAlphaIn` (alpha pool reserve), `SubnetAlphaOut` (staked alpha outside the pool) | Short open/restore are mostly `SubnetTAO` mutations; close settlement touches `SubnetAlphaIn`. |
 | `pEMA` price reference | **Already exists**: `SubnetMovingPrice` (per-block halving EMA, TAO/alpha) | Reuse directly as the spec's `pEMA`. No new TWAP, no new price EMA. |
-| `T_EMA`, `A_EMA` reserve EMAs | **Do not exist** | Derive `T_EMA` from `SubnetMovingPrice × SubnetAlphaIn` instead of storing a new per-block reserve EMA (see §4). |
+| `A_EMA` reserve EMA | **Add `SubnetAlphaInMovingReserve`** | One per-block EMA of `SubnetAlphaIn`, ticked on the price EMA's smoothing. `T_EMA = pEMA·A_EMA` (short), `A_EMA` used directly (long). Lagged ⇒ not in-block manipulable (see §4). |
 | Recycle floor `P`, extinguish liability | **Already exists**: `recycle_tao(coldkey, amount)`, `recycle_subnet_alpha`/`burn_subnet_alpha` | Reuse for default and terminal settlement. |
 | Per-block decay/unwind step | **Net-new** | One O(1)-per-subnet call added to `block_step()`. |
 | Subnet deregistration hook | **Already exists**: `do_dissolve_network` (`coinbase/root.rs`) | Insert terminal derivative settlement before `destroy_alpha_in_out_stakes`. |
@@ -31,7 +31,8 @@ and that single fact drives most of the design decisions.
 
 **Key takeaway:** the spec's `pEMA`, recycle, and dereg primitives already exist. The genuinely
 new state is (a) the position store, (b) per-side aggregate + decay accumulator, (c) a per-block
-decay step, (d) ~4 extrinsics, (e) one runtime-API quote. Risk reserve EMAs are *derived*, not stored.
+decay step, (d) ~4 extrinsics, (e) one runtime-API quote, (f) one stored reserve EMA
+(`SubnetAlphaInMovingReserve`) backing both risk references (§4).
 
 ---
 
@@ -41,7 +42,7 @@ decay step, (d) ~4 extrinsics, (e) one runtime-API quote. Risk reserve EMAs are 
 |---|---|---|
 | `T` | live TAO reserve | `SubnetTAO::<T>::get(netuid)` |
 | `A` | live alpha reserve | `SubnetAlphaIn::<T>::get(netuid)` |
-| `T_ref` | conservative TAO ref `min(T_live, T_EMA)` | `min(SubnetTAO, pEMA·A_live)` — derived (§4) |
+| `T_ref` | conservative TAO ref `min(T_live, T_EMA)` | `min(SubnetTAO, pEMA·A_EMA)` — `A_EMA` lagged (§4) |
 | `pEMA` | EMA price (TAO/alpha) | `Pallet::get_moving_alpha_price(netuid)` (`SubnetMovingPrice`) |
 | `P` | user position input / floor | `ShortPosition.p_floor: TaoBalance` |
 | `C` | gross collateral (open-time only) | computed, **not stored** |
@@ -130,22 +131,41 @@ reserve math and is the first item in the spec's trading-games suite (§14.5).
 
 ---
 
-## 4. Risk reference reserves without new EMA storage
+## 4. Risk reference reserves from a block-lagged reserve EMA
 
 The spec wants `T_ref = min(T_live, T_EMA)` to stop a same-block reserve pump from improving open
-terms (§3.1–3.2). Subtensor has no reserve EMA, but it has an EMA *price*. Since
-`price = (w_base/w_quote)·(T/A)`, we reconstruct:
+terms (§3.1–3.2). The reference must be built from **block-lagged** factors only: anything read live
+within the extrinsic can be moved by the caller's own swap in the same block.
+
+We maintain one stored reserve EMA — `SubnetAlphaInMovingReserve` (`A_EMA`), a per-block EMA of
+`SubnetAlphaIn` — ticked on the **same smoothing** as the price EMA inside `update_moving_price`
+(one extra storage write per subnet per block). Both derivative sides derive their reference from it,
+combined with the existing `pEMA` (`SubnetMovingPrice`):
 
 ```
-T_EMA  ≈  pEMA · A_live          (pEMA already folds the weight ratio at EMA time)
-T_ref  =  min(SubnetTAO, T_EMA)
+T_EMA  =  pEMA · A_EMA            (lagged price × lagged alpha reserve ⇒ lagged TAO depth)
+T_ref  =  min(SubnetTAO, T_EMA)   (short side)
+A_ref  =  min(SubnetAlphaIn, A_EMA)   (long side — uses A_EMA directly as alpha depth)
 ```
 
-This reuses `SubnetMovingPrice` and adds **zero** per-block EMA maintenance. `A_live` is still
-manipulable, but with `κ_S` starting conservative and the footprint cap `S + B ≤ κ_S·T_ref`, the
-launch exposure is bounded; a dedicated stored reserve-EMA can be added later if the trading games
-show it is needed. Decay utilization uses the same `T_ref` (spec §3.3), so flash trades cannot grief
+The `T_EMA` / `A_EMA` upper bound is now a pure function of lagged state, so an in-block reserve nudge
+**cannot raise it**; the live `T_live` / `A_live` term only ever pulls the `min` *down* (conservative,
+and self-defeating for an attacker). This closes the crossover attack on the earlier `pEMA·A_live`
+reference: under the CPMM invariant `T_live·A_live = k`, `min(T_live, pEMA·A_live)` had one increasing
+and one decreasing branch in `A_live` and therefore peaked at the crossover `A* = √(k/pEMA)` (the
+geometric mean `√(T_live·T_EMA)`), letting a sandwich inflate `T_ref`, retained proceeds `N`, and the
+footprint cap `S + B ≤ κ_S·T_ref` for one block — a breach that persisted because the cap is checked
+only at open. Decay utilization uses the same lagged `T_ref` (spec §3.3), so flash trades cannot grief
 carry either.
+
+EMA manipulation is bounded exactly as the price EMA already is: biasing `A_EMA` requires holding the
+reserve displaced across the once-per-block sample (post-coinbase), forfeiting atomicity and moving it
+only by the small smoothing fraction per block.
+
+A cold `A_EMA` (`0`, e.g. a freshly created subnet) makes the reference fall back to the live reserve
+until it warms. On a live-chain upgrade, `migrate_seed_alpha_in_moving_reserve` seeds `A_EMA` from the
+current `SubnetAlphaIn` per subnet so there is no cold-start window; the per-block tick carries it
+forward from there.
 
 ---
 
@@ -317,7 +337,8 @@ breakeven_close_price`. Pure reads + `sim_swap`; no state change. JSON-RPC wrapp
 - **Longs**: code-symmetric but flag-gated off (`LongsEnabled=false`). Long open mirrors with
   alpha/TAO swapped, `D=ϕT`, ADR-adjusted LTV (§9.2). Not in the launch diff.
 - **Derivative TaoFlow** (`χ_S`): off; flow-neutral (§4.5). Not wired.
-- **Stored reserve EMA / TWAP**: replaced by derived `T_ref` from `pEMA` (§4). TWAP is an optional
+- **Reserve EMA**: one stored EMA (`SubnetAlphaInMovingReserve`, `A_EMA`) backs both references
+  (§4); `T_EMA = pEMA·A_EMA`. A separate stored `T_EMA` / TWAP is not needed and remains an optional
   later guard only (§3.4, §11.4).
 - **Per-open `ϕ_max`**: not a control; only the `4N ≤ T_live` domain bound is enforced (§5.2).
 - **Per-subnet param overrides**: launch uses globals; per-netuid maps can be added later without
