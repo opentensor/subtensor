@@ -576,7 +576,7 @@ impl<T: Config> Pallet<T> {
         weight_meter.consume(r);
 
         let dissolved_networks = DissolveCleanupQueue::<T>::get();
-        if let Some(netuid) = dissolved_networks.get(0) {
+        if let Some(netuid) = dissolved_networks.first() {
             if !weight_meter.can_consume(w) {
                 return weight_meter.consumed();
             }
@@ -597,7 +597,7 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        return weight_meter.consumed();
+        weight_meter.consumed()
     }
 
     // try use all weight available to clean up data for one dissolved network based on the status
