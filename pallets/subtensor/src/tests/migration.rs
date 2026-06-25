@@ -4860,3 +4860,119 @@ fn test_migrate_reset_tnet_conviction_locks() {
         );
     });
 }
+
+#[test]
+fn test_migrate_dynamic_tempo_aligns_first_post_upgrade_fire() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "dynamic_tempo_v1";
+        let netuid = NetUid::from(7u16);
+        let tempo: u16 = 360;
+
+        add_network(netuid, tempo, 0);
+        let current_block = 1234u64;
+        run_to_block(current_block);
+
+        // Compute next-fire block
+        let netuid_plus_one = (u16::from(netuid) as u64) + 1;
+        let tempo_plus_one = (tempo as u64) + 1;
+        let adjusted = current_block + netuid_plus_one;
+        let remainder = adjusted % tempo_plus_one;
+        let legacy_blocks_until_next = (tempo as u64) - remainder;
+        let expected_next_fire = current_block + legacy_blocks_until_next;
+
+        crate::migrations::migrate_dynamic_tempo::migrate_dynamic_tempo::<Test>();
+
+        // New formula: next fire = LastEpochBlock + tempo.
+        let last_epoch = LastEpochBlock::<Test>::get(netuid);
+        assert_eq!(
+            last_epoch + tempo as u64,
+            expected_next_fire,
+            "back-fill should make new scheduler fire at the same block as legacy modulo"
+        );
+        assert!(HasMigrationRun::<Test>::get(
+            MIGRATION_NAME.as_bytes().to_vec()
+        ));
+    });
+}
+
+#[test]
+fn test_migrate_dynamic_tempo_preserves_non_standard_tempo() {
+    new_test_ext(1).execute_with(|| {
+        // Three subnets — one standard, two with non-standard tempo
+        // (simulates the 2 mainnet subnets root configured outside MIN/MAX bounds).
+        let standard = NetUid::from(1u16);
+        let small = NetUid::from(2u16);
+        let large = NetUid::from(3u16);
+
+        add_network(standard, 360, 0);
+        add_network(small, 10, 0); // < MIN_TEMPO (360)
+        add_network(large, 60_000, 0); // > MAX_TEMPO (50_400)
+
+        crate::migrations::migrate_dynamic_tempo::migrate_dynamic_tempo::<Test>();
+
+        // Tempo values preserved as-is — no clamp.
+        assert_eq!(Tempo::<Test>::get(standard), 360);
+        assert_eq!(Tempo::<Test>::get(small), 10);
+        assert_eq!(Tempo::<Test>::get(large), 60_000);
+
+        // All non-zero tempos got LastEpochBlock seeded.
+        assert!(LastEpochBlock::<Test>::contains_key(standard));
+        assert!(LastEpochBlock::<Test>::contains_key(small));
+        assert!(LastEpochBlock::<Test>::contains_key(large));
+    });
+}
+
+#[test]
+fn test_migrate_dynamic_tempo_activity_cutoff_round_trips_production_values() {
+    new_test_ext(1).execute_with(|| {
+        // (cutoff_blocks, tempo) combinations from production data.
+        let cases: [(u16, u16); 6] = [
+            (5000, 360),
+            (6000, 360),
+            (7200, 360),
+            (12000, 360),
+            (1000, 360),
+            (360, 360),
+        ];
+
+        for (i, &(cutoff, tempo)) in cases.iter().enumerate() {
+            let netuid = NetUid::from((i + 1) as u16);
+            add_network(netuid, tempo, 0);
+            ActivityCutoff::<Test>::insert(netuid, cutoff);
+        }
+
+        crate::migrations::migrate_dynamic_tempo::migrate_dynamic_tempo::<Test>();
+
+        for (i, &(cutoff, _)) in cases.iter().enumerate() {
+            let netuid = NetUid::from((i + 1) as u16);
+            // get_activity_cutoff_blocks = factor * tempo / 1000 must equal original cutoff exactly.
+            assert_eq!(
+                crate::Pallet::<Test>::get_activity_cutoff_blocks(netuid),
+                cutoff as u64,
+                "ceiling division must round-trip cutoff exactly for netuid {}",
+                u16::from(netuid)
+            );
+        }
+    });
+}
+
+#[test]
+fn test_migrate_dynamic_tempo_idempotent() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1u16);
+        add_network(netuid, 360, 0);
+
+        crate::migrations::migrate_dynamic_tempo::migrate_dynamic_tempo::<Test>();
+        let last_epoch_first = LastEpochBlock::<Test>::get(netuid);
+
+        // Mutate state to verify second run is a no-op.
+        run_to_block(crate::Pallet::<Test>::get_current_block_as_u64() + 100);
+        crate::migrations::migrate_dynamic_tempo::migrate_dynamic_tempo::<Test>();
+
+        assert_eq!(
+            LastEpochBlock::<Test>::get(netuid),
+            last_epoch_first,
+            "second migration call must be a no-op"
+        );
+    });
+}
