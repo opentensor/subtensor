@@ -230,7 +230,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `10327410`
 		// Minimum execution time: 15_066_222_000 picoseconds.
 		Weight::from_parts(15_359_235_000, 10327410)
-			.saturating_add(T::DbWeight::get().reads(4112_u64))
+			.saturating_add(T::DbWeight::get().reads(4111_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
 	/// Storage: `SubtensorModule::NetworksAdded` (r:1 w:0)
