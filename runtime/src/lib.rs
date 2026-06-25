@@ -234,7 +234,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 420,
+    spec_version: 424,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -347,7 +347,14 @@ impl frame_system::Config for Runtime {
     type PostInherents = ();
     type PostTransactions = ();
     type ExtensionsWeightInfo = frame_system::SubstrateExtensionsWeight<Runtime>;
-    type DispatchExtension = pallet_subtensor::CheckColdkeySwap<Runtime>;
+    type DispatchExtension = (
+        pallet_subtensor::CheckColdkeySwap<Runtime>,
+        pallet_subtensor::CheckWeights<Runtime>,
+        pallet_subtensor::CheckRateLimits<Runtime>,
+        pallet_subtensor::CheckDelegateTake<Runtime>,
+        pallet_subtensor::CheckServingEndpoints<Runtime>,
+        pallet_subtensor::CheckEvmKeyAssociation<Runtime>,
+    );
 }
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
@@ -996,6 +1003,12 @@ parameter_types! {
     pub const SubtensorInitialMaxBurn: TaoBalance = TaoBalance::new(100_000_000_000); // 100 tao
     pub const MinBurnUpperBound: TaoBalance = TaoBalance::new(1_000_000_000); // 1 TAO
     pub const MaxBurnLowerBound: TaoBalance = TaoBalance::new(100_000_000); // 0.1 TAO
+    pub const SubtensorMinTempo: u16 = pallet_subtensor::MIN_TEMPO;
+    pub const SubtensorMaxTempo: u16 = pallet_subtensor::MAX_TEMPO;
+    pub const SubtensorMinActivityCutoffFactorMilli: u32 =
+        pallet_subtensor::MIN_ACTIVITY_CUTOFF_FACTOR_MILLI;
+    pub const SubtensorMaxActivityCutoffFactorMilli: u32 =
+        pallet_subtensor::MAX_ACTIVITY_CUTOFF_FACTOR_MILLI;
     pub const SubtensorInitialTxRateLimit: u64 = 1000;
     pub const SubtensorInitialTxDelegateTakeRateLimit: u64 = 216000; // 30 days at 12 seconds per block
     pub const SubtensorInitialTxChildKeyTakeRateLimit: u64 = INITIAL_CHILDKEY_TAKE_RATELIMIT;
@@ -1026,6 +1039,7 @@ parameter_types! {
     pub const EvmKeyAssociateRateLimit: u64 = EVM_KEY_ASSOCIATE_RATELIMIT;
     pub const SubtensorPalletId: PalletId = PalletId(*b"subtensr");
     pub const BurnAccountId: PalletId = PalletId(*b"burntnsr");
+    pub const SubtensorMaxEpochsPerBlock: u8 = prod_or_fast!(2, 32);
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -1070,6 +1084,10 @@ impl pallet_subtensor::Config for Runtime {
     type InitialMinStake = SubtensorInitialMinStake;
     type MinBurnUpperBound = MinBurnUpperBound;
     type MaxBurnLowerBound = MaxBurnLowerBound;
+    type MinTempo = SubtensorMinTempo;
+    type MaxTempo = SubtensorMaxTempo;
+    type MinActivityCutoffFactorMilli = SubtensorMinActivityCutoffFactorMilli;
+    type MaxActivityCutoffFactorMilli = SubtensorMaxActivityCutoffFactorMilli;
     type InitialTxRateLimit = SubtensorInitialTxRateLimit;
     type InitialTxDelegateTakeRateLimit = SubtensorInitialTxDelegateTakeRateLimit;
     type InitialTxChildKeyTakeRateLimit = SubtensorInitialTxChildKeyTakeRateLimit;
@@ -1105,6 +1123,7 @@ impl pallet_subtensor::Config for Runtime {
     type AuthorshipProvider = BlockAuthorFromAura<Aura>;
     type SubtensorPalletId = SubtensorPalletId;
     type BurnAccountId = BurnAccountId;
+    type InitialMaxEpochsPerBlock = SubtensorMaxEpochsPerBlock;
     type WeightInfo = pallet_subtensor::weights::SubstrateWeight<Runtime>;
 }
 
@@ -2513,6 +2532,10 @@ impl_runtime_apis! {
 
         fn get_subnet_account_id(netuid: NetUid) -> Option<AccountId32> {
             SubtensorModule::get_subnet_account_id(netuid)
+        }
+
+        fn get_next_epoch_start_block(netuid: NetUid) -> Option<u64> {
+            SubtensorModule::get_next_epoch_start_block(netuid)
         }
     }
 
