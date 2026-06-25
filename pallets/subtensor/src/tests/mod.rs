@@ -7,6 +7,7 @@ mod coinbase;
 mod consensus;
 mod delegate_info;
 mod destroy_alpha_tests;
+mod dissolution;
 mod emission;
 mod ensure;
 mod epoch;

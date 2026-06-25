@@ -636,8 +636,6 @@ impl<T: Config> Pallet<T> {
         for (hot, this_netuid, _) in iter {
             if !weight_meter.can_consume(r) {
                 read_all = false;
-                last_hot = Some(hot);
-
                 break;
             }
             weight_meter.consume(r);
@@ -650,7 +648,6 @@ impl<T: Config> Pallet<T> {
             for (cold, this_netuid, share_u64f64) in Self::alpha_iter_single_prefix(&hot) {
                 if !weight_meter.can_consume(r) {
                     iterate_all = false;
-                    last_hot = Some(hot.clone());
 
                     break;
                 }
@@ -680,6 +677,8 @@ impl<T: Config> Pallet<T> {
             if !iterate_all {
                 read_all = false;
                 break;
+            } else {
+                last_hot = Some(hot);
             }
         }
 
@@ -724,7 +723,6 @@ impl<T: Config> Pallet<T> {
         for (hot, this_netuid, _) in iter {
             if !weight_meter.can_consume(r) {
                 read_all = false;
-                last_hot = Some(hot);
                 break;
             }
             weight_meter.consume(r);
@@ -742,7 +740,7 @@ impl<T: Config> Pallet<T> {
             for (cold, this_netuid, share_u64f64) in Self::alpha_iter_single_prefix(&hot) {
                 if !weight_meter.can_consume(r.saturating_mul(2_u64)) {
                     inner_read_all = false;
-                    last_hot = Some(hot.clone());
+
                     break;
                 }
 
@@ -792,6 +790,7 @@ impl<T: Config> Pallet<T> {
                 for (cold, value) in coldkey_value_vec {
                     stakers.push((hot.clone(), cold, value));
                 }
+                last_hot = Some(hot.clone());
             }
         }
 
@@ -904,7 +903,6 @@ impl<T: Config> Pallet<T> {
             let mut coldkeys: Vec<T::AccountId> = Vec::new();
             if !weight_meter.can_consume(r) {
                 read_all = false;
-                last_hot = Some(hot.clone());
 
                 break;
             }
@@ -934,6 +932,7 @@ impl<T: Config> Pallet<T> {
                 read_all = false;
                 break;
             }
+            last_hot = Some(hot.clone());
 
             let weight_for_all_remove = w.saturating_mul(coldkeys.len() as u64);
 

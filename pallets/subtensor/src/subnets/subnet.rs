@@ -188,10 +188,7 @@ impl<T: Config> Pallet<T> {
             .filter(|(netuid, added)| *added && *netuid != NetUid::ROOT)
             .count() as u16;
 
-        let mut cleanup_queue_len = DissolveCleanupQueue::<T>::get().len();
-        if CurrentDissolveCleanupStatus::<T>::get().is_some() {
-            cleanup_queue_len = cleanup_queue_len.saturating_add(1);
-        }
+        let cleanup_queue_len = DissolveCleanupQueue::<T>::get().len();
         let registration_queue_len = NetworkRegistrationQueue::<T>::get().len();
 
         let mut prune_netuid: Option<NetUid> = None;
@@ -291,12 +288,7 @@ impl<T: Config> Pallet<T> {
         }
         weight.saturating_accrue(db_weight.reads(networks_added_reads));
 
-        let mut cleanup_queue_len: u16 = DissolveCleanupQueue::<T>::get().len() as u16;
-        weight.saturating_accrue(db_weight.reads(1));
-
-        if CurrentDissolveCleanupStatus::<T>::get().is_some() {
-            cleanup_queue_len = cleanup_queue_len.saturating_add(1);
-        }
+        let cleanup_queue_len: u16 = DissolveCleanupQueue::<T>::get().len() as u16;
         weight.saturating_accrue(db_weight.reads(1));
 
         let netuid_to_register = if current_count.saturating_add(cleanup_queue_len) >= subnet_limit
@@ -625,12 +617,9 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_subnet_account_id(netuid: NetUid) -> Option<T::AccountId> {
-        let cleanup_in_progress =
-            CurrentDissolveCleanupStatus::<T>::get().is_some_and(|status| status.netuid == netuid);
         if NetworksAdded::<T>::contains_key(netuid)
             || netuid == NetUid::ROOT
             || DissolveCleanupQueue::<T>::get().contains(&netuid)
-            || cleanup_in_progress
         {
             Some(T::SubtensorPalletId::get().into_sub_account_truncating(u16::from(netuid)))
         } else {

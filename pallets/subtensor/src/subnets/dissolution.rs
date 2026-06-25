@@ -558,7 +558,16 @@ impl<T: Config> Pallet<T> {
 
         // complete unfinished network cleanup at first if any
         if let Some(mut status) = CurrentDissolveCleanupStatus::<T>::get() {
-            return Self::clean_up_data_for_one_dissolved_network(&mut weight_meter, &mut status);
+            let (cleanup_completed, weight) =
+                Self::clean_up_data_for_one_dissolved_network(&mut weight_meter, &mut status);
+            if cleanup_completed {
+                DissolveCleanupQueue::<T>::mutate(|queue| {
+                    queue.retain(|queued_netuid| *queued_netuid != status.netuid);
+                });
+                CurrentDissolveCleanupStatus::<T>::kill();
+                return weight.saturating_add(T::DbWeight::get().writes(2));
+            }
+            return weight;
         }
 
         if !weight_meter.can_consume(r) {
@@ -566,39 +575,42 @@ impl<T: Config> Pallet<T> {
         }
         weight_meter.consume(r);
 
-        let mut dissolved_networks = DissolveCleanupQueue::<T>::get();
-        if dissolved_networks.is_empty() {
-            return weight_meter.consumed();
+        let dissolved_networks = DissolveCleanupQueue::<T>::get();
+        if let Some(netuid) = dissolved_networks.get(0) {
+            if !weight_meter.can_consume(w) {
+                return weight_meter.consumed();
+            }
+            weight_meter.consume(w);
+
+            let mut status = DissolveCleanupStatus::new(*netuid);
+            CurrentDissolveCleanupStatus::<T>::set(Some(status.clone()));
+
+            let (cleanup_completed, _weight) =
+                Self::clean_up_data_for_one_dissolved_network(&mut weight_meter, &mut status);
+
+            if cleanup_completed {
+                DissolveCleanupQueue::<T>::mutate(|queue| {
+                    queue.retain(|queued_netuid| *queued_netuid != status.netuid);
+                });
+                CurrentDissolveCleanupStatus::<T>::kill();
+                weight_meter.consume(T::DbWeight::get().writes(2));
+            }
         }
 
-        let netuid = dissolved_networks.remove(0);
-
-        // need update two storage items as one atomic operation
-        if !weight_meter.can_consume(w.saturating_add(w)) {
-            return weight_meter.consumed();
-        }
-
-        // must success at the same time for remove one netuid from the queue and set the status
-        weight_meter.consume(w.saturating_add(w));
-        DissolveCleanupQueue::<T>::set(dissolved_networks);
-
-        let mut status = DissolveCleanupStatus::new(netuid);
-        CurrentDissolveCleanupStatus::<T>::set(Some(status.clone()));
-
-        Self::clean_up_data_for_one_dissolved_network(&mut weight_meter, &mut status)
+        return weight_meter.consumed();
     }
 
     // try use all weight available to clean up data for one dissolved network based on the status
     pub fn clean_up_data_for_one_dissolved_network(
         weight_meter: &mut WeightMeter,
         status: &mut DissolveCleanupStatus,
-    ) -> Weight {
+    ) -> (bool, Weight) {
         let r = T::DbWeight::get().reads(1);
 
         let netuid = status.netuid;
 
         if !weight_meter.can_consume(r) {
-            return weight_meter.consumed();
+            return (false, weight_meter.consumed());
         }
 
         // if one phase is done or exit because of weight limit
@@ -931,7 +943,6 @@ impl<T: Config> Pallet<T> {
             phase_done = done;
 
             if cleanup_completed {
-                CurrentDissolveCleanupStatus::<T>::kill();
                 Self::deposit_event(Event::NetworkDissolveCleanupCompleted { netuid });
                 break;
             }
@@ -939,7 +950,7 @@ impl<T: Config> Pallet<T> {
             CurrentDissolveCleanupStatus::<T>::set(Some(status.clone()));
         }
 
-        weight_meter.consumed()
+        (cleanup_completed, weight_meter.consumed())
     }
 
     pub fn process_network_registration_queue() -> Weight {
