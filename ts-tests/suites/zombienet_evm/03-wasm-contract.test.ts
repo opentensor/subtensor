@@ -1247,7 +1247,6 @@ describeSuite({
                 } else {
                     throw new Error("result is not an object");
                 }
-
             },
         });
 
@@ -1275,10 +1274,10 @@ describeSuite({
                     expect(response.result.success).toBeTruthy();
                     return queryMessage.decode(response.result.value).value.value as
                         | {
-                            locked_mass: bigint;
-                            conviction_bits: bigint;
-                            last_update: bigint;
-                        }
+                              locked_mass: bigint;
+                              conviction_bits: bigint;
+                              last_update: bigint;
+                          }
                         | undefined;
                 }
 
@@ -1352,7 +1351,6 @@ describeSuite({
                 } else {
                     throw new Error("result is not an object");
                 }
-
             },
         });
     },
