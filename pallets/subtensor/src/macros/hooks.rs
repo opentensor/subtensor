@@ -191,7 +191,9 @@ mod hooks {
         fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
             let mut weight = Self::remove_data_for_dissolved_networks(limit);
 
-            weight.saturating_accrue(Self::process_network_registration_queue());
+            if weight.all_lt(limit) {
+                weight.saturating_accrue(Self::process_network_registration_queue());
+            }
 
             weight
         }

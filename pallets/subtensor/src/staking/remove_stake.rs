@@ -740,12 +740,10 @@ impl<T: Config> Pallet<T> {
             for (cold, this_netuid, share_u64f64) in Self::alpha_iter_single_prefix(&hot) {
                 if !weight_meter.can_consume(r.saturating_mul(2_u64)) {
                     inner_read_all = false;
-
                     break;
                 }
 
                 weight_meter.consume(r.saturating_mul(2_u64));
-
                 if this_netuid != netuid {
                     continue;
                 }
@@ -798,8 +796,9 @@ impl<T: Config> Pallet<T> {
         let pot_tao: TaoBalance = SubnetTAO::<T>::get(netuid);
         let pot_u64: u64 = pot_tao.into();
         if pot_u64 > 0 {
+            // Don't update the total stake here, it is already updated in do_dissolve_network function
+            // Update it in the cleanup process could impact the correct computation of emission
             Self::credit_subnet_account_shortfall(netuid, pot_tao, true);
-            TotalStake::<T>::mutate(|total| *total = total.saturating_sub(pot_tao));
         }
         struct Portion<A, C> {
             _hot: A,
