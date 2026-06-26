@@ -297,7 +297,7 @@ describeSuite({
                     if (error instanceof Error) {
                         expect(
                             (error as { code?: string }).code === "INSUFFICIENT_FUNDS" ||
-                            error.message.includes("insufficient funds")
+                                error.message.includes("insufficient funds")
                         ).toBe(true);
                     }
                 }
@@ -328,7 +328,7 @@ describeSuite({
                     if (error instanceof Error) {
                         expect(
                             (error as { code?: string }).code === "INSUFFICIENT_FUNDS" ||
-                            error.message.includes("insufficient funds")
+                                error.message.includes("insufficient funds")
                         ).toBe(true);
                     }
                 }
@@ -358,7 +358,7 @@ describeSuite({
                     if (error instanceof Error) {
                         expect(
                             (error as { code?: string }).code === "INSUFFICIENT_FUNDS" ||
-                            error.message.includes("insufficient funds")
+                                error.message.includes("insufficient funds")
                         ).toBe(true);
                     }
                 }
