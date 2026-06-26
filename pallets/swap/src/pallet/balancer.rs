@@ -149,7 +149,7 @@ impl Balancer {
         let w1: u128 = self.get_base_weight().deconstruct() as u128;
         let w2: u128 = self.get_quote_weight().deconstruct() as u128;
 
-        let precision = 512;
+        let precision = 128;
         let x_safe = SafeInt::from(x);
         let w1_safe = SafeInt::from(w1);
         let w2_safe = SafeInt::from(w2);
@@ -928,6 +928,7 @@ mod tests {
         }
     }
 
+    // cargo test --package pallet-subtensor-swap --lib -- pallet::balancer::tests::test_exp_quote_fuzzy --include-ignored --exact --nocapture
     #[ignore]
     #[test]
     fn test_exp_quote_fuzzy() {
