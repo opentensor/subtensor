@@ -210,7 +210,7 @@ impl<T: Config> Pallet<T> {
             amount_to_swap,
             limit_price,
             drop_fees,
-        );
+        )?;
 
         let swap_result = swap_step.execute()?;
 
