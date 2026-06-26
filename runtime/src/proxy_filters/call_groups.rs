@@ -559,10 +559,9 @@ call_filter_group!(
 // kept out of the Owner proxy.
 call_filter_group!(
     OwnerKeyCalls,
-    [
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_sn_owner_hotkey),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_subnet_owner_hotkey),
-    ]
+    [RuntimeCall::AdminUtils(
+        AdminUtilsCall::sudo_set_sn_owner_hotkey
+    ),]
 );
 
 // ============================================================================
