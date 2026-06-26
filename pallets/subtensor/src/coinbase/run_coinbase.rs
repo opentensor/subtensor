@@ -669,14 +669,24 @@ impl<T: Config> Pallet<T> {
         let subnet_owner_coldkey = SubnetOwner::<T>::get(netuid);
         let owner_hotkeys = Self::get_owner_hotkeys(netuid, &subnet_owner_coldkey);
         log::debug!("incentives: owner hotkeys: {owner_hotkeys:?}");
+        // Track total miner emission vs the portion withheld from miners this tempo
+        // (directed to an owner/immune hotkey) to record the withheld proportion.
+        let mut total_incentive: AlphaBalance = AlphaBalance::ZERO;
+        let mut withheld_incentive: AlphaBalance = AlphaBalance::ZERO;
         for (hotkey, incentive) in incentives {
             log::debug!("incentives: hotkey: {incentive:?}");
+            total_incentive = total_incentive.saturating_add(incentive);
 
             // Skip/burn miner-emission for immune keys
             if owner_hotkeys.contains(&hotkey) {
                 log::debug!(
                     "incentives: hotkey: {hotkey:?} is SN owner hotkey or associated hotkey, skipping {incentive:?}"
                 );
+                // Miner emission directed to an owner (immune) hotkey is withheld from
+                // miners whether it is recycled or burned. Count both toward the withheld
+                // proportion so the emission penalty cannot be dodged by choosing Recycle
+                // and an unset RecycleOrBurn config is not uniquely penalized.
+                withheld_incentive = withheld_incentive.saturating_add(incentive);
                 // Check if we should recycle or burn the incentive
                 match RecycleOrBurn::<T>::try_get(netuid) {
                     Ok(RecycleOrBurnEnum::Recycle) => {
@@ -715,6 +725,13 @@ impl<T: Config> Pallet<T> {
                 incentive,
             );
         }
+
+        // Record the proportion of this tempo's miner emission that was withheld from
+        // miners (directed to owner/immune hotkeys, whether recycled or burned).
+        let withheld_proportion: U96F32 = U96F32::saturating_from_num(withheld_incentive.to_u64())
+            .checked_div(U96F32::saturating_from_num(total_incentive.to_u64()))
+            .unwrap_or_else(|| U96F32::saturating_from_num(0));
+        MinerBurned::<T>::insert(netuid, withheld_proportion);
 
         // Distribute alpha divs.
         let _ = AlphaDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
