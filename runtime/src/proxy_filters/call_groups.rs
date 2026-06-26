@@ -27,6 +27,7 @@ use pallet_subtensor_utility::Call as UtilityCall;
 use pallet_sudo::Call as SudoCall;
 use pallet_timestamp::Call as TimestampCall;
 use subtensor_macros::call_filter_group;
+use subtensor_runtime_common::{SMALL_ALPHA_TRANSFER_LIMIT, SMALL_TRANSFER_LIMIT};
 
 call_filter_group!(
     SystemCalls,
@@ -263,12 +264,22 @@ call_filter_group!(
     ]
 );
 
+// Liquid value movement. Allowed by Transfer (+ SmallTransfer, conditionally)
+// and NonCritical.
 call_filter_group!(
-    BalancesCalls,
+    BalanceTransferCalls,
     [
         RuntimeCall::Balances(BalancesCall::transfer_keep_alive),
         RuntimeCall::Balances(BalancesCall::transfer_allow_death),
         RuntimeCall::Balances(BalancesCall::transfer_all),
+    ]
+);
+
+// Privileged balance maintenance. Allowed only by NonCritical (root-gated at
+// dispatch anyway).
+call_filter_group!(
+    BalanceMaintenanceCalls,
+    [
         RuntimeCall::Balances(BalancesCall::force_transfer),
         RuntimeCall::Balances(BalancesCall::force_unreserve),
         RuntimeCall::Balances(BalancesCall::upgrade_accounts),
@@ -278,8 +289,127 @@ call_filter_group!(
     ]
 );
 
+// Stake position management. Allowed by Staking, NonTransfer, NonCritical
+// (not NonFungible).
 call_filter_group!(
-    SubtensorCalls,
+    StakeManagementCalls,
+    [
+        RuntimeCall::SubtensorModule(SubtensorCall::add_stake),
+        RuntimeCall::SubtensorModule(SubtensorCall::add_stake_limit),
+        RuntimeCall::SubtensorModule(SubtensorCall::remove_stake),
+        RuntimeCall::SubtensorModule(SubtensorCall::remove_stake_limit),
+        RuntimeCall::SubtensorModule(SubtensorCall::remove_stake_full_limit),
+        RuntimeCall::SubtensorModule(SubtensorCall::unstake_all),
+        RuntimeCall::SubtensorModule(SubtensorCall::unstake_all_alpha),
+        RuntimeCall::SubtensorModule(SubtensorCall::move_stake),
+        RuntimeCall::SubtensorModule(SubtensorCall::swap_stake),
+        RuntimeCall::SubtensorModule(SubtensorCall::swap_stake_limit),
+    ]
+);
+
+// Liquid stake movement. Allowed by Transfer (+ SmallTransfer, conditionally)
+// and NonCritical.
+call_filter_group!(
+    StakeTransferCalls,
+    [RuntimeCall::SubtensorModule(SubtensorCall::transfer_stake),]
+);
+
+// POW/permissionless registration. Allowed by Registration and all broad proxies.
+call_filter_group!(
+    PowRegistrationCalls,
+    [
+        RuntimeCall::SubtensorModule(SubtensorCall::register),
+        RuntimeCall::SubtensorModule(SubtensorCall::register_limit),
+    ]
+);
+
+// Burn-based registration. Allowed by Registration and NonTransfer only.
+call_filter_group!(
+    BurnedRegistrationCalls,
+    [RuntimeCall::SubtensorModule(SubtensorCall::burned_register),]
+);
+
+// Root registration. Allowed by NonTransfer only.
+call_filter_group!(
+    RootRegistrationCalls,
+    [RuntimeCall::SubtensorModule(SubtensorCall::root_register),]
+);
+
+// Hotkey swaps. Allowed by SwapHotkey, NonTransfer, NonCritical (not NonFungible).
+call_filter_group!(
+    HotkeySwapCalls,
+    [
+        RuntimeCall::SubtensorModule(SubtensorCall::swap_hotkey),
+        RuntimeCall::SubtensorModule(SubtensorCall::swap_hotkey_v2),
+    ]
+);
+
+// Coldkey swaps. Not reachable through any broad proxy (only Any).
+call_filter_group!(
+    ColdkeySwapCalls,
+    [
+        RuntimeCall::SubtensorModule(SubtensorCall::schedule_swap_coldkey),
+        RuntimeCall::SubtensorModule(SubtensorCall::swap_coldkey),
+        RuntimeCall::SubtensorModule(SubtensorCall::announce_coldkey_swap),
+        RuntimeCall::SubtensorModule(SubtensorCall::swap_coldkey_announced),
+        RuntimeCall::SubtensorModule(SubtensorCall::clear_coldkey_swap_announcement),
+        RuntimeCall::SubtensorModule(SubtensorCall::dispute_coldkey_swap),
+        RuntimeCall::SubtensorModule(SubtensorCall::reset_coldkey_swap),
+    ]
+);
+
+// Network dissolution. Allowed by NonTransfer and NonFungible (not NonCritical).
+call_filter_group!(
+    CriticalNetworkCalls,
+    [
+        RuntimeCall::SubtensorModule(SubtensorCall::dissolve_network),
+        RuntimeCall::SubtensorModule(SubtensorCall::root_dissolve_network),
+    ]
+);
+
+// Childkey delegation. Allowed by ChildKeys and all broad proxies.
+call_filter_group!(
+    ChildKeyCalls,
+    [
+        RuntimeCall::SubtensorModule(SubtensorCall::set_children),
+        RuntimeCall::SubtensorModule(SubtensorCall::set_childkey_take),
+    ]
+);
+
+// Root dividend claim. Allowed by RootClaim and all broad proxies.
+call_filter_group!(
+    RootClaimCalls,
+    [RuntimeCall::SubtensorModule(SubtensorCall::claim_root),]
+);
+
+// Root claim mode selection. Allowed by Staking and all broad proxies.
+call_filter_group!(
+    RootClaimTypeCalls,
+    [RuntimeCall::SubtensorModule(SubtensorCall::set_root_claim_type),]
+);
+
+// Subnet identity. Allowed by Owner and all broad proxies.
+call_filter_group!(
+    SubnetIdentityCalls,
+    [
+        RuntimeCall::SubtensorModule(SubtensorCall::set_subnet_identity),
+        RuntimeCall::SubtensorModule(SubtensorCall::update_symbol),
+    ]
+);
+
+// Subnet activation. Allowed by SubnetLeaseBeneficiary and all broad proxies.
+call_filter_group!(
+    SubnetActivationCalls,
+    [RuntimeCall::SubtensorModule(SubtensorCall::start_call),]
+);
+
+// Everything else in pallet-subtensor: allowed by NonTransfer, NonFungible, and
+// NonCritical alike, and by no narrow proxy. (weights, alpha lock/burn, network
+// registration, delegate-take, serving, identity, account association,
+// childkey administration, lease teardown, tempo control, root-claim admin,
+// voting power.)
+call_filter_group!(
+    SubtensorCommonCalls,
     [
         RuntimeCall::SubtensorModule(SubtensorCall::set_weights),
         RuntimeCall::SubtensorModule(SubtensorCall::set_mechanism_weights),
@@ -293,48 +423,15 @@ call_filter_group!(
         RuntimeCall::SubtensorModule(SubtensorCall::reveal_weights),
         RuntimeCall::SubtensorModule(SubtensorCall::reveal_mechanism_weights),
         RuntimeCall::SubtensorModule(SubtensorCall::batch_reveal_weights),
-        RuntimeCall::SubtensorModule(SubtensorCall::add_stake),
-        RuntimeCall::SubtensorModule(SubtensorCall::add_stake_limit),
-        RuntimeCall::SubtensorModule(SubtensorCall::remove_stake),
-        RuntimeCall::SubtensorModule(SubtensorCall::remove_stake_limit),
-        RuntimeCall::SubtensorModule(SubtensorCall::remove_stake_full_limit),
-        RuntimeCall::SubtensorModule(SubtensorCall::unstake_all),
-        RuntimeCall::SubtensorModule(SubtensorCall::unstake_all_alpha),
-        RuntimeCall::SubtensorModule(SubtensorCall::move_stake),
-        RuntimeCall::SubtensorModule(SubtensorCall::swap_stake),
-        RuntimeCall::SubtensorModule(SubtensorCall::swap_stake_limit),
         RuntimeCall::SubtensorModule(SubtensorCall::add_stake_burn),
         RuntimeCall::SubtensorModule(SubtensorCall::lock_stake),
         RuntimeCall::SubtensorModule(SubtensorCall::move_lock),
         RuntimeCall::SubtensorModule(SubtensorCall::set_perpetual_lock),
         RuntimeCall::SubtensorModule(SubtensorCall::recycle_alpha),
         RuntimeCall::SubtensorModule(SubtensorCall::burn_alpha),
-        RuntimeCall::SubtensorModule(SubtensorCall::transfer_stake),
-        RuntimeCall::SubtensorModule(SubtensorCall::register),
-        RuntimeCall::SubtensorModule(SubtensorCall::register_limit),
-        RuntimeCall::SubtensorModule(SubtensorCall::burned_register),
-        RuntimeCall::SubtensorModule(SubtensorCall::root_register),
         RuntimeCall::SubtensorModule(SubtensorCall::register_network),
         RuntimeCall::SubtensorModule(SubtensorCall::register_network_with_identity),
         RuntimeCall::SubtensorModule(SubtensorCall::register_leased_network),
-        RuntimeCall::SubtensorModule(SubtensorCall::schedule_swap_coldkey),
-        RuntimeCall::SubtensorModule(SubtensorCall::swap_coldkey),
-        RuntimeCall::SubtensorModule(SubtensorCall::announce_coldkey_swap),
-        RuntimeCall::SubtensorModule(SubtensorCall::swap_coldkey_announced),
-        RuntimeCall::SubtensorModule(SubtensorCall::clear_coldkey_swap_announcement),
-        RuntimeCall::SubtensorModule(SubtensorCall::dispute_coldkey_swap),
-        RuntimeCall::SubtensorModule(SubtensorCall::reset_coldkey_swap),
-        RuntimeCall::SubtensorModule(SubtensorCall::swap_hotkey),
-        RuntimeCall::SubtensorModule(SubtensorCall::swap_hotkey_v2),
-        RuntimeCall::SubtensorModule(SubtensorCall::dissolve_network),
-        RuntimeCall::SubtensorModule(SubtensorCall::root_dissolve_network),
-        RuntimeCall::SubtensorModule(SubtensorCall::set_children),
-        RuntimeCall::SubtensorModule(SubtensorCall::set_childkey_take),
-        RuntimeCall::SubtensorModule(SubtensorCall::claim_root),
-        RuntimeCall::SubtensorModule(SubtensorCall::set_root_claim_type),
-        RuntimeCall::SubtensorModule(SubtensorCall::set_subnet_identity),
-        RuntimeCall::SubtensorModule(SubtensorCall::update_symbol),
-        RuntimeCall::SubtensorModule(SubtensorCall::start_call),
         RuntimeCall::SubtensorModule(SubtensorCall::decrease_take),
         RuntimeCall::SubtensorModule(SubtensorCall::increase_take),
         RuntimeCall::SubtensorModule(SubtensorCall::serve_axon),
@@ -361,34 +458,71 @@ call_filter_group!(
     ]
 );
 
+// Subnet operating parameters a lease beneficiary (and the owner) may tune:
+// hyperparameters, commit-reveal, registration config, uid management, and
+// mechanism configuration.
 call_filter_group!(
-    AdminUtilsCalls,
+    LeaseConfigCalls,
     [
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_default_take),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_tx_rate_limit),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_serving_rate_limit),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_min_difficulty),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_max_difficulty),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_weights_version_key),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_weights_set_rate_limit),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_adjustment_interval),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_adjustment_alpha),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_immunity_period),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_min_allowed_weights),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_max_allowed_uids),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_kappa),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_rho),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_activity_cutoff),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_max_burn),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_bonds_moving_average),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_bonds_penalty),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_liquid_alpha_enabled),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_alpha_values),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_toggle_transfer),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_subnet_moving_alpha),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_ema_price_halving_period),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_subtoken_enabled),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_alpha_sigmoid_steepness),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_yuma3_enabled),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_bonds_reset_enabled),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_subnet_emission_enabled),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_min_childkey_take_per_subnet),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_commit_reveal_weights_enabled),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_commit_reveal_weights_interval),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_commit_reveal_version),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_network_registration_allowed),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_network_pow_registration_allowed),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_target_registrations_per_interval),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_min_burn),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_max_burn),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_difficulty),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_max_allowed_validators),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_bonds_moving_average),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_bonds_penalty),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_max_registrations_per_block),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_adjustment_interval),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_max_allowed_uids),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_max_allowed_validators),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_owner_immune_neuron_limit),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_trim_to_max_allowed_uids),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_min_allowed_uids),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_min_non_immune_uids),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_mechanism_count),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_mechanism_emission_split),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_tao_flow_cutoff),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_tao_flow_normalization_exponent),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_tao_flow_smoothing_factor),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_net_tao_flow_enabled),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_max_mechanism_count),
+    ]
+);
+
+// Admin parameters only the subnet owner may set (economics, rate limits,
+// network lifecycle, EVM, coldkey-swap delays, authority/GRANDPA changes).
+// Not available to a lease beneficiary.
+call_filter_group!(
+    OwnerConfigCalls,
+    [
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_default_take),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_tx_rate_limit),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_weights_set_rate_limit),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_subnet_owner_cut),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_network_rate_limit),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_tempo),
@@ -402,37 +536,13 @@ call_filter_group!(
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_nominator_min_required_stake),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_tx_delegate_take_rate_limit),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_min_delegate_take),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_min_childkey_take_per_subnet),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_commit_reveal_weights_enabled),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_liquid_alpha_enabled),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_alpha_values),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_dissolve_network_schedule_duration),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_commit_reveal_weights_interval),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_evm_chain_id),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_toggle_transfer),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_recycle_or_burn),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_toggle_evm_precompile),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_subnet_moving_alpha),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_ema_price_halving_period),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_alpha_sigmoid_steepness),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_yuma3_enabled),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_bonds_reset_enabled),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_subtoken_enabled),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_commit_reveal_version),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_owner_immune_neuron_limit),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_ck_burn),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_admin_freeze_window),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_owner_hparam_rate_limit),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_mechanism_count),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_mechanism_emission_split),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_trim_to_max_allowed_uids),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_min_allowed_uids),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_tao_flow_cutoff),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_tao_flow_normalization_exponent),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_tao_flow_smoothing_factor),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_net_tao_flow_enabled),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_max_mechanism_count),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_min_non_immune_uids),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_start_call_delay),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_coldkey_swap_announcement_delay),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_coldkey_swap_reannouncement_delay),
@@ -440,20 +550,66 @@ call_filter_group!(
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_burn_increase_mult),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_owner_cut_enabled),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_owner_cut_auto_lock_enabled),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_subnet_emission_enabled),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_max_epochs_per_block),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_sn_owner_hotkey),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_subnet_owner_hotkey),
         RuntimeCall::AdminUtils(AdminUtilsCall::swap_authorities),
         RuntimeCall::AdminUtils(AdminUtilsCall::schedule_grandpa_change),
     ]
 );
 
+// Owner-key rotation. Excluded from the Owner proxy; reachable only by the
+// broad proxies (matching historical behaviour).
+call_filter_group!(
+    OwnerKeyCalls,
+    [
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_sn_owner_hotkey),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_subnet_owner_hotkey),
+    ]
+);
+
+// ============================================================================
+// Conditional, proxy-specific groups
+//
+// These carry amount / nested-call constraints, so they overlap the inventory
+// groups above (e.g. `transfer_keep_alive` is also in `BalanceTransferCalls`).
+// They are deliberately excluded from `AllCalls` to keep that a non-overlapping
+// partition. Generating them with the same macro keeps the executable filter
+// and the client-facing metadata in lockstep.
+// ============================================================================
+
+// `SmallTransfer`: amount-bounded balance and stake transfers.
+call_filter_group!(SmallTransferCalls, [
+    RuntimeCall::Balances(BalancesCall::transfer_keep_alive)
+        where value < SMALL_TRANSFER_LIMIT,
+    RuntimeCall::Balances(BalancesCall::transfer_allow_death)
+        where value < SMALL_TRANSFER_LIMIT,
+    RuntimeCall::SubtensorModule(SubtensorCall::transfer_stake)
+        where alpha_amount < SMALL_ALPHA_TRANSFER_LIMIT,
+]);
+
+// `SudoUncheckedSetCode`: a single sudo call, only when it wraps
+// `System::set_code`.
+call_filter_group!(SudoSetCodeCalls, [
+    RuntimeCall::Sudo(SudoCall::sudo_unchecked_weight)
+        where nested(call) == RuntimeCall::System(SystemCall::set_code),
+]);
+
+// Full inventory of every runtime call, used only by the coverage test that
+// checks it against `RuntimeCall` metadata. Nested in three blocks so the
+// flattened tuple stays within the `CallFilterMetadata` tuple-impl arity;
+// `call_infos()` recurses regardless.
+#[cfg(test)]
 pub(super) type AllCalls = (
+    WholesalePalletCalls,
+    SubtensorSplitCalls,
+    AdminUtilsSplitCalls,
+);
+
+// Pallets every granting proxy grants in full.
+#[cfg(test)]
+type WholesalePalletCalls = (
     SystemCalls,
     TimestampCalls,
     GrandpaCalls,
-    BalancesCalls,
     UtilityCalls,
     SudoCalls,
     MultisigCalls,
@@ -471,9 +627,32 @@ pub(super) type AllCalls = (
     ContractsCalls,
     MevShieldCalls,
     LimitOrdersCalls,
-    AdminUtilsCalls,
-    SubtensorCalls,
 );
+
+// Balances + pallet-subtensor, split by proxy membership.
+#[cfg(test)]
+type SubtensorSplitCalls = (
+    BalanceTransferCalls,
+    BalanceMaintenanceCalls,
+    StakeManagementCalls,
+    StakeTransferCalls,
+    PowRegistrationCalls,
+    BurnedRegistrationCalls,
+    RootRegistrationCalls,
+    HotkeySwapCalls,
+    ColdkeySwapCalls,
+    CriticalNetworkCalls,
+    ChildKeyCalls,
+    RootClaimCalls,
+    RootClaimTypeCalls,
+    SubnetIdentityCalls,
+    SubnetActivationCalls,
+    SubtensorCommonCalls,
+);
+
+// admin-utils, split for the Owner and SubnetLeaseBeneficiary proxies.
+#[cfg(test)]
+type AdminUtilsSplitCalls = (LeaseConfigCalls, OwnerConfigCalls, OwnerKeyCalls);
 
 #[cfg(test)]
 mod tests {

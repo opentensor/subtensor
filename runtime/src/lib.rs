@@ -2340,11 +2340,11 @@ impl_runtime_apis! {
 
     impl subtensor_custom_rpc_runtime_api::ProxyFilterRuntimeApi<Block> for Runtime {
         fn get_proxy_types() -> Vec<ProxyTypeInfo> {
-            vec![]
+            proxy_filters::get_all_proxy_type_infos()
         }
 
         fn get_proxy_filters(proxy_types: Option<Vec<u8>>) -> Vec<ProxyFilterInfo> {
-            vec![]
+            proxy_filters::get_proxy_filters(proxy_types)
         }
     }
 

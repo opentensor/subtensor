@@ -183,7 +183,7 @@ fn generate_call_info(rule: &CallRule) -> TokenStream2 {
         None => base,
         Some(CallConstraint::ParamLessThan { field, limit }) => quote! {{
             let mut info = #base;
-            info.condition = Some(subtensor_runtime_common::CallConstraint::ParamLessThan {
+            info.constraint = Some(subtensor_runtime_common::CallConstraint::ParamLessThan {
                 param_name: stringify!(#field).as_bytes().to_vec(),
                 limit: Into::<u64>::into(#limit) as u128,
             });
@@ -194,7 +194,7 @@ fn generate_call_info(rule: &CallRule) -> TokenStream2 {
             quote! {{
                 let mut info = #base;
                 let nested = #nested;
-                info.condition = Some(subtensor_runtime_common::CallConstraint::NestedCallMustBe {
+                info.constraint = Some(subtensor_runtime_common::CallConstraint::NestedCallMustBe {
                     param_name: stringify!(#field).as_bytes().to_vec(),
                     pallet_name: nested.pallet_name,
                     call_name: nested.call_name,
