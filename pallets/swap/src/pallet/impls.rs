@@ -154,15 +154,11 @@ impl<T: Config> Pallet<T> {
         transactional::with_transaction(|| {
             let reserve = Order::ReserveOut::reserve(netuid.into());
 
-            let result = if simulate {
-                Ok(())
-            } else {
-                Self::ensure_swap_input_within_reserve_limit::<Order>(
-                    netuid,
-                    order.amount(),
-                    drop_fees,
-                )
-            }
+            let result = Self::ensure_swap_input_within_reserve_limit::<Order>(
+                netuid,
+                order.amount(),
+                drop_fees,
+            )
             .and_then(|_| Self::swap_inner::<Order>(netuid, order, limit_price, drop_fees))
             .map_err(Into::into);
 

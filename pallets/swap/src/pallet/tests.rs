@@ -11,7 +11,7 @@ use sp_arithmetic::Perquintill;
 use sp_runtime::DispatchError;
 use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{NetUid, Token};
-use subtensor_swap_interface::Order as OrderT;
+use subtensor_swap_interface::{Order as OrderT, SwapHandler};
 
 use super::*;
 use crate::mock::*;
@@ -746,6 +746,24 @@ fn test_swap_rejects_input_over_1000x_input_reserve() {
                 true,
                 false,
             ),
+            Error::<Test>::SwapInputTooLarge
+        );
+    });
+}
+
+#[test]
+fn test_sim_swap_rejects_input_over_1000x_input_reserve() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1);
+        TaoReserve::set_mock_reserve(netuid, TaoBalance::from(1_000));
+        AlphaReserve::set_mock_reserve(netuid, AlphaBalance::from(1_000));
+
+        assert_noop!(
+            Pallet::<Test>::sim_swap(netuid, GetTaoForAlpha::with_amount(1_001_000)),
+            Error::<Test>::SwapInputTooLarge
+        );
+        assert_noop!(
+            Pallet::<Test>::sim_swap(netuid, GetAlphaForTao::with_amount(1_001_000)),
             Error::<Test>::SwapInputTooLarge
         );
     });

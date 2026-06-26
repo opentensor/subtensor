@@ -804,7 +804,7 @@ fn test_add_stake_input_reserve_too_low_fails() {
                 netuid,
                 amount_staked.into()
             ),
-            pallet_subtensor_swap::Error::<Test>::SwapInputTooLarge
+            Error::<Test>::InsufficientLiquidity
         );
     });
 }
@@ -3046,14 +3046,14 @@ fn test_max_amount_remove_dynamic() {
                     pallet_subtensor_swap::Error::<Test>::PriceLimitExceeded,
                 )),
             ),
-            (10_000_000_000, 10_000_000_000, 0, Ok(u64::MAX)),
+            (10_000_000_000, 10_000_000_000, 0, Ok(10_000_000_000_000)),
             // Low bounds (numbers are empirical, it is only important that result
             // is sharply decreasing when limit price increases)
-            (1_000, 1_000, 0, Ok(u64::MAX)),
-            (1_001, 1_001, 0, Ok(u64::MAX)),
-            (1_001, 1_001, 1, Ok(17_472)),
-            (1_001, 1_001, 2, Ok(17_472)),
-            (1_001, 1_001, 1_001, Ok(17_472)),
+            (1_000, 1_000, 0, Ok(1_000_000)),
+            (1_001, 1_001, 0, Ok(1_001_000)),
+            (1_001, 1_001, 1, Ok(1_001_000)),
+            (1_001, 1_001, 2, Ok(1_001_000)),
+            (1_001, 1_001, 1_001, Ok(1_001_000)),
             (1_001, 1_001, 10_000, Ok(17_472)),
             (1_001, 1_001, 100_000, Ok(17_472)),
             (1_001, 1_001, 1_000_000, Ok(17_472)),
@@ -3069,7 +3069,7 @@ fn test_max_amount_remove_dynamic() {
                 Ok(3_030_000_000_000),
             ),
             // Normal range values with edge cases and sanity checks
-            (200_000_000_000, 100_000_000_000, 0, Ok(u64::MAX)),
+            (200_000_000_000, 100_000_000_000, 0, Ok(100_000_000_000_000)),
             (
                 200_000_000_000,
                 100_000_000_000,
@@ -3157,10 +3157,13 @@ fn test_max_amount_remove_dynamic() {
                 ),
                 Ok(v) => {
                     let v = AlphaBalance::from(v);
-                    assert_abs_diff_eq!(
-                        SubtensorModule::get_max_amount_remove(netuid, limit_price.into()).unwrap(),
-                        v,
-                        epsilon = v / 100.into()
+                    let actual =
+                        SubtensorModule::get_max_amount_remove(netuid, limit_price.into()).unwrap();
+                    let epsilon = v / 100.into();
+                    let diff = actual.max(v).saturating_sub(actual.min(v));
+                    assert!(
+                        diff <= epsilon,
+                        "max remove mismatch: tao_in={tao_in}, alpha_in={alpha_in:?}, limit_price={limit_price}, actual={actual:?}, expected={v:?}, epsilon={epsilon:?}",
                     );
                 }
             }
@@ -3417,10 +3420,10 @@ fn test_max_amount_move_dynamic_stable() {
 
         // The tests below just mimic the remove_stake_limit tests
 
-        // 0 price => max is u64::MAX
+        // 0 price => max is capped at 1000x input reserve
         assert_eq!(
             SubtensorModule::get_max_amount_move(dynamic_netuid, stable_netuid, TaoBalance::ZERO),
-            Ok(AlphaBalance::MAX)
+            Ok(alpha_in.saturating_mul(1_000.into()))
         );
 
         // Low price values don't blow things up
@@ -3873,6 +3876,33 @@ fn test_add_stake_limit_fill_or_kill() {
             limit_price,
             false
         ));
+    });
+}
+
+#[test]
+fn test_add_stake_limit_rejects_input_over_swap_reserve_cap() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey_account_id = U256::from(533454);
+        let coldkey_account_id = U256::from(55454);
+
+        let netuid = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+        let tao_reserve = TaoBalance::from(1_000_u64);
+        mock::setup_reserves(netuid, tao_reserve, AlphaBalance::from(1_000_000_000_u64));
+
+        let amount = tao_reserve.saturating_mul(1_000.into()) + TaoBalance::from(1_u64);
+        add_balance_to_coldkey_account(&coldkey_account_id, amount);
+
+        assert_noop!(
+            SubtensorModule::add_stake_limit(
+                RuntimeOrigin::signed(coldkey_account_id),
+                hotkey_account_id,
+                netuid,
+                amount,
+                <Test as pallet::Config>::SwapInterface::max_price(),
+                true
+            ),
+            Error::<Test>::InsufficientLiquidity
+        );
     });
 }
 
