@@ -7,6 +7,8 @@ use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token, TokenRes
 
 use super::pallet::*;
 
+const MAX_SWAP_INPUT_RESERVE_MULTIPLIER: u64 = 1_000;
+
 /// A struct representing a single swap step with all its parameters and state
 pub(crate) struct BasicSwapStep<T, PaidIn, PaidOut>
 where
@@ -45,15 +47,16 @@ where
         amount_remaining: PaidIn,
         limit_price: U64F64,
         drop_fees: bool,
-    ) -> Self {
+    ) -> Result<Self, Error<T>> {
         let fee = Pallet::<T>::calculate_fee_amount(netuid, amount_remaining, drop_fees);
         let requested_delta_in = amount_remaining.saturating_sub(fee);
+        Self::ensure_input_within_reserve_limit(netuid, requested_delta_in)?;
 
         // Target and current prices
         let target_price = Self::price_target(netuid, requested_delta_in);
         let current_price = Pallet::<T>::current_price(netuid);
 
-        Self {
+        Ok(Self {
             netuid,
             drop_fees,
             requested_delta_in,
@@ -64,13 +67,21 @@ where
             final_price: target_price,
             fee,
             _phantom: PhantomData,
-        }
+        })
     }
 
     /// Execute the swap step and return the result
     pub(crate) fn execute(&mut self) -> Result<SwapStepResult<PaidIn, PaidOut>, Error<T>> {
         self.determine_action();
+        Self::ensure_input_within_reserve_limit(self.netuid, self.delta_in)?;
         self.process_swap()
+    }
+
+    fn ensure_input_within_reserve_limit(netuid: NetUid, delta_in: PaidIn) -> Result<(), Error<T>> {
+        let input_reserve = Self::input_reserve(netuid);
+        let max_delta_in = input_reserve.saturating_mul(MAX_SWAP_INPUT_RESERVE_MULTIPLIER.into());
+        ensure!(delta_in <= max_delta_in, Error::<T>::SwapInputTooLarge);
+        Ok(())
     }
 
     /// Determine the appropriate action for this swap step
@@ -176,6 +187,10 @@ impl<T: Config> SwapStep<T, TaoBalance, AlphaBalance>
                 .saturating_to_num::<u64>(),
         )
     }
+
+    fn input_reserve(netuid: NetUid) -> TaoBalance {
+        T::TaoReserve::reserve(netuid.into())
+    }
 }
 
 impl<T: Config> SwapStep<T, AlphaBalance, TaoBalance>
@@ -220,6 +235,10 @@ impl<T: Config> SwapStep<T, AlphaBalance, TaoBalance>
                 .saturating_to_num::<u64>(),
         )
     }
+
+    fn input_reserve(netuid: NetUid) -> AlphaBalance {
+        T::AlphaReserve::reserve(netuid.into())
+    }
 }
 
 pub(crate) trait SwapStep<T, PaidIn, PaidOut>
@@ -244,6 +263,9 @@ where
     /// This is the core method of the swap that tells how much output token is given for an
     /// amount of input token within one price tick.
     fn convert_deltas(netuid: NetUid, delta_in: PaidIn) -> PaidOut;
+
+    /// Return the reserve for the token being paid into this swap step.
+    fn input_reserve(netuid: NetUid) -> PaidIn;
 }
 
 #[derive(Debug, PartialEq)]
