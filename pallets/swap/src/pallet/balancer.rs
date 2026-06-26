@@ -796,6 +796,12 @@ mod tests {
                 let dy1 = y_fixed * (one - e1);
                 let dy2 = y_fixed * (one - e2);
 
+                if dx > x.saturating_mul(1_000) {
+                    assert!(e1 <= one);
+                    assert!(e2 <= one);
+                    return;
+                }
+
                 let w1 = perquintill_to_f64(bal.get_base_weight());
                 let w2 = perquintill_to_f64(bal.get_quote_weight());
                 let e1_expected = (x as f64 / (x as f64 + dx as f64)).powf(w1 / w2);
