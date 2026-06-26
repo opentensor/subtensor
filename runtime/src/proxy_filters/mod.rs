@@ -201,7 +201,7 @@ pub fn get_proxy_filters(proxy_types: Option<Vec<u8>>) -> Vec<ProxyFilterInfo> {
         .filter(|(index, _)| {
             proxy_types
                 .as_ref()
-                .map_or(true, |selected| selected.contains(index))
+                .is_none_or(|selected| selected.contains(index))
         })
         .map(|(index, proxy_type)| ProxyFilterInfo {
             proxy_type: index,

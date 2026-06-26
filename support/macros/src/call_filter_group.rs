@@ -245,10 +245,15 @@ fn split_call_path(call_path: Path) -> Result<(Path, Ident)> {
     }
 
     let mut call_enum_segments = Punctuated::new();
-    for segment in call_path.segments.iter().take(call_path.segments.len() - 1) {
+    for segment in call_path
+        .segments
+        .iter()
+        .take(call_path.segments.len().saturating_sub(1))
+    {
         call_enum_segments.push((*segment).clone());
     }
 
+    #[allow(clippy::expect_used)]
     let call = call_path
         .segments
         .last()
@@ -267,7 +272,7 @@ fn split_call_path(call_path: Path) -> Result<(Path, Ident)> {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, clippy::indexing_slicing)]
 
     use quote::quote;
 
