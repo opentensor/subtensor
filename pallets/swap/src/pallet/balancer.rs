@@ -149,7 +149,7 @@ impl Balancer {
         let w1: u128 = self.get_base_weight().deconstruct() as u128;
         let w2: u128 = self.get_quote_weight().deconstruct() as u128;
 
-        let precision = 128;
+        let precision = 256;
         let x_safe = SafeInt::from(x);
         let w1_safe = SafeInt::from(w1);
         let w2_safe = SafeInt::from(w2);
@@ -187,8 +187,9 @@ impl Balancer {
         if let Some(result_safe_int) = maybe_result_safe_int
             && let Some(result_u64) = result_safe_int.to_u64()
         {
-            return U64F64::saturating_from_num(result_u64)
+            let result = U64F64::saturating_from_num(result_u64)
                 .safe_div(U64F64::saturating_from_num(ACCURACY));
+            return result.min(U64F64::from_num(1));
         }
         U64F64::saturating_from_num(0)
     }
