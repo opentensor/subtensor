@@ -776,9 +776,9 @@ fn test_add_stake_insufficient_liquidity() {
     });
 }
 
-/// cargo test --package pallet-subtensor --lib -- tests::staking::test_add_stake_insufficient_liquidity_one_side_ok --exact --show-output
+/// cargo test --package pallet-subtensor --lib -- tests::staking::test_add_stake_input_reserve_too_low_fails --exact --show-output
 #[test]
-fn test_add_stake_insufficient_liquidity_one_side_ok() {
+fn test_add_stake_input_reserve_too_low_fails() {
     new_test_ext(1).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
@@ -795,13 +795,17 @@ fn test_add_stake_insufficient_liquidity_one_side_ok() {
         let reserve_tao = u64::from(mock::SwapMinimumReserve::get()) - 1;
         mock::setup_reserves(netuid, reserve_tao.into(), reserve_alpha.into());
 
-        // Check the error
-        assert_ok!(SubtensorModule::add_stake(
-            RuntimeOrigin::signed(coldkey),
-            hotkey,
-            netuid,
-            amount_staked.into()
-        ));
+        // The output-side reserve is sufficient, but the input-side reserve is too small for the
+        // requested swap under the 1000x input-reserve cap.
+        assert_noop!(
+            SubtensorModule::add_stake(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                netuid,
+                amount_staked.into()
+            ),
+            pallet_subtensor_swap::Error::<Test>::SwapInputTooLarge
+        );
     });
 }
 
@@ -876,7 +880,7 @@ fn test_remove_stake_insufficient_liquidity() {
 
         // Mock more liquidity - remove becomes successful
         SubnetTAO::<Test>::insert(netuid, TaoBalance::from(amount_staked + 1));
-        SubnetAlphaIn::<Test>::insert(netuid, AlphaBalance::from(1));
+        SubnetAlphaIn::<Test>::insert(netuid, AlphaBalance::from(alpha.to_u64() / 1000 + 1));
         assert_ok!(SubtensorModule::remove_stake(
             RuntimeOrigin::signed(coldkey),
             hotkey,
@@ -5248,7 +5252,8 @@ fn test_large_swap() {
         // add network
         let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
         add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000_u64.into());
-        let tao = TaoBalance::from(100_000_000u64);
+        let swap_amount = TaoBalance::from(100_000_000_000_000_u64);
+        let tao = TaoBalance::from(swap_amount.to_u64() / 1000);
         let alpha = AlphaBalance::from(1_000_000_000_000_000_u64);
         SubnetTAO::<Test>::insert(netuid, tao);
         SubnetAlphaIn::<Test>::insert(netuid, alpha);
@@ -5256,7 +5261,6 @@ fn test_large_swap() {
         // Force the swap to initialize
         <Test as pallet::Config>::SwapInterface::init_swap(netuid, None);
 
-        let swap_amount = TaoBalance::from(100_000_000_000_000_u64);
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(coldkey),
             owner_hotkey,
