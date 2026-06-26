@@ -189,7 +189,11 @@ impl Balancer {
         {
             let result = U64F64::saturating_from_num(result_u64)
                 .safe_div(U64F64::saturating_from_num(ACCURACY));
-            return result.min(U64F64::from_num(1));
+            return if dx >= 0 {
+                result.min(U64F64::from_num(1))
+            } else {
+                result
+            };
         }
         U64F64::saturating_from_num(0)
     }
