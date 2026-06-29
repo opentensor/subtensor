@@ -669,7 +669,6 @@ subtensor_macros::define_proxy_filters! {
         SubtensorModule::update_symbol,
     } except {
         AdminUtils::sudo_set_sn_owner_hotkey,
-        AdminUtils::sudo_set_subnet_owner_hotkey,
     }
 
     NonCritical => deny {
@@ -2534,6 +2533,13 @@ impl_runtime_apis! {
 
         fn get_next_epoch_start_block(netuid: NetUid) -> Option<u64> {
             SubtensorModule::get_next_epoch_start_block(netuid)
+        }
+
+        fn get_block_emission() -> TaoBalance {
+            match SubtensorModule::calculate_block_emission() {
+                Ok(block_emission) => block_emission.into(),
+                Err(_) => TaoBalance::ZERO,
+            }
         }
     }
 
