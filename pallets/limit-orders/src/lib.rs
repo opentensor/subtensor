@@ -632,7 +632,9 @@ pub mod pallet {
             matches!(
                 signed_order.signature,
                 MultiSignature::Sr25519(_) | MultiSignature::Ed25519(_)
-            ) && signed_order.signature.verify(payload.as_slice(), &order.signer)
+            ) && signed_order
+                .signature
+                .verify(payload.as_slice(), &order.signer)
         }
 
         /// Validates all execution preconditions for a signed order.

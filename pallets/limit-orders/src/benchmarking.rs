@@ -24,12 +24,7 @@ fn sign_order<T: crate::Config>(
     // Mirror the on-chain check in `is_order_valid`: the signed message is the
     // `<Bytes>…</Bytes>`-wrapped blake2_256 hash of the SCALE-encoded order.
     let order_hash = sp_io::hashing::blake2_256(&order.encode());
-    let payload = [
-        b"<Bytes>".as_slice(),
-        &order_hash,
-        b"</Bytes>".as_slice(),
-    ]
-    .concat();
+    let payload = [b"<Bytes>".as_slice(), &order_hash, b"</Bytes>".as_slice()].concat();
     let sig = sp_io::crypto::sr25519_sign(sp_core::crypto::key_types::ACCOUNT, &public, &payload)
         .unwrap();
     crate::SignedOrder {
