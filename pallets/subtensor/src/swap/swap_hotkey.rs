@@ -59,6 +59,9 @@ impl<T: Config> Pallet<T> {
         // 5. Ensure the new hotkey is different from the old one
         ensure!(old_hotkey != new_hotkey, Error::<T>::NewHotKeyIsSameWithOld);
 
+        // 6. Get the current block number
+        let block: u64 = Self::get_current_block_as_u64();
+
         match netuid {
             // 8. Ensure the hotkey is not registered on the network before, if netuid is provided
             Some(netuid) => {
