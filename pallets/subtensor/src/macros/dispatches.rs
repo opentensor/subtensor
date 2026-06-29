@@ -159,9 +159,7 @@ mod dispatches {
         /// * 'MaxWeightExceeded':
         /// 	- Attempting to set weights with max value exceeding limit.
         #[pallet::call_index(119)]
-        #[pallet::weight((Weight::from_parts(15_540_000_000, 0)
-        .saturating_add(T::DbWeight::get().reads(4111))
-        .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((<T as Config>::WeightInfo::set_mechanism_weights(dests.len() as u32), DispatchClass::Normal, Pays::No))]
         pub fn set_mechanism_weights(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -265,9 +263,7 @@ mod dispatches {
         ///   - Attempting to commit when the user has more than the allowed limit of unrevealed commits.
         ///
         #[pallet::call_index(115)]
-        #[pallet::weight((Weight::from_parts(55_130_000, 0)
-		.saturating_add(T::DbWeight::get().reads(7))
-		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((<T as Config>::WeightInfo::commit_mechanism_weights(), DispatchClass::Normal, Pays::No))]
         pub fn commit_mechanism_weights(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -400,9 +396,7 @@ mod dispatches {
         ///   - The revealed hash does not match any committed hash.
         ///
         #[pallet::call_index(116)]
-        #[pallet::weight((Weight::from_parts(122_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(16))
-		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((<T as Config>::WeightInfo::reveal_mechanism_weights(uids.len() as u32), DispatchClass::Normal, Pays::No))]
         pub fn reveal_mechanism_weights(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -498,9 +492,7 @@ mod dispatches {
         ///   - Attempting to commit when the user has more than the allowed limit of unrevealed commits.
         ///
         #[pallet::call_index(117)]
-        #[pallet::weight((Weight::from_parts(77_750_000, 0)
-		.saturating_add(T::DbWeight::get().reads(7_u64))
-		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((<T as Config>::WeightInfo::commit_crv3_mechanism_weights(), DispatchClass::Normal, Pays::No))]
         pub fn commit_crv3_mechanism_weights(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -1053,9 +1045,7 @@ mod dispatches {
         /// * `keep_stake` - If `true`, stake remains on the old hotkey and the rest metadata
         ///   is transferred to the new hotkey.
         #[pallet::call_index(72)]
-        #[pallet::weight((Weight::from_parts(275_300_000, 0)
-        .saturating_add(T::DbWeight::get().reads(52_u64))
-        .saturating_add(T::DbWeight::get().writes(35_u64)), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight((<T as Config>::WeightInfo::swap_hotkey_v2(), DispatchClass::Normal, Pays::Yes))]
         pub fn swap_hotkey_v2(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1170,9 +1160,7 @@ mod dispatches {
         /// * `BadOrigin` - If the origin is not root.
         ///
         #[pallet::call_index(76)]
-        #[pallet::weight(Weight::from_parts(6_000, 0)
-        .saturating_add(T::DbWeight::get().reads(1))
-        .saturating_add(T::DbWeight::get().writes(1)))]
+        #[pallet::weight(<T as Config>::WeightInfo::sudo_set_min_childkey_take())]
         pub fn sudo_set_min_childkey_take(origin: OriginFor<T>, take: u16) -> DispatchResult {
             ensure_root(origin)?;
             Self::set_min_childkey_take(take);
@@ -1191,9 +1179,7 @@ mod dispatches {
         /// * `BadOrigin` - If the origin is not root.
         ///
         #[pallet::call_index(77)]
-        #[pallet::weight(Weight::from_parts(6_000, 0)
-        .saturating_add(T::DbWeight::get().reads(1))
-        .saturating_add(T::DbWeight::get().writes(1)))]
+        #[pallet::weight(<T as Config>::WeightInfo::sudo_set_max_childkey_take())]
         pub fn sudo_set_max_childkey_take(origin: OriginFor<T>, take: u16) -> DispatchResult {
             ensure_root(origin)?;
             Self::set_max_childkey_take(take);
@@ -1231,9 +1217,7 @@ mod dispatches {
         /// Remove a user's subnetwork
         /// The caller must be the owner of the network
         #[pallet::call_index(61)]
-        #[pallet::weight(Weight::from_parts(119_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(6))
-		.saturating_add(T::DbWeight::get().writes(31)))]
+        #[pallet::weight(<T as Config>::WeightInfo::dissolve_network())]
         pub fn dissolve_network(
             origin: OriginFor<T>,
             _coldkey: T::AccountId,
@@ -1289,9 +1273,7 @@ mod dispatches {
         /// 8. **New Children Assignment**: Assigns the new child to the hotkey and updates the parent list for the new child.
         // TODO: Benchmark this call
         #[pallet::call_index(67)]
-        #[pallet::weight((Weight::from_parts(119_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(6))
-		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight((<T as Config>::WeightInfo::set_children(children.len() as u32), DispatchClass::Normal, Pays::Yes))]
         pub fn set_children(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1306,7 +1288,7 @@ mod dispatches {
         ///
         /// WARNING: This function is deprecated, please migrate to `announce_coldkey_swap`/`coldkey_swap`
         #[pallet::call_index(73)]
-        #[pallet::weight(T::DbWeight::get().reads(5))]
+        #[pallet::weight(<T as Config>::WeightInfo::schedule_swap_coldkey())]
         #[deprecated(note = "Deprecated, please migrate to `announce_coldkey_swap`/`coldkey_swap`")]
         pub fn schedule_swap_coldkey(
             _origin: OriginFor<T>,
@@ -2118,9 +2100,7 @@ mod dispatches {
         /// * commit_reveal_version (`u16`):
         ///     - The client (bittensor-drand) version
         #[pallet::call_index(118)]
-        #[pallet::weight((Weight::from_parts(84_020_000, 0)
-		.saturating_add(T::DbWeight::get().reads(9_u64))
-		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((<T as Config>::WeightInfo::commit_timelocked_mechanism_weights(), DispatchClass::Normal, Pays::No))]
         pub fn commit_timelocked_mechanism_weights(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -2142,9 +2122,7 @@ mod dispatches {
         /// Remove a subnetwork
         /// The caller must be root
         #[pallet::call_index(120)]
-        #[pallet::weight(Weight::from_parts(119_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(6))
-		.saturating_add(T::DbWeight::get().writes(31)))]
+        #[pallet::weight(<T as Config>::WeightInfo::root_dissolve_network())]
         pub fn root_dissolve_network(origin: OriginFor<T>, netuid: NetUid) -> DispatchResult {
             ensure_root(origin)?;
             Self::do_dissolve_network(netuid)
@@ -2380,9 +2358,7 @@ mod dispatches {
         /// * `SubnetNotExist` - If the subnet does not exist.
         /// * `NotSubnetOwner` - If the caller is not the subnet owner or root.
         #[pallet::call_index(129)]
-        #[pallet::weight(Weight::from_parts(10_000, 0)
-        .saturating_add(T::DbWeight::get().reads(2))
-        .saturating_add(T::DbWeight::get().writes(2)))]
+        #[pallet::weight(<T as Config>::WeightInfo::enable_voting_power_tracking())]
         pub fn enable_voting_power_tracking(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -2406,9 +2382,7 @@ mod dispatches {
         /// * `NotSubnetOwner` - If the caller is not the subnet owner or root.
         /// * `VotingPowerTrackingNotEnabled` - If voting power tracking is not enabled.
         #[pallet::call_index(130)]
-        #[pallet::weight(Weight::from_parts(10_000, 0)
-        .saturating_add(T::DbWeight::get().reads(2))
-        .saturating_add(T::DbWeight::get().writes(1)))]
+        #[pallet::weight(<T as Config>::WeightInfo::disable_voting_power_tracking())]
         pub fn disable_voting_power_tracking(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -2433,9 +2407,7 @@ mod dispatches {
         /// * `SubnetNotExist` - If the subnet does not exist.
         /// * `InvalidVotingPowerEmaAlpha` - If alpha is greater than 10^18 (1.0).
         #[pallet::call_index(131)]
-        #[pallet::weight(Weight::from_parts(6_000, 0)
-        .saturating_add(T::DbWeight::get().reads(1))
-        .saturating_add(T::DbWeight::get().writes(1)))]
+        #[pallet::weight(<T as Config>::WeightInfo::sudo_set_voting_power_ema_alpha())]
         pub fn sudo_set_voting_power_ema_alpha(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -2489,13 +2461,7 @@ mod dispatches {
         ///
         /// `limit_price` is expressed in the same TaoCurrency/u64 units as `Burn`.
         #[pallet::call_index(134)]
-        #[pallet::weight((
-            Weight::from_parts(354_200_000, 0)
-                .saturating_add(T::DbWeight::get().reads(47_u64))
-                .saturating_add(T::DbWeight::get().writes(40_u64)),
-            DispatchClass::Normal,
-            Pays::Yes
-        ))]
+        #[pallet::weight((<T as Config>::WeightInfo::register_limit(), DispatchClass::Normal, Pays::Yes))]
         pub fn register_limit(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -2584,7 +2550,7 @@ mod dispatches {
         /// does not unlock through locked-mass decay. Passing `false` returns
         /// the caller's lock to normal decay.
         #[pallet::call_index(138)]
-        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(4, 3))]
+        #[pallet::weight(<T as Config>::WeightInfo::set_perpetual_lock())]
         pub fn set_perpetual_lock(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -2632,11 +2598,7 @@ mod dispatches {
         /// caller into receiving locked alpha from stake transfers or coldkey
         /// swaps.
         #[pallet::call_index(142)]
-        #[pallet::weight((
-            <T as frame_system::Config>::DbWeight::get().reads_writes(1, 1),
-            DispatchClass::Normal,
-            Pays::Yes
-        ))]
+        #[pallet::weight((<T as Config>::WeightInfo::set_reject_locked_alpha(), DispatchClass::Normal, Pays::Yes))]
         pub fn set_reject_locked_alpha(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
             let coldkey = ensure_signed(origin)?;
             AccountFlags::<T>::mutate_exists(&coldkey, |maybe_flags| {
