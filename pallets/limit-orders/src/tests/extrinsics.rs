@@ -5,7 +5,6 @@
 //! and event emission are all verified. SwapInterface calls are handled by
 //! `MockSwap`, which records calls and maintains in-memory balance ledgers.
 
-use codec::Encode;
 use frame_support::{BoundedVec, assert_noop, assert_ok};
 use sp_core::Pair;
 use sp_keyring::Sr25519Keyring as AccountKeyring;

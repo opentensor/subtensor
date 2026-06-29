@@ -1657,6 +1657,154 @@ fn is_order_valid_wrong_chain_id_returns_error() {
     });
 }
 
+#[test]
+fn is_order_valid_accepts_raw_sr25519_signature() {
+    new_test_ext().execute_with(|| {
+        MockTime::set(1_000_000);
+        MockSwap::set_price(1.0);
+
+        // Legacy raw form: sign the SCALE-encoded order directly (NOT the
+        // `<Bytes>…</Bytes>`-wrapped hash). This exercises the `verify_order`
+        // branch of the `verify_order(..) || verify_wrapped(..)` check.
+        let keyring = AccountKeyring::Alice;
+        let order = crate::VersionedOrder::V1(crate::Order {
+            signer: keyring.to_account_id(),
+            hotkey: AccountKeyring::Bob.to_account_id(),
+            netuid: netuid(),
+            order_type: OrderType::LimitBuy,
+            amount: 1_000,
+            limit_price: u64::MAX,
+            expiry: u64::MAX,
+            fee_rate: Perbill::zero(),
+            fee_recipient: fee_recipient(),
+            relayer: None,
+            max_slippage: None,
+            chain_id: 945,
+            partial_fills_enabled: false,
+        });
+        let id = H256(sp_io::hashing::blake2_256(&order.encode()));
+        // Sign the raw encoded order, not the wrapped payload.
+        let sig = keyring.pair().sign(&order.encode());
+        let signed = crate::SignedOrder {
+            order,
+            signature: MultiSignature::Sr25519(sig),
+            partial_fill: None,
+        };
+
+        let price = MockSwap::current_alpha_price(netuid());
+        assert_ok!(LimitOrders::<Test>::is_order_valid(
+            &signed,
+            id,
+            1_000_000,
+            price,
+            &bob()
+        ));
+    });
+}
+
+#[test]
+fn is_order_valid_accepts_raw_ed25519_signature() {
+    new_test_ext().execute_with(|| {
+        MockTime::set(1_000_000);
+        MockSwap::set_price(1.0);
+
+        // ed25519 signer over the RAW encoded order (legacy form). The `signer`
+        // field must be the ed25519 public key for verification to succeed.
+        let ed_pair = sp_core::ed25519::Pair::from_legacy_string("//Alice", None);
+        let ed_signer = AccountId::from(ed_pair.public());
+
+        let order = crate::VersionedOrder::V1(crate::Order {
+            signer: ed_signer,
+            hotkey: AccountKeyring::Bob.to_account_id(),
+            netuid: netuid(),
+            order_type: OrderType::LimitBuy,
+            amount: 1_000,
+            limit_price: u64::MAX,
+            expiry: u64::MAX,
+            fee_rate: Perbill::zero(),
+            fee_recipient: fee_recipient(),
+            relayer: None,
+            max_slippage: None,
+            chain_id: 945,
+            partial_fills_enabled: false,
+        });
+        let id = H256(sp_io::hashing::blake2_256(&order.encode()));
+        // Sign the raw encoded order, not the wrapped payload.
+        let ed_sig = ed_pair.sign(&order.encode());
+        let signed = crate::SignedOrder {
+            order,
+            signature: MultiSignature::Ed25519(ed_sig),
+            partial_fill: None,
+        };
+
+        let price = MockSwap::current_alpha_price(netuid());
+        assert_ok!(LimitOrders::<Test>::is_order_valid(
+            &signed,
+            id,
+            1_000_000,
+            price,
+            &bob()
+        ));
+    });
+}
+
+#[test]
+fn verify_order_and_verify_wrapped_unit() {
+    new_test_ext().execute_with(|| {
+        let keyring = AccountKeyring::Alice;
+        let order = crate::VersionedOrder::V1(crate::Order {
+            signer: keyring.to_account_id(),
+            hotkey: AccountKeyring::Bob.to_account_id(),
+            netuid: netuid(),
+            order_type: OrderType::LimitBuy,
+            amount: 1_000,
+            limit_price: u64::MAX,
+            expiry: u64::MAX,
+            fee_rate: Perbill::zero(),
+            fee_recipient: fee_recipient(),
+            relayer: None,
+            max_slippage: None,
+            chain_id: 945,
+            partial_fills_enabled: false,
+        });
+        let id = H256(sp_io::hashing::blake2_256(&order.encode()));
+
+        // Raw-signed order: signature over `order.encode()`.
+        // verify_order must accept it; verify_wrapped must reject it.
+        let raw_sig = keyring.pair().sign(&order.encode());
+        let raw_signed = crate::SignedOrder {
+            order: order.clone(),
+            signature: MultiSignature::Sr25519(raw_sig),
+            partial_fill: None,
+        };
+        assert!(
+            LimitOrders::<Test>::verify_order(&raw_signed),
+            "raw-signed order must pass verify_order"
+        );
+        assert!(
+            !LimitOrders::<Test>::verify_wrapped(&raw_signed, id),
+            "raw-signed order must NOT pass verify_wrapped"
+        );
+
+        // Wrapped-signed order: signature over the `<Bytes>…</Bytes>` payload.
+        // verify_wrapped must accept it; verify_order must reject it.
+        let wrapped_sig = keyring.pair().sign(&order_signing_payload(&order));
+        let wrapped_signed = crate::SignedOrder {
+            order,
+            signature: MultiSignature::Sr25519(wrapped_sig),
+            partial_fill: None,
+        };
+        assert!(
+            !LimitOrders::<Test>::verify_order(&wrapped_signed),
+            "wrapped-signed order must NOT pass verify_order"
+        );
+        assert!(
+            LimitOrders::<Test>::verify_wrapped(&wrapped_signed, id),
+            "wrapped-signed order must pass verify_wrapped"
+        );
+    });
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // compute_order_status
 // ─────────────────────────────────────────────────────────────────────────────
