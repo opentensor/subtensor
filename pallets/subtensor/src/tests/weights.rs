@@ -3,27 +3,23 @@
 use ark_serialize::CanonicalDeserialize;
 use ark_serialize::CanonicalSerialize;
 use codec::Compact;
-use frame_support::dispatch::DispatchInfo;
 use frame_support::{
     assert_err, assert_ok,
     dispatch::{DispatchClass, DispatchResult, GetDispatchInfo, Pays},
 };
-use frame_system::RawOrigin;
 use pallet_drand::types::Pulse;
 use rand_chacha::{ChaCha20Rng, rand_core::SeedableRng};
 use scale_info::prelude::collections::HashMap;
 use sha2::Digest;
 use sp_core::Encode;
-use sp_core::{Get, H256, U256};
-use sp_runtime::traits::{DispatchInfoOf, TransactionExtension};
+use sp_core::{H256, U256};
 use sp_runtime::{
     BoundedVec, DispatchError,
-    traits::{BlakeTwo256, ConstU32, Hash, TxBaseImplication},
+    traits::{BlakeTwo256, ConstU32, Hash},
 };
 use sp_std::collections::vec_deque::VecDeque;
 use substrate_fixed::types::I32F32;
-use subtensor_runtime_common::{CustomTransactionError, NetUidStorageIndex, TaoBalance};
-use subtensor_swap_interface::SwapHandler;
+use subtensor_runtime_common::NetUidStorageIndex;
 use tle::{
     curves::drand::TinyBLS381,
     ibe::fullident::Identity,
@@ -32,10 +28,8 @@ use tle::{
 };
 use w3f_bls::EngineBLS;
 
-use super::mock;
 use super::mock::*;
 use crate::coinbase::reveal_commits::{LegacyWeightsTlockPayload, WeightsTlockPayload};
-use crate::extensions::SubtensorTransactionExtension;
 use crate::*;
 /***************************
   pub fn set_weights() tests
@@ -88,118 +82,6 @@ fn test_commit_weights_dispatch_info_ok() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_commit_weights_validate --exact --show-output --nocapture
-#[test]
-fn test_commit_weights_validate() {
-    // Testing the signed extension validate function
-    // correctly filters this transaction.
-
-    new_test_ext(0).execute_with(|| {
-        let dests = vec![1, 1];
-        let weights = vec![1, 1];
-        let netuid = NetUid::from(1);
-        let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
-        let version_key: u64 = 0;
-        let coldkey = U256::from(0);
-        let hotkey: U256 = U256::from(1); // Add the hotkey field
-        assert_ne!(hotkey, coldkey); // Ensure hotkey is NOT the same as coldkey !!!
-
-        let who = hotkey; // The hotkey signs this transaction
-
-        let commit_hash: H256 =
-            BlakeTwo256::hash_of(&(hotkey, netuid, dests, weights, salt, version_key));
-
-        let call = RuntimeCall::SubtensorModule(SubtensorCall::commit_weights {
-            netuid,
-            commit_hash,
-        });
-
-        // Create netuid
-        add_network(netuid, 1, 0);
-        // Register the hotkey
-        SubtensorModule::append_neuron(netuid, &hotkey, 0);
-        crate::Owner::<Test>::insert(hotkey, coldkey);
-
-        add_balance_to_coldkey_account(&hotkey, 20_000_000_000_000_000_u64.into());
-
-        let min_stake = 500_000_000_000_u64;
-        let reserve = min_stake * 1000;
-        mock::setup_reserves(netuid, reserve.into(), reserve.into());
-
-        // Stake some TAO and read what get_total_stake_for_hotkey it gets
-        // It will be a different value due to the slippage
-        assert_ok!(SubtensorModule::do_add_stake(
-            RuntimeOrigin::signed(hotkey),
-            hotkey,
-            netuid,
-            min_stake.into()
-        ));
-        let min_stake_with_slippage = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
-
-        // Set the minimum stake above what hotkey has
-        SubtensorModule::set_stake_threshold(min_stake_with_slippage.to_u64() + 1);
-
-        // Submit to the signed extension validate function
-        let info = DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
-        let extension = SubtensorTransactionExtension::<Test>::new();
-        // Submit to the signed extension validate function
-        let result_no_stake = extension.validate(
-            RawOrigin::Signed(who).into(),
-            &call.clone(),
-            &info,
-            10,
-            (),
-            &TxBaseImplication(()),
-            TransactionSource::External,
-        );
-        // Should fail
-        assert_eq!(
-            // Should get an invalid transaction error
-            result_no_stake.unwrap_err(),
-            CustomTransactionError::StakeAmountTooLow.into()
-        );
-
-        // Set the minimum stake equal to what hotkey has
-        SubtensorModule::set_stake_threshold(min_stake_with_slippage.into());
-
-        // Submit to the signed extension validate function
-        let result_min_stake = extension.validate(
-            RawOrigin::Signed(who).into(),
-            &call.clone(),
-            &info,
-            10,
-            (),
-            &TxBaseImplication(()),
-            TransactionSource::External,
-        );
-        // Now the call should pass
-        assert_ok!(result_min_stake);
-
-        // Try with more stake than minimum
-        assert_ok!(SubtensorModule::do_add_stake(
-            RuntimeOrigin::signed(hotkey),
-            hotkey,
-            netuid,
-            DefaultMinStake::<Test>::get() * 10.into()
-        ));
-
-        // Verify stake is more than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake_with_slippage);
-
-        let result_more_stake = extension.validate(
-            RawOrigin::Signed(who).into(),
-            &call.clone(),
-            &info,
-            10,
-            (),
-            &TxBaseImplication(()),
-            TransactionSource::External,
-        );
-        // The call should still pass
-        assert_ok!(result_more_stake);
-    });
-}
-
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_reveal_weights_dispatch_info_ok --exact --show-output --nocapture
 #[test]
 fn test_reveal_weights_dispatch_info_ok() {
@@ -221,484 +103,6 @@ fn test_reveal_weights_dispatch_info_ok() {
 
         assert_eq!(dispatch_info.class, DispatchClass::Normal);
         assert_eq!(dispatch_info.pays_fee, Pays::No);
-    });
-}
-
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_set_weights_validate --exact --show-output --nocapture
-#[test]
-fn test_set_weights_validate() {
-    // Testing the signed extension validate function
-    // correctly filters the `set_weights` transaction.
-
-    new_test_ext(0).execute_with(|| {
-        let netuid = NetUid::from(1);
-        let coldkey = U256::from(0);
-        let hotkey: U256 = U256::from(1);
-        assert_ne!(hotkey, coldkey);
-
-        let who = hotkey; // The hotkey signs this transaction
-
-        let call = RuntimeCall::SubtensorModule(SubtensorCall::set_weights {
-            netuid,
-            dests: vec![1, 1],
-            weights: vec![1, 1],
-            version_key: 0,
-        });
-
-        // Create netuid (commit-reveal off so `set_weights` matches extension / extrinsic)
-        add_network_disable_commit_reveal(netuid, 1, 0);
-        setup_reserves(
-            netuid,
-            1_000_000_000_000_u64.into(),
-            1_000_000_000_000_u64.into(),
-        );
-        // Register the hotkey
-        SubtensorModule::append_neuron(netuid, &hotkey, 0);
-        crate::Owner::<Test>::insert(hotkey, coldkey);
-
-        add_balance_to_coldkey_account(&hotkey, 20_000_000_000_000_000_u64.into());
-
-        let min_stake = TaoBalance::from(500_000_000_000_u64);
-
-        // Set the minimum stake
-        SubtensorModule::set_stake_threshold(min_stake.into());
-
-        // Verify stake is less than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
-        let info: DispatchInfo =
-            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
-
-        let extension = SubtensorTransactionExtension::<Test>::new();
-        // Submit to the signed extension validate function
-        let result_no_stake = extension.validate(
-            RawOrigin::Signed(who).into(),
-            &call.clone(),
-            &info,
-            10,
-            (),
-            &TxBaseImplication(()),
-            TransactionSource::External,
-        );
-        // Should fail due to insufficient stake
-        assert_eq!(
-            result_no_stake.unwrap_err(),
-            CustomTransactionError::StakeAmountTooLow.into()
-        );
-
-        // Increase the stake and make it to be equal to the minimum threshold
-        let fee =
-            <Test as pallet::Config>::SwapInterface::approx_fee_amount(netuid.into(), min_stake);
-        assert_ok!(SubtensorModule::do_add_stake(
-            RuntimeOrigin::signed(hotkey),
-            hotkey,
-            netuid,
-            min_stake + fee
-        ));
-        let min_stake_with_slippage = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
-
-        // Set the minimum stake to what the hotkey has
-        SubtensorModule::set_stake_threshold(min_stake_with_slippage.into());
-
-        // Submit to the signed extension validate function
-        let result_min_stake = extension.validate(
-            RawOrigin::Signed(who).into(),
-            &call.clone(),
-            &info,
-            10,
-            (),
-            &TxBaseImplication(()),
-            TransactionSource::External,
-        );
-        // Now the call should pass
-        assert_ok!(result_min_stake);
-    });
-}
-
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_reveal_weights_validate --exact --show-output --nocapture
-#[test]
-fn test_reveal_weights_validate() {
-    // Testing the signed extension validate function
-    // correctly filters this transaction.
-
-    new_test_ext(0).execute_with(|| {
-        let dests = vec![1, 1];
-        let weights = vec![1, 1];
-        let netuid = NetUid::from(1);
-        let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
-        let version_key: u64 = 0;
-        let coldkey = U256::from(0);
-        let hotkey: U256 = U256::from(1); // Add the hotkey field
-        let hotkey2: U256 = U256::from(2);
-        let tempo = 1;
-        assert_ne!(hotkey, coldkey); // Ensure hotkey is NOT the same as coldkey !!!
-        let fee: u64 = 0; // FIXME: DefaultStakingFee is deprecated
-
-        let who = hotkey; // The hotkey signs this transaction
-
-        let call = RuntimeCall::SubtensorModule(SubtensorCall::reveal_weights {
-            netuid,
-            uids: dests.clone(),
-            values: weights.clone(),
-            salt: salt.clone(),
-            version_key,
-        });
-
-        let commit_hash: H256 = SubtensorModule::get_commit_hash(
-            &who,
-            NetUidStorageIndex::from(netuid),
-            &dests,
-            &weights,
-            &salt,
-            version_key,
-        );
-        let commit_block = SubtensorModule::get_current_block_as_u64();
-        let (first_reveal_block, last_reveal_block) =
-            SubtensorModule::get_reveal_blocks(netuid, commit_block);
-
-        // Create netuid
-        add_network(netuid, tempo, 0);
-        // Register the hotkey
-        SubtensorModule::append_neuron(netuid, &hotkey, 0);
-        SubtensorModule::append_neuron(netuid, &hotkey2, 0);
-        crate::Owner::<Test>::insert(hotkey, coldkey);
-        crate::Owner::<Test>::insert(hotkey2, coldkey);
-        add_balance_to_coldkey_account(&hotkey, 20_000_000_000_000_000_u64.into());
-
-        let min_stake = TaoBalance::from(500_000_000_000_u64);
-        // Set the minimum stake
-        SubtensorModule::set_stake_threshold(min_stake.into());
-
-        // Verify stake is less than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
-        let info: DispatchInfo =
-            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
-
-        let extension = SubtensorTransactionExtension::<Test>::new();
-        // Submit to the signed extension validate function
-        let result_no_stake = extension.validate(
-            RawOrigin::Signed(who).into(),
-            &call.clone(),
-            &info,
-            10,
-            (),
-            &TxBaseImplication(()),
-            TransactionSource::External,
-        );
-        // Should fail
-        assert_eq!(
-            // Should get an invalid transaction error
-            result_no_stake.unwrap_err(),
-            CustomTransactionError::StakeAmountTooLow.into()
-        );
-
-        // Increase the stake to be equal to the minimum
-        assert_ok!(SubtensorModule::do_add_stake(
-            RuntimeOrigin::signed(hotkey),
-            hotkey,
-            netuid,
-            min_stake + fee.into()
-        ));
-
-        // Verify stake is equal to minimum
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-            min_stake
-        );
-
-        // Try to reveal weights without a commit
-        let result_no_commit = extension.validate(
-            RawOrigin::Signed(who).into(),
-            &call.clone(),
-            &info,
-            10,
-            (),
-            &TxBaseImplication(()),
-            TransactionSource::External,
-        );
-        assert_eq!(
-            result_no_commit.unwrap_err(),
-            CustomTransactionError::CommitNotFound.into()
-        );
-
-        // Add the commit to the hotkey
-        WeightCommits::<Test>::mutate(NetUidStorageIndex::from(netuid), hotkey, |maybe_commits| {
-            let mut commits: VecDeque<(H256, u64, u64, u64)> =
-                maybe_commits.take().unwrap_or_default();
-            commits.push_back((
-                commit_hash,
-                commit_block,
-                first_reveal_block,
-                last_reveal_block,
-            ));
-            *maybe_commits = Some(commits);
-        });
-
-        // Try to reveal weights in wrong epoch
-        let result_invalid_epoch = extension.validate(
-            RawOrigin::Signed(who).into(),
-            &call.clone(),
-            &info,
-            10,
-            (),
-            &TxBaseImplication(()),
-            TransactionSource::External,
-        );
-        assert_eq!(
-            result_invalid_epoch.unwrap_err(),
-            CustomTransactionError::CommitBlockNotInRevealRange.into()
-        );
-
-        System::set_block_number(commit_block + 2 * tempo as u64);
-
-        // Submit to the signed extension validate function
-        let result_valid_stake = extension.validate(
-            RawOrigin::Signed(who).into(),
-            &call.clone(),
-            &info,
-            10,
-            (),
-            &TxBaseImplication(()),
-            TransactionSource::External,
-        );
-        // Now the call should pass
-        assert_ok!(result_valid_stake);
-
-        // Try with more stake than minimum
-        assert_ok!(SubtensorModule::do_add_stake(
-            RuntimeOrigin::signed(hotkey),
-            hotkey,
-            netuid,
-            DefaultMinStake::<Test>::get() * 10.into()
-        ));
-
-        // Verify stake is more than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
-
-        let result_more_stake = extension.validate(
-            RawOrigin::Signed(who).into(),
-            &call.clone(),
-            &info,
-            10,
-            (),
-            &TxBaseImplication(()),
-            TransactionSource::External,
-        );
-        // The call should still pass
-        assert_ok!(result_more_stake);
-
-        System::set_block_number(commit_block + 10 * tempo as u64);
-
-        // Submit to the signed extension validate function
-        let result_too_late = extension.validate(
-            RawOrigin::Signed(who).into(),
-            &call.clone(),
-            &info,
-            10,
-            (),
-            &TxBaseImplication(()),
-            TransactionSource::External,
-        );
-
-        assert_eq!(
-            result_too_late.unwrap_err(),
-            CustomTransactionError::CommitBlockNotInRevealRange.into()
-        );
-    });
-}
-
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_batch_reveal_weights_validate --exact --show-output --nocapture
-#[test]
-fn test_batch_reveal_weights_validate() {
-    // Testing the signed extension validate function
-    // correctly filters batch_reveal_weights transaction for all error conditions.
-
-    new_test_ext(0).execute_with(|| {
-        let netuid = NetUid::from(1);
-        let coldkey = U256::from(0);
-        let hotkey: U256 = U256::from(1);
-        let hotkey2: U256 = U256::from(2);
-        let tempo = 1;
-        assert_ne!(hotkey, coldkey); // Ensure hotkey is NOT the same as coldkey !!!
-
-        let who = hotkey; // The hotkey signs this transaction
-
-        // Create test data for batch operations
-        let uids_list: Vec<Vec<u16>> = vec![vec![0, 1], vec![1, 0]];
-        let values_list: Vec<Vec<u16>> = vec![vec![10, 20], vec![30, 40]];
-        let salts_list: Vec<Vec<u16>> =
-            vec![vec![1, 2, 3, 4, 5, 6, 7, 8], vec![8, 7, 6, 5, 4, 3, 2, 1]];
-        let version_keys: Vec<u64> = vec![0, 0];
-
-        // Create the batch reveal call
-        let call = RuntimeCall::SubtensorModule(SubtensorCall::batch_reveal_weights {
-            netuid,
-            uids_list: uids_list.clone(),
-            values_list: values_list.clone(),
-            salts_list: salts_list.clone(),
-            version_keys: version_keys.clone(),
-        });
-
-        // Create netuid
-        add_network(netuid, tempo, 0);
-        // Register the hotkeys
-        SubtensorModule::append_neuron(netuid, &hotkey, 0);
-        SubtensorModule::append_neuron(netuid, &hotkey2, 0);
-        crate::Owner::<Test>::insert(hotkey, coldkey);
-        crate::Owner::<Test>::insert(hotkey2, coldkey);
-        add_balance_to_coldkey_account(&hotkey, 20_000_000_000_000_000_u64.into());
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
-
-        let min_stake = TaoBalance::from(500_000_000_000_u64);
-        // Set the minimum stake
-        SubtensorModule::set_stake_threshold(min_stake.into());
-
-        let info: DispatchInfo =
-            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
-        let extension = SubtensorTransactionExtension::<Test>::new();
-
-        // Test 1: StakeAmountTooLow - Verify stake is less than minimum
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
-
-        let result_no_stake = extension.validate(
-            RawOrigin::Signed(who).into(),
-            &call.clone(),
-            &info,
-            10,
-            (),
-            &TxBaseImplication(()),
-            TransactionSource::External,
-        );
-        // Should fail with StakeAmountTooLow
-        assert_eq!(
-            result_no_stake.unwrap_err(),
-            CustomTransactionError::StakeAmountTooLow.into()
-        );
-
-        // Increase the stake to be equal to the minimum
-        assert_ok!(SubtensorModule::do_add_stake(
-            RuntimeOrigin::signed(hotkey),
-            hotkey,
-            netuid,
-            min_stake
-        ));
-
-        // Verify stake is now sufficient
-        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) >= min_stake);
-
-        // Test 2: InputLengthsUnequal - Test unequal input lengths
-        let call_unequal_lengths =
-            RuntimeCall::SubtensorModule(SubtensorCall::batch_reveal_weights {
-                netuid,
-                uids_list: vec![vec![0, 1], vec![1, 0], vec![2, 3]], // Extra element
-                values_list: values_list.clone(),
-                salts_list: salts_list.clone(),
-                version_keys: version_keys.clone(),
-            });
-
-        let result_unequal_lengths = extension.validate(
-            RawOrigin::Signed(who).into(),
-            &call_unequal_lengths,
-            &info,
-            10,
-            (),
-            &TxBaseImplication(()),
-            TransactionSource::External,
-        );
-
-        assert_eq!(
-            result_unequal_lengths.unwrap_err(),
-            CustomTransactionError::InputLengthsUnequal.into()
-        );
-
-        // Should fail - but this error is checked in do_batch_reveal_weights,
-        // so the signed extension should pass but the actual call should fail
-        // We'll test the actual error in the direct function call below
-
-        // Test 3: CommitNotFound - Try to reveal without any commits
-        let result = SubtensorModule::do_batch_reveal_weights(
-            RuntimeOrigin::signed(hotkey),
-            netuid,
-            uids_list.clone(),
-            values_list.clone(),
-            salts_list.clone(),
-            version_keys.clone(),
-        );
-        assert_err!(result, Error::<Test>::NoWeightsCommitFound);
-
-        // Now create commits for testing reveal range errors
-        let commit_hashes: Vec<H256> = uids_list
-            .iter()
-            .zip(values_list.iter())
-            .zip(salts_list.iter().zip(version_keys.iter()))
-            .map(|((uids, values), (salt, version_key))| {
-                BlakeTwo256::hash_of(&(
-                    hotkey,
-                    netuid,
-                    uids.clone(),
-                    values.clone(),
-                    salt.clone(),
-                    *version_key,
-                ))
-            })
-            .collect();
-
-        // Commit weights for each hash
-        for commit_hash in &commit_hashes {
-            assert_ok!(SubtensorModule::commit_weights(
-                RuntimeOrigin::signed(hotkey),
-                netuid,
-                *commit_hash
-            ));
-        }
-
-        let commit_block = SubtensorModule::get_current_block_as_u64();
-
-        // Test 5: CommitBlockNotInRevealRange - Try to reveal too early
-        let result_too_early = extension.validate(
-            RawOrigin::Signed(who).into(),
-            &call.clone(),
-            &info,
-            10,
-            (),
-            &TxBaseImplication(()),
-            TransactionSource::External,
-        );
-        assert_eq!(
-            result_too_early.unwrap_err(),
-            CustomTransactionError::CommitBlockNotInRevealRange.into()
-        );
-
-        // Move to valid reveal period
-        System::set_block_number(commit_block + 2 * tempo as u64);
-
-        // Now the call should pass the signed extension validation
-        let result_valid_time = extension.validate(
-            RawOrigin::Signed(who).into(),
-            &call.clone(),
-            &info,
-            10,
-            (),
-            &TxBaseImplication(()),
-            TransactionSource::External,
-        );
-        assert_ok!(result_valid_time);
-
-        // Test 6: CommitBlockNotInRevealRange - Try to reveal too late
-        System::set_block_number(commit_block + 10 * tempo as u64);
-
-        let result_too_late = extension.validate(
-            RawOrigin::Signed(who).into(),
-            &call.clone(),
-            &info,
-            10,
-            (),
-            &TxBaseImplication(()),
-            TransactionSource::External,
-        );
-        assert_eq!(
-            result_too_late.unwrap_err(),
-            CustomTransactionError::CommitBlockNotInRevealRange.into()
-        );
     });
 }
 
@@ -2231,7 +1635,7 @@ fn test_tempo_change_during_commit_reveal_process() {
 
         let tempo_before_next_reveal: u16 = 200;
         log::info!("Changing tempo to {tempo_before_next_reveal}");
-        SubtensorModule::set_tempo(netuid, tempo_before_next_reveal);
+        SubtensorModule::set_tempo_unchecked(netuid, tempo_before_next_reveal);
 
         step_epochs(1, netuid);
         log::info!(
@@ -2264,7 +1668,7 @@ fn test_tempo_change_during_commit_reveal_process() {
 
         let tempo: u16 = 150;
         log::info!("Changing tempo to {tempo}");
-        SubtensorModule::set_tempo(netuid, tempo);
+        SubtensorModule::set_tempo_unchecked(netuid, tempo);
 
         step_epochs(1, netuid);
         log::info!(
@@ -2287,7 +1691,7 @@ fn test_tempo_change_during_commit_reveal_process() {
 
         let tempo: u16 = 1050;
         log::info!("Changing tempo to {tempo}");
-        SubtensorModule::set_tempo(netuid, tempo);
+        SubtensorModule::set_tempo_unchecked(netuid, tempo);
 
         assert_ok!(SubtensorModule::commit_weights(
             RuntimeOrigin::signed(hotkey),
@@ -2301,7 +1705,7 @@ fn test_tempo_change_during_commit_reveal_process() {
 
         let tempo: u16 = 805;
         log::info!("Changing tempo to {tempo}");
-        SubtensorModule::set_tempo(netuid, tempo);
+        SubtensorModule::set_tempo_unchecked(netuid, tempo);
 
         step_epochs(1, netuid);
         log::info!(
@@ -3149,7 +2553,7 @@ fn test_tempo_and_reveal_period_change_during_commit_reveal_process() {
         // Step 2: Change tempo and reveal period after commit
         let new_tempo: u16 = 50;
         let new_reveal_period: u64 = 2;
-        SubtensorModule::set_tempo(netuid, new_tempo);
+        SubtensorModule::set_tempo_unchecked(netuid, new_tempo);
         assert_ok!(SubtensorModule::set_reveal_period(netuid, new_reveal_period));
         log::info!(
             "Changed tempo to {new_tempo} and reveal period to {new_reveal_period}"
@@ -3203,7 +2607,7 @@ fn test_tempo_and_reveal_period_change_during_commit_reveal_process() {
         // Step 4: Change tempo and reveal period again after reveal
         let new_tempo_after_reveal: u16 = 200;
         let new_reveal_period_after_reveal: u64 = 1;
-        SubtensorModule::set_tempo(netuid, new_tempo_after_reveal);
+        SubtensorModule::set_tempo_unchecked(netuid, new_tempo_after_reveal);
         assert_ok!(SubtensorModule::set_reveal_period(
             netuid,
             new_reveal_period_after_reveal
@@ -3427,49 +2831,31 @@ fn test_reveal_at_exact_block() {
                 commit_hash
             ));
 
-            let commit_block = SubtensorModule::get_current_block_as_u64();
-            let commit_epoch = SubtensorModule::get_epoch_index(netuid, commit_block);
-            let reveal_epoch = commit_epoch.saturating_add(reveal_period);
+            // Epoch the commit was tagged with (counter is the canonical index).
+            let commit_epoch =
+                crate::WeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), hotkey)
+                    .and_then(|q| q.back().map(|(_, e, _, _)| *e))
+                    .expect("commit stored");
 
-            // Calculate the block number where the reveal epoch starts
-            let tempo_plus_one = (tempo as u64).saturating_add(1);
-            let netuid_plus_one = (u16::from(netuid) as u64).saturating_add(1);
-            let reveal_epoch_start_block = reveal_epoch
-                .saturating_mul(tempo_plus_one)
-                .saturating_sub(netuid_plus_one);
+            // Attempt to reveal before the reveal epoch — too early.
+            assert_err!(
+                SubtensorModule::reveal_weights(
+                    RuntimeOrigin::signed(hotkey),
+                    netuid,
+                    uids.clone(),
+                    weight_values.clone(),
+                    salt.clone(),
+                    version_key
+                ),
+                Error::<Test>::RevealTooEarly
+            );
 
-            // Attempt to reveal before the reveal epoch starts
-            let current_block = SubtensorModule::get_current_block_as_u64();
-            if current_block < reveal_epoch_start_block {
-                // Advance to one block before the reveal epoch starts
-                let blocks_to_advance = reveal_epoch_start_block - current_block;
-                if blocks_to_advance > 1 {
-                    // Advance to one block before the reveal epoch
-                    let new_block_number = current_block + blocks_to_advance - 1;
-                    System::set_block_number(new_block_number);
-                }
+            // Advance the epoch counter into the reveal epoch; pin the scheduler.
+            SubnetEpochIndex::<Test>::insert(netuid, commit_epoch + reveal_period);
+            LastEpochBlock::<Test>::insert(netuid, SubtensorModule::get_current_block_as_u64());
+            PendingEpochAt::<Test>::insert(netuid, 0);
 
-                // Attempt to reveal too early
-                assert_err!(
-                    SubtensorModule::reveal_weights(
-                        RuntimeOrigin::signed(hotkey),
-                        netuid,
-                        uids.clone(),
-                        weight_values.clone(),
-                        salt.clone(),
-                        version_key
-                    ),
-                    Error::<Test>::RevealTooEarly
-                );
-
-                // Advance one more block to reach the exact reveal epoch start block
-                System::set_block_number(reveal_epoch_start_block);
-            } else {
-                // If we're already at or past the reveal epoch start block
-                System::set_block_number(reveal_epoch_start_block);
-            }
-
-            // Reveal at the exact allowed block
+            // Reveal at the exact allowed epoch
             assert_ok!(SubtensorModule::reveal_weights(
                 RuntimeOrigin::signed(hotkey),
                 netuid,
@@ -3508,18 +2894,13 @@ fn test_reveal_at_exact_block() {
                 new_commit_hash
             ));
 
-            // Advance blocks to after the commit expires
-            let commit_block = SubtensorModule::get_current_block_as_u64();
-            let commit_epoch = SubtensorModule::get_epoch_index(netuid, commit_block);
-            let reveal_epoch = commit_epoch.saturating_add(reveal_period);
-            let expiration_epoch = reveal_epoch.saturating_add(1);
-            let expiration_epoch_start_block = expiration_epoch * tempo_plus_one - netuid_plus_one;
-
-            let current_block = SubtensorModule::get_current_block_as_u64();
-            if current_block < expiration_epoch_start_block {
-                // Advance to the block where the commit expires
-                System::set_block_number(expiration_epoch_start_block);
-            }
+            // Advance the epoch counter past the reveal epoch — commit expired.
+            let new_commit_epoch =
+                crate::WeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), hotkey)
+                    .and_then(|q| q.back().map(|(_, e, _, _)| *e))
+                    .expect("commit stored");
+            SubnetEpochIndex::<Test>::insert(netuid, new_commit_epoch + reveal_period + 1);
+            LastEpochBlock::<Test>::insert(netuid, SubtensorModule::get_current_block_as_u64());
 
             // Attempt to reveal after the commit has expired
             assert_err!(
@@ -4272,7 +3653,7 @@ fn test_highly_concurrent_commits_and_reveals_with_multiple_hotkeys() {
         }
 
         // ==== Modify Network Parameters During Commits ====
-        SubtensorModule::set_tempo(netuid, 150);
+        SubtensorModule::set_tempo_unchecked(netuid, 150);
         assert_ok!(SubtensorModule::set_reveal_period(netuid, 7));
         log::info!("Changed tempo to 150 and reveal_period to 7 during commits.");
 
@@ -4318,7 +3699,7 @@ fn test_highly_concurrent_commits_and_reveals_with_multiple_hotkeys() {
         }
 
         // ==== Change Network Parameters Again ====
-        SubtensorModule::set_tempo(netuid, 200);
+        SubtensorModule::set_tempo_unchecked(netuid, 200);
         assert_ok!(SubtensorModule::set_reveal_period(netuid, 10));
         log::info!("Changed tempo to 200 and reveal_period to 10 after initial reveals.");
 
@@ -4418,146 +3799,6 @@ fn test_highly_concurrent_commits_and_reveals_with_multiple_hotkeys() {
 
         assert_eq!(SubtensorModule::get_reveal_period(netuid), 10);
         assert_eq!(SubtensorModule::get_tempo(netuid), 200);
-    })
-}
-
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_get_reveal_blocks --exact --show-output --nocapture
-#[test]
-fn test_get_reveal_blocks() {
-    new_test_ext(1).execute_with(|| {
-        // **1. Define Test Parameters**
-        let netuid = NetUid::from(1);
-        let uids: Vec<u16> = vec![0, 1];
-        let weight_values: Vec<u16> = vec![10, 10];
-        let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
-        let version_key: u64 = 0;
-        let hotkey: U256 = U256::from(1);
-
-        // **2. Generate the Commit Hash**
-        let commit_hash: H256 = BlakeTwo256::hash_of(&(
-            hotkey,
-            netuid,
-            uids.clone(),
-            weight_values.clone(),
-            salt.clone(),
-            version_key,
-        ));
-
-        // **3. Initialize the Block Number to 0**
-        System::set_block_number(0);
-
-        // **4. Define Network Parameters**
-        let tempo: u16 = 5;
-        add_network(netuid, tempo, 0);
-
-        // **5. Register Neurons and Configure the Network**
-        register_ok_neuron(netuid, U256::from(3), U256::from(4), 300_000);
-        register_ok_neuron(netuid, U256::from(1), U256::from(2), 100_000);
-        SubtensorModule::set_stake_threshold(0);
-        SubtensorModule::set_weights_set_rate_limit(netuid, 5);
-        SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
-        SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
-        add_balance_to_coldkey_account(&U256::from(0), 1.into());
-        add_balance_to_coldkey_account(&U256::from(1), 1.into());
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &(U256::from(0)),
-            &(U256::from(0)),
-            netuid,
-            1.into(),
-        );
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &(U256::from(1)),
-            &(U256::from(1)),
-            netuid,
-            1.into(),
-        );
-
-        // **6. Commit Weights at Block 0**
-        assert_ok!(SubtensorModule::commit_weights(
-            RuntimeOrigin::signed(hotkey),
-            netuid,
-            commit_hash
-        ));
-
-        // **7. Retrieve the Reveal Blocks Using `get_reveal_blocks`**
-        let (first_reveal_block, last_reveal_block) = SubtensorModule::get_reveal_blocks(netuid, 0);
-
-        // **8. Assert Correct Calculation of Reveal Blocks**
-        // With tempo=5, netuid=1, reveal_period=1:
-        // commit_epoch = (0 + 2) / 6 = 0
-        // reveal_epoch = 0 + 1 = 1
-        // first_reveal_block = 1 * 6 - 2 = 4
-        // last_reveal_block = 4 + 5 = 9
-        assert_eq!(first_reveal_block, 4);
-        assert_eq!(last_reveal_block, 9);
-
-        // **9. Attempt to Reveal Before `first_reveal_block` (Block 3)**
-        step_block(3); // Advance to block 3
-        let result = SubtensorModule::reveal_weights(
-            RuntimeOrigin::signed(hotkey),
-            netuid,
-            uids.clone(),
-            weight_values.clone(),
-            salt.clone(),
-            version_key,
-        );
-        assert_err!(result, Error::<Test>::RevealTooEarly);
-
-        // **10. Advance to `first_reveal_block` (Block 4)**
-        step_block(1); // Advance to block 4
-        let result = SubtensorModule::reveal_weights(
-            RuntimeOrigin::signed(hotkey),
-            netuid,
-            uids.clone(),
-            weight_values.clone(),
-            salt.clone(),
-            version_key,
-        );
-        assert_ok!(result);
-
-        // **11. Attempt to Reveal Again at Block 4 (Should Fail)**
-        let result = SubtensorModule::reveal_weights(
-            RuntimeOrigin::signed(hotkey),
-            netuid,
-            uids.clone(),
-            weight_values.clone(),
-            salt.clone(),
-            version_key,
-        );
-        assert_err!(result, Error::<Test>::NoWeightsCommitFound);
-
-        // **12. Advance to After `last_reveal_block` (Block 10)**
-        step_block(6); // Advance from block 4 to block 10
-
-        // **13. Attempt to Reveal at Block 10 (Should Fail)**
-        let result = SubtensorModule::reveal_weights(
-            RuntimeOrigin::signed(hotkey),
-            netuid,
-            uids.clone(),
-            weight_values.clone(),
-            salt.clone(),
-            version_key,
-        );
-        assert_err!(result, Error::<Test>::NoWeightsCommitFound);
-
-        // **14. Attempt to Reveal Outside of Any Reveal Window (No Commit)**
-        let result = SubtensorModule::reveal_weights(
-            RuntimeOrigin::signed(hotkey),
-            netuid,
-            uids.clone(),
-            weight_values.clone(),
-            salt.clone(),
-            version_key,
-        );
-        assert_err!(result, Error::<Test>::NoWeightsCommitFound);
-
-        // **15. Verify that All Commits Have Been Removed from Storage**
-        let commits = crate::WeightCommits::<Test>::get(NetUidStorageIndex::from(netuid), hotkey);
-        assert!(
-            commits.is_none(),
-            "Commits should be cleared after successful reveal"
-        );
     })
 }
 
@@ -5946,8 +5187,13 @@ fn test_reveal_crv3_commits_removes_past_epoch_commits() {
         // ---------------------------------------------------------------------
         // Put dummy commits into the two epochs immediately *before* current.
         // ---------------------------------------------------------------------
+        // Establish a non-zero epoch counter and pin the scheduler so the reveal
+        // pass sees exactly this epoch (no look-ahead increment).
+        let cur_epoch: u64 = 10;
+        SubnetEpochIndex::<Test>::insert(netuid, cur_epoch);
+        LastEpochBlock::<Test>::insert(netuid, SubtensorModule::get_current_block_as_u64());
+        PendingEpochAt::<Test>::insert(netuid, 0);
         let cur_block = SubtensorModule::get_current_block_as_u64();
-        let cur_epoch = SubtensorModule::get_epoch_index(netuid, cur_block);
         let past_epoch = cur_epoch.saturating_sub(2); // definitely < reveal_epoch
         let reveal_epoch = cur_epoch.saturating_sub(1); // == cur_epoch - reveal_period
 
@@ -6226,18 +5472,16 @@ fn test_reveal_crv3_commits_max_neurons() {
     });
 }
 
+// `get_first_block_of_epoch` is a legacy modulo helper — NOT used by live
+// commit-reveal logic
 #[test]
 fn test_get_first_block_of_epoch_epoch_zero() {
     new_test_ext(1).execute_with(|| {
         let netuid: NetUid = NetUid::from(1);
-        let tempo: u16 = 10;
-        add_network(netuid, tempo, 0);
+        add_network(netuid, 10, 0);
 
-        let first_block = SubtensorModule::get_first_block_of_epoch(netuid, 0);
-        assert_eq!(first_block, 0);
-
-        // Cross-check: epoch at block 0 should be 0
-        assert_eq!(SubtensorModule::get_epoch_index(netuid, 0), 0);
+        // 0 * 11 - 2, saturating at 0.
+        assert_eq!(SubtensorModule::get_first_block_of_epoch(netuid, 0), 0);
     });
 }
 
@@ -6245,15 +5489,10 @@ fn test_get_first_block_of_epoch_epoch_zero() {
 fn test_get_first_block_of_epoch_small_epoch() {
     new_test_ext(1).execute_with(|| {
         let netuid: NetUid = NetUid::from(0);
-        let tempo: u16 = 1;
-        add_network(netuid, tempo, 0);
+        add_network(netuid, 1, 0);
 
-        let first_block = SubtensorModule::get_first_block_of_epoch(netuid, 1);
-        assert_eq!(first_block, 1); // 1 * 2 - 1 = 1
-
-        // Cross-check
-        assert_eq!(SubtensorModule::get_epoch_index(netuid, 1), 1);
-        assert_eq!(SubtensorModule::get_epoch_index(netuid, 0), 0);
+        // 1 * 2 - 1 = 1.
+        assert_eq!(SubtensorModule::get_first_block_of_epoch(netuid, 1), 1);
     });
 }
 
@@ -6261,15 +5500,10 @@ fn test_get_first_block_of_epoch_small_epoch() {
 fn test_get_first_block_of_epoch_with_offset() {
     new_test_ext(1).execute_with(|| {
         let netuid: NetUid = NetUid::from(1);
-        let tempo: u16 = 10;
-        add_network(netuid, tempo, 0);
+        add_network(netuid, 10, 0);
 
-        let first_block = SubtensorModule::get_first_block_of_epoch(netuid, 1);
-        assert_eq!(first_block, 9); // 1 * 11 - 2 = 9
-
-        // Cross-check
-        assert_eq!(SubtensorModule::get_epoch_index(netuid, 9), 1);
-        assert_eq!(SubtensorModule::get_epoch_index(netuid, 8), 0);
+        // 1 * 11 - 2 = 9.
+        assert_eq!(SubtensorModule::get_first_block_of_epoch(netuid, 1), 9);
     });
 }
 
@@ -6277,61 +5511,14 @@ fn test_get_first_block_of_epoch_with_offset() {
 fn test_get_first_block_of_epoch_large_epoch() {
     new_test_ext(1).execute_with(|| {
         let netuid: NetUid = NetUid::from(0);
-        let tempo: u16 = 100;
-        add_network(netuid, tempo, 0);
+        add_network(netuid, 100, 0);
 
         let epoch: u64 = 1000;
-        let first_block = SubtensorModule::get_first_block_of_epoch(netuid, epoch);
-        assert_eq!(first_block, epoch * 101 - 1); // No overflow for this size
-
-        // Cross-check (simulate, as large block not runnable, but math holds)
-        assert_eq!(first_block + 1, epoch * 101);
-    });
-}
-
-#[test]
-fn test_get_first_block_of_epoch_step_blocks_and_assert_with_until_next() {
-    new_test_ext(1).execute_with(|| {
-        let netuid: NetUid = NetUid::from(1);
-        let tempo: u16 = 10;
-        add_network(netuid, tempo, 0);
-
-        let mut current_block: u64 = 0;
-        for expected_epoch in 0..10u64 {
-            let expected_first = SubtensorModule::get_first_block_of_epoch(netuid, expected_epoch);
-
-            // Step blocks until we reach the start of this epoch
-            while current_block < expected_first {
-                run_to_block(current_block + 1);
-                current_block += 1;
-            }
-
-            // Assert we are at the first block of the epoch
-            assert_eq!(current_block, expected_first);
-            assert_eq!(
-                SubtensorModule::get_epoch_index(netuid, current_block),
-                expected_epoch
-            );
-
-            // From here, blocks_until_next_epoch should point to the start of next epoch
-            let until_next = SubtensorModule::blocks_until_next_epoch(netuid, tempo, current_block);
-            let next_first = SubtensorModule::get_first_block_of_epoch(netuid, expected_epoch + 1);
-            assert_eq!(current_block + until_next + 1, next_first); // +1 since until is blocks to end, +1 to start next
-
-            // Advance to near end of this epoch
-            let last_block = next_first.saturating_sub(1);
-            run_to_block(last_block);
-            current_block = System::block_number();
-            assert_eq!(
-                SubtensorModule::get_epoch_index(netuid, current_block),
-                expected_epoch
-            );
-
-            // Until next from near end
-            let until_next_end =
-                SubtensorModule::blocks_until_next_epoch(netuid, tempo, current_block);
-            assert_eq!(current_block + until_next_end + 1, next_first);
-        }
+        // 1000 * 101 - 1.
+        assert_eq!(
+            SubtensorModule::get_first_block_of_epoch(netuid, epoch),
+            epoch * 101 - 1
+        );
     });
 }
 
@@ -6671,11 +5858,14 @@ fn test_reveal_crv3_commits_retry_on_missing_pulse() {
                 .map(|(e, _)| e)
                 .expect("commit stored");
 
-        // first block of reveal epoch (commit_epoch + RP)
-        let first_reveal_epoch = stored_epoch + SubtensorModule::get_reveal_period(netuid);
-        let first_reveal_block =
-            SubtensorModule::get_first_block_of_epoch(netuid, first_reveal_epoch);
-        run_to_block_no_epoch(netuid, first_reveal_block);
+        // Place the subnet's epoch counter at the commit's reveal epoch
+        // (`commit_epoch + reveal_period`). The counter is the canonical epoch
+        // index; pin `LastEpochBlock`/`PendingEpochAt` so `should_run_epoch` stays
+        // false and the look-ahead does not skip past the reveal epoch.
+        let reveal_epoch = stored_epoch + SubtensorModule::get_reveal_period(netuid);
+        SubnetEpochIndex::<Test>::insert(netuid, reveal_epoch);
+        LastEpochBlock::<Test>::insert(netuid, SubtensorModule::get_current_block_as_u64());
+        PendingEpochAt::<Test>::insert(netuid, 0);
 
         // run *one* block inside reveal epoch without pulse → commit should stay queued
         step_block(1);

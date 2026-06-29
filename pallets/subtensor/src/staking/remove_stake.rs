@@ -642,21 +642,8 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // 9) Cleanup all subnet stake locks if any.
-        let lock_keys: Vec<(T::AccountId, NetUid, T::AccountId)> = Lock::<T>::iter_keys()
-            .filter(|(_, this_netuid, _)| *this_netuid == netuid)
-            .collect();
-        for (coldkey, netuid, hotkey) in lock_keys {
-            Lock::<T>::remove((coldkey, netuid, hotkey));
-        }
-
-        // 10) Cleanup all subnet hotkey locks if any.
-        let hotkey_lock_keys: Vec<(NetUid, T::AccountId)> = HotkeyLock::<T>::iter_keys()
-            .filter(|(this_netuid, _)| *this_netuid == netuid)
-            .collect();
-        for (netuid, hotkey) in hotkey_lock_keys {
-            HotkeyLock::<T>::remove(netuid, hotkey);
-        }
+        // 10) Cleanup all subnet stake locks and lock aggregates if any.
+        Self::destroy_lock_maps(netuid);
 
         Ok(())
     }

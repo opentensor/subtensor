@@ -1,3 +1,4 @@
+use crate::weights::WeightInfo;
 use crate::{Call, ColdkeySwapAnnouncements, ColdkeySwapDisputes, Config, Error};
 use frame_support::{
     dispatch::{DispatchErrorWithPostInfo, DispatchExtension, DispatchInfo, PostDispatchInfo},
@@ -26,6 +27,43 @@ type DispatchableOriginOf<T> = <CallOf<T> as Dispatchable>::RuntimeOrigin;
 /// resolved origin.
 pub struct CheckColdkeySwap<T: Config>(PhantomData<T>);
 
+impl<T> CheckColdkeySwap<T>
+where
+    T: Config + pallet_shield::Config,
+    CallOf<T>: IsSubType<Call<T>> + IsSubType<pallet_shield::Call<T>>,
+{
+    pub fn check(who: &T::AccountId, call: &CallOf<T>) -> Result<(), Error<T>> {
+        if !ColdkeySwapAnnouncements::<T>::contains_key(who) {
+            return Ok(());
+        }
+
+        if ColdkeySwapDisputes::<T>::contains_key(who) {
+            return Err(Error::<T>::ColdkeySwapDisputed);
+        }
+
+        if Self::is_allowed_during_swap(call) {
+            Ok(())
+        } else {
+            Err(Error::<T>::ColdkeySwapAnnounced)
+        }
+    }
+
+    fn is_allowed_during_swap(call: &CallOf<T>) -> bool {
+        matches!(
+            call.is_sub_type(),
+            Some(
+                Call::announce_coldkey_swap { .. }
+                    | Call::swap_coldkey_announced { .. }
+                    | Call::dispute_coldkey_swap { .. }
+                    | Call::clear_coldkey_swap_announcement { .. }
+            )
+        ) || matches!(
+            IsSubType::<pallet_shield::Call<T>>::is_sub_type(call),
+            Some(pallet_shield::Call::submit_encrypted { .. })
+        )
+    }
+}
+
 impl<T> DispatchExtension<<T as frame_system::Config>::RuntimeCall> for CheckColdkeySwap<T>
 where
     T: Config + pallet_shield::Config,
@@ -37,7 +75,7 @@ where
     type Pre = ();
 
     fn weight(_call: &CallOf<T>) -> Weight {
-        T::DbWeight::get().reads(2)
+        <T as Config>::WeightInfo::check_coldkey_swap_extension()
     }
 
     fn pre_dispatch(
@@ -50,44 +88,22 @@ where
             return Ok(());
         };
 
-        if ColdkeySwapAnnouncements::<T>::contains_key(who) {
-            if ColdkeySwapDisputes::<T>::contains_key(who) {
-                return Err(Error::<T>::ColdkeySwapDisputed.into());
-            }
-
-            let is_allowed_direct = matches!(
-                call.is_sub_type(),
-                Some(
-                    Call::announce_coldkey_swap { .. }
-                        | Call::swap_coldkey_announced { .. }
-                        | Call::dispute_coldkey_swap { .. }
-                        | Call::clear_coldkey_swap_announcement { .. }
-                )
-            );
-
-            let is_mev_protected = matches!(
-                IsSubType::<pallet_shield::Call<T>>::is_sub_type(call),
-                Some(pallet_shield::Call::submit_encrypted { .. })
-            );
-
-            if !is_allowed_direct && !is_mev_protected {
-                return Err(Error::<T>::ColdkeySwapAnnounced.into());
-            }
-        }
-
-        Ok(())
+        Self::check(who, call).map_err(Into::into)
     }
 }
 
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::unwrap_used)]
 mod tests {
+    use super::CheckColdkeySwap;
     use crate::{ColdkeySwapAnnouncements, ColdkeySwapDisputes, Error, tests::mock::*};
-    use frame_support::{BoundedVec, assert_ok};
+    use frame_support::{
+        BoundedVec, assert_ok, dispatch::DispatchResultWithPostInfo, traits::ExtendedDispatchable,
+    };
     use frame_system::Call as SystemCall;
     use pallet_subtensor_proxy::Call as ProxyCall;
     use sp_core::U256;
-    use sp_runtime::traits::{Dispatchable, Hash};
+    use sp_runtime::traits::Hash;
     use subtensor_runtime_common::{ProxyType, TaoBalance};
 
     type HashingOf<T> = <T as frame_system::Config>::Hashing;
@@ -154,11 +170,17 @@ mod tests {
         let _ = SubtensorModule::spend_tao(coldkey, credit, tao).unwrap();
     }
 
+    fn dispatch_with_ext(call: RuntimeCall, origin: RuntimeOrigin) -> DispatchResultWithPostInfo {
+        <CheckColdkeySwap<Test> as ExtendedDispatchable<RuntimeCall>>::dispatch_with_extension(
+            origin, call,
+        )
+    }
+
     #[test]
     fn no_active_swap_allows_calls() {
         new_test_ext(1).execute_with(|| {
             let who = U256::from(1);
-            assert_ok!(remark_call().dispatch(RuntimeOrigin::signed(who)));
+            assert_ok!(dispatch_with_ext(remark_call(), RuntimeOrigin::signed(who)));
         });
     }
 
@@ -167,8 +189,7 @@ mod tests {
         new_test_ext(1).execute_with(|| {
             let who = U256::from(1);
             setup_swap_disputed(&who);
-
-            assert_ok!(remark_call().dispatch(RuntimeOrigin::none()));
+            assert_ok!(dispatch_with_ext(remark_call(), RuntimeOrigin::none()));
         });
     }
 
@@ -177,8 +198,7 @@ mod tests {
         new_test_ext(1).execute_with(|| {
             let who = U256::from(1);
             setup_swap_disputed(&who);
-
-            assert_ok!(remark_call().dispatch(RuntimeOrigin::root()));
+            assert_ok!(dispatch_with_ext(remark_call(), RuntimeOrigin::root()));
         });
     }
 
@@ -190,7 +210,9 @@ mod tests {
 
             for call in forbidden_calls() {
                 assert_eq!(
-                    call.dispatch(RuntimeOrigin::signed(who)).unwrap_err().error,
+                    dispatch_with_ext(call, RuntimeOrigin::signed(who))
+                        .unwrap_err()
+                        .error,
                     Error::<Test>::ColdkeySwapAnnounced.into()
                 );
             }
@@ -204,7 +226,7 @@ mod tests {
             setup_swap_announced(&who);
 
             for call in authorized_calls() {
-                if let Err(err) = call.dispatch(RuntimeOrigin::signed(who)) {
+                if let Err(err) = dispatch_with_ext(call, RuntimeOrigin::signed(who)) {
                     assert_ne!(
                         err.error,
                         Error::<Test>::ColdkeySwapAnnounced.into(),
@@ -229,7 +251,9 @@ mod tests {
 
             for call in all_calls {
                 assert_eq!(
-                    call.dispatch(RuntimeOrigin::signed(who)).unwrap_err().error,
+                    dispatch_with_ext(call, RuntimeOrigin::signed(who))
+                        .unwrap_err()
+                        .error,
                     Error::<Test>::ColdkeySwapDisputed.into()
                 );
             }
@@ -265,7 +289,10 @@ mod tests {
             });
 
             // The outer proxy call itself succeeds
-            assert_ok!(proxy_call.dispatch(RuntimeOrigin::signed(delegate)));
+            assert_ok!(dispatch_with_ext(
+                proxy_call,
+                RuntimeOrigin::signed(delegate)
+            ));
 
             // The inner call was blocked — check via LastCallResult storage.
             assert_eq!(
@@ -315,7 +342,10 @@ mod tests {
                 call: Box::new(inner_proxy),
             });
 
-            assert_ok!(outer_proxy.dispatch(RuntimeOrigin::signed(delegate2)));
+            assert_ok!(dispatch_with_ext(
+                outer_proxy,
+                RuntimeOrigin::signed(delegate2)
+            ));
 
             // The innermost call (remark as real) was blocked.
             assert_eq!(

@@ -53,7 +53,7 @@ pub struct SubnetInfov2<AccountId: TypeInfo + Encode + Decode> {
     identity: Option<SubnetIdentityV3>,
 }
 
-#[freeze_struct("fd2db338b156d251")]
+#[freeze_struct("5a0830a4518a7325")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SubnetHyperparams {
     rho: Compact<u16>,
@@ -67,7 +67,7 @@ pub struct SubnetHyperparams {
     weights_version: Compact<u64>,
     weights_rate_limit: Compact<u64>,
     adjustment_interval: Compact<u16>,
-    activity_cutoff: Compact<u16>,
+    activity_cutoff: Compact<u64>,
     pub registration_allowed: bool,
     target_regs_per_interval: Compact<u16>,
     min_burn: Compact<TaoBalance>,
@@ -85,7 +85,7 @@ pub struct SubnetHyperparams {
     liquid_alpha_enabled: bool,
 }
 
-#[freeze_struct("bb4666554020e789")]
+#[freeze_struct("336a6658e70b5554")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SubnetHyperparamsV2 {
     rho: Compact<u16>,
@@ -99,7 +99,7 @@ pub struct SubnetHyperparamsV2 {
     weights_version: Compact<u64>,
     weights_rate_limit: Compact<u64>,
     adjustment_interval: Compact<u16>,
-    activity_cutoff: Compact<u16>,
+    activity_cutoff: Compact<u64>,
     pub registration_allowed: bool,
     target_regs_per_interval: Compact<u16>,
     min_burn: Compact<TaoBalance>,
@@ -328,7 +328,7 @@ impl<T: Config> Pallet<T> {
         let weights_version = Self::get_weights_version_key(netuid);
         let weights_rate_limit = Self::get_weights_set_rate_limit(netuid);
         let adjustment_interval = Self::get_adjustment_interval(netuid);
-        let activity_cutoff = Self::get_activity_cutoff(netuid);
+        let activity_cutoff = Self::get_activity_cutoff_blocks(netuid);
         let registration_allowed = Self::get_network_registration_allowed(netuid);
         let target_regs_per_interval = Self::get_target_registrations_per_interval(netuid);
         let min_burn = Self::get_min_burn(netuid);
@@ -391,7 +391,7 @@ impl<T: Config> Pallet<T> {
         let weights_version = Self::get_weights_version_key(netuid);
         let weights_rate_limit = Self::get_weights_set_rate_limit(netuid);
         let adjustment_interval = Self::get_adjustment_interval(netuid);
-        let activity_cutoff = Self::get_activity_cutoff(netuid);
+        let activity_cutoff = Self::get_activity_cutoff_blocks(netuid);
         let registration_allowed = Self::get_network_registration_allowed(netuid);
         let target_regs_per_interval = Self::get_target_registrations_per_interval(netuid);
         let min_burn = Self::get_min_burn(netuid);
@@ -515,7 +515,12 @@ impl<T: Config> Pallet<T> {
                 .into(),
             (
                 "activity_cutoff",
-                HyperparamValue::U16(Self::get_activity_cutoff(netuid).into()),
+                HyperparamValue::U64(Self::get_activity_cutoff_blocks(netuid).into()),
+            )
+                .into(),
+            (
+                "activity_cutoff_factor",
+                HyperparamValue::U32(Self::get_activity_cutoff_factor_milli(netuid).into()),
             )
                 .into(),
             (
@@ -615,6 +620,11 @@ impl<T: Config> Pallet<T> {
             (
                 "owner_cut_auto_lock_enabled",
                 HyperparamValue::Bool(Self::get_owner_cut_auto_lock_enabled(netuid)),
+            )
+                .into(),
+            (
+                "min_childkey_take",
+                HyperparamValue::U16(Self::get_effective_min_childkey_take(netuid).into()),
             )
                 .into(),
         ])

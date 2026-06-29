@@ -199,9 +199,11 @@ pub mod pallet {
         PalletId,
         pallet_prelude::*,
         traits::{Get, UnixTime},
+        transactional,
     };
     use frame_system::pallet_prelude::*;
     use sp_runtime::traits::AccountIdConversion;
+    use sp_std::collections::btree_set::BTreeSet;
     use sp_std::vec::Vec;
 
     #[pallet::pallet]
@@ -348,6 +350,13 @@ pub mod pallet {
         PalletHotkeyNotRegistered,
         /// A TAO -> alpha conversion overflowed the fixed-point range.
         ArithmeticOverflow,
+        /// The same order appears more than once in a single batch.
+        DuplicateOrderInBatch,
+        /// An order's pro-rata share in the batch rounded down to zero. The whole
+        /// batch is rejected so the order's input is never consumed without
+        /// delivering any output (conservation), and the order stays retryable in a
+        /// differently-composed batch.
+        ZeroShareInBatch,
     }
 
     // ── Hooks ─────────────────────────────────────────────────────────────────
@@ -660,6 +669,19 @@ pub mod pallet {
                     partial_fill > 0 && partial_fill <= max_fill,
                     Error::<T>::IncorrectPartialFillAmount
                 );
+            } else {
+                // `partial_fill == None` means a one-shot full execution of `order.amount`
+                // (see `compute_order_status`, which returns `Fulfilled` for `None`). This is
+                // only valid for an order that has not been filled yet. Against an order that is
+                // already `PartiallyFilled(n)` the cumulative-fill cap above is skipped, so the
+                // execution path would re-run the full `order.amount` on top of the `n` already
+                // filled — over-debiting the signer and breaking the `sum(fills) <= order.amount`
+                // conservation invariant. Reject it: the remaining amount must be completed with an
+                // explicit `partial_fill = Some(order.amount - n)`.
+                ensure!(
+                    !matches!(order_status, Some(OrderStatus::PartiallyFilled(_))),
+                    Error::<T>::IncorrectPartialFillAmount
+                );
             }
             Ok(())
         }
@@ -693,6 +715,12 @@ pub mod pallet {
 
         /// Attempt to execute one signed order. Returns an error on any
         /// validation or execution failure without panicking.
+        ///
+        /// `#[transactional]` makes the whole body a single storage layer: the
+        /// swap (`buy_alpha`/`sell_alpha`, themselves transactional), the fee
+        /// transfer, and the `Orders::insert` either all commit together or all
+        /// roll back together.
+        #[transactional]
         fn try_execute_order(
             signed_order: SignedOrder<T::AccountId>,
             order_id: H256,
@@ -771,6 +799,11 @@ pub mod pallet {
         }
 
         /// Thin orchestrator for `execute_batched_orders`.
+        ///
+        /// All-or-nothing: any `Err` returned here (e.g. a `ZeroShareInBatch` rejection
+        /// during distribution) rolls back the whole batch — including the up-front
+        /// `collect_assets` debits and the pool swap — via FRAME's default per-dispatch
+        /// storage layer, so no signer is left debited without receiving output.
         fn do_execute_batched_orders(
             netuid: NetUid,
             orders: BoundedVec<SignedOrder<T::AccountId>, T::MaxOrdersPerBatch>,
@@ -903,8 +936,20 @@ pub mod pallet {
             let mut buys = BoundedVec::new();
             let mut sells = BoundedVec::new();
 
+            // Track which order_ids we have already seen in this batch. A repeated
+            // order_id is never legitimate within a single batch.
+            let mut seen_order_ids: BTreeSet<H256> = BTreeSet::new();
+
             for signed_order in orders.iter() {
                 let order_id = Self::derive_order_id(&signed_order.order);
+
+                // Hard-fail on the first duplicate order_id in the batch (covers both
+                // buys and sells). BTreeSet::insert returns false if already present.
+                ensure!(
+                    seen_order_ids.insert(order_id),
+                    Error::<T>::DuplicateOrderInBatch
+                );
+
                 let order = signed_order.order.inner();
 
                 // Hard-fail if the order targets a different subnet than the batch netuid.
@@ -1068,18 +1113,23 @@ pub mod pallet {
                 } else {
                     0
                 };
-                if share > 0 {
-                    T::SwapInterface::transfer_staked_alpha(
-                        pallet_acct,
-                        pallet_hotkey,
-                        &e.signer,
-                        &e.hotkey,
-                        netuid,
-                        AlphaBalance::from(share),
-                        false, // validate_sender: skip — pallet intermediary needs no validation
-                        true,  // set_receiver_limit: rate-limit the buyer after they receive stake
-                    )?;
-                }
+                // A floored-to-zero share means this buyer's input was already collected
+                // by `collect_assets` but the pool/offset alpha cannot pay them even one
+                // unit. Hard-fail the whole batch (FRAME's per-dispatch storage layer rolls
+                // back `collect_assets` and the pool swap) rather than silently skipping the
+                // transfer while still marking the order terminal — which would consume the
+                // signer's TAO for zero alpha and permanently close the order.
+                ensure!(share > 0, Error::<T>::ZeroShareInBatch);
+                T::SwapInterface::transfer_staked_alpha(
+                    pallet_acct,
+                    pallet_hotkey,
+                    &e.signer,
+                    &e.hotkey,
+                    netuid,
+                    AlphaBalance::from(share),
+                    false, // validate_sender: skip — pallet intermediary needs no validation
+                    true,  // set_receiver_limit: rate-limit the buyer after they receive stake
+                )?;
                 let status = Self::compute_order_status(e.order_id, e.partial_fill, e.order_amount);
                 Orders::<T>::insert(e.order_id, status);
                 Self::deposit_event(Event::OrderExecuted {
@@ -1132,6 +1182,13 @@ pub mod pallet {
                 };
                 let fee = e.fee_rate.mul_floor(gross_share);
                 let net_share = gross_share.saturating_sub(fee);
+
+                // A floored-to-zero payout means this seller's alpha was already collected
+                // by `collect_assets` but the pool/offset TAO cannot pay them even one unit
+                // (after fee). Hard-fail the whole batch (rolled back by the dispatch storage
+                // layer) rather than no-op the transfer while still marking the order terminal,
+                // which would consume the seller's alpha for zero TAO and close the order.
+                ensure!(net_share > 0, Error::<T>::ZeroShareInBatch);
 
                 if fee > 0 {
                     if let Some(entry) = sell_fees.iter_mut().find(|(r, _)| r == &e.fee_recipient) {
