@@ -49,6 +49,16 @@ pub type Nonce = u32;
 pub const SMALL_TRANSFER_LIMIT: Balance = TaoBalance::new(500_000_000); // 0.5 TAO
 pub const SMALL_ALPHA_TRANSFER_LIMIT: AlphaBalance = AlphaBalance::new(500_000_000); // 0.5 Alpha
 
+/// Pad `s` into a fixed-width byte array, truncating if it exceeds `N`.
+pub fn pad_name<const N: usize>(s: &[u8]) -> [u8; N] {
+    let mut out = [0u8; N];
+    let len = s.len().min(N);
+    if let (Some(dst), Some(src)) = (out.get_mut(..len), s.get(..len)) {
+        dst.copy_from_slice(src);
+    }
+    out
+}
+
 #[freeze_struct("c972489bff40ae48")]
 #[repr(transparent)]
 #[derive(
