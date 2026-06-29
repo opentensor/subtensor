@@ -435,7 +435,9 @@ fn validate_and_classify_stores_effective_swap_limit_for_buy() {
             o
         };
         let versioned = crate::VersionedOrder::V1(new_inner.clone());
-        let sig = AccountKeyring::Alice.pair().sign(&versioned.encode());
+        let sig = AccountKeyring::Alice
+            .pair()
+            .sign(&order_signing_payload(&versioned));
         let signed_with_slippage = crate::SignedOrder {
             order: versioned,
             signature: sp_runtime::MultiSignature::Sr25519(sig),
@@ -478,7 +480,9 @@ fn validate_and_classify_stores_effective_swap_limit_for_sell() {
             partial_fills_enabled: false,
         };
         let versioned = crate::VersionedOrder::V1(new_inner);
-        let sig = AccountKeyring::Alice.pair().sign(&versioned.encode());
+        let sig = AccountKeyring::Alice
+            .pair()
+            .sign(&order_signing_payload(&versioned));
         let signed = crate::SignedOrder {
             order: versioned,
             signature: sp_runtime::MultiSignature::Sr25519(sig),
@@ -1430,7 +1434,7 @@ fn make_valid_signed_order() -> (crate::SignedOrder<AccountId>, sp_core::H256) {
         partial_fills_enabled: false,
     });
     let id = H256(sp_io::hashing::blake2_256(&order.encode()));
-    let sig = keyring.pair().sign(&order.encode());
+    let sig = keyring.pair().sign(&order_signing_payload(&order));
     let signed = crate::SignedOrder {
         order,
         signature: MultiSignature::Sr25519(sig),
@@ -1462,8 +1466,10 @@ fn is_order_valid_invalid_signature_returns_error() {
         MockTime::set(1_000_000);
         MockSwap::set_price(1.0);
         let (mut signed, id) = make_valid_signed_order();
-        // Replace with a signature from a different key.
-        let wrong_sig = AccountKeyring::Bob.pair().sign(&signed.order.encode());
+        // Replace with a signature over the correct payload but from a different key.
+        let wrong_sig = AccountKeyring::Bob
+            .pair()
+            .sign(&order_signing_payload(&signed.order));
         signed.signature = MultiSignature::Sr25519(wrong_sig);
         let price = MockSwap::current_alpha_price(netuid());
         assert_noop!(
@@ -1474,14 +1480,70 @@ fn is_order_valid_invalid_signature_returns_error() {
 }
 
 #[test]
-fn is_order_valid_non_sr25519_signature_returns_error() {
+fn is_order_valid_accepts_ed25519_signature() {
     new_test_ext().execute_with(|| {
         MockTime::set(1_000_000);
         MockSwap::set_price(1.0);
-        let (mut signed, id) = make_valid_signed_order();
+
+        // The `signer` field must match the ed25519 public key, so derive the
+        // AccountId from the ed25519 pair rather than reusing Alice's sr25519 key.
         let ed_pair = sp_core::ed25519::Pair::from_legacy_string("//Alice", None);
-        let ed_sig = ed_pair.sign(&signed.order.encode());
-        signed.signature = MultiSignature::Ed25519(ed_sig);
+        let ed_signer = AccountId::from(ed_pair.public());
+
+        let order = crate::VersionedOrder::V1(crate::Order {
+            signer: ed_signer,
+            hotkey: AccountKeyring::Bob.to_account_id(),
+            netuid: netuid(),
+            order_type: OrderType::LimitBuy,
+            amount: 1_000,
+            limit_price: u64::MAX,
+            expiry: u64::MAX,
+            fee_rate: Perbill::zero(),
+            fee_recipient: fee_recipient(),
+            relayer: None,
+            max_slippage: None,
+            chain_id: 945,
+            partial_fills_enabled: false,
+        });
+        let id = H256(sp_io::hashing::blake2_256(&order.encode()));
+        let ed_sig = ed_pair.sign(&order_signing_payload(&order));
+        let signed = crate::SignedOrder {
+            order,
+            signature: MultiSignature::Ed25519(ed_sig),
+            partial_fill: None,
+        };
+
+        let price = MockSwap::current_alpha_price(netuid());
+        assert_ok!(LimitOrders::<Test>::is_order_valid(
+            &signed,
+            id,
+            1_000_000,
+            price,
+            &bob()
+        ));
+    });
+}
+
+#[test]
+fn is_order_valid_rejects_ecdsa_signature() {
+    new_test_ext().execute_with(|| {
+        MockTime::set(1_000_000);
+        MockSwap::set_price(1.0);
+
+        // Even a valid ecdsa signature over the correct payload must be rejected:
+        // only sr25519 and ed25519 are accepted.
+        let (order, id) = {
+            let (signed, id) = make_valid_signed_order();
+            (signed.order, id)
+        };
+        let ecdsa_pair = sp_core::ecdsa::Pair::from_legacy_string("//Alice", None);
+        let ecdsa_sig = ecdsa_pair.sign(&order_signing_payload(&order));
+        let signed = crate::SignedOrder {
+            order,
+            signature: MultiSignature::Ecdsa(ecdsa_sig),
+            partial_fill: None,
+        };
+
         let price = MockSwap::current_alpha_price(netuid());
         assert_noop!(
             LimitOrders::<Test>::is_order_valid(&signed, id, 1_000_000, price, &bob()),
@@ -1518,7 +1580,7 @@ fn is_order_valid_expired_order_returns_error() {
             ..signed.order.inner().clone()
         });
         let id2 = H256(sp_io::hashing::blake2_256(&order.encode()));
-        let sig = keyring.pair().sign(&order.encode());
+        let sig = keyring.pair().sign(&order_signing_payload(&order));
         let signed2 = crate::SignedOrder {
             order,
             signature: MultiSignature::Sr25519(sig),
@@ -1555,7 +1617,7 @@ fn is_order_valid_price_condition_not_met_returns_error() {
             partial_fills_enabled: false,
         });
         let id = H256(sp_io::hashing::blake2_256(&order.encode()));
-        let sig = keyring.pair().sign(&order.encode());
+        let sig = keyring.pair().sign(&order_signing_payload(&order));
         let signed = crate::SignedOrder {
             order,
             signature: MultiSignature::Sr25519(sig),
@@ -1581,7 +1643,7 @@ fn is_order_valid_wrong_chain_id_returns_error() {
             ..make_valid_signed_order().0.order.inner().clone()
         });
         let id = H256(sp_io::hashing::blake2_256(&order.encode()));
-        let sig = keyring.pair().sign(&order.encode());
+        let sig = keyring.pair().sign(&order_signing_payload(&order));
         let signed = crate::SignedOrder {
             order,
             signature: MultiSignature::Sr25519(sig),

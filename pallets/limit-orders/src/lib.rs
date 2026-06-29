@@ -131,18 +131,20 @@ impl<AccountId: Encode + Decode + TypeInfo + MaxEncodedLen + Clone> VersionedOrd
 }
 
 /// The envelope the admin submits on-chain: the versioned order payload plus
-/// the user's signature over the SCALE-encoded `VersionedOrder`.
+/// the user's signature over the order hash.
 ///
 /// Signature verification is performed against `order.inner().signer` (the AccountId)
-/// directly. Only sr25519 signatures are accepted; ed25519 and ecdsa variants
-/// of `MultiSignature` are rejected at validation time.
+/// directly. The signed message is the blake2_256 hash of the SCALE-encoded
+/// `VersionedOrder` (i.e. the `OrderId`), wrapped in the `<Bytes>…</Bytes>`
+/// envelope used by `signRaw` (Polkadot.js, Ledger). Both sr25519 and ed25519
+/// signatures are accepted; ecdsa is rejected at validation time.
 #[freeze_struct("9dd5a8ac812dc504")]
 #[derive(
     Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen, Clone, PartialEq, Eq, Debug,
 )]
 pub struct SignedOrder<AccountId: Encode + Decode + TypeInfo + MaxEncodedLen + Clone> {
     pub order: VersionedOrder<AccountId>,
-    /// Sr25519 signature over `SCALE_ENCODE(VersionedOrder)`.
+    /// Sr25519 or ed25519 signature over `<Bytes>` + `blake2_256(SCALE_ENCODE(VersionedOrder))` + `</Bytes>`.
     pub signature: MultiSignature,
     /// Whether we want a partial fill for this order
     pub partial_fill: Option<u64>,
@@ -613,11 +615,25 @@ pub mod pallet {
                 order.chain_id == T::ChainId::get(),
                 Error::<T>::ChainIdMismatch
             );
+            // The signed message is the order hash (`order_id` is `blake2_256` over
+            // the SCALE-encoded order, see `derive_order_id`), wrapped in the
+            // `<Bytes>…</Bytes>` envelope that `signRaw` (Polkadot.js / Ledger) prepends
+            // and appends to raw payloads. Signing a fixed-size hash rather than the
+            // full payload keeps the message within Ledger's signing limits. Both
+            // sr25519 and ed25519 are accepted; ecdsa is rejected.
+            let payload = [
+                b"<Bytes>".as_slice(),
+                order_id.as_bytes(),
+                b"</Bytes>".as_slice(),
+            ]
+            .concat();
             ensure!(
-                matches!(signed_order.signature, MultiSignature::Sr25519(_))
-                    && signed_order
-                        .signature
-                        .verify(signed_order.order.encode().as_slice(), &order.signer),
+                matches!(
+                    signed_order.signature,
+                    MultiSignature::Sr25519(_) | MultiSignature::Ed25519(_)
+                ) && signed_order
+                    .signature
+                    .verify(payload.as_slice(), &order.signer),
                 Error::<T>::InvalidSignature
             );
             let order_status = Orders::<T>::get(order_id);
