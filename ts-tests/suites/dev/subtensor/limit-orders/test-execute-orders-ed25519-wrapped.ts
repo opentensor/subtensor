@@ -73,9 +73,7 @@ describeSuite({
             title: "LimitBuy executes with an ed25519 <Bytes>-wrapped signature",
             test: async () => {
                 const stakeBefore = await devGetAlphaStake(polkadotJs, edHotKey.address, edSigner.address, netuid);
-                const taoBalanceBefore = (
-                    await polkadotJs.query.system.account(edSigner.address)
-                ).data.free.toBigInt();
+                const taoBalanceBefore = (await polkadotJs.query.system.account(edSigner.address)).data.free.toBigInt();
 
                 const signed = buildWrappedSignedOrder(polkadotJs, {
                     signer: edSigner,
@@ -106,9 +104,7 @@ describeSuite({
                 expect(stakeAfter).toBeGreaterThan(stakeBefore);
 
                 // ed25519 signer's TAO balance should have decreased
-                const taoBalanceAfter = (
-                    await polkadotJs.query.system.account(edSigner.address)
-                ).data.free.toBigInt();
+                const taoBalanceAfter = (await polkadotJs.query.system.account(edSigner.address)).data.free.toBigInt();
                 expect(taoBalanceAfter).toBeLessThan(taoBalanceBefore);
             },
         });
