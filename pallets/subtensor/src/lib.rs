@@ -67,6 +67,9 @@ pub const MAX_SUBNET_CLAIMS: usize = 5;
 
 pub const MAX_ROOT_CLAIM_THRESHOLD: u64 = 10_000_000;
 
+/// Account flag bit that opts into receiving locked alpha transfers.
+pub const ACCOUNT_FLAGS_ACCEPT_LOCKED_ALPHA: u128 = 1u128 << 0;
+
 #[allow(deprecated)]
 #[deny(missing_docs)]
 #[import_section(errors::errors)]
@@ -1190,6 +1193,11 @@ pub mod pallet {
     pub type Owner<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId, ValueQuery, DefaultAccount<T>>;
 
+    /// MAP ( coldkey ) --> flags | Account-level flags. Defaults to zero.
+    #[pallet::storage]
+    pub type AccountFlags<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, u128, ValueQuery>;
+
     /// MAP ( hot ) --> take | Returns the hotkey delegation take. And signals that this key is open for delegation
     #[pallet::storage]
     pub type Delegates<T: Config> =
@@ -1276,6 +1284,7 @@ pub mod pallet {
     /// ==== Coinbase ====
     /// ==================
     /// --- ITEM ( global_block_emission )
+    #[deprecated(note = "Use calculate_block_emission() or the block emission RPC instead.")]
     #[pallet::storage]
     pub type BlockEmission<T> = StorageValue<_, u64, ValueQuery, DefaultBlockEmission<T>>;
 
@@ -1925,6 +1934,20 @@ pub mod pallet {
     #[pallet::storage]
     pub type PendingOwnerCut<T> =
         StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
+
+    /// Default miner-burned proportion.
+    #[pallet::type_value]
+    pub fn DefaultMinerBurned<T: Config>() -> U96F32 {
+        U96F32::saturating_from_num(0.0)
+    }
+    /// --- MAP ( netuid ) --> miner_burned | Proportion (0..1) of this tempo's miner
+    /// (incentive) emission that was withheld from miners during emission distribution
+    /// because the recipient hotkey is owned by the subnet owner (immune key). Counts
+    /// emission that is either recycled or burned, so the value is independent of the
+    /// subnet's RecycleOrBurn configuration.
+    #[pallet::storage]
+    pub type MinerBurned<T> =
+        StorageMap<_, Identity, NetUid, U96F32, ValueQuery, DefaultMinerBurned<T>>;
 
     /// --- MAP ( netuid ) --> blocks_since_last_step
     #[pallet::storage]
