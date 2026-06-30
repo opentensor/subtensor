@@ -731,9 +731,15 @@ fn test_swap_hotkey_no_tx_rate_limit() {
         let coldkey = U256::from(3);
         let swap_cost = SubtensorModule::get_key_swap_cost() * 2.into();
 
-        // Set a strict tx rate limit to prove it no longer gates hotkey swaps.
-        SubtensorModule::set_tx_rate_limit(1);
-        assert_eq!(SubtensorModule::get_tx_rate_limit(), 1);
+        let interval: u64 = <Test as crate::Config>::HotkeySwapOnSubnetInterval::get();
+
+        // Set a tx rate limit far larger than the gap we leave between the two swaps below.
+        // The generic tx rate limit no longer gates hotkey swaps, so the second swap must
+        // succeed even though the old behaviour would have rejected it. Only the per-subnet
+        // `HotkeySwapOnSubnetInterval` cooldown still applies.
+        let tx_rate_limit = interval.saturating_mul(100);
+        SubtensorModule::set_tx_rate_limit(tx_rate_limit);
+        assert_eq!(SubtensorModule::get_tx_rate_limit(), tx_rate_limit);
 
         // Setup initial state
         add_network(netuid, tempo, 0);
@@ -749,8 +755,10 @@ fn test_swap_hotkey_no_tx_rate_limit() {
             false,
         ));
 
-        // A second swap in the same block now succeeds (rate limit removed); the fee is
-        // charged again, so the coldkey must have funded two swaps.
+        // Advance just past the per-subnet swap cooldown, but far less than the tx rate
+        // limit set above. Under the old rules the generic tx rate limit would reject this
+        // second swap; with that limit removed it succeeds.
+        step_block(interval as u16 + 1);
         assert_ok!(SubtensorModule::do_swap_hotkey(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             &new_hotkey_1,
