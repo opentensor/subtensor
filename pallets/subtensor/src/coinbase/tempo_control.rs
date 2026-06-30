@@ -13,7 +13,7 @@ impl<T: Config> Pallet<T> {
         let who = Self::ensure_subnet_owner(origin, netuid)?;
 
         ensure!(
-            (MIN_TEMPO..=MAX_TEMPO).contains(&tempo),
+            (T::MinTempo::get()..=T::MaxTempo::get()).contains(&tempo),
             Error::<T>::TempoOutOfBounds
         );
 
@@ -43,7 +43,7 @@ impl<T: Config> Pallet<T> {
         let maybe_who = Self::ensure_subnet_owner_or_root(origin, netuid)?;
 
         ensure!(
-            (MIN_ACTIVITY_CUTOFF_FACTOR_MILLI..=MAX_ACTIVITY_CUTOFF_FACTOR_MILLI)
+            (T::MinActivityCutoffFactorMilli::get()..=T::MaxActivityCutoffFactorMilli::get())
                 .contains(&factor_milli),
             Error::<T>::ActivityCutoffFactorMilliOutOfBounds
         );

@@ -1793,14 +1793,6 @@ pub mod pallet {
     #[pallet::storage]
     pub type Tempo<T> = StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultTempo<T>>;
 
-    /// Lower bound for owner-set tempo. Also the fixed cooldown for `set_tempo`.
-    pub const MIN_TEMPO: u16 = 360;
-    /// Upper bound for owner-set tempo (≈ 7 days at 12 s/block).
-    pub const MAX_TEMPO: u16 = 50_400;
-    /// Lower bound for activity-cutoff factor (per-mille). 1_000 = one full tempo.
-    pub const MIN_ACTIVITY_CUTOFF_FACTOR_MILLI: u32 = 1_000;
-    /// Upper bound for activity-cutoff factor (per-mille). 50_000 = 50 tempos.
-    pub const MAX_ACTIVITY_CUTOFF_FACTOR_MILLI: u32 = 50_000;
     /// Default activity-cutoff factor (per-mille). 13_889 ≈ legacy 5000-block cutoff
     /// at default tempo 360 (`13_889 * 360 / 1000 = 5_000`, exact via ceiling rounding).
     pub const INITIAL_ACTIVITY_CUTOFF_FACTOR_MILLI: u32 = 13_889;

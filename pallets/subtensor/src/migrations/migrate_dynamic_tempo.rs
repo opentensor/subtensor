@@ -129,8 +129,8 @@ pub fn migrate_dynamic_tempo<T: Config>() -> Weight {
             .checked_div(tempo_u64)
             .unwrap_or(INITIAL_ACTIVITY_CUTOFF_FACTOR_MILLI as u64);
         let clamped = raw_factor
-            .max(MIN_ACTIVITY_CUTOFF_FACTOR_MILLI as u64)
-            .min(MAX_ACTIVITY_CUTOFF_FACTOR_MILLI as u64) as u32;
+            .max(T::MinActivityCutoffFactorMilli::get() as u64)
+            .min(T::MaxActivityCutoffFactorMilli::get() as u64) as u32;
         if clamped as u64 != raw_factor {
             activity_factor_clamped = activity_factor_clamped.saturating_add(1);
         }
