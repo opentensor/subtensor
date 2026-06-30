@@ -23,6 +23,10 @@ impl<T: Config> Pallet<T> {
             IdentitiesV2::<T>::insert(new_coldkey.clone(), identity);
         }
 
+        // Temporarily allow the destination coldkey to receive this stake even if some of it is
+        // locked; swap_coldkey_locks will copy the source AccountFlags over afterward.
+        Self::set_accept_locked_alpha(new_coldkey, true);
+
         for netuid in Self::get_all_subnet_netuids() {
             Self::transfer_subnet_ownership(netuid, old_coldkey, new_coldkey);
             Self::transfer_auto_stake_destination(netuid, old_coldkey, new_coldkey);
