@@ -332,6 +332,31 @@ call_filter_group!(
     [RuntimeCall::SubtensorModule(SubtensorCall::root_register),]
 );
 
+// Development/testnet faucet. This call only exists when the runtime is built
+// with `pow-faucet`, so the group is empty in production-feature builds.
+#[cfg(feature = "pow-faucet")]
+call_filter_group!(
+    FaucetCalls,
+    [RuntimeCall::SubtensorModule(SubtensorCall::faucet),]
+);
+
+#[cfg(not(feature = "pow-faucet"))]
+pub(super) struct FaucetCalls;
+
+#[cfg(not(feature = "pow-faucet"))]
+impl frame_support::traits::Contains<crate::RuntimeCall> for FaucetCalls {
+    fn contains(_call: &crate::RuntimeCall) -> bool {
+        false
+    }
+}
+
+#[cfg(not(feature = "pow-faucet"))]
+impl subtensor_runtime_common::CallFilterMetadata for FaucetCalls {
+    fn call_infos() -> ::alloc::vec::Vec<subtensor_runtime_common::CallInfo> {
+        ::alloc::vec::Vec::new()
+    }
+}
+
 // Rotating a neuron's hotkey.
 call_filter_group!(
     HotkeySwapCalls,
@@ -643,6 +668,7 @@ type SubtensorSplitCalls = (
     PowRegistrationCalls,
     BurnedRegistrationCalls,
     RootRegistrationCalls,
+    FaucetCalls,
     HotkeySwapCalls,
     ColdkeySwapCalls,
     CriticalNetworkCalls,
