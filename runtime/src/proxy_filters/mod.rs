@@ -138,9 +138,25 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
             (x, y) if x == y => true,
             (ProxyType::Any, _) => true,
             (_, ProxyType::Any) => false,
-            (ProxyType::NonTransfer, _) => {
-                !matches!(other, ProxyType::Transfer | ProxyType::SmallTransfer)
-            }
+            // Keep this positive list explicit. A future proxy type that can
+            // move value must not become addable through `NonTransfer` by
+            // default.
+            (
+                ProxyType::NonTransfer,
+                ProxyType::Owner
+                | ProxyType::Senate
+                | ProxyType::NonFungible
+                | ProxyType::Triumvirate
+                | ProxyType::Governance
+                | ProxyType::Staking
+                | ProxyType::Registration
+                | ProxyType::RootWeights
+                | ProxyType::ChildKeys
+                | ProxyType::SudoUncheckedSetCode
+                | ProxyType::SwapHotkey
+                | ProxyType::SubnetLeaseBeneficiary
+                | ProxyType::RootClaim,
+            ) => true,
             (ProxyType::Transfer, ProxyType::SmallTransfer) => true,
             _ => false,
         }
@@ -265,6 +281,12 @@ mod tests {
         calls.iter().map(|c| c.to_string()).collect()
     }
 
+    fn all_proxy_types() -> Vec<ProxyType> {
+        (0u8..=u8::MAX)
+            .filter_map(|index| ProxyType::try_from(index).ok())
+            .collect()
+    }
+
     #[test]
     fn any_allows_everything_and_deprecated_allow_nothing() {
         assert_eq!(allowed_calls(ProxyType::Any), all_runtime_calls());
@@ -316,6 +338,74 @@ mod tests {
             allowed_calls(ProxyType::NonCritical),
             &all_runtime_calls() - &denied
         );
+    }
+
+    #[test]
+    fn superset_relations_match_allowed_call_sets() {
+        let proxy_types = all_proxy_types();
+        let mut violations = Vec::new();
+
+        for parent in &proxy_types {
+            let parent_calls = allowed_calls(*parent);
+            for child in &proxy_types {
+                if !parent.is_superset(child) {
+                    continue;
+                }
+
+                let child_calls = allowed_calls(*child);
+                let missing = child_calls
+                    .difference(&parent_calls)
+                    .cloned()
+                    .collect::<Vec<_>>();
+
+                if !missing.is_empty() {
+                    violations.push(format!(
+                        "{:?}.is_superset({:?}) is missing:\n{}",
+                        parent,
+                        child,
+                        missing
+                            .iter()
+                            .map(|call| format!("  {}", call))
+                            .collect::<Vec<_>>()
+                            .join("\n")
+                    ));
+                }
+            }
+        }
+
+        assert!(
+            violations.is_empty(),
+            "is_superset claims proxy permissions that the parent filter does not allow:\n{}",
+            violations.join("\n\n")
+        );
+    }
+
+    #[test]
+    fn non_transfer_superset_is_explicit_allowlist() {
+        let actual = all_proxy_types()
+            .into_iter()
+            .filter(|proxy_type| ProxyType::NonTransfer.is_superset(proxy_type))
+            .collect::<BTreeSet<_>>();
+        let expected = [
+            ProxyType::Owner,
+            ProxyType::NonTransfer,
+            ProxyType::Senate,
+            ProxyType::NonFungible,
+            ProxyType::Triumvirate,
+            ProxyType::Governance,
+            ProxyType::Staking,
+            ProxyType::Registration,
+            ProxyType::RootWeights,
+            ProxyType::ChildKeys,
+            ProxyType::SudoUncheckedSetCode,
+            ProxyType::SwapHotkey,
+            ProxyType::SubnetLeaseBeneficiary,
+            ProxyType::RootClaim,
+        ]
+        .into_iter()
+        .collect::<BTreeSet<_>>();
+
+        assert_eq!(actual, expected);
     }
 
     #[test]
