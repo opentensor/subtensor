@@ -11,6 +11,7 @@ use pallet_subtensor::*;
 use pallet_subtensor_proxy::{Proxies, RealPaysFee};
 use pallet_subtensor_swap::FeeRate;
 use pallet_subtensor_swap_runtime_api::SwapRuntimeApi;
+use share_pool::SafeFloat;
 use sp_core::U256;
 use sp_runtime::traits::Block as BlockT;
 use substrate_fixed::types::{I96F32, U64F64};
@@ -51,6 +52,7 @@ fn indexer_alpha_shares_and_stake() {
 
         let _: AlphaBalance = TotalHotkeyAlpha::<Test>::get(hotkey, netuid);
         let _: U64F64 = Alpha::<Test>::get((hotkey, coldkey, netuid));
+        let _: SafeFloat = AlphaV2::<Test>::get((hotkey, coldkey, netuid));
     });
 }
 
