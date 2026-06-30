@@ -51,8 +51,6 @@ fn indexer_alpha_shares_and_stake() {
         let coldkey = U256::from(2);
 
         let _: AlphaBalance = TotalHotkeyAlpha::<Test>::get(hotkey, netuid);
-        let _: U64F64 = Alpha::<Test>::get((hotkey, coldkey, netuid));
-        let _: SafeFloat = AlphaV2::<Test>::get((hotkey, coldkey, netuid));
     });
 }
 
