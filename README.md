@@ -75,8 +75,12 @@ First, complete the [basic Rust setup instructions](./docs/rust-setup.md).
 Use Rust's native `cargo` command to build and launch the template node:
 
 ```sh
-cargo run --release -- --dev
+cargo run --release -p node-subtensor -- --dev
 ```
+
+The workspace root is not itself a binary, so `cargo run` must target
+`node-subtensor` explicitly (otherwise cargo errors with
+`a bin target must be available for cargo run`).
 
 **Build only**
 
@@ -113,19 +117,19 @@ node.
 This command will start the single-node development chain with non-persistent state:
 
 ```bash
-./target/release/subtensor --dev
+./target/release/node-subtensor --dev
 ```
 
 Purge the development chain's state:
 
 ```bash
-./target/release/subtensor purge-chain --dev
+./target/release/node-subtensor purge-chain --dev
 ```
 
 Start the development chain with detailed logging:
 
 ```bash
-RUST_BACKTRACE=1 ./target/release/subtensor-ldebug --dev
+RUST_BACKTRACE=1 ./target/release/node-subtensor -ldebug --dev
 ```
 
 Running debug with logs.
