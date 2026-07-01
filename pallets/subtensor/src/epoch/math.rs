@@ -1505,7 +1505,9 @@ pub fn mat_ema_alpha_sparse(
 
         // Add alpha_j * new_ij, clamp to [0, 1], and emit sparse entries > 0.
         let mut out_row: Vec<(u16, I32F32)> = Vec::new();
+        let mut new_cols = std::collections::BTreeSet::new();
         for &(j, new_val) in new_row.iter() {
+            new_cols.insert(j);
             if let (Some(&a), Some(&decayed)) =
                 (alpha_row.get(j as usize), decayed_values.get(j as usize))
             {
@@ -1516,6 +1518,15 @@ pub fn mat_ema_alpha_sparse(
                 }
             }
         }
+
+        // Emit decayed old entries for columns absent from new_row.
+        // This ensures old bonds decay gradually rather than dropping to zero instantly.
+        for (j, &decayed) in decayed_values.iter().enumerate() {
+            if !new_cols.contains(&(j as u16)) && decayed > zero {
+                out_row.push((j as u16, decayed));
+            }
+        }
+        out_row.sort_unstable_by_key(|&(j, _)| j);
 
         result.push(out_row);
     }
