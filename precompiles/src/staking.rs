@@ -46,6 +46,7 @@ use precompile_utils::EvmResult;
 use precompile_utils::prelude::{Address, revert};
 use sp_core::{H160, H256, U256};
 use sp_runtime::traits::{AsSystemOriginSigner, Dispatchable, StaticLookup, UniqueSaturatedInto};
+use sp_std::collections::btree_set::BTreeSet;
 use sp_std::vec;
 use subtensor_runtime_common::{NetUid, ProxyType, Token};
 
@@ -289,6 +290,18 @@ where
             amount: amount.into(),
             netuid: netuid.into(),
         };
+
+        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+    }
+
+    #[precompile::public("claimRoot(uint16[])")]
+    fn claim_root(handle: &mut impl PrecompileHandle, subnets: Vec<u16>) -> EvmResult<()> {
+        if subnets.len() > pallet_subtensor::MAX_SUBNET_CLAIMS {
+            return Err(revert("too many subnets"));
+        }
+        let account_id = handle.caller_account_id::<R>();
+        let subnets: BTreeSet<NetUid> = subnets.into_iter().map(NetUid::from).collect();
+        let call = pallet_subtensor::Call::<R>::claim_root { subnets };
 
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
     }
@@ -1329,6 +1342,39 @@ mod tests {
 
             let stake_after = stake_for(&hotkey, &caller_account, netuid);
             assert_eq!(stake_after, stake_before - REMOVE_STAKE_RAO);
+        });
+    }
+
+    #[test]
+    fn staking_precompile_v2_claim_root_dispatches_and_bounds_subnets() {
+        new_test_ext().execute_with(|| {
+            let caller = addr_from_index(0x1099);
+            let precompiles = precompiles::<StakingPrecompileV2<Runtime>>();
+            let precompile_addr = addr_from_index(StakingPrecompileV2::<Runtime>::INDEX);
+
+            // Happy path
+            precompiles
+                .prepare_test(
+                    caller,
+                    precompile_addr,
+                    encode_with_selector(
+                        selector_u32("claimRoot(uint16[])"),
+                        (vec![1u16, 2u16, 3u16],),
+                    ),
+                )
+                .execute_returns(());
+
+            // Guard: more than MAX_SUBNET_CLAIMS (5) subnets is rejected up front
+            precompiles
+                .prepare_test(
+                    caller,
+                    precompile_addr,
+                    encode_with_selector(
+                        selector_u32("claimRoot(uint16[])"),
+                        (vec![1u16, 2u16, 3u16, 4u16, 5u16, 6u16],),
+                    ),
+                )
+                .execute_reverts(|output| output == b"too many subnets");
         });
     }
 

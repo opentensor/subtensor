@@ -141,6 +141,19 @@ export const IStakingV2ABI = [
     {
         inputs: [
             {
+                internalType: "uint16[]",
+                name: "subnets",
+                type: "uint16[]",
+            },
+        ],
+        name: "claimRoot",
+        outputs: [],
+        stateMutability: "nonpayable",
+        type: "function",
+    },
+    {
+        inputs: [
+            {
                 internalType: "bytes32",
                 name: "hotkey",
                 type: "bytes32",
