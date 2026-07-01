@@ -837,22 +837,21 @@ fn test_swap_owner_old_hotkey_not_exist() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey_with_subnet -- test_swap_owner_new_hotkey_already_exists --exact --nocapture
+// SKIP_WASM_BUILD=1 cargo test --package pallet-subtensor --lib -- tests::swap_hotkey_with_subnet::test_swap_owner_new_hotkey_already_exists --exact --nocapture
 #[test]
 fn test_swap_owner_new_hotkey_already_exists() {
     new_test_ext(1).execute_with(|| {
         let old_hotkey = U256::from(1);
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
-
         let netuid = add_dynamic_network(&new_hotkey, &coldkey);
         add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_u64.into());
 
-        // old_hotkey is owned by coldkey; new_hotkey was already registered on `netuid`
-        // by add_dynamic_network (the condition under test). Do NOT reassign new_hotkey to
-        // a foreign coldkey — the new_hotkey-ownership check (NonAssociatedColdKey) would
-        // then fire before the already-registered-in-subnet check this test targets.
+        // old_hotkey is owned by coldkey; new_hotkey is already registered on `netuid`
+        // by add_dynamic_network, so this reaches the already-registered-in-subnet
+        // check this test targets.
         Owner::<Test>::insert(old_hotkey, coldkey);
+        assert!(IsNetworkMember::<Test>::get(new_hotkey, netuid));
 
         // Perform the swap
         System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
