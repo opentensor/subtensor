@@ -691,6 +691,7 @@ mod api_mocks {
             fn get_subnet_to_prune() -> Option<NetUid> { None }
             fn get_subnet_account_id(_netuid: NetUid) -> Option<AccountId32> { None }
             fn get_next_epoch_start_block(_netuid: NetUid) -> Option<u64> { None }
+            fn get_block_emission() -> TaoBalance { TaoBalance::ZERO }
         }
 
         impl SwapRuntimeApi<Block> for MockApi {
