@@ -350,7 +350,7 @@ fn batch_charges_outer_real_when_mixed_inner_reals() {
         add_proxy(&other(), &real_b());
         enable_real_pays_fee(&other(), &real_b());
 
-        // Different inner reals → can't push deeper
+        // Different inner reals -> can't push deeper, so keep the nearest proven payer.
         let batch = batch_call(vec![
             proxy_call(real_a(), call_remark()),
             proxy_call(other(), call_remark()),
@@ -404,6 +404,114 @@ fn batch_charges_outer_real_when_inner_real_not_opted_in() {
         let call = proxy_call(real_b(), batch);
         let (_valid_tx, val) = validate_call(RuntimeOrigin::signed(signer()), &call).unwrap();
         assert_eq!(fee_payer(&val), real_b());
+    });
+}
+
+// ============================================================
+// Case 4: Three-level proxy chain ending in a batch of proxy calls
+// ============================================================
+
+#[test]
+fn three_level_proxy_batch_charges_inner_real_when_all_opted_in() {
+    new_test_ext().execute_with(|| {
+        add_proxy(&real_b(), &signer());
+        enable_real_pays_fee(&real_b(), &signer());
+        add_proxy(&real_a(), &real_b());
+        enable_real_pays_fee(&real_a(), &real_b());
+        add_proxy(&other(), &real_a());
+        enable_real_pays_fee(&other(), &real_a());
+
+        let batch = force_batch_call(vec![
+            proxy_call(other(), call_remark()),
+            proxy_call(other(), call_remark()),
+        ]);
+        let call = proxy_call(real_b(), proxy_call(real_a(), batch));
+
+        let (_valid_tx, val) = validate_call(RuntimeOrigin::signed(signer()), &call).unwrap();
+        assert_eq!(fee_payer(&val), other());
+    });
+}
+
+#[test]
+fn three_level_proxy_batch_charges_middle_real_when_inner_not_opted_in() {
+    new_test_ext().execute_with(|| {
+        add_proxy(&real_b(), &signer());
+        enable_real_pays_fee(&real_b(), &signer());
+        add_proxy(&real_a(), &real_b());
+        enable_real_pays_fee(&real_a(), &real_b());
+        add_proxy(&other(), &real_a());
+
+        let batch = force_batch_call(vec![
+            proxy_call(other(), call_remark()),
+            proxy_call(other(), call_remark()),
+        ]);
+        let call = proxy_call(real_b(), proxy_call(real_a(), batch));
+
+        let (_valid_tx, val) = validate_call(RuntimeOrigin::signed(signer()), &call).unwrap();
+        assert_eq!(fee_payer(&val), real_a());
+    });
+}
+
+#[test]
+fn three_level_proxy_batch_charges_outer_real_when_middle_not_opted_in() {
+    new_test_ext().execute_with(|| {
+        add_proxy(&real_b(), &signer());
+        enable_real_pays_fee(&real_b(), &signer());
+        add_proxy(&real_a(), &real_b());
+        add_proxy(&other(), &real_a());
+        enable_real_pays_fee(&other(), &real_a());
+
+        let batch = force_batch_call(vec![
+            proxy_call(other(), call_remark()),
+            proxy_call(other(), call_remark()),
+        ]);
+        let call = proxy_call(real_b(), proxy_call(real_a(), batch));
+
+        let (_valid_tx, val) = validate_call(RuntimeOrigin::signed(signer()), &call).unwrap();
+        assert_eq!(fee_payer(&val), real_b());
+    });
+}
+
+#[test]
+fn three_level_proxy_batch_charges_signer_when_outer_not_opted_in() {
+    new_test_ext().execute_with(|| {
+        add_proxy(&real_b(), &signer());
+        add_proxy(&real_a(), &real_b());
+        enable_real_pays_fee(&real_a(), &real_b());
+        add_proxy(&other(), &real_a());
+        enable_real_pays_fee(&other(), &real_a());
+
+        let batch = force_batch_call(vec![
+            proxy_call(other(), call_remark()),
+            proxy_call(other(), call_remark()),
+        ]);
+        let call = proxy_call(real_b(), proxy_call(real_a(), batch));
+
+        let (_valid_tx, val) = validate_call(RuntimeOrigin::signed(signer()), &call).unwrap();
+        assert_eq!(fee_payer(&val), signer());
+    });
+}
+
+#[test]
+fn three_level_proxy_batch_charges_middle_real_when_batch_reals_are_mixed() {
+    new_test_ext().execute_with(|| {
+        add_proxy(&real_b(), &signer());
+        enable_real_pays_fee(&real_b(), &signer());
+        add_proxy(&real_a(), &real_b());
+        enable_real_pays_fee(&real_a(), &real_b());
+        add_proxy(&other(), &real_a());
+        enable_real_pays_fee(&other(), &real_a());
+        add_proxy(&signer(), &real_a());
+        enable_real_pays_fee(&signer(), &real_a());
+
+        let batch = force_batch_call(vec![
+            proxy_call(other(), call_remark()),
+            proxy_call(signer(), call_remark()),
+        ]);
+        let call = proxy_call(real_b(), proxy_call(real_a(), batch));
+
+        let (_valid_tx, val) = validate_call(RuntimeOrigin::signed(signer()), &call).unwrap();
+        assert_eq!(fee_payer(&val), real_a());
     });
 }
 
