@@ -281,7 +281,6 @@ impl<T: Config> Pallet<T> {
         Difficulty::<T>::remove(netuid);
         MaxAllowedUids::<T>::remove(netuid);
         ImmunityPeriod::<T>::remove(netuid);
-        ActivityCutoff::<T>::remove(netuid);
         ActivityCutoffFactorMilli::<T>::remove(netuid);
         LastEpochBlock::<T>::remove(netuid);
         PendingEpochAt::<T>::remove(netuid);

@@ -1092,7 +1092,7 @@ impl<T: Config> Pallet<T> {
         if pending > 0 && current_block >= pending {
             return true;
         }
-        if BlocksSinceLastStep::<T>::get(netuid) > MAX_TEMPO as u64 {
+        if BlocksSinceLastStep::<T>::get(netuid) > T::MaxTempo::get() as u64 {
             return true;
         }
         let last = LastEpochBlock::<T>::get(netuid);

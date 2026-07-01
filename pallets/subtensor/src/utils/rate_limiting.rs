@@ -47,7 +47,7 @@ impl TransactionType {
             }
             Self::SetSNOwnerHotkey => DefaultSetSNOwnerHotkeyRateLimit::<T>::get(),
             Self::AddStakeBurn => Tempo::<T>::get(netuid) as u64,
-            Self::TempoUpdate => MIN_TEMPO as u64,
+            Self::TempoUpdate => T::MinTempo::get() as u64,
 
             _ => self.rate_limit::<T>(),
         }

@@ -357,7 +357,7 @@ fn dissolve_clears_all_per_subnet_storages() {
 
         MaxAllowedUids::<Test>::insert(net, 1u16);
         ImmunityPeriod::<Test>::insert(net, 1u16);
-        ActivityCutoff::<Test>::insert(net, 1u16);
+        ActivityCutoffFactorMilli::<Test>::insert(net, 1_000u32);
         MinAllowedWeights::<Test>::insert(net, 1u16);
 
         RegistrationsThisInterval::<Test>::insert(net, 1u16);
@@ -509,7 +509,7 @@ fn dissolve_clears_all_per_subnet_storages() {
 
         assert!(!MaxAllowedUids::<Test>::contains_key(net));
         assert!(!ImmunityPeriod::<Test>::contains_key(net));
-        assert!(!ActivityCutoff::<Test>::contains_key(net));
+        assert!(!ActivityCutoffFactorMilli::<Test>::contains_key(net));
         assert!(!MinAllowedWeights::<Test>::contains_key(net));
 
         assert!(!RegistrationsThisInterval::<Test>::contains_key(net));

@@ -193,7 +193,8 @@ mod errors {
         SlippageTooHigh,
         /// Subnet disallows transfer.
         TransferDisallowed,
-        /// Activity cutoff is being set too low.
+        #[deprecated(note = "Activity cutoff is now derived per-tempo and this error is unused")]
+        /// DEPRECATED: Activity cutoff is being set too low.
         ActivityCutoffTooLow,
         /// Call is disabled
         CallDisabled,

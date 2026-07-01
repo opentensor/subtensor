@@ -5,6 +5,24 @@ use scale_info::prelude::string::String;
 use sp_core::H256;
 use sp_std::collections::vec_deque::VecDeque;
 
+/// Storage alias for the legacy `ActivityCutoff` map (absolute block count).
+///
+/// The typed `ActivityCutoff` storage was removed from the pallet once this
+/// migration converted its values into `ActivityCutoffFactorMilli`. This migration
+/// still needs to read the raw on-chain entries, so it keeps a self-contained
+/// alias instead of depending on the pallet definition. `OptionQuery` is used so
+/// the alias needs no custom default; the migration substitutes the historical
+/// production default (`5_000`) for any subnet missing an entry — in practice
+/// every existing subnet had an explicit value materialised on creation.
+pub mod legacy {
+    use super::*;
+    use frame_support::pallet_prelude::{Identity, OptionQuery};
+    use frame_support::storage_alias;
+
+    #[storage_alias]
+    pub type ActivityCutoff<T: Config> = StorageMap<Pallet<T>, Identity, NetUid, u16, OptionQuery>;
+}
+
 /// One-shot migration for the dynamic-tempo / owner-triggered-epochs feature.
 ///
 /// 1. Back-fills `LastEpochBlock[netuid]` for every existing subnet so the first
@@ -100,8 +118,9 @@ pub fn migrate_dynamic_tempo<T: Config>() -> Weight {
         epoch_index_seeded = epoch_index_seeded.saturating_add(1);
         writes = writes.saturating_add(1);
 
-        // Convert legacy absolute `ActivityCutoff` into per-mille `ActivityCutoffFactorMilli`
-        let old_cutoff = ActivityCutoff::<T>::get(netuid) as u64;
+        // Convert legacy absolute `ActivityCutoff` into per-mille `ActivityCutoffFactorMilli`.
+        // Missing entries fall back to the historical production default (5_000 blocks).
+        let old_cutoff = legacy::ActivityCutoff::<T>::get(netuid).unwrap_or(5_000) as u64;
         reads = reads.saturating_add(1);
         let tempo_u64 = tempo as u64;
         let raw_factor = old_cutoff
@@ -110,8 +129,8 @@ pub fn migrate_dynamic_tempo<T: Config>() -> Weight {
             .checked_div(tempo_u64)
             .unwrap_or(INITIAL_ACTIVITY_CUTOFF_FACTOR_MILLI as u64);
         let clamped = raw_factor
-            .max(MIN_ACTIVITY_CUTOFF_FACTOR_MILLI as u64)
-            .min(MAX_ACTIVITY_CUTOFF_FACTOR_MILLI as u64) as u32;
+            .max(T::MinActivityCutoffFactorMilli::get() as u64)
+            .min(T::MaxActivityCutoffFactorMilli::get() as u64) as u32;
         if clamped as u64 != raw_factor {
             activity_factor_clamped = activity_factor_clamped.saturating_add(1);
         }

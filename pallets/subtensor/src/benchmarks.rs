@@ -2291,7 +2291,11 @@ mod pallet_benchmarks {
         Subtensor::<T>::set_admin_freeze_window(0);
 
         #[extrinsic_call]
-        _(RawOrigin::Signed(coldkey.clone()), netuid, MIN_TEMPO);
+        _(
+            RawOrigin::Signed(coldkey.clone()),
+            netuid,
+            T::MinTempo::get(),
+        );
     }
 
     #[benchmark]

@@ -4249,7 +4249,7 @@ fn test_epoch_distribution_auto_locks_owner_cut() {
         BlockAtRegistration::<Test>::set(netuid, miner_uid, 1);
         LastUpdate::<Test>::set(NetUidStorageIndex::from(netuid), vec![2; uid_count]);
         Kappa::<Test>::set(netuid, u16::MAX / 5);
-        ActivityCutoff::<Test>::set(netuid, u16::MAX);
+        ActivityCutoffFactorMilli::<Test>::set(netuid, u32::MAX);
         let mut validator_permit = vec![false; uid_count];
         validator_permit[validator_uid as usize] = true;
         ValidatorPermit::<Test>::insert(netuid, validator_permit);

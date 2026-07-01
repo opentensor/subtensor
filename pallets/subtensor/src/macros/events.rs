@@ -61,7 +61,8 @@ mod events {
         RegistrationPerIntervalSet(NetUid, u16),
         /// we set max registrations per block.
         MaxRegistrationsPerBlockSet(NetUid, u16),
-        /// an activity cutoff is set for a subnet.
+        #[deprecated(note = "Activity cutoff is now derived per-tempo and this event is unused")]
+        /// DEPRECATED: an activity cutoff is set for a subnet.
         ActivityCutoffSet(NetUid, u16),
         /// Rho value is set.
         RhoSet(NetUid, u16),

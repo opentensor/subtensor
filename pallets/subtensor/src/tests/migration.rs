@@ -4896,7 +4896,9 @@ fn test_migrate_dynamic_tempo_activity_cutoff_round_trips_production_values() {
         for (i, &(cutoff, tempo)) in cases.iter().enumerate() {
             let netuid = NetUid::from((i + 1) as u16);
             add_network(netuid, tempo, 0);
-            ActivityCutoff::<Test>::insert(netuid, cutoff);
+            crate::migrations::migrate_dynamic_tempo::legacy::ActivityCutoff::<Test>::insert(
+                netuid, cutoff,
+            );
         }
 
         crate::migrations::migrate_dynamic_tempo::migrate_dynamic_tempo::<Test>();
@@ -4932,5 +4934,47 @@ fn test_migrate_dynamic_tempo_idempotent() {
             last_epoch_first,
             "second migration call must be a no-op"
         );
+    });
+}
+
+#[test]
+fn test_migrate_remove_activity_cutoff_wipes_legacy_storage() {
+    use crate::migrations::migrate_dynamic_tempo::legacy;
+    new_test_ext(1).execute_with(|| {
+        // Seed legacy ActivityCutoff entries that linger after dynamic-tempo conversion.
+        for i in 1u16..=3 {
+            let netuid = NetUid::from(i);
+            add_network(netuid, 360, 0);
+            legacy::ActivityCutoff::<Test>::insert(netuid, 5_000u16 + i);
+            assert!(legacy::ActivityCutoff::<Test>::contains_key(netuid));
+        }
+
+        crate::migrations::migrate_remove_activity_cutoff::migrate_remove_activity_cutoff::<Test>();
+
+        // Every legacy entry is gone.
+        for i in 1u16..=3 {
+            let netuid = NetUid::from(i);
+            assert!(!legacy::ActivityCutoff::<Test>::contains_key(netuid));
+        }
+        // Both sub-migrations are flagged as run.
+        assert!(HasMigrationRun::<Test>::get(
+            b"migrate_remove_activity_cutoff".to_vec()
+        ));
+        assert!(HasMigrationRun::<Test>::get(
+            b"migrate_remove_min_activity_cutoff".to_vec()
+        ));
+    });
+}
+
+#[test]
+fn test_migrate_remove_activity_cutoff_idempotent() {
+    new_test_ext(1).execute_with(|| {
+        // Running with no legacy data present must not panic and must flag completion.
+        crate::migrations::migrate_remove_activity_cutoff::migrate_remove_activity_cutoff::<Test>();
+        assert!(HasMigrationRun::<Test>::get(
+            b"migrate_remove_activity_cutoff".to_vec()
+        ));
+        // Second run is a no-op.
+        crate::migrations::migrate_remove_activity_cutoff::migrate_remove_activity_cutoff::<Test>();
     });
 }

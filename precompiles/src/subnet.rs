@@ -463,25 +463,41 @@ where
         )
     }
 
+    /// DEPRECATED: retained only for ABI backward-compatibility.
     #[precompile::public("getActivityCutoff(uint16)")]
     #[precompile::view]
     fn get_activity_cutoff(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u16> {
-        handle.record_db_reads::<R>(1)?;
-        Ok(pallet_subtensor::ActivityCutoff::<R>::get(NetUid::from(
-            netuid,
-        )))
+        handle.record_db_reads::<R>(2)?;
+        let cutoff_blocks =
+            pallet_subtensor::Pallet::<R>::get_activity_cutoff_blocks(NetUid::from(netuid));
+        Ok(u16::try_from(cutoff_blocks).unwrap_or(u16::MAX))
     }
 
+    /// DEPRECATED: retained only for ABI backward-compatibility. The absolute
+    /// `ActivityCutoff` hyperparameter was replaced by the per-tempo
+    /// `ActivityCutoffFactorMilli` (see `setActivityCutoffFactor`). For back-compat
+    /// the legacy absolute-block value is mapped onto the equivalent per-tempo
+    /// factor at the current tempo (`factor_milli = ceil(activity_cutoff × 1000 /
+    /// tempo)`, mirroring the dynamic-tempo migration) and dispatched to
+    /// `set_activity_cutoff_factor`.
     #[precompile::public("setActivityCutoff(uint16,uint16)")]
     #[precompile::payable]
     fn set_activity_cutoff(
         handle: &mut impl PrecompileHandle,
         netuid: u16,
-        activity_cutoff: u16,
+        activity_cutoff_blocks: u16,
     ) -> EvmResult<()> {
-        let call = pallet_admin_utils::Call::<R>::sudo_set_activity_cutoff {
+        handle.record_db_reads::<R>(1)?;
+        let tempo = pallet_subtensor::Tempo::<R>::get(NetUid::from(netuid)).max(1) as u64;
+        let factor_milli = (activity_cutoff_blocks as u64)
+            .saturating_mul(1_000)
+            .saturating_add(tempo.saturating_sub(1))
+            .checked_div(tempo)
+            .unwrap_or(0);
+
+        let call = pallet_subtensor::Call::<R>::set_activity_cutoff_factor {
             netuid: netuid.into(),
-            activity_cutoff,
+            factor_milli: u32::try_from(factor_milli).unwrap_or(u32::MAX),
         };
 
         handle.try_dispatch_runtime_call::<R, _>(
@@ -1154,32 +1170,6 @@ mod tests {
                 precompile_addr,
                 encode_with_selector(selector_u32("getRho(uint16)"), (TEST_NETUID_U16,)),
                 U256::from(110_u64),
-            );
-
-            let activity_cutoff = pallet_subtensor::MinActivityCutoff::<Runtime>::get() + 1;
-            precompiles
-                .prepare_test(
-                    caller,
-                    precompile_addr,
-                    encode_with_selector(
-                        selector_u32("setActivityCutoff(uint16,uint16)"),
-                        (TEST_NETUID_U16, activity_cutoff),
-                    ),
-                )
-                .execute_returns(());
-            assert_eq!(
-                pallet_subtensor::ActivityCutoff::<Runtime>::get(netuid),
-                activity_cutoff
-            );
-            assert_static_call(
-                &precompiles,
-                caller,
-                precompile_addr,
-                encode_with_selector(
-                    selector_u32("getActivityCutoff(uint16)"),
-                    (TEST_NETUID_U16,),
-                ),
-                U256::from(activity_cutoff),
             );
 
             let factor_milli: u32 = 1_500;

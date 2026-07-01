@@ -601,14 +601,6 @@ impl<T: Config> Pallet<T> {
         Rho::<T>::insert(netuid, rho);
     }
 
-    pub fn get_activity_cutoff(netuid: NetUid) -> u16 {
-        ActivityCutoff::<T>::get(netuid)
-    }
-    pub fn set_activity_cutoff(netuid: NetUid, activity_cutoff: u16) {
-        ActivityCutoff::<T>::insert(netuid, activity_cutoff);
-        Self::deposit_event(Event::ActivityCutoffSet(netuid, activity_cutoff));
-    }
-
     /// Effective activity cutoff in blocks, derived from `ActivityCutoffFactorMilli` and `Tempo`.
     /// `cutoff_blocks = (factor × tempo) / 1000`, clamped to ≥ 1.
     pub fn get_activity_cutoff_blocks(netuid: NetUid) -> u64 {

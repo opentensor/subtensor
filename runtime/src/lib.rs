@@ -732,7 +732,7 @@ subtensor_macros::define_proxy_filters! {
         AdminUtils::sudo_set_min_allowed_weights,
         AdminUtils::sudo_set_kappa,
         AdminUtils::sudo_set_rho,
-        AdminUtils::sudo_set_activity_cutoff,
+        SubtensorModule::set_activity_cutoff_factor,
         AdminUtils::sudo_set_network_registration_allowed,
         AdminUtils::sudo_set_network_pow_registration_allowed,
         AdminUtils::sudo_set_max_burn,
@@ -980,7 +980,6 @@ parameter_types! {
     pub const SubtensorInitialAdjustmentAlpha: u64 = 0; // no weight to previous value.
     pub const SubtensorInitialTargetRegistrationsPerInterval: u16 = 2;
     pub const SubtensorInitialImmunityPeriod: u16 = 4096;
-    pub const SubtensorInitialActivityCutoff: u16 = 5000;
     pub const SubtensorInitialMaxRegistrationsPerBlock: u16 = 1;
     pub const SubtensorInitialPruningScore : u16 = u16::MAX;
     pub const SubtensorInitialBondsMovingAverage: u64 = 900_000;
@@ -1001,12 +1000,10 @@ parameter_types! {
     pub const SubtensorInitialMaxBurn: TaoBalance = TaoBalance::new(100_000_000_000); // 100 tao
     pub const MinBurnUpperBound: TaoBalance = TaoBalance::new(1_000_000_000); // 1 TAO
     pub const MaxBurnLowerBound: TaoBalance = TaoBalance::new(100_000_000); // 0.1 TAO
-    pub const SubtensorMinTempo: u16 = pallet_subtensor::MIN_TEMPO;
-    pub const SubtensorMaxTempo: u16 = pallet_subtensor::MAX_TEMPO;
-    pub const SubtensorMinActivityCutoffFactorMilli: u32 =
-        pallet_subtensor::MIN_ACTIVITY_CUTOFF_FACTOR_MILLI;
-    pub const SubtensorMaxActivityCutoffFactorMilli: u32 =
-        pallet_subtensor::MAX_ACTIVITY_CUTOFF_FACTOR_MILLI;
+    pub const SubtensorMinTempo: u16 = 360; // Lower bound for owner-set tempo.
+    pub const SubtensorMaxTempo: u16 = 50_400; // Upper bound for owner-set tempo (≈ 7 days at 12 s/block).
+    pub const SubtensorMinActivityCutoffFactorMilli: u32 = 1_000; // Lower bound (per-mille). 1_000 = one full tempo.
+    pub const SubtensorMaxActivityCutoffFactorMilli: u32 = 50_000; // Upper bound (per-mille). 50_000 = 50 tempos.
     pub const SubtensorInitialTxRateLimit: u64 = 1000;
     pub const SubtensorInitialTxDelegateTakeRateLimit: u64 = 216000; // 30 days at 12 seconds per block
     pub const SubtensorInitialTxChildKeyTakeRateLimit: u64 = INITIAL_CHILDKEY_TAKE_RATELIMIT;
@@ -1064,7 +1061,6 @@ impl pallet_subtensor::Config for Runtime {
     type InitialAdjustmentAlpha = SubtensorInitialAdjustmentAlpha;
     type InitialTargetRegistrationsPerInterval = SubtensorInitialTargetRegistrationsPerInterval;
     type InitialImmunityPeriod = SubtensorInitialImmunityPeriod;
-    type InitialActivityCutoff = SubtensorInitialActivityCutoff;
     type InitialMaxRegistrationsPerBlock = SubtensorInitialMaxRegistrationsPerBlock;
     type InitialPruningScore = SubtensorInitialPruningScore;
     type InitialMaxAllowedValidators = SubtensorInitialMaxAllowedValidators;

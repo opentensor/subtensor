@@ -336,8 +336,11 @@ impl<T: Config> Pallet<T> {
         if !ImmunityPeriod::<T>::contains_key(netuid) {
             ImmunityPeriod::<T>::insert(netuid, ImmunityPeriod::<T>::get(netuid));
         }
-        if !ActivityCutoff::<T>::contains_key(netuid) {
-            ActivityCutoff::<T>::insert(netuid, ActivityCutoff::<T>::get(netuid));
+        if !ActivityCutoffFactorMilli::<T>::contains_key(netuid) {
+            ActivityCutoffFactorMilli::<T>::insert(
+                netuid,
+                ActivityCutoffFactorMilli::<T>::get(netuid),
+            );
         }
         if !MinAllowedWeights::<T>::contains_key(netuid) {
             MinAllowedWeights::<T>::insert(netuid, MinAllowedWeights::<T>::get(netuid));

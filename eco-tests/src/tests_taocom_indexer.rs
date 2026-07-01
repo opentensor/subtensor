@@ -131,7 +131,7 @@ fn indexer_subnet_hyperparams() {
         let _: u64 = WeightsVersionKey::<Test>::get(netuid);
         let _: u64 = WeightsSetRateLimit::<Test>::get(netuid);
         let _: u16 = AdjustmentInterval::<Test>::get(netuid);
-        let _: u16 = ActivityCutoff::<Test>::get(netuid);
+        let _: u32 = ActivityCutoffFactorMilli::<Test>::get(netuid);
         let _: bool = NetworkRegistrationAllowed::<Test>::get(netuid);
         let _: u16 = TargetRegistrationsPerInterval::<Test>::get(netuid);
         let _: TaoBalance = MinBurn::<Test>::get(netuid);
