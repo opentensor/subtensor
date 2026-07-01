@@ -2593,5 +2593,55 @@ mod dispatches {
             let coldkey = ensure_signed(origin)?;
             Self::do_set_perpetual_lock(&coldkey, netuid, enabled)
         }
+
+        /// Owner-side `set_tempo`. Validates `[MinTempo, MaxTempo]`, applies a fixed
+        /// `MinTempo`-block cooldown via `TransactionType::TempoUpdate`, respects the admin
+        /// freeze window, and resets the cycle (`LastEpochBlock = current_block`) on success.
+        #[pallet::call_index(139)]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::set_tempo())]
+        pub fn set_tempo(origin: OriginFor<T>, netuid: NetUid, tempo: u16) -> DispatchResult {
+            Self::do_set_tempo(origin, netuid, tempo)
+        }
+
+        /// `set_activity_cutoff_factor`. Per-mille (1/1000) units; `cutoff_blocks
+        /// = (factor × tempo) / 1000`. Validates `[MinActivityCutoffFactorMilli,
+        /// MaxActivityCutoffFactorMilli]`. Callable by the subnet owner (rate-limited
+        /// via `OwnerHyperparamUpdate`, respects the admin freeze window) or by root
+        /// (bypasses both).
+        #[pallet::call_index(140)]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::set_activity_cutoff_factor())]
+        pub fn set_activity_cutoff_factor(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            factor_milli: u32,
+        ) -> DispatchResult {
+            Self::do_set_activity_cutoff_factor(origin, netuid, factor_milli)
+        }
+
+        /// Owner-side `trigger_epoch`. Schedules an epoch to fire after `AdminFreezeWindow`
+        /// blocks. Rate-limited via the existing `OwnerHyperparamUpdate` pattern.
+        #[pallet::call_index(141)]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::trigger_epoch())]
+        pub fn trigger_epoch(origin: OriginFor<T>, netuid: NetUid) -> DispatchResult {
+            Self::do_trigger_epoch(origin, netuid)
+        }
+
+        /// Sets or clears whether the caller rejects incoming locked alpha.
+        ///
+        /// Coldkeys reject locked alpha by default. Passing `false` opts the
+        /// caller into receiving locked alpha from stake transfers or coldkey
+        /// swaps.
+        #[pallet::call_index(142)]
+        #[pallet::weight((
+            <T as frame_system::Config>::DbWeight::get().reads_writes(1, 1),
+            DispatchClass::Normal,
+            Pays::Yes
+        ))]
+        pub fn set_reject_locked_alpha(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
+            let coldkey = ensure_signed(origin)?;
+            Self::set_accept_locked_alpha(&coldkey, !enabled);
+            Self::deposit_event(Event::RejectLockedAlphaUpdated { coldkey, enabled });
+            Ok(())
+        }
     }
 }

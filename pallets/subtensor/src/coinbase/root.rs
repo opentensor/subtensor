@@ -282,6 +282,10 @@ impl<T: Config> Pallet<T> {
         MaxAllowedUids::<T>::remove(netuid);
         ImmunityPeriod::<T>::remove(netuid);
         ActivityCutoff::<T>::remove(netuid);
+        ActivityCutoffFactorMilli::<T>::remove(netuid);
+        LastEpochBlock::<T>::remove(netuid);
+        PendingEpochAt::<T>::remove(netuid);
+        SubnetEpochIndex::<T>::remove(netuid);
         MinAllowedWeights::<T>::remove(netuid);
         RegistrationsThisInterval::<T>::remove(netuid);
         POWRegistrationsThisInterval::<T>::remove(netuid);
@@ -319,6 +323,7 @@ impl<T: Config> Pallet<T> {
         PendingServerEmission::<T>::remove(netuid);
         PendingRootAlphaDivs::<T>::remove(netuid);
         PendingOwnerCut::<T>::remove(netuid);
+        MinerBurned::<T>::remove(netuid);
         BlocksSinceLastStep::<T>::remove(netuid);
         LastMechansimStepBlock::<T>::remove(netuid);
         LastAdjustmentBlock::<T>::remove(netuid);

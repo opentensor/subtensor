@@ -120,6 +120,18 @@ mod config {
         /// Max burn lower bound.
         #[pallet::constant]
         type MaxBurnLowerBound: Get<TaoBalance>;
+        /// Lower bound for owner-set tempo.
+        #[pallet::constant]
+        type MinTempo: Get<u16>;
+        /// Upper bound for owner-set tempo.
+        #[pallet::constant]
+        type MaxTempo: Get<u16>;
+        /// Lower bound for the activity-cutoff factor (per-mille).
+        #[pallet::constant]
+        type MinActivityCutoffFactorMilli: Get<u32>;
+        /// Upper bound for the activity-cutoff factor (per-mille).
+        #[pallet::constant]
+        type MaxActivityCutoffFactorMilli: Get<u32>;
         /// Initial adjustment interval.
         #[pallet::constant]
         type InitialAdjustmentInterval: Get<u16>;
@@ -270,5 +282,10 @@ mod config {
         /// Burn account ID
         #[pallet::constant]
         type BurnAccountId: Get<PalletId>;
+        /// Initial default per-block cap on number of subnet epochs that may
+        /// execute in a single `block_step`; the rest are deferred 1 block forward via
+        /// `PendingEpochAt`.
+        #[pallet::constant]
+        type InitialMaxEpochsPerBlock: Get<u8>;
     }
 }

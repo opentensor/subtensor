@@ -17,8 +17,6 @@ use frame_support::{
     pallet_prelude::*,
     traits::tokens::fungible,
 };
-use pallet_balances::Call as BalancesCall;
-// use pallet_scheduler as Scheduler;
 use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_runtime::DispatchError;
@@ -68,6 +66,9 @@ pub const MAX_NUM_ROOT_CLAIMS: u64 = 50;
 pub const MAX_SUBNET_CLAIMS: usize = 5;
 
 pub const MAX_ROOT_CLAIM_THRESHOLD: u64 = 10_000_000;
+
+/// Account flag bit that opts into receiving locked alpha transfers.
+pub const ACCOUNT_FLAGS_ACCEPT_LOCKED_ALPHA: u128 = 1u128 << 0;
 
 #[allow(deprecated)]
 #[deny(missing_docs)]
@@ -923,6 +924,12 @@ pub mod pallet {
     //     T::InitialHotkeyEmissionTempo::get()
     // } (DEPRECATED)
 
+    /// Default per-block epoch cap, seeded from the runtime-configured initial value.
+    #[pallet::type_value]
+    pub fn DefaultMaxEpochsPerBlock<T: Config>() -> u8 {
+        T::InitialMaxEpochsPerBlock::get()
+    }
+
     /// Default value for rate limiting
     #[pallet::type_value]
     pub fn DefaultTxRateLimit<T: Config>() -> u64 {
@@ -1186,6 +1193,11 @@ pub mod pallet {
     pub type Owner<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId, ValueQuery, DefaultAccount<T>>;
 
+    /// MAP ( coldkey ) --> flags | Account-level flags. Defaults to zero.
+    #[pallet::storage]
+    pub type AccountFlags<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, u128, ValueQuery>;
+
     /// MAP ( hot ) --> take | Returns the hotkey delegation take. And signals that this key is open for delegation
     #[pallet::storage]
     pub type Delegates<T: Config> =
@@ -1272,6 +1284,7 @@ pub mod pallet {
     /// ==== Coinbase ====
     /// ==================
     /// --- ITEM ( global_block_emission )
+    #[deprecated(note = "Use calculate_block_emission() or the block emission RPC instead.")]
     #[pallet::storage]
     pub type BlockEmission<T> = StorageValue<_, u64, ValueQuery, DefaultBlockEmission<T>>;
 
@@ -1796,6 +1809,50 @@ pub mod pallet {
     #[pallet::storage]
     pub type Tempo<T> = StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultTempo<T>>;
 
+    /// Lower bound for owner-set tempo. Also the fixed cooldown for `set_tempo`.
+    pub const MIN_TEMPO: u16 = 360;
+    /// Upper bound for owner-set tempo (≈ 7 days at 12 s/block).
+    pub const MAX_TEMPO: u16 = 50_400;
+    /// Lower bound for activity-cutoff factor (per-mille). 1_000 = one full tempo.
+    pub const MIN_ACTIVITY_CUTOFF_FACTOR_MILLI: u32 = 1_000;
+    /// Upper bound for activity-cutoff factor (per-mille). 50_000 = 50 tempos.
+    pub const MAX_ACTIVITY_CUTOFF_FACTOR_MILLI: u32 = 50_000;
+    /// Default activity-cutoff factor (per-mille). 13_889 ≈ legacy 5000-block cutoff
+    /// at default tempo 360 (`13_889 * 360 / 1000 = 5_000`, exact via ceiling rounding).
+    pub const INITIAL_ACTIVITY_CUTOFF_FACTOR_MILLI: u32 = 13_889;
+
+    /// Default value for activity-cutoff factor (per-mille).
+    #[pallet::type_value]
+    pub fn DefaultActivityCutoffFactorMilli<T: Config>() -> u32 {
+        INITIAL_ACTIVITY_CUTOFF_FACTOR_MILLI
+    }
+
+    /// --- MAP ( netuid ) --> last epoch attempt block (consumed slot).
+    /// Drives normal-cadence scheduling and the admin freeze window.
+    /// Advances on every `should_run_epoch == true` slot — including consistency-skipped slots —
+    /// and on a successful `set_tempo` (cycle reset).
+    #[pallet::storage]
+    pub type LastEpochBlock<T> =
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
+
+    /// --- MAP ( netuid ) --> block at which a manually triggered epoch should fire.
+    /// `0` means no trigger pending. Cleared after the triggered epoch runs.
+    #[pallet::storage]
+    pub type PendingEpochAt<T> =
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
+
+    /// --- MAP ( netuid ) --> monotonic epoch counter.
+    /// Incremented by exactly one each time the subnet's epoch slot is consumed in `run_coinbase`
+    #[pallet::storage]
+    pub type SubnetEpochIndex<T> =
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
+
+    /// --- MAP ( netuid ) --> activity-cutoff factor in per-mille epochs (1/1000 granularity).
+    /// Effective cutoff in blocks = `(factor × tempo) / 1000`, clamped to ≥ 1.
+    #[pallet::storage]
+    pub type ActivityCutoffFactorMilli<T> =
+        StorageMap<_, Identity, NetUid, u32, ValueQuery, DefaultActivityCutoffFactorMilli<T>>;
+
     /// ============================
     /// ==== Subnet Parameters =====
     /// ============================
@@ -1878,6 +1935,20 @@ pub mod pallet {
     pub type PendingOwnerCut<T> =
         StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
 
+    /// Default miner-burned proportion.
+    #[pallet::type_value]
+    pub fn DefaultMinerBurned<T: Config>() -> U96F32 {
+        U96F32::saturating_from_num(0.0)
+    }
+    /// --- MAP ( netuid ) --> miner_burned | Proportion (0..1) of this tempo's miner
+    /// (incentive) emission that was withheld from miners during emission distribution
+    /// because the recipient hotkey is owned by the subnet owner (immune key). Counts
+    /// emission that is either recycled or burned, so the value is independent of the
+    /// subnet's RecycleOrBurn configuration.
+    #[pallet::storage]
+    pub type MinerBurned<T> =
+        StorageMap<_, Identity, NetUid, U96F32, ValueQuery, DefaultMinerBurned<T>>;
+
     /// --- MAP ( netuid ) --> blocks_since_last_step
     #[pallet::storage]
     pub type BlocksSinceLastStep<T> =
@@ -1952,6 +2023,7 @@ pub mod pallet {
         StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultImmunityPeriod<T>>;
 
     /// --- MAP ( netuid ) --> activity_cutoff
+    // #[deprecated(note = "Replaced by `ActivityCutoffFactorMilli` (per-mille of `Tempo`).")]
     #[pallet::storage]
     pub type ActivityCutoff<T> =
         StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultActivityCutoff<T>>;
@@ -2084,6 +2156,10 @@ pub mod pallet {
         ValueQuery,
         DefaultRAORecycledForRegistration<T>,
     >;
+
+    /// --- ITEM ( max_epochs_per_block )
+    #[pallet::storage]
+    pub type MaxEpochsPerBlock<T> = StorageValue<_, u8, ValueQuery, DefaultMaxEpochsPerBlock<T>>;
 
     /// --- ITEM ( tx_rate_limit )
     #[pallet::storage]
@@ -2380,7 +2456,8 @@ pub mod pallet {
     #[pallet::storage]
     pub type StakeThreshold<T> = StorageValue<_, u64, ValueQuery, DefaultStakeThreshold<T>>;
 
-    /// --- MAP (netuid, who) --> VecDeque<(hash, commit_block, first_reveal_block, last_reveal_block)> | Stores a queue of commits for an account on a given netuid.
+    /// --- MAP (netuid, who) --> VecDeque<(hash, commit_epoch, commit_block, _unused)>
+    /// Stores a queue of commit-reveal-v2 commits for an account on a given netuid.
     #[pallet::storage]
     pub type WeightCommits<T: Config> = StorageDoubleMap<
         _,
