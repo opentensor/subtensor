@@ -74,6 +74,66 @@ impl<RuntimeCall> ExtrinsicDecryptor<RuntimeCall> for () {
     }
 }
 
+/// Reason a fee refund is being issued for an encrypted extrinsic.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Encode,
+    Decode,
+    TypeInfo,
+    MaxEncodedLen,
+    codec::DecodeWithMemTracking,
+)]
+pub enum RefundReason {
+    /// The extrinsic was dispatched successfully.
+    Success,
+    /// The extrinsic dispatch failed.
+    Failure,
+    /// The extrinsic expired without being dispatched.
+    Expired,
+}
+
+/// Handles fee-related operations for encrypted extrinsics, including
+/// refunding the fee difference between what was charged at `store_encrypted`
+/// time and the actual weight consumed during `on_initialize` dispatch.
+pub trait EncryptedExtrinsicFees<T: frame_system::Config> {
+    /// Whether refunding is enabled.
+    fn refund_enabled() -> bool;
+
+    /// Whether to refund fees when an encrypted extrinsic expires without dispatch.
+    fn refund_on_expiration() -> bool;
+
+    fn refund(
+        who: &T::AccountId,
+        charged_weight: Weight,
+        actual_weight: Weight,
+        reason: RefundReason,
+    ) -> Option<u128>;
+}
+
+/// No-op implementation that skips refunding.
+impl<T: frame_system::Config> EncryptedExtrinsicFees<T> for () {
+    fn refund_enabled() -> bool {
+        false
+    }
+
+    fn refund_on_expiration() -> bool {
+        false
+    }
+
+    fn refund(
+        _who: &T::AccountId,
+        _charged_weight: Weight,
+        _actual_weight: Weight,
+        _reason: RefundReason,
+    ) -> Option<u128> {
+        None
+    }
+}
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -94,6 +154,9 @@ pub mod pallet {
 
         /// Decryptor for stored extrinsics.
         type ExtrinsicDecryptor: ExtrinsicDecryptor<<Self as pallet::Config>::RuntimeCall>;
+
+        /// Handles fee-related operations for encrypted extrinsics.
+        type EncryptedExtrinsicFees: EncryptedExtrinsicFees<Self>;
 
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
@@ -226,6 +289,13 @@ pub mod pallet {
         MaxExtrinsicWeightSet { value: u64 },
         /// Extrinsic exceeded the per-extrinsic weight limit and was removed.
         ExtrinsicWeightExceeded { index: u32 },
+        /// A fee refund was issued for an encrypted extrinsic.
+        ExtrinsicRefunded {
+            index: u32,
+            who: T::AccountId,
+            amount: u128,
+            reason: RefundReason,
+        },
     }
 
     #[pallet::error]
@@ -510,6 +580,14 @@ impl<T: Config> Pallet<T> {
                 PendingExtrinsics::<T>::remove(index);
                 weight = weight.saturating_add(remove_weight);
 
+                maybe_refund::<T>(
+                    &pending.who,
+                    index,
+                    store_encrypted_weight(),
+                    Weight::zero(),
+                    RefundReason::Expired,
+                );
+
                 Self::deposit_event(Event::ExtrinsicExpired { index });
 
                 continue;
@@ -553,24 +631,73 @@ impl<T: Config> Pallet<T> {
             weight = weight.saturating_add(remove_weight);
 
             // Dispatch the extrinsic
-            let origin: T::RuntimeOrigin = frame_system::RawOrigin::Signed(pending.who).into();
+            let who = pending.who;
+            let origin: T::RuntimeOrigin = frame_system::RawOrigin::Signed(who.clone()).into();
             let result = call.dispatch(origin);
+
+            let charged_weight = store_encrypted_weight();
 
             match result {
                 Ok(post_info) => {
                     let actual_weight = post_info.actual_weight.unwrap_or(info.call_weight);
                     weight = weight.saturating_add(actual_weight);
 
+                    maybe_refund::<T>(
+                        &who,
+                        index,
+                        charged_weight,
+                        actual_weight,
+                        RefundReason::Success,
+                    );
+
                     Self::deposit_event(Event::ExtrinsicDispatched { index });
                 }
                 Err(e) => {
                     weight = weight.saturating_add(info.call_weight);
+
+                    maybe_refund::<T>(
+                        &who,
+                        index,
+                        charged_weight,
+                        info.call_weight,
+                        RefundReason::Failure,
+                    );
 
                     Self::deposit_event(Event::ExtrinsicDispatchFailed {
                         index,
                         error: e.error,
                     });
                 }
+            }
+        }
+
+        fn maybe_refund<T: Config>(
+            who: &T::AccountId,
+            index: u32,
+            charged_weight: Weight,
+            actual_weight: Weight,
+            reason: RefundReason,
+        ) {
+            let enabled = match reason {
+                RefundReason::Expired => T::EncryptedExtrinsicFees::refund_on_expiration(),
+                RefundReason::Success | RefundReason::Failure => {
+                    T::EncryptedExtrinsicFees::refund_enabled()
+                }
+            };
+            if !enabled {
+                return;
+            }
+
+            if let Some(amount) =
+                T::EncryptedExtrinsicFees::refund(who, charged_weight, actual_weight, reason)
+                && amount > 0
+            {
+                Pallet::<T>::deposit_event(Event::ExtrinsicRefunded {
+                    index,
+                    who: who.clone(),
+                    amount,
+                    reason,
+                });
             }
         }
 

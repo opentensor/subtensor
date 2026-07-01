@@ -1162,3 +1162,419 @@ mod encrypted_extrinsics_tests {
         });
     }
 }
+
+// ---------------------------------------------------------------------------
+// Refund tests — verify actual balance changes via MockEncryptedExtrinsicFees
+// ---------------------------------------------------------------------------
+
+mod refund_tests {
+    use super::*;
+    use crate::mock::{
+        Balances, enable_refund, enable_refund_on_expiration, new_test_ext_with_balances,
+    };
+    use crate::{ExtrinsicLifetime, PendingExtrinsics, RefundReason, STORE_ENCRYPTED_WEIGHT};
+    use frame_support::dispatch::GetDispatchInfo;
+    use frame_support::traits::Hooks;
+
+    const INITIAL_BALANCE: u64 = 100_000_000_000_000;
+
+    // Test 1: refund disabled — balance unchanged after successful dispatch, no refund event
+    #[test]
+    fn refund_disabled_no_balance_change_on_success() {
+        new_test_ext_with_balances(vec![(1, INITIAL_BALANCE)]).execute_with(|| {
+            enable_refund(false);
+            System::set_block_number(1);
+
+            let call = RuntimeCall::System(frame_system::Call::remark {
+                remark: vec![1, 2, 3],
+            });
+            assert_ok!(MevShield::store_encrypted(
+                RuntimeOrigin::signed(1),
+                BoundedVec::truncate_from(call.encode()),
+            ));
+
+            let balance_before = Balances::free_balance(1);
+            MevShield::on_initialize(2);
+
+            System::assert_has_event(crate::Event::<Test>::ExtrinsicDispatched { index: 0 }.into());
+            assert_eq!(Balances::free_balance(1), balance_before);
+
+            // No refund event when refund is disabled
+            assert!(System::events().iter().all(|e| !matches!(
+                e.event,
+                RuntimeEvent::MevShield(crate::Event::<Test>::ExtrinsicRefunded { .. })
+            )));
+        });
+    }
+
+    // Test 2: refund disabled — balance unchanged after failed dispatch
+    #[test]
+    fn refund_disabled_no_balance_change_on_failure() {
+        new_test_ext_with_balances(vec![(1, INITIAL_BALANCE)]).execute_with(|| {
+            enable_refund(false);
+            System::set_block_number(1);
+
+            let call = RuntimeCall::System(frame_system::Call::set_heap_pages { pages: 64 });
+            assert_ok!(MevShield::store_encrypted(
+                RuntimeOrigin::signed(1),
+                BoundedVec::truncate_from(call.encode()),
+            ));
+
+            let balance_before = Balances::free_balance(1);
+            MevShield::on_initialize(2);
+
+            System::assert_has_event(
+                crate::Event::<Test>::ExtrinsicDispatchFailed {
+                    index: 0,
+                    error: sp_runtime::DispatchError::BadOrigin,
+                }
+                .into(),
+            );
+            assert_eq!(Balances::free_balance(1), balance_before);
+
+            assert!(System::events().iter().all(|e| !matches!(
+                e.event,
+                RuntimeEvent::MevShield(crate::Event::<Test>::ExtrinsicRefunded { .. })
+            )));
+        });
+    }
+
+    // Test 3: refund on successful dispatch — partial refund (charged - actual) + refund event
+    #[test]
+    fn refund_deposits_partial_balance_on_successful_dispatch() {
+        new_test_ext_with_balances(vec![(42, INITIAL_BALANCE)]).execute_with(|| {
+            enable_refund(true);
+            System::set_block_number(1);
+
+            let call = RuntimeCall::System(frame_system::Call::remark {
+                remark: vec![1, 2, 3],
+            });
+            let actual_weight = call.get_dispatch_info().call_weight.ref_time();
+
+            // The call has nonzero weight, so refund must be partial
+            assert!(actual_weight > 0, "call must have nonzero weight");
+            let expected_refund = STORE_ENCRYPTED_WEIGHT - actual_weight;
+            assert!(
+                expected_refund < STORE_ENCRYPTED_WEIGHT,
+                "refund must be less than the charged fee"
+            );
+
+            assert_ok!(MevShield::store_encrypted(
+                RuntimeOrigin::signed(42),
+                BoundedVec::truncate_from(call.encode()),
+            ));
+
+            let balance_before = Balances::free_balance(42);
+            MevShield::on_initialize(2);
+
+            System::assert_has_event(crate::Event::<Test>::ExtrinsicDispatched { index: 0 }.into());
+            System::assert_has_event(
+                crate::Event::<Test>::ExtrinsicRefunded {
+                    index: 0,
+                    who: 42,
+                    amount: expected_refund as u128,
+                    reason: RefundReason::Success,
+                }
+                .into(),
+            );
+            // User receives exactly the overpayment, not the full charged fee
+            assert_eq!(Balances::free_balance(42), balance_before + expected_refund,);
+        });
+    }
+
+    // Test 4: refund on failed dispatch — partial refund using call_weight + refund event
+    #[test]
+    fn refund_deposits_partial_balance_on_failed_dispatch() {
+        new_test_ext_with_balances(vec![(99, INITIAL_BALANCE)]).execute_with(|| {
+            enable_refund(true);
+            System::set_block_number(1);
+
+            // set_heap_pages has significant weight (~103M), making the partial
+            // refund clearly visible compared to the 20B charged fee.
+            let call = RuntimeCall::System(frame_system::Call::set_heap_pages { pages: 64 });
+            let actual_weight = call.get_dispatch_info().call_weight.ref_time();
+
+            assert!(actual_weight > 0, "call must have nonzero weight");
+            let expected_refund = STORE_ENCRYPTED_WEIGHT - actual_weight;
+            assert!(
+                expected_refund < STORE_ENCRYPTED_WEIGHT,
+                "refund must be less than the charged fee"
+            );
+
+            assert_ok!(MevShield::store_encrypted(
+                RuntimeOrigin::signed(99),
+                BoundedVec::truncate_from(call.encode()),
+            ));
+
+            let balance_before = Balances::free_balance(99);
+            MevShield::on_initialize(2);
+
+            System::assert_has_event(
+                crate::Event::<Test>::ExtrinsicDispatchFailed {
+                    index: 0,
+                    error: sp_runtime::DispatchError::BadOrigin,
+                }
+                .into(),
+            );
+            System::assert_has_event(
+                crate::Event::<Test>::ExtrinsicRefunded {
+                    index: 0,
+                    who: 99,
+                    amount: expected_refund as u128,
+                    reason: RefundReason::Failure,
+                }
+                .into(),
+            );
+            assert_eq!(Balances::free_balance(99), balance_before + expected_refund,);
+        });
+    }
+
+    // Test 5a: refund_on_expiration enabled — full refund (actual_weight = 0) + refund event
+    #[test]
+    fn refund_on_expiration_deposits_full_fee() {
+        new_test_ext_with_balances(vec![(7, INITIAL_BALANCE)]).execute_with(|| {
+            enable_refund_on_expiration(true);
+            System::set_block_number(1);
+
+            let call = RuntimeCall::System(frame_system::Call::remark { remark: vec![1] });
+            assert_ok!(MevShield::store_encrypted(
+                RuntimeOrigin::signed(7),
+                BoundedVec::truncate_from(call.encode()),
+            ));
+
+            let balance_before = Balances::free_balance(7);
+
+            let lifetime = ExtrinsicLifetime::<Test>::get();
+            let expired_block = 1 + lifetime as u64 + 1;
+            System::set_block_number(expired_block);
+            MevShield::on_initialize(expired_block);
+
+            System::assert_has_event(crate::Event::<Test>::ExtrinsicExpired { index: 0 }.into());
+            System::assert_has_event(
+                crate::Event::<Test>::ExtrinsicRefunded {
+                    index: 0,
+                    who: 7,
+                    amount: STORE_ENCRYPTED_WEIGHT as u128,
+                    reason: RefundReason::Expired,
+                }
+                .into(),
+            );
+            // Full refund: charged_weight - 0 = STORE_ENCRYPTED_WEIGHT
+            assert_eq!(
+                Balances::free_balance(7),
+                balance_before + STORE_ENCRYPTED_WEIGHT,
+            );
+        });
+    }
+
+    // Test 5b: refund_on_expiration disabled — no balance change on expiration
+    #[test]
+    fn no_refund_on_expiration_when_disabled() {
+        new_test_ext_with_balances(vec![(7, INITIAL_BALANCE)]).execute_with(|| {
+            enable_refund_on_expiration(false);
+            System::set_block_number(1);
+
+            let call = RuntimeCall::System(frame_system::Call::remark { remark: vec![1] });
+            assert_ok!(MevShield::store_encrypted(
+                RuntimeOrigin::signed(7),
+                BoundedVec::truncate_from(call.encode()),
+            ));
+
+            let balance_before = Balances::free_balance(7);
+
+            let lifetime = ExtrinsicLifetime::<Test>::get();
+            let expired_block = 1 + lifetime as u64 + 1;
+            System::set_block_number(expired_block);
+            MevShield::on_initialize(expired_block);
+
+            System::assert_has_event(crate::Event::<Test>::ExtrinsicExpired { index: 0 }.into());
+            assert_eq!(Balances::free_balance(7), balance_before);
+
+            assert!(System::events().iter().all(|e| !matches!(
+                e.event,
+                RuntimeEvent::MevShield(crate::Event::<Test>::ExtrinsicRefunded { .. })
+            )));
+        });
+    }
+
+    // Test 6: no balance change on decode failure
+    #[test]
+    fn no_refund_on_decode_failure() {
+        new_test_ext_with_balances(vec![(1, INITIAL_BALANCE)]).execute_with(|| {
+            enable_refund(true);
+            System::set_block_number(1);
+
+            let invalid_bytes = BoundedVec::truncate_from(vec![0xFF, 0xFF]);
+            assert_ok!(MevShield::store_encrypted(
+                RuntimeOrigin::signed(1),
+                invalid_bytes,
+            ));
+
+            let balance_before = Balances::free_balance(1);
+            MevShield::on_initialize(2);
+
+            System::assert_has_event(
+                crate::Event::<Test>::ExtrinsicDecodeFailed { index: 0 }.into(),
+            );
+            assert_eq!(Balances::free_balance(1), balance_before);
+
+            assert!(System::events().iter().all(|e| !matches!(
+                e.event,
+                RuntimeEvent::MevShield(crate::Event::<Test>::ExtrinsicRefunded { .. })
+            )));
+        });
+    }
+
+    // Test 7: no balance change when per-extrinsic weight exceeded
+    #[test]
+    fn no_refund_on_weight_exceeded() {
+        new_test_ext_with_balances(vec![(1, INITIAL_BALANCE)]).execute_with(|| {
+            enable_refund(true);
+            System::set_block_number(1);
+
+            assert_ok!(MevShield::set_max_extrinsic_weight(
+                RuntimeOrigin::root(),
+                0,
+            ));
+
+            let call = RuntimeCall::System(frame_system::Call::remark { remark: vec![1] });
+            assert_ok!(MevShield::store_encrypted(
+                RuntimeOrigin::signed(1),
+                BoundedVec::truncate_from(call.encode()),
+            ));
+
+            let balance_before = Balances::free_balance(1);
+            MevShield::on_initialize(2);
+
+            System::assert_has_event(
+                crate::Event::<Test>::ExtrinsicWeightExceeded { index: 0 }.into(),
+            );
+            assert_eq!(Balances::free_balance(1), balance_before);
+
+            assert!(System::events().iter().all(|e| !matches!(
+                e.event,
+                RuntimeEvent::MevShield(crate::Event::<Test>::ExtrinsicRefunded { .. })
+            )));
+        });
+    }
+
+    // Test 8: no balance change when extrinsic is postponed
+    #[test]
+    fn no_refund_on_postponement() {
+        new_test_ext_with_balances(vec![(1, INITIAL_BALANCE)]).execute_with(|| {
+            enable_refund(true);
+            System::set_block_number(1);
+
+            assert_ok!(MevShield::set_on_initialize_weight(
+                RuntimeOrigin::root(),
+                0,
+            ));
+
+            let call = RuntimeCall::System(frame_system::Call::remark { remark: vec![1] });
+            assert_ok!(MevShield::store_encrypted(
+                RuntimeOrigin::signed(1),
+                BoundedVec::truncate_from(call.encode()),
+            ));
+
+            let balance_before = Balances::free_balance(1);
+            MevShield::on_initialize(2);
+
+            System::assert_has_event(crate::Event::<Test>::ExtrinsicPostponed { index: 0 }.into());
+            assert_eq!(PendingExtrinsics::<Test>::count(), 1);
+            assert_eq!(Balances::free_balance(1), balance_before);
+
+            assert!(System::events().iter().all(|e| !matches!(
+                e.event,
+                RuntimeEvent::MevShield(crate::Event::<Test>::ExtrinsicRefunded { .. })
+            )));
+        });
+    }
+
+    // Test 9: multiple users — each gets correct partial refund
+    #[test]
+    fn refund_multiple_users_correct_balances() {
+        new_test_ext_with_balances(vec![
+            (10, INITIAL_BALANCE),
+            (20, INITIAL_BALANCE),
+            (30, INITIAL_BALANCE),
+        ])
+        .execute_with(|| {
+            enable_refund(true);
+            System::set_block_number(1);
+
+            // Index 0: lightweight remark from account 10 (will succeed)
+            let call_ok = RuntimeCall::System(frame_system::Call::remark { remark: vec![0xAA] });
+            let weight_ok = call_ok.get_dispatch_info().call_weight.ref_time();
+            assert_ok!(MevShield::store_encrypted(
+                RuntimeOrigin::signed(10),
+                BoundedVec::truncate_from(call_ok.encode()),
+            ));
+
+            // Index 1: heavier set_heap_pages from account 20 (will fail with BadOrigin)
+            let call_fail = RuntimeCall::System(frame_system::Call::set_heap_pages { pages: 64 });
+            let weight_fail = call_fail.get_dispatch_info().call_weight.ref_time();
+            assert_ok!(MevShield::store_encrypted(
+                RuntimeOrigin::signed(20),
+                BoundedVec::truncate_from(call_fail.encode()),
+            ));
+
+            // Index 2: another remark from account 30 (will succeed)
+            let call_ok2 = RuntimeCall::System(frame_system::Call::remark { remark: vec![0xBB] });
+            let weight_ok2 = call_ok2.get_dispatch_info().call_weight.ref_time();
+            assert_ok!(MevShield::store_encrypted(
+                RuntimeOrigin::signed(30),
+                BoundedVec::truncate_from(call_ok2.encode()),
+            ));
+
+            let bal10 = Balances::free_balance(10);
+            let bal20 = Balances::free_balance(20);
+            let bal30 = Balances::free_balance(30);
+
+            MevShield::on_initialize(2);
+
+            // Heavier call gets smaller refund
+            assert!(
+                weight_fail > weight_ok,
+                "set_heap_pages should be heavier than remark"
+            );
+            let refund_ok = STORE_ENCRYPTED_WEIGHT - weight_ok;
+            let refund_fail = STORE_ENCRYPTED_WEIGHT - weight_fail;
+            assert!(refund_fail < refund_ok, "heavier call → smaller refund");
+
+            assert_eq!(Balances::free_balance(10), bal10 + refund_ok);
+            assert_eq!(Balances::free_balance(20), bal20 + refund_fail);
+            assert_eq!(
+                Balances::free_balance(30),
+                bal30 + (STORE_ENCRYPTED_WEIGHT - weight_ok2)
+            );
+
+            System::assert_has_event(
+                crate::Event::<Test>::ExtrinsicRefunded {
+                    index: 0,
+                    who: 10,
+                    amount: refund_ok as u128,
+                    reason: RefundReason::Success,
+                }
+                .into(),
+            );
+            System::assert_has_event(
+                crate::Event::<Test>::ExtrinsicRefunded {
+                    index: 1,
+                    who: 20,
+                    amount: refund_fail as u128,
+                    reason: RefundReason::Failure,
+                }
+                .into(),
+            );
+            System::assert_has_event(
+                crate::Event::<Test>::ExtrinsicRefunded {
+                    index: 2,
+                    who: 30,
+                    amount: (STORE_ENCRYPTED_WEIGHT - weight_ok2) as u128,
+                    reason: RefundReason::Success,
+                }
+                .into(),
+            );
+        });
+    }
+}
