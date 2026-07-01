@@ -1,6 +1,8 @@
 use codec::{Decode, Encode};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use sp_runtime::{DispatchError, ModuleError};
+use subtensor_macros::freeze_struct;
+use subtensor_runtime_common::{AlphaBalance, NetUid};
 
 #[repr(u16)]
 #[derive(TryFromPrimitive, IntoPrimitive, Decode, Encode)]
@@ -39,6 +41,34 @@ pub enum FunctionId {
     CallerSetColdkeyAutoStakeHotkeyV1 = 31,
     CallerAddProxyV1 = 32,
     CallerRemoveProxyV1 = 33,
+    GetSubnetRegistrationStateV1 = 34,
+    GetColdkeyLockV1 = 35,
+    GetStakeAvailabilityV1 = 36,
+}
+
+#[freeze_struct("5dc33d60abed5c08")]
+#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, Debug, scale_info::TypeInfo)]
+pub struct SubnetRegistrationState {
+    pub netuid: NetUid,
+    pub exists: bool,
+    pub registered_subnet_counter: u64,
+}
+
+#[freeze_struct("bf4c1e249109618")]
+#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, Debug, scale_info::TypeInfo)]
+pub struct ColdkeyLock {
+    pub locked_mass: AlphaBalance,
+    pub conviction_bits: u128,
+    pub last_update: u64,
+}
+
+#[freeze_struct("fb12f00479cf6990")]
+#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, Debug, scale_info::TypeInfo)]
+pub struct StakeAvailability {
+    pub netuid: NetUid,
+    pub total: AlphaBalance,
+    pub locked: AlphaBalance,
+    pub available: AlphaBalance,
 }
 
 #[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, Debug)]
@@ -151,11 +181,14 @@ mod function_id_tests {
         assert_eq!(FunctionId::CallerSetColdkeyAutoStakeHotkeyV1 as u16, 31);
         assert_eq!(FunctionId::CallerAddProxyV1 as u16, 32);
         assert_eq!(FunctionId::CallerRemoveProxyV1 as u16, 33);
+        assert_eq!(FunctionId::GetSubnetRegistrationStateV1 as u16, 34);
+        assert_eq!(FunctionId::GetColdkeyLockV1 as u16, 35);
+        assert_eq!(FunctionId::GetStakeAvailabilityV1 as u16, 36);
     }
 
     #[test]
     fn caller_ids_roundtrip_try_from_primitive() {
-        for id in 16u16..=33u16 {
+        for id in 16u16..=36u16 {
             let v = FunctionId::try_from_primitive(id)
                 .unwrap_or_else(|_| panic!("try_from_primitive failed for {id}"));
             assert_eq!(v as u16, id);

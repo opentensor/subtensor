@@ -3143,6 +3143,9 @@ fn test_parent_child_chain_emission() {
         PendingValidatorEmission::<Test>::insert(netuid, AlphaBalance::ZERO);
         PendingServerEmission::<Test>::insert(netuid, AlphaBalance::ZERO);
 
+        // To trigger the epoch, block should be > tempo. So we advance it before
+        System::set_block_number(2);
+
         // Run epoch with emission value
         let emission_value = u64::from(emission.peek());
         SubtensorModule::run_coinbase(emission);
