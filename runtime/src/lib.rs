@@ -12,7 +12,7 @@ use core::num::NonZeroU64;
 
 pub mod check_mortality;
 pub mod check_nonce;
-mod migrations;
+mod proxy_filters;
 pub mod sudo_wrapper;
 pub mod transaction_payment_wrapper;
 
@@ -234,7 +234,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 420,
+    spec_version: 426,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -347,7 +347,14 @@ impl frame_system::Config for Runtime {
     type PostInherents = ();
     type PostTransactions = ();
     type ExtensionsWeightInfo = frame_system::SubstrateExtensionsWeight<Runtime>;
-    type DispatchExtension = pallet_subtensor::CheckColdkeySwap<Runtime>;
+    type DispatchExtension = (
+        pallet_subtensor::CheckColdkeySwap<Runtime>,
+        pallet_subtensor::CheckWeights<Runtime>,
+        pallet_subtensor::CheckRateLimits<Runtime>,
+        pallet_subtensor::CheckDelegateTake<Runtime>,
+        pallet_subtensor::CheckServingEndpoints<Runtime>,
+        pallet_subtensor::CheckEvmKeyAssociation<Runtime>,
+    );
 }
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
@@ -575,195 +582,6 @@ parameter_types! {
     pub const AnnouncementDepositBase: Balance =  deposit(1, 16);
     // 68 bytes per announcement
     pub const AnnouncementDepositFactor: Balance = deposit(0, 68);
-}
-
-// Proxy filter definitions. This macro is the single source of truth for both
-// on-chain InstanceFilter::filter() logic and the ProxyFilterRuntimeApi response.
-//
-// Syntax:
-//   pallets { Alias => (RuntimeVariant, module_path), ... }
-//   ProxyType => allow { Pallet::call, ... }          — allowlist
-//   ProxyType => deny { Pallet::call, ... }           — denylist
-//   ProxyType => allow_all;                           — permit everything
-//   ProxyType => deny_all;                            — permit nothing
-//   ProxyType => allow { ... } except { ... }         — allowlist with exceptions
-//   ProxyType => allow_conditional { Pallet::call where (param) < LIMIT, ... }
-//   ProxyType => allow_nested { Pallet::call where nested(arg) == Target::method, ... }
-//   Pallet::* in a list means all calls in that pallet.
-//
-// To add a new extrinsic to an existing proxy type, append Pallet::call_name
-// to the relevant block. To add a new pallet, register it in the pallets {} section first.
-//
-// Human-readable descriptions of each extrinsic are available to clients via
-// runtime metadata (v14/v15) which includes doc comments from pallet call definitions.
-subtensor_macros::define_proxy_filters! {
-    pallets {
-        Balances => (Balances, pallet_balances),
-        SubtensorModule => (SubtensorModule, pallet_subtensor),
-        AdminUtils => (AdminUtils, pallet_admin_utils),
-        Sudo => (Sudo, pallet_sudo),
-        System => (System, frame_system),
-    }
-
-    Any => allow_all;
-
-    NonTransfer => deny {
-        Balances::*,
-        SubtensorModule::transfer_stake,
-        SubtensorModule::schedule_swap_coldkey,
-        SubtensorModule::swap_coldkey,
-        SubtensorModule::announce_coldkey_swap,
-        SubtensorModule::swap_coldkey_announced,
-        SubtensorModule::clear_coldkey_swap_announcement,
-        SubtensorModule::dispute_coldkey_swap,
-    }
-
-    NonFungible => deny {
-        Balances::*,
-        SubtensorModule::add_stake,
-        SubtensorModule::add_stake_limit,
-        SubtensorModule::remove_stake,
-        SubtensorModule::remove_stake_limit,
-        SubtensorModule::remove_stake_full_limit,
-        SubtensorModule::unstake_all,
-        SubtensorModule::unstake_all_alpha,
-        SubtensorModule::swap_stake,
-        SubtensorModule::swap_stake_limit,
-        SubtensorModule::move_stake,
-        SubtensorModule::transfer_stake,
-        SubtensorModule::burned_register,
-        SubtensorModule::root_register,
-        SubtensorModule::schedule_swap_coldkey,
-        SubtensorModule::swap_coldkey,
-        SubtensorModule::announce_coldkey_swap,
-        SubtensorModule::swap_coldkey_announced,
-        SubtensorModule::clear_coldkey_swap_announcement,
-        SubtensorModule::dispute_coldkey_swap,
-        SubtensorModule::swap_hotkey,
-        SubtensorModule::swap_hotkey_v2,
-    }
-
-    Transfer => allow {
-        Balances::transfer_keep_alive,
-        Balances::transfer_allow_death,
-        Balances::transfer_all,
-        SubtensorModule::transfer_stake,
-    }
-
-    SmallTransfer => allow_conditional {
-        Balances::transfer_keep_alive where (value) < SMALL_TRANSFER_LIMIT,
-        Balances::transfer_allow_death where (value) < SMALL_TRANSFER_LIMIT,
-        SubtensorModule::transfer_stake where (alpha_amount) < SMALL_ALPHA_TRANSFER_LIMIT,
-    }
-
-    Owner => allow {
-        AdminUtils::*,
-        SubtensorModule::set_subnet_identity,
-        SubtensorModule::update_symbol,
-    } except {
-        AdminUtils::sudo_set_sn_owner_hotkey,
-        AdminUtils::sudo_set_subnet_owner_hotkey,
-    }
-
-    NonCritical => deny {
-        SubtensorModule::dissolve_network,
-        SubtensorModule::root_register,
-        SubtensorModule::burned_register,
-        Sudo::*,
-        SubtensorModule::announce_coldkey_swap,
-        SubtensorModule::swap_coldkey_announced,
-        SubtensorModule::clear_coldkey_swap_announcement,
-        SubtensorModule::dispute_coldkey_swap,
-    }
-
-    Triumvirate => deny_all;
-    Senate => deny_all;
-    Governance => deny_all;
-
-    Staking => allow {
-        SubtensorModule::add_stake,
-        SubtensorModule::remove_stake,
-        SubtensorModule::unstake_all,
-        SubtensorModule::unstake_all_alpha,
-        SubtensorModule::swap_stake,
-        SubtensorModule::swap_stake_limit,
-        SubtensorModule::move_stake,
-        SubtensorModule::add_stake_limit,
-        SubtensorModule::remove_stake_limit,
-        SubtensorModule::remove_stake_full_limit,
-        SubtensorModule::set_root_claim_type,
-    }
-
-    Registration => allow {
-        SubtensorModule::burned_register,
-        SubtensorModule::register,
-        SubtensorModule::register_limit,
-    }
-
-    RootWeights => deny_all;
-
-    ChildKeys => allow {
-        SubtensorModule::set_children,
-        SubtensorModule::set_childkey_take,
-    }
-
-    SudoUncheckedSetCode => allow_nested {
-        Sudo::sudo_unchecked_weight where nested(call) == System::set_code,
-    }
-
-    SwapHotkey => allow {
-        SubtensorModule::swap_hotkey,
-        SubtensorModule::swap_hotkey_v2,
-    }
-
-    SubnetLeaseBeneficiary => allow {
-        SubtensorModule::start_call,
-        AdminUtils::sudo_set_serving_rate_limit,
-        AdminUtils::sudo_set_min_difficulty,
-        AdminUtils::sudo_set_max_difficulty,
-        AdminUtils::sudo_set_weights_version_key,
-        AdminUtils::sudo_set_adjustment_alpha,
-        AdminUtils::sudo_set_immunity_period,
-        AdminUtils::sudo_set_min_allowed_weights,
-        AdminUtils::sudo_set_kappa,
-        AdminUtils::sudo_set_rho,
-        AdminUtils::sudo_set_activity_cutoff,
-        AdminUtils::sudo_set_network_registration_allowed,
-        AdminUtils::sudo_set_network_pow_registration_allowed,
-        AdminUtils::sudo_set_max_burn,
-        AdminUtils::sudo_set_bonds_moving_average,
-        AdminUtils::sudo_set_bonds_penalty,
-        AdminUtils::sudo_set_commit_reveal_weights_enabled,
-        AdminUtils::sudo_set_liquid_alpha_enabled,
-        AdminUtils::sudo_set_alpha_values,
-        AdminUtils::sudo_set_commit_reveal_weights_interval,
-        AdminUtils::sudo_set_toggle_transfer,
-        AdminUtils::sudo_set_subnet_emission_enabled,
-        AdminUtils::sudo_set_min_childkey_take_per_subnet,
-    }
-
-    RootClaim => allow {
-        SubtensorModule::claim_root,
-    }
-}
-
-impl InstanceFilter<RuntimeCall> for ProxyType {
-    fn filter(&self, c: &RuntimeCall) -> bool {
-        proxy_type_filter(self, c)
-    }
-    fn is_superset(&self, o: &Self) -> bool {
-        match (self, o) {
-            (x, y) if x == y => true,
-            (ProxyType::Any, _) => true,
-            (_, ProxyType::Any) => false,
-            (ProxyType::NonTransfer, _) => {
-                // NonTransfer is NOT a superset of Transfer or SmallTransfer
-                !matches!(o, ProxyType::Transfer | ProxyType::SmallTransfer)
-            }
-            (ProxyType::Transfer, ProxyType::SmallTransfer) => true,
-            _ => false,
-        }
-    }
 }
 
 impl pallet_proxy::Config for Runtime {
@@ -996,6 +814,12 @@ parameter_types! {
     pub const SubtensorInitialMaxBurn: TaoBalance = TaoBalance::new(100_000_000_000); // 100 tao
     pub const MinBurnUpperBound: TaoBalance = TaoBalance::new(1_000_000_000); // 1 TAO
     pub const MaxBurnLowerBound: TaoBalance = TaoBalance::new(100_000_000); // 0.1 TAO
+    pub const SubtensorMinTempo: u16 = pallet_subtensor::MIN_TEMPO;
+    pub const SubtensorMaxTempo: u16 = pallet_subtensor::MAX_TEMPO;
+    pub const SubtensorMinActivityCutoffFactorMilli: u32 =
+        pallet_subtensor::MIN_ACTIVITY_CUTOFF_FACTOR_MILLI;
+    pub const SubtensorMaxActivityCutoffFactorMilli: u32 =
+        pallet_subtensor::MAX_ACTIVITY_CUTOFF_FACTOR_MILLI;
     pub const SubtensorInitialTxRateLimit: u64 = 1000;
     pub const SubtensorInitialTxDelegateTakeRateLimit: u64 = 216000; // 30 days at 12 seconds per block
     pub const SubtensorInitialTxChildKeyTakeRateLimit: u64 = INITIAL_CHILDKEY_TAKE_RATELIMIT;
@@ -1026,6 +850,7 @@ parameter_types! {
     pub const EvmKeyAssociateRateLimit: u64 = EVM_KEY_ASSOCIATE_RATELIMIT;
     pub const SubtensorPalletId: PalletId = PalletId(*b"subtensr");
     pub const BurnAccountId: PalletId = PalletId(*b"burntnsr");
+    pub const SubtensorMaxEpochsPerBlock: u8 = prod_or_fast!(2, 32);
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -1070,6 +895,10 @@ impl pallet_subtensor::Config for Runtime {
     type InitialMinStake = SubtensorInitialMinStake;
     type MinBurnUpperBound = MinBurnUpperBound;
     type MaxBurnLowerBound = MaxBurnLowerBound;
+    type MinTempo = SubtensorMinTempo;
+    type MaxTempo = SubtensorMaxTempo;
+    type MinActivityCutoffFactorMilli = SubtensorMinActivityCutoffFactorMilli;
+    type MaxActivityCutoffFactorMilli = SubtensorMaxActivityCutoffFactorMilli;
     type InitialTxRateLimit = SubtensorInitialTxRateLimit;
     type InitialTxDelegateTakeRateLimit = SubtensorInitialTxDelegateTakeRateLimit;
     type InitialTxChildKeyTakeRateLimit = SubtensorInitialTxChildKeyTakeRateLimit;
@@ -1105,6 +934,7 @@ impl pallet_subtensor::Config for Runtime {
     type AuthorshipProvider = BlockAuthorFromAura<Aura>;
     type SubtensorPalletId = SubtensorPalletId;
     type BurnAccountId = BurnAccountId;
+    type InitialMaxEpochsPerBlock = SubtensorMaxEpochsPerBlock;
     type WeightInfo = pallet_subtensor::weights::SubstrateWeight<Runtime>;
 }
 
@@ -1656,7 +1486,6 @@ type Migrations = (
     pallet_subtensor::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration<
         Runtime,
     >,
-    migrations::PalletRegistryCleanupMigration,
 );
 
 // Unchecked extrinsic type as expected by this runtime.
@@ -1747,59 +1576,6 @@ fn generate_genesis_json() -> Vec<u8> {
 }
 
 type EventRecord = frame_system::EventRecord<RuntimeEvent, Hash>;
-
-fn call_info_by_name<P: PalletInfoAccess, C: GetCallName + GetCallIndex>(name: &str) -> CallInfo {
-    let names = C::get_call_names();
-    let indices = C::get_call_indices();
-    let pos = names
-        .iter()
-        .position(|n| *n == name)
-        .unwrap_or_else(|| panic!("Call '{}' not found in pallet '{}'", name, P::name()));
-    CallInfo {
-        pallet_name: P::name().as_bytes().to_vec(),
-        pallet_index: P::index() as u8,
-        call_name: Some(name.as_bytes().to_vec()),
-        call_index: Some(
-            indices.get(pos).copied().unwrap_or_else(|| {
-                panic!("Call '{}' index out of bounds in '{}'", name, P::name())
-            }),
-        ),
-        condition: None,
-    }
-}
-
-fn call_info_by_name_conditional<P: PalletInfoAccess, C: GetCallName + GetCallIndex>(
-    name: &str,
-    condition: CallCondition,
-) -> CallInfo {
-    let mut info = call_info_by_name::<P, C>(name);
-    info.condition = Some(condition);
-    info
-}
-
-fn pallet_wildcard<P: PalletInfoAccess>() -> CallInfo {
-    CallInfo {
-        pallet_name: P::name().as_bytes().to_vec(),
-        pallet_index: P::index() as u8,
-        call_name: None,
-        call_index: None,
-        condition: None,
-    }
-}
-
-pub fn get_all_proxy_type_infos() -> Vec<ProxyTypeInfo> {
-    (0u8..=u8::MAX)
-        .filter_map(|i: u8| {
-            ProxyType::try_from(i)
-                .ok()
-                .map(|pt: ProxyType| ProxyTypeInfo {
-                    name: alloc::format!("{:?}", pt).into_bytes(),
-                    index: i,
-                    deprecated: pt.is_deprecated(),
-                })
-        })
-        .collect()
-}
 
 impl_runtime_apis! {
     impl sp_api::Core<Block> for Runtime {
@@ -2514,6 +2290,17 @@ impl_runtime_apis! {
         fn get_subnet_account_id(netuid: NetUid) -> Option<AccountId32> {
             SubtensorModule::get_subnet_account_id(netuid)
         }
+
+        fn get_next_epoch_start_block(netuid: NetUid) -> Option<u64> {
+            SubtensorModule::get_next_epoch_start_block(netuid)
+        }
+
+        fn get_block_emission() -> TaoBalance {
+            match SubtensorModule::calculate_block_emission() {
+                Ok(block_emission) => block_emission.into(),
+                Err(_) => TaoBalance::ZERO,
+            }
+        }
     }
 
     impl subtensor_custom_rpc_runtime_api::StakeInfoRuntimeApi<Block> for Runtime {
@@ -2558,15 +2345,11 @@ impl_runtime_apis! {
 
     impl subtensor_custom_rpc_runtime_api::ProxyFilterRuntimeApi<Block> for Runtime {
         fn get_proxy_types() -> Vec<ProxyTypeInfo> {
-            get_all_proxy_type_infos()
+            proxy_filters::get_all_proxy_type_infos()
         }
 
-        fn get_proxy_filter(proxy_type: Option<u8>) -> Vec<ProxyFilterInfo> {
-            let all = get_all_proxy_filters();
-            match proxy_type {
-                None => all,
-                Some(idx) => all.into_iter().filter(|f| f.proxy_type == idx).collect(),
-            }
+        fn get_proxy_filters(proxy_types: Option<Vec<u8>>) -> Vec<ProxyFilterInfo> {
+            proxy_filters::get_proxy_filters(proxy_types)
         }
     }
 

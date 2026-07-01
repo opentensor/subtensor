@@ -611,6 +611,9 @@ pub mod pallet {
         /// The extrinsic sets the activity cutoff for a subnet.
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the activity cutoff.
+        // #[deprecated(
+        //     note = "Please use set_activity_cutoff_factor instead. This extrinsic will be removed soon."
+        // )]
         #[pallet::call_index(18)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::sudo_set_activity_cutoff())]
         pub fn sudo_set_activity_cutoff(
@@ -983,7 +986,7 @@ pub mod pallet {
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
-            pallet_subtensor::Pallet::<T>::set_tempo(netuid, tempo);
+            pallet_subtensor::Pallet::<T>::apply_tempo_with_cycle_reset(netuid, tempo);
             log::debug!("TempoSet( netuid: {netuid:?} tempo: {tempo:?} ) ");
             Ok(())
         }
@@ -1529,28 +1532,17 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Change the SubnetOwnerHotkey for a given subnet.
-        ///
-        /// # Arguments
-        /// * `origin` - The origin of the call, which must be the subnet owner.
-        /// * `netuid` - The unique identifier for the subnet.
-        /// * `hotkey` - The new hotkey for the subnet owner.
-        ///
-        /// # Errors
-        /// * `BadOrigin` - If the caller is not the subnet owner or root account.
-        ///
-        /// # Weight
-        /// Weight is handled by the `#[pallet::weight]` attribute.
-        #[pallet::call_index(64)]
-        #[pallet::weight(Weight::from_parts(3_918_000, 0) // TODO: add benchmarks
-        .saturating_add(T::DbWeight::get().writes(1_u64)))]
-        pub fn sudo_set_subnet_owner_hotkey(
-            origin: OriginFor<T>,
-            netuid: NetUid,
-            hotkey: <T as frame_system::Config>::AccountId,
-        ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::do_set_sn_owner_hotkey(origin, netuid, &hotkey)
-        }
+        // Deprecated for sudo_set_sn_owner_hotkey
+        // #[pallet::call_index(64)]
+        // #[pallet::weight(Weight::from_parts(3_918_000, 0) // TODO: add benchmarks
+        // .saturating_add(T::DbWeight::get().writes(1_u64)))]
+        // pub fn sudo_set_subnet_owner_hotkey(
+        //     origin: OriginFor<T>,
+        //     netuid: NetUid,
+        //     hotkey: <T as frame_system::Config>::AccountId,
+        // ) -> DispatchResult {
+        //     pallet_subtensor::Pallet::<T>::do_set_sn_owner_hotkey(origin, netuid, &hotkey)
+        // }
 
         ///
         ///
@@ -2273,6 +2265,20 @@ pub mod pallet {
             pallet_subtensor::SubnetEmissionEnabled::<T>::insert(netuid, enabled);
             Self::deposit_event(Event::SubnetEmissionEnabledSet { netuid, enabled });
             log::debug!("SubnetEmissionEnabledSet( netuid: {netuid:?}, enabled: {enabled:?} )");
+
+            Ok(())
+        }
+
+        /// Sets the per-block cap on subnet epochs (dynamic tempo throttle).
+        #[pallet::call_index(96)]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::sudo_set_max_epochs_per_block())]
+        pub fn sudo_set_max_epochs_per_block(
+            origin: OriginFor<T>,
+            max_epochs_per_block: u8,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            ensure!(max_epochs_per_block >= 1, Error::<T>::ValueNotInBounds);
+            pallet_subtensor::Pallet::<T>::set_max_epochs_per_block(max_epochs_per_block);
 
             Ok(())
         }
