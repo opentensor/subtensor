@@ -571,7 +571,7 @@ fn test_distribute_lease_network_dividends_multiple_contributors_works() {
         let expected_contributor1_alpha =
             SubnetLeaseShares::<Test>::get(lease_id, contributions[0].0)
                 .saturating_mul(U64F64::from(distributed_alpha.to_u64()))
-                .ceil()
+                .floor()
                 .to_num::<u64>();
         assert_eq!(contributor1_alpha_delta, expected_contributor1_alpha.into());
         assert_eq!(
@@ -586,7 +586,7 @@ fn test_distribute_lease_network_dividends_multiple_contributors_works() {
         let expected_contributor2_alpha =
             SubnetLeaseShares::<Test>::get(lease_id, contributions[1].0)
                 .saturating_mul(U64F64::from(distributed_alpha.to_u64()))
-                .ceil()
+                .floor()
                 .to_num::<u64>();
         assert_eq!(contributor2_alpha_delta, expected_contributor2_alpha.into());
         assert_eq!(
