@@ -99,7 +99,7 @@ mod tests {
         weights::WeightInfo as _,
     };
     use frame_support::{
-        BoundedVec, assert_ok,
+        BoundedVec, assert_noop, assert_ok,
         dispatch::{DispatchExtension, DispatchResultWithPostInfo},
         traits::ExtendedDispatchable,
     };
@@ -133,6 +133,11 @@ mod tests {
             }),
             RuntimeCall::SubtensorModule(crate::Call::register_network {
                 hotkey: U256::from(1),
+            }),
+            RuntimeCall::SubtensorModule(crate::Call::create_sale_offer {
+                netuid: 1u16.into(),
+                price: TaoBalance::from(1_000_u64),
+                authorized_buyer: None,
             }),
         ]
     }

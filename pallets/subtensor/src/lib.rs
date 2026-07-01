@@ -84,7 +84,10 @@ pub mod pallet {
     use crate::RateLimitKey;
     use crate::migrations;
     use crate::staking::lock::LockState;
-    use crate::subnets::leasing::{LeaseId, SubnetLeaseOf};
+    use crate::subnets::{
+        leasing::{LeaseId, SubnetLeaseOf},
+        sale_offer::SubnetSaleOfferOf,
+    };
     use frame_support::Twox64Concat;
     use frame_support::{
         BoundedVec,
@@ -2620,6 +2623,24 @@ pub mod pallet {
     #[pallet::storage]
     pub type AccumulatedLeaseDividends<T: Config> =
         StorageMap<_, Twox64Concat, LeaseId, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
+
+    /// ===========================
+    /// ==== Subnet Sale Offers ====
+    /// ===========================
+    /// --- MAP ( netuid ) --> subnet sale offer | Active sale offer for a subnet.
+    #[pallet::storage]
+    pub type SubnetSaleOffers<T: Config> =
+        StorageMap<_, Twox64Concat, NetUid, SubnetSaleOfferOf<T>, OptionQuery>;
+
+    /// --- MAP ( coldkey ) --> () | Owner coldkeys frozen by an active subnet sale offer.
+    #[pallet::storage]
+    pub type SubnetSaleFrozenColdkeys<T: Config> =
+        StorageMap<_, Identity, T::AccountId, (), OptionQuery>;
+
+    /// --- MAP ( hotkey ) --> () | Owner hotkeys frozen by an active subnet sale offer.
+    #[pallet::storage]
+    pub type SubnetSaleFrozenHotkeys<T: Config> =
+        StorageMap<_, Identity, T::AccountId, (), OptionQuery>;
 
     /// --- ITEM ( CommitRevealWeightsVersion )
     #[pallet::storage]

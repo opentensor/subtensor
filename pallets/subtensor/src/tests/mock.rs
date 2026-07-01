@@ -84,6 +84,46 @@ pub type Balance = TaoBalance;
 #[allow(dead_code)]
 pub type BlockNumber = u64;
 
+const DEFAULT_EXISTENTIAL_DEPOSIT: Balance = TaoBalance::new(1);
+
+std::thread_local! {
+    static TEST_EXISTENTIAL_DEPOSIT: RefCell<Balance> =
+        const { RefCell::new(DEFAULT_EXISTENTIAL_DEPOSIT) };
+}
+
+pub struct ExistentialDeposit;
+
+impl ExistentialDeposit {
+    pub fn get() -> Balance {
+        <Self as Get<Balance>>::get()
+    }
+}
+
+impl Get<Balance> for ExistentialDeposit {
+    fn get() -> Balance {
+        TEST_EXISTENTIAL_DEPOSIT.with(|ed| *ed.borrow())
+    }
+}
+
+pub struct TestExternalitiesWithExistentialDeposit {
+    previous_existential_deposit: Balance,
+    ext: sp_io::TestExternalities,
+}
+
+impl TestExternalitiesWithExistentialDeposit {
+    pub fn execute_with<R>(mut self, execute: impl FnOnce() -> R) -> R {
+        self.ext.execute_with(execute)
+    }
+}
+
+impl Drop for TestExternalitiesWithExistentialDeposit {
+    fn drop(&mut self) {
+        TEST_EXISTENTIAL_DEPOSIT.with(|ed| {
+            ed.replace(self.previous_existential_deposit);
+        });
+    }
+}
+
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
     type Balance = Balance;
@@ -132,6 +172,16 @@ impl Contains<RuntimeCall> for NoNestingCallFilter {
     }
 }
 
+type DispatchExtension = (
+    crate::CheckColdkeySwap<Test>,
+    crate::CheckWeights<Test>,
+    crate::CheckRateLimits<Test>,
+    crate::CheckDelegateTake<Test>,
+    crate::CheckServingEndpoints<Test>,
+    crate::CheckEvmKeyAssociation<Test>,
+    crate::CheckSubnetSale<Test>,
+);
+
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl system::Config for Test {
     type BaseCallFilter = InsideBoth<Everything, NoNestingCallFilter>;
@@ -157,14 +207,7 @@ impl system::Config for Test {
     type MaxConsumers = frame_support::traits::ConstU32<16>;
     type Nonce = u64;
     type Block = Block;
-    type DispatchExtension = (
-        crate::CheckColdkeySwap<Test>,
-        crate::CheckWeights<Test>,
-        crate::CheckRateLimits<Test>,
-        crate::CheckDelegateTake<Test>,
-        crate::CheckServingEndpoints<Test>,
-        crate::CheckEvmKeyAssociation<Test>,
-    );
+    type DispatchExtension = DispatchExtension;
 }
 
 parameter_types! {
@@ -189,7 +232,6 @@ parameter_types! {
         Weight::from_parts(2_000_000_000_000, u64::MAX),
         Perbill::from_percent(75),
     );
-    pub const ExistentialDeposit: Balance = TaoBalance::new(1);
     pub const TransactionByteFee: Balance = TaoBalance::new(100);
     pub const SDebug:u64 = 1;
     pub const InitialRho: u16 = 30;
@@ -629,6 +671,20 @@ pub fn new_test_ext(block_number: BlockNumber) -> sp_io::TestExternalities {
     let mut ext = sp_io::TestExternalities::new(t);
     ext.execute_with(|| System::set_block_number(block_number));
     ext
+}
+
+pub fn test_ext_with_existential_deposit(
+    block_number: BlockNumber,
+    existential_deposit: Balance,
+) -> TestExternalitiesWithExistentialDeposit {
+    let previous_existential_deposit =
+        TEST_EXISTENTIAL_DEPOSIT.with(|ed| ed.replace(existential_deposit));
+    let ext = new_test_ext(block_number);
+
+    TestExternalitiesWithExistentialDeposit {
+        previous_existential_deposit,
+        ext,
+    }
 }
 
 #[allow(dead_code)]

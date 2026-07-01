@@ -80,6 +80,8 @@ pub trait WeightInfo {
 	fn remove_stake_full_limit() -> Weight;
 	fn register_leased_network(k: u32, ) -> Weight;
 	fn terminate_lease(k: u32, ) -> Weight;
+	fn create_sale_offer() -> Weight;
+	fn cancel_sale_offer() -> Weight;
 	fn update_symbol() -> Weight;
 	fn commit_timelocked_weights() -> Weight;
 	fn set_coldkey_auto_stake_hotkey() -> Weight;
@@ -2091,6 +2093,36 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(7_u64))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(k.into())))
 			.saturating_add(Weight::from_parts(0, 2529).saturating_mul(k.into()))
+	}
+	/// Storage: `SubtensorModule::NetworksAdded` (r:1 w:0)
+	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetOwner` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetOwner` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetSaleOffers` (r:1 w:1)
+	/// Proof: `SubtensorModule::SubnetSaleOffers` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetSaleFrozenColdkeys` (r:1 w:1)
+	/// Proof: `SubtensorModule::SubnetSaleFrozenColdkeys` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetOwnerHotkey` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetOwnerHotkey` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetSaleFrozenHotkeys` (r:1 w:1)
+	/// Proof: `SubtensorModule::SubnetSaleFrozenHotkeys` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn create_sale_offer() -> Weight {
+		Weight::from_parts(25_000_000, 0)
+			.saturating_add(T::DbWeight::get().reads(6_u64))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
+	}
+	/// Storage: `SubtensorModule::SubnetSaleOffers` (r:1 w:1)
+	/// Proof: `SubtensorModule::SubnetSaleOffers` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetOwnerHotkey` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetOwnerHotkey` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetSaleFrozenColdkeys` (r:0 w:1)
+	/// Proof: `SubtensorModule::SubnetSaleFrozenColdkeys` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetSaleFrozenHotkeys` (r:0 w:1)
+	/// Proof: `SubtensorModule::SubnetSaleFrozenHotkeys` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn cancel_sale_offer() -> Weight {
+		Weight::from_parts(15_000_000, 0)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
 	/// Storage: `SubtensorModule::SubnetOwner` (r:1 w:0)
 	/// Proof: `SubtensorModule::SubnetOwner` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -4575,6 +4607,36 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(7_u64))
 			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(k.into())))
 			.saturating_add(Weight::from_parts(0, 2529).saturating_mul(k.into()))
+	}
+	/// Storage: `SubtensorModule::NetworksAdded` (r:1 w:0)
+	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetOwner` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetOwner` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetSaleOffers` (r:1 w:1)
+	/// Proof: `SubtensorModule::SubnetSaleOffers` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetSaleFrozenColdkeys` (r:1 w:1)
+	/// Proof: `SubtensorModule::SubnetSaleFrozenColdkeys` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetOwnerHotkey` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetOwnerHotkey` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetSaleFrozenHotkeys` (r:1 w:1)
+	/// Proof: `SubtensorModule::SubnetSaleFrozenHotkeys` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn create_sale_offer() -> Weight {
+		Weight::from_parts(25_000_000, 0)
+			.saturating_add(RocksDbWeight::get().reads(6_u64))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
+	}
+	/// Storage: `SubtensorModule::SubnetSaleOffers` (r:1 w:1)
+	/// Proof: `SubtensorModule::SubnetSaleOffers` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetOwnerHotkey` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetOwnerHotkey` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetSaleFrozenColdkeys` (r:0 w:1)
+	/// Proof: `SubtensorModule::SubnetSaleFrozenColdkeys` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetSaleFrozenHotkeys` (r:0 w:1)
+	/// Proof: `SubtensorModule::SubnetSaleFrozenHotkeys` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn cancel_sale_offer() -> Weight {
+		Weight::from_parts(15_000_000, 0)
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
 	/// Storage: `SubtensorModule::SubnetOwner` (r:1 w:0)
 	/// Proof: `SubtensorModule::SubnetOwner` (`max_values`: None, `max_size`: None, mode: `Measured`)

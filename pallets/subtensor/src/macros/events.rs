@@ -396,6 +396,26 @@ mod events {
             netuid: NetUid,
         },
 
+        /// A subnet sale offer has been created and the seller coldkey has been locked.
+        SubnetSaleOfferCreated {
+            /// The subnet owner selling the subnet.
+            seller: T::AccountId,
+            /// The subnet ID.
+            netuid: NetUid,
+            /// The sale price.
+            price: TaoBalance,
+            /// Optional buyer coldkey authorized to consume the offer.
+            authorized_buyer: Option<T::AccountId>,
+        },
+
+        /// A subnet sale offer has been cancelled and its locks have been released.
+        SubnetSaleOfferCancelled {
+            /// The subnet owner that cancelled the offer.
+            seller: T::AccountId,
+            /// The subnet ID.
+            netuid: NetUid,
+        },
+
         /// The symbol for a subnet has been updated.
         SymbolUpdated {
             /// The subnet ID

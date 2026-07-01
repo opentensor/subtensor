@@ -175,6 +175,24 @@ mod pallet_benchmarks {
         ecdsa::Signature::from_raw(signature)
     }
 
+    fn setup_subnet_sale_offer<T: Config>()
+    -> (NetUid, T::AccountId, T::AccountId, T::AccountId, TaoBalance) {
+        let netuid = NetUid::from(1);
+        let seller: T::AccountId = whitelisted_caller();
+        let owner_hotkey: T::AccountId = account("owner_hotkey", 0, 0);
+        let authorized_buyer: T::AccountId = account("authorized_buyer", 0, 0);
+        let price = TaoBalance::from(1_000_000_000_u64);
+
+        Subtensor::<T>::init_new_network(netuid, 1);
+        SubnetOwner::<T>::insert(netuid, seller.clone());
+        assert_ok!(Subtensor::<T>::set_subnet_owner_hotkey(
+            netuid,
+            &owner_hotkey
+        ));
+
+        (netuid, seller, owner_hotkey, authorized_buyer, price)
+    }
+
     #[benchmark]
     fn register() {
         let netuid = NetUid::from(1);
@@ -1849,6 +1867,49 @@ mod pallet_benchmarks {
         assert_eq!(SubnetLeases::<T>::get(lease_id), None);
         assert!(!SubnetLeaseShares::<T>::contains_prefix(lease_id));
         assert!(!AccumulatedLeaseDividends::<T>::contains_key(lease_id));
+    }
+
+    #[benchmark]
+    fn create_sale_offer() {
+        let (netuid, seller, owner_hotkey, authorized_buyer, price) =
+            setup_subnet_sale_offer::<T>();
+
+        #[extrinsic_call]
+        _(
+            RawOrigin::Signed(seller.clone()),
+            netuid,
+            price,
+            Some(authorized_buyer.clone()),
+        );
+
+        let offer = SubnetSaleOffers::<T>::get(netuid).unwrap();
+        assert_eq!(offer.netuid, netuid);
+        assert_eq!(offer.seller, seller);
+        assert_eq!(offer.authorized_buyer, Some(authorized_buyer));
+        assert_eq!(offer.price, price.into());
+        assert_eq!(offer.created_at, frame_system::Pallet::<T>::block_number());
+        assert!(SubnetSaleFrozenColdkeys::<T>::contains_key(&offer.seller));
+        assert!(SubnetSaleFrozenHotkeys::<T>::contains_key(&owner_hotkey));
+    }
+
+    #[benchmark]
+    fn cancel_sale_offer() {
+        let (netuid, seller, owner_hotkey, authorized_buyer, price) =
+            setup_subnet_sale_offer::<T>();
+
+        assert_ok!(Subtensor::<T>::create_sale_offer(
+            RawOrigin::Signed(seller.clone()).into(),
+            netuid,
+            price,
+            Some(authorized_buyer),
+        ));
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(seller.clone()), netuid);
+
+        assert!(!SubnetSaleOffers::<T>::contains_key(netuid));
+        assert!(!SubnetSaleFrozenColdkeys::<T>::contains_key(seller));
+        assert!(!SubnetSaleFrozenHotkeys::<T>::contains_key(owner_hotkey));
     }
 
     #[benchmark]
