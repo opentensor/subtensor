@@ -294,11 +294,12 @@ fn cancel_order_works() {
     });
 }
 
-/// An order signed with an Ed25519 key is rejected at validation time even
-/// though the signature itself is cryptographically valid. The order must not
-/// appear in the Orders storage map after the batch runs.
+/// An order signed with an ECDSA key is rejected at validation time even though
+/// the signature itself is cryptographically valid: `is_order_valid` accepts
+/// sr25519 and ed25519 but rejects ecdsa. The order must not appear in the
+/// Orders storage map after the batch runs.
 #[test]
-fn execute_orders_ed25519_signature_rejected() {
+fn execute_orders_ecdsa_signature_rejected() {
     new_test_ext().execute_with(|| {
         let alice_id = Sr25519Keyring::Alice.to_account_id();
         let bob_id = Sr25519Keyring::Bob.to_account_id();
@@ -322,12 +323,14 @@ fn execute_orders_ed25519_signature_rejected() {
         });
         let id = order_id(&order);
 
-        // Sign with ed25519 — valid signature, wrong scheme.
-        let ed_pair = sp_core::ed25519::Pair::from_legacy_string("//Alice", None);
-        let ed_sig = ed_pair.sign(&order.encode());
+        // Sign with ecdsa — cryptographically valid signature, rejected scheme.
+        // The signer is still sr25519 Alice, but the rejection is driven by the
+        // ecdsa scheme, not by a key mismatch.
+        let ecdsa_pair = sp_core::ecdsa::Pair::from_legacy_string("//Alice", None);
+        let ecdsa_sig = ecdsa_pair.sign(&order.encode());
         let signed = SignedOrder {
             order,
-            signature: MultiSignature::Ed25519(ed_sig),
+            signature: MultiSignature::Ecdsa(ecdsa_sig),
             partial_fill: None,
         };
 
@@ -446,6 +449,86 @@ fn limit_buy_order_executes_and_stakes_alpha() {
             staked >= AlphaBalance::from(expected_alpha * 99 / 100)
                 && staked <= AlphaBalance::from(expected_alpha),
             "alice should hold approximately min_default_stake alpha after a LimitBuy order executes (got {staked:?})"
+        );
+    });
+}
+
+/// End-to-end: a LimitBuy order whose `signer` is an ed25519 account, signed with
+/// the `<Bytes>…</Bytes>`-wrapped order-hash payload (the Ledger / `signRaw`
+/// envelope), executes against the pool, is marked Fulfilled, and credits staked
+/// alpha to the ed25519 signer. Mirrors `limit_buy_order_executes_and_stakes_alpha`
+/// but exercises the ed25519 + wrapped-signature acceptance path.
+#[test]
+fn execute_orders_ed25519_wrapped_signature_executes() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1u16);
+        let bob_id = Sr25519Keyring::Bob.to_account_id();
+        let charlie_id = Sr25519Keyring::Charlie.to_account_id();
+
+        // ed25519 signer account — the order's `signer` and the staking coldkey.
+        let ed_pair = sp_core::ed25519::Pair::from_legacy_string("//Alice", None);
+        let ed_signer: AccountId = sp_core::ed25519::Public::from(ed_pair.public()).into();
+
+        setup_subnet(netuid);
+
+        // Fund the ED25519 signer (not sr25519 Alice) so buy_alpha can debit it,
+        // and create its hotkey association through bob.
+        fund_account(&ed_signer);
+        let _ = SubtensorModule::create_account_if_non_existent(&ed_signer, &bob_id);
+
+        // Build the order manually: make_signed_order hardcodes an sr25519 keyring
+        // signer, so it cannot express an ed25519 signer. Field values match the
+        // limit-buy test above.
+        let order = VersionedOrder::V1(Order {
+            signer: ed_signer.clone(),
+            hotkey: bob_id.clone(),
+            netuid,
+            order_type: OrderType::LimitBuy,
+            amount: min_default_stake().into(),
+            limit_price: u64::MAX,
+            expiry: u64::MAX,
+            fee_rate: Perbill::zero(),
+            fee_recipient: charlie_id.clone(),
+            relayer: None,
+            max_slippage: None,
+            partial_fills_enabled: false,
+            // chain_id 0 matches the default pallet_evm_chain_id genesis value in tests
+            chain_id: 0,
+        });
+        let id = order_id(&order);
+
+        // Sign the `<Bytes>…</Bytes>`-wrapped 32-byte order hash with ed25519.
+        // `id` is blake2_256(order.encode()); `id.as_bytes()` are exactly those
+        // 32 hash bytes, matching the runtime's wrapped-verification payload.
+        let payload = [b"<Bytes>".as_slice(), id.as_bytes(), b"</Bytes>".as_slice()].concat();
+        let ed_sig = ed_pair.sign(&payload);
+        let signed = SignedOrder {
+            order,
+            signature: MultiSignature::Ed25519(ed_sig),
+            partial_fill: None,
+        };
+
+        let orders = make_order_batch(vec![signed]);
+
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie_id),
+            orders,
+            false,
+        ));
+
+        // Order must be marked as executed.
+        assert_eq!(Orders::<Runtime>::get(id), Some(OrderStatus::Fulfilled));
+
+        // The ed25519 signer must now hold staked alpha delegated through Bob.
+        // AMM pool output has slight slippage even with the stable mechanism; check within 1%.
+        let staked = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &bob_id, &ed_signer, netuid,
+        );
+        let expected_alpha = min_default_stake().to_u64();
+        assert!(
+            staked >= AlphaBalance::from(expected_alpha * 99 / 100)
+                && staked <= AlphaBalance::from(expected_alpha),
+            "ed25519 signer should hold approximately min_default_stake alpha after a wrapped-signed LimitBuy executes (got {staked:?})"
         );
     });
 }

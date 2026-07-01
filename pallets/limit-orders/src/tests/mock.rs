@@ -559,6 +559,16 @@ pub fn netuid() -> NetUid {
 
 pub const FAR_FUTURE: u64 = u64::MAX;
 
+/// Build the raw payload that the order's `signer` must sign.
+///
+/// Mirrors the production logic in `is_order_valid`: the signed message is the
+/// `<Bytes>…</Bytes>` `signRaw` envelope wrapped around the 32-byte order hash
+/// (`blake2_256(SCALE_ENCODE(VersionedOrder))`, i.e. the `OrderId`).
+pub fn order_signing_payload(order: &crate::VersionedOrder<AccountId>) -> Vec<u8> {
+    let id = sp_io::hashing::blake2_256(&order.encode());
+    [b"<Bytes>".as_slice(), &id, b"</Bytes>".as_slice()].concat()
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn make_signed_order(
     keyring: AccountKeyring,
@@ -588,7 +598,7 @@ pub fn make_signed_order(
         chain_id: 945,
         partial_fills_enabled: false,
     });
-    let sig = keyring.pair().sign(&order.encode());
+    let sig = keyring.pair().sign(&order_signing_payload(&order));
     crate::SignedOrder {
         order,
         signature: MultiSignature::Sr25519(sig),
@@ -626,7 +636,7 @@ pub fn make_partial_fill_order(
         chain_id: 945,
         partial_fills_enabled: true,
     });
-    let sig = keyring.pair().sign(&order.encode());
+    let sig = keyring.pair().sign(&order_signing_payload(&order));
     crate::SignedOrder {
         order,
         signature: MultiSignature::Sr25519(sig),
