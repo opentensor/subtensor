@@ -67,7 +67,6 @@ pub const MAX_SUBNET_CLAIMS: usize = 5;
 
 pub const MAX_ROOT_CLAIM_THRESHOLD: u64 = 10_000_000;
 
-<<<<<<< HEAD
 pub struct SubtensorDustRemoval<T>(PhantomData<T>);
 impl<T> frame_support::traits::OnUnbalanced<pallet_balances::CreditOf<T, ()>>
     for SubtensorDustRemoval<T>
@@ -82,10 +81,9 @@ where
         });
     }
 }
-=======
+
 /// Account flag bit that opts into receiving locked alpha transfers.
 pub const ACCOUNT_FLAGS_ACCEPT_LOCKED_ALPHA: u128 = 1u128 << 0;
->>>>>>> devnet-ready
 
 #[allow(deprecated)]
 #[deny(missing_docs)]
