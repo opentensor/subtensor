@@ -52,5 +52,11 @@ if [ -d "/tmp/blockchain" ]; then
 fi
 
 # Execute node-subtensor with the original, unmodified arguments
-echo "executing: gosu subtensor node-subtensor $original_args"
-exec gosu subtensor node-subtensor $original_args
+# Skip gosu if we're already running as the subtensor user or if SKIP_GOSU is set
+if [ "$(id -un)" = "subtensor" ] || [ "${SKIP_GOSU}" = "true" ]; then
+    echo "executing: node-subtensor $original_args (without gosu)"
+    exec node-subtensor $original_args
+else
+    echo "executing: gosu subtensor node-subtensor $original_args"
+    exec gosu subtensor node-subtensor $original_args
+fi
