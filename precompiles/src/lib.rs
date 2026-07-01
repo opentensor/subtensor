@@ -18,6 +18,7 @@ use frame_support::{
     pallet_prelude::Decode,
 };
 pub use leasing::LeasingPrecompile;
+pub use limit_orders::LimitOrdersPrecompile;
 pub use metagraph::MetagraphPrecompile;
 pub use neuron::NeuronPrecompile;
 use pallet_admin_utils::PrecompileEnum;
@@ -49,6 +50,7 @@ mod crowdloan;
 mod ed25519;
 mod extensions;
 mod leasing;
+mod limit_orders;
 mod metagraph;
 mod neuron;
 mod proxy;
@@ -74,6 +76,7 @@ where
         + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_crowdloan::Config
+        + pallet_limit_orders::Config
         + pallet_shield::Config
         + pallet_subtensor_proxy::Config
         + Send
@@ -86,6 +89,7 @@ where
         + From<pallet_balances::Call<R>>
         + From<pallet_admin_utils::Call<R>>
         + From<pallet_crowdloan::Call<R>>
+        + From<pallet_limit_orders::Call<R>>
         + GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<pallet_balances::Call<R>>
@@ -111,6 +115,7 @@ where
         + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_crowdloan::Config
+        + pallet_limit_orders::Config
         + pallet_shield::Config
         + pallet_subtensor_proxy::Config
         + Send
@@ -123,6 +128,7 @@ where
         + From<pallet_balances::Call<R>>
         + From<pallet_admin_utils::Call<R>>
         + From<pallet_crowdloan::Call<R>>
+        + From<pallet_limit_orders::Call<R>>
         + GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<pallet_balances::Call<R>>
@@ -137,7 +143,7 @@ where
         Self(Default::default())
     }
 
-    pub fn used_addresses() -> [H160; 27] {
+    pub fn used_addresses() -> [H160; 28] {
         [
             hash(1),
             hash(2),
@@ -166,6 +172,7 @@ where
             hash(VotingPowerPrecompile::<R>::INDEX),
             hash(ProxyPrecompile::<R>::INDEX),
             hash(AddressMappingPrecompile::<R>::INDEX),
+            hash(LimitOrdersPrecompile::<R>::INDEX),
         ]
     }
 }
@@ -179,6 +186,7 @@ where
         + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_crowdloan::Config
+        + pallet_limit_orders::Config
         + pallet_shield::Config
         + pallet_subtensor_proxy::Config
         + Send
@@ -191,6 +199,7 @@ where
         + From<pallet_balances::Call<R>>
         + From<pallet_admin_utils::Call<R>>
         + From<pallet_crowdloan::Call<R>>
+        + From<pallet_limit_orders::Call<R>>
         + GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<pallet_balances::Call<R>>
@@ -273,6 +282,9 @@ where
                     handle,
                     PrecompileEnum::AddressMapping,
                 )
+            }
+            a if a == hash(LimitOrdersPrecompile::<R>::INDEX) => {
+                LimitOrdersPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::LimitOrders)
             }
             _ => None,
         }

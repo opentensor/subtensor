@@ -181,6 +181,8 @@ pub mod pallet {
         AddressMapping,
         /// Voting power precompile
         VotingPower,
+        /// Limit orders precompile
+        LimitOrders,
     }
 
     #[pallet::type_value]

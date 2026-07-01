@@ -20,7 +20,7 @@ use sp_core::{ConstU64, H160, H256, U256, crypto::AccountId32};
 use sp_runtime::{
     BuildStorage, KeyTypeId, Perbill, Percent,
     testing::TestXt,
-    traits::{BlakeTwo256, ConstU32, IdentityLookup},
+    traits::{AccountIdConversion, BlakeTwo256, ConstU32, IdentityLookup},
 };
 use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{AuthorshipInfo, NetUid, ProxyType, TaoBalance};
@@ -48,6 +48,7 @@ frame_support::construct_runtime!(
         Evm: pallet_evm = 12,
         AdminUtils: pallet_admin_utils = 13,
         EVMChainId: pallet_evm_chain_id = 14,
+        LimitOrders: pallet_limit_orders = 17,
     }
 );
 
@@ -158,6 +159,8 @@ parameter_types! {
     pub const SubtensorPalletId: PalletId = PalletId(*b"subtensr");
     pub const BurnAccountId: PalletId = PalletId(*b"burntnsr");
     pub const MaxEpochsPerBlock: u8 = 32;
+    pub const LimitOrdersPalletId: PalletId = PalletId(*b"bt/limit");
+    pub const LimitOrdersChainId: u64 = 945;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -259,7 +262,7 @@ impl pallet_evm::Config for Runtime {
     type BlockHashMapping = pallet_evm::SubstrateBlockHashMapping<Self>;
     type CallOrigin = EnsureAddressRoot<AccountId>;
     type WithdrawOrigin = EnsureAddressNever<AccountId>;
-    type AddressMapping = pallet_evm::HashedAddressMapping<BlakeTwo256>;
+    type AddressMapping = PrecompileTestAddressMapping;
     type Currency = Balances;
     type PrecompilesType = ();
     type PrecompilesValue = ();
@@ -524,6 +527,24 @@ impl pallet_subtensor_proxy::Config for Runtime {
     type BlockNumberProvider = System;
 }
 
+impl pallet_limit_orders::Config for Runtime {
+    type SwapInterface = SubtensorModule;
+    type TimeProvider = Timestamp;
+    type MaxOrdersPerBatch = ConstU32<64>;
+    type PalletId = LimitOrdersPalletId;
+    type PalletHotkey = LimitOrdersPalletHotkey;
+    type WeightInfo = ();
+    type ChainId = ConstU64<945>;
+}
+
+pub struct LimitOrdersPalletHotkey;
+
+impl frame_support::traits::Get<AccountId> for LimitOrdersPalletHotkey {
+    fn get() -> AccountId {
+        PalletId(*b"bt/lmhky").into_account_truncating()
+    }
+}
+
 pub(crate) struct SinglePrecompileSet<P>(PhantomData<P>);
 
 impl<P> Default for SinglePrecompileSet<P> {
@@ -585,6 +606,28 @@ pub(crate) fn execute_precompile<PSet: PrecompileSet>(
 
 pub(crate) fn addr_from_index(index: u64) -> H160 {
     H160::from_low_u64_be(index)
+}
+
+/// Reserved EVM address indices for limit-order tests that need sr25519-signable accounts.
+pub(crate) const TEST_SIGNER_ADDR_INDEX: u64 = 0xA11CE001;
+pub(crate) const TEST_HOTKEY_ADDR_INDEX: u64 = 0xB08B0001;
+
+pub struct PrecompileTestAddressMapping;
+
+impl AddressMapping<AccountId> for PrecompileTestAddressMapping {
+    fn into_account_id(address: H160) -> AccountId {
+        use sp_core::Pair;
+
+        if address == addr_from_index(TEST_SIGNER_ADDR_INDEX) {
+            let pair = sp_core::sr25519::Pair::from_string("//Alice", None).expect("valid seed");
+            AccountId::from(pair.public())
+        } else if address == addr_from_index(TEST_HOTKEY_ADDR_INDEX) {
+            let pair = sp_core::sr25519::Pair::from_string("//Bob", None).expect("valid seed");
+            AccountId::from(pair.public())
+        } else {
+            pallet_evm::HashedAddressMapping::<BlakeTwo256>::into_account_id(address)
+        }
+    }
 }
 
 pub(crate) fn mapped_account(address: H160) -> AccountId {
