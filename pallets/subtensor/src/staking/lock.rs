@@ -472,6 +472,18 @@ impl<T: Config> Pallet<T> {
         AccountFlags::<T>::get(coldkey) & crate::ACCOUNT_FLAGS_ACCEPT_LOCKED_ALPHA != 1
     }
 
+    pub fn set_accept_locked_alpha(coldkey: &T::AccountId, enabled: bool) {
+        AccountFlags::<T>::mutate_exists(coldkey, |maybe_flags| {
+            let mut flags = maybe_flags.unwrap_or_default();
+            if enabled {
+                flags |= crate::ACCOUNT_FLAGS_ACCEPT_LOCKED_ALPHA;
+            } else {
+                flags &= !crate::ACCOUNT_FLAGS_ACCEPT_LOCKED_ALPHA;
+            }
+            *maybe_flags = if flags == 0 { None } else { Some(flags) };
+        });
+    }
+
     pub fn ensure_can_receive_locked_alpha(
         coldkey: &T::AccountId,
         amount: AlphaBalance,
@@ -1436,6 +1448,14 @@ impl<T: Config> Pallet<T> {
             if let Some(decaying) = DecayingLock::<T>::take(old_coldkey, netuid) {
                 DecayingLock::<T>::insert(new_coldkey, netuid, decaying);
             }
+        }
+
+        let flags = AccountFlags::<T>::get(old_coldkey);
+        AccountFlags::<T>::remove(old_coldkey);
+        if flags != 0 {
+            AccountFlags::<T>::insert(new_coldkey, flags);
+        } else {
+            AccountFlags::<T>::remove(new_coldkey);
         }
 
         // Insert locks for the new coldkey and add to the destination aggregate

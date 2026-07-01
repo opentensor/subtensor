@@ -60,6 +60,7 @@ impl<T: Config> Pallet<T> {
         let alpha_available =
             Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
         let alpha_unstaked = alpha_unstaked.min(alpha_available);
+        Self::ensure_remove_stake_input_within_swap_limit(netuid, alpha_unstaked)?;
 
         // 2. Validate the user input
         Self::validate_remove_stake(
@@ -341,6 +342,8 @@ impl<T: Config> Pallet<T> {
             "do_remove_stake( origin:{coldkey:?} hotkey:{hotkey:?}, netuid: {netuid:?}, alpha_unstaked:{alpha_unstaked:?} )"
         );
 
+        Self::ensure_remove_stake_input_within_swap_limit(netuid, alpha_unstaked)?;
+
         // 2. Calculate the maximum amount that can be executed with price limit
         let max_amount = Self::get_max_amount_remove(netuid, limit_price)?;
         let mut possible_alpha = alpha_unstaked;
@@ -399,12 +402,28 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // Use reverting swap to estimate max limit amount
-        let order = GetTaoForAlpha::<T>::with_amount(u64::MAX);
+        // Use the largest supported input instead of probing the swap path with u64::MAX.
+        let max_supported_input = SubnetAlphaIn::<T>::get(netuid).saturating_mul(1_000.into());
+        let order = GetTaoForAlpha::<T>::with_amount(max_supported_input);
         let result = T::SwapInterface::swap(netuid.into(), order, limit_price.into(), false, true)
             .map(|r| r.amount_paid_in.saturating_add(r.fee_paid))?;
 
         Ok(result)
+    }
+
+    fn ensure_remove_stake_input_within_swap_limit(
+        netuid: NetUid,
+        amount: AlphaBalance,
+    ) -> Result<(), Error<T>> {
+        if !netuid.is_root() && SubnetMechanism::<T>::get(netuid) == 1 {
+            let max_supported_input = SubnetAlphaIn::<T>::get(netuid).saturating_mul(1_000.into());
+            ensure!(
+                amount <= max_supported_input,
+                Error::<T>::InsufficientLiquidity
+            );
+        }
+
+        Ok(())
     }
 
     pub fn do_remove_stake_full_limit(
