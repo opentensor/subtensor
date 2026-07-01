@@ -311,7 +311,7 @@ fn start_babe_service(
             } else if matches!(e, sc_service::Error::Client(sp_blockchain::Error::Backend(ref msg))
                 if msg.starts_with("IO error: lock hold by current process"))
             {
-                log::info!("Failed to aquire DB lock, trying again in 1s...");
+                log::info!("Failed to acquire DB lock, trying again in 1s...");
                 std::thread::sleep(std::time::Duration::from_secs(1));
                 start_babe_service(arg_matches, skip_history_backfill)
             // Unknown error, return it.
