@@ -12,7 +12,6 @@ use core::num::NonZeroU64;
 
 pub mod check_mortality;
 pub mod check_nonce;
-mod migrations;
 pub mod sudo_wrapper;
 pub mod transaction_payment_wrapper;
 
@@ -234,7 +233,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 423,
+    spec_version: 424,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1674,7 +1673,6 @@ type Migrations = (
     pallet_subtensor::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration<
         Runtime,
     >,
-    migrations::PalletRegistryCleanupMigration,
 );
 
 // Unchecked extrinsic type as expected by this runtime.
