@@ -102,13 +102,12 @@ fn dissolve_defers_cleanup_until_on_idle() {
         assert!(!SubtensorModule::if_subnet_exist(net));
         assert!(DissolveCleanupQueue::<Test>::get().contains(&net));
         assert!(SubnetOwner::<Test>::contains_key(net));
-        assert!(NetworkRegisteredAt::<Test>::contains_key(net));
+        assert!(!NetworkRegisteredAt::<Test>::contains_key(net));
 
         // Cleanup happens in on_idle.
         run_block_idle();
 
         assert!(!SubnetOwner::<Test>::contains_key(net));
-        assert!(!NetworkRegisteredAt::<Test>::contains_key(net));
         assert!(!DissolveCleanupQueue::<Test>::get().contains(&net));
     });
 }
