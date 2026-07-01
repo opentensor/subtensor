@@ -174,6 +174,9 @@ mod pallet {
         /// Swap reserves are too imbalanced
         ReservesOutOfBalance,
 
+        /// Swap input is too large relative to input-side liquidity
+        SwapInputTooLarge,
+
         /// The extrinsic is deprecated
         Deprecated,
     }

@@ -14,7 +14,7 @@ use subtensor_swap_interface::{
 };
 
 use super::pallet::*;
-use super::swap_step::{BasicSwapStep, SwapStep};
+use super::swap_step::{BasicSwapStep, MAX_SWAP_INPUT_RESERVE_MULTIPLIER, SwapStep};
 use crate::{pallet::Balancer, pallet::balancer::BalancerError};
 
 impl<T: Config> Pallet<T> {
@@ -222,8 +222,13 @@ impl<T: Config> Pallet<T> {
         transactional::with_transaction(|| {
             let reserve = Order::ReserveOut::reserve(netuid.into());
 
-            let result = Self::swap_inner::<Order>(netuid, order, limit_price, drop_fees)
-                .map_err(Into::into);
+            let result = Self::ensure_swap_input_within_reserve_limit::<Order>(
+                netuid,
+                order.amount(),
+                drop_fees,
+            )
+            .and_then(|_| Self::swap_inner::<Order>(netuid, order, limit_price, drop_fees))
+            .map_err(Into::into);
 
             if simulate || result.is_err() {
                 // Simulation only
@@ -243,6 +248,23 @@ impl<T: Config> Pallet<T> {
                 TransactionOutcome::Commit(result)
             }
         })
+    }
+
+    fn ensure_swap_input_within_reserve_limit<Order>(
+        netuid: NetUid,
+        amount: Order::PaidIn,
+        drop_fees: bool,
+    ) -> Result<(), Error<T>>
+    where
+        Order: OrderT,
+    {
+        let fee = Self::calculate_fee_amount(netuid, amount, drop_fees);
+        let net_amount = amount.saturating_sub(fee);
+        let input_reserve = Order::ReserveIn::reserve(netuid);
+        let max_amount = input_reserve.saturating_mul(MAX_SWAP_INPUT_RESERVE_MULTIPLIER.into());
+
+        ensure!(net_amount <= max_amount, Error::<T>::SwapInputTooLarge);
+        Ok(())
     }
 
     fn swap_inner<Order>(
