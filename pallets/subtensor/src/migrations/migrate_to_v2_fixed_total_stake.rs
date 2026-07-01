@@ -98,6 +98,109 @@ pub fn migrate_to_v2_fixed_total_stake<T: Config>() -> Weight {
     }
 }
 
-// TODO: Add unit tests for this migration function
-// TODO: Consider adding error handling for potential arithmetic overflow
-// TODO: Optimize the iteration over Stake map if possible to reduce database reads
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tests::mock::*;
+    use frame_support::traits::{GetStorageVersion, StorageVersion};
+
+    /// Test that migration correctly skips when version check fails
+    #[test]
+    fn test_migrate_to_v2_fixed_total_stake_version_check() {
+        new_test_ext(1).execute_with(|| {
+            // Setup: Set storage version to 2 or higher (already migrated)
+            StorageVersion::new(2).put::<Pallet<Test>>();
+            
+            // Run migration
+            let weight = migrate_to_v2_fixed_total_stake::<Test>();
+            
+            // Verify migration was skipped (zero weight)
+            assert_eq!(weight, Weight::zero());
+            
+            // Verify version unchanged
+            assert_eq!(Pallet::<Test>::on_chain_storage_version(), StorageVersion::new(2));
+        });
+    }
+
+    /// Test that migration skips when version is exactly 2
+    #[test]
+    fn test_migrate_to_v2_fixed_total_stake_exact_version() {
+        new_test_ext(1).execute_with(|| {
+            // Setup: Set storage version to exactly 2
+            StorageVersion::new(2).put::<Pallet<Test>>();
+            
+            // Run migration
+            let weight = migrate_to_v2_fixed_total_stake::<Test>();
+            
+            // Verify migration skipped
+            assert_eq!(weight, Weight::zero());
+        });
+    }
+
+    /// Test migration behavior with version 1 (should trigger check but logic is disabled)
+    #[test]
+    fn test_migrate_to_v2_fixed_total_stake_version_1_disabled_migration() {
+        new_test_ext(1).execute_with(|| {
+            // Setup: Set storage version to 1 (should trigger migration check)
+            StorageVersion::new(1).put::<Pallet<Test>>();
+            
+            // Run migration - note the actual migration logic is commented out (TODO line 58)
+            let weight = migrate_to_v2_fixed_total_stake::<Test>();
+            
+            // Currently returns only the read weight since migration logic is disabled
+            let expected_weight = Test::DbWeight::get().reads(1);
+            assert_eq!(weight, expected_weight);
+            
+            // Version is NOT updated because migration logic is disabled
+            assert_eq!(Pallet::<Test>::on_chain_storage_version(), StorageVersion::new(1));
+        });
+    }
+
+    /// Test weight calculation when migration is skipped
+    #[test]
+    fn test_migrate_to_v2_fixed_total_stake_skip_weight() {
+        new_test_ext(1).execute_with(|| {
+            // Setup version that causes skip
+            StorageVersion::new(3).put::<Pallet<Test>>();
+            
+            // Run migration
+            let weight = migrate_to_v2_fixed_total_stake::<Test>();
+            
+            // Should return zero weight for skipped migration
+            assert_eq!(weight, Weight::zero());
+            assert_eq!(weight.ref_time(), 0);
+        });
+    }
+
+    // NOTE: The following tests would be relevant if the migration logic is re-enabled
+    // Currently, the migration implementation is commented out (see line 58: TODO: Fix or remove migration)
+    // If re-enabled, these test scenarios should be implemented:
+    
+    // TODO: If migration is re-enabled, add test for TotalStake reset and recalculation
+    // #[test]
+    // fn test_migrate_to_v2_fixed_total_stake_total_stake_recalculation() { ... }
+    
+    // TODO: If migration is re-enabled, add test for TotalColdkeyStake reset and recalculation  
+    // #[test]
+    // fn test_migrate_to_v2_fixed_total_stake_coldkey_stake_recalculation() { ... }
+    
+    // TODO: If migration is re-enabled, add test for arithmetic overflow protection
+    // #[test]
+    // fn test_migrate_to_v2_fixed_total_stake_overflow_protection() { ... }
+    
+    // TODO: If migration is re-enabled, add test for storage iteration weight calculation
+    // #[test]
+    // fn test_migrate_to_v2_fixed_total_stake_iteration_weight() { ... }
+}
+
+// MIGRATION STATUS DOCUMENTATION:
+// This migration function is currently DISABLED (see line 58).
+// The entire migration logic for resetting and recalculating TotalStake and TotalColdkeyStake
+// is commented out. This appears to be intentional based on the TODO comment.
+//
+// Decision needed:
+// 1. If migration should be removed entirely: Delete this file and remove from mod.rs
+// 2. If migration should be fixed and re-enabled: Uncomment the logic, add proper error
+//    handling with saturating arithmetic, and implement the additional test cases noted above
+// 3. If migration should remain disabled: Document why and when it might be re-enabled
