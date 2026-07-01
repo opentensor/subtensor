@@ -233,7 +233,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 424,
+    spec_version: 425,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -812,8 +812,11 @@ impl ProxyInterface<AccountId> for Proxier {
 
 pub struct CommitmentsI;
 impl CommitmentsInterface for CommitmentsI {
-    fn purge_netuid(netuid: NetUid) {
-        pallet_commitments::Pallet::<Runtime>::purge_netuid(netuid);
+    fn purge_netuid(
+        netuid: NetUid,
+        weight_meter: &mut frame_support::weights::WeightMeter,
+    ) -> bool {
+        pallet_commitments::Pallet::<Runtime>::purge_netuid(netuid, weight_meter)
     }
 }
 
@@ -897,7 +900,8 @@ pub struct AllowCommitments;
 impl CanCommit<AccountId> for AllowCommitments {
     #[cfg(not(feature = "runtime-benchmarks"))]
     fn can_commit(netuid: NetUid, address: &AccountId) -> bool {
-        SubtensorModule::is_hotkey_registered_on_network(netuid, address)
+        SubtensorModule::if_subnet_exist(netuid)
+            && SubtensorModule::is_hotkey_registered_on_network(netuid, address)
     }
 
     #[cfg(feature = "runtime-benchmarks")]
