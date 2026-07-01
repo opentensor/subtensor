@@ -8,12 +8,13 @@ use sp_core::{ByteArray, H256};
 use subtensor_runtime_common::{NetUid, Token};
 
 use crate::PrecompileExt;
+use crate::PrecompileHandleExt;
 
 pub struct MetagraphPrecompile<R>(PhantomData<R>);
 
 impl<R> PrecompileExt<R::AccountId> for MetagraphPrecompile<R>
 where
-    R: frame_system::Config + pallet_subtensor::Config,
+    R: frame_system::Config + pallet_subtensor::Config + pallet_evm::Config,
     R::AccountId: From<[u8; 32]> + ByteArray,
 {
     const INDEX: u64 = 2050;
@@ -22,12 +23,13 @@ where
 #[precompile_utils::precompile]
 impl<R> MetagraphPrecompile<R>
 where
-    R: frame_system::Config + pallet_subtensor::Config,
+    R: frame_system::Config + pallet_subtensor::Config + pallet_evm::Config,
     R::AccountId: ByteArray,
 {
     #[precompile::public("getUidCount(uint16)")]
     #[precompile::view]
-    fn get_uid_count(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u16> {
+    fn get_uid_count(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u16> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::SubnetworkN::<R>::get(NetUid::from(
             netuid,
         )))
@@ -35,7 +37,9 @@ where
 
     #[precompile::public("getStake(uint16,uint16)")]
     #[precompile::view]
-    fn get_stake(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<u64> {
+    fn get_stake(handle: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<u64> {
+        // Keys + TotalHotkeyAlpha reads
+        handle.record_db_reads::<R>(2)?;
         let hotkey = pallet_subtensor::Pallet::<R>::get_hotkey_for_net_and_uid(netuid.into(), uid)
             .map_err(|_| PrecompileFailure::Error {
                 exit_status: ExitError::InvalidRange,
@@ -60,7 +64,8 @@ where
 
     #[precompile::public("getConsensus(uint16,uint16)")]
     #[precompile::view]
-    fn get_consensus(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<u16> {
+    fn get_consensus(handle: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<u16> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::Pallet::<R>::get_consensus_for_uid(
             netuid.into(),
             uid,
@@ -69,7 +74,8 @@ where
 
     #[precompile::public("getIncentive(uint16,uint16)")]
     #[precompile::view]
-    fn get_incentive(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<u16> {
+    fn get_incentive(handle: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<u16> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::Pallet::<R>::get_incentive_for_uid(
             netuid.into(),
             uid,
@@ -78,7 +84,8 @@ where
 
     #[precompile::public("getDividends(uint16,uint16)")]
     #[precompile::view]
-    fn get_dividends(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<u16> {
+    fn get_dividends(handle: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<u16> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::Pallet::<R>::get_dividends_for_uid(
             netuid.into(),
             uid,
@@ -87,13 +94,15 @@ where
 
     #[precompile::public("getEmission(uint16,uint16)")]
     #[precompile::view]
-    fn get_emission(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<u64> {
+    fn get_emission(handle: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<u64> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::Pallet::<R>::get_emission_for_uid(netuid.into(), uid).into())
     }
 
     #[precompile::public("getVtrust(uint16,uint16)")]
     #[precompile::view]
-    fn get_vtrust(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<u16> {
+    fn get_vtrust(handle: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<u16> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::Pallet::<R>::get_validator_trust_for_uid(
             netuid.into(),
             uid,
@@ -103,10 +112,11 @@ where
     #[precompile::public("getValidatorStatus(uint16,uint16)")]
     #[precompile::view]
     fn get_validator_status(
-        _: &mut impl PrecompileHandle,
+        handle: &mut impl PrecompileHandle,
         netuid: u16,
         uid: u16,
     ) -> EvmResult<bool> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::Pallet::<R>::get_validator_permit_for_uid(
             netuid.into(),
             uid,
@@ -115,7 +125,12 @@ where
 
     #[precompile::public("getLastUpdate(uint16,uint16)")]
     #[precompile::view]
-    fn get_last_update(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<u64> {
+    fn get_last_update(
+        handle: &mut impl PrecompileHandle,
+        netuid: u16,
+        uid: u16,
+    ) -> EvmResult<u64> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::Pallet::<R>::get_last_update_for_uid(
             netuid.into(),
             uid,
@@ -124,7 +139,8 @@ where
 
     #[precompile::public("getIsActive(uint16,uint16)")]
     #[precompile::view]
-    fn get_is_active(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<bool> {
+    fn get_is_active(handle: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<bool> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::Pallet::<R>::get_active_for_uid(
             netuid.into(),
             uid,
@@ -133,7 +149,9 @@ where
 
     #[precompile::public("getAxon(uint16,uint16)")]
     #[precompile::view]
-    fn get_axon(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<AxonInfo> {
+    fn get_axon(handle: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<AxonInfo> {
+        // Keys + Axons reads
+        handle.record_db_reads::<R>(2)?;
         let hotkey = pallet_subtensor::Pallet::<R>::get_hotkey_for_net_and_uid(netuid.into(), uid)
             .map_err(|_| PrecompileFailure::Error {
                 exit_status: ExitError::Other("hotkey not found".into()),
@@ -144,7 +162,8 @@ where
 
     #[precompile::public("getHotkey(uint16,uint16)")]
     #[precompile::view]
-    fn get_hotkey(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<H256> {
+    fn get_hotkey(handle: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<H256> {
+        handle.record_db_reads::<R>(1)?;
         pallet_subtensor::Pallet::<R>::get_hotkey_for_net_and_uid(netuid.into(), uid)
             .map(|acc| H256::from_slice(acc.as_slice()))
             .map_err(|_| PrecompileFailure::Error {
@@ -154,7 +173,9 @@ where
 
     #[precompile::public("getColdkey(uint16,uint16)")]
     #[precompile::view]
-    fn get_coldkey(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<H256> {
+    fn get_coldkey(handle: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<H256> {
+        // Keys + Owner reads
+        handle.record_db_reads::<R>(2)?;
         let hotkey = pallet_subtensor::Pallet::<R>::get_hotkey_for_net_and_uid(netuid.into(), uid)
             .map_err(|_| PrecompileFailure::Error {
                 exit_status: ExitError::InvalidRange,

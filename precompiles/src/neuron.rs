@@ -303,7 +303,7 @@ mod tests {
         pallet_subtensor::Pallet::<Runtime>::set_burn(netuid, REGISTRATION_BURN.into());
         pallet_subtensor::Pallet::<Runtime>::set_max_allowed_uids(netuid, 4096);
         pallet_subtensor::Pallet::<Runtime>::set_weights_set_rate_limit(netuid, 0);
-        pallet_subtensor::Pallet::<Runtime>::set_tempo(netuid, TEMPO);
+        pallet_subtensor::Pallet::<Runtime>::set_tempo_unchecked(netuid, TEMPO);
         pallet_subtensor::Pallet::<Runtime>::set_commit_reveal_weights_enabled(netuid, true);
         pallet_subtensor::Pallet::<Runtime>::set_reveal_period(netuid, REVEAL_PERIOD)
             .expect("reveal period setup should succeed");
@@ -455,15 +455,21 @@ mod tests {
                 &caller_account,
             )
             .expect("weight commit should exist before reveal");
-            let (_, _, first_reveal_block, _) = commits
+            // CR-v2 tuple layout: (hash, commit_epoch, commit_block, _unused).
+            let (_, commit_epoch, _, _) = commits
                 .front()
                 .copied()
                 .expect("weight commit queue should contain the committed hash");
 
-            System::set_block_number(u64::from(
-                u32::try_from(first_reveal_block)
-                    .expect("first reveal block should fit in runtime block number"),
-            ));
+            // Put the subnet into the exact epoch in which the commit is revealable:
+            // `current_epoch == commit_epoch + reveal_period`. Pin `LastEpochBlock` and
+            // `PendingEpochAt` so `should_run_epoch` is false and the look-ahead does
+            // not advance past the reveal epoch.
+            let reveal_epoch = commit_epoch.saturating_add(REVEAL_PERIOD);
+            pallet_subtensor::SubnetEpochIndex::<Runtime>::insert(netuid, reveal_epoch);
+            let cur_block = pallet_subtensor::Pallet::<Runtime>::get_current_block_as_u64();
+            pallet_subtensor::LastEpochBlock::<Runtime>::insert(netuid, cur_block);
+            pallet_subtensor::PendingEpochAt::<Runtime>::insert(netuid, 0u64);
 
             pallet_subtensor::Pallet::<Runtime>::set_stake_threshold(1);
             let rejected = execute_precompile(
@@ -606,6 +612,48 @@ mod tests {
             assert_eq!(axon.protocol, SERVE_PROTOCOL);
             assert_eq!(axon.placeholder1, SERVE_PLACEHOLDER1);
             assert_eq!(axon.placeholder2, SERVE_PLACEHOLDER2);
+        });
+    }
+
+    #[test]
+    fn neuron_precompile_dispatch_runs_subtensor_dispatch_extensions() {
+        new_test_ext().execute_with(|| {
+            let caller = addr_from_index(0x5A34);
+            let (netuid, caller_account) = setup_registered_caller(caller);
+            let new_coldkey_hash =
+                <Runtime as frame_system::Config>::Hashing::hash_of(&AccountId::new([0x99; 32]));
+
+            pallet_subtensor::ColdkeySwapAnnouncements::<Runtime>::insert(
+                &caller_account,
+                (System::block_number(), new_coldkey_hash),
+            );
+
+            let rejected = execute_precompile(
+                &precompiles::<NeuronPrecompile<Runtime>>(),
+                addr_from_index(NeuronPrecompile::<Runtime>::INDEX),
+                caller,
+                encode_with_selector(
+                    selector_u32("serveAxon(uint16,uint32,uint128,uint16,uint8,uint8,uint8,uint8)"),
+                    (
+                        TEST_NETUID_U16,
+                        SERVE_VERSION,
+                        SERVE_IP,
+                        SERVE_PORT,
+                        SERVE_IP_TYPE,
+                        SERVE_PROTOCOL,
+                        SERVE_PLACEHOLDER1,
+                        SERVE_PLACEHOLDER2,
+                    ),
+                ),
+                U256::zero(),
+            )
+            .expect("serve axon should route to neuron precompile");
+
+            assert!(rejected.is_err());
+            assert!(
+                pallet_subtensor::Axons::<Runtime>::get(netuid, caller_account).is_none(),
+                "dispatch extension rejection must happen before the call writes endpoint metadata"
+            );
         });
     }
 

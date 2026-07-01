@@ -1,16 +1,16 @@
 use core::marker::PhantomData;
 
+use crate::PrecompileExt;
 use fp_evm::{ExitError, PrecompileFailure};
 use pallet_evm::{BalanceConverter, PrecompileHandle, SubstrateBalance};
 use precompile_utils::EvmResult;
+use sp_runtime::{SaturatedConversion, Vec};
+
+use crate::PrecompileHandleExt;
 use sp_core::U256;
-use sp_std::vec::Vec;
 use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{NetUid, Token};
 use subtensor_swap_interface::{Order, SwapHandler};
-
-use crate::PrecompileExt;
-
 pub struct AlphaPrecompile<R>(PhantomData<R>);
 
 impl<R> PrecompileExt<R::AccountId> for AlphaPrecompile<R>
@@ -34,7 +34,9 @@ where
 {
     #[precompile::public("getAlphaPrice(uint16)")]
     #[precompile::view]
-    fn get_alpha_price(_handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<U256> {
+    fn get_alpha_price(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<U256> {
+        // SubnetMechanism + SubnetAlphaIn + SubnetTAO + SwapBalancer reads
+        handle.record_db_reads::<R>(4)?;
         let current_alpha_price =
             <pallet_subtensor_swap::Pallet<R> as SwapHandler>::current_alpha_price(netuid.into());
         let price = current_alpha_price.saturating_mul(U64F64::from_num(1_000_000_000));
@@ -48,7 +50,9 @@ where
 
     #[precompile::public("getMovingAlphaPrice(uint16)")]
     #[precompile::view]
-    fn get_moving_alpha_price(_handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<U256> {
+    fn get_moving_alpha_price(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<U256> {
+        // SubnetMechanism + SubnetMovingPrice reads
+        handle.record_db_reads::<R>(2)?;
         let moving_alpha_price: U64F64 =
             pallet_subtensor::Pallet::<R>::get_moving_alpha_price(netuid.into());
         let price = moving_alpha_price.saturating_mul(U64F64::from_num(1_000_000_000));
@@ -62,38 +66,45 @@ where
 
     #[precompile::public("getTaoInPool(uint16)")]
     #[precompile::view]
-    fn get_tao_in_pool(_handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
+    fn get_tao_in_pool(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::SubnetTAO::<R>::get(NetUid::from(netuid)).to_u64())
     }
 
     #[precompile::public("getAlphaInPool(uint16)")]
     #[precompile::view]
-    fn get_alpha_in_pool(_handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
+    fn get_alpha_in_pool(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::SubnetAlphaIn::<R>::get(NetUid::from(netuid)).into())
     }
 
     #[precompile::public("getAlphaOutPool(uint16)")]
     #[precompile::view]
-    fn get_alpha_out_pool(_handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
+    fn get_alpha_out_pool(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::SubnetAlphaOut::<R>::get(NetUid::from(netuid)).into())
     }
 
     #[precompile::public("getAlphaIssuance(uint16)")]
     #[precompile::view]
-    fn get_alpha_issuance(_handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
+    fn get_alpha_issuance(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
+        // SubnetAlphaIn + SubnetAlphaOut reads
+        handle.record_db_reads::<R>(2)?;
         Ok(pallet_subtensor::Pallet::<R>::get_alpha_issuance(netuid.into()).into())
     }
 
     #[precompile::public("getTaoWeight()")]
     #[precompile::view]
-    fn get_tao_weight(_handle: &mut impl PrecompileHandle) -> EvmResult<U256> {
+    fn get_tao_weight(handle: &mut impl PrecompileHandle) -> EvmResult<U256> {
+        handle.record_db_reads::<R>(1)?;
         let tao_weight = pallet_subtensor::TaoWeight::<R>::get();
         Ok(U256::from(tao_weight))
     }
 
     #[precompile::public("getCKBurn()")]
     #[precompile::view]
-    fn get_ck_burn(_handle: &mut impl PrecompileHandle) -> EvmResult<U256> {
+    fn get_ck_burn(handle: &mut impl PrecompileHandle) -> EvmResult<U256> {
+        handle.record_db_reads::<R>(1)?;
         let ck_burn = pallet_subtensor::CKBurn::<R>::get();
         Ok(U256::from(ck_burn))
     }
@@ -101,10 +112,13 @@ where
     #[precompile::public("simSwapTaoForAlpha(uint16,uint64)")]
     #[precompile::view]
     fn sim_swap_tao_for_alpha(
-        _handle: &mut impl PrecompileHandle,
+        handle: &mut impl PrecompileHandle,
         netuid: u16,
         tao: u64,
     ) -> EvmResult<U256> {
+        // SubnetMechanism + swap simulation reads
+        handle.record_db_reads::<R>(9)?;
+
         let order = pallet_subtensor::GetAlphaForTao::<R>::with_amount(tao);
         let swap_result =
             <pallet_subtensor_swap::Pallet<R> as SwapHandler>::sim_swap(netuid.into(), order)
@@ -117,10 +131,13 @@ where
     #[precompile::public("simSwapAlphaForTao(uint16,uint64)")]
     #[precompile::view]
     fn sim_swap_alpha_for_tao(
-        _handle: &mut impl PrecompileHandle,
+        handle: &mut impl PrecompileHandle,
         netuid: u16,
         alpha: u64,
     ) -> EvmResult<U256> {
+        // SubnetMechanism + swap simulation reads
+        handle.record_db_reads::<R>(9)?;
+
         let order = pallet_subtensor::GetTaoForAlpha::<R>::with_amount(alpha);
         let swap_result =
             <pallet_subtensor_swap::Pallet<R> as SwapHandler>::sim_swap(netuid.into(), order)
@@ -132,7 +149,8 @@ where
 
     #[precompile::public("getSubnetMechanism(uint16)")]
     #[precompile::view]
-    fn get_subnet_mechanism(_handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u16> {
+    fn get_subnet_mechanism(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u16> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::SubnetMechanism::<R>::get(NetUid::from(
             netuid,
         )))
@@ -147,9 +165,10 @@ where
     #[precompile::public("getEMAPriceHalvingBlocks(uint16)")]
     #[precompile::view]
     fn get_ema_price_halving_blocks(
-        _handle: &mut impl PrecompileHandle,
+        handle: &mut impl PrecompileHandle,
         netuid: u16,
     ) -> EvmResult<u64> {
+        handle.record_db_reads::<R>(1)?;
         Ok(pallet_subtensor::EMAPriceHalvingBlocks::<R>::get(
             NetUid::from(netuid),
         ))
@@ -157,7 +176,8 @@ where
 
     #[precompile::public("getSubnetVolume(uint16)")]
     #[precompile::view]
-    fn get_subnet_volume(_handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<U256> {
+    fn get_subnet_volume(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<U256> {
+        handle.record_db_reads::<R>(1)?;
         Ok(U256::from(pallet_subtensor::SubnetVolume::<R>::get(
             NetUid::from(netuid),
         )))
@@ -165,7 +185,8 @@ where
 
     #[precompile::public("getTaoInEmission(uint16)")]
     #[precompile::view]
-    fn get_tao_in_emission(_handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<U256> {
+    fn get_tao_in_emission(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<U256> {
+        handle.record_db_reads::<R>(1)?;
         Ok(U256::from(
             pallet_subtensor::SubnetTaoInEmission::<R>::get(NetUid::from(netuid)).to_u64(),
         ))
@@ -173,7 +194,8 @@ where
 
     #[precompile::public("getAlphaInEmission(uint16)")]
     #[precompile::view]
-    fn get_alpha_in_emission(_handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<U256> {
+    fn get_alpha_in_emission(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<U256> {
+        handle.record_db_reads::<R>(1)?;
         Ok(U256::from(
             pallet_subtensor::SubnetAlphaInEmission::<R>::get(NetUid::from(netuid)).to_u64(),
         ))
@@ -181,7 +203,8 @@ where
 
     #[precompile::public("getAlphaOutEmission(uint16)")]
     #[precompile::view]
-    fn get_alpha_out_emission(_handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<U256> {
+    fn get_alpha_out_emission(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<U256> {
+        handle.record_db_reads::<R>(1)?;
         Ok(U256::from(
             pallet_subtensor::SubnetAlphaOutEmission::<R>::get(NetUid::from(netuid)).to_u64(),
         ))
@@ -189,16 +212,31 @@ where
 
     #[precompile::public("getSumAlphaPrice()")]
     #[precompile::view]
-    fn get_sum_alpha_price(_handle: &mut impl PrecompileHandle) -> EvmResult<U256> {
-        let netuids = pallet_subtensor::NetworksAdded::<R>::iter()
-            .filter(|(netuid, _)| *netuid != NetUid::ROOT)
-            .collect::<Vec<_>>();
+    fn get_sum_alpha_price(handle: &mut impl PrecompileHandle) -> EvmResult<U256> {
+        // NetworksAdded iteration + current_alpha_price reads
+        handle.record_db_reads::<R>(1)?;
+        let subnet_limit = pallet_subtensor::SubnetLimit::<R>::get().saturated_into::<u64>();
+
+        handle.record_db_reads::<R>(subnet_limit)?;
 
         let mut sum_alpha_price: U64F64 = U64F64::from_num(0);
-        for (netuid, _) in netuids {
-            let price = <pallet_subtensor_swap::Pallet<R> as SwapHandler>::current_alpha_price(
-                netuid.into(),
-            );
+        let netuids = pallet_subtensor::NetworksAdded::<R>::iter()
+            .filter(|(netuid, _)| *netuid != NetUid::ROOT)
+            .map(|(netuid, _)| netuid)
+            .collect::<Vec<_>>();
+
+        // NetworksAdded entry + current_alpha_price reads
+        handle.record_db_reads::<R>(
+            netuids
+                .len()
+                .saturated_into::<u64>()
+                .saturating_mul(5)
+                .saturating_sub(subnet_limit),
+        )?;
+
+        for netuid in netuids.iter() {
+            let price =
+                <pallet_subtensor_swap::Pallet<R> as SwapHandler>::current_alpha_price(*netuid);
 
             if price < U64F64::from_num(1) {
                 sum_alpha_price = sum_alpha_price.saturating_add(price);
