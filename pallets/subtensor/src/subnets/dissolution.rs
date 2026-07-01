@@ -116,10 +116,6 @@ impl<T: Config> Pallet<T> {
         NetworksAdded::<T>::remove(netuid);
         // Reduce the total networks count.
         TotalNetworks::<T>::mutate(|n: &mut u16| *n = n.saturating_sub(1));
-        // Remove network registration time, it is used by some contracts to check if the network is registered.
-        // Also useful to the same netuid used again after dissolution.
-        NetworkRegisteredAt::<T>::remove(netuid);
-
         TotalStake::<T>::mutate(|total| *total = total.saturating_sub(SubnetTAO::<T>::get(netuid)));
 
         dissolved_networks.push(netuid);
@@ -245,6 +241,7 @@ impl<T: Config> Pallet<T> {
         weight_meter.consume(removal_weight);
         SubnetOwner::<T>::remove(netuid);
         SubnetworkN::<T>::remove(netuid);
+        NetworkRegisteredAt::<T>::remove(netuid);
         Active::<T>::remove(netuid);
         Emission::<T>::remove(netuid);
         Consensus::<T>::remove(netuid);
