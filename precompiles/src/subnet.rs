@@ -473,17 +473,37 @@ where
         Ok(u16::try_from(cutoff_blocks).unwrap_or(u16::MAX))
     }
 
-    /// DEPRECATED: retained only for ABI backward-compatibility. Setting the
-    /// absolute activity cutoff is no longer supported now that it is derived
-    /// per-tempo.
+    /// DEPRECATED: retained only for ABI backward-compatibility. The absolute
+    /// `ActivityCutoff` hyperparameter was replaced by the per-tempo
+    /// `ActivityCutoffFactorMilli` (see `setActivityCutoffFactor`). For back-compat
+    /// the legacy absolute-block value is mapped onto the equivalent per-tempo
+    /// factor at the current tempo (`factor_milli = ceil(activity_cutoff × 1000 /
+    /// tempo)`, mirroring the dynamic-tempo migration) and dispatched to
+    /// `set_activity_cutoff_factor`.
     #[precompile::public("setActivityCutoff(uint16,uint16)")]
     #[precompile::payable]
     fn set_activity_cutoff(
-        _handle: &mut impl PrecompileHandle,
-        _netuid: u16,
-        _activity_cutoff: u16,
+        handle: &mut impl PrecompileHandle,
+        netuid: u16,
+        activity_cutoff_blocks: u16,
     ) -> EvmResult<()> {
-        Ok(())
+        handle.record_db_reads::<R>(1)?;
+        let tempo = pallet_subtensor::Tempo::<R>::get(NetUid::from(netuid)).max(1) as u64;
+        let factor_milli = (activity_cutoff_blocks as u64)
+            .saturating_mul(1_000)
+            .saturating_add(tempo.saturating_sub(1))
+            .checked_div(tempo)
+            .unwrap_or(0);
+
+        let call = pallet_subtensor::Call::<R>::set_activity_cutoff_factor {
+            netuid: netuid.into(),
+            factor_milli: u32::try_from(factor_milli).unwrap_or(u32::MAX),
+        };
+
+        handle.try_dispatch_runtime_call::<R, _>(
+            call,
+            RawOrigin::Signed(handle.caller_account_id::<R>()),
+        )
     }
 
     #[precompile::public("getActivityCutoffFactor(uint16)")]
