@@ -31,7 +31,13 @@ impl<T: Config> Pallet<T> {
     /// Calculates the block emission based on the total issuance only, no minting happens.
     pub fn calculate_block_emission() -> Result<TaoBalance, &'static str> {
         // Convert the total issuance to a fixed-point number for calculation.
-        Self::get_block_emission_for_issuance(Self::get_total_issuance().into()).map(Into::into)
+        let block_emission =
+            Self::get_block_emission_for_issuance(Self::get_total_issuance().into());
+        let block_emission_u64: u64 = block_emission.unwrap_or(0);
+        if BlockEmission::<T>::get() != block_emission_u64 {
+            BlockEmission::<T>::put(block_emission_u64);
+        }
+        block_emission.map(Into::into)
     }
 
     /// Returns the block emission for an issuance value.
