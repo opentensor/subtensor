@@ -1,7 +1,15 @@
 name: ai-review
 
 on:
+  # Same-repo PRs route through pull_request (uses the PR's workflow file —
+  # handy when iterating on this workflow). Fork PRs route through
+  # pull_request_target so they receive secrets and can be reviewed; that
+  # trigger reads the workflow file from the BASE branch, so a hostile fork
+  # cannot modify the review pipeline. The `decide` job's `if:` below ensures
+  # each PR fires exactly one of these triggers — no double-runs.
   pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+  pull_request_target:
     types: [opened, reopened, synchronize, ready_for_review]
   workflow_dispatch:
     inputs:
@@ -22,6 +30,13 @@ jobs:
   decide:
     name: decide
     runs-on: ubuntu-latest
+    # Route each PR through exactly one trigger so it never runs twice:
+    # same-repo via pull_request, fork via pull_request_target. dispatch
+    # always runs.
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
+      (github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository)
     permissions:
       contents: read
       pull-requests: read
@@ -78,13 +93,12 @@ jobs:
             RUN_SKEPTIC=true; RUN_AUDITOR=true
           fi
 
-          # Fork auto-trigger: persona jobs still RUN (so the required checks
-          # exist as failures rather than as `skipped`-satisfied bypasses).
-          # The persona jobs fail-fast in their "Fork PR advisory" step with a
-          # clear maintainer-facing message. A nucleus member then has to
-          # invoke workflow_dispatch on the PR (which runs in base context
-          # with secrets and produces real green checks) to clear the gate.
-          # See README.md → "Fork PR handling" for the rationale.
+          # Fork PRs run via pull_request_target (see workflow `on:` block)
+          # so they receive secrets and can be reviewed. The workflow file
+          # itself comes from the base branch under pull_request_target, and
+          # persona prompts + helper scripts are extracted from base into
+          # /tmp/ai-review-trusted/, so a hostile fork cannot tamper with the
+          # review pipeline.
 
           {
             echo "pr_number=$PR"
@@ -97,6 +111,30 @@ jobs:
             echo "run_skeptic=$RUN_SKEPTIC"
             echo "run_auditor=$RUN_AUDITOR"
           } >> "$GITHUB_OUTPUT"
+
+      # Fork PRs MUST NOT modify `.github/` — workflow files, persona prompts,
+      # required-check definitions, etc. live there. Even though our trusted
+      # extraction renders most of this unweaponizable, a fork PR that touches
+      # `.github/` requires human-eyes review on the diff itself before AI
+      # review can safely run on the rest of the change. Block with a clear
+      # error; the right fix is to land any `.github/` changes via a separate
+      # same-repo PR first, then re-trigger AI review on the fork PR (which
+      # will then have nothing to touch under `.github/`).
+      - name: Fork PR — block .github/ changes
+        if: steps.compute.outputs.is_fork == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ steps.compute.outputs.pr_number }}
+        run: |
+          set -euo pipefail
+          touched=$(gh pr view "$PR" --repo "$REPO" --json files \
+            --jq '[.files[] | select(.path | startswith(".github/")) | .path] | join(", ")')
+          if [[ -n "$touched" ]]; then
+            echo "::error::Fork PR modifies .github/ paths: $touched"
+            echo "::error::AI review will not run automatically. Land the .github/ changes in a separate same-repo PR first, then re-run this workflow."
+            exit 1
+          fi
 
   skeptic:
     name: skeptic
@@ -111,21 +149,6 @@ jobs:
       posted_url: ${{ steps.post.outputs.posted_url }}
       verdict: ${{ steps.post.outputs.verdict }}
     steps:
-      # Fail-fast on fork auto-trigger. `pull_request` from a fork has no
-      # secrets and a read-only token, so the Codex steps cannot run. Rather
-      # than skip the job (which would `skipped`-satisfy a required check
-      # and silently bypass the security gate), fail loudly with a clear
-      # maintainer-facing message. A nucleus member then dispatches the
-      # workflow manually for this PR; workflow_dispatch runs in base
-      # context with secrets and produces real green checks.
-      - name: Fork PR advisory (fail-fast)
-        if: needs.decide.outputs.is_fork == 'true' && github.event_name == 'pull_request'
-        env:
-          PR: ${{ needs.decide.outputs.pr_number }}
-        run: |
-          echo "::error::Fork PR detected. AI review cannot auto-run on fork pull_request events (repository secrets are not exposed). A maintainer must invoke this workflow via workflow_dispatch with PR #${PR} to perform the security review."
-          exit 1
-
       - name: Checkout PR head
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
@@ -337,15 +360,6 @@ jobs:
       posted_url: ${{ steps.post.outputs.posted_url }}
       verdict: ${{ steps.post.outputs.verdict }}
     steps:
-      # See note in the skeptic job — same fork-PR fail-fast rationale.
-      - name: Fork PR advisory (fail-fast)
-        if: needs.decide.outputs.is_fork == 'true' && github.event_name == 'pull_request'
-        env:
-          PR: ${{ needs.decide.outputs.pr_number }}
-        run: |
-          echo "::error::Fork PR detected. AI review cannot auto-run on fork pull_request events (repository secrets are not exposed). A maintainer must invoke this workflow via workflow_dispatch with PR #${PR} to perform the security review."
-          exit 1
-
       - name: Checkout PR head
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
