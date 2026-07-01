@@ -106,6 +106,13 @@ interface ISubnet {
         int16 steepness
     ) external payable;
 
+    function getActivityCutoff(uint16 netuid) external view returns (uint16);
+
+    function setActivityCutoff(
+        uint16 netuid,
+        uint16 activityCutoff
+    ) external payable;
+
     function getActivityCutoffFactor(
         uint16 netuid
     ) external view returns (uint32);

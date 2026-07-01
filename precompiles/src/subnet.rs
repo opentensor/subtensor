@@ -463,6 +463,29 @@ where
         )
     }
 
+    /// DEPRECATED: retained only for ABI backward-compatibility.
+    #[precompile::public("getActivityCutoff(uint16)")]
+    #[precompile::view]
+    fn get_activity_cutoff(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u16> {
+        handle.record_db_reads::<R>(2)?;
+        let cutoff_blocks =
+            pallet_subtensor::Pallet::<R>::get_activity_cutoff_blocks(NetUid::from(netuid));
+        Ok(u16::try_from(cutoff_blocks).unwrap_or(u16::MAX))
+    }
+
+    /// DEPRECATED: retained only for ABI backward-compatibility. Setting the
+    /// absolute activity cutoff is no longer supported now that it is derived
+    /// per-tempo.
+    #[precompile::public("setActivityCutoff(uint16,uint16)")]
+    #[precompile::payable]
+    fn set_activity_cutoff(
+        _handle: &mut impl PrecompileHandle,
+        _netuid: u16,
+        _activity_cutoff: u16,
+    ) -> EvmResult<()> {
+        Ok(())
+    }
+
     #[precompile::public("getActivityCutoffFactor(uint16)")]
     #[precompile::view]
     fn get_activity_cutoff_factor(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u32> {
