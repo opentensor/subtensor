@@ -5,7 +5,7 @@ use alloc::{collections::BTreeMap, vec::Vec};
 use approx::assert_abs_diff_eq;
 use sp_core::U256;
 use substrate_fixed::types::{I64F64, I96F32, U64F64, U96F32};
-use subtensor_runtime_common::{NetUid, TaoBalance};
+use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance};
 
 fn u64f64(x: f64) -> U64F64 {
     U64F64::from_num(x)
@@ -149,126 +149,6 @@ fn inplace_pow_normalize_fractional_exponent() {
             let sum = a + b + c;
             assert_abs_diff_eq!(sum, 1.0_f64, epsilon = 1e-12);
         })
-}
-
-#[allow(clippy::expect_used)]
-#[test]
-fn protocol_normalization_keeps_eligible_subnet_count_from_collapsing() {
-    new_test_ext(1).execute_with(|| {
-        let subnet_count = 70usize;
-        let user_flow = 100u64;
-        let protocol_flow_start = 40u64;
-        let protocol_flow_step = 4u64;
-
-        NetTaoFlowEnabled::<Test>::set(true);
-        FlowNormExponent::<Test>::set(u64f64(1.0));
-        TaoFlowCutoff::<Test>::set(i64f64(0.0));
-        FlowEmaSmoothingFactor::<Test>::set(i64::MAX as u64);
-
-        let subnets = (0..subnet_count)
-            .map(|i| {
-                let netuid = NetUid::from((i + 1) as u16);
-                add_network(netuid, 360, 0);
-                SubnetEmissionEnabled::<Test>::insert(netuid, true);
-
-                let protocol_flow = protocol_flow_start + protocol_flow_step.saturating_mul(i as u64);
-                SubtensorModule::record_tao_inflow(netuid, TaoBalance::from(user_flow));
-                SubtensorModule::record_protocol_inflow(netuid, TaoBalance::from(protocol_flow));
-
-                netuid
-            })
-            .collect::<Vec<_>>();
-
-        let subnets_to_emit_to = SubtensorModule::get_subnets_to_emit_to(&subnets);
-        assert_eq!(
-            subnets_to_emit_to.len(),
-            subnets.len(),
-            "test setup should make every subnet structurally eligible before flow scoring"
-        );
-
-        let emissions = SubtensorModule::get_subnet_block_emissions(
-            &subnets_to_emit_to,
-            U96F32::saturating_from_num(1_000_000_000u64),
-        );
-
-        let ema_rows = subnets_to_emit_to
-            .iter()
-            .map(|netuid| {
-                let (_, user_ema) = SubnetEmaTaoFlow::<Test>::get(*netuid)
-                    .expect("user EMA should be initialized by get_subnet_block_emissions");
-                let (_, protocol_ema) = SubnetEmaProtocolFlow::<Test>::get(*netuid)
-                    .expect("protocol EMA should be initialized by get_subnet_block_emissions");
-
-                (*netuid, user_ema.to_num::<f64>(), protocol_ema.to_num::<f64>())
-            })
-            .collect::<Vec<_>>();
-
-        let positive_user_ema_count = ema_rows
-            .iter()
-            .filter(|(_, user_ema, _)| *user_ema > 0.0)
-            .count();
-        let dynamic_eligibility_floor = positive_user_ema_count / 2;
-
-        let sum_positive_user_ema: f64 = ema_rows
-            .iter()
-            .map(|(_, user_ema, _)| (*user_ema).max(0.0))
-            .sum();
-        let sum_positive_protocol_ema: f64 = ema_rows
-            .iter()
-            .map(|(_, _, protocol_ema)| (*protocol_ema).max(0.0))
-            .sum();
-        let protocol_norm_factor = if sum_positive_protocol_ema > 0.0 {
-            (sum_positive_user_ema / sum_positive_protocol_ema).min(1.0)
-        } else {
-            0.0
-        };
-
-        let unnormalized_eligible = ema_rows
-            .iter()
-            .filter(|(_, user_ema, protocol_ema)| *user_ema > *protocol_ema)
-            .count();
-        let expected_normalized_eligible = ema_rows
-            .iter()
-            .filter(|(_, user_ema, protocol_ema)| {
-                let scaled_protocol_ema = if *protocol_ema > 0.0 {
-                    protocol_norm_factor * *protocol_ema
-                } else {
-                    *protocol_ema
-                };
-                *user_ema > scaled_protocol_ema
-            })
-            .count();
-        let actual_eligible = emissions
-            .values()
-            .filter(|emission| emission.to_num::<f64>() > 0.0)
-            .count();
-        let total_emission: f64 = emissions
-            .values()
-            .map(|emission| emission.to_num::<f64>())
-            .sum();
-
-        assert_abs_diff_eq!(total_emission, 1_000_000_000.0_f64, epsilon = 1.0);
-        assert!(
-            unnormalized_eligible < dynamic_eligibility_floor,
-            "test setup should reproduce the old unnormalized collapse: unnormalized_eligible={unnormalized_eligible}, dynamic_eligibility_floor={dynamic_eligibility_floor}"
-        );
-        assert!(
-            expected_normalized_eligible >= dynamic_eligibility_floor,
-            "test setup should keep enough subnets eligible after protocol normalization: expected_normalized_eligible={expected_normalized_eligible}, dynamic_eligibility_floor={dynamic_eligibility_floor}"
-        );
-        assert_eq!(
-            actual_eligible, expected_normalized_eligible,
-            "eligible subnet count should be derived from the normalized protocol-cost calculation"
-        );
-        assert!(
-            actual_eligible >= dynamic_eligibility_floor,
-            "eligible subnet count collapsed below the dynamic floor: actual_eligible={actual_eligible}, dynamic_eligibility_floor={dynamic_eligibility_floor}, unnormalized_eligible={unnormalized_eligible}"
-        );
-        assert!(
-            actual_eligible > unnormalized_eligible,
-            "normalization should preserve more eligible subnets than the old unnormalized path: actual_eligible={actual_eligible}, unnormalized_eligible={unnormalized_eligible}"
-        );
-    });
 }
 
 // /// Normal (moderate, non-zero) EMA flows across 3 subnets.

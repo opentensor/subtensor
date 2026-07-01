@@ -7,3 +7,4 @@ pub mod root;
 pub mod run_coinbase;
 pub mod subnet_emissions;
 pub mod tao;
+pub mod tempo_control;
