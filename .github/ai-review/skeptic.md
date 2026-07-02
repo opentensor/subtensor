@@ -73,7 +73,7 @@ diff from a HIGH-risk contributor tips toward `[VULNERABLE]`.
 **Patterns that lower risk**:
 
 - Established contributor with a long history of substantive merged PRs to this repo.
-- "Nucleus" team member: `gh api repos/opentensor/subtensor/collaborators/$AUTHOR/permission` — `admin` or `write` permission.
+- "Nucleus" team member: `gh api repos/RaoFoundation/subtensor/collaborators/$AUTHOR/permission` — `admin` or `write` permission.
 - Substantive contribution history to unrelated reputable open-source projects.
 
 ## Step 2 — Diff analysis

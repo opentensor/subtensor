@@ -89,6 +89,10 @@ fn main() {
                 && !s.ends_with("from opentensor/testnet-ready")
                 && !s.ends_with("from opentensor/devnet")
                 && !s.ends_with("from opentensor/testnet")
+                && !s.ends_with("from RaoFoundation/devnet-ready")
+                && !s.ends_with("from RaoFoundation/testnet-ready")
+                && !s.ends_with("from RaoFoundation/devnet")
+                && !s.ends_with("from RaoFoundation/testnet")
         })
         .collect::<Vec<String>>();
 

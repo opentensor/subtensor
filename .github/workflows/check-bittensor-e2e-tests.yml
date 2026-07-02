@@ -361,7 +361,10 @@ jobs:
         run: docker load -i subtensor-localnet.tar
 
       - name: Retag Docker Image
-        run: docker tag localnet ghcr.io/opentensor/subtensor-localnet:devnet-ready
+        run: |
+          docker tag localnet ghcr.io/raofoundation/subtensor-localnet:devnet-ready
+          # Legacy name still referenced by bittensor/btcli test suites
+          docker tag localnet ghcr.io/opentensor/subtensor-localnet:devnet-ready
 
       - name: Run with retry
         working-directory: ${{ github.workspace }}/btcli
@@ -442,7 +445,10 @@ jobs:
         run: docker load -i subtensor-localnet.tar
 
       - name: Retag Docker Image
-        run: docker tag localnet ghcr.io/opentensor/subtensor-localnet:devnet-ready
+        run: |
+          docker tag localnet ghcr.io/raofoundation/subtensor-localnet:devnet-ready
+          # Legacy name still referenced by bittensor/btcli test suites
+          docker tag localnet ghcr.io/opentensor/subtensor-localnet:devnet-ready
 
       - name: Run with retry
         working-directory: ${{ github.workspace }}/bittensor

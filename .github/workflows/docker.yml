@@ -38,6 +38,9 @@ jobs:
           echo "tag=$branch_or_tag" >> $GITHUB_ENV
           echo "ref=$branch_or_tag" >> $GITHUB_ENV
 
+          # Docker image names must be lowercase; github.repository is RaoFoundation/subtensor
+          echo "image_repo=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+
           # Check if this is a tagged release (not devnet-ready/devnet/testnet)
           if [[ "${{ github.event_name }}" == "release" && "$branch_or_tag" != "devnet-ready" && "$branch_or_tag" != "devnet" && "$branch_or_tag" != "testnet" ]]; then
             echo "latest_tag=true" >> $GITHUB_ENV
@@ -70,5 +73,5 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            ghcr.io/${{ github.repository }}:${{ env.tag }}
-            ${{ env.latest_tag == 'true' && format('ghcr.io/{0}:latest', github.repository) || '' }}
+            ghcr.io/${{ env.image_repo }}:${{ env.tag }}
+            ${{ env.latest_tag == 'true' && format('ghcr.io/{0}:latest', env.image_repo) || '' }}
