@@ -29,7 +29,7 @@ workflow will automatically use its token instead.
 
 ### Setup
 
-1. Create a GitHub App under the `opentensor` org:
+1. Create a GitHub App under the `RaoFoundation` org:
    - Settings → Developer settings → GitHub Apps → New GitHub App.
    - Webhook: not needed; disable.
    - Repository permissions:
