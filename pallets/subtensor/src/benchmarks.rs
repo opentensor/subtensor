@@ -15,10 +15,9 @@ use sp_runtime::{
     BoundedVec, Percent,
     traits::{BlakeTwo256, Hash},
 };
-use sp_std::collections::btree_set::BTreeSet;
 use sp_std::vec;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance};
+use subtensor_runtime_common::{AlphaBalance, NetUid, NetUidStorageIndex, TaoBalance};
 use subtensor_swap_interface::SwapHandler;
 
 #[benchmarks(
@@ -1908,14 +1907,6 @@ mod pallet_benchmarks {
     }
 
     #[benchmark]
-    fn set_root_claim_type() {
-        let coldkey: T::AccountId = whitelisted_caller();
-
-        #[extrinsic_call]
-        _(RawOrigin::Signed(coldkey.clone()), RootClaimTypeEnum::Swap);
-    }
-
-    #[benchmark]
     fn claim_root() {
         let coldkey: T::AccountId = whitelisted_caller();
         let hotkey: T::AccountId = account("A", 0, 1);
@@ -1957,6 +1948,16 @@ mod pallet_benchmarks {
             initial_total_hotkey_alpha.into(),
         );
 
+        // Point the validator's basket weight vector at the subnet so the distributed root
+        // dividend is deposited into its fund (instead of being recycled for lack of weights).
+        if let Ok(root_uid) = Uids::<T>::try_get(NetUid::ROOT, &hotkey) {
+            Weights::<T>::insert(
+                NetUidStorageIndex::ROOT,
+                root_uid,
+                vec![(u16::from(netuid), 1u16)],
+            );
+        }
+
         let pending_root_alpha = 10_000_000u64;
         Subtensor::<T>::distribute_emission(
             netuid,
@@ -1966,27 +1967,23 @@ mod pallet_benchmarks {
             AlphaBalance::ZERO,
         );
 
-        let initial_stake =
-            Subtensor::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
-
-        assert_ok!(Subtensor::<T>::set_root_claim_type(
-            RawOrigin::Signed(coldkey.clone()).into(),
-            RootClaimTypeEnum::Swap
-        ));
+        let initial_stake = Subtensor::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+        );
 
         #[extrinsic_call]
-        _(RawOrigin::Signed(coldkey.clone()), BTreeSet::from([netuid]));
+        _(RawOrigin::Signed(coldkey.clone()));
 
-        let new_stake =
-            Subtensor::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        let new_stake = Subtensor::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+        );
 
+        // The claim must actually pay out (strict: a no-op claim is a broken benchmark).
         assert!(new_stake > initial_stake);
-    }
-
-    #[benchmark]
-    fn sudo_set_num_root_claims() {
-        #[extrinsic_call]
-        _(RawOrigin::Root, 40);
     }
 
     #[benchmark]

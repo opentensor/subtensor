@@ -12,10 +12,7 @@ mod dispatches {
     use sp_runtime::{Percent, Saturating, traits::Hash};
 
     use crate::MAX_CRV3_COMMIT_SIZE_BYTES;
-    use crate::MAX_NUM_ROOT_CLAIMS;
     use crate::MAX_ROOT_CLAIM_THRESHOLD;
-    use crate::MAX_SUBNET_CLAIMS;
-
     /// Dispatchable functions allow users to interact with the pallet and invoke state changes.
     /// These functions materialize as "extrinsics", which are often compared to transactions.
     /// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
@@ -2171,6 +2168,12 @@ mod dispatches {
         }
 
         /// --- Claims the root emissions for a coldkey.
+        ///
+        /// Redemption is fund-level: for every validator the coldkey stakes to, the staker's
+        /// owed fund shares are redeemed as their pro-rata fraction of each basket holding
+        /// (sold to TAO and staked on root). There is no per-subnet selection — the basket is a
+        /// single fund whose composition is independent of staker entitlements.
+        ///
         /// # Args:
         /// * 'origin': (<T as frame_system::Config>Origin):
         /// 	- The signature of the caller's coldkey.
@@ -2183,75 +2186,21 @@ mod dispatches {
         ///
         #[pallet::call_index(121)]
         #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::claim_root())]
-        pub fn claim_root(
-            origin: OriginFor<T>,
-            subnets: BTreeSet<NetUid>,
-        ) -> DispatchResultWithPostInfo {
+        pub fn claim_root(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let coldkey: T::AccountId = ensure_signed(origin)?;
-
-            ensure!(!subnets.is_empty(), Error::<T>::InvalidSubnetNumber);
-            ensure!(
-                subnets.len() <= MAX_SUBNET_CLAIMS,
-                Error::<T>::InvalidSubnetNumber
-            );
 
             Self::maybe_add_coldkey_index(&coldkey);
 
-            let weight = Self::do_root_claim(coldkey, Some(subnets))?;
+            let weight = Self::do_root_claim(coldkey)?;
             Ok((Some(weight), Pays::Yes).into())
         }
 
-        /// --- Sets the root claim type for the coldkey.
-        ///
-        /// Beta-basket redemption is always a full swap to root TAO, so only
-        /// [`RootClaimTypeEnum::Swap`] is accepted. The `Keep` / `KeepSubnets` variants are
-        /// deprecated no-ops retained only for storage/SCALE decode compatibility and are
-        /// rejected here so a caller can never set a claim type that silently does nothing.
-        ///
-        /// # Args:
-        /// * 'origin': (<T as frame_system::Config>Origin):
-        /// 	- The signature of the caller's coldkey.
-        ///
-        /// # Event:
-        /// * RootClaimTypeSet;
-        /// 	- On the successfully setting the root claim type for the coldkey.
-        ///
-        #[pallet::call_index(122)]
-        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::set_root_claim_type())]
-        pub fn set_root_claim_type(
-            origin: OriginFor<T>,
-            new_root_claim_type: RootClaimTypeEnum,
-        ) -> DispatchResult {
-            let coldkey: T::AccountId = ensure_signed(origin)?;
+        // Call indices 122 (`set_root_claim_type`) and 123 (`sudo_set_num_root_claims`) are
+        // retired: basket redemption is always a full swap to root TAO (no per-coldkey claim
+        // type), and there is no auto-claim scheduler to configure. Do not reuse these indices.
 
-            ensure!(
-                matches!(new_root_claim_type, RootClaimTypeEnum::Swap),
-                Error::<T>::RootClaimTypeNotSupported
-            );
-
-            Self::maybe_add_coldkey_index(&coldkey);
-
-            Self::change_root_claim_type(&coldkey, new_root_claim_type);
-            Ok(())
-        }
-
-        /// --- Sets root claim number (sudo extrinsic). Zero disables auto-claim.
-        #[pallet::call_index(123)]
-        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::sudo_set_num_root_claims())]
-        pub fn sudo_set_num_root_claims(origin: OriginFor<T>, new_value: u64) -> DispatchResult {
-            ensure_root(origin)?;
-
-            ensure!(
-                new_value <= MAX_NUM_ROOT_CLAIMS,
-                Error::<T>::InvalidNumRootClaim
-            );
-
-            NumRootClaim::<T>::set(new_value);
-
-            Ok(())
-        }
-
-        /// --- Sets root claim threshold for subnet (sudo or owner origin).
+        /// --- Sets the root claim dust threshold (sudo). Basket redemption is fund-level, so
+        /// only the `NetUid::ROOT` entry is meaningful; other netuids are rejected.
         #[pallet::call_index(124)]
         #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::sudo_set_root_claim_threshold())]
         pub fn sudo_set_root_claim_threshold(
@@ -2260,6 +2209,10 @@ mod dispatches {
             new_value: u64,
         ) -> DispatchResult {
             Self::ensure_subnet_owner_or_root(origin, netuid)?;
+
+            // Claims only ever consult the ROOT entry; accepting other netuids would silently
+            // store an inert value.
+            ensure!(netuid.is_root(), Error::<T>::InvalidRootClaimThreshold);
 
             ensure!(
                 new_value <= I96F32::from(MAX_ROOT_CLAIM_THRESHOLD),

@@ -210,7 +210,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::SubnetNotExists
         );
 
-        Self::finalize_all_subnet_root_dividends(netuid);
+        Self::convert_subnet_basket_holdings_to_root(netuid);
 
         // --- Perform the cleanup before removing the network.
         Self::destroy_alpha_in_out_stakes(netuid)?;

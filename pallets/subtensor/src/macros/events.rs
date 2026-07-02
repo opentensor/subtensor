@@ -472,51 +472,38 @@ mod events {
             coldkey: T::AccountId,
         },
 
-        /// Root claim type for a coldkey has been set.
-        /// Parameters:
-        /// (coldkey, u8)
-        RootClaimTypeSet {
-            /// Claim coldkey
-            coldkey: T::AccountId,
-
-            /// Claim type
-            root_claim_type: RootClaimTypeEnum,
-        },
-
-        /// A validator's beta basket received a deposit on a subnet: `alpha` was bought and staked
-        /// into the basket, minting `shares` of basket principal at the current NAV.
+        /// A validator's beta basket (fund) received a dividend deposit: `tao` of value was
+        /// deployed across subnets per the validator's weight vector, minting `shares` fund
+        /// shares at the pre-deposit NAV.
         BasketDeposited {
             /// Validator hotkey whose basket received the deposit.
             hotkey: T::AccountId,
-            /// Subnet the basket alpha was bought on.
-            netuid: NetUid,
-            /// Alpha bought and staked into the basket (grows escrow value `E`).
-            alpha: AlphaBalance,
-            /// Basket principal shares minted at the live NAV (grows `BasketPrincipal`).
-            shares: AlphaBalance,
+            /// TAO value added to the fund (marked at moving prices).
+            tao: TaoBalance,
+            /// Fund shares minted at the pre-deposit NAV (grows `BasketShares`).
+            shares: u64,
         },
 
-        /// A staker redeemed (claimed) part of a validator's beta basket on a subnet, realizing
-        /// `tao` which was staked onto their root position.
+        /// A staker redeemed (claimed) their owed share of a validator's beta basket: their
+        /// pro-rata fraction of every holding was realized as `tao` and staked onto their root
+        /// position.
         BasketClaimed {
             /// Validator hotkey the basket belongs to.
             hotkey: T::AccountId,
             /// Staker coldkey that claimed.
             coldkey: T::AccountId,
-            /// Subnet the basket alpha was redeemed from.
-            netuid: NetUid,
             /// TAO realized and staked on root for the staker.
             tao: TaoBalance,
         },
 
-        /// A validator's beta basket on a dissolving subnet was liquidated back to its root
-        /// stakers, realizing `tao` distributed to the validator's root nominators.
-        BasketLiquidated {
-            /// Validator hotkey whose basket was liquidated.
+        /// A validator's basket holding on a dissolving subnet was converted into the fund's
+        /// root (TAO) slot. Fund shares and staker entitlements are unaffected.
+        BasketHoldingConverted {
+            /// Validator hotkey whose holding was converted.
             hotkey: T::AccountId,
             /// Subnet being dissolved.
             netuid: NetUid,
-            /// TAO realized and credited to the validator's root stakers.
+            /// TAO realized and held as the fund's root-slot position.
             tao: TaoBalance,
         },
 

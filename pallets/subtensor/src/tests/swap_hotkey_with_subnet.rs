@@ -2486,18 +2486,15 @@ fn test_revert_claim_root_with_swap_hotkey() {
             AlphaBalance::ZERO,
         );
 
-        assert_ok!(SubtensorModule::claim_root(
-            RuntimeOrigin::signed(coldkey),
-            BTreeSet::from([netuid])
-        ));
+        assert_ok!(SubtensorModule::claim_root(RuntimeOrigin::signed(coldkey)));
 
-        let hk1_root_claimed = RootClaimed::<Test>::get((netuid, &hk1, &coldkey));
-        let hk1_claimable = *RootClaimable::<Test>::get(hk1).get(&netuid).unwrap();
+        let hk1_claimed = BasketClaimed::<Test>::get(hk1, coldkey);
+        let hk1_rate = BasketRate::<Test>::get(hk1);
 
-        // Claiming now swaps the basket to TAO on root (not subnet alpha), so we only assert the
-        // watermark advanced; the rest of the test verifies claim state transfer/revert on swap.
-        assert!(hk1_root_claimed > 0);
-        assert!(!RootClaimable::<Test>::get(hk2).contains_key(&netuid));
+        // Claiming swaps the fund to TAO on root, so we only assert the watermark advanced; the
+        // rest of the test verifies that a NON-root single-subnet swap does not move fund state.
+        assert!(hk1_claimed > 0);
+        assert!(BasketRate::<Test>::get(hk2) == I96F32::from_num(0));
 
         System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_ok!(SubtensorModule::do_swap_hotkey(
@@ -2509,17 +2506,17 @@ fn test_revert_claim_root_with_swap_hotkey() {
         ));
 
         assert_eq!(
-            RootClaimed::<Test>::get((netuid, &hk2, &coldkey)),
-            0u128,
-            "hk2 RootClaimed must be zero after swap"
+            BasketClaimed::<Test>::get(hk2, coldkey),
+            0i128,
+            "hk2 BasketClaimed must be zero after non-root swap"
         );
         assert_eq!(
-            RootClaimed::<Test>::get((netuid, &hk1, &coldkey)),
-            hk1_root_claimed,
-            "hk2 must have hk1's RootClaimed after swap"
+            BasketClaimed::<Test>::get(hk1, coldkey),
+            hk1_claimed,
+            "hk1 must retain its BasketClaimed after non-root swap"
         );
-        assert!(RootClaimable::<Test>::get(hk1).contains_key(&netuid));
-        assert!(!RootClaimable::<Test>::get(hk2).contains_key(&netuid));
+        assert_eq!(BasketRate::<Test>::get(hk1), hk1_rate);
+        assert!(BasketRate::<Test>::get(hk2) == I96F32::from_num(0));
 
         // Revert: hk2 -> hk1
         step_block(20);
@@ -2532,21 +2529,21 @@ fn test_revert_claim_root_with_swap_hotkey() {
         ));
 
         assert_eq!(
-            RootClaimed::<Test>::get((netuid, &hk2, &coldkey)),
-            0u128,
-            "hk2 RootClaimed must be zero after revert"
+            BasketClaimed::<Test>::get(hk2, coldkey),
+            0i128,
+            "hk2 BasketClaimed must be zero after revert"
         );
         assert_eq!(
-            RootClaimed::<Test>::get((netuid, &hk1, &coldkey)),
-            hk1_root_claimed,
-            "hk1 RootClaimed must be restored after revert"
+            BasketClaimed::<Test>::get(hk1, coldkey),
+            hk1_claimed,
+            "hk1 BasketClaimed must be restored after revert"
         );
 
-        assert!(!RootClaimable::<Test>::get(hk2).contains_key(&netuid));
+        assert!(BasketRate::<Test>::get(hk2) == I96F32::from_num(0));
         assert_eq!(
-            *RootClaimable::<Test>::get(hk1).get(&netuid).unwrap(),
-            hk1_claimable,
-            "hk1 RootClaimable must be restored after revert"
+            BasketRate::<Test>::get(hk1),
+            hk1_rate,
+            "hk1 BasketRate must be restored after revert"
         );
     });
 }
@@ -2977,21 +2974,13 @@ fn test_swap_hotkey_root_claims_unchanged_if_not_root() {
             AlphaBalance::ZERO,
         );
 
-        assert_ok!(SubtensorModule::claim_root(
-            RuntimeOrigin::signed(staker_coldkey),
-            BTreeSet::from([netuid])
-        ));
+        assert_ok!(SubtensorModule::claim_root(RuntimeOrigin::signed(
+            staker_coldkey
+        )));
 
-        let claimable = RootClaimable::<Test>::get(neuron_hotkey)
-            .get(&netuid)
-            .copied();
-
-        assert!(claimable.is_some());
-        let claimable = claimable.unwrap_or_default();
-
-        assert!(claimable > 0);
-
-        assert!(RootClaimed::<Test>::get((netuid, &neuron_hotkey, &staker_coldkey,)) > 0u128);
+        let rate = BasketRate::<Test>::get(neuron_hotkey);
+        assert!(rate > I96F32::from_num(0));
+        assert!(BasketClaimed::<Test>::get(neuron_hotkey, staker_coldkey) > 0i128);
 
         step_block(20);
         assert_ok!(SubtensorModule::do_swap_hotkey(
@@ -3002,14 +2991,14 @@ fn test_swap_hotkey_root_claims_unchanged_if_not_root() {
             false
         ));
 
-        // Claimable and claimed should stay on old hotkey
+        // Fund rate and claimed watermark should stay on old hotkey (non-root swap).
+        assert_eq!(BasketRate::<Test>::get(neuron_hotkey), rate);
+        assert!(BasketClaimed::<Test>::get(neuron_hotkey, staker_coldkey) > 0i128);
         assert_eq!(
-            RootClaimable::<Test>::get(neuron_hotkey)
-                .get(&netuid)
-                .copied(),
-            Some(claimable)
+            BasketRate::<Test>::get(new_hotkey),
+            I96F32::from_num(0),
+            "non-root swap must not move the fund"
         );
-        assert!(RootClaimed::<Test>::get((netuid, &neuron_hotkey, &staker_coldkey,)) > 0u128);
     });
 }
 
@@ -3066,21 +3055,15 @@ fn test_swap_hotkey_root_claims_changed_if_root() {
             AlphaBalance::ZERO,
         );
 
-        assert_ok!(SubtensorModule::claim_root(
-            RuntimeOrigin::signed(staker_coldkey),
-            BTreeSet::from([netuid_1])
-        ));
+        assert_ok!(SubtensorModule::claim_root(RuntimeOrigin::signed(
+            staker_coldkey
+        )));
 
-        let claimable = RootClaimable::<Test>::get(neuron_hotkey)
-            .get(&netuid_1)
-            .copied();
-        assert!(claimable.is_some());
-        let claimable = claimable.unwrap_or_default();
+        let rate = BasketRate::<Test>::get(neuron_hotkey);
+        assert!(rate > I96F32::from_num(0));
 
-        assert!(claimable > 0);
-
-        let claimed = RootClaimed::<Test>::get((netuid_1, &neuron_hotkey, &staker_coldkey));
-        assert!(claimed > 0u128);
+        let claimed = BasketClaimed::<Test>::get(neuron_hotkey, staker_coldkey);
+        assert!(claimed > 0i128);
 
         step_block(20);
         assert_ok!(SubtensorModule::do_swap_hotkey(
@@ -3091,17 +3074,13 @@ fn test_swap_hotkey_root_claims_changed_if_root() {
             false
         ));
 
-        // Claimable and claimed should be transferred to new hotkey
+        // The whole fund (rate + claimed watermark) is transferred to the new hotkey.
+        assert_eq!(BasketRate::<Test>::get(neuron_hotkey_new), rate);
         assert_eq!(
-            RootClaimable::<Test>::get(neuron_hotkey_new)
-                .get(&netuid_1)
-                .copied(),
-            Some(claimable)
-        );
-        assert_eq!(
-            RootClaimed::<Test>::get((netuid_1, &neuron_hotkey_new, &staker_coldkey,)),
+            BasketClaimed::<Test>::get(neuron_hotkey_new, staker_coldkey),
             claimed
         );
+        assert_eq!(BasketRate::<Test>::get(neuron_hotkey), I96F32::from_num(0));
     });
 }
 
@@ -3161,21 +3140,15 @@ fn test_swap_hotkey_root_claims_changed_if_all_subnets() {
             AlphaBalance::ZERO,
         );
 
-        assert_ok!(SubtensorModule::claim_root(
-            RuntimeOrigin::signed(staker_coldkey),
-            BTreeSet::from([netuid_1])
-        ));
+        assert_ok!(SubtensorModule::claim_root(RuntimeOrigin::signed(
+            staker_coldkey
+        )));
 
-        let claimable = RootClaimable::<Test>::get(neuron_hotkey)
-            .get(&netuid_1)
-            .copied();
-        assert!(claimable.is_some());
-        let claimable = claimable.unwrap_or_default();
+        let rate = BasketRate::<Test>::get(neuron_hotkey);
+        assert!(rate > I96F32::from_num(0));
 
-        assert!(claimable > 0);
-
-        let claimed = RootClaimed::<Test>::get((netuid_1, &neuron_hotkey, &staker_coldkey));
-        assert!(claimed > 0u128);
+        let claimed = BasketClaimed::<Test>::get(neuron_hotkey, staker_coldkey);
+        assert!(claimed > 0i128);
 
         step_block(20);
         assert_ok!(SubtensorModule::do_swap_hotkey(
@@ -3186,17 +3159,13 @@ fn test_swap_hotkey_root_claims_changed_if_all_subnets() {
             false
         ));
 
-        // Claimable and claimed should be transferred to new hotkey
+        // The whole fund (rate + claimed watermark) is transferred to the new hotkey.
+        assert_eq!(BasketRate::<Test>::get(neuron_hotkey_new), rate);
         assert_eq!(
-            RootClaimable::<Test>::get(neuron_hotkey_new)
-                .get(&netuid_1)
-                .copied(),
-            Some(claimable)
-        );
-        assert_eq!(
-            RootClaimed::<Test>::get((netuid_1, &neuron_hotkey_new, &staker_coldkey,)),
+            BasketClaimed::<Test>::get(neuron_hotkey_new, staker_coldkey),
             claimed
         );
+        assert_eq!(BasketRate::<Test>::get(neuron_hotkey), I96F32::from_num(0));
     });
 }
 

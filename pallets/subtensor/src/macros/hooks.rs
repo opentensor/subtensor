@@ -176,8 +176,9 @@ mod hooks {
                 .saturating_add(migrations::migrate_tao_in_refund_deployment_block::migrate_tao_in_refund_deployment_block::<T>())
                 // Fix lock state left behind by subnet-scoped hotkey swaps.
                 .saturating_add(migrations::migrate_fix_subnet_hotkey_lock_swaps::migrate_fix_subnet_hotkey_lock_swaps::<T>())
-                // Seed the beta-basket escrow model from legacy RootClaimable state.
-                .saturating_add(migrations::migrate_seed_beta_basket::migrate_seed_beta_basket::<T>());
+                // Seed the unified beta-basket fund from legacy per-subnet claim state (v2:
+                // fresh key so chains that ran the superseded per-slot v1 seed still convert).
+                .saturating_add(migrations::migrate_seed_beta_basket::migrate_seed_beta_basket_v2::<T>());
             weight
         }
 

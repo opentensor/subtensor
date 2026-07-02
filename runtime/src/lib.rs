@@ -678,7 +678,6 @@ subtensor_macros::define_proxy_filters! {
         SubtensorModule::add_stake_limit,
         SubtensorModule::remove_stake_limit,
         SubtensorModule::remove_stake_full_limit,
-        SubtensorModule::set_root_claim_type,
     }
 
     Registration => allow {

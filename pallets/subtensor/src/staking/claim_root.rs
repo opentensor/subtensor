@@ -5,79 +5,59 @@ use frame_support::weights::Weight;
 use sp_core::Get;
 use sp_runtime::DispatchError;
 use sp_runtime::traits::AccountIdConversion;
-use sp_std::collections::btree_set::BTreeSet;
 use substrate_fixed::types::{I96F32, U96F32};
 use subtensor_runtime_common::NetUidStorageIndex;
 use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
-    pub fn increase_root_claimable_for_hotkey_and_subnet(
-        hotkey: &T::AccountId,
-        netuid: NetUid,
-        amount: AlphaBalance,
-    ) {
-        // Get total stake on this hotkey on root.
-        let total: I96F32 =
-            I96F32::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, NetUid::ROOT));
-
-        // Get increment
-        let increment: I96F32 = I96F32::saturating_from_num(amount)
-            .checked_div(total)
-            .unwrap_or(I96F32::saturating_from_num(0.0));
-
-        // Unlikely to happen. This is mostly for test environment sanity checks.
-        if u64::from(amount) > total.saturating_to_num::<u64>() {
-            log::warn!("Not enough root stake. NetUID = {netuid}");
-
-            let owner = Owner::<T>::get(hotkey);
-            Self::increase_stake_for_hotkey_and_coldkey_on_subnet(hotkey, &owner, netuid, amount);
-            return;
-        }
-
-        // Increment claimable for this subnet.
-        Self::bump_root_claimable_rate(hotkey, netuid, increment);
-    }
-
-    /// Adds `increment` (alpha-principal per unit of root stake) to a hotkey's claimable
-    /// rate on `netuid`. This is the unit-agnostic core shared by the legacy single-subnet
-    /// crediting and the beta basket distribution.
-    pub fn bump_root_claimable_rate(hotkey: &T::AccountId, netuid: NetUid, increment: I96F32) {
-        if increment == I96F32::saturating_from_num(0) {
-            return;
-        }
-        RootClaimable::<T>::mutate(hotkey, |claimable| {
-            claimable
-                .entry(netuid)
-                .and_modify(|claim_total| *claim_total = claim_total.saturating_add(increment))
-                .or_insert(increment);
-        });
-    }
-
     /// The single global escrow coldkey that custodies every validator's beta basket.
     ///
-    /// Baskets are held as positions `(validator_hotkey, this_account, netuid)` in the normal
-    /// alpha share pool, so they count toward each validator's stake and compound with that
-    /// validator's dividends, while the account itself stays inert (no user controls it). A
-    /// single global coldkey is used deliberately: positions stay distinct per validator via
-    /// the hotkey key, and hotkey swaps migrate them by value automatically.
+    /// A validator's basket (fund) holdings are positions `(validator_hotkey, this_account,
+    /// netuid)` in the normal alpha share pool, so they count toward each validator's stake and
+    /// compound with that validator's dividends, while the account itself stays inert (no user
+    /// controls it). A single global coldkey is used deliberately: positions stay distinct per
+    /// validator via the hotkey key, and hotkey swaps migrate them by value automatically.
     pub fn get_beta_escrow_account_id() -> T::AccountId {
         T::SubtensorPalletId::get().into_sub_account_truncating(b"beta/esc")
+    }
+
+    /// A validator's basket holdings: every `(netuid, alpha)` position the escrow custodies for
+    /// this hotkey, including the root slot (the fund's TAO/cash position, valued 1:1).
+    pub fn get_basket_holdings(hotkey: &T::AccountId) -> Vec<(NetUid, AlphaBalance)> {
+        let escrow = Self::get_beta_escrow_account_id();
+        Self::alpha_iter_prefix((hotkey, &escrow))
+            .map(|(netuid, _)| {
+                (
+                    netuid,
+                    Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, &escrow, netuid),
+                )
+            })
+            .filter(|(_, alpha)| !alpha.is_zero())
+            .collect()
     }
 
     /// Distributes a validator's root dividend (origin-subnet alpha, net of take) into its beta
     /// basket according to the validator's root weight vector `w` (set on subnet 0).
     ///
     /// Flow: sell the origin alpha for TAO, then split that TAO across subnets per `w`, buying
-    /// each subnet's alpha and staking it to the validator under the global escrow coldkey. Each
-    /// slot records the bought alpha as basket principal and bumps the per-staker claimable rate.
-    /// The whole operation is transactional: if any swap fails, it is rolled back and the original
-    /// alpha is recycled. If the validator has no usable weights (or no root stake), the dividend
-    /// is recycled.
+    /// each subnet's alpha and staking it to the validator under the global escrow coldkey (a
+    /// root-destination slice is held directly as the fund's root-stake cash position). The
+    /// deposit then mints *fund shares* against the whole basket: `shares = value_added * P / N`,
+    /// where `N` is the fund's pre-deposit mark-to-market NAV and `P` the outstanding shares,
+    /// so existing holders are never diluted and a late deposit cannot skim past
+    /// compounding. Stakers accrue entitlement through the single per-validator
+    /// `BasketRate += shares / total_root_stake` accumulator; no entitlement is ever denominated
+    /// in a particular subnet's alpha, which is what allows holdings to be rebalanced without
+    /// touching staker claims.
+    ///
+    /// The whole operation is transactional: if any swap fails (or the deposit is dust), it is
+    /// rolled back and the original alpha is recycled. If the validator has no usable weights
+    /// (or no root stake), the dividend is recycled.
     ///
     /// Protocol-flow accounting is symmetric with redemption: the origin sell is booked as an
-    /// outflow on the origin subnet and each redistribution buy as an inflow on its dest subnet, so
-    /// that a deposit-then-claim round-trip nets to ~0 on the dest pools (the claim sell is booked
-    /// as an outflow in `root_claim_on_subnet`).
+    /// outflow on the origin subnet and each redistribution buy as an inflow on its dest subnet,
+    /// so that a deposit-then-claim round-trip nets to ~0 on the dest pools (the claim sell is
+    /// booked as an outflow in `root_claim_for_hotkey`).
     pub fn distribute_root_alpha_to_basket(
         hotkey: &T::AccountId,
         origin_netuid: NetUid,
@@ -96,9 +76,9 @@ impl<T: Config> Pallet<T> {
             .unwrap_or_default();
 
         // Keep weights that point at root (uid 0) or an existing subnet. Root is a valid
-        // destination: that slice is held as a root-stake (TAO) basket slot instead of being
-        // deployed into subnet alpha, letting a validator opt out of subnet exposure while its
-        // stakers still accumulate (and compound) yield on root.
+        // destination: that slice is held as the fund's root-stake (TAO) cash position instead of
+        // being deployed into subnet alpha, letting a validator opt out of subnet exposure while
+        // its stakers still accumulate (and compound) yield on root.
         let valid: Vec<(NetUid, u64)> = weights
             .into_iter()
             .filter_map(|(dest, weight)| {
@@ -115,8 +95,8 @@ impl<T: Config> Pallet<T> {
         let escrow = Self::get_beta_escrow_account_id();
 
         // Claimant base = real stakers' root stake. The escrow custody account is not a claimant,
-        // so its own root-slot holdings are excluded; otherwise every slot's claimable rate would
-        // be diluted and a slice of principal would become unclaimable.
+        // so its own root-slot holdings are excluded; otherwise the fund's claimable rate would
+        // be diluted and a slice of shares would become unclaimable.
         let total_root = Self::get_stake_for_hotkey_on_subnet(hotkey, NetUid::ROOT).saturating_sub(
             Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, &escrow, NetUid::ROOT),
         );
@@ -130,6 +110,8 @@ impl<T: Config> Pallet<T> {
         let total_root_float = I96F32::saturating_from_num(total_root);
 
         let outcome = with_transaction(|| {
+            let shares_outstanding: u64 = BasketShares::<T>::get(hotkey);
+
             // 1. Sell the origin-subnet alpha for TAO.
             let tao_total: TaoBalance = match Self::swap_alpha_for_tao(
                 origin_netuid,
@@ -144,9 +126,18 @@ impl<T: Config> Pallet<T> {
             // Record the origin-subnet root sell as protocol outflow (TAO left A's pool).
             Self::record_protocol_outflow(origin_netuid, tao_total);
 
-            // 2. Split the TAO across subnets per w and buy each subnet's alpha.
+            // Pre-deposit NAV, snapshotted AFTER the origin sell and before the buys: the fund
+            // may itself hold origin-subnet alpha, and the sell moves that price, so marking N
+            // any earlier would misprice the mint against the state the deposit actually enters.
+            let nav_before: u64 = Self::get_validator_basket_nav_tao(hotkey).to_u64();
+
+            // 2. Split the TAO across subnets per w, buying each subnet's alpha into the escrow.
+            // `value_added` is the TAO actually deployed into the fund (standard vault
+            // convention: cash in at NAV); the buys' slippage is then borne by the whole fund
+            // pro-rata, exactly like any other mark-to-market move.
             let tao_total_u64: u64 = tao_total.to_u64();
             let mut spent: u64 = 0;
+            let mut value_added: u64 = 0;
             let last_idx = valid.len().saturating_sub(1);
             for (i, (dest_netuid, weight)) in valid.iter().enumerate() {
                 // Last slot absorbs the rounding remainder so Σ tao_s == tao_total exactly.
@@ -164,12 +155,17 @@ impl<T: Config> Pallet<T> {
                     continue;
                 }
 
-                let is_root_slot = dest_netuid.is_root();
-
-                // Acquire the slot's asset for this TAO slice. Subnets buy alpha from the pool;
-                // root has no pool, so the slice is simply held as root stake (TAO at 1:1).
-                let bought: AlphaBalance = if is_root_slot {
-                    tao_s.into()
+                if dest_netuid.is_root() {
+                    // Root slot: held as root stake (TAO at 1:1), no pool to buy from. Mirror
+                    // `swap_tao_for_alpha`'s reserve bookkeeping by hand.
+                    Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                        hotkey,
+                        &escrow,
+                        NetUid::ROOT,
+                        tao_s.into(),
+                    );
+                    Self::credit_root_reserves(tao_s.into());
+                    value_added = value_added.saturating_add(tao_s);
                 } else {
                     let bought = match Self::swap_tao_for_alpha(
                         *dest_netuid,
@@ -181,81 +177,56 @@ impl<T: Config> Pallet<T> {
                         Err(err) => return TransactionOutcome::Rollback(Err(err)),
                     };
                     // Record the redistribution buy as protocol inflow (TAO entered the pool).
-                    // Root has no AMM pool, so it has no protocol flow to record.
                     Self::record_protocol_inflow(*dest_netuid, tao_s.into());
-                    bought
-                };
-
-                if bought.is_zero() {
-                    continue;
-                }
-
-                // Mint basket principal at the CURRENT escrow NAV, not at par. A deposit into an
-                // already-compounded basket (E/P > 1) must mint fewer principal "shares" than the
-                // alpha bought, so E/P is left unchanged: existing holders are not diluted and a
-                // late staker cannot skim past compounding. shares = bought / (E/P) = bought*P/E.
-                // For root, `alpha_to_tao_value(ROOT) == 1:1`, so the escrow value (root stake) is
-                // already in TAO and the same NAV math applies unchanged.
-                let escrow_value: u64 =
-                    Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, &escrow, *dest_netuid)
-                        .to_u64();
-                let principal_total: u64 = BasketPrincipal::<T>::get(hotkey, *dest_netuid).to_u64();
-                let bought_u64: u64 = bought.to_u64();
-                let shares: u64 = if principal_total == 0 || escrow_value == 0 {
-                    // First deposit into this slot: 1 principal share per unit (E/P starts at 1).
-                    bought_u64
-                } else {
-                    U96F32::saturating_from_num(bought_u64)
-                        .saturating_mul(U96F32::saturating_from_num(principal_total))
-                        .checked_div(U96F32::saturating_from_num(escrow_value))
-                        .unwrap_or(U96F32::saturating_from_num(0))
-                        .saturating_to_num::<u64>()
-                };
-
-                // Per-staker claimable rate increment: principal shares per unit of root stake.
-                let increment: I96F32 = I96F32::saturating_from_num(shares)
-                    .checked_div(total_root_float)
-                    .unwrap_or(I96F32::saturating_from_num(0));
-
-                // Too small to credit (shares or rate round to zero): keep `Σ owed == principal`.
-                // Subnets recycle the bought alpha; the root slice was never minted into a pool, so
-                // it is simply dropped (already debited from the origin pool by the sell above).
-                if shares == 0 || increment == I96F32::saturating_from_num(0) {
-                    if !is_root_slot {
-                        Self::recycle_subnet_alpha(*dest_netuid, bought);
+                    if bought.is_zero() {
+                        continue;
                     }
-                    continue;
+                    Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                        hotkey,
+                        &escrow,
+                        *dest_netuid,
+                        bought,
+                    );
+                    value_added = value_added.saturating_add(tao_s);
                 }
-
-                // Stake the full `bought` asset to the validator under the escrow coldkey (grows E
-                // by `bought`); P grows only by `shares`, so E/P is preserved on deposit.
-                Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
-                    hotkey,
-                    &escrow,
-                    *dest_netuid,
-                    bought,
-                );
-
-                // For root, mirror `swap_tao_for_alpha`'s reserve bookkeeping: the TAO slice now
-                // lives as root stake. (Subnets already did this inside the swap.)
-                if is_root_slot {
-                    Self::credit_root_reserves(tao_s.into());
-                }
-
-                // Record basket principal as NAV shares (not face alpha).
-                BasketPrincipal::<T>::mutate(hotkey, *dest_netuid, |p| {
-                    *p = p.saturating_add(shares.into());
-                });
-
-                Self::bump_root_claimable_rate(hotkey, *dest_netuid, increment);
-
-                Self::deposit_event(Event::BasketDeposited {
-                    hotkey: hotkey.clone(),
-                    netuid: *dest_netuid,
-                    alpha: bought,
-                    shares: shares.into(),
-                });
             }
+
+            // 3. Mint fund shares at the pre-deposit NAV: shares = value_added * P / N. A deposit
+            // into an already-compounded fund (N/P > 1) mints fewer shares than TAO added, so N/P
+            // is left unchanged. First deposit mints at par. u128 arithmetic: the u64*u64 product
+            // can exceed U96F32's 96 integer bits at chain-scale magnitudes, which would silently
+            // saturate the mint.
+            let shares: u64 = if shares_outstanding == 0 || nav_before == 0 {
+                value_added
+            } else {
+                u128::from(value_added)
+                    .saturating_mul(u128::from(shares_outstanding))
+                    .checked_div(u128::from(nav_before))
+                    .unwrap_or(0)
+                    .min(u128::from(u64::MAX)) as u64
+            };
+
+            // Per-staker claimable rate increment: fund shares per unit of root stake.
+            let increment: I96F32 = I96F32::saturating_from_num(shares)
+                .checked_div(total_root_float)
+                .unwrap_or(I96F32::saturating_from_num(0));
+
+            // Dust deposit (shares or rate round to zero): roll everything back and recycle, so
+            // `Σ owed == BasketShares` is never broken by uncredited value.
+            if shares == 0 || increment == I96F32::saturating_from_num(0) {
+                return TransactionOutcome::Rollback(Err(DispatchError::Other(
+                    "basket deposit too small",
+                )));
+            }
+
+            BasketShares::<T>::mutate(hotkey, |p| *p = p.saturating_add(shares));
+            BasketRate::<T>::mutate(hotkey, |rate| *rate = rate.saturating_add(increment));
+
+            Self::deposit_event(Event::BasketDeposited {
+                hotkey: hotkey.clone(),
+                tao: value_added.into(),
+                shares,
+            });
 
             TransactionOutcome::Commit(Ok(()))
         });
@@ -266,338 +237,196 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn get_root_claimable_for_hotkey_coldkey(
-        hotkey: &T::AccountId,
-        coldkey: &T::AccountId,
-        netuid: NetUid,
-    ) -> I96F32 {
-        // Get this keys stake balance on root.
+    /// A staker's gross *fund-share* entitlement on a validator: `BasketRate * root_stake`.
+    /// Shares, not TAO — convert with `basket_payout_from` / `get_basket_payout_tao`.
+    pub fn get_basket_claimable_shares(hotkey: &T::AccountId, coldkey: &T::AccountId) -> I96F32 {
         let root_stake: I96F32 = I96F32::saturating_from_num(
             Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, NetUid::ROOT),
         );
-
-        // Get the total claimable_rate for this hotkey and this network
-        let claimable_rate: I96F32 = *RootClaimable::<T>::get(hotkey)
-            .get(&netuid)
-            .unwrap_or(&I96F32::from(0));
-
-        // Compute the proportion owed to this coldkey via balance.
-        let claimable: I96F32 = claimable_rate.saturating_mul(root_stake);
-
-        claimable
+        BasketRate::<T>::get(hotkey).saturating_mul(root_stake)
     }
 
-    pub fn get_root_owed_for_hotkey_coldkey_float(
-        hotkey: &T::AccountId,
-        coldkey: &T::AccountId,
-        netuid: NetUid,
-    ) -> I96F32 {
-        let claimable = Self::get_root_claimable_for_hotkey_coldkey(hotkey, coldkey, netuid);
+    fn get_basket_owed_shares_float(hotkey: &T::AccountId, coldkey: &T::AccountId) -> I96F32 {
+        let claimable = Self::get_basket_claimable_shares(hotkey, coldkey);
 
-        // Attain the root claimed to avoid overclaiming.
-        let root_claimed: I96F32 =
-            I96F32::saturating_from_num(RootClaimed::<T>::get((netuid, hotkey, coldkey)));
+        // Subtract the already-claimed watermark (signed: unstake rebasing can push it below
+        // zero) to avoid over- or under-claiming.
+        let claimed: I96F32 = I96F32::saturating_from_num(BasketClaimed::<T>::get(hotkey, coldkey));
 
-        // Subtract the already claimed alpha.
-        let owed: I96F32 = claimable.saturating_sub(root_claimed);
-
-        owed
+        claimable.saturating_sub(claimed)
     }
 
-    pub fn get_root_owed_for_hotkey_coldkey(
-        hotkey: &T::AccountId,
-        coldkey: &T::AccountId,
-        netuid: NetUid,
-    ) -> u64 {
-        let owed = Self::get_root_owed_for_hotkey_coldkey_float(hotkey, coldkey, netuid);
-
-        // Convert owed to u64, mapping negative values to 0
-        let owed_u64: u64 = if owed.is_negative() {
+    /// A staker's net owed *fund shares* on a validator (floored at zero). Shares, not TAO.
+    pub fn get_basket_owed_shares(hotkey: &T::AccountId, coldkey: &T::AccountId) -> u64 {
+        let owed = Self::get_basket_owed_shares_float(hotkey, coldkey);
+        if owed.is_negative() {
             0
         } else {
             owed.saturating_to_num::<u64>()
-        };
-
-        owed_u64
+        }
     }
 
-    /// Claims (redeems) a staker's share of a validator's beta basket on `netuid`.
+    /// Claims (redeems) a staker's share of a validator's beta basket.
     ///
-    /// Redemption is always a full swap to TAO: the staker's owed *principal* is scaled by the
-    /// basket's live growth multiplier `E / P` (escrow value over outstanding principal) to get
-    /// the current payout, that payout alpha is removed from the escrow position, swapped to TAO,
-    /// and staked on root for the staker. `root_claim_type` is retained for signature
-    /// compatibility but no longer branches behavior: redemption is always a full swap. The
-    /// `Keep`/`KeepSubnets` variants are deprecated no-ops (rejected by `set_root_claim_type`).
-    pub fn root_claim_on_subnet(
+    /// Redemption is fund-level and purely proportional: the staker's owed shares define a
+    /// fraction `f = owed / P` of the fund, and exactly that fraction of *every* holding is
+    /// redeemed — subnet alpha is sold to TAO (the staker bears slippage), the root-slot portion
+    /// is reassigned as root stake directly (no swap). Because every claim preserves the fund's
+    /// composition, claims and (future) validator-directed rebalancing never interfere. All
+    /// realized TAO is staked on root for the staker.
+    pub fn root_claim_for_hotkey(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
-        netuid: NetUid,
-        _root_claim_type: RootClaimTypeEnum,
         ignore_minimum_condition: bool,
     ) -> DispatchResult {
-        // Owed *principal* (alpha) = rate * root_stake - already-claimed.
-        let owed: I96F32 = Self::get_root_owed_for_hotkey_coldkey_float(hotkey, coldkey, netuid);
-        let owed_principal: u64 = if owed.is_negative() {
-            0
-        } else {
-            owed.saturating_to_num::<u64>()
-        };
-        if owed_principal == 0 {
+        let owed_shares: u64 = Self::get_basket_owed_shares(hotkey, coldkey);
+        if owed_shares == 0 {
             return Ok(()); // no-op
         }
 
-        // Live basket value via the escrow position, and outstanding principal.
-        let escrow = Self::get_beta_escrow_account_id();
-        let escrow_value: u64 =
-            Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, &escrow, netuid).to_u64();
-        let principal_total: u64 = BasketPrincipal::<T>::get(hotkey, netuid).to_u64();
+        let shares_total: u64 = BasketShares::<T>::get(hotkey);
+        // Nothing realizable yet (fund drained); leave the watermark untouched so the claim can
+        // pay out once the fund has value again.
+        if shares_total == 0 {
+            return Ok(());
+        }
+        // A claim can never redeem more than the outstanding fund.
+        let owed_shares = owed_shares.min(shares_total);
 
-        // Payout = owed_principal * (E / P), capped at the live escrow value.
-        let payout: u64 = Self::basket_payout_from(owed_principal, escrow_value, principal_total);
-
-        // Skip dust unless forced.
+        // Dust check against the estimated payout (owed fraction of the marked NAV).
+        let nav = Self::get_validator_basket_nav_tao(hotkey).to_u64();
+        let estimated_payout: u64 = Self::basket_payout_from(owed_shares, nav, shares_total);
         if !ignore_minimum_condition
-            && I96F32::saturating_from_num(payout)
-                < I96F32::saturating_from_num(RootClaimableThreshold::<T>::get(&netuid))
+            && I96F32::saturating_from_num(estimated_payout)
+                < RootClaimableThreshold::<T>::get(NetUid::ROOT)
         {
             log::debug!(
-                "root claim on subnet {netuid} skipped (below threshold): payout={payout:?} h={hotkey:?} c={coldkey:?}"
+                "root claim skipped (below threshold): payout={estimated_payout:?} h={hotkey:?} c={coldkey:?}"
             );
             return Ok(()); // no-op
         }
-
-        // Nothing realizable yet (basket drained / zero value); leave the watermark untouched
-        // so it can be claimed once the basket has value.
-        if payout == 0 {
+        if estimated_payout == 0 {
             return Ok(());
         }
 
-        if netuid.is_root() {
-            // Root slot: the escrow already holds the staker's claim as root stake (TAO at 1:1).
-            // Redemption just reassigns `payout` root stake from the escrow custody account to the
-            // staker — no swap, no new TAO, total root stake conserved.
-            with_transaction(|| {
-                Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
-                    hotkey,
-                    &escrow,
-                    NetUid::ROOT,
-                    payout.into(),
-                );
-                Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
-                    hotkey,
-                    coldkey,
-                    NetUid::ROOT,
-                    payout.into(),
-                );
+        let escrow = Self::get_beta_escrow_account_id();
+        let holdings = Self::get_basket_holdings(hotkey);
 
-                // The staker's root stake just grew by `payout`; rebase claimed watermarks across
-                // all slots so this does not retroactively inflate their other baskets' claimable
-                // (mirrors the subnet path, which stakes the realized TAO onto root).
-                Self::add_stake_adjust_root_claimed_for_hotkey_and_coldkey(hotkey, coldkey, payout);
+        with_transaction(|| {
+            // TAO credited to the staker's root stake, split by source: the root-slot portion is
+            // a stake reassignment (no new TAO on root), while subnet sells realize new TAO that
+            // must also be credited to the root reserves.
+            let mut root_slot_tao: u64 = 0;
+            let mut swapped_tao: u64 = 0;
 
-                Self::deposit_event(Event::BasketClaimed {
-                    hotkey: hotkey.clone(),
-                    coldkey: coldkey.clone(),
-                    netuid,
-                    tao: payout.into(),
-                });
-
-                TransactionOutcome::Commit(Ok::<(), DispatchError>(()))
-            })?;
-        } else {
-            with_transaction(|| {
-                // Remove the payout alpha from the validator's basket (escrow position).
-                Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
-                    hotkey,
-                    &escrow,
-                    netuid,
-                    payout.into(),
-                );
-
-                // Swap the basket alpha to TAO.
-                let owed_tao = match Self::swap_alpha_for_tao(
-                    netuid,
-                    payout.into(),
-                    T::SwapInterface::min_price::<TaoBalance>(),
-                    true,
-                ) {
-                    Ok(owed_tao) => owed_tao,
-                    Err(err) => {
-                        log::error!("Error swapping basket alpha for TAO: {err:?}");
-                        return TransactionOutcome::Rollback(Err(err));
-                    }
-                };
-
-                let root_subnet_account_id = match Self::get_subnet_account_id(NetUid::ROOT) {
-                    Some(account_id) => account_id,
-                    None => {
-                        return TransactionOutcome::Rollback(Err(
-                            Error::<T>::RootNetworkDoesNotExist.into(),
-                        ));
-                    }
-                };
-
-                if let Err(err) = Self::transfer_tao_from_subnet(
-                    netuid,
-                    &root_subnet_account_id,
-                    owed_tao.amount_paid_out.into(),
-                ) {
-                    log::error!("Error transferring root claim TAO from subnet: {err:?}");
-                    return TransactionOutcome::Rollback(Err(err));
+            for (netuid, slot_alpha) in holdings.iter() {
+                // This staker's pro-rata slice of the holding: slot_alpha * owed / P.
+                let take: u64 = (u128::from(slot_alpha.to_u64()))
+                    .saturating_mul(u128::from(owed_shares))
+                    .checked_div(u128::from(shares_total))
+                    .unwrap_or(0) as u64;
+                if take == 0 {
+                    continue;
                 }
 
-                // Record root sell as protocol outflow (reduces protocol cost).
-                let root_sell_tao: TaoBalance = owed_tao.amount_paid_out;
-                SubnetRootSellTao::<T>::mutate(netuid, |total| {
-                    *total = total.saturating_add(root_sell_tao);
-                });
-                Self::record_protocol_outflow(netuid, root_sell_tao);
-
-                // Stake the realized TAO onto root for the staker and credit the root reserves.
-                Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
                     hotkey,
-                    coldkey,
-                    NetUid::ROOT,
-                    owed_tao.amount_paid_out.to_u64().into(),
-                );
-                Self::credit_root_reserves(owed_tao.amount_paid_out);
-
-                Self::add_stake_adjust_root_claimed_for_hotkey_and_coldkey(
-                    hotkey,
-                    coldkey,
-                    owed_tao.amount_paid_out.into(),
+                    &escrow,
+                    *netuid,
+                    take.into(),
                 );
 
-                Self::deposit_event(Event::BasketClaimed {
-                    hotkey: hotkey.clone(),
-                    coldkey: coldkey.clone(),
-                    netuid,
-                    tao: owed_tao.amount_paid_out,
+                if netuid.is_root() {
+                    // Root slot: already TAO (1:1), just reassign custody escrow -> staker below.
+                    root_slot_tao = root_slot_tao.saturating_add(take);
+                    continue;
+                }
+
+                // Sell the slice to TAO.
+                let tao = match Self::sell_basket_alpha_for_root_tao(*netuid, take.into()) {
+                    Ok(tao) => tao,
+                    Err(err) => return TransactionOutcome::Rollback(Err(err)),
+                };
+
+                // Record root sell (reduces protocol cost).
+                SubnetRootSellTao::<T>::mutate(*netuid, |total| {
+                    *total = total.saturating_add(tao);
                 });
 
-                TransactionOutcome::Commit(Ok(()))
-            })?;
-        }
+                swapped_tao = swapped_tao.saturating_add(tao.to_u64());
+            }
 
-        // Consume the claimed principal from the basket and advance the watermark. Shared by both
-        // slot types: redemption settlement is identical once the asset side has been realized.
-        BasketPrincipal::<T>::mutate(hotkey, netuid, |p| {
-            *p = p.saturating_sub(owed_principal.into());
-        });
-        RootClaimed::<T>::mutate((netuid, hotkey, coldkey), |root_claimed| {
-            *root_claimed = root_claimed.saturating_add(owed_principal.into());
-        });
+            let total_tao: u64 = root_slot_tao.saturating_add(swapped_tao);
+
+            // Nothing was actually realized (every per-holding take floored to zero, or the
+            // swaps returned zero TAO). The marked estimate above can be positive while the raw
+            // alpha takes floor to zero (high-price, tiny-alpha holdings), so this must NOT
+            // settle: roll back and leave the watermark untouched, otherwise the staker's owed
+            // shares would be burned for a zero payout.
+            if total_tao == 0 {
+                return TransactionOutcome::Rollback(Ok(()));
+            }
+
+            // Stake the redeemed TAO on root for the staker. Only the swapped portion is new TAO
+            // on root (the root-slot portion was already counted in the root reserves).
+            Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                hotkey,
+                coldkey,
+                NetUid::ROOT,
+                total_tao.into(),
+            );
+            if swapped_tao > 0 {
+                Self::credit_root_reserves(swapped_tao.into());
+            }
+
+            // The staker's root stake just grew; rebase their claimed watermark so the new stake
+            // does not retroactively inflate their claimable.
+            Self::add_stake_adjust_root_claimed_for_hotkey_and_coldkey(hotkey, coldkey, total_tao);
+
+            // Consume the claimed shares and advance the watermark.
+            BasketShares::<T>::mutate(hotkey, |p| *p = p.saturating_sub(owed_shares));
+            BasketClaimed::<T>::mutate(hotkey, coldkey, |claimed| {
+                *claimed = claimed.saturating_add(i128::from(owed_shares));
+            });
+
+            Self::deposit_event(Event::BasketClaimed {
+                hotkey: hotkey.clone(),
+                coldkey: coldkey.clone(),
+                tao: total_tao.into(),
+            });
+
+            TransactionOutcome::Commit(Ok::<(), DispatchError>(()))
+        })?;
 
         Ok(())
     }
 
-    fn root_claim_on_subnet_weight(_root_claim_type: RootClaimTypeEnum) -> Weight {
-        Weight::from_parts(60_000_000, 6987)
-            .saturating_add(T::DbWeight::get().reads(7_u64))
-            .saturating_add(T::DbWeight::get().writes(5_u64))
-    }
-    pub fn root_claim_all(
-        hotkey: &T::AccountId,
-        coldkey: &T::AccountId,
-        subnets: Option<BTreeSet<NetUid>>,
-    ) -> Result<Weight, DispatchError> {
-        let mut weight = Weight::default();
-
-        let root_claim_type = RootClaimType::<T>::get(coldkey);
-        weight.saturating_accrue(T::DbWeight::get().reads(1));
-
-        // Iterate over all the subnets this hotkey has claimable for root.
-        let root_claimable = RootClaimable::<T>::get(hotkey);
-        weight.saturating_accrue(T::DbWeight::get().reads(1));
-
-        for (netuid, _) in root_claimable.iter() {
-            let skip = subnets
-                .as_ref()
-                .map(|subnets| !subnets.contains(netuid))
-                .unwrap_or(false);
-
-            if skip {
-                continue;
-            }
-
-            Self::root_claim_on_subnet(hotkey, coldkey, *netuid, root_claim_type.clone(), false)?;
-            weight.saturating_accrue(Self::root_claim_on_subnet_weight(root_claim_type.clone()));
-        }
-
-        Ok(weight)
+    fn root_claim_weight(num_holdings: u64) -> Weight {
+        // Per-holding: escrow stake read/write + swap + protocol-flow bookkeeping.
+        Weight::from_parts(20_000_000, 3000)
+            .saturating_add(T::DbWeight::get().reads(4_u64))
+            .saturating_add(T::DbWeight::get().writes(3_u64))
+            .saturating_mul(num_holdings.max(1))
+            .saturating_add(T::DbWeight::get().reads_writes(4_u64, 3_u64))
     }
 
-    pub fn add_stake_adjust_root_claimed_for_hotkey_and_coldkey(
-        hotkey: &T::AccountId,
-        coldkey: &T::AccountId,
-        amount: u64,
-    ) {
-        // Iterate over all the subnets this hotkey is staked on for root.
-        let root_claimable = RootClaimable::<T>::get(hotkey);
-        for (netuid, claimable_rate) in root_claimable.iter() {
-            // Get current staker root claimed value.
-            let root_claimed: u128 = RootClaimed::<T>::get((netuid, hotkey, coldkey));
-
-            // Increase root claimed based on the claimable rate.
-            let new_root_claimed = root_claimed.saturating_add(
-                claimable_rate
-                    .saturating_mul(I96F32::from(u64::from(amount)))
-                    .saturating_to_num(),
-            );
-
-            // Set the new root claimed value.
-            RootClaimed::<T>::insert((netuid, hotkey, coldkey), new_root_claimed);
-        }
-    }
-
-    pub fn remove_stake_adjust_root_claimed_for_hotkey_and_coldkey(
-        hotkey: &T::AccountId,
-        coldkey: &T::AccountId,
-        amount: AlphaBalance,
-    ) {
-        // Iterate over all the slots this hotkey has claimable for root (including the root slot
-        // itself: the root-stake basket slot rebases like any other so changing root stake never
-        // retroactively grants or removes accrued claimable).
-        let root_claimable = RootClaimable::<T>::get(hotkey);
-        for (netuid, claimable_rate) in root_claimable.iter() {
-            // Get current staker root claimed value.
-            let root_claimed: u128 = RootClaimed::<T>::get((netuid, hotkey, coldkey));
-
-            // Decrease root claimed based on the claimable rate.
-            let new_root_claimed = root_claimed.saturating_sub(
-                claimable_rate
-                    .saturating_mul(I96F32::from(u64::from(amount)))
-                    .saturating_to_num(),
-            );
-
-            // Set the new root_claimed value.
-            RootClaimed::<T>::insert((netuid, hotkey, coldkey), new_root_claimed);
-        }
-    }
-
-    pub fn do_root_claim(
-        coldkey: T::AccountId,
-        subnets: Option<BTreeSet<NetUid>>,
-    ) -> Result<Weight, DispatchError> {
-        with_transaction(|| match Self::try_do_root_claim(coldkey, subnets) {
+    pub fn do_root_claim(coldkey: T::AccountId) -> Result<Weight, DispatchError> {
+        with_transaction(|| match Self::try_do_root_claim(coldkey) {
             Ok(weight) => TransactionOutcome::Commit(Ok(weight)),
             Err(err) => TransactionOutcome::Rollback(Err(err)),
         })
     }
 
-    fn try_do_root_claim(
-        coldkey: T::AccountId,
-        subnets: Option<BTreeSet<NetUid>>,
-    ) -> Result<Weight, DispatchError> {
+    fn try_do_root_claim(coldkey: T::AccountId) -> Result<Weight, DispatchError> {
         let mut weight = Weight::default();
 
         let hotkeys = StakingHotkeys::<T>::get(&coldkey);
         weight.saturating_accrue(T::DbWeight::get().reads(1));
 
         for hotkey in hotkeys.iter() {
-            weight.saturating_accrue(T::DbWeight::get().reads(1));
-            weight.saturating_accrue(Self::root_claim_all(hotkey, &coldkey, subnets.clone())?);
+            let num_holdings = Self::get_basket_holdings(hotkey).len() as u64;
+            Self::root_claim_for_hotkey(hotkey, &coldkey, false)?;
+            weight.saturating_accrue(Self::root_claim_weight(num_holdings));
         }
 
         Self::deposit_event(Event::RootClaimed { coldkey });
@@ -614,193 +443,183 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn change_root_claim_type(coldkey: &T::AccountId, new_type: RootClaimTypeEnum) {
-        RootClaimType::<T>::insert(coldkey.clone(), new_type.clone());
-
-        Self::deposit_event(Event::RootClaimTypeSet {
-            coldkey: coldkey.clone(),
-            root_claim_type: new_type,
+    /// Rebase a staker's claimed watermark by `rate * stake_delta` after their root stake
+    /// changed, so a stake change never retroactively grants or destroys accrued claimable.
+    /// The watermark is signed and may legitimately go negative (e.g. claim, then unstake).
+    fn rebase_basket_claimed_for_stake_delta(
+        hotkey: &T::AccountId,
+        coldkey: &T::AccountId,
+        stake_delta: i128,
+    ) {
+        let rate = BasketRate::<T>::get(hotkey);
+        if rate == I96F32::saturating_from_num(0) {
+            return;
+        }
+        BasketClaimed::<T>::mutate(hotkey, coldkey, |claimed| {
+            *claimed = claimed.saturating_add(
+                rate.saturating_mul(I96F32::saturating_from_num(stake_delta))
+                    .saturating_to_num::<i128>(),
+            );
         });
     }
 
-    pub fn transfer_root_claimed_for_new_keys(
-        netuid: NetUid,
-        old_hotkey: &T::AccountId,
-        new_hotkey: &T::AccountId,
+    /// Watermark rebase for a root-stake increase of `amount`.
+    pub fn add_stake_adjust_root_claimed_for_hotkey_and_coldkey(
+        hotkey: &T::AccountId,
+        coldkey: &T::AccountId,
+        amount: u64,
+    ) {
+        Self::rebase_basket_claimed_for_stake_delta(hotkey, coldkey, i128::from(amount));
+    }
+
+    /// Watermark rebase for a root-stake decrease of `amount`.
+    pub fn remove_stake_adjust_root_claimed_for_hotkey_and_coldkey(
+        hotkey: &T::AccountId,
+        coldkey: &T::AccountId,
+        amount: AlphaBalance,
+    ) {
+        Self::rebase_basket_claimed_for_stake_delta(
+            hotkey,
+            coldkey,
+            i128::from(u64::from(amount)).saturating_neg(),
+        );
+    }
+
+    /// Moves a staker's claimed watermark on `hotkey` to a new coldkey (used by coldkey swaps;
+    /// hotkey swaps migrate all watermarks via `transfer_basket_for_new_hotkey`).
+    pub fn transfer_basket_claimed_for_new_coldkey(
+        hotkey: &T::AccountId,
         old_coldkey: &T::AccountId,
         new_coldkey: &T::AccountId,
     ) {
-        let old_root_claimed = RootClaimed::<T>::get((netuid, old_hotkey, old_coldkey));
-        RootClaimed::<T>::remove((netuid, old_hotkey, old_coldkey));
-
-        RootClaimed::<T>::mutate((netuid, new_hotkey, new_coldkey), |new_root_claimed| {
-            *new_root_claimed = old_root_claimed.saturating_add(*new_root_claimed);
-        });
+        let old_claimed: i128 = BasketClaimed::<T>::take(hotkey, old_coldkey);
+        if old_claimed != 0 {
+            BasketClaimed::<T>::mutate(hotkey, new_coldkey, |claimed| {
+                *claimed = claimed.saturating_add(old_claimed);
+            });
+        }
     }
-    pub fn transfer_root_claimable_for_new_hotkey(
-        old_hotkey: &T::AccountId,
-        new_hotkey: &T::AccountId,
-    ) {
-        let src_root_claimable = RootClaimable::<T>::get(old_hotkey);
-        let mut dst_root_claimable = RootClaimable::<T>::get(new_hotkey);
-        RootClaimable::<T>::remove(old_hotkey);
 
-        for (netuid, claimable_rate) in src_root_claimable.into_iter() {
-            dst_root_claimable
-                .entry(netuid)
-                .and_modify(|total| *total = total.saturating_add(claimable_rate))
-                .or_insert(claimable_rate);
+    /// Migrates a validator's entire fund to a new hotkey: shares, rate, per-coldkey watermarks,
+    /// and every escrow holding, moved by value. The caller must guarantee the new hotkey is
+    /// clean on root (enforced by `do_swap_hotkey`), so this is a move, not a merge.
+    pub fn transfer_basket_for_new_hotkey(old_hotkey: &T::AccountId, new_hotkey: &T::AccountId) {
+        let shares = BasketShares::<T>::take(old_hotkey);
+        if shares != 0 {
+            BasketShares::<T>::mutate(new_hotkey, |p| *p = p.saturating_add(shares));
         }
 
-        RootClaimable::<T>::insert(new_hotkey, dst_root_claimable);
+        let rate = BasketRate::<T>::take(old_hotkey);
+        if rate != I96F32::saturating_from_num(0) {
+            BasketRate::<T>::mutate(new_hotkey, |r| *r = r.saturating_add(rate));
+        }
+
+        let claimed_entries: Vec<(T::AccountId, i128)> =
+            BasketClaimed::<T>::drain_prefix(old_hotkey).collect();
+        for (coldkey, claimed) in claimed_entries {
+            BasketClaimed::<T>::mutate(new_hotkey, &coldkey, |c| {
+                *c = c.saturating_add(claimed);
+            });
+        }
+
+        let escrow = Self::get_beta_escrow_account_id();
+        for (netuid, alpha) in Self::get_basket_holdings(old_hotkey) {
+            Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+                old_hotkey, &escrow, netuid, alpha,
+            );
+            Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                new_hotkey, &escrow, netuid, alpha,
+            );
+        }
     }
 
-    /// Liquidates a validator's beta basket on `netuid` back to its root stakers.
-    ///
-    /// Used when a subnet is dissolved: the escrow position `(hotkey, H, netuid)` is removed and
-    /// swapped to TAO once, then the proceeds are credited to each root staker **in proportion to
-    /// their owed basket entitlement** (`owed_c = rate · root_stake − claimed`, i.e. the same
-    /// `owed · E/P` a normal claim would pay), NOT their current root-stake share. Distributing by
-    /// current stake would windfall recent/large stakers and short-change stakers who actually
-    /// accrued the basket. Best-effort: swap failures are logged and the slot is left for teardown.
-    pub fn liquidate_basket_to_root_stakers(
+    /// Converts every validator's basket holding on a dissolving subnet into the fund's root
+    /// (TAO) slot: the escrow alpha is sold once and the proceeds are held as root stake under
+    /// the same escrow position. Fund shares, rates, and watermarks are untouched — the fund's
+    /// NAV is continuous across the conversion (minus slippage), so no per-staker accounting is
+    /// needed. Best-effort: a failed swap is logged and the slot is left for generic teardown.
+    pub fn convert_subnet_basket_holdings_to_root(netuid: NetUid) {
+        let escrow = Self::get_beta_escrow_account_id();
+        let hotkeys: Vec<T::AccountId> = BasketShares::<T>::iter_keys().collect();
+
+        for hotkey in hotkeys.iter() {
+            Self::convert_basket_holding_to_root(hotkey, &escrow, netuid);
+        }
+    }
+
+    fn convert_basket_holding_to_root(
         hotkey: &T::AccountId,
         escrow: &T::AccountId,
         netuid: NetUid,
     ) {
-        let basket_alpha = Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, escrow, netuid);
-        if basket_alpha.is_zero() {
+        let holding_alpha = Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, escrow, netuid);
+        if holding_alpha.is_zero() {
             return;
         }
 
         let _ = with_transaction(|| {
-            // Remove the basket alpha from the escrow position.
             Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
                 hotkey,
                 escrow,
                 netuid,
-                basket_alpha,
+                holding_alpha,
             );
 
-            // Swap the whole basket to TAO once (one swap => no per-staker ordering slippage; the
-            // realized TAO is then split by owed-proportion, which equals each staker's `owed·E/P`).
-            let owed_tao = match Self::swap_alpha_for_tao(
-                netuid,
-                basket_alpha,
-                T::SwapInterface::min_price::<TaoBalance>(),
-                true,
-            ) {
-                Ok(owed_tao) => owed_tao,
+            let tao = match Self::sell_basket_alpha_for_root_tao(netuid, holding_alpha) {
+                Ok(tao) => tao,
                 Err(err) => {
-                    log::error!("Error liquidating basket alpha for TAO: {err:?}");
+                    log::error!("Error converting basket holding to root: {err:?}");
                     return TransactionOutcome::Rollback(Err(err));
                 }
             };
 
-            let root_subnet_account_id = match Self::get_subnet_account_id(NetUid::ROOT) {
-                Some(account_id) => account_id,
-                None => {
-                    return TransactionOutcome::Rollback(Err(
-                        Error::<T>::RootNetworkDoesNotExist.into()
-                    ));
-                }
-            };
+            // Hold the realized TAO as the fund's root-slot (cash) position.
+            Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                hotkey,
+                escrow,
+                NetUid::ROOT,
+                tao.to_u64().into(),
+            );
+            Self::credit_root_reserves(tao);
 
-            if let Err(err) = Self::transfer_tao_from_subnet(
-                netuid,
-                &root_subnet_account_id,
-                owed_tao.amount_paid_out.into(),
-            ) {
-                log::error!("Error transferring liquidated basket TAO from subnet: {err:?}");
-                return TransactionOutcome::Rollback(Err(err));
-            }
-
-            Self::record_protocol_outflow(netuid, owed_tao.amount_paid_out);
-
-            let tao_total: u64 = owed_tao.amount_paid_out.to_u64();
-
-            // Move the TAO onto root (aggregate); per-coldkey shares are credited below.
-            Self::credit_root_reserves(owed_tao.amount_paid_out);
-
-            Self::deposit_event(Event::BasketLiquidated {
+            Self::deposit_event(Event::BasketHoldingConverted {
                 hotkey: hotkey.clone(),
                 netuid,
-                tao: owed_tao.amount_paid_out,
+                tao,
             });
-
-            // Gather this validator's root stakers and their owed basket entitlement. The escrow
-            // custody account is excluded: it may hold root stake (the root-stake basket slot) but
-            // it is custody, not a claimant, so it must not receive a liquidation payout.
-            let coldkeys: BTreeSet<T::AccountId> = Self::alpha_iter_single_prefix(hotkey)
-                .filter(|(ck, n, _)| *n == NetUid::ROOT && ck != escrow)
-                .map(|(coldkey, _, _)| coldkey)
-                .collect();
-            let mut owed_list: Vec<(T::AccountId, u128)> = Vec::new();
-            let mut total_owed: u128 = 0;
-            for coldkey in coldkeys {
-                let owed = Self::get_root_owed_for_hotkey_coldkey(hotkey, &coldkey, netuid) as u128;
-                if owed > 0 {
-                    total_owed = total_owed.saturating_add(owed);
-                    owed_list.push((coldkey, owed));
-                }
-            }
-
-            // Degenerate case (no current staker is owed, e.g. all already claimed): fall back to
-            // proportional-by-stake so the value is not orphaned in the root account.
-            if total_owed == 0 {
-                Self::increase_stake_for_hotkey_on_subnet(hotkey, NetUid::ROOT, tao_total.into());
-                return TransactionOutcome::Commit(Ok::<(), DispatchError>(()));
-            }
-
-            // Distribute the realized TAO pro-rata by owed; the last staker absorbs the remainder
-            // so the full amount is allocated.
-            let mut distributed: u64 = 0;
-            let last_idx = owed_list.len().saturating_sub(1);
-            for (i, (coldkey, owed)) in owed_list.iter().enumerate() {
-                let tao_c: u64 = if i == last_idx {
-                    tao_total.saturating_sub(distributed)
-                } else {
-                    (tao_total as u128)
-                        .saturating_mul(*owed)
-                        .checked_div(total_owed)
-                        .unwrap_or(0) as u64
-                };
-                distributed = distributed.saturating_add(tao_c);
-                if tao_c == 0 {
-                    continue;
-                }
-                Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
-                    hotkey,
-                    coldkey,
-                    NetUid::ROOT,
-                    tao_c.into(),
-                );
-                // Rebase this staker's claimed watermark for the new root stake so it does not
-                // inflate their claimable on other subnets' baskets (mirrors a normal claim).
-                Self::add_stake_adjust_root_claimed_for_hotkey_and_coldkey(hotkey, coldkey, tao_c);
-            }
 
             TransactionOutcome::Commit(Ok::<(), DispatchError>(()))
         });
     }
 
-    /// Claim all root dividends for subnet and remove all associated data.
-    pub fn finalize_all_subnet_root_dividends(netuid: NetUid) {
-        let hotkeys = RootClaimable::<T>::iter_keys().collect::<Vec<_>>();
-        let escrow = Self::get_beta_escrow_account_id();
+    /// Sells basket `alpha` on `netuid` for TAO and lands it in the root subnet account, booking
+    /// the protocol outflow. The alpha must already have been removed from the escrow position.
+    /// Shared by claim redemption and dissolution conversion; callers stay transactional.
+    fn sell_basket_alpha_for_root_tao(
+        netuid: NetUid,
+        alpha: AlphaBalance,
+    ) -> Result<TaoBalance, DispatchError> {
+        let out = Self::swap_alpha_for_tao(
+            netuid,
+            alpha,
+            T::SwapInterface::min_price::<TaoBalance>(),
+            true,
+        )
+        .inspect_err(|err| log::error!("Error swapping basket alpha for TAO: {err:?}"))?;
 
-        for hotkey in hotkeys.iter() {
-            // Liquidate the validator's beta basket on this subnet back to root stakers before
-            // clearing rates, so subnet teardown does not orphan basket value in the escrow.
-            Self::liquidate_basket_to_root_stakers(hotkey, &escrow, netuid);
-            BasketPrincipal::<T>::remove(hotkey, netuid);
+        let root_subnet_account_id = Self::get_subnet_account_id(NetUid::ROOT)
+            .ok_or(Error::<T>::RootNetworkDoesNotExist)?;
 
-            RootClaimable::<T>::mutate(hotkey, |claimable| {
-                claimable.remove(&netuid);
-            });
-        }
+        Self::transfer_tao_from_subnet(
+            netuid,
+            &root_subnet_account_id,
+            out.amount_paid_out.into(),
+        )
+        .inspect_err(|err| log::error!("Error transferring basket TAO from subnet: {err:?}"))?;
 
-        let _ = RootClaimed::<T>::clear_prefix((netuid,), u32::MAX, None);
+        Self::record_protocol_outflow(netuid, out.amount_paid_out);
+
+        Ok(out.amount_paid_out)
     }
 
     // =========================================================================
@@ -818,7 +637,7 @@ impl<T: Config> Pallet<T> {
         TotalStake::<T>::mutate(|total| *total = total.saturating_add(amount));
     }
 
-    /// Mark-to-market TAO value of `alpha` on `netuid` at the current pool price.
+    /// Mark-to-market TAO value of `alpha` on `netuid` at the current pool (spot) price.
     /// This is a *marked* value (price x amount); actual redemption realizes slightly less
     /// due to AMM slippage.
     pub fn alpha_to_tao_value(netuid: NetUid, alpha: u64) -> u64 {
@@ -832,34 +651,38 @@ impl<T: Config> Pallet<T> {
             .saturating_to_num::<u64>()
     }
 
-    /// Single source of truth for the basket growth multiplier: scales an owed principal by
-    /// `E/P` (escrow value over outstanding principal), capped at the live escrow value so a
-    /// claim can never draw more than the escrow holds.
-    pub fn basket_payout_from(owed_principal: u64, escrow_value: u64, principal_total: u64) -> u64 {
-        if owed_principal == 0 || principal_total == 0 || escrow_value == 0 {
+    /// Single source of truth for redemption sizing: a staker's owed shares are worth
+    /// `owed * N / P` TAO (fund NAV over outstanding shares), capped at the NAV so a claim can
+    /// never be marked above what the fund holds. u128 arithmetic: the u64*u64 product can
+    /// exceed U96F32's 96 integer bits at chain-scale magnitudes.
+    pub fn basket_payout_from(owed_shares: u64, nav: u64, shares_total: u64) -> u64 {
+        if owed_shares == 0 || shares_total == 0 || nav == 0 {
             return 0;
         }
-        U96F32::saturating_from_num(owed_principal)
-            .saturating_mul(U96F32::saturating_from_num(escrow_value))
-            .checked_div(U96F32::saturating_from_num(principal_total))
-            .unwrap_or(U96F32::saturating_from_num(0))
-            .saturating_to_num::<u64>()
-            .min(escrow_value)
+        let payout = u128::from(owed_shares)
+            .saturating_mul(u128::from(nav))
+            .checked_div(u128::from(shares_total))
+            .unwrap_or(0)
+            .min(u128::from(u64::MAX)) as u64;
+        payout.min(nav)
     }
 
-    /// Current basket payout (in alpha) a staker would receive on `netuid` for a validator:
-    /// owed principal scaled by the live `E/P` growth multiplier. Capped at the escrow value.
-    pub fn get_basket_payout_alpha(
-        hotkey: &T::AccountId,
-        coldkey: &T::AccountId,
-        netuid: NetUid,
-    ) -> u64 {
-        let owed_principal = Self::get_root_owed_for_hotkey_coldkey(hotkey, coldkey, netuid);
-        let escrow = Self::get_beta_escrow_account_id();
-        let escrow_value =
-            Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, &escrow, netuid).to_u64();
-        let principal_total = BasketPrincipal::<T>::get(hotkey, netuid).to_u64();
-        Self::basket_payout_from(owed_principal, escrow_value, principal_total)
+    /// A validator's fund NAV in TAO at spot prices (for views).
+    pub fn get_validator_basket_nav_tao(hotkey: &T::AccountId) -> TaoBalance {
+        let mut nav: u64 = 0;
+        for (netuid, alpha) in Self::get_basket_holdings(hotkey) {
+            nav = nav.saturating_add(Self::alpha_to_tao_value(netuid, alpha.to_u64()));
+        }
+        nav.into()
+    }
+
+    /// Current TAO payout a staker would realize (mark-to-market) by redeeming their owed
+    /// shares on a validator.
+    pub fn get_basket_payout_tao(hotkey: &T::AccountId, coldkey: &T::AccountId) -> u64 {
+        let owed_shares = Self::get_basket_owed_shares(hotkey, coldkey);
+        let shares_total = BasketShares::<T>::get(hotkey);
+        let nav: u64 = Self::get_validator_basket_nav_tao(hotkey).to_u64();
+        Self::basket_payout_from(owed_shares.min(shares_total), nav, shares_total)
     }
 
     /// Total TAO a coldkey would realize by redeeming every beta basket it holds across all of
@@ -867,52 +690,28 @@ impl<T: Config> Pallet<T> {
     pub fn get_root_basket_owed_tao(coldkey: &T::AccountId) -> TaoBalance {
         let mut total: u64 = 0;
         for hotkey in StakingHotkeys::<T>::get(coldkey) {
-            for (netuid, _principal) in BasketPrincipal::<T>::iter_prefix(&hotkey) {
-                let payout = Self::get_basket_payout_alpha(&hotkey, coldkey, netuid);
-                total = total.saturating_add(Self::alpha_to_tao_value(netuid, payout));
-            }
+            total = total.saturating_add(Self::get_basket_payout_tao(&hotkey, coldkey));
         }
         total.into()
     }
 
-    /// A validator's beta basket net asset value, in TAO (mark-to-market). This is the total
-    /// "assets under management" backing all of the validator's stakers' baskets.
-    pub fn get_validator_basket_nav_tao(hotkey: &T::AccountId) -> TaoBalance {
-        let escrow = Self::get_beta_escrow_account_id();
-        let mut nav: u64 = 0;
-        for (netuid, _principal) in BasketPrincipal::<T>::iter_prefix(hotkey) {
-            let escrow_value =
-                Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, &escrow, netuid).to_u64();
-            nav = nav.saturating_add(Self::alpha_to_tao_value(netuid, escrow_value));
-        }
-        nav.into()
-    }
-
     /// A validator's full basket breakdown: per subnet, the alpha held and its TAO value.
     pub fn get_validator_basket(hotkey: &T::AccountId) -> Vec<(NetUid, AlphaBalance, TaoBalance)> {
-        let escrow = Self::get_beta_escrow_account_id();
-        let mut out: Vec<(NetUid, AlphaBalance, TaoBalance)> = Vec::new();
-        for (netuid, _principal) in BasketPrincipal::<T>::iter_prefix(hotkey) {
-            let escrow_value =
-                Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, &escrow, netuid);
-            if escrow_value.is_zero() {
-                continue;
-            }
-            let tao = Self::alpha_to_tao_value(netuid, escrow_value.to_u64());
-            out.push((netuid, escrow_value, tao.into()));
-        }
-        out
+        Self::get_basket_holdings(hotkey)
+            .into_iter()
+            .map(|(netuid, alpha)| {
+                let tao = Self::alpha_to_tao_value(netuid, alpha.to_u64());
+                (netuid, alpha, tao.into())
+            })
+            .collect()
     }
 
     /// Network-wide total beta basket NAV across all validators, in TAO (mark-to-market).
     /// Sampling this over time yields the TAO/day flowing to root stakers.
     pub fn get_root_basket_total_nav_tao() -> TaoBalance {
-        let escrow = Self::get_beta_escrow_account_id();
         let mut nav: u64 = 0;
-        for (hotkey, netuid, _principal) in BasketPrincipal::<T>::iter() {
-            let escrow_value =
-                Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &escrow, netuid).to_u64();
-            nav = nav.saturating_add(Self::alpha_to_tao_value(netuid, escrow_value));
+        for hotkey in BasketShares::<T>::iter_keys() {
+            nav = nav.saturating_add(Self::get_validator_basket_nav_tao(&hotkey).to_u64());
         }
         nav.into()
     }
