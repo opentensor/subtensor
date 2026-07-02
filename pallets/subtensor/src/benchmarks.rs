@@ -3073,19 +3073,45 @@ mod pallet_benchmarks {
     #[benchmark]
     fn register_limit() {
         let netuid = NetUid::from(1);
-        let coldkey: T::AccountId = account("register_limit_cold", 0, 1);
-        let hotkey: T::AccountId = account("register_limit_hot", 0, 1);
 
-        Subtensor::<T>::init_new_network(netuid, 1);
-        Subtensor::<T>::set_max_allowed_uids(netuid, 4096);
-        Subtensor::<T>::set_network_registration_allowed(netuid, true);
-        SubtokenEnabled::<T>::insert(netuid, true);
+        // register_limit delegates to the shared registration path. Once the
+        // subnet is full, that path first scans for a prune candidate and then
+        // replaces the selected neuron instead of appending a new UID. Seed the
+        // subnet at MaxAllowedUids so this benchmark measures the production
+        // prune/replace path rather than the cheap append path.
+        let (_existing_hotkey, _existing_coldkey, _uids, _weights) =
+            setup_worst_case_registered_subnet::<T>("register_limit_full", netuid, 4096);
+
+        assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
+        assert_eq!(Subtensor::<T>::get_subnetwork_n(netuid), 4096);
+        assert!(
+            Subtensor::<T>::get_neuron_to_prune(netuid).is_some(),
+            "full register_limit benchmark subnet must have a prune candidate"
+        );
+
+        let coldkey: T::AccountId = account("register_limit_new_cold", 0, 1);
+        let hotkey: T::AccountId = account("register_limit_new_hot", 0, 1);
+
+        // Reset admission counters and burn after filling the subnet so the
+        // measured call is dominated by get_neuron_to_prune/replace_neuron, not
+        // benchmark setup side effects from the 4096 registrations above.
         Burn::<T>::insert(netuid, benchmark_registration_burn());
-        seed_swap_reserves::<T>(netuid);
+        RegistrationsThisBlock::<T>::insert(netuid, 0);
+        RegistrationsThisInterval::<T>::insert(netuid, 0);
         fund_for_registration::<T>(netuid, &coldkey);
 
         #[extrinsic_call]
-        _(RawOrigin::Signed(coldkey.clone()), netuid, hotkey, u64::MAX);
+        _(
+            RawOrigin::Signed(coldkey.clone()),
+            netuid,
+            hotkey.clone(),
+            u64::MAX,
+        );
+
+        // Replacement keeps the subnet full and assigns the new hotkey to the
+        // pruned UID.
+        assert_eq!(Subtensor::<T>::get_subnetwork_n(netuid), 4096);
+        assert!(Uids::<T>::contains_key(netuid, &hotkey));
     }
 
     #[benchmark]
