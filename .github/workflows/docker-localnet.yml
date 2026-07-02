@@ -38,6 +38,7 @@ jobs:
       tag: ${{ steps.vars.outputs.tag }}
       ref: ${{ steps.vars.outputs.ref }}
       latest_tag: ${{ steps.vars.outputs.latest_tag }}
+      image_repo: ${{ steps.vars.outputs.image_repo }}
     steps:
       - name: Get PR branch (if pr-number is specified)
         id: pr-info
@@ -57,6 +58,9 @@ jobs:
       - name: Determine Docker tag and ref
         id: vars
         run: |
+          # Docker image names must be lowercase; github.repository is RaoFoundation/subtensor
+          echo "image_repo=${GITHUB_REPOSITORY,,}" >> $GITHUB_OUTPUT
+
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             echo "ref=${{ github.head_ref }}" >> $GITHUB_OUTPUT
             echo "tag=${{ github.base_ref }}" >> $GITHUB_OUTPUT
@@ -211,5 +215,5 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            ghcr.io/${{ github.repository }}-localnet:${{ needs.setup.outputs.tag }}
-            ${{ needs.setup.outputs.latest_tag == 'true' && format('ghcr.io/{0}-localnet:latest', github.repository) || '' }}
+            ghcr.io/${{ needs.setup.outputs.image_repo }}-localnet:${{ needs.setup.outputs.tag }}
+            ${{ needs.setup.outputs.latest_tag == 'true' && format('ghcr.io/{0}-localnet:latest', needs.setup.outputs.image_repo) || '' }}
