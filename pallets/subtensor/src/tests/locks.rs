@@ -2952,7 +2952,7 @@ fn test_change_subnet_owner_if_needed_reassigns_to_subnet_king() {
 }
 
 #[test]
-fn test_run_coinbase_reassigns_subnet_owner_by_conviction_on_epoch() {
+fn test_run_coinbase_does_not_enforce_subnet_owner_conviction_on_epoch() {
     new_test_ext(1).execute_with(|| {
         let old_owner_coldkey = U256::from(1);
         let old_owner_hotkey = U256::from(2);
@@ -2996,11 +2996,17 @@ fn test_run_coinbase_reassigns_subnet_owner_by_conviction_on_epoch() {
 
         assert_eq!(SubnetOwner::<Test>::get(netuid), old_owner_coldkey);
         assert_eq!(SubnetOwnerHotkey::<Test>::get(netuid), old_owner_hotkey);
+        assert_eq!(SubtensorModule::subnet_king(netuid), Some(king_hotkey));
+        assert!(
+            SubtensorModule::get_total_conviction(netuid)
+                .saturating_mul(U64F64::saturating_from_num(10))
+                >= U64F64::saturating_from_num(u64::from(SubnetAlphaOut::<Test>::get(netuid)))
+        );
 
         SubtensorModule::run_coinbase(SubtensorModule::mint_tao(0.into()));
 
-        assert_eq!(SubnetOwner::<Test>::get(netuid), new_owner_coldkey);
-        assert_eq!(SubnetOwnerHotkey::<Test>::get(netuid), king_hotkey);
+        assert_eq!(SubnetOwner::<Test>::get(netuid), old_owner_coldkey);
+        assert_eq!(SubnetOwnerHotkey::<Test>::get(netuid), old_owner_hotkey);
         assert_eq!(LastEpochBlock::<Test>::get(netuid), now);
     });
 }
