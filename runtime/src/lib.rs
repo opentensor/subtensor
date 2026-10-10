@@ -1683,16 +1683,16 @@ pub type SystemTxExtension = (
     check_nonce::CheckNonce<Runtime>,
     frame_system::CheckWeight<Runtime>,
 );
-pub type CustomTxExtension = (
-    ChargeTransactionPaymentWrapper<Runtime>,
+pub type CustomTxExtension<const AUTHORIZED: bool = false> = (
+    ChargeTransactionPaymentWrapper<Runtime, AUTHORIZED>,
     SudoTransactionExtension<Runtime>,
     pallet_shield::CheckShieldedTxValidity<Runtime>,
     pallet_subtensor::SubtensorTransactionExtension<Runtime>,
     pallet_drand::drand_priority::DrandPriority<Runtime>,
 );
-pub type TxExtension = (
+pub type TxExtension<const AUTHORIZED: bool = false> = (
     SystemTxExtension,
-    CustomTxExtension,
+    CustomTxExtension<AUTHORIZED>,
     frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 );
 

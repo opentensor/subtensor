@@ -29,8 +29,8 @@ use sp_runtime::{
 use crate::hashed_auth::{AuthorizeAccount, AuthorizeMlDsa};
 use crate::{AccountId, Address, ChainContext, Runtime, RuntimeCall, Signature, TxExtension};
 
-pub type HashedTxExtension = (AuthorizeAccount, TxExtension);
-pub type MlDsaTxExtension = (AuthorizeMlDsa, TxExtension);
+pub type HashedTxExtension = (AuthorizeAccount, TxExtension<true>);
+pub type MlDsaTxExtension = (AuthorizeMlDsa, TxExtension<true>);
 pub type MlDsaUnchecked =
     fp_self_contained::UncheckedExtrinsic<Address, RuntimeCall, Signature, MlDsaTxExtension>;
 type MlDsaChecked =
@@ -42,6 +42,23 @@ pub type HashedUnchecked =
 type LegacyChecked = fp_self_contained::CheckedExtrinsic<AccountId, RuntimeCall, TxExtension, H160>;
 type HashedChecked =
     fp_self_contained::CheckedExtrinsic<AccountId, RuntimeCall, HashedTxExtension, H160>;
+
+// The payment marker has no wire representation: only authenticated v5
+// pipelines retain their native envelope fees when EVM execution pays gas.
+fn authorized_extension(extension: TxExtension) -> TxExtension<true> {
+    let (system, (payment, sudo, shield, subtensor, drand), metadata) = extension;
+    (
+        system,
+        (
+            payment.with_account_authorization(),
+            sudo,
+            shield,
+            subtensor,
+            drand,
+        ),
+        metadata,
+    )
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum UncheckedExtrinsic {
@@ -73,7 +90,7 @@ impl UncheckedExtrinsic {
     ) -> Self {
         Self::Hashed(
             generic::UncheckedExtrinsic {
-                preamble: Preamble::General(1, (authorization, extension)),
+                preamble: Preamble::General(1, (authorization, authorized_extension(extension))),
                 function: call,
             }
             .into(),
@@ -87,7 +104,7 @@ impl UncheckedExtrinsic {
     ) -> Self {
         Self::MlDsa(Box::new(
             generic::UncheckedExtrinsic {
-                preamble: Preamble::General(2, (authorization, extension)),
+                preamble: Preamble::General(2, (authorization, authorized_extension(extension))),
                 function: call,
             }
             .into(),
@@ -215,7 +232,13 @@ impl Decode for UncheckedExtrinsic {
                 1 => {
                     let extension = HashedTxExtension::decode(&mut input)?;
                     let function = decode_call(&mut input)?;
-                    Self::new_hashed(function, extension.0, extension.1)
+                    Self::Hashed(
+                        generic::UncheckedExtrinsic {
+                            preamble: Preamble::General(1, extension),
+                            function,
+                        }
+                        .into(),
+                    )
                 }
                 2 => {
                     // The variant is boxed so legacy transactions remain small.
@@ -223,7 +246,13 @@ impl Decode for UncheckedExtrinsic {
                     input.on_before_alloc_mem(core::mem::size_of::<MlDsaUnchecked>())?;
                     let extension = MlDsaTxExtension::decode(&mut input)?;
                     let function = decode_call(&mut input)?;
-                    Self::new_mldsa(function, extension.0, extension.1)
+                    Self::MlDsa(Box::new(
+                        generic::UncheckedExtrinsic {
+                            preamble: Preamble::General(2, extension),
+                            function,
+                        }
+                        .into(),
+                    ))
                 }
                 _ => return Err("Unsupported transaction extension version".into()),
             },

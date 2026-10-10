@@ -8,6 +8,7 @@
 //! A different legacy key with the same 20-byte prefix must never control it.
 //! Ethereum ECDSA authorization is also disabled for every bound alias.
 
+use codec::MaxEncodedLen;
 use frame_support::{
     dispatch::DispatchResult,
     ensure,
@@ -31,16 +32,25 @@ pub fn hashed_owner(address: &H160) -> Option<AccountId32> {
     pallet_hashed_accounts::EvmAliases::<crate::Runtime>::get(address.0)
 }
 
-/// A protected alias shares its Hashed's balance, nonce and precompile identity.
+/// A protected alias shares its Hashed's balance and precompile identity.
+/// EVM nonces stay independent of native signing nonces.
 /// Existing unprotected EVM addresses retain their historical hashed mapping.
 pub struct HashedAddressMapping;
 
 impl AddressMapping<AccountId32> for HashedAddressMapping {
     fn extra_read_weight() -> Weight {
-        // Frontier's proof-size convention: concat hash + H160 key + AccountId32 value.
+        // Alias lookup plus the worst-case separate nonce account proof. The
+        // two System account reads are already charged by account_basic; only
+        // their distinct proofs are additional when an alias shares a balance.
+        let nonce_proof = 16
+            + 32
+            + frame_system::AccountInfo::<
+                crate::Nonce,
+                pallet_balances::AccountData<crate::TaoBalance>,
+            >::max_encoded_len() as u64;
         <crate::Runtime as frame_system::Config>::DbWeight::get()
             .reads(1)
-            .set_proof_size(16 + 20 + 32)
+            .set_proof_size(16 + 20 + 32 + nonce_proof)
     }
 
     fn is_ethereum_authority_allowed(address: H160) -> bool {
@@ -50,6 +60,13 @@ impl AddressMapping<AccountId32> for HashedAddressMapping {
     fn into_account_id(address: H160) -> AccountId32 {
         pallet_evm::account_cost::record_precompile_mapping_read();
         hashed_owner(&address).unwrap_or_else(|| legacy_backing_account(address))
+    }
+
+    fn nonce_account_id(address: H160) -> Option<AccountId32> {
+        // CheckNonce increments the native signer before native EVM dispatch.
+        // Retain the original EVM nonce account for RPC simulation, CREATE and
+        // execution so that signing a native extrinsic cannot advance it.
+        Some(legacy_backing_account(address))
     }
 }
 
@@ -95,6 +112,9 @@ pub fn prepare_hashed_alias(account: &AccountId32) -> DispatchResult {
             ExistenceRequirement::AllowDeath,
         )?;
     }
+    // This account now holds only the EVM nonce. Keep it alive even if someone
+    // funds and subsequently reaps its obsolete native balance address.
+    frame_system::Pallet::<crate::Runtime>::inc_sufficients(&backing);
     Ok(())
 }
 
@@ -139,6 +159,19 @@ pub type MeteredPrecompiles = pallet_evm::account_cost::MeteredPrecompiles<
     crate::Runtime,
     subtensor_precompiles::Precompiles<crate::Runtime>,
 >;
+
+impl crate::transaction_payment_wrapper::GasPaidExecution<crate::RuntimeCall> for crate::Runtime {
+    fn gas_paid_execution(call: &crate::RuntimeCall) -> bool {
+        matches!(
+            call,
+            crate::RuntimeCall::EVM(
+                pallet_evm::Call::call { .. }
+                    | pallet_evm::Call::create { .. }
+                    | pallet_evm::Call::create2 { .. }
+            )
+        )
+    }
+}
 
 #[allow(clippy::unwrap_used)]
 #[cfg(test)]

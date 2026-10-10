@@ -688,6 +688,7 @@ pub mod pallet {
 
 			for (address, account) in &self.accounts {
 				let account_id = T::AddressMapping::into_account_id(*address);
+				let nonce_account_id = T::AddressMapping::nonce_account_id(*address);
 
 				// ASSUME: in one single EVM transaction, the nonce will not increase more than
 				// `u128::max_value()`.
@@ -695,7 +696,9 @@ pub mod pallet {
 					MAX_ACCOUNT_NONCE,
 					UniqueSaturatedInto::<usize>::unique_saturated_into(account.nonce),
 				) {
-					T::AccountProvider::inc_account_nonce(&account_id);
+					T::AccountProvider::inc_account_nonce(
+						nonce_account_id.as_ref().unwrap_or(&account_id),
+					);
 				}
 
 				let _ = T::Currency::deposit_creating(
@@ -896,6 +899,13 @@ impl<T> EnsureCreateOrigin<T> for () {
 /// Trait to be implemented for evm address mapping.
 pub trait AddressMapping<A> {
 	fn into_account_id(address: H160) -> A;
+
+	/// Select nonce storage independently of balance/origin identity. The default
+	/// uses the balance account without another lookup. Overrides must be
+	/// stateless so this adds no unmetered storage access.
+	fn nonce_account_id(_address: H160) -> Option<A> {
+		None
+	}
 
 	/// Additional storage work for each mapping lookup, beyond the stateless mapping.
 	fn extra_read_weight() -> Weight {
@@ -1098,7 +1108,9 @@ impl<T: Config> Pallet<T> {
 	/// Get the account basic in EVM format.
 	pub fn account_basic(address: &H160) -> (Account, frame_support::weights::Weight) {
 		let account_id = T::AddressMapping::into_account_id(*address);
-		let nonce = T::AccountProvider::account_nonce(&account_id);
+		let nonce_account_id = T::AddressMapping::nonce_account_id(*address);
+		let nonce =
+			T::AccountProvider::account_nonce(nonce_account_id.as_ref().unwrap_or(&account_id));
 		let balance =
 			T::Currency::reducible_balance(&account_id, Preservation::Preserve, Fortitude::Polite);
 		let balance_sub =

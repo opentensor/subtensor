@@ -1337,7 +1337,8 @@ where
 		// Nonce mapping reads are prepaid by the transaction, authorization or
 		// CREATE opcode, before EVM's required nonce-before-gas ordering.
 		let account_id = T::AddressMapping::into_account_id(address);
-		T::AccountProvider::inc_account_nonce(&account_id);
+		let nonce_account_id = T::AddressMapping::nonce_account_id(address);
+		T::AccountProvider::inc_account_nonce(nonce_account_id.as_ref().unwrap_or(&account_id));
 		Ok(())
 	}
 

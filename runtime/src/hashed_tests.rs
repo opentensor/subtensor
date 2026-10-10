@@ -9,6 +9,8 @@ use sp_runtime::{
     transaction_validity::{InvalidTransaction, TransactionSource},
 };
 use subtensor_hashed::{Descriptor, Proof, Scheme};
+#[path = "hashed_native_evm_tests.rs"]
+mod native_evm;
 fn ext() -> sp_io::TestExternalities {
     let mut ext = sp_io::TestExternalities::default();
     ext.execute_with(|| frame_system::BlockHash::<Runtime>::insert(0, H256::zero()));
@@ -1621,7 +1623,7 @@ mod composable_accounts {
         traits::{KeyGen, SerDes, Signer},
     };
 
-    fn register(descriptor: Descriptor) -> AccountId {
+    pub(super) fn register(descriptor: Descriptor) -> AccountId {
         System::set_block_number(1);
         pallet_admin_utils::HashedAccountsEnabled::<Runtime>::put(true);
         hashed_auth::TestVerificationWeight::set(Weight::zero());
