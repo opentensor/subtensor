@@ -193,17 +193,18 @@ def test_precompile_selector_expands_tuple_array_components():
     assert encode_call(fn, [[]]) == "0x" + expected.hex()
 
 
-def test_wallet_public_view_prefers_public_hotkey_without_unlocking():
-    class WalletShape:
-        coldkey = None
-        coldkeypub = None
+def test_wallet_public_view_prefers_public_hotkey_without_unlocking(tmp_path):
+    from bittensor.wallet import Wallet
+
+    class WalletShape(Wallet):
         hotkeypub = object()
 
         @property
         def hotkey(self):
             raise AssertionError("must not unlock the private hotkey")
 
-    assert public_view(WalletShape(), "hotkey") is WalletShape.hotkeypub
+    wallet = WalletShape(path=str(tmp_path))
+    assert public_view(wallet, "hotkey") is WalletShape.hotkeypub
 
 
 def test_wallet_without_hotkey_public_view_falls_back_to_legacy_hotkey():
