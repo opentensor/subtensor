@@ -1918,9 +1918,11 @@ mod fee_quote_tests {
                         .unwrap();
                     let mut reader = BufReader::new(&mut stream);
                     let mut length = 0;
+                    let mut headers = String::new();
                     loop {
                         let mut line = String::new();
-                        reader.read_line(&mut line).unwrap();
+                        assert_ne!(reader.read_line(&mut line).unwrap(), 0);
+                        headers.push_str(&line);
                         if line == "\r\n" {
                             break;
                         }
@@ -1928,6 +1930,7 @@ mod fee_quote_tests {
                             length = value.trim().parse::<usize>().unwrap();
                         }
                     }
+                    assert!(length > 0, "mock request has no body length: {headers:?}");
                     let mut body = vec![0; length];
                     reader.read_exact(&mut body).unwrap();
                     let request: JsonValue = serde_json::from_slice(&body).unwrap();

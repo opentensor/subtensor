@@ -196,7 +196,12 @@ push_actor_check() {
     echo "unsupported GitHub push URL for '$remote'; cannot verify the push actor"
     return 1
   fi
-  if [[ "${login,,}" != "${want,,}" ]]; then
+  # GitHub logins are ASCII and case-insensitive. macOS ships Bash 3.2, which
+  # does not support Bash 4's ${value,,} case conversion.
+  local login_folded want_folded
+  login_folded=$(printf '%s' "$login" | LC_ALL=C tr '[:upper:]' '[:lower:]') || return 1
+  want_folded=$(printf '%s' "$want" | LC_ALL=C tr '[:upper:]' '[:lower:]') || return 1
+  if [[ "$login_folded" != "$want_folded" ]]; then
     echo "push credential for '$remote' belongs to '${login:-nobody}', expected '$want'"
     echo "fix: git remote set-url --push $remote \"https://${want}:\$(op read 'op://Arbos/vvnyarkwampjl3diocn7n6vcqe/credential')@github.com/RaoFoundation/subtensor.git\""
     return 1

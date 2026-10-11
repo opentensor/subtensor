@@ -2,11 +2,15 @@
 # Exercise the credential gate without contacting GitHub or reading credentials.
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
-source <(sed -n '/^push_actor_check() {$/,/^}$/p' "$ROOT/scripts/preflight.sh")
+FUNCTION_SOURCE=$(mktemp)
+CALLS=$(mktemp)
+trap 'rm -f "$FUNCTION_SOURCE" "$CALLS"' EXIT
+# Bash 3.2 cannot reliably source a process-substitution file descriptor.
+sed -n '/^push_actor_check() {$/,/^}$/p' "$ROOT/scripts/preflight.sh" >"$FUNCTION_SOURCE"
+source "$FUNCTION_SOURCE"
+declare -F push_actor_check >/dev/null || { echo 'push actor function not loaded'; exit 1; }
 PREFLIGHT_PUSH_ACTOR=unarbos
 PREFLIGHT_PUSH_REMOTE=test
-CALLS=$(mktemp)
-trap 'rm -f "$CALLS"' EXIT
 
 ssh() {
   printf '%s\n' "$*" >>"$CALLS"
@@ -47,6 +51,13 @@ check pass ssh://git@github-unarbos:443/RaoFoundation/subtensor.git
 grep -q -- '-p 443 -T git@github-unarbos$' "$CALLS"
 MOCK_HOST=github.com MOCK_LOGIN=UnArbos
 check pass git@github-unarbos:RaoFoundation/subtensor.git
+PREFLIGHT_PUSH_ACTOR=UnArBoS MOCK_LOGIN=unarbos
+check pass git@github-unarbos:RaoFoundation/subtensor.git
+check pass https://github.com/RaoFoundation/subtensor.git
+PREFLIGHT_PUSH_ACTOR=unarbos
+tr() { return 1; }
+check fail https://github.com/RaoFoundation/subtensor.git
+unset -f tr
 MOCK_LOGIN=UnArbosSix
 check fail git@github-unarbos:RaoFoundation/subtensor.git
 MOCK_LOGIN=''
@@ -63,4 +74,4 @@ MOCK_TOKEN=''
 check fail https://github.com/RaoFoundation/subtensor.git
 check fail https://github.com.example.org/RaoFoundation/subtensor.git
 check fail ssh://git@example.org/RaoFoundation/subtensor.git
-printf 'push actor tests: 13 passed\n'
+printf 'push actor tests: 16 passed\n'

@@ -170,6 +170,7 @@ fn native_owner_can_spend_but_another_matching_prefix_cannot() {
         alternative[31] ^= 1;
         let alternative = AccountId32::new(alternative);
         let before = System::account(&owner);
+        let evm_nonce_before = EVM::account_basic(&source).0.nonce;
         let fee = <Runtime as pallet_evm::Config>::FeeCalculator::min_gas_price().0;
         let call = |who| {
             EVM::call(
@@ -199,14 +200,18 @@ fn native_owner_can_spend_but_another_matching_prefix_cannot() {
             Err(DispatchError::BadOrigin)
         );
         assert_eq!(System::account(&owner), before);
+        assert_eq!(EVM::account_basic(&source).0.nonce, evm_nonce_before);
         assert_ok!(call(owner.clone()));
         assert_eq!(
             Balances::free_balance(Mapping::into_account_id(target)),
             TaoBalance::new(1_000_000_000)
         );
+        // Direct pallet dispatch bypasses CheckNonce. Only the independent EVM
+        // nonce advances; a signed extrinsic advances the native nonce separately.
+        assert_eq!(System::account_nonce(&owner), before.nonce);
         assert_eq!(
-            System::account_nonce(&owner),
-            before.nonce.saturating_add(1)
+            EVM::account_basic(&source).0.nonce,
+            evm_nonce_before + U256::one()
         );
         assert_ok!(EVM::withdraw(
             RuntimeOrigin::signed(owner),
