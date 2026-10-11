@@ -7,7 +7,7 @@ the ones example tests happen to pick — which is what hypothesis explores.
 
 from __future__ import annotations
 
-from decimal import Decimal, localcontext
+from decimal import ROUND_DOWN, ROUND_HALF_EVEN, ROUND_UP, Decimal, localcontext
 
 import pytest
 from hypothesis import given
@@ -143,3 +143,48 @@ def test_balance_display_preserves_every_rao(rao, amount, netuid, symbol, prefix
 def test_balance_display_roundtrip_is_exact(rao: int):
     rendered = str(Balance.from_rao(rao)).removeprefix("τ").replace(",", "")
     assert Decimal(rendered) == Decimal(f"{rao}e-9")
+
+
+@given(
+    rao=st.integers(min_value=-(2**128), max_value=2**128),
+    precision=st.sampled_from([1, 6, 28]),
+    netuid=NETUID,
+)
+def test_decimal_accessor_ignores_context_precision(rao: int, precision: int, netuid: int):
+    with localcontext() as ctx:
+        ctx.prec = precision
+        assert Balance.from_rao(rao, netuid).decimal == Decimal(f"{rao}e-9")
+        assert ctx.prec == precision
+
+
+@given(
+    rao=st.integers(min_value=-(2**128), max_value=2**128),
+    precision=st.sampled_from([1, 6, 28]),
+    netuid=NETUID,
+)
+def test_decimal_input_ignores_context_precision(rao: int, precision: int, netuid: int):
+    amount = Decimal(f"{rao}e-9")
+    with localcontext() as ctx:
+        ctx.prec = precision
+        assert Balance.from_amount(amount, netuid).rao == rao
+        assert Balance.from_amount(str(amount), netuid).rao == rao
+        assert ctx.prec == precision
+
+
+@pytest.mark.parametrize(
+    ("rounding", "amount", "expected"),
+    [
+        (ROUND_HALF_EVEN, "1.2345678905", 1_234_567_890),
+        (ROUND_HALF_EVEN, "1.2345678915", 1_234_567_892),
+        (ROUND_DOWN, "1.2345678909", 1_234_567_890),
+        (ROUND_UP, "1.2345678901", 1_234_567_891),
+        (ROUND_HALF_EVEN, "-1.2345678915", -1_234_567_892),
+        (ROUND_DOWN, "-1.2345678909", -1_234_567_890),
+        (ROUND_UP, "-1.2345678901", -1_234_567_891),
+    ],
+)
+def test_fractional_rao_rounds_once_with_callers_rounding_mode(rounding, amount, expected):
+    with localcontext() as ctx:
+        ctx.prec = 6
+        ctx.rounding = rounding
+        assert Balance.from_tao(amount).rao == expected
