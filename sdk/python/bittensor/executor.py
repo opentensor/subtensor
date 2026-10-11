@@ -188,6 +188,17 @@ class _OriginView:
         self.public_key = bytes(ss58_decode(address))
 
 
+async def _compose_nested_intent_call(substrate, intent, wallet, *, wrapper: str):
+    """Preserve recipient guards inside a call executed by another dispatch."""
+    call, extras = await _compose_intent_call(substrate, intent, wallet)
+    if extras.get("hashed_registration"):
+        raise ValueError(
+            "register the hashed recipient first using a direct sponsor wallet; "
+            f"initial registration cannot be wrapped in {wrapper}"
+        )
+    return call
+
+
 async def _compose_intent_call(
     substrate: Substrate,
     intent: Intent,

@@ -448,3 +448,45 @@ def test_cli_evm_associate_rejects_malformed_address_before_unlock(wallet_path, 
     result = _invoke("evm", "associate", "--netuid", "1")
     assert result.exit_code != 0
     assert "104 characters" in result.output
+
+
+@pytest.mark.parametrize("crypto_type", [4, 5, 6, 7])
+@pytest.mark.parametrize("selector", ["receiving", "local", "canonical"])
+def test_explicit_root_claim_matches_receiving_identity(
+    wallet_path, monkeypatch, crypto_type, selector
+):
+    from bittensor import Balance
+    from bittensor.cli.commands import root
+    from bittensor.cli.root_helpers import RootPosition
+    from tests.harness.samples import ALICE
+
+    wallet = Wallet("recipient", path=str(wallet_path))
+    wallet.regenerate_coldkey(seed=bytes([10]) * 32, use_password=False, suppress=True)
+    wallet.regenerate_hotkey(seed=bytes([11]) * 32, crypto_type=crypto_type, suppress=True)
+    key = wallet.hotkeypub
+    selected = {
+        "receiving": receiving_address(key),
+        "local": "recipient/default",
+        "canonical": key.ss58_address,
+    }[selector]
+
+    async def positions(client, owner):
+        return [RootPosition(key.ss58_address, Balance.from_tao(2), Balance.from_tao(1))]
+
+    class ReadClient:
+        async def read(self, name, **kwargs):
+            assert name == "validator_basket_summary"
+            assert kwargs["hotkey_ss58"] == key.ss58_address
+            return {"beta_price_tao": 1.0}
+
+    monkeypatch.setattr(root, "fetch_root_positions", positions)
+    monkeypatch.setattr(AppContext, "run", lambda self, fn: asyncio.run(fn(ReadClient())))
+    monkeypatch.setattr(root, "local_address_names", lambda path: {key.ss58_address: "validator"})
+    submitted = []
+    monkeypatch.setattr(
+        AppContext, "submit", lambda self, intent, **kwargs: submitted.append(intent)
+    )
+    result = _invoke("root", "claim", "--hotkey", selected, "--coldkey", ALICE)
+    assert result.exit_code == 0, (result.output, result.exception)
+    assert len(submitted) == 1
+    assert submitted[0].hotkey_ss58 == key.ss58_address

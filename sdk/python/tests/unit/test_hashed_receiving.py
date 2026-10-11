@@ -697,3 +697,73 @@ async def test_live_admin_switch_is_not_cached_and_keeps_existing_evm_bindings()
         chain.seed("AdminUtils", "HashedAccountsEnabled", [], enabled)
         assert await hashed_accounts_enabled(chain) is enabled
         assert (await resolve_evm_recipient(chain, alias)).account == key.ss58_address
+
+
+def _nested_recipient_intent(wrapper, transfer):
+    from bittensor.intents.crowdloan import CreateCrowdloan
+    from bittensor.intents.proxy import ExecuteProxyAnnounced
+
+    spec = transfer.to_dict()
+    if wrapper == "proxy":
+        return ExecuteProxyAnnounced(
+            delegate_ss58=ALICE, real_ss58=BOB, inner_op=spec.pop("op"), inner_args=spec
+        )
+    return CreateCrowdloan(1, 1, 10, 1000, call=spec)
+
+
+@pytest.mark.parametrize("wrapper", ["proxy", "crowdloan"])
+@pytest.mark.parametrize("typed", [False, True])
+async def test_nested_recipient_keeps_guard_and_dispatch_origin(setup, monkeypatch, wrapper, typed):
+    chain, wallet, key, address = setup
+    registered(chain, key)
+    transfer = Transfer(
+        address if typed else key.ss58_address,
+        1,
+        hashed_descriptor=None if typed else bytes(key.hashed_descriptor),
+    )
+    build = Transfer.build
+
+    async def check_origin(intent, substrate, view):
+        assert view.ss58_address == (BOB if wrapper == "proxy" else ALICE)
+        return await build(intent, substrate, view)
+
+    monkeypatch.setattr(Transfer, "build", check_origin)
+    outer, _ = await _compose_intent_call(
+        chain, _nested_recipient_intent(wrapper, transfer), wallet
+    )
+    inner = outer.params["call"]
+    assert (inner.module, inner.function) == ("Utility", "batch_all")
+    guard, payment = inner.params["calls"]
+    assert guard.function == "check_registered"
+    assert guard.params["descriptor"] == descriptor_value(bytes(key.hashed_descriptor))
+    assert payment.params["dest"] == key.ss58_address
+
+
+@pytest.mark.parametrize("wrapper", ["proxy", "crowdloan"])
+async def test_nested_recipient_rejects_mismatched_descriptor(setup, wrapper):
+    chain, wallet, key, _ = setup
+    registered(chain, key)
+    bad = Keypair.create_from_seed(bytes([92]) * 32, CRYPTO_HASHED)
+    transfer = Transfer(key.ss58_address, 1, hashed_descriptor=bytes(bad.hashed_descriptor))
+    with pytest.raises(ValueError, match="descriptor does not match"):
+        await _compose_intent_call(chain, _nested_recipient_intent(wrapper, transfer), wallet)
+
+
+@pytest.mark.parametrize("wrapper", ["proxy", "crowdloan"])
+async def test_nested_recipient_requires_direct_initial_registration(setup, wrapper):
+    chain, wallet, _, address = setup
+    with pytest.raises(ValueError, match="initial registration cannot be wrapped"):
+        await _compose_intent_call(
+            chain, _nested_recipient_intent(wrapper, Transfer(address, 1)), wallet
+        )
+
+
+@pytest.mark.parametrize("wrapper", ["proxy", "crowdloan"])
+async def test_imported_multisig_checks_nested_proxy_and_crowdloan_recipient(setup, wrapper):
+    chain, wallet, key, address = setup
+    registered(chain, key)
+    adapter = pinned(_nested_recipient_intent(wrapper, Transfer(address, 1)))
+    adapter.wrap_call = AsyncMock()
+    with pytest.raises(ValueError, match="imported multisig"):
+        await _compose_intent_call(chain, adapter, wallet)
+    adapter.wrap_call.assert_not_awaited()

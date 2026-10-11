@@ -171,10 +171,15 @@ async def has_receiving_setup_inputs(substrate, wallet: Any, intent: Any, depth:
         return True
     if has_local_hashed_recipient(wallet, semantic):
         return True
-    if semantic.op in ("multisig_execute", "multisig_threshold_1"):
+    nested = None
+    if semantic.op == "execute_proxy_announced":
+        nested = {**semantic.inner_args, "op": semantic.inner_op}
+    elif semantic.op in ("multisig_execute", "multisig_threshold_1", "create_crowdloan"):
+        nested = semantic.call
+    if nested:
         from .intents.registry import build
 
-        spec = dict(semantic.call)
+        spec = dict(nested)
         child = build(spec.pop("op"), spec)
         if await has_receiving_setup_inputs(substrate, wallet, child, depth + 1):
             return True

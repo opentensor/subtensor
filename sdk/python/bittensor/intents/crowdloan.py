@@ -14,7 +14,7 @@ from typing import Any, ClassVar, Optional
 
 from .._generated import calls
 from ._money import ALL, UNBOUNDED, Money, Spend, tao_amount
-from .base import BuiltCall, Intent
+from .base import Intent
 from .registry import build as build_intent
 from .registry import register
 from .staking import _stakeable_rao
@@ -93,8 +93,14 @@ class CreateCrowdloan(Intent):
             op = args.pop("op", None)
             if not op:
                 raise ValueError("crowdloan 'call' needs an 'op' key")
-            built = await build_intent(op, args).build(substrate, wallet)
-            inner = built.call if isinstance(built, BuiltCall) else built
+            from ..executor import _compose_nested_intent_call, _OriginView
+            from ..receiving import account_for_read
+
+            origin = _OriginView(await account_for_read(substrate, self.coldkey_address(wallet)))
+            origin._wallet = getattr(wallet, "_wallet", wallet)
+            inner = await _compose_nested_intent_call(
+                substrate, build_intent(op, args), origin, wrapper="crowdloan"
+            )
         return await substrate.compose(
             calls.Crowdloan.create(
                 deposit=self.deposit_tao.rao,

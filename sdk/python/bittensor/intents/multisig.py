@@ -74,7 +74,7 @@ async def _compose_inner(substrate, view: Any, spec: dict):
     ``view`` is the multisig account view (see ``_account_view``), so the inner
     intent's signer-derived defaults resolve to the account that dispatches it.
     """
-    from ..executor import _compose_intent_call
+    from ..executor import _compose_nested_intent_call
 
     args = dict(spec)
     op = args.pop("op", None)
@@ -83,13 +83,9 @@ async def _compose_inner(substrate, view: Any, spec: dict):
     # Use the same recipient preparation and origin wrappers as a direct
     # intent. Calling build alone leaves bth1_ addresses in AccountId fields
     # and skips the registration checks that must run inside the multisig.
-    call, extras = await _compose_intent_call(substrate, build_intent(op, args), view)
-    if extras.get("hashed_registration"):
-        raise ValueError(
-            "register the hashed recipient first using a direct sponsor wallet; "
-            "initial registration cannot be wrapped in multisig"
-        )
-    return call
+    return await _compose_nested_intent_call(
+        substrate, build_intent(op, args), view, wrapper="multisig"
+    )
 
 
 def _timepoint(value: Optional[dict]):

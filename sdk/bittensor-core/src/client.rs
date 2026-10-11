@@ -15,7 +15,7 @@ use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use codec::Decode;
+use codec::{Decode, MaxEncodedLen};
 use reqwest::blocking::Client as HttpClient;
 use serde_json::{json, Value as JsonValue};
 
@@ -525,30 +525,7 @@ impl Client {
         generation_offset: u64,
     ) -> Result<(Vec<u8>, String), CoreError> {
         let runtime = self.runtime()?;
-        let current = self.block_number()?;
-        let (era, era_block_hash) = match period {
-            Some(period) if period > 0 => {
-                let birth = era_birth(period, current);
-                let hash = parse_h256(&self.block_hash(Some(birth))?)?;
-                (
-                    Value::record(vec![
-                        ("period".into(), Value::Uint(u128::from(period))),
-                        ("current".into(), Value::Uint(u128::from(current))),
-                    ]),
-                    hash,
-                )
-            }
-            _ => (Value::str("00"), self.genesis_hash),
-        };
-        let params = TxParams {
-            era,
-            nonce,
-            tip: 0,
-            tip_asset_id: None,
-            genesis_hash: self.genesis_hash,
-            era_block_hash,
-            metadata_hash: None,
-        };
+        let params = self.transaction_params(nonce, period)?;
         let signature = if is_hashed_crypto(signer.crypto_type()) {
             let state_hash = self.block_hash(None)?;
             let record = self.query(
@@ -596,11 +573,58 @@ impl Client {
         Ok((extrinsic, hex_prefixed(&hash)))
     }
 
-    pub fn estimate_fee(&self, call_data: &[u8], signer: &Keypair) -> Result<u128, CoreError> {
+    fn transaction_params(&self, nonce: u64, period: Option<u64>) -> Result<TxParams, CoreError> {
+        let current = self.block_number()?;
+        let (era, era_block_hash) = match period {
+            Some(period) if period > 0 => {
+                let birth = era_birth(period, current);
+                let hash = parse_h256(&self.block_hash(Some(birth))?)?;
+                (
+                    Value::record(vec![
+                        ("period".into(), Value::Uint(u128::from(period))),
+                        ("current".into(), Value::Uint(u128::from(current))),
+                    ]),
+                    hash,
+                )
+            }
+            _ => (Value::str("00"), self.genesis_hash),
+        };
+        Ok(TxParams {
+            era,
+            nonce,
+            tip: 0,
+            tip_asset_id: None,
+            genesis_hash: self.genesis_hash,
+            era_block_hash,
+            metadata_hash: None,
+        })
+    }
+
+    /// Quotes only decode the envelope: never disclose an active signing key
+    /// or produce a reusable authorization for an operation the user may cancel.
+    fn payment_info(&self, call_data: &[u8], signer: &Keypair) -> Result<JsonValue, CoreError> {
+        let runtime = self.runtime()?;
         let nonce = self.account_next_index(&signer.ss58_address())?;
-        let (extrinsic, _) =
-            self.sign_extrinsic(call_data, signer, nonce, Some(DEFAULT_ERA_PERIOD))?;
-        let value = self.rpc_value("payment_queryInfo", json!([hex_prefixed(&extrinsic)]))?;
+        let params = self.transaction_params(nonce, Some(DEFAULT_ERA_PERIOD))?;
+        let proof_len = if is_mldsa_crypto(signer.crypto_type()) {
+            subtensor_hashed::MlDsaProof::max_encoded_len()
+        } else if is_hashed_crypto(signer.crypto_type()) {
+            subtensor_hashed::Proof::max_encoded_len()
+        } else {
+            64
+        };
+        let (extrinsic, _) = runtime.encode_signed_extrinsic(
+            call_data,
+            signer.public_key_bytes(),
+            &vec![0; proof_len],
+            signer.crypto_type(),
+            &params,
+        )?;
+        self.rpc_value("payment_queryInfo", json!([hex_prefixed(&extrinsic)]))
+    }
+
+    pub fn estimate_fee(&self, call_data: &[u8], signer: &Keypair) -> Result<u128, CoreError> {
+        let value = self.payment_info(call_data, signer)?;
         let object = value
             .as_object()
             .ok_or_else(|| CoreError::Rpc("payment_queryInfo returned a non-object".into()))?;
@@ -612,10 +636,7 @@ impl Client {
     }
 
     pub fn estimate_weight(&self, call_data: &[u8], signer: &Keypair) -> Result<Value, CoreError> {
-        let nonce = self.account_next_index(&signer.ss58_address())?;
-        let (extrinsic, _) =
-            self.sign_extrinsic(call_data, signer, nonce, Some(DEFAULT_ERA_PERIOD))?;
-        let value = self.rpc_value("payment_queryInfo", json!([hex_prefixed(&extrinsic)]))?;
+        let value = self.payment_info(call_data, signer)?;
         let weight = value
             .as_object()
             .and_then(|object| object.get("weight"))
@@ -1822,5 +1843,151 @@ mod reorg_finalization_tests {
             classify_inclusion_finalization("0xabc", None, 10, 9),
             Some(InclusionFinalization::Reorged)
         );
+    }
+}
+
+#[cfg(test)]
+mod fee_quote_tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
+    use super::*;
+    use codec::Encode;
+    use frame_metadata::{RuntimeMetadata, RuntimeMetadataPrefixed};
+    use std::io::{BufRead, BufReader, Read, Write};
+    use std::net::TcpListener;
+
+    fn runtime() -> Runtime {
+        let fixture: JsonValue =
+            serde_json::from_str(include_str!("../../python/tests/fixtures/golden.json")).unwrap();
+        let encoded = decode_hex(fixture["metadata"]["v15_hex"].as_str().unwrap()).unwrap();
+        let metadata = Option::<Vec<u8>>::decode(&mut encoded.as_slice())
+            .unwrap()
+            .unwrap();
+        let mut metadata = RuntimeMetadataPrefixed::decode(&mut metadata.as_slice()).unwrap();
+        let RuntimeMetadata::V15(inner) = &mut metadata.1 else {
+            panic!("v15 fixture");
+        };
+        let mut pallet = inner.pallets[0].clone();
+        pallet.name = "HashedAccounts".into();
+        pallet.index = 250;
+        inner.pallets.push(pallet);
+        Runtime::parse(&metadata.encode(), 1, 1, 42).unwrap()
+    }
+
+    #[test]
+    fn fee_and_weight_rpc_use_sized_dummy_proofs_for_every_wallet_mode() {
+        for crypto in [0, 1, 4, 5, 6, 7] {
+            let runtime = runtime();
+            let full = Keypair::from_seed(&[17; 32], crypto).unwrap();
+            // Public-only keys cannot sign or derive a generation's public key.
+            let public = Keypair::new(Some(&full.ss58_address()), None, crypto, 42).unwrap();
+            let call = runtime
+                .compose_call(
+                    "System",
+                    "remark",
+                    &Value::record(vec![("remark".into(), Value::Bytes(vec![7; 300]))]),
+                )
+                .unwrap();
+            let params = TxParams {
+                era: Value::record(vec![
+                    ("period".into(), Value::Uint(64)),
+                    ("current".into(), Value::Uint(10)),
+                ]),
+                nonce: 64,
+                tip: 0,
+                tip_asset_id: None,
+                genesis_hash: [8; 32],
+                era_block_hash: [8; 32],
+                metadata_hash: None,
+            };
+            let proof = if is_hashed_crypto(crypto) {
+                full.sign_hashed(b"length control").unwrap()
+            } else {
+                full.sign(b"length control").unwrap()
+            };
+            let (control, _) = runtime
+                .encode_signed_extrinsic(&call, full.public_key_bytes(), &proof, crypto, &params)
+                .unwrap();
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let endpoint = format!("http://{}", listener.local_addr().unwrap());
+            let server = thread::spawn(move || {
+                let mut quotes = Vec::new();
+                while quotes.len() < 2 {
+                    let (mut stream, _) = listener.accept().unwrap();
+                    stream
+                        .set_read_timeout(Some(Duration::from_secs(5)))
+                        .unwrap();
+                    let mut reader = BufReader::new(&mut stream);
+                    let mut length = 0;
+                    loop {
+                        let mut line = String::new();
+                        reader.read_line(&mut line).unwrap();
+                        if line == "\r\n" {
+                            break;
+                        }
+                        if let Some(value) = line.to_lowercase().strip_prefix("content-length:") {
+                            length = value.trim().parse::<usize>().unwrap();
+                        }
+                    }
+                    let mut body = vec![0; length];
+                    reader.read_exact(&mut body).unwrap();
+                    let request: JsonValue = serde_json::from_slice(&body).unwrap();
+                    let result = match request["method"].as_str().unwrap() {
+                        "system_accountNextIndex" => json!(64),
+                        "chain_getHeader" => {
+                            json!({"number":"0xa", "parentHash":hex_prefixed(&[8;32])})
+                        }
+                        "chain_getBlockHash" => json!(hex_prefixed(&[8; 32])),
+                        "payment_queryInfo" => {
+                            quotes
+                                .push(decode_hex(request["params"][0].as_str().unwrap()).unwrap());
+                            json!({"partialFee":"1234", "weight":{"ref_time":456, "proof_size":78}})
+                        }
+                        other => {
+                            panic!("quote must not read authorization state or submit: {other}")
+                        }
+                    };
+                    let response =
+                        json!({"jsonrpc":"2.0", "id":request["id"], "result":result}).to_string();
+                    write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", response.len(), response).unwrap();
+                }
+                quotes
+            });
+            let client = Client {
+                endpoint,
+                http: HttpClient::builder()
+                    .no_proxy()
+                    .timeout(Duration::from_secs(5))
+                    .build()
+                    .unwrap(),
+                next_id: AtomicU64::new(1),
+                runtime: RwLock::new(Arc::new(runtime)),
+                genesis_hash: [8; 32],
+                ss58_format: 42,
+            };
+            assert_eq!(client.estimate_fee(&call, &public).unwrap(), 1234);
+            assert_eq!(
+                client.estimate_weight(&call, &public).unwrap(),
+                json_to_value(&json!({"ref_time":456,"proof_size":78})).unwrap()
+            );
+            let quotes = server.join().unwrap();
+            assert_eq!(quotes[0], quotes[1]);
+            assert_eq!(quotes[0].len(), control.len());
+            let mut body = quotes[0].as_slice();
+            let _ = codec::Compact::<u32>::decode(&mut body).unwrap();
+            let mut control_body = control.as_slice();
+            let _ = codec::Compact::<u32>::decode(&mut control_body).unwrap();
+            let offset = if is_hashed_crypto(crypto) { 34 } else { 35 };
+            assert_eq!(&body[offset..offset + proof.len()], vec![0; proof.len()]);
+            assert_eq!(&body[..offset], &control_body[..offset]);
+            assert_eq!(
+                &body[offset + proof.len()..],
+                &control_body[offset + proof.len()..]
+            );
+            assert!(client
+                .runtime()
+                .unwrap()
+                .decode_extrinsic(&quotes[0], true)
+                .is_ok());
+        }
     }
 }

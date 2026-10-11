@@ -448,6 +448,11 @@ def _claim_position(
     facts (accrued, rate, redeem estimate, destination) render as the
     "Claim" stage of the pre-sign review card.
     """
+    # Chain positions use AccountIds; the CLI selector may retain a public
+    # receiving descriptor. This is an identity lookup, not a payment target.
+    from ...receiving import parse_recipient
+
+    hotkey = parse_recipient(hotkey).account
     with app_ctx.output.activity("reading your position…"):
         if accrued is None:
             positions = app_ctx.run(lambda c: fetch_root_positions(c, owner))
