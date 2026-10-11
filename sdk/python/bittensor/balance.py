@@ -145,9 +145,13 @@ class Balance:
             )
 
     def __repr__(self) -> str:
+        # Formatting the float amount can lose rao for large balances.
+        whole, fractional = divmod(abs(self.rao), RAO_PER_TAO)
+        sign = "-" if self.rao < 0 else ""
+        amount = f"{sign}{whole:,}.{fractional:09d}"
         if self.netuid == 0:
-            return f"{TAO_SYMBOL}{self.amount:,.9f}"
-        return f"{self.amount:,.9f}{self.unit}"
+            return f"{TAO_SYMBOL}{amount}"
+        return f"{amount}{self.unit}"
 
     __str__ = __repr__
 

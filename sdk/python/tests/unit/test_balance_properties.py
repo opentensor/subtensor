@@ -7,7 +7,7 @@ the ones example tests happen to pick — which is what hypothesis explores.
 
 from __future__ import annotations
 
-from decimal import Decimal
+from decimal import Decimal, localcontext
 
 import pytest
 from hypothesis import given
@@ -111,3 +111,35 @@ def test_from_alpha_rejects_tao_netuid(rao: int, netuid: int):
     assert Balance.from_alpha(str(amount), netuid).netuid == netuid
     with pytest.raises(UnitMismatchError):
         Balance.from_alpha(str(amount), 0)
+
+
+@pytest.mark.parametrize(
+    ("netuid", "symbol", "prefix", "suffix"),
+    [(0, None, "τ", ""), (42, None, "", "α₄₂"), (2, "β", "", "β")],
+)
+@pytest.mark.parametrize(
+    ("rao", "amount"),
+    [
+        (0, "0.000000000"),
+        (1, "0.000000001"),
+        (-1, "-0.000000001"),
+        (10**9, "1.000000000"),
+        (-(10**9 + 1), "-1.000000001"),
+        (16_777_216_000_000_001, "16,777,216.000000001"),
+        (2**64 - 1, "18,446,744,073.709551615"),
+        (-(2**64 - 1), "-18,446,744,073.709551615"),
+    ],
+)
+def test_balance_display_preserves_every_rao(rao, amount, netuid, symbol, prefix, suffix):
+    balance = Balance.from_rao(rao, netuid, symbol)
+    # Display must not depend on the caller's decimal precision either.
+    with localcontext() as ctx:
+        ctx.prec = 6
+        assert str(balance) == f"{prefix}{amount}{suffix}"
+        assert repr(balance) == str(balance)
+
+
+@given(rao=SIGNED_RAO)
+def test_balance_display_roundtrip_is_exact(rao: int):
+    rendered = str(Balance.from_rao(rao)).removeprefix("τ").replace(",", "")
+    assert Decimal(rendered) == Decimal(f"{rao}e-9")
