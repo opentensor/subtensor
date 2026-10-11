@@ -12,7 +12,7 @@ import pytest
 import bittensor as bt
 from bittensor.receiving import receiving_address
 from bittensor.sp_core import HASHED_CRYPTO_TYPES, Keypair, serialized_keypair_to_keyfile_data
-from tests.harness.receiving import legacy_receiving_address
+from tests.harness.receiving import descriptor_receiving_address
 from tests.harness.samples import dev_wallet
 
 ENDPOINT = os.getenv("E2E_WALLET_ENDPOINT")
@@ -124,7 +124,7 @@ async def test_cli_wallet_parity(tmp_path, scheme):
             assert await balance(recipient.coldkeypub) == before + 10**9
             address = receiving_address(recipient.coldkeypub)
             if recipient.coldkeypub.crypto_type in HASHED_CRYPTO_TYPES:
-                address = legacy_receiving_address(recipient.coldkeypub)
+                address = descriptor_receiving_address(recipient.coldkeypub)
             await cli("original", "wallet", "transfer", "--dest", address, "--amount", "1")
             assert await balance(recipient.coldkeypub) == before + 2 * 10**9
 
@@ -194,7 +194,7 @@ async def test_cli_wallet_parity(tmp_path, scheme):
                     "wallet",
                     f"regen-{role}pub",
                     "--address",
-                    legacy_receiving_address(key),
+                    descriptor_receiving_address(key),
                 )
                 public = getattr(bt.Wallet("watch-only", path=wallet_path), role + "pub")
                 assert public.ss58_address == key.ss58_address

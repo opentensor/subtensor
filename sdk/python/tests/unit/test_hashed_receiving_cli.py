@@ -23,7 +23,7 @@ from bittensor.settings import FINNEY_GENESIS_HASH
 from bittensor.sp_core import CRYPTO_HASHED, CRYPTO_SR25519, Keypair
 from bittensor.wallet import Wallet
 from tests.harness.fake_substrate import FakeSubstrate
-from tests.harness.receiving import legacy_receiving_address
+from tests.harness.receiving import descriptor_receiving_address
 
 MNEMONIC = "bottom drive obey lake curtain smoke basket hold race lonely fit walk"
 OTHER_GENESIS = "0x" + "17" * 32
@@ -109,7 +109,7 @@ def test_same_name_contact_wins_without_using_local_wallet_descriptor(wallet_pat
     wallet.regenerate_coldkey(
         seed=bytes([3]) * 32, crypto_type=CRYPTO_HASHED, use_password=False, suppress=True
     )
-    remote = receiving_address(_public(4), FINNEY_GENESIS_HASH)
+    remote = receiving_address(_public(4))
     config.add_address({"name": "friend", "address": remote})
     resolved = _context(wallet_path).resolve_address_ref("dest_ss58", "friend")
     assert resolved.address == remote
@@ -133,7 +133,7 @@ def test_local_picker_and_wallet_list_share_complete_public_addresses(wallet_pat
 
 
 def test_coldkey_swap_preserves_contact_receiving_address(wallet_path, monkeypatch):
-    address = receiving_address(_public(), FINNEY_GENESIS_HASH)
+    address = receiving_address(_public())
     config.add_address({"name": "replacement", "address": address})
     submitted = []
     monkeypatch.setattr(AppContext, "submit", lambda self, intent: submitted.append(intent))
@@ -145,9 +145,7 @@ def test_coldkey_swap_preserves_contact_receiving_address(wallet_path, monkeypat
 
 @pytest.mark.parametrize("shape", ["plain", "multiaddress", "nested"])
 def test_raw_call_rejects_typed_contacts_instead_of_losing_setup(wallet_path, shape):
-    config.add_address(
-        {"name": "friend", "address": receiving_address(_public(), FINNEY_GENESIS_HASH)}
-    )
+    config.add_address({"name": "friend", "address": receiving_address(_public())})
     params = {"dest": {"Id": "friend"} if shape == "multiaddress" else "friend", "value": 1}
     target = "Balances.transfer_keep_alive"
     if shape == "nested":
@@ -160,17 +158,15 @@ def test_raw_call_rejects_typed_contacts_instead_of_losing_setup(wallet_path, sh
 
 
 def test_nested_intent_resolution_keeps_full_receiving_address(wallet_path):
-    address = receiving_address(_public(), FINNEY_GENESIS_HASH)
+    address = receiving_address(_public())
     config.add_address({"name": "friend", "address": address})
     args = {"intents": [{"op": "transfer", "dest_ss58": "friend", "amount_tao": 1}]}
     resolved = resolve_intent_args(_context(wallet_path), args)
     assert resolved["intents"][0]["dest_ss58"] == address
 
 
-def test_legacy_contact_keeps_descriptor_for_registration_on_selected_chain(
-    wallet_path, monkeypatch
-):
-    address = legacy_receiving_address(_public())
+def test_contact_keeps_descriptor_for_registration_on_selected_chain(wallet_path, monkeypatch):
+    address = descriptor_receiving_address(_public())
     saved = _invoke("addr", "add", "other-chain", address)
     assert saved.exit_code == 0, saved.output
     submitted = []
@@ -241,14 +237,14 @@ def test_mnemonic_restore_prints_same_receiving_address_without_secret(wallet_pa
         args.append("--no-password")
     result = _invoke(*args)
     assert result.exit_code == 0, result.output
-    assert json.loads(result.output)["address"] == receiving_address(key, FINNEY_GENESIS_HASH)
+    assert json.loads(result.output)["address"] == receiving_address(key)
     assert MNEMONIC not in result.output
 
 
 @pytest.mark.parametrize("role", ["coldkey", "hotkey"])
 def test_public_restore_infers_type_and_preserves_descriptor(wallet_path, role):
     public = _public()
-    address = receiving_address(public, FINNEY_GENESIS_HASH)
+    address = receiving_address(public)
     result = _invoke("wallet", f"regen-{role}pub", "--address", address)
     assert result.exit_code == 0, result.output
     assert json.loads(result.output)["address"] == address
@@ -259,8 +255,8 @@ def test_public_restore_infers_type_and_preserves_descriptor(wallet_path, role):
     assert not getattr(wallet, role + "_file").exists_on_device()
 
 
-def test_public_restore_accepts_legacy_address_from_another_chain(wallet_path):
-    address = legacy_receiving_address(_public())
+def test_public_restore_accepts_descriptor_address(wallet_path):
+    address = descriptor_receiving_address(_public())
     result = _invoke("wallet", "regen-coldkeypub", "--address", address)
     assert result.exit_code == 0, result.output
     wallet = Wallet("recipient", path=str(wallet_path))
@@ -318,7 +314,7 @@ def test_named_protected_multisig_signatories_and_saved_presets(wallet_path, sch
     wallet.regenerate_coldkey(
         seed=bytes([19]) * 32, crypto_type=code, use_password=False, suppress=True
     )
-    address = receiving_address(wallet.coldkeypub, FINNEY_GENESIS_HASH)
+    address = receiving_address(wallet.coldkeypub)
     config.add_address({"name": "member", "address": address})
     config.add_multisig(
         {"name": "team", "threshold": 2, "signatories": ["recipient", "member", BOB]}
@@ -356,11 +352,11 @@ def test_named_protected_multisig_signatories_and_saved_presets(wallet_path, sch
 
 
 @pytest.mark.parametrize("consumer", ["signatories", "preset"])
-def test_multisig_receiving_identity_accepts_legacy_address(wallet_path, consumer):
+def test_multisig_receiving_identity_accepts_descriptor_address(wallet_path, consumer):
     from bittensor._transport.codec import multisig_account
     from tests.harness.samples import BOB
 
-    address = legacy_receiving_address(_public())
+    address = descriptor_receiving_address(_public())
     config.add_address({"name": "member", "address": address})
     ctx = _context(wallet_path)
     expected = [_public().ss58_address, BOB]
@@ -396,8 +392,10 @@ def test_cli_multisig_add_and_show_with_named_protected_member(wallet_path, monk
 
 
 @pytest.mark.parametrize("code", [4, 5])
-@pytest.mark.parametrize("legacy", [False, True])
-def test_cli_evm_associate_uses_protected_account_identity(wallet_path, monkeypatch, code, legacy):
+@pytest.mark.parametrize("independent", [False, True])
+def test_cli_evm_associate_uses_protected_account_identity(
+    wallet_path, monkeypatch, code, independent
+):
     from types import SimpleNamespace
 
     from eth_account import Account
@@ -407,9 +405,9 @@ def test_cli_evm_associate_uses_protected_account_identity(wallet_path, monkeypa
 
     wallet = Wallet("recipient", path=str(wallet_path))
     wallet.regenerate_hotkey(seed=bytes([22]) * 32, crypto_type=code, suppress=True)
-    if legacy:
+    if independent:
         monkeypatch.setattr(
-            AppContext, "resolve_address", lambda *_: legacy_receiving_address(wallet.hotkeypub)
+            AppContext, "resolve_address", lambda *_: descriptor_receiving_address(wallet.hotkeypub)
         )
     account = Account.from_key(bytes([23]) * 32)
     monkeypatch.setattr(
@@ -447,7 +445,7 @@ def test_cli_evm_associate_rejects_malformed_address_before_unlock(wallet_path, 
     monkeypatch.setattr(association, "_unlock", unexpected)
     result = _invoke("evm", "associate", "--netuid", "1")
     assert result.exit_code != 0
-    assert "104 characters" in result.output
+    assert "61 characters" in result.output
 
 
 @pytest.mark.parametrize("crypto_type", [4, 5, 6, 7])

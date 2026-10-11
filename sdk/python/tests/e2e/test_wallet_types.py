@@ -70,7 +70,6 @@ async def test_composable_wallet_lifecycle(tmp_path, scheme, mode):
     async with bt.Client(ENDPOINT, fallback_endpoints=[], archive_endpoints=[]) as client:
         assert await client.query(bt.storage.Sudo.Key) == alice.coldkey.ss58_address
         assert await client.query(("AdminUtils", "HashedAccountsEnabled")) is True
-        genesis = await client._substrate.raw._session.request("chain_getBlockHash", [0])
 
         async def submit(call, signer=alice, *, role="coldkey", root=False, success=True):
             if root:
@@ -87,7 +86,7 @@ async def test_composable_wallet_lifecycle(tmp_path, scheme, mode):
             return await client.query(("HashedAccounts", "Accounts"), [key.ss58_address])
 
         async def fund(key, amount=10):
-            address = receiving_address(key, genesis) if hashed else key.ss58_address
+            address = receiving_address(key) if hashed else key.ss58_address
             result = await client.execute(bt.intents.Transfer(address, amount), alice)
             assert result.success, result.to_dict()
 
@@ -176,7 +175,7 @@ async def test_composable_wallet_lifecycle(tmp_path, scheme, mode):
         before = await free(wallet.coldkey)
         await evm_cli("evm", "send-to-ss58", "--amount-tao", "1")
         assert await free(wallet.coldkey) == before + 10**9
-        address = receiving_address(wallet.coldkey, genesis)
+        address = receiving_address(wallet.coldkey)
         await evm_cli("evm", "call", "balance-transfer", "transfer", address, "--value-tao", "1")
         assert await free(wallet.coldkey) == before + 2 * 10**9
         await evm_cli("evm", "stake", "add", "--netuid", str(netuid), "--amount-tao", "5")
@@ -240,7 +239,7 @@ async def test_composable_wallet_lifecycle(tmp_path, scheme, mode):
             signature = bt.wallets.sign_message_key(
                 "four wallet types", key, hashed_generation=generation
             )["signature"]
-            address = receiving_address(key, genesis) if hashed else key.ss58_address
+            address = receiving_address(key) if hashed else key.ss58_address
             assert bt.wallets.verify_message(
                 "four wallet types", signature, address, crypto_type=code
             )
@@ -368,9 +367,7 @@ async def test_composable_wallet_lifecycle(tmp_path, scheme, mode):
             on_mnemonic=lambda *_: None,
         )
         destination = (
-            receiving_address(replacement.coldkey, genesis)
-            if hashed
-            else replacement.coldkey.ss58_address
+            receiving_address(replacement.coldkey) if hashed else replacement.coldkey.ss58_address
         )
         stake_before = await client.read(
             "stake",

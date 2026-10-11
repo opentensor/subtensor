@@ -73,10 +73,6 @@ def sign(message: bytes, *, mnemonic: str, crypto_type: int = CRYPTO_SR25519) ->
     return bytes(keypair.sign(message))
 
 
-def encode_hashed_receiving_address(descriptor: bytes, genesis_hash: bytes | None = None) -> str:
-    """Encode a network-independent address, including with older native bindings.
-
-    Keep the optional legacy argument for callers migrating from network-bound
-    addresses. Reserved zero bytes preserve the existing checked wire format.
-    """
-    return _backend.encode_hashed_receiving_address(descriptor, bytes(32))
+def encode_hashed_receiving_address(descriptor: bytes) -> str:
+    """Encode a network-independent descriptor and checksum."""
+    return _backend.encode_hashed_receiving_address(descriptor)

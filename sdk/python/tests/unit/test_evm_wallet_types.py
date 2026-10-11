@@ -23,7 +23,7 @@ from bittensor.receiving import account_for_registered_write, receiving_address
 from bittensor.sp_core import HASHED_CRYPTO_TYPES, Keypair
 from bittensor.wallet import Wallet
 from tests.harness.fake_substrate import FakeSubstrate
-from tests.harness.receiving import legacy_receiving_address
+from tests.harness.receiving import descriptor_receiving_address
 
 
 @pytest.fixture(
@@ -85,19 +85,19 @@ COMMANDS = {
 
 
 @pytest.mark.parametrize("command", COMMANDS)
-@pytest.mark.parametrize("reference", ["default", "name", "contact", "address", "legacy"])
+@pytest.mark.parametrize("reference", ["default", "name", "contact", "address", "independent"])
 def test_evm_commands_encode_all_wallet_types(wallet_case, command, reference):
     wallet, substrate, captured, prefix = wallet_case
     args, role = COMMANDS[command]
     key = getattr(wallet, role)
-    address = receiving_address(key, bytes(32))
+    address = receiving_address(key)
     config.add_address({"name": "friend", "address": address})
     references = {
         "name": "recipient/default" if role == "hotkey" else "recipient",
         "contact": "friend",
         "address": address,
-        "legacy": (
-            legacy_receiving_address(key) if key.crypto_type in HASHED_CRYPTO_TYPES else address
+        "independent": (
+            descriptor_receiving_address(key) if key.crypto_type in HASHED_CRYPTO_TYPES else address
         ),
     }
     if reference != "default":
@@ -126,7 +126,7 @@ def test_protected_commands_fail_before_evm_submission(wallet_case, command, fai
     wallet, substrate, captured, prefix = wallet_case
     args, role = COMMANDS[command]
     key = getattr(wallet, role)
-    address = receiving_address(key, bytes(32))
+    address = receiving_address(key)
     expected = "not finalized"
     if failure == "unfinalized":
         original = substrate.query
@@ -169,13 +169,13 @@ def test_protected_commands_fail_before_evm_submission(wallet_case, command, fai
 async def test_registered_write_does_not_depend_on_registration_being_enabled(wallet_case):
     wallet, substrate, _, _ = wallet_case
     substrate.seed_constant("HashedAccounts", "Enabled", False)
-    address = receiving_address(wallet.coldkey, bytes(32))
+    address = receiving_address(wallet.coldkey)
     assert await account_for_registered_write(substrate, address) == wallet.coldkey.ss58_address
 
 
 def test_generic_precompile_call_resolves_receiving_address(wallet_case):
     wallet, _, captured, prefix = wallet_case
-    address = receiving_address(wallet.coldkey, bytes(32))
+    address = receiving_address(wallet.coldkey)
     result = CliRunner().invoke(
         app, [*prefix, "evm", "call", "balance-transfer", "transfer", address, "--value-tao", "1"]
     )
@@ -185,9 +185,9 @@ def test_generic_precompile_call_resolves_receiving_address(wallet_case):
     )
 
 
-def test_generic_views_resolve_legacy_addresses_without_registration(wallet_case):
+def test_generic_views_resolve_descriptor_addresses_without_registration(wallet_case):
     wallet, substrate, _, _ = wallet_case
-    address = receiving_address(wallet.hotkey, bytes(32))
+    address = receiving_address(wallet.hotkey)
     ctx = AppContext(
         "local", "recipient", "default", str(wallet.path), True, False, Output(json_mode=True)
     )
@@ -200,7 +200,7 @@ def test_generic_views_resolve_legacy_addresses_without_registration(wallet_case
         assert _native_arguments(
             ctx,
             fn,
-            [json.dumps([legacy_receiving_address(wallet.hotkey)])],
+            [json.dumps([descriptor_receiving_address(wallet.hotkey)])],
             "http://127.0.0.1:9999",
         ) == [[wallet.hotkey.ss58_address]]
     assert not substrate.query.call_args_list
@@ -213,9 +213,7 @@ def test_generic_writes_require_registration_for_every_array_member(wallet_case)
         "local", "recipient", "default", str(wallet.path), True, False, Output(json_mode=True)
     )
     fn = {"inputs": [{"type": "bytes32[]"}], "stateMutability": "nonpayable"}
-    addresses = [
-        receiving_address(getattr(wallet, role), bytes(32)) for role in ("coldkey", "hotkey")
-    ]
+    addresses = [receiving_address(getattr(wallet, role)) for role in ("coldkey", "hotkey")]
     assert _native_arguments(ctx, fn, [json.dumps(addresses)], None) == [
         [wallet.coldkey.ss58_address, wallet.hotkey.ss58_address]
     ]
@@ -227,7 +225,7 @@ def test_generic_writes_require_registration_for_every_array_member(wallet_case)
 @pytest.mark.parametrize("wallet_case", [4, 5], indirect=True, ids=["hashed", "ms"])
 def test_generic_precompile_write_rejects_unregistered_recipient(wallet_case):
     wallet, substrate, captured, prefix = wallet_case
-    address = receiving_address(wallet.coldkey, bytes(32))
+    address = receiving_address(wallet.coldkey)
     substrate.seed("HashedAccounts", "Accounts", [wallet.coldkey.ss58_address], None)
     result = CliRunner().invoke(
         app, [*prefix, "evm", "call", "balance-transfer", "transfer", address, "--value-tao", "1"]
@@ -239,7 +237,7 @@ def test_generic_precompile_write_rejects_unregistered_recipient(wallet_case):
 
 def test_pubkey_command_accepts_complete_receiving_address(wallet_case):
     wallet, _, _, prefix = wallet_case
-    address = receiving_address(wallet.coldkey, bytes(32))
+    address = receiving_address(wallet.coldkey)
     result = CliRunner().invoke(app, [*prefix, "evm", "pubkey", address])
     assert result.exit_code == 0, result.output or result.exception
     assert "0x" + bytes(wallet.coldkey.public_key).hex() in result.output

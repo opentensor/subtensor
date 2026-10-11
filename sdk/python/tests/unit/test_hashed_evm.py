@@ -171,7 +171,7 @@ async def test_ordinary_claim_still_reads_legacy_mirror(protected):
 
 def test_raw_evm_routes_reject_complete_receiving_address(protected):
     _, key, _ = protected
-    full = receiving_address(key, bytes(32))
+    full = receiving_address(key)
     for route in (normalize_h160, ss58_to_pubkey):
         with pytest.raises(ValueError, match="wallet transfer"):
             route(full)
@@ -288,7 +288,7 @@ def test_cli_stake_show_reads_the_runtime_mapped_coldkey(
         if hashed_hotkey
         else Keypair.create_from_seed(bytes([5]) * 32)
     )
-    hotkey = receiving_address(hotkey_key, bytes(32))
+    hotkey = receiving_address(hotkey_key)
     result = CliRunner().invoke(
         app,
         [
@@ -342,7 +342,7 @@ def test_cli_stake_show_rejects_malformed_hotkey_before_evm_rpc(evm_cli, monkeyp
         ],
     )
     assert result.exit_code != 0
-    assert "104 characters" in result.output
+    assert "61 characters" in result.output
     substrate.query.assert_not_awaited()
 
 

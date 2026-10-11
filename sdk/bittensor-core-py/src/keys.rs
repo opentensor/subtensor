@@ -207,12 +207,9 @@ impl Keypair {
         ))
     }
 
-    /// Network-independent receiving address; the optional legacy genesis argument is ignored.
-    #[pyo3(signature = (genesis_hash=None))]
-    fn hashed_receiving_address(&self, genesis_hash: Option<&[u8]>) -> PyResult<String> {
-        self.inner
-            .hashed_receiving_address(genesis_hash.unwrap_or_default())
-            .map_err(to_py_err)
+    /// Network-independent receiving address containing only the descriptor and checksum.
+    fn hashed_receiving_address(&self) -> PyResult<String> {
+        self.inner.hashed_receiving_address().map_err(to_py_err)
     }
 
     #[getter]
@@ -340,29 +337,20 @@ fn ss58_encode(public_key: &[u8], ss58_format: u16) -> PyResult<String> {
     Ok(keys::ss58_from_public(public_key, ss58_format))
 }
 
-/// Encode the initial public descriptor; the optional legacy genesis argument is ignored.
+/// Encode the initial public descriptor without a network field.
 #[pyfunction]
-#[pyo3(signature = (descriptor, genesis_hash=None))]
-fn encode_hashed_receiving_address(
-    descriptor: &[u8],
-    genesis_hash: Option<&[u8]>,
-) -> PyResult<String> {
-    keys::encode_hashed_receiving_address(descriptor, genesis_hash.unwrap_or_default())
-        .map_err(to_py_err)
+fn encode_hashed_receiving_address(descriptor: &[u8]) -> PyResult<String> {
+    keys::encode_hashed_receiving_address(descriptor).map_err(to_py_err)
 }
 
-/// Return `(legacy_network_field, descriptor)`; the first field is informational only.
+/// Return the original public descriptor after validating the address.
 #[pyfunction]
 fn decode_hashed_receiving_address<'py>(
     py: Python<'py>,
     address: &str,
-) -> PyResult<(Bound<'py, PyBytes>, Bound<'py, PyBytes>)> {
-    let (genesis_hash, descriptor) =
-        keys::decode_hashed_receiving_address(address).map_err(to_py_err)?;
-    Ok((
-        PyBytes::new(py, &genesis_hash),
-        PyBytes::new(py, &descriptor),
-    ))
+) -> PyResult<Bound<'py, PyBytes>> {
+    let descriptor = keys::decode_hashed_receiving_address(address).map_err(to_py_err)?;
+    Ok(PyBytes::new(py, &descriptor))
 }
 
 #[pyfunction]

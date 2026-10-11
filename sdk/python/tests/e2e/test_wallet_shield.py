@@ -40,7 +40,7 @@ async def test_cross_validator_shield_and_external_nonce_advancement(code, spons
             )
         key = Keypair.create_from_seed(secrets.token_bytes(32), code)
         wallet = SimpleNamespace(coldkey=key, coldkeypub=key, hotkey=key)
-        address = receiving_address(key, genesis)
+        address = receiving_address(key)
         result = await asyncio.wait_for(
             a.execute(bt.intents.Transfer(address, 50), dev_wallet(f"//{sponsor}")), 120
         )

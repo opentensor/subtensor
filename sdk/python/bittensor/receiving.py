@@ -1,7 +1,7 @@
 """Self-contained payment addresses; never discard setup data on a write path.
 
-``bth1_`` addresses carry the original public descriptor. The former network
-field is reserved and zero in new addresses; old addresses remain accepted.
+``bth1_`` addresses carry only the original public descriptor and checksum.
+They contain no network field.
 Their AccountId and authorization remain the runtime's existing ones. Only the
 native codec defines the wire format and checksum.
 """
@@ -34,7 +34,7 @@ def parse_recipient(value: str) -> Recipient:
     if not isinstance(value, str):
         raise ValueError("recipient must be an address string")
     if is_receiving_address(value):
-        _, descriptor = sp_core.decode_hashed_receiving_address(value)
+        descriptor = sp_core.decode_hashed_receiving_address(value)
         public = sp_core.Keypair.from_hashed_descriptor(bytes(descriptor))
         return Recipient(value, public.ss58_address, bytes(descriptor))
     # A normal address has no hidden setup information. This API validates it;
@@ -43,11 +43,11 @@ def parse_recipient(value: str) -> Recipient:
     return Recipient(value, value)
 
 
-def receiving_address(keypair: Any, genesis_hash: str | bytes | None = None) -> str:
+def receiving_address(keypair: Any) -> str:
     """Derive a receiving address locally; this does not register the account.
 
-    The optional legacy genesis_hash argument is ignored. The same receiving
-    address works on every chain, with independent registration on each.
+    The same receiving address works on every chain, with independent
+    registration on each.
 
     Register each new hashed account and wait for finalization before publicly
     sharing its address.

@@ -178,10 +178,8 @@ impl Keypair {
     }
 
     #[wasm_bindgen(js_name = hashedReceivingAddress)]
-    pub fn hashed_receiving_address(&self, genesis: Option<Vec<u8>>) -> Result<String, JsValue> {
-        self.inner
-            .hashed_receiving_address(genesis.as_deref().unwrap_or_default())
-            .map_err(to_js_err)
+    pub fn hashed_receiving_address(&self) -> Result<String, JsValue> {
+        self.inner.hashed_receiving_address().map_err(to_js_err)
     }
 
     /// Sign the full implication for General extension version 1 (hashed) or 2 (ML-DSA).

@@ -2,8 +2,7 @@
 //!
 //! The descriptor reveals only the initial commitment, never a signing key.
 //! The checksum detects transcription errors; it does not authenticate a sender.
-//! The former 32-byte network field is reserved and zero in new encodings.
-//! Legacy addresses remain decodable; their embedded network is not a restriction.
+//! The payload contains only the descriptor; registration is independent per chain.
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use codec::Decode;
@@ -15,12 +14,11 @@ use crate::error::CoreError;
 
 const PREFIX: &str = "bth1_";
 const DOMAIN: &[u8] = b"bittensor/hashed/v1/receiving";
-const RESERVED_LEN: usize = 32;
 const DESCRIPTOR_LEN: usize = 34;
-const PAYLOAD_LEN: usize = RESERVED_LEN + DESCRIPTOR_LEN;
+const PAYLOAD_LEN: usize = DESCRIPTOR_LEN;
 const CHECKSUM_LEN: usize = 8;
 const BODY_LEN: usize = PAYLOAD_LEN + CHECKSUM_LEN;
-const ADDRESS_LEN: usize = 104;
+const ADDRESS_LEN: usize = 61;
 
 fn validate_descriptor(bytes: &[u8]) -> Result<(), CoreError> {
     if bytes.len() != DESCRIPTOR_LEN {
@@ -48,28 +46,21 @@ fn checksum(payload: &[u8]) -> [u8; CHECKSUM_LEN] {
     checksum
 }
 
-/// Encode a public descriptor with a zeroed, reserved compatibility field.
-/// The legacy genesis_hash argument is ignored; addresses work on every chain.
+/// Encode a public descriptor without a network field; addresses work on every chain.
 /// This receiving address does not change the account's existing identity.
-pub fn encode_hashed_receiving_address(
-    descriptor: &[u8],
-    _genesis_hash: &[u8],
-) -> Result<String, CoreError> {
+pub fn encode_hashed_receiving_address(descriptor: &[u8]) -> Result<String, CoreError> {
     validate_descriptor(descriptor)?;
     let mut body = Vec::with_capacity(BODY_LEN);
-    body.extend_from_slice(&[0; RESERVED_LEN]);
     body.extend_from_slice(descriptor);
     body.extend_from_slice(&checksum(&body));
     Ok(format!("{PREFIX}{}", URL_SAFE_NO_PAD.encode(body)))
 }
 
-/// Decode a receiving address into `(legacy_network_field, descriptor)`.
-/// The first field is returned only for wire compatibility. It must not restrict
-/// where the account can be used; registration is independently checked per chain.
-pub fn decode_hashed_receiving_address(address: &str) -> Result<([u8; 32], Vec<u8>), CoreError> {
+/// Decode a receiving address into its original public descriptor.
+pub fn decode_hashed_receiving_address(address: &str) -> Result<Vec<u8>, CoreError> {
     if address.len() != ADDRESS_LEN {
         return Err(crypto_err(
-            "hashed receiving address must be exactly 104 characters",
+            "hashed receiving address must be exactly 61 characters",
         ));
     }
     let encoded = address
@@ -84,18 +75,16 @@ pub fn decode_hashed_receiving_address(address: &str) -> Result<([u8; 32], Vec<u
     if body[PAYLOAD_LEN..] != checksum(&body[..PAYLOAD_LEN]) {
         return Err(crypto_err("hashed receiving address checksum mismatch"));
     }
-    let descriptor = &body[RESERVED_LEN..PAYLOAD_LEN];
+    let descriptor = &body[..PAYLOAD_LEN];
     validate_descriptor(descriptor)?;
-    let mut legacy_network_field = [0; RESERVED_LEN];
-    legacy_network_field.copy_from_slice(&body[..RESERVED_LEN]);
-    Ok((legacy_network_field, descriptor.to_vec()))
+    Ok(descriptor.to_vec())
 }
 
 impl Keypair {
     /// Share this account's initial descriptor without disclosing
     /// its current signing key. Also works for descriptor-bearing public keys.
-    pub fn hashed_receiving_address(&self, genesis_hash: &[u8]) -> Result<String, CoreError> {
-        encode_hashed_receiving_address(&self.hashed_descriptor()?, genesis_hash)
+    pub fn hashed_receiving_address(&self) -> Result<String, CoreError> {
+        encode_hashed_receiving_address(&self.hashed_descriptor()?)
     }
 }
 
@@ -131,23 +120,12 @@ mod tests {
     fn fixed_vector_matches_independent_blake2b_and_base64_implementation() {
         // Generated with Python hashlib.blake2b(digest_size=32) and
         // base64.urlsafe_b64encode, rather than this codec.
-        const EXPECTED: &str = "bth1_AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8BAQcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHbgCS2rCAxcU";
-        let genesis: Vec<u8> = (0..32).collect();
+        const EXPECTED: &str = "bth1_AQEHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHB2_GKIFP7N0l";
         let descriptor = descriptor();
-        let address = encode_hashed_receiving_address(&descriptor, &genesis).unwrap();
-        const CANONICAL: &str = "bth1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAQcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHnKscYQ9BfVA";
-        assert_eq!(address, CANONICAL);
-        assert_eq!(
-            address,
-            encode_hashed_receiving_address(&descriptor, &[]).unwrap()
-        );
-        let (reserved, canonical_descriptor) = decode_hashed_receiving_address(&address).unwrap();
-        assert_eq!(reserved, [0; 32]);
-        assert_eq!(canonical_descriptor, descriptor);
+        let address = encode_hashed_receiving_address(&descriptor).unwrap();
+        assert_eq!(address, EXPECTED);
         assert_eq!(address.len(), ADDRESS_LEN);
-        let (decoded_genesis, decoded_descriptor) =
-            decode_hashed_receiving_address(EXPECTED).unwrap();
-        assert_eq!(decoded_genesis.as_slice(), genesis);
+        let decoded_descriptor = decode_hashed_receiving_address(&address).unwrap();
         assert_eq!(decoded_descriptor, descriptor);
         let public =
             Keypair::from_hashed_descriptor(&decoded_descriptor, DEFAULT_SS58_FORMAT).unwrap();
@@ -157,7 +135,7 @@ mod tests {
 
     #[test]
     fn every_payload_and_checksum_byte_is_covered() {
-        let address = encode_hashed_receiving_address(&descriptor(), &[9; 32]).unwrap();
+        let address = encode_hashed_receiving_address(&descriptor()).unwrap();
         let body = URL_SAFE_NO_PAD
             .decode(address.strip_prefix(PREFIX).unwrap())
             .unwrap();
@@ -181,34 +159,28 @@ mod tests {
             crate::keys::CRYPTO_MLDSA_STANDARD,
         ] {
             let key = Keypair::from_seed(&[17; 32], crypto_type).unwrap();
-            let genesis = [11; 32];
-            let address = key.hashed_receiving_address(&genesis).unwrap();
+            let address = key.hashed_receiving_address().unwrap();
             assert_eq!(
                 key.at_generation(90_001)
                     .unwrap()
-                    .hashed_receiving_address(&genesis)
+                    .hashed_receiving_address()
                     .unwrap(),
                 address
             );
             assert_eq!(
                 key.public_only()
                     .unwrap()
-                    .hashed_receiving_address(&genesis)
+                    .hashed_receiving_address()
                     .unwrap(),
                 address
             );
-            for index in 0..RESERVED_LEN {
-                let mut other_network = genesis;
-                other_network[index] ^= 1;
-                let other = key.hashed_receiving_address(&other_network).unwrap();
-                assert_eq!(other, address);
-                let (decoded, descriptor) = decode_hashed_receiving_address(&other).unwrap();
-                assert_eq!(decoded, [0; 32]);
-                assert_eq!(descriptor, key.hashed_descriptor().unwrap());
-            }
+            assert_eq!(
+                decode_hashed_receiving_address(&address).unwrap(),
+                key.hashed_descriptor().unwrap()
+            );
         }
         let classical = Keypair::from_seed(&[17; 32], CRYPTO_SR25519).unwrap();
-        assert!(classical.hashed_receiving_address(&[]).is_err());
+        assert!(classical.hashed_receiving_address().is_err());
     }
 
     #[test]
@@ -216,10 +188,8 @@ mod tests {
         for (offset, replacement) in [(0, 0), (0, 2), (1, 0), (1, 4), (1, 255)] {
             let mut invalid = descriptor();
             invalid[offset] = replacement;
-            assert!(encode_hashed_receiving_address(&invalid, &[0; 32]).is_err());
-            let mut payload = vec![0; 32];
-            payload.extend_from_slice(&invalid);
-            assert!(decode_hashed_receiving_address(&envelope(&payload)).is_err());
+            assert!(encode_hashed_receiving_address(&invalid).is_err());
+            assert!(decode_hashed_receiving_address(&envelope(&invalid)).is_err());
         }
         let empty_commitment = Descriptor {
             version: VERSION,
@@ -227,24 +197,16 @@ mod tests {
             initial_commitment: [0; 32],
         }
         .encode();
-        assert!(encode_hashed_receiving_address(&empty_commitment, &[0; 32]).is_err());
-        let mut payload = vec![0; 32];
-        payload.extend_from_slice(&empty_commitment);
-        assert!(decode_hashed_receiving_address(&envelope(&payload)).is_err());
+        assert!(encode_hashed_receiving_address(&empty_commitment).is_err());
+        assert!(decode_hashed_receiving_address(&envelope(&empty_commitment)).is_err());
         for invalid in [vec![], vec![1; 33], vec![1; 35]] {
-            assert!(encode_hashed_receiving_address(&invalid, &[0; 32]).is_err());
-        }
-        for length in [0, 31, 33] {
-            assert_eq!(
-                encode_hashed_receiving_address(&descriptor(), &vec![0; length]).unwrap(),
-                encode_hashed_receiving_address(&descriptor(), &[]).unwrap(),
-            );
+            assert!(encode_hashed_receiving_address(&invalid).is_err());
         }
     }
 
     #[test]
     fn alternate_spellings_padding_and_trailing_data_are_rejected() {
-        let address = encode_hashed_receiving_address(&descriptor(), &[9; 32]).unwrap();
+        let address = encode_hashed_receiving_address(&descriptor()).unwrap();
         for invalid in [
             address.replacen("bth1_", "bth2_", 1),
             address.replacen("bth1_", "BTH1_", 1),
@@ -263,13 +225,14 @@ mod tests {
                 decode_hashed_receiving_address(std::str::from_utf8(&invalid).unwrap()).is_err()
             );
         }
-        // 74 bytes leave two unused bits in the last base64 character. Set
-        // one without changing the represented payload: it must not be accepted.
-        const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-        let mut invalid = address.into_bytes();
-        let last = *invalid.last().unwrap();
-        let value = ALPHABET.iter().position(|byte| *byte == last).unwrap();
-        *invalid.last_mut().unwrap() = ALPHABET[value | 1];
-        assert!(decode_hashed_receiving_address(std::str::from_utf8(&invalid).unwrap()).is_err());
+    }
+
+    #[test]
+    fn unused_network_field_is_not_accepted() {
+        for network in [[0; 32], [17; 32]] {
+            let mut payload = network.to_vec();
+            payload.extend_from_slice(&descriptor());
+            assert!(decode_hashed_receiving_address(&envelope(&payload)).is_err());
+        }
     }
 }

@@ -15,7 +15,7 @@ from bittensor.pow_registration import (
     registration_seal,
 )
 from tests.harness.fake_substrate import FakeSubstrate
-from tests.harness.receiving import legacy_receiving_address
+from tests.harness.receiving import descriptor_receiving_address
 from tests.harness.samples import ALICE, ALICE_HOT, dev_wallet
 
 
@@ -108,13 +108,12 @@ async def test_miner_resolves_receiving_addresses_but_preserves_hotkey_descripto
     hot = Keypair.create_from_seed(bytes([19]) * 32, crypto_type)
     cold = Keypair.create_from_seed(bytes([20]) * 32, crypto_type)
     substrate.seed("SubtensorModule", "Uids", [1, hot.ss58_address], None)
-    genesis = await substrate.block_hash(0)
-    hot_address = receiving_address(hot, genesis)
+    hot_address = receiving_address(hot)
     intent = await mine_registration(
         substrate,
         1,
         hot_address,
-        receiving_address(cold, genesis),
+        receiving_address(cold),
         workers=1,
         max_seconds=10,
         backend="cpu",
@@ -127,8 +126,8 @@ async def test_miner_resolves_receiving_addresses_but_preserves_hotkey_descripto
     restored = await mine_registration(
         substrate,
         1,
-        legacy_receiving_address(hot),
-        legacy_receiving_address(cold),
+        descriptor_receiving_address(hot),
+        descriptor_receiving_address(cold),
         workers=1,
         max_seconds=10,
         backend="cpu",

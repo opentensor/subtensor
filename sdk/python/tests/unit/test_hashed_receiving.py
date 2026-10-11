@@ -28,7 +28,7 @@ from bittensor.result import BittensorError
 from bittensor.sp_core import CRYPTO_HASHED, Keypair
 from bittensor.wallet import Wallet
 from tests.harness.fake_substrate import FakeSubstrate
-from tests.harness.receiving import legacy_receiving_address
+from tests.harness.receiving import descriptor_receiving_address
 from tests.harness.samples import ALICE, BOB, dev_wallet
 
 GENESIS = bytes(32)
@@ -42,7 +42,7 @@ def setup():
     chain.seed_constant("HashedAccounts", "RegistrationDeposit", RESERVE)
     chain.seed("System", "Account", [ALICE], {"data": {"free": 10**12, "frozen": 0}})
     key = Keypair.create_from_seed(bytes([91]) * 32, CRYPTO_HASHED)
-    return chain, dev_wallet(), key, receiving_address(key, GENESIS)
+    return chain, dev_wallet(), key, receiving_address(key)
 
 
 def registered(chain, key, generation=17):
@@ -226,11 +226,11 @@ async def test_pinned_bytes_cannot_hide_receiving_inputs_inside_multisig(setup, 
 def test_address_preserves_original_descriptor_after_rotation(setup):
     _, _, key, address = setup
     recipient = parse_recipient(address)
-    assert len(address) == 104
+    assert len(address) == 61
     assert recipient.account == key.ss58_address
     assert recipient.descriptor == bytes(key.hashed_descriptor)
-    assert receiving_address(key, bytes([9]) * 32) == address
-    assert receiving_address(key.at_generation(123), GENESIS) == address
+    assert receiving_address(key) == address
+    assert receiving_address(key.at_generation(123)) == address
 
 
 async def test_remote_payment_keeps_complete_input_and_registers_before_funding(setup):
@@ -628,25 +628,27 @@ async def test_registry_descriptor_mismatch_is_rejected(setup):
     assert not chain.submissions
 
 
-async def test_reads_resolve_current_and_legacy_addresses_on_client_and_snapshot(setup):
+async def test_reads_resolve_native_and_independently_encoded_addresses_on_client_and_snapshot(
+    setup,
+):
     chain, _, key, address = setup
     client = Client("local", substrate=chain)
     chain.seed("System", "Account", [key.ss58_address], {"data": {"free": 123456}})
     for view in (client, await client.at(50)):
         assert await view.read("balance", coldkey_ss58=address) == Balance.from_rao(123456)
-        assert await view.read("balance", coldkey_ss58=legacy_receiving_address(key)) == (
+        assert await view.read("balance", coldkey_ss58=descriptor_receiving_address(key)) == (
             Balance.from_rao(123456)
         )
 
 
 @pytest.mark.parametrize("code", [4, 5])
-@pytest.mark.parametrize("legacy", [False, True])
-async def test_cli_wallet_aggregations_resolve_receiving_addresses(code, legacy):
+@pytest.mark.parametrize("independent", [False, True])
+async def test_cli_wallet_aggregations_resolve_receiving_addresses(code, independent):
     from bittensor.cli.helpers import wallet_balance_row, wallet_balance_rows, wallet_inspect_data
 
     chain = FakeSubstrate()
     key = Keypair.create_from_seed(bytes([91]) * 32, code)
-    address = legacy_receiving_address(key) if legacy else receiving_address(key)
+    address = descriptor_receiving_address(key) if independent else receiving_address(key)
     chain.seed("System", "Account", [key.ss58_address], {"data": {"free": 123456}})
     runtime_call = chain.runtime_call
 
@@ -671,7 +673,7 @@ async def test_cli_registrations_match_local_descriptors_to_chain_accounts(code)
 
     chain = FakeSubstrate()
     key = Keypair.create_from_seed(bytes([92]) * 32, code)
-    address = legacy_receiving_address(key)
+    address = descriptor_receiving_address(key)
     chain.seed("SubtensorModule", "OwnedHotkeys", [ALICE], [key.ss58_address])
     chain.seed("SubtensorModule", "Uids", [1, key.ss58_address], 7)
     result = await wallet_registration_rows(
@@ -753,22 +755,20 @@ async def test_wrapped_preflight_queries_the_internal_account(setup, monkeypatch
 @pytest.mark.parametrize("code", [0, 1, 4, 5])
 def test_all_wallet_addresses_are_network_independent(code):
     key = Keypair.create_from_seed(bytes([39]) * 32, code)
-    assert receiving_address(key) == receiving_address(key, bytes(32))
-    assert receiving_address(key) == receiving_address(key, bytes([17]) * 32)
     assert parse_recipient(receiving_address(key)).account == key.ss58_address
 
 
 @pytest.mark.parametrize("code", [4, 5])
 @pytest.mark.parametrize("registered_here", [False, True])
-async def test_legacy_address_transfers_on_another_chain(code, registered_here):
+async def test_descriptor_address_uses_registration_on_selected_chain(code, registered_here):
     chain = FakeSubstrate()
     chain.seed_constant("HashedAccounts", "Enabled", True)
     chain.seed_constant("HashedAccounts", "RegistrationDeposit", RESERVE)
     key = Keypair.create_from_seed(bytes([39]) * 32, code)
     if registered_here:
         registered(chain, key)
-    address = legacy_receiving_address(key)
-    assert address != receiving_address(key)
+    address = descriptor_receiving_address(key)
+    assert address == receiving_address(key)
     assert parse_recipient(address).account == key.ss58_address
     plan = await Executor(chain).plan(Transfer(address, 1), dev_wallet())
     guard, transfer = plan.call.params["calls"]

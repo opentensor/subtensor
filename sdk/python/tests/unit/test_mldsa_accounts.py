@@ -44,7 +44,7 @@ class MlDsaCodec:
 @pytest.mark.parametrize("selected", [None, CRYPTO_ED25519, CRYPTO_SR25519, CRYPTO_HASHED])
 def test_receiving_address_never_falls_back_to_a_weaker_message_scheme(monkeypatch, selected):
     key = Keypair.create_from_mnemonic(MNEMONIC, CRYPTO_MLDSA)
-    address = receiving_address(key, GENESIS)
+    address = receiving_address(key)
 
     class ClassicalForgery:
         """Model a broken classical verifier; no quantum hardware is needed."""
@@ -74,7 +74,7 @@ def test_mldsa_descriptors_receiving_addresses_and_public_recovery():
     descriptor = bytes(key.hashed_descriptor)
     assert descriptor_bytes(descriptor_value(descriptor)) == descriptor
     assert descriptor_value(descriptor)["scheme"] == "MlDsa65"
-    address = receiving_address(key, GENESIS)
+    address = receiving_address(key)
     recipient = parse_recipient(address)
     assert recipient.account == key.ss58_address
     assert recipient.descriptor == descriptor
@@ -150,7 +150,7 @@ def test_message_signing_and_explicit_or_automatic_verification(tmp_path, crypto
         wallets.verify_message("challenge", signed["signature"], signed["ss58"])
     if crypto_type in HASHED_CRYPTO_TYPES:
         assert wallets.verify_message(
-            "challenge", signed["signature"], receiving_address(wallet.coldkeypub, GENESIS)
+            "challenge", signed["signature"], receiving_address(wallet.coldkeypub)
         )
     assert wallets.verify_message("challenge", signed["signature"], signed["ss58"], crypto_type)
     assert not wallets.verify_message("changed", signed["signature"], signed["ss58"], crypto_type)
