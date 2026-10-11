@@ -36,7 +36,7 @@ def _async_surface(cls) -> dict[str, object]:
     return {
         name: fn
         for name, fn in _public_functions(cls).items()
-        if asyncio.iscoroutinefunction(fn) or inspect.isasyncgenfunction(fn)
+        if inspect.iscoroutinefunction(fn) or inspect.isasyncgenfunction(fn)
     }
 
 
@@ -52,7 +52,7 @@ def test_namespace_reads_are_coroutines(cls):
     registry dispatch, which always yields coroutines), so empty is fine.
     """
     methods = _public_functions(cls)
-    not_async = [name for name, fn in methods.items() if not asyncio.iscoroutinefunction(fn)]
+    not_async = [name for name, fn in methods.items() if not inspect.iscoroutinefunction(fn)]
     assert not not_async, (
         f"{cls.__name__} has non-async public methods {not_async}; the sync "
         "facade proxies namespaces as coroutine methods"
@@ -90,7 +90,7 @@ def test_sync_facade_mirrors_async_surface(async_cls, sync_cls):
                 f"{async_cls.__name__}.{name} takes parameters"
             )
             continue
-        assert not asyncio.iscoroutinefunction(sync_fn), (
+        assert not inspect.iscoroutinefunction(sync_fn), (
             f"{sync_cls.__name__}.{name} must block, not return a coroutine"
         )
         assert _param_names(sync_fn) == _param_names(fn), (

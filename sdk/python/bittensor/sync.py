@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import inspect
 import threading
 import weakref
 from datetime import datetime
@@ -111,7 +112,7 @@ class _SyncNamespace:
 
     def __getattr__(self, name: str):
         attr = getattr(self._target, name)
-        if not asyncio.iscoroutinefunction(attr):
+        if not inspect.iscoroutinefunction(attr):
             return attr
 
         def wrapper(*args, **kwargs):

@@ -62,7 +62,7 @@ from .sp_core import ss58_decode
 
 # A generated descriptor is a (container, name) pair (see bittensor/_generated);
 # a plain 2-tuple of strings works for items missing from the generated catalog.
-Descriptor = tuple[str, str]
+Descriptor = Union[tuple[str, str], _st.Item]
 
 # A moment in time: datetime, unix timestamp, or ISO-8601 string.
 WhenLike = Union[datetime, str, int, float]

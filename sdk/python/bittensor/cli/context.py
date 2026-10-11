@@ -16,7 +16,7 @@ import sys
 from dataclasses import dataclass, field, replace
 from dataclasses import fields as dataclass_fields
 from types import SimpleNamespace
-from typing import Awaitable, Callable, Optional, TypeVar
+from typing import Awaitable, Callable, Literal, Optional, TypeVar, overload
 
 import typer
 
@@ -566,6 +566,17 @@ class AppContext:
 
         address = wallets.open_wallet(name=value, path=self.wallet_path).coldkeypub.ss58_address
         return ResolvedAddress(address, f"wallet {value!r}", value)
+
+    @overload
+    def resolve_address(
+        self, param: Literal["coldkey_ss58", "hotkey_ss58"], value: Optional[str]
+    ) -> str: ...
+
+    @overload
+    def resolve_address(self, param: str, value: str) -> str: ...
+
+    @overload
+    def resolve_address(self, param: str, value: Optional[str]) -> Optional[str]: ...
 
     def resolve_address(self, param: str, value: Optional[str]) -> Optional[str]:
         """Resolve an address-typed CLI value (any ``*_ss58`` param) to an ss58 address.
