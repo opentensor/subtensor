@@ -20,7 +20,7 @@ import asyncio
 import contextlib
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, AsyncIterator, Optional, Union
+from typing import Any, AsyncIterator, Optional, Sequence, Union
 
 from . import config
 from . import reads as read_registry
@@ -307,7 +307,7 @@ class Client:
         workers: int = 4,
         max_seconds: float = 300,
         backend: str = "auto",
-        device_ids: tuple[int, ...] | None = None,
+        device_ids: Sequence[int] | None = None,
     ):
         """Mine a fresh PowRegister intent using public addresses only.
 

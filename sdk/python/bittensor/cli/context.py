@@ -26,6 +26,7 @@ from .._generated import runtime_apis, storage
 from ..balance import Balance
 from ..client import Client
 from ..extension.client import BridgeError
+from ..extension.signer import ExtensionAccountSelection
 from ..intents.registration import (
     ClaimRootWithHotkey,
     _registration_split_suffix,
@@ -197,7 +198,7 @@ class AppContext:
     # Ledger derivation path (m/44'/354'/account'/0'/index').
     ledger_account: int = 0
     ledger_index: int = 0
-    _extension_selection: Optional[object] = None
+    _extension_selection: Optional[ExtensionAccountSelection] = None
     _extension_bridge_ws_url: Optional[str] = None
     _ledger_signer: Optional[object] = None
     _vault_signer: Optional[VaultSigner] = None
@@ -1599,7 +1600,7 @@ class AppContext:
                 # receipt, so the co-signer followup works for both paths.
                 # Skipped mid-chain: the next approval happens in this same
                 # run, so co-signer instructions would only be noise.
-                if not self.rounds_intermediate():
+                if result is not None and not self.rounds_intermediate():
                     await self._attach_multisig_followup(client, intent, result)
                 return result
             finally:

@@ -13,7 +13,7 @@ from ..balance import Balance
 from ..result import BittensorError
 from ..settings import RAO_PER_TAO
 from ..signing import public_view
-from ._money import ALL, UNBOUNDED, Money, Spend, alpha_amount, call_amount
+from ._money import ALL, UNBOUNDED, Money, Spend, alpha_amount, call_amount, normalized_balance
 from .base import BuiltCall, Intent, IntentPreflight
 from .registry import register
 
@@ -91,6 +91,7 @@ async def _swap_quote_facts(
             received = Balance.from_rao(int(r["alpha_amount"]), netuid)
             paid_rao, received_rao = tao_in.rao, received.rao
         else:
+            assert alpha_in is not None
             r = await substrate.runtime_call(
                 *SwapRuntimeApi.sim_swap_alpha_for_tao, {"netuid": netuid, "alpha": alpha_in.rao}
             )
@@ -498,6 +499,7 @@ class _OptionalRootClaimIntent(Intent):
     """Preflight the embedded claim in claim-then-unstake / claim-then-move intents."""
 
     claim: bool
+    hotkey_ss58: str
 
     def claim_hotkey(self) -> str:
         return self.hotkey_ss58
@@ -592,7 +594,7 @@ class AddStake(Intent):
         if self.amount_tao == ALL:
             rao = await _stakeable_rao(substrate, wallet)
         else:
-            rao = self.amount_tao.rao
+            rao = normalized_balance(self.amount_tao).rao
         if self.slippage_protection:
             price = await _alpha_price_rao(substrate, self.netuid)
             return await substrate.compose(
@@ -629,7 +631,9 @@ class AddStake(Intent):
         # stays TAO-denominated, and ``all`` only resolves at build time —
         # no quote for either.
         if self.netuid != 0 and self.amount_tao != ALL:
-            facts = await _swap_quote_facts(substrate, netuid=self.netuid, tao_in=self.amount_tao)
+            facts = await _swap_quote_facts(
+                substrate, netuid=self.netuid, tao_in=normalized_balance(self.amount_tao)
+            )
             if facts:
                 preview.facts = [*facts, *preview.facts]
                 preview.facts_title = "Quote"
@@ -646,7 +650,7 @@ class AddStake(Intent):
         if self.amount_tao == ALL:
             # Unbounded: a max_spend policy should block draining the whole account.
             return UNBOUNDED
-        return self.amount_tao
+        return normalized_balance(self.amount_tao)
 
 
 @register
@@ -758,7 +762,7 @@ class RemoveStake(_OptionalRootClaimIntent):
         # (netuid 0) is TAO already, and ``all`` only resolves at build time.
         if self.netuid != 0 and self.amount_alpha != ALL:
             facts = await _swap_quote_facts(
-                substrate, netuid=self.netuid, alpha_in=self.amount_alpha
+                substrate, netuid=self.netuid, alpha_in=normalized_balance(self.amount_alpha)
             )
             if facts:
                 preview.facts = [*facts, *preview.facts]
@@ -969,7 +973,7 @@ class AddStakeLimit(Intent):
         if self.amount_tao == ALL:
             rao = await _stakeable_rao(substrate, wallet)
         else:
-            rao = self.amount_tao.rao
+            rao = normalized_balance(self.amount_tao).rao
         return await substrate.compose(
             calls.SubtensorModule.add_stake_limit(
                 hotkey=self.hotkey_ss58,
@@ -997,7 +1001,7 @@ class AddStakeLimit(Intent):
     def spend(self) -> Spend:
         if self.amount_tao == ALL:
             return UNBOUNDED
-        return self.amount_tao
+        return normalized_balance(self.amount_tao)
 
 
 @register
@@ -1274,7 +1278,7 @@ class SwapStake(Intent):
                 substrate, wallet, self.hotkey_ss58, self.origin_netuid, action="swap"
             )
         else:
-            rao = self.amount_alpha.rao
+            rao = normalized_balance(self.amount_alpha).rao
         return await _compose_swap_stake(
             substrate,
             hotkey=self.hotkey_ss58,
@@ -1376,7 +1380,7 @@ class MoveSwapStake(Intent):
                 substrate, wallet, self.origin_hotkey_ss58, self.origin_netuid, action="move"
             )
         else:
-            rao = self.amount_alpha.rao
+            rao = normalized_balance(self.amount_alpha).rao
         return await _compose_move_then_swap(
             substrate,
             origin_hotkey=self.origin_hotkey_ss58,
@@ -1493,7 +1497,7 @@ class TransferStake(Intent):
                 substrate, wallet, self.hotkey_ss58, self.origin_netuid, action="transfer"
             )
         else:
-            rao = self.amount_alpha.rao
+            rao = normalized_balance(self.amount_alpha).rao
         if self._changes_hotkey():
             return await substrate.compose(
                 calls.SubtensorModule.transfer_stake_and_hotkey(
@@ -1553,7 +1557,11 @@ class TransferStake(Intent):
             ),
         )
         position_rao = 0 if position_info is None else int(position_info.get("stake") or 0)
-        amount_rao = position_rao if self.amount_alpha == ALL else int(self.amount_alpha.rao)
+        amount_rao = (
+            position_rao
+            if self.amount_alpha == ALL
+            else int(normalized_balance(self.amount_alpha).rao)
+        )
 
         if position_rao < amount_rao:
             out.append(
@@ -1685,7 +1693,7 @@ class StakeIntoBasket(Intent):
         if self.amount_tao == ALL:
             rao = await _stakeable_rao(substrate, wallet)
         else:
-            rao = self.amount_tao.rao
+            rao = normalized_balance(self.amount_tao).rao
         return await substrate.compose(
             calls.SubtensorModule.stake_into_basket(
                 hotkey=self.hotkey_ss58,
@@ -1707,7 +1715,7 @@ class StakeIntoBasket(Intent):
     def spend(self) -> Spend:
         if self.amount_tao == ALL:
             return UNBOUNDED
-        return self.amount_tao
+        return normalized_balance(self.amount_tao)
 
 
 @register

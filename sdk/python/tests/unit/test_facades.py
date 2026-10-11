@@ -124,3 +124,66 @@ def test_sync_client_constructs_offline():
         assert client._state["connected"] is False
     finally:
         client.close()
+
+
+def test_sync_close_releases_event_loop_and_wakeup_sockets():
+    from tests.harness.fake_substrate import FakeSubstrate
+
+    client = SyncClient("local", substrate=FakeSubstrate())
+    client.connect()
+    loop_thread = client._loop
+    native_loop = loop_thread._loop
+    try:
+        assert native_loop.is_running()
+    finally:
+        client.close()
+    assert native_loop.is_closed()
+    assert not loop_thread._thread.is_alive()
+    client.close()  # idempotent after the selector has been closed
+
+
+def test_sync_loop_shutdown_cancels_tasks_and_closes_async_generators():
+    from bittensor.sync import _Loop
+
+    closed = []
+
+    async def values():
+        try:
+            yield 1
+            await asyncio.sleep(3600)
+        finally:
+            closed.append("generator")
+
+    async def worker():
+        try:
+            await asyncio.sleep(3600)
+        finally:
+            closed.append("task")
+
+    async def start():
+        generator = values()
+        assert await generator.__anext__() == 1
+        task = asyncio.create_task(worker())
+        await asyncio.sleep(0)  # enter the task's try/finally before shutdown
+        return generator, task
+
+    loop_thread = _Loop()
+    try:
+        generator, task = loop_thread.call(start())
+    finally:
+        loop_thread.shutdown()
+    assert task.cancelled()
+    assert set(closed) == {"task", "generator"}
+    assert generator.ag_frame is None
+    assert loop_thread._loop.is_closed()
+    loop_thread.shutdown()
+
+
+def test_sync_loop_can_shutdown_from_its_own_thread():
+    from bittensor.sync import _Loop
+
+    loop_thread = _Loop()
+    loop_thread._loop.call_soon_threadsafe(loop_thread.shutdown)
+    loop_thread._thread.join(timeout=5)
+    assert not loop_thread._thread.is_alive()
+    assert loop_thread._loop.is_closed()
