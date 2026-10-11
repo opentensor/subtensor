@@ -14,7 +14,13 @@ from bittensor.hashed import descriptor_value
 from bittensor.intents import Batch, Transfer, TransferAll
 from bittensor.intents.coldkey import AnnounceColdkeySwap, SwapColdkeyAnnounced
 from bittensor.intents.evm import FundEvmKey
-from bittensor.intents.multisig import MultisigExecute, MultisigIntentAdapter, MultisigThreshold1
+from bittensor.intents.multisig import (
+    MultisigApprove,
+    MultisigCancel,
+    MultisigExecute,
+    MultisigIntentAdapter,
+    MultisigThreshold1,
+)
 from bittensor.intents.registration import BurnedRegister, PowRegister, RegisterSubnet
 from bittensor.intents.staking import MoveSwapStake, RemoveStake
 from bittensor.receiving import parse_recipient, receiving_address
@@ -58,6 +64,104 @@ def pinned(semantic):
         semantic=semantic,
         inner_call_data="0x0000",
     )
+
+
+@pytest.mark.parametrize("threshold", [1, 2])
+@pytest.mark.parametrize(
+    "exists,enabled", [(False, True), (True, True), (False, False), (True, False)]
+)
+@pytest.mark.parametrize("companion", ["coldkey", "hotkey"])
+async def test_multisig_discovers_local_ss58_recipient(
+    setup, tmp_path, monkeypatch, threshold, exists, enabled, companion
+):
+    chain, _, key, _ = setup
+    wallet = Wallet("sender", path=str(tmp_path))
+    wallet.coldkeypub_file.set_keypair(Keypair(ss58_address=ALICE), encrypt=False)
+    recipient = Wallet("recipient", path=str(tmp_path))
+    public_file = recipient.coldkeypub_file if companion == "coldkey" else recipient.hotkeypub_file
+    public_file.set_keypair(key.public_only(), encrypt=False)
+    monkeypatch.setattr(
+        Wallet, "coldkey", property(lambda _: pytest.fail("must not open private keys"))
+    )
+    monkeypatch.setattr(
+        Wallet, "hotkey", property(lambda _: pytest.fail("must not open private keys"))
+    )
+    if exists:
+        registered(chain, key)
+    chain.seed_constant("HashedAccounts", "Enabled", enabled)
+    transfer = Transfer(key.ss58_address, 1)
+    kwargs = {"other_signatories": [BOB], "call": transfer.to_dict()}
+    intent = (
+        MultisigThreshold1(**kwargs) if threshold == 1 else MultisigExecute(threshold=2, **kwargs)
+    )
+    if not enabled:
+        for operation in (transfer, intent):
+            with pytest.raises(ValueError, match="not enabled"):
+                await _compose_intent_call(chain, operation, wallet)
+    elif not exists:
+        direct, _ = await _compose_intent_call(chain, transfer, wallet)
+        assert direct.params["calls"][0].function == "register"
+        with pytest.raises(ValueError, match="direct sponsor"):
+            await _compose_intent_call(chain, intent, wallet)
+    else:
+        origin = chain.multisig_account([ALICE, BOB], threshold).ss58_address
+        build_transfer = Transfer.build
+
+        async def check_origin(transfer, substrate, view):
+            assert view.ss58_address == origin
+            return await build_transfer(transfer, substrate, view)
+
+        monkeypatch.setattr(Transfer, "build", check_origin)
+        call, _ = await _compose_intent_call(chain, intent, wallet)
+        guarded = call.params["call"]
+        assert (guarded.module, guarded.function) == ("Utility", "batch_all")
+        check, payment = guarded.params["calls"]
+        assert (check.module, check.function) == ("HashedAccounts", "check_registered")
+        assert check.params["descriptor"] == descriptor_value(bytes(key.hashed_descriptor))
+        assert payment.params == {"dest": key.ss58_address, "value": 10**9}
+    assert not chain.submissions
+
+
+@pytest.mark.parametrize("nested", [False, True])
+async def test_local_ss58_multisig_approval_bytes_keep_recipient_guard(setup, tmp_path, nested):
+    chain, _, key, _ = setup
+    wallet = Wallet("sender", path=str(tmp_path))
+    wallet.coldkeypub_file.set_keypair(Keypair(ss58_address=ALICE), encrypt=False)
+    Wallet("recipient", path=str(tmp_path)).coldkeypub_file.set_keypair(
+        key.public_only(), encrypt=False
+    )
+    registered(chain, key)
+    semantic = Transfer(key.ss58_address, 1)
+    if nested:
+        semantic = MultisigThreshold1(other_signatories=[BOB], call=semantic.to_dict())
+    kwargs = {"threshold": 2, "other_signatories": [BOB], "call": semantic.to_dict()}
+    opening, _ = await _compose_intent_call(chain, MultisigApprove(**kwargs), wallet)
+    inner = opening.params["call"]
+    guarded = inner.params["call"] if nested else inner
+    assert guarded.function == "batch_all"
+    assert guarded.params["calls"][0].function == "check_registered"
+
+    # Subsequent approval, execution, and cancellation must use the same guarded bytes.
+    timepoint = {"height": 1, "index": 0}
+    for intent in (
+        MultisigApprove(**kwargs, timepoint=timepoint),
+        MultisigCancel(**kwargs, timepoint=timepoint),
+    ):
+        call, _ = await _compose_intent_call(chain, intent, wallet)
+        assert call.params["call_hash"] == inner.call_hash
+    adapter = MultisigIntentAdapter(
+        dispatch=MultisigExecute(**kwargs, timepoint=timepoint),
+        semantic=semantic,
+        inner_call_data="0x" + inner.data.hex(),
+    )
+    call, _ = await _compose_intent_call(chain, adapter, wallet)
+    assert call.params["call"].data == inner.data
+
+    # An imported unguarded call must still be rejected before the wrapper can use it.
+    adapter.inner_call_data = "0x" + guarded.params["calls"][-1].data.hex()
+    with pytest.raises(ValueError, match="imported multisig"):
+        await _compose_intent_call(chain, adapter, wallet)
+    assert not chain.submissions
 
 
 @pytest.mark.parametrize("threshold", [1, 2])

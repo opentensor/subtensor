@@ -56,16 +56,23 @@ def _validate_multisig(threshold: int, other_signatories: list, signer_ss58: str
         )
 
 
-def _account_view(substrate, signer_ss58: str, threshold: int, other_signatories: list):
+def _account_view(
+    substrate, signer_ss58: str, threshold: int, other_signatories: list, *, wallet: Any
+):
     """The derived multisig account, shaped like a bare signer.
 
     The inner call dispatches with the multisig account as its origin, so its
     build must see that account — not the approving member's wallet — for
     origin-derived lookups (hotkey/coldkey address defaults, registration and
-    balance preflights). ``MultisigAccount`` carries ``ss58_address`` and
-    ``public_key``, the signer-shaped fallback the intent base helpers accept.
+    balance preflights). Retain the original wallet context separately so
+    recipient discovery can still read local public companion files.
     """
-    return substrate.multisig_account([signer_ss58, *other_signatories], threshold)
+    from ..executor import _OriginView
+
+    account = substrate.multisig_account([signer_ss58, *other_signatories], threshold)
+    view = _OriginView(account.ss58_address)
+    view._wallet = getattr(wallet, "_wallet", wallet)
+    return view
 
 
 async def _compose_inner(substrate, view: Any, spec: dict):
@@ -189,7 +196,9 @@ class MultisigThreshold1(Intent):
     call: dict = field(metadata={"help": CALL_HELP})
 
     async def build(self, substrate, wallet: Any):
-        view = _account_view(substrate, self.coldkey_address(wallet), 1, self.other_signatories)
+        view = _account_view(
+            substrate, self.coldkey_address(wallet), 1, self.other_signatories, wallet=wallet
+        )
         inner = await _compose_inner(substrate, view, self.call)
         return await self._build_with_inner(substrate, wallet, inner)
 
@@ -232,7 +241,11 @@ class MultisigExecute(Intent):
 
     async def build(self, substrate, wallet: Any):
         view = _account_view(
-            substrate, self.coldkey_address(wallet), self.threshold, self.other_signatories
+            substrate,
+            self.coldkey_address(wallet),
+            self.threshold,
+            self.other_signatories,
+            wallet=wallet,
         )
         inner = await _compose_inner(substrate, view, self.call)
         return await self._build_with_inner(substrate, wallet, inner)
@@ -317,7 +330,11 @@ class MultisigIntentAdapter(Intent):
 
     def origin_view(self, substrate, wallet: Any):
         return _account_view(
-            substrate, self.coldkey_address(wallet), self.threshold, self.other_signatories
+            substrate,
+            self.coldkey_address(wallet),
+            self.threshold,
+            self.other_signatories,
+            wallet=wallet,
         )
 
     async def wrap_call(self, substrate, wallet: Any, call):
@@ -442,7 +459,11 @@ class MultisigApprove(Intent):
         inner = await _compose_inner(
             substrate,
             _account_view(
-                substrate, self.coldkey_address(wallet), self.threshold, self.other_signatories
+                substrate,
+                self.coldkey_address(wallet),
+                self.threshold,
+                self.other_signatories,
+                wallet=wallet,
             ),
             self.call,
         )
@@ -532,7 +553,11 @@ class MultisigCancel(Intent):
         inner = await _compose_inner(
             substrate,
             _account_view(
-                substrate, self.coldkey_address(wallet), self.threshold, self.other_signatories
+                substrate,
+                self.coldkey_address(wallet),
+                self.threshold,
+                self.other_signatories,
+                wallet=wallet,
             ),
             self.call,
         )
