@@ -353,38 +353,35 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Subnets whose epoch slot is due *this* block but is deferred by the per-block
-    /// cap (`MaxEpochsPerBlock`).
-    /// A large Null epoch settles in the same block, using one scheduler slot
-    /// for the block. Pure Yuma blocks retain the configured epoch cap.
-    fn epoch_cap_for_block(subnets: &[NetUid], current_block: u64) -> u32 {
-        let configured = u32::from(Self::get_max_epochs_per_block());
-        if subnets.iter().any(|netuid| {
-            !netuid.is_root()
-                && Self::get_epoch_consensus(*netuid) == EpochConsensus::Null
-                && Self::should_run_epoch(*netuid, current_block)
-        }) {
-            configured.min(1)
-        } else {
-            configured
-        }
-    }
-
+    /// Select due epochs oldest-first for both revelation and emission draining.
+    /// A Null epoch runs alone when it reaches the front of the queue.
     pub fn epochs_deferred_this_block(subnets: &[NetUid], current_block: u64) -> BTreeSet<NetUid> {
-        let cap = Self::epoch_cap_for_block(subnets, current_block);
-        let mut deferred: BTreeSet<NetUid> = BTreeSet::new();
-        let mut epochs_run_this_block: u32 = 0;
+        let mut due: Vec<_> = subnets
+            .iter()
+            .copied()
+            .filter(|netuid| !netuid.is_root() && Self::should_run_epoch(*netuid, current_block))
+            .map(|netuid| (LastEpochBlock::<T>::get(netuid), netuid))
+            .collect();
+        due.sort_unstable();
 
-        for &netuid in subnets.iter() {
-            if !Self::should_run_epoch(netuid, current_block) {
-                continue;
-            }
-            // Per-block cap — due subnets beyond the limit are deferred.
+        let mut cap = u32::from(Self::get_max_epochs_per_block());
+        let mut deferred = BTreeSet::new();
+        let mut epochs_run_this_block: u32 = 0;
+        for (_, netuid) in due {
             if epochs_run_this_block >= cap {
                 deferred.insert(netuid);
                 continue;
             }
             if Self::is_epoch_input_state_consistent(netuid) {
+                if Self::get_epoch_consensus(netuid) == EpochConsensus::Null {
+                    cap = 1;
+                    // Yuma already selected: leave Null and all younger epochs
+                    // for the next block, where Null can run alone.
+                    if epochs_run_this_block > 0 {
+                        deferred.insert(netuid);
+                        continue;
+                    }
+                }
                 epochs_run_this_block = epochs_run_this_block.saturating_add(1);
             }
         }
@@ -400,29 +397,30 @@ impl<T: Config> Pallet<T> {
             NetUid,
             (AlphaBalance, AlphaBalance, AlphaBalance, AlphaBalance),
         > = BTreeMap::new();
-        // Per-block cap on number of epochs that may run; the rest are deferred 1 block forward
-        // by setting `PendingEpochAt`.
-        let max_epochs_per_block = Self::epoch_cap_for_block(subnets, current_block);
-        let mut epochs_run_this_block: u32 = 0;
+        let deferred = Self::epochs_deferred_this_block(subnets, current_block);
         for &netuid in subnets.iter() {
             // Keep the scheduler age bounded per subnet. `tempo + 1` is enough to
             // record that a due epoch missed its slot while avoiding an unbounded
             // public counter when the epoch is repeatedly deferred or its input
             // state remains inconsistent.
             let tempo = Self::get_tempo(netuid);
+            // Use the same pre-increment state as the reveal/deferral decision.
+            let due = !netuid.is_root()
+                && Self::should_run_epoch_with_tempo(netuid, current_block, tempo);
             let max_blocks_since_last_step = u64::from(tempo).saturating_add(1);
             BlocksSinceLastStep::<T>::mutate(netuid, |total| {
                 *total = total.saturating_add(1).min(max_blocks_since_last_step)
             });
 
-            if !Self::should_run_epoch_with_tempo(netuid, current_block, tempo) {
+            if !due {
                 continue;
             }
 
-            // Per-block cap — defer if already at limit.
-            if epochs_run_this_block >= max_epochs_per_block {
+            if deferred.contains(&netuid) {
                 let next_block = current_block.saturating_add(1);
-                PendingEpochAt::<T>::insert(netuid, next_block);
+                // Leave the original deadline intact. Automatic epochs stay due
+                // via their age; manual triggers stay due via PendingEpochAt.
+                // Moving the deadline forward would re-arm the admin freeze.
                 Self::deposit_event(Event::EpochDeferred {
                     netuid,
                     from_block: current_block,
@@ -464,8 +462,6 @@ impl<T: Config> Pallet<T> {
                         owner_cut,
                     ),
                 );
-                epochs_run_this_block = epochs_run_this_block.saturating_add(1);
-
                 // Change subnet owner based on conviction.
                 Self::change_subnet_owner_if_needed(netuid);
             } else {

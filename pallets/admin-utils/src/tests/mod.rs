@@ -1480,6 +1480,48 @@ fn test_epoch_consensus_owner_root_and_unauthorized() {
 }
 
 #[test]
+fn test_epoch_consensus_can_recover_deferred_null_as_owner_or_root() {
+    for as_root in [false, true] {
+        new_test_ext().execute_with(|| {
+            let front = NetUid::from(1);
+            let null = NetUid::from(2);
+            let owner = U256::from(10);
+            add_network(front, 1);
+            add_network(null, 100);
+            SubnetOwner::<Test>::insert(null, owner);
+            SubtensorModule::set_admin_freeze_window(5);
+            pallet_subtensor::OwnerHyperparamRateLimit::<Test>::put(0);
+            assert_ok!(SubtensorModule::do_set_epoch_consensus(
+                null,
+                EpochConsensus::Null
+            ));
+            for netuid in [front, null] {
+                pallet_subtensor::LastEpochBlock::<Test>::insert(netuid, 0);
+                pallet_subtensor::PendingEpochAt::<Test>::insert(netuid, 1);
+            }
+            System::set_block_number(1);
+            let drained = SubtensorModule::drain_pending(&[front, null], 1);
+            assert!(drained.contains_key(&front));
+            assert!(!drained.contains_key(&null));
+            let origin = if as_root {
+                RuntimeOrigin::root()
+            } else {
+                RuntimeOrigin::signed(owner)
+            };
+            assert_ok!(AdminUtils::sudo_set_epoch_consensus(
+                origin,
+                null,
+                EpochConsensus::Yuma
+            ));
+            assert_eq!(
+                SubtensorModule::get_epoch_consensus(null),
+                EpochConsensus::Yuma
+            );
+        });
+    }
+}
+
+#[test]
 fn regression_epoch_consensus_wire_indices() {
     let call = crate::Call::<Test>::sudo_set_epoch_consensus {
         netuid: NetUid::from(1),

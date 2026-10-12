@@ -139,6 +139,63 @@ fn do_trigger_epoch_works_with_commit_reveal_disabled() {
 }
 
 #[test]
+fn admin_freeze_expires_when_manual_epoch_is_deferred() {
+    new_test_ext(1).execute_with(|| {
+        let owner = U256::from(1);
+        let netuid = setup_subnet(owner);
+        CommitRevealWeightsEnabled::<Test>::insert(netuid, false);
+        AdminFreezeWindow::<Test>::set(5);
+        assert_ok!(SubtensorModule::do_trigger_epoch(
+            RuntimeOrigin::signed(owner),
+            netuid
+        ));
+        let deadline = PendingEpochAt::<Test>::get(netuid);
+        System::set_block_number(deadline - 1);
+        assert!(SubtensorModule::is_in_admin_freeze_window(
+            netuid,
+            deadline - 1
+        ));
+
+        SubtensorModule::set_max_epochs_per_block(0);
+        for block in deadline..deadline + 3 {
+            System::set_block_number(block);
+            assert!(SubtensorModule::drain_pending(&[netuid], block).is_empty());
+            assert_eq!(PendingEpochAt::<Test>::get(netuid), deadline);
+            assert_ok!(SubtensorModule::ensure_admin_window_open(netuid));
+            assert!(SubtensorModule::should_run_epoch(netuid, block));
+        }
+        SubtensorModule::set_max_epochs_per_block(1);
+        assert!(SubtensorModule::drain_pending(&[netuid], deadline + 3).contains_key(&netuid));
+        assert_eq!(PendingEpochAt::<Test>::get(netuid), 0);
+    });
+}
+
+#[test]
+fn admin_freeze_expires_when_automatic_epoch_is_deferred() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = setup_subnet(U256::from(1));
+        Tempo::<Test>::insert(netuid, 10);
+        LastEpochBlock::<Test>::insert(netuid, 0);
+        AdminFreezeWindow::<Test>::set(3);
+        assert!(SubtensorModule::is_in_admin_freeze_window(netuid, 9));
+        SubtensorModule::set_max_epochs_per_block(0);
+        System::set_block_number(10);
+        assert!(SubtensorModule::drain_pending(&[netuid], 10).is_empty());
+        assert_eq!(PendingEpochAt::<Test>::get(netuid), 0);
+        assert_ok!(SubtensorModule::ensure_admin_window_open(netuid));
+
+        // Recover an already-starved subnet carrying the old scheduler's marker.
+        PendingEpochAt::<Test>::insert(netuid, 11);
+        assert_ok!(SubtensorModule::ensure_admin_window_open(netuid));
+        SubtensorModule::set_max_epochs_per_block(1);
+        System::set_block_number(11);
+        assert!(SubtensorModule::drain_pending(&[netuid], 11).contains_key(&netuid));
+        assert_eq!(PendingEpochAt::<Test>::get(netuid), 0);
+        assert!(SubtensorModule::is_in_admin_freeze_window(netuid, 20));
+    });
+}
+
+#[test]
 fn do_set_activity_cutoff_factor_works_for_root_bypassing_freeze_window() {
     new_test_ext(1).execute_with(|| {
         let owner = U256::from(1);
