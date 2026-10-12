@@ -202,6 +202,8 @@ async def with_recipient_registration(
     use direct calls. Initial announcements may atomically register a new recipient.
     Require the recipient's permanent registration in finalized state instead
     of adding a batch that the lock rejects or that loses the PoW fee exemption.
+    Announced-proxy identities also use finalized checks: an outer batch would
+    filter the guarded payment's inner batch and consume its announcement.
     """
     from .signing import public_view
 
@@ -238,7 +240,7 @@ async def with_recipient_registration(
     if await hashed_accounts_enabled(substrate) is not True:
         raise ValueError("hashed accounts are not enabled on this chain")
     finalized_hash = None
-    direct = intent.op in ("swap_coldkey_announced", "pow_register")
+    direct = intent.op in ("swap_coldkey_announced", "pow_register", "execute_proxy_announced")
     if intent.op == "announce_coldkey_swap":
         # Existing announcements lock out Utility.batch_all, even when it only
         # checks registration. Keep first-use setup atomic, but require finality
@@ -246,7 +248,10 @@ async def with_recipient_registration(
         destination = recipients["new_coldkey_ss58"].account
         direct = await substrate.query("HashedAccounts", "Accounts", [destination]) is not None
     if direct:
-        operation = "PoW registration" if intent.op == "pow_register" else "coldkey swap"
+        operation = {
+            "pow_register": "PoW registration",
+            "execute_proxy_announced": "announced proxy execution",
+        }.get(intent.op, "coldkey swap")
         if as_calls:
             raise ValueError(f"submit the {operation} directly, not inside a batch")
         finalized_hash = await substrate.block_hash(await substrate.finalized_block_number())

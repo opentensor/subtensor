@@ -871,3 +871,104 @@ async def test_imported_multisig_checks_nested_proxy_and_crowdloan_recipient(set
     with pytest.raises(ValueError, match="imported multisig"):
         await _compose_intent_call(chain, adapter, wallet)
     adapter.wrap_call.assert_not_awaited()
+
+
+@pytest.mark.parametrize("scheme", [4, 6])
+@pytest.mark.parametrize("typed_identities", ["real", "delegate", "both"])
+async def test_announced_proxy_identity_addresses_preserve_guarded_call(
+    setup, scheme, typed_identities
+):
+    from dataclasses import replace
+
+    from bittensor.intents.proxy import ExecuteProxyAnnounced
+
+    chain, wallet, recipient, address = setup
+    real = Keypair.create_from_seed(bytes([92]) * 32, scheme)
+    delegate = Keypair.create_from_seed(bytes([93]) * 32, scheme)
+    for key in (real, delegate, recipient):
+        registered(chain, key)
+    canonical = ExecuteProxyAnnounced(
+        delegate_ss58=delegate.ss58_address,
+        real_ss58=real.ss58_address,
+        inner_op="transfer",
+        inner_args=Transfer(address, 1).to_dict(),
+    )
+    expected, _ = await _compose_intent_call(chain, canonical, wallet)
+    typed = replace(
+        canonical,
+        real_ss58=receiving_address(real)
+        if typed_identities in ("real", "both")
+        else real.ss58_address,
+        delegate_ss58=receiving_address(delegate)
+        if typed_identities in ("delegate", "both")
+        else delegate.ss58_address,
+    )
+    chain.query = AsyncMock(wraps=chain.query)
+    call, extras = await _compose_intent_call(chain, typed, wallet)
+    # Identical bytes preserve the announced hash and avoid an outer batch's
+    # NoNesting filter consuming the announcement while rejecting its payment.
+    assert (call.module, call.function) == ("Proxy", "proxy_announced")
+    assert bytes(call.data) == bytes(expected.data)
+    inner = call.params["call"]
+    assert (inner.module, inner.function) == ("Utility", "batch_all")
+    guard, payment = inner.params["calls"]
+    assert guard.function == "check_registered"
+    assert guard.params["descriptor"] == descriptor_value(bytes(recipient.hashed_descriptor))
+    assert payment.params["dest"] == recipient.ss58_address
+    finalized_hash = await chain.block_hash(await chain.finalized_block_number())
+    assert extras["hashed_registration_finalized_at"] == finalized_hash
+    for name, key in (("real", real), ("delegate", delegate)):
+        if typed_identities in (name, "both"):
+            chain.query.assert_any_await(
+                "HashedAccounts", "Accounts", [key.ss58_address], block_hash=finalized_hash
+            )
+
+
+@pytest.mark.parametrize("identity", ["real", "delegate"])
+@pytest.mark.parametrize("state", ["missing", "mismatch", "unavailable", "no_finality", "disabled"])
+async def test_announced_proxy_rejects_unverified_identity_before_submission(
+    setup, identity, state
+):
+    from bittensor.intents.proxy import ExecuteProxyAnnounced
+
+    chain, wallet, key, address = setup
+    registered(chain, key)
+    intent = ExecuteProxyAnnounced(
+        delegate_ss58=address if identity == "delegate" else ALICE,
+        real_ss58=address if identity == "real" else BOB,
+        inner_op="transfer",
+        inner_args=Transfer(BOB, 1).to_dict(),
+    )
+    query = chain.query
+
+    async def query_at(module, storage_function, params=None, block_hash=None):
+        if (module, storage_function) == ("HashedAccounts", "Accounts") and block_hash:
+            if state == "missing":
+                return None
+            if state == "unavailable":
+                raise RuntimeError("finalized state unavailable")
+            if state == "mismatch":
+                other = Keypair.create_from_seed(bytes([94]) * 32, CRYPTO_HASHED)
+                return {"descriptor": descriptor_value(bytes(other.hashed_descriptor))}
+        return await query(module, storage_function, params, block_hash)
+
+    chain.query = AsyncMock(side_effect=query_at)
+    if state == "no_finality":
+        block_hash = chain.block_hash
+
+        async def missing_finalized_hash(block=None):
+            return await block_hash(block) if block == 0 else None
+
+        chain.block_hash = AsyncMock(side_effect=missing_finalized_hash)
+    if state == "disabled":
+        chain.seed_constant("HashedAccounts", "Enabled", False)
+    error, message = {
+        "missing": (ValueError, "registration is not finalized"),
+        "mismatch": (ValueError, "descriptor does not match"),
+        "unavailable": (RuntimeError, "finalized state unavailable"),
+        "no_finality": (ValueError, "could not verify finalized"),
+        "disabled": (ValueError, "not supported"),
+    }[state]
+    with pytest.raises(error, match=message):
+        await Executor(chain).execute(intent, wallet)
+    assert not chain.submissions
