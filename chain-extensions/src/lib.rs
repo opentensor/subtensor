@@ -62,6 +62,21 @@ where
         + pallet_subtensor_swap::Config,
     T::AccountId: Clone,
 {
+    /// Weight charged up front for a stake exit signed by `origin`: the benchmarked `unit`
+    /// plus the `StakingHotkeys` walk sized to the signer's current list and the read that
+    /// sizes it. The environment cannot refund, and the call runs right after the charge,
+    /// so the list cannot grow in between (see
+    /// `pallet_subtensor::Pallet::staking_hotkeys_walk_immediate_bound`).
+    fn stake_exit_weight(unit: Weight, origin: &RawOrigin<T::AccountId>) -> Weight {
+        let walk = match origin {
+            RawOrigin::Signed(coldkey) => T::DbWeight::get().reads(1).saturating_add(
+                pallet_subtensor::Pallet::<T>::staking_hotkeys_walk_immediate_bound(coldkey),
+            ),
+            _ => pallet_subtensor::Pallet::<T>::staking_hotkeys_walk_bound(),
+        };
+        unit.saturating_add(walk)
+    }
+
     fn dispatch_add_stake_v1<Env>(
         env: &mut Env,
         origin: RawOrigin<T::AccountId>,
@@ -103,10 +118,10 @@ where
             .read_as()
             .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
 
-        // weight for remove_stake is not defined in the Subtensor pallet's WeightInfo
-        let weight =
-            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::remove_stake()
-                .saturating_add(pallet_subtensor::Pallet::<T>::staking_hotkeys_walk_bound());
+        let weight = Self::stake_exit_weight(
+            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::remove_stake(),
+            &origin,
+        );
 
         env.charge_weight(weight)?;
 
@@ -201,9 +216,10 @@ where
             .read_as()
             .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
 
-        let weight =
-            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::move_stake()
-                .saturating_add(pallet_subtensor::Pallet::<T>::staking_hotkeys_walk_bound());
+        let weight = Self::stake_exit_weight(
+            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::move_stake(),
+            &origin,
+        );
 
         env.charge_weight(weight)?;
 
@@ -253,11 +269,11 @@ where
             .read_as()
             .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
 
-        env.charge_weight(
+        env.charge_weight(Self::stake_exit_weight(
             <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::move_stake_limit(
-            )
-            .saturating_add(pallet_subtensor::Pallet::<T>::staking_hotkeys_walk_bound()),
-        )?;
+            ),
+            &origin,
+        ))?;
 
         let call_result = pallet_subtensor::Pallet::<T>::move_stake_limit(
             origin.into(),
@@ -294,9 +310,10 @@ where
             .read_as()
             .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
 
-        let weight =
-            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::transfer_stake()
-                .saturating_add(pallet_subtensor::Pallet::<T>::staking_hotkeys_walk_bound());
+        let weight = Self::stake_exit_weight(
+            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::transfer_stake(),
+            &origin,
+        );
 
         env.charge_weight(weight)?;
 
@@ -335,9 +352,10 @@ where
             .read_as()
             .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
 
-        let weight =
-            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::swap_stake()
-                .saturating_add(pallet_subtensor::Pallet::<T>::staking_hotkeys_walk_bound());
+        let weight = Self::stake_exit_weight(
+            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::swap_stake(),
+            &origin,
+        );
 
         env.charge_weight(weight)?;
 
@@ -417,8 +435,10 @@ where
             .read_as()
             .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
 
-        let weight =
-            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::remove_stake_limit().saturating_add(pallet_subtensor::Pallet::<T>::staking_hotkeys_walk_bound());
+        let weight = Self::stake_exit_weight(
+            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::remove_stake_limit(),
+            &origin,
+        );
 
         env.charge_weight(weight)?;
 
@@ -459,10 +479,11 @@ where
             env.read_as()
                 .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
 
-        let weight =
+        let weight = Self::stake_exit_weight(
             <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::swap_stake_limit(
-            )
-            .saturating_add(pallet_subtensor::Pallet::<T>::staking_hotkeys_walk_bound());
+            ),
+            &origin,
+        );
 
         env.charge_weight(weight)?;
 
@@ -497,7 +518,10 @@ where
             .read_as()
             .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
 
-        let weight = <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::remove_stake_full_limit().saturating_add(pallet_subtensor::Pallet::<T>::staking_hotkeys_walk_bound());
+        let weight = Self::stake_exit_weight(
+            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::remove_stake_full_limit(),
+            &origin,
+        );
 
         env.charge_weight(weight)?;
 

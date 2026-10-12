@@ -210,7 +210,7 @@ where
             amount_unstaked: amount_unstaked.into(),
         };
 
-        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+        handle.try_dispatch_stake_exit::<R>(call, account_id)
     }
 
     fn call_remove_stake_full_limit(
@@ -228,7 +228,7 @@ where
             limit_price: limit_price.map(Into::into),
         };
 
-        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+        handle.try_dispatch_stake_exit::<R>(call, account_id)
     }
 
     #[precompile::public("removeStakeFull(bytes32,uint256)")]
@@ -277,7 +277,7 @@ where
             alpha_amount: alpha_amount.into(),
         };
 
-        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+        handle.try_dispatch_stake_exit::<R>(call, account_id)
     }
 
     #[precompile::public("transferStake(bytes32,bytes32,uint256,uint256,uint256)")]
@@ -304,7 +304,7 @@ where
             alpha_amount: alpha_amount.into(),
         };
 
-        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+        handle.try_dispatch_stake_exit::<R>(call, account_id)
     }
 
     #[precompile::public("burnAlpha(bytes32,uint256,uint256)")]
@@ -792,7 +792,7 @@ where
             allow_partial,
         };
 
-        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+        handle.try_dispatch_stake_exit::<R>(call, account_id)
     }
 
     #[precompile::public("getTotalColdkeyStakeOnSubnet(bytes32,uint256)")]
@@ -992,7 +992,7 @@ where
         };
         let source_id = <R as pallet_evm::Config>::AddressMapping::into_account_id(source_address);
 
-        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(source_id))
+        handle.try_dispatch_stake_exit::<R>(call, source_id)
     }
 
     #[precompile::public("decreaseTake(bytes32,uint16)")]
@@ -1815,7 +1815,7 @@ where
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
 {
     let caller = handle.caller_account_id::<R>();
-    handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(caller))
+    handle.try_dispatch_stake_exit::<R>(call, caller)
 }
 
 fn dispatch_staking_admin<R>(
@@ -2008,7 +2008,7 @@ where
             amount_unstaked: amount_unstaked.into(),
         };
 
-        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
+        handle.try_dispatch_stake_exit::<R>(call, account_id)
     }
 
     #[precompile::public("getTotalColdkeyStake(bytes32)")]

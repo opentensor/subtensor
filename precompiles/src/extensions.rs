@@ -75,7 +75,63 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
     {
         let call = <R as frame_system::Config>::RuntimeCall::from(call);
         let info = GetDispatchInfo::get_dispatch_info(&call);
+        self.dispatch_with_info::<R>(call, origin, info)
+    }
 
+    /// Dispatches a stake exit signed by `coldkey`, sizing its `StakingHotkeys` walk
+    /// allowance to the coldkey's current list instead of the declared cap.
+    ///
+    /// The declared weight of an unstake-side call reserves a walk over the longest list a
+    /// coldkey may hold, because a transaction's weight is fixed before earlier extrinsics
+    /// in its block can grow that list. Here the list is read and the call dispatched with
+    /// nothing in between, so the gas limit only has to cover the walk this coldkey can
+    /// perform. Calls that do not declare the walk dispatch unchanged.
+    fn try_dispatch_stake_exit<R>(
+        &mut self,
+        call: pallet_subtensor::Call<R>,
+        coldkey: R::AccountId,
+    ) -> EvmResult<()>
+    where
+        R: frame_system::Config
+            + pallet_evm::Config
+            + pallet_subtensor::Config
+            + pallet_shield::Config
+            + pallet_subtensor_proxy::Config,
+        <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>,
+        <R as frame_system::Config>::RuntimeCall:
+            GetDispatchInfo + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+        <R as frame_system::Config>::RuntimeOrigin: From<RawOrigin<R::AccountId>> + Clone,
+    {
+        let declares_walk = pallet_subtensor::Pallet::<R>::declares_staking_hotkeys_walk(&call);
+        let call = <R as frame_system::Config>::RuntimeCall::from(call);
+        let mut info = GetDispatchInfo::get_dispatch_info(&call);
+
+        if declares_walk {
+            self.record_db_reads::<R>(1)?;
+            let unused = pallet_subtensor::Pallet::<R>::staking_hotkeys_walk_bound()
+                .saturating_sub(
+                    pallet_subtensor::Pallet::<R>::staking_hotkeys_walk_immediate_bound(&coldkey),
+                );
+            info.call_weight = info.call_weight.saturating_sub(unused);
+        }
+
+        self.dispatch_with_info::<R>(call, RawOrigin::Signed(coldkey), info)
+    }
+
+    /// Checks `info` against the gas limit, reserves it, dispatches `call`, then charges the
+    /// weight the dispatch reports (capped at `info`) and refunds the rest.
+    fn dispatch_with_info<R>(
+        &mut self,
+        call: <R as frame_system::Config>::RuntimeCall,
+        origin: RawOrigin<R::AccountId>,
+        info: DispatchInfo,
+    ) -> EvmResult<()>
+    where
+        R: frame_system::Config + pallet_evm::Config,
+        <R as frame_system::Config>::RuntimeCall:
+            Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+        <R as frame_system::Config>::RuntimeOrigin: From<RawOrigin<R::AccountId>>,
+    {
         let target_gas = self.gas_limit();
         if let Some(gas) = target_gas {
             let valid_weight =
@@ -99,7 +155,7 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
             Ok(mut post_info) => {
                 post_info.set_extension_weight(&info);
                 log::debug!("Dispatch succeeded. Post info: {post_info:?}");
-                self.charge_and_refund_after_dispatch::<R, Call>(&info, &post_info)?;
+                self.charge_and_refund_after_dispatch::<R>(&info, &post_info)?;
 
                 Ok(())
             }
@@ -108,7 +164,7 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
                 let mut post_info = e.post_info;
                 post_info.set_extension_weight(&info);
                 log::info!("Precompile dispatch failed. message as: {e:?}");
-                self.charge_and_refund_after_dispatch::<R, Call>(&info, &post_info)?;
+                self.charge_and_refund_after_dispatch::<R>(&info, &post_info)?;
 
                 Err(PrecompileFailure::Error {
                     exit_status: ExitError::Other(
@@ -119,7 +175,7 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
         }
     }
 
-    fn charge_and_refund_after_dispatch<R, Call>(
+    fn charge_and_refund_after_dispatch<R>(
         &mut self,
         info: &DispatchInfo,
         post_info: &PostDispatchInfo,

@@ -1439,6 +1439,40 @@ impl<T: Config> Pallet<T> {
         Self::staking_hotkeys_walk_weight(entries)
     }
 
+    /// Walk allowance for a stake exit signed by `coldkey` that is dispatched immediately,
+    /// against the current state, with nothing executing in between.
+    ///
+    /// Transaction weights must keep [`Self::staking_hotkeys_walk_bound`]: they are fixed
+    /// before earlier extrinsics in the block can grow the list. A caller that reads the list
+    /// and dispatches synchronously (an EVM precompile or a contract chain extension) can
+    /// size the walk to the list as it stands. The call adds at most one hotkey to its
+    /// signer's list (a move to a new hotkey), so the walk it performs and the
+    /// [`Self::staking_hotkeys_walk_actual`] it reports never exceed the current length plus
+    /// one. Never above the declared bound. The caller pays the length read.
+    pub fn staking_hotkeys_walk_immediate_bound(coldkey: &T::AccountId) -> Weight {
+        let entries =
+            (StakingHotkeys::<T>::decode_len(coldkey).unwrap_or(0) as u64).saturating_add(1);
+        Self::staking_hotkeys_walk_weight(entries).min(Self::staking_hotkeys_walk_bound())
+    }
+
+    /// True for the unstake-side calls whose declared weight includes
+    /// [`Self::staking_hotkeys_walk_bound`] and whose post-dispatch weight reports the
+    /// signer's [`Self::staking_hotkeys_walk_actual`].
+    pub fn declares_staking_hotkeys_walk(call: &Call<T>) -> bool {
+        matches!(
+            call,
+            Call::remove_stake { .. }
+                | Call::remove_stake_limit { .. }
+                | Call::remove_stake_full_limit { .. }
+                | Call::move_stake { .. }
+                | Call::move_stake_limit { .. }
+                | Call::transfer_stake { .. }
+                | Call::transfer_stake_and_hotkey { .. }
+                | Call::swap_stake { .. }
+                | Call::swap_stake_limit { .. }
+        )
+    }
+
     /// Attach `weight` as the actual weight of `result`, on success and on failure alike.
     /// A failed call is otherwise charged its full declared envelope (a plain
     /// `DispatchError` carries no post-dispatch info), which for the wide stake-exit
