@@ -541,8 +541,9 @@ fn exact_alpha_basis_uses_the_requested_withdrawal_for_other_borrowers() {
             b"test/alpha_redemption_basis",
             Some((100_000_u64, 100_000_u128, true)),
         );
-        // This loan is covered after a 40-alpha grant, but not the max candidate's 249-alpha grant.
-        indexed_long(2, 1_000, 2_001);
+        // Under the 500-rao rule the existing debt needs 1,004 collateral
+        // after a 40-alpha grant, but 1,005 after the max 249-alpha grant.
+        indexed_long(2, 1_000, 1_004);
         Positions::<Test>::mutate(account(2), netuid(), |state| {
             state.as_mut().unwrap().side = Side::Short
         });
@@ -930,7 +931,7 @@ fn alpha_funded_cap_covers_quarter_collateral_even_under_maximum_split_row_dust(
             Some((100_000_u64, 100_000_u128, false)),
         );
         let quote = Lending::quote_open(netuid(), Side::Short, 1000).unwrap();
-        assert_eq!(quote.principal, 83);
+        assert_eq!(quote.principal, 124);
         // Actual terminal pot cannot exceed 200,000; actual eligible claims
         // cannot be below 100,000. Splitting every borrowed atom still fits.
         let worst =
@@ -942,7 +943,7 @@ fn alpha_funded_cap_covers_quarter_collateral_even_under_maximum_split_row_dust(
                 > 250
         );
         open(Side::Short, 1000);
-        assert_eq!(position().annual_interest, 83);
+        assert_eq!(position().annual_interest, 124);
         assert_eq!(position().proceeds, 0);
         assert_eq!(swap_count(), 0);
         assert_ok!(Lending::start_dissolution(netuid()));
@@ -961,6 +962,94 @@ fn alpha_funded_cap_covers_quarter_collateral_even_under_maximum_split_row_dust(
 }
 
 #[test]
+fn alpha_dust_bound_covers_every_small_split_and_scales_with_redemption_value() {
+    ext().execute_with(|| {
+        for pot in [499_u64, 500, 501, 1_003, 100_003] {
+            for supply in [7_u128, 100, 1_000] {
+                for alpha in 2_u64..=6 {
+                    let bound =
+                        Lending::funded_alpha_value(alpha, (pot, supply, u64::MAX)).unwrap();
+                    // Every two-row split: qualifying rows may each receive a
+                    // bonus, even though that overestimates zero remainders.
+                    for first in 1..alpha {
+                        let mut paid = 0_u128;
+                        for part in [first, alpha - first] {
+                            let base = u128::from(part) * u128::from(pot) / supply;
+                            if base >= u128::from(MIN_DISSOLUTION_PAYOUT) {
+                                paid += base + 1;
+                            }
+                        }
+                        assert!(paid.min(u128::from(pot)) <= bound);
+                    }
+                }
+            }
+        }
+        assert_eq!(Lending::funded_alpha_value(1, (499, 1, 1)).unwrap(), 499);
+        assert_eq!(Lending::funded_alpha_value(1, (1_000, 2, 1)).unwrap(), 501);
+        // 14 whole alpha claiming 0.7 TAO needs at most 0.0014 TAO of
+        // rounding allowance, rather than the previous 14-TAO allowance.
+        assert_eq!(
+            Lending::funded_alpha_value(14_000_000_000, (1_000_000_000, 20_000_000_000, u64::MAX))
+                .unwrap(),
+            701_400_000,
+        );
+    });
+}
+
+#[test]
+fn alpha_admission_dust_budget_is_maximal_at_500_rao_boundaries() {
+    ext().execute_with(|| {
+        let vault = Vault {
+            available_alpha: 100_000,
+            ..Vault::default()
+        };
+        write(
+            b"test/alpha_redemption_basis",
+            Some((100_000_u64, 100_000_u128, false)),
+        );
+        for target in [499_u64, 500, 501, 999, 1_000, 1_001, 1_002] {
+            let allowed = Lending::funded_alpha_limit_for(
+                netuid(),
+                target * 4,
+                &vault,
+                0,
+                10_000,
+                None,
+                false,
+            )
+            .unwrap();
+            assert!(
+                Lending::funded_alpha_value(allowed, (100_000, 100_000, u64::MAX)).unwrap()
+                    <= u128::from(target)
+            );
+            assert!(
+                Lending::funded_alpha_value(allowed + 1, (100_000, 100_000, u64::MAX)).unwrap()
+                    > u128::from(target)
+            );
+        }
+    });
+}
+
+#[test]
+fn funded_alpha_surcharge_covers_borrowed_atoms_mixed_into_larger_paid_rows() {
+    ext().execute_with(|| {
+        for (borrowed, row_alpha, pot, supply) in [
+            (1_u64, 500_u64, 1_001_u64, 1_000_u128),
+            (2, 501, 1_003, 1_000),
+            (1, 10, 100_003, 1_000),
+        ] {
+            let base = u128::from(row_alpha) * u128::from(pot) / supply;
+            assert!(base >= u128::from(MIN_DISSOLUTION_PAYOUT));
+            let paid_row = base + 1;
+            let bound = Lending::funded_alpha_value(borrowed, (pot, supply, u64::MAX)).unwrap();
+            // Compare the borrowed part's pro-rata share without truncating
+            // its fractional rounding benefit back to zero TAO rao.
+            assert!(paid_row * u128::from(borrowed) <= bound * u128::from(row_alpha));
+        }
+    });
+}
+
+#[test]
 fn modern_alpha_cap_values_unloaned_inventory_after_the_proposed_withdrawal() {
     ext().execute_with(|| {
         write(
@@ -968,7 +1057,7 @@ fn modern_alpha_cap_values_unloaned_inventory_after_the_proposed_withdrawal() {
             Some((1_000_000_u64, 1_000_000_u128, true)),
         );
         let quote = Lending::quote_open(netuid(), Side::Short, 1000).unwrap();
-        assert_eq!(quote.principal, 124);
+        assert_eq!(quote.principal, 248);
         let vault = Vaults::<Test>::get(netuid()).unwrap();
         let actual_lower = 1_000_000 + u128::from(vault.available_alpha - quote.principal);
         let worst =
@@ -986,7 +1075,7 @@ fn modern_alpha_cap_values_unloaned_inventory_after_the_proposed_withdrawal() {
         open(Side::Short, 1000);
         assert_eq!(
             Vaults::<Test>::get(netuid()).unwrap().available_alpha,
-            100_000 - 124
+            100_000 - 248
         );
     });
 }
@@ -1003,15 +1092,15 @@ fn alpha_growth_checks_combined_debt_and_cannot_add_funds_to_an_undercovered_mar
         System::set_block_number(2);
         let quote =
             Lending::quote_open_for(&account(1), netuid(), Side::Short, 1000, &account(1)).unwrap();
-        assert_eq!(quote.principal, 83);
+        assert_eq!(quote.principal, 125);
         open(Side::Short, 1000);
         let grown = position();
-        assert_eq!(grown.principal, 166);
+        assert_eq!(grown.principal, 249);
         assert_eq!(
             grown.annual_interest,
             original.annual_interest + quote.annual_interest
         );
-        assert_eq!(grown.interest_remainder, 83);
+        assert_eq!(grown.interest_remainder, 124);
         assert_eq!(grown.due, original.due);
         assert!(
             Lending::funded_alpha_value(grown.principal, (200_000, 100_000, u64::MAX)).unwrap()
@@ -1046,7 +1135,7 @@ fn alpha_admission_preserves_each_other_shorts_rounded_coupon_coverage() {
             b"test/alpha_redemption_basis",
             Some((100_000_u64, 100_000_u128, false)),
         );
-        indexed_long(2, 100, 300);
+        indexed_long(2, 100, 201);
         Positions::<Test>::mutate(account(2), netuid(), |state| {
             state.as_mut().unwrap().side = Side::Short
         });
@@ -1054,7 +1143,7 @@ fn alpha_admission_preserves_each_other_shorts_rounded_coupon_coverage() {
             Lending::quote_open(netuid(), Side::Short, 1000)
                 .unwrap()
                 .principal,
-            83
+            124
         );
         Positions::<Test>::mutate(account(2), netuid(), |state| {
             state.as_mut().unwrap().annual_interest = 1
@@ -1082,7 +1171,7 @@ fn alpha_admission_preserves_each_other_shorts_rounded_coupon_coverage() {
             Positions::<Test>::get(account(2), netuid())
                 .unwrap()
                 .collateral,
-            300
+            201
         );
     });
 }
@@ -1104,7 +1193,7 @@ fn alpha_funded_scan_is_bounded_and_does_not_pool_collateral_or_expected_recover
             Lending::quote_open(netuid(), Side::Short, 1000)
                 .unwrap()
                 .principal,
-            83
+            124
         );
         indexed_long(6, 1, 1000);
         assert_eq!(
@@ -1125,7 +1214,7 @@ fn alpha_funded_scan_is_bounded_and_does_not_pool_collateral_or_expected_recover
             value.outstanding_tao = 500_000;
         });
         assert_eq!(Lending::quote_open(netuid(), Side::Short, 1000), Ok(quote));
-        indexed_long(2, 100, 299);
+        indexed_long(2, 100, 199);
         Positions::<Test>::mutate(account(2), netuid(), |state| {
             let state = state.as_mut().unwrap();
             state.side = Side::Short;
@@ -1157,7 +1246,7 @@ fn alpha_funded_arithmetic_caps_cash_domain_and_fails_closed_on_bad_basis() {
         assert_eq!(
             Lending::funded_alpha_limit_for(netuid(), u64::MAX, &vault, 0, u64::MAX, None, false)
                 .unwrap(),
-            (u64::MAX / 4) / 2
+            u64::try_from(u128::from(u64::MAX / 4) * 500 / 501).unwrap()
         );
         write(
             b"test/alpha_redemption_basis",
@@ -1560,7 +1649,7 @@ fn borrower_can_sell_free_alpha_and_pledge_the_free_proceeds_to_grow() {
 fn short_opening_uses_both_purchase_depth_and_reference_value_without_a_swap() {
     for (alpha_reserve, tao_reserve, reference, expected) in [
         (1_000_000_u64, 100_000_000_u64, 1.0, 2_u64),
-        (100_000_000, 1_000_000, 1.0, 249),
+        (100_000_000, 1_000_000, 1.0, 250),
         (1_000_000, 1_000_000, 0.5, 249),
     ] {
         ext().execute_with(|| {
@@ -2272,7 +2361,7 @@ fn terminal_short_waits_for_fixed_basis_and_recovers_outside_ordinary_redemption
         let recovery_before = tao(&Lending::recovery_account());
         let basis = RedemptionBases::<Test>::get(netuid()).unwrap();
         assert!(Lending::settle_remaining_longs(netuid(), &mut meter()));
-        let paid = 3 * debt + 4;
+        let paid = 3 * debt + (3 * debt).div_ceil(500);
         let vault = Vaults::<Test>::get(netuid()).unwrap();
         assert_eq!(vault.available_tao, paid);
         assert_eq!(vault.available_alpha, 0);
@@ -2291,7 +2380,7 @@ fn terminal_short_waits_for_fixed_basis_and_recovers_outside_ordinary_redemption
 
 #[test]
 fn terminal_short_uses_higher_of_funded_redemption_and_frozen_ema() {
-    for (fast, expected_paid) in [(1_u64, 751_u64), (4, 996)] {
+    for (fast, expected_paid) in [(1_u64, 749_u64), (4, 996)] {
         ext().execute_with(|| {
             open(Side::Short, 1000);
             assert_eq!(position().principal, 249);
@@ -2416,8 +2505,8 @@ fn terminal_funded_floor_shortfall_uses_only_available_collateral() {
 fn terminal_funded_rounding_handles_zero_basis_split_rows_and_overlarge_debt() {
     ext().execute_with(|| {
         for (amount, basis, expected) in [
-            (5_u64, (100_u64, 10_u128, 3_u64), 53_u128),
-            (5, (101, 10, 3), 54),
+            (5_u64, (100_u64, 10_u128, 3_u64), 51_u128),
+            (5, (101, 10, 3), 52),
             (3, (1, 100, 100), 1),
             (20, (10, 10, 100), 20),
             (5, (100, 0, 100), 0),
@@ -2472,7 +2561,7 @@ fn terminal_basis_is_shared_unchanged_across_multiple_alpha_loan_recoveries() {
         assert_eq!(TotalPositions::<Test>::get(), 1);
         assert_eq!(
             Vaults::<Test>::get(netuid()).unwrap().available_tao,
-            debt + 2
+            debt + 1
         );
         assert_eq!(
             RedemptionBases::<Test>::get(netuid()),
@@ -2481,7 +2570,7 @@ fn terminal_basis_is_shared_unchanged_across_multiple_alpha_loan_recoveries() {
         assert!(Lending::settle_remaining_longs(netuid(), &mut meter()));
         assert_eq!(
             Vaults::<Test>::get(netuid()).unwrap().available_tao,
-            2 * (debt + 2)
+            2 * (debt + 1)
         );
         assert_eq!(
             RedemptionBases::<Test>::get(netuid()),

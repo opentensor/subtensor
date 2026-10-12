@@ -576,7 +576,7 @@ impl<T: Config> Pallet<T> {
 
         // Check if there is enought weight to complete all the operations in this function
         // It is the maximum weight that can be consumed by the function. including all potential reads and writes.
-        let max_weight = T::DbWeight::get().reads_writes(20, 12);
+        let max_weight = T::DbWeight::get().reads_writes(21, 12);
         if !weight_meter.can_consume(max_weight) {
             return false;
         }
@@ -675,7 +675,9 @@ impl<T: Config> Pallet<T> {
         if let Some(subnet_account) = Self::get_subnet_account_id(netuid) {
             let remaining_subnet_balance = Self::get_keep_alive_balance(&subnet_account);
             if Self::recycle_tao(&subnet_account, remaining_subnet_balance).is_ok() {
-                RAORecycledForRegistration::<T>::insert(netuid, remaining_subnet_balance);
+                RAORecycledForRegistration::<T>::mutate(netuid, |total| {
+                    *total = total.saturating_add(remaining_subnet_balance);
+                });
             }
         }
 
@@ -931,7 +933,11 @@ impl<T: Config> Pallet<T> {
                 };
 
                 if val_u64 > 0 {
-                    let mut need_to_consume_weight = w;
+                    // A dust row retires a real alpha share and updates asset
+                    // counters. Charge an existing measured transfer envelope
+                    // per row, including multiple holdings of one coldkey.
+                    let mut need_to_consume_weight =
+                        w.saturating_add(<T as Config>::WeightInfo::transfer_stake());
 
                     // if the coldkey is not in the set, we need to consume the weight for the transfer_tao_from_subnet function call
                     if cold == Self::get_beta_escrow_account_id() || !coldkeys.contains(&cold) {
@@ -972,6 +978,7 @@ impl<T: Config> Pallet<T> {
             rem: u128,  // remainder for largest‑remainder method
         }
         let mut portions: Vec<Portion<_, _>> = Vec::with_capacity(stakers.len());
+        let mut dust: Vec<(T::AccountId, T::AccountId, AlphaBalance, u64)> = Vec::new();
 
         // Pro‑rata distribution of the pot by α value (largest‑remainder),
         //    **credited directly to each staker's COLDKEY free balance**.
@@ -980,12 +987,31 @@ impl<T: Config> Pallet<T> {
 
             let mut distributed: u128 = 0;
             let mut total_rem: u128 = 0;
+            let mut dust_rem: u128 = 0;
 
             for (hot, cold, alpha_val) in &stakers {
                 let prod: u128 = pot_u128.saturating_mul(*alpha_val);
                 let share_u128: u128 = prod.checked_div(total_alpha_value_u128).unwrap_or_default();
                 let share_u64: u64 = share_u128.min(u128::from(u64::MAX)) as u64;
                 distributed = distributed.saturating_add(u128::from(share_u64));
+
+                if share_u64 < pallet_lending::MIN_DISSOLUTION_PAYOUT {
+                    // Keep the original denominator. Recycle this base claim
+                    // instead of redistributing it or granting rounding dust.
+                    dust_rem = dust_rem.saturating_add(
+                        prod.checked_rem(total_alpha_value_u128).unwrap_or_default(),
+                    );
+                    dust.push((
+                        hot.clone(),
+                        cold.clone(),
+                        AlphaBalance::from(
+                            u64::try_from(*alpha_val)
+                                .map_err(|_| Error::<T>::NotEnoughStakeToWithdraw)?,
+                        ),
+                        share_u64,
+                    ));
+                    continue;
+                }
 
                 let rem: u128 = prod.checked_rem(total_alpha_value_u128).unwrap_or_default();
                 total_rem = total_rem.saturating_add(rem);
@@ -1012,10 +1038,50 @@ impl<T: Config> Pallet<T> {
                 }
             }
 
-            portions = portions
-                .into_iter()
-                .filter(|p| p.share > 0)
-                .collect::<Vec<_>>();
+            let mut recycled_tao = TaoBalance::ZERO;
+            for (hot, cold, alpha, tao) in dust {
+                let removed = Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+                    &hot, &cold, netuid, alpha,
+                );
+                ensure!(removed == alpha, Error::<T>::NotEnoughStakeToWithdraw);
+                Self::recycle_subnet_alpha(netuid, removed);
+                recycled_tao = recycled_tao.saturating_add(tao.into());
+                Self::deposit_event(Event::DissolutionDustRecycled {
+                    netuid,
+                    recipient: cold,
+                    amount: tao.into(),
+                });
+            }
+            // Recycle whole rao represented by the omitted rows' fractional
+            // claims too; they must not become another row's rounding bonus
+            // or a legacy owner's leftover payout.
+            let fraction_dust = TaoBalance::from(
+                u64::try_from(
+                    dust_rem
+                        .checked_div(total_alpha_value_u128)
+                        .unwrap_or_default(),
+                )
+                .map_err(|_| Error::<T>::InsufficientTaoBalance)?,
+            );
+            recycled_tao = recycled_tao.saturating_add(fraction_dust);
+            if !recycled_tao.is_zero() {
+                let subnet =
+                    Self::get_subnet_account_id(netuid).ok_or(Error::<T>::SubnetNotExists)?;
+                let credit = Self::withdraw_tao_as_credit(&subnet, recycled_tao)?;
+                Self::recycle_credit(credit);
+                if !fraction_dust.is_zero() {
+                    Self::deposit_event(Event::DissolutionDustRecycled {
+                        netuid,
+                        recipient: subnet,
+                        amount: fraction_dust,
+                    });
+                }
+                RAORecycledForRegistration::<T>::mutate(netuid, |total| {
+                    *total = total.saturating_add(recycled_tao);
+                });
+                distributed_tao_value_u128 = distributed_tao_value_u128
+                    .saturating_add(recycled_tao.to_u128().unwrap_or_default());
+            }
 
             // Aggregate the transfer amount for each coldkey
             let mut transfer_map = BTreeMap::<T::AccountId, TaoBalance>::new();
