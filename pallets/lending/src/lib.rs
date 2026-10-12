@@ -14,6 +14,10 @@ mod benchmarking;
 mod tests;
 pub mod weights;
 
+/// Base dissolution payouts below this many TAO rao receive no rounding bonus.
+/// Shared with ordinary payouts so admission and settlement use one rule.
+pub const MIN_DISSOLUTION_PAYOUT: u64 = 500;
+
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{PalletId, pallet_prelude::*, transactional, weights::WeightMeter};
 use frame_system::pallet_prelude::*;
@@ -1220,14 +1224,17 @@ impl<T: Config> Pallet<T> {
         }
         ensure!(supply > 0, Error::<T>::InsufficientRedemptionBacking);
         let target = collateral.checked_div(4).ok_or(Error::<T>::Arithmetic)?;
-        // ceil(q*P/N)+q <= target iff q*(P+N) <= target*N.
-        // The q-atom allowance bounds every possible split-row payout rounding.
-        let denominator = u128::from(pot)
-            .checked_add(supply)
+        // A paid row has >=500 rao of base payout and at most one bonus.
+        // Its cash per alpha is therefore <= (P/N)*501/500, including rows
+        // mixing borrowed and other alpha. For b=ceil(q*P/N), protect
+        // b+ceil(b/500). The largest b fitting target is floor(target*500/501).
+        let base_budget = u128::from(target)
+            .checked_mul(u128::from(MIN_DISSOLUTION_PAYOUT))
+            .and_then(|n| n.checked_div(u128::from(MIN_DISSOLUTION_PAYOUT).saturating_add(1)))
             .ok_or(Error::<T>::Arithmetic)?;
-        let combined_limit = u128::from(target)
+        let combined_limit = base_budget
             .checked_mul(supply)
-            .and_then(|value| value.checked_div(denominator))
+            .and_then(|value| value.checked_div(u128::from(pot)))
             .ok_or(Error::<T>::Arithmetic)?;
         let incremental = combined_limit
             .checked_sub(u128::from(old_principal))
@@ -1254,15 +1261,7 @@ impl<T: Config> Pallet<T> {
                 .collateral
                 .checked_sub(accrued)
                 .ok_or(Error::<T>::InsufficientRedemptionBacking)?;
-            let principal = u128::from(position.principal);
-            let owed = Self::ceil_ratio(
-                principal
-                    .checked_mul(u128::from(pot))
-                    .ok_or(Error::<T>::Arithmetic)?,
-                supply,
-            )?
-            .checked_add(principal)
-            .ok_or(Error::<T>::Arithmetic)?;
+            let owed = Self::funded_alpha_value(position.principal, (pot, supply, u64::MAX))?;
             ensure!(
                 owed <= u128::from(remaining),
                 Error::<T>::InsufficientRedemptionBacking
@@ -2191,9 +2190,11 @@ impl<T: Config> Pallet<T> {
             .checked_mul(u128::from(pot))
             .ok_or(Error::<T>::Arithmetic)?;
         let base = Self::ceil_ratio(numerator, supply)?;
-        // Largest-remainder payouts can award one atom per eligible holder row.
-        // Reserve that bounded dust without lowering debt when base exceeds P.
-        let allowance = u128::from(alpha.min(rows));
+        // Payout per alpha in any paid row is <= the ideal rate *501/500.
+        // Round the surcharge up, including when a tiny borrowed share is
+        // mixed into a larger holding. Retain the original atom/row caps.
+        let allowance = Self::ceil_ratio(base, u128::from(MIN_DISSOLUTION_PAYOUT))?
+            .min(u128::from(alpha.min(rows)));
         let with_dust = base.checked_add(allowance).ok_or(Error::<T>::Arithmetic)?;
         Ok(base.max(with_dust.min(u128::from(pot))))
     }

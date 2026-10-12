@@ -723,8 +723,8 @@ fn funded_alpha_grants_and_growth_reserve_a_quarter_of_collateral_for_redemption
             let vault = Vaults::<Test>::get(netuid).unwrap();
             let (pool_pot, n) = alpha_redemption_basis(netuid, vault.available_alpha);
             let pot = pool_pot.to_u64().saturating_add(vault.available_tao);
-            let funded = (u128::from(loan.principal) * u128::from(pot)).div_ceil(n)
-                + u128::from(loan.principal);
+            let base = (u128::from(loan.principal) * u128::from(pot)).div_ceil(n);
+            let funded = base + base.div_ceil(u128::from(pallet_lending::MIN_DISSOLUTION_PAYOUT));
             assert!(funded <= u128::from(loan.collateral / 4));
             assert_eq!(stake(&owner, &hotkey, netuid), loan.principal);
             assert_single_position(owner, hotkey, netuid);
@@ -1749,7 +1749,7 @@ fn free_alpha_redemption_and_terminal_recovery_use_the_original_pot_for_both_sub
 }
 
 #[test]
-fn split_alpha_holder_rounding_cannot_exceed_the_terminal_funded_allowance() {
+fn split_alpha_dust_holders_cannot_win_terminal_rounding() {
     new_test_ext(1).execute_with(|| {
         let netuid = funded_market();
         TaoInRefundDeploymentBlock::<Test>::put(1);
@@ -1793,8 +1793,8 @@ fn split_alpha_holder_rounding_cannot_exceed_the_terminal_funded_allowance() {
             );
             loan_holders.push(recipient);
         }
-        // All rows share one hotkey/page. Each borrowed row has a strictly larger
-        // remainder than the seven other rows, so all three win a rounding atom.
+        // All rows share one hotkey/page. Borrowed rows have larger remainders,
+        // but their base payouts are dust and cannot win a rounding atom.
         for i in 0..7 {
             let (holder, _) = borrower(310 + i);
             let alpha = AlphaBalance::from(piece - 1);
@@ -1830,12 +1830,12 @@ fn split_alpha_holder_rounding_cannot_exceed_the_terminal_funded_allowance() {
             .map(|(holder, balance)| Balances::free_balance(holder).to_u64() - balance)
             .sum();
         assert_eq!(
-            paid, 3,
-            "a position-sized ceil alone misses split-row rounding"
+            paid, 0,
+            "sub-threshold base payouts must not become eligible through rounding"
         );
         assert_eq!(DissolutionEligibleAlphaRows::<Test>::get(netuid), 10);
         assert!(Lending::settle_remaining_longs(netuid, &mut meter()));
-        assert_eq!(Vaults::<Test>::get(netuid).unwrap().available_tao, 4);
+        assert_eq!(Vaults::<Test>::get(netuid).unwrap().available_tao, 2);
         assert_eq!(Vaults::<Test>::get(netuid).unwrap().lost_alpha, 0);
     });
 }
@@ -3769,12 +3769,12 @@ fn tiny_first_tao_coupon_into_an_alpha_only_vault_is_explicitly_recycled() {
             TaoBalance::ZERO
         );
         let (owner, hotkey) = borrower(122);
-        let quote = Lending::quote_open(netuid, Side::Short, 10 * UNIT).unwrap();
+        let quote = Lending::quote_open(netuid, Side::Short, 5 * UNIT).unwrap();
         assert_ok!(Lending::open(
             RuntimeOrigin::signed(owner),
             netuid,
             Side::Short,
-            10 * UNIT,
+            5 * UNIT,
             hotkey,
             quote.principal,
             0,

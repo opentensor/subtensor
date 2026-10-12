@@ -8,6 +8,184 @@ use sp_core::U256;
 use subtensor_runtime_common::TaoBalance;
 use subtensor_swap_interface::SwapHandler;
 
+#[test]
+fn dissolution_dust_cutoff_precedes_rounding_and_recycles_without_redistribution() {
+    new_test_ext(0).execute_with(|| {
+        let hot = U256::from(88_001);
+        let owner = U256::from(88_002);
+        let netuid = add_dynamic_network(&hot, &owner);
+        TaoInRefundDeploymentBlock::<Test>::put(u64::MAX);
+        SubnetProtocolAlpha::<Test>::remove(netuid);
+        SubnetTAO::<Test>::insert(netuid, TaoBalance::from(2_003));
+        let subnet = SubtensorModule::get_subnet_account_id(netuid).unwrap();
+        add_balance_to_coldkey_account(&subnet, 3_003.into());
+        let mut holders = Vec::new();
+        for (index, alpha) in [499_u64, 500, 501, 500].into_iter().enumerate() {
+            let cold = U256::from(88_100 + index as u64);
+            add_balance_to_coldkey_account(&cold, 1_000.into());
+            SubtensorModule::resolve_to_alpha_out(SubtensorModule::mint_alpha(
+                netuid,
+                alpha.into(),
+            ));
+            SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                &hot,
+                &cold,
+                netuid,
+                alpha.into(),
+            );
+            holders.push(cold);
+        }
+        assert_ok!(SubtensorModule::do_dissolve_network(netuid));
+        let mut status = dissolve_cleanup_status(netuid);
+        let mut meter = WeightMeter::with_limit(Weight::from_parts(u64::MAX, u64::MAX));
+        assert!(
+            SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value(
+                netuid,
+                &mut meter,
+                None,
+                &mut status
+            )
+            .0
+        );
+        assert_eq!(status.subnet_total_alpha_value, Some(2_000));
+        status.subnet_distributed_tao = Some(0);
+        let issuance = TotalIssuance::<Test>::get();
+        let currency = Balances::total_issuance();
+        let alpha_issuance = pallet_alpha_assets::TotalAlphaIssuance::<Test>::get(netuid);
+        let recycled = pallet_alpha_assets::AlphaRecycled::<Test>::get(netuid);
+        // A failure after dust retirement must roll back currency, alpha,
+        // recycling counters and the page cursor together.
+        let cash = Balances::free_balance(subnet).to_u64();
+        assert_ok!(SubtensorModule::transfer_tao(
+            &subnet,
+            &owner,
+            (cash - 600).into()
+        ));
+        let before = sp_io::storage::root(sp_runtime::StateVersion::V1);
+        let before_status = status.clone();
+        assert!(
+            !SubtensorModule::destroy_alpha_in_out_stakes_settle_stakes(
+                netuid,
+                &mut meter,
+                None,
+                &mut status,
+            )
+            .0
+        );
+        assert_eq!(sp_io::storage::root(sp_runtime::StateVersion::V1), before);
+        assert_eq!(status, before_status);
+        assert_ok!(SubtensorModule::transfer_tao(
+            &owner,
+            &subnet,
+            (cash - 600).into()
+        ));
+        assert!(
+            SubtensorModule::destroy_alpha_in_out_stakes_settle_stakes(
+                netuid,
+                &mut meter,
+                None,
+                &mut status
+            )
+            .0
+        );
+        // The dust row has the largest possible below-threshold base (499),
+        // and a positive remainder. It cannot round up into eligibility.
+        assert_eq!(Balances::free_balance(holders[0]), 1_000.into());
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot, &holders[0], netuid),
+            AlphaBalance::ZERO
+        );
+        assert_eq!(Balances::free_balance(holders[2]), 1_502.into());
+        let paid = holders[1..]
+            .iter()
+            .map(|cold| Balances::free_balance(cold).to_u64() - 1_000)
+            .sum::<u64>();
+        assert_eq!(paid, 1_503);
+        assert_eq!(status.subnet_total_alpha_value, Some(2_000));
+        assert_eq!(status.subnet_distributed_tao, Some(2_002));
+        assert_eq!(
+            TotalIssuance::<Test>::get(),
+            issuance.saturating_sub(499.into())
+        );
+        assert_eq!(
+            Balances::total_issuance(),
+            currency.saturating_sub(499.into())
+        );
+        assert_eq!(
+            pallet_alpha_assets::TotalAlphaIssuance::<Test>::get(netuid),
+            alpha_issuance.saturating_sub(499.into())
+        );
+        assert_eq!(
+            pallet_alpha_assets::AlphaRecycled::<Test>::get(netuid),
+            recycled.saturating_add(499.into())
+        );
+        assert_eq!(RAORecycledForRegistration::<Test>::get(netuid), 499.into());
+        assert_eq!(TotalAlphaStaked::<Test>::get(netuid), 1_501.into());
+    });
+}
+
+#[test]
+fn dissolution_recycles_aggregate_fractional_claims_of_zero_base_rows() {
+    new_test_ext(0).execute_with(|| {
+        let hot = U256::from(89_001);
+        let owner = U256::from(89_002);
+        let netuid = add_dynamic_network(&hot, &owner);
+        TaoInRefundDeploymentBlock::<Test>::put(u64::MAX);
+        SubnetProtocolAlpha::<Test>::remove(netuid);
+        SubnetTAO::<Test>::insert(netuid, TaoBalance::from(1));
+        let subnet = SubtensorModule::get_subnet_account_id(netuid).unwrap();
+        add_balance_to_coldkey_account(&subnet, 1_001.into());
+        for cold in [U256::from(89_100), U256::from(89_101)] {
+            add_balance_to_coldkey_account(&cold, 1_000.into());
+            SubtensorModule::resolve_to_alpha_out(SubtensorModule::mint_alpha(netuid, 1.into()));
+            SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                &hot,
+                &cold,
+                netuid,
+                1.into(),
+            );
+        }
+        assert_ok!(SubtensorModule::do_dissolve_network(netuid));
+        let mut status = dissolve_cleanup_status(netuid);
+        let mut meter = WeightMeter::with_limit(Weight::from_parts(u64::MAX, u64::MAX));
+        assert!(
+            SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value(
+                netuid,
+                &mut meter,
+                None,
+                &mut status
+            )
+            .0
+        );
+        assert_eq!(status.subnet_total_alpha_value, Some(2));
+        status.subnet_distributed_tao = Some(0);
+        let issuance = TotalIssuance::<Test>::get();
+        assert!(
+            SubtensorModule::destroy_alpha_in_out_stakes_settle_stakes(
+                netuid,
+                &mut meter,
+                None,
+                &mut status
+            )
+            .0
+        );
+        // Each row has a zero base payout, but their two half-rao claims
+        // together represent a whole rao. Recycle it rather than award it.
+        assert_eq!(status.subnet_distributed_tao, Some(1));
+        assert_eq!(RAORecycledForRegistration::<Test>::get(netuid), 1.into());
+        assert_eq!(
+            TotalIssuance::<Test>::get(),
+            issuance.saturating_sub(1.into())
+        );
+        assert_eq!(Balances::free_balance(U256::from(89_100)), 1_000.into());
+        assert_eq!(Balances::free_balance(U256::from(89_101)), 1_000.into());
+        assert_eq!(
+            pallet_alpha_assets::AlphaRecycled::<Test>::get(netuid),
+            2.into()
+        );
+    });
+}
+
 fn setup_staked_subnet() -> (U256, U256, NetUid) {
     let owner_cold = U256::from(1001);
     let owner_hot = U256::from(1002);

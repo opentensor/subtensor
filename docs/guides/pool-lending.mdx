@@ -130,10 +130,17 @@ alpha borrowing. Thus a funded vault does not guarantee that either loan type
 can currently open.
 
 For positive claim lower bound `N`, pot upper bound `P` and quarter collateral
-`Q`, all in base units, a sufficient combined alpha-debt bound is
-`D ≤ floor(Q × N / (P + N))`. This covers
-`ceil(D × P / N)` plus at most one TAO base unit of payout rounding for each
-borrowed alpha base unit. A conservative snapshot uses the remaining vault
+`Q`, define `B = ceil(D × P / N)`. The protected debt must satisfy
+`B + ceil(B / 500) ≤ Q`. Only holder rows whose base dissolution payout is at
+least 500 TAO rao can receive a rounding bonus, and each can receive at most
+one rao. Each paid row therefore redeems at no more than 100.2% of the ideal
+TAO-per-alpha rate. This also covers borrowed alpha mixed into other holdings.
+The additional allowance is about 0.2% of the conservative redemption value,
+rounded up to a TAO rao, rather than one TAO rao for every alpha atom.
+
+A sufficient combined alpha-debt bound is
+`D ≤ floor(floor(Q × 500 / 501) × N / P)`.
+A conservative snapshot uses the remaining vault
 alpha after the initial candidate loan; clipping that candidate to a smaller
 loan can only improve this backing. Each other existing alpha loan must also
 remain fully covered by its own TAO collateral after rounded-up accrued
@@ -330,6 +337,17 @@ Ordinary alpha holders then receive the actual funded pro-rata redemption
 rate. Freely held borrowed alpha is real alpha and receives the same treatment;
 the chain does not invent a repayment or exclude it from ordinary claims.
 Pledged alpha likewise has no priority over other holders.
+
+Ordinary holder payouts with a base amount below **500 TAO rao**
+(`0.000000500 TAO`) are excluded before allocating rounding bonuses, including
+holdings in lending and basket escrows. The threshold applies to each
+coldkey/hotkey holding, not to the coldkey's combined holdings. These rows
+remain in the original redemption denominator, so excluding them does not
+increase other holders' proportional claims. Their base TAO payouts and alpha
+are recycled using the chain's existing issuance accounting, and no payout is
+reported to lending for these rows. Their fractional remainders do not fund
+other rows' rounding bonuses. The remaining subnet balance follows the usual
+terminal cleanup. Exactly 500 rao is eligible.
 
 After ordinary payouts complete, a short's fixed alpha debt is valued at the
 **higher of its frozen historical mark and its funded redemption value**,
