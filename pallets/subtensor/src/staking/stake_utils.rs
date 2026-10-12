@@ -1458,6 +1458,11 @@ impl<T: Config> Pallet<T> {
     /// True for the unstake-side calls whose declared weight includes
     /// [`Self::staking_hotkeys_walk_bound`] and whose post-dispatch weight reports the
     /// signer's [`Self::staking_hotkeys_walk_actual`].
+    ///
+    /// The EVM staking precompile subtracts the unused part of the capped walk from the
+    /// declared weight of every call listed here. Keep this list in sync with the weight
+    /// declarations in `dispatches.rs`: a listed call that stops declaring the walk would
+    /// have its own benchmarked weight under-reserved instead.
     pub fn declares_staking_hotkeys_walk(call: &Call<T>) -> bool {
         matches!(
             call,
