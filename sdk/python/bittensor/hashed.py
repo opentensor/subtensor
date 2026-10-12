@@ -32,6 +32,10 @@ _REGISTRATION_TARGETS = {
     "register_subnet": "hotkey_ss58",
 }
 
+# Association needs descriptor/ownership checks, but must not implicitly create
+# an account under a potentially incompatible owner.
+_DESCRIPTOR_TARGETS = {**_REGISTRATION_TARGETS, "associate_hotkey": "hotkey_ss58"}
+
 
 async def hashed_accounts_enabled(substrate, *, block_hash=None):
     """Read the live switch; None means this runtime has no hashed support.
@@ -137,7 +141,7 @@ def has_local_hashed_recipient(wallet: Any, intent: Any) -> bool:
     """Detect public setup information before an imported-call fast path."""
     from .signing import public_view
 
-    parameter = _REGISTRATION_TARGETS.get(intent.op)
+    parameter = _DESCRIPTOR_TARGETS.get(intent.op)
     address = getattr(intent, parameter, None) if parameter else None
     if address is None and parameter == "hotkey_ss58":
         return public_view(wallet, "hotkey").crypto_type in HASHED_CRYPTO_TYPES
@@ -191,6 +195,7 @@ async def with_recipient_registration(
     *,
     recipients: dict[str, Recipient] | None = None,
     as_calls: bool = False,
+    origin: Any = None,
 ):
     """Guard a known hashed recipient and its operation in one atomic batch.
 
@@ -208,7 +213,7 @@ async def with_recipient_registration(
     from .signing import public_view
 
     recipients = dict(recipients or {})
-    parameter = _REGISTRATION_TARGETS.get(intent.op)
+    parameter = _DESCRIPTOR_TARGETS.get(intent.op)
     if parameter is not None:
         address = getattr(intent, parameter, None)
         default_descriptor = None
@@ -239,6 +244,10 @@ async def with_recipient_registration(
         return (await atomic_calls(substrate, call) if as_calls else call), {}
     if await hashed_accounts_enabled(substrate) is not True:
         raise ValueError("hashed accounts are not enabled on this chain")
+    if intent.op == "associate_hotkey":
+        owner = public_view(wallet if origin is None else origin, "coldkey").ss58_address
+        if await substrate.query("HashedAccounts", "Accounts", [owner]) is None:
+            raise ValueError("a hashed hotkey requires a registered hashed coldkey owner")
     finalized_hash = None
     direct = intent.op in ("swap_coldkey_announced", "pow_register", "execute_proxy_announced")
     if intent.op == "announce_coldkey_swap":
@@ -273,7 +282,8 @@ async def with_recipient_registration(
                     f"and wait for finalization before executing the {operation}"
                 )
             if (
-                parameter not in recipients
+                intent.op not in _REGISTRATION_TARGETS
+                or parameter not in recipients
                 or recipients[parameter].account != address
                 or len(unique) != 1
             ):

@@ -10,9 +10,11 @@ themselves) and dissolves the loan. Amounts are TAO.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from functools import partial
 from typing import Any, ClassVar, Optional
 
 from .._generated import calls
+from .._pinned import compose_pinned_call
 from ._money import ALL, UNBOUNDED, Money, Spend, tao_amount
 from .base import Intent
 from .registry import build as build_intent
@@ -152,12 +154,14 @@ class ContributeCrowdloan(Intent):
         self.amount_tao = tao_amount(self.amount_tao, allow_all=True)
 
     async def build(self, substrate, wallet: Any):
+        params = {"crowdloan_id": self.crowdloan_id}
+        derived = {}
         if self.amount_tao == ALL:
-            rao = await _stakeable_rao(substrate, wallet)
+            derived["amount"] = partial(_stakeable_rao, substrate, wallet)
         else:
-            rao = self.amount_tao.rao
-        return await substrate.compose(
-            calls.Crowdloan.contribute(crowdloan_id=self.crowdloan_id, amount=rao)
+            params["amount"] = self.amount_tao.rao
+        return await compose_pinned_call(
+            substrate, "Crowdloan", "contribute", params, derived=derived
         )
 
     def summary(self) -> str:

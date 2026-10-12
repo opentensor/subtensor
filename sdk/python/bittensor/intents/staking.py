@@ -262,13 +262,15 @@ async def _compose_move_then_swap(
 _ALL_STAKE_FEE_HEADROOM_RAO = 500_000  # τ0.0005
 
 
-async def _stakeable_rao(substrate, wallet: Any, function="add_stake_limit") -> int:
+async def _stakeable_rao(substrate, wallet: Any, function=None) -> int:
     """The coldkey's free balance minus the existential deposit and a fee headroom.
 
     Resolves an ``amount = "all"`` for ``add_stake`` at build time; refuses to
     build when the remainder is nothing.
     """
-    approved = await approved_staking_amount(function, "amount_staked")
+    approved = (
+        await approved_staking_amount(function, "amount_staked") if function is not None else None
+    )
     if approved is not None:
         return approved
     coldkey = public_view(wallet, "coldkey").ss58_address
@@ -1029,7 +1031,7 @@ class AddStakeLimit(Intent):
 
     async def build(self, substrate, wallet: Any):
         if self.amount_tao == ALL:
-            rao = await _stakeable_rao(substrate, wallet)
+            rao = await _stakeable_rao(substrate, wallet, "add_stake_limit")
         else:
             rao = self.amount_tao.rao
         return await compose_staking_call(
@@ -1566,31 +1568,41 @@ class TransferStake(Intent):
         return self.dest_hotkey_ss58 is not None and self.dest_hotkey_ss58 != self.hotkey_ss58
 
     async def build(self, substrate, wallet: Any):
+        function = "transfer_stake_and_hotkey" if self._changes_hotkey() else "transfer_stake"
         if self.amount_alpha == ALL:
             rao = await _staked_rao(
-                substrate, wallet, self.hotkey_ss58, self.origin_netuid, action="transfer"
+                substrate,
+                wallet,
+                self.hotkey_ss58,
+                self.origin_netuid,
+                action="transfer",
+                pinned_function=function,
             )
         else:
             rao = self.amount_alpha.rao
         if self._changes_hotkey():
-            return await substrate.compose(
-                calls.SubtensorModule.transfer_stake_and_hotkey(
+            return await compose_staking_call(
+                substrate,
+                function,
+                dict(
                     destination_coldkey=self.dest_coldkey_ss58,
                     origin_hotkey=self.hotkey_ss58,
                     destination_hotkey=self.dest_hotkey_ss58,
                     origin_netuid=self.origin_netuid,
                     destination_netuid=self.dest_netuid,
                     alpha_amount=rao,
-                )
+                ),
             )
-        return await substrate.compose(
-            calls.SubtensorModule.transfer_stake(
+        return await compose_staking_call(
+            substrate,
+            function,
+            dict(
                 destination_coldkey=self.dest_coldkey_ss58,
                 hotkey=self.hotkey_ss58,
                 origin_netuid=self.origin_netuid,
                 destination_netuid=self.dest_netuid,
                 alpha_amount=rao,
-            )
+            ),
         )
 
     def summary(self) -> str:
@@ -1761,14 +1773,16 @@ class StakeIntoBasket(Intent):
 
     async def build(self, substrate, wallet: Any):
         if self.amount_tao == ALL:
-            rao = await _stakeable_rao(substrate, wallet)
+            rao = await _stakeable_rao(substrate, wallet, "stake_into_basket")
         else:
             rao = self.amount_tao.rao
-        return await substrate.compose(
-            calls.SubtensorModule.stake_into_basket(
+        return await compose_staking_call(
+            substrate,
+            "stake_into_basket",
+            dict(
                 hotkey=self.hotkey_ss58,
                 amount_staked=rao,
-            )
+            ),
         )
 
     def summary(self) -> str:
@@ -1885,7 +1899,9 @@ class SwapBasket(Intent):
 
     async def build(self, substrate, wallet: Any):
         if self.amount == ALL:
-            rao = await self._origin_holding_rao(substrate)
+            rao = await approved_staking_amount("swap_basket", "amount")
+            if rao is None:
+                rao = await self._origin_holding_rao(substrate)
             if rao <= 0:
                 raise BittensorError(
                     f"nothing to sell: {self.hotkey_ss58}'s basket holds nothing on "
@@ -1893,14 +1909,16 @@ class SwapBasket(Intent):
                 )
         else:
             rao = cast(Balance, self.amount).rao
-        return await substrate.compose(
-            calls.SubtensorModule.swap_basket(
+        return await compose_staking_call(
+            substrate,
+            "swap_basket",
+            dict(
                 hotkey=self.hotkey_ss58,
                 origin_netuid=self.origin_netuid,
                 destination_netuid=self.dest_netuid,
                 amount=rao,
                 min_amount_out=cast(Balance, self.min_amount_out).rao,
-            )
+            ),
         )
 
     def summary(self) -> str:

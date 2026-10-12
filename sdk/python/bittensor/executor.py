@@ -184,9 +184,11 @@ class _OriginView:
 
     crypto_type = 1
 
-    def __init__(self, address: str):
+    def __init__(self, address: str, *, wallet: Any = None):
         self.ss58_address = address
         self.public_key = bytes(ss58_decode(address))
+        # Keep public recipient discovery separate from the dispatch identity.
+        self._wallet = getattr(wallet, "_wallet", wallet)
 
 
 async def _compose_nested_intent_call(substrate, intent, wallet, *, wrapper: str):
@@ -242,7 +244,7 @@ async def _compose_intent_call(
         call = built
 
     call, registration = await with_recipient_registration(
-        substrate, wallet, prepared, call, recipients=recipients
+        substrate, wallet, prepared, call, recipients=recipients, origin=origin
     )
     if (registration.get("hashed_registration") or extras.get("hashed_registration")) and (
         proxy_for is not None or intent.semantic_intent() is not intent or semantic.origin == "root"
@@ -281,9 +283,9 @@ def _intent_origin_view(
     proxy_for: Optional[str] = None,
 ) -> Any:
     """Account view whose origin dispatches the semantic intent."""
-    return (
-        _OriginView(proxy_for) if proxy_for is not None else intent.origin_view(substrate, wallet)
-    )
+    if proxy_for is None:
+        return intent.origin_view(substrate, wallet)
+    return _OriginView(proxy_for, wallet=wallet)
 
 
 def _intent_accounts(

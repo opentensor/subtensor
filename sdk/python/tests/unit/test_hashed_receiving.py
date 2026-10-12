@@ -122,6 +122,56 @@ async def test_multisig_discovers_local_ss58_recipient(
     assert not chain.submissions
 
 
+@pytest.mark.parametrize("scheme", [4, 6])
+@pytest.mark.parametrize("companion", ["coldkey", "hotkey"])
+@pytest.mark.parametrize(
+    "exists,enabled", [(False, True), (True, True), (False, False), (True, False)]
+)
+async def test_proxied_batch_discovers_local_ss58_recipient(
+    setup, tmp_path, monkeypatch, scheme, companion, exists, enabled
+):
+    chain, _, _, _ = setup
+    key = Keypair.create_from_seed(bytes([91]) * 32, scheme)
+    wallet = Wallet("sender", path=str(tmp_path))
+    wallet.coldkeypub_file.set_keypair(Keypair(ss58_address=ALICE), encrypt=False)
+    recipient = Wallet("recipient", path=str(tmp_path))
+    public_file = recipient.coldkeypub_file if companion == "coldkey" else recipient.hotkeypub_file
+    public_file.set_keypair(key.public_only(), encrypt=False)
+    monkeypatch.setattr(
+        Wallet, "coldkey", property(lambda _: pytest.fail("must not open private keys"))
+    )
+    monkeypatch.setattr(
+        Wallet, "hotkey", property(lambda _: pytest.fail("must not open private keys"))
+    )
+    if exists:
+        registered(chain, key)
+    chain.seed_constant("HashedAccounts", "Enabled", enabled)
+    build_transfer = Transfer.build
+
+    async def check_origin(transfer, substrate, view):
+        assert view.ss58_address == BOB
+        return await build_transfer(transfer, substrate, view)
+
+    monkeypatch.setattr(Transfer, "build", check_origin)
+    intent = Batch([Transfer(key.ss58_address, 1)])
+    if not enabled or not exists:
+        error = "not enabled" if not enabled else "direct transfer"
+        with pytest.raises(ValueError, match=error):
+            await _compose_intent_call(chain, intent, wallet, proxy_for=BOB)
+    else:
+        call, extras = await _compose_intent_call(chain, intent, wallet, proxy_for=BOB)
+        assert (call.module, call.function) == ("Proxy", "proxy")
+        assert call.params["real"] == BOB
+        batch = call.params["call"]
+        assert (batch.module, batch.function) == ("Utility", "batch_all")
+        guard, payment = batch.params["calls"]
+        assert (guard.module, guard.function) == ("HashedAccounts", "check_registered")
+        assert guard.params["descriptor"] == descriptor_value(bytes(key.hashed_descriptor))
+        assert payment.params == {"dest": key.ss58_address, "value": 10**9}
+        assert extras["hashed_registration_guards"] == [key.ss58_address]
+    assert not chain.submissions
+
+
 @pytest.mark.parametrize("nested", [False, True])
 async def test_local_ss58_multisig_approval_bytes_keep_recipient_guard(setup, tmp_path, nested):
     chain, _, key, _ = setup
@@ -971,4 +1021,68 @@ async def test_announced_proxy_rejects_unverified_identity_before_submission(
     }[state]
     with pytest.raises(error, match=message):
         await Executor(chain).execute(intent, wallet)
+    assert not chain.submissions
+
+
+@pytest.mark.parametrize("scheme", [4, 6])
+@pytest.mark.parametrize("selector", ["default", "ss58", "receiving"])
+@pytest.mark.parametrize("owner_state", ["standard", "unregistered", "registered"])
+@pytest.mark.parametrize("hotkey_registered", [False, True])
+async def test_association_checks_default_and_local_hashed_hotkey_owner(
+    setup, tmp_path, monkeypatch, scheme, selector, owner_state, hotkey_registered
+):
+    from bittensor.intents.association import AssociateHotkey
+
+    chain, _, _, _ = setup
+    hotkey = Keypair.create_from_seed(bytes([91]) * 32, scheme)
+    coldkey = (
+        Keypair(ss58_address=ALICE)
+        if owner_state == "standard"
+        else Keypair.create_from_seed(bytes([92]) * 32, scheme)
+    )
+    wallet = Wallet("association", path=str(tmp_path))
+    wallet.coldkeypub_file.set_keypair(coldkey.public_only(), encrypt=False)
+    wallet.hotkeypub_file.set_keypair(hotkey.public_only(), encrypt=False)
+    if owner_state == "registered":
+        registered(chain, coldkey)
+    if hotkey_registered:
+        registered(chain, hotkey)
+    monkeypatch.setattr(Wallet, "coldkey", property(lambda _: pytest.fail("private coldkey read")))
+    monkeypatch.setattr(Wallet, "hotkey", property(lambda _: pytest.fail("private hotkey read")))
+    address = {
+        "default": None,
+        "ss58": hotkey.ss58_address,
+        "receiving": receiving_address(hotkey),
+    }[selector]
+    intent = AssociateHotkey(address)
+    if owner_state != "registered":
+        with pytest.raises(ValueError, match="registered hashed coldkey owner"):
+            await _compose_intent_call(chain, intent, wallet)
+    elif not hotkey_registered:
+        with pytest.raises(ValueError, match="recipient is not registered"):
+            await _compose_intent_call(chain, intent, wallet)
+    else:
+        call, _ = await _compose_intent_call(chain, intent, wallet)
+        guard, associate = call.params["calls"]
+        assert guard.function == "check_registered"
+        assert associate.function == "try_associate_hotkey"
+        assert associate.params["hotkey"] == hotkey.ss58_address
+    assert not chain.submissions
+
+
+async def test_association_checks_proxy_origin_instead_of_delegate(setup):
+    from bittensor.intents.association import AssociateHotkey
+
+    chain, wallet, hotkey, address = setup
+    owner = Keypair.create_from_seed(bytes([92]) * 32, 6)
+    registered(chain, hotkey)
+    registered(chain, owner)
+    call, _ = await _compose_intent_call(
+        chain, AssociateHotkey(address), wallet, proxy_for=owner.ss58_address
+    )
+    assert call.function == "proxy"
+    assert call.params["call"].params["calls"][0].function == "check_registered"
+    wallet.coldkeypub = owner.public_only()
+    with pytest.raises(ValueError, match="registered hashed coldkey owner"):
+        await _compose_intent_call(chain, AssociateHotkey(address), wallet, proxy_for=ALICE)
     assert not chain.submissions

@@ -11,8 +11,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, ClassVar
 
-from .._generated import calls
 from .._generated import storage as st
+from .._pinned import approved_amount, compose_pinned_call
 from ..evm.addresses import (
     h160_to_ss58,
     normalize_h160,
@@ -131,13 +131,17 @@ class EvmWithdraw(Intent):
                 "no claim transaction is needed"
             )
         if self.amount_tao == ALL:
-            account = await substrate.query(*st.System.Account, [recipient.account])
-            rao = int(((account or {}).get("data") or {}).get("free") or 0)
+            rao = await approved_amount("EVM", "withdraw", "value")
+            if rao is None:
+                account = await substrate.query(*st.System.Account, [recipient.account])
+                rao = int(((account or {}).get("data") or {}).get("free") or 0)
             if rao <= 0:
                 raise BittensorError("nothing to claim: the EVM deposit address is empty")
         else:
             rao = self.amount_tao.rao
-        return await substrate.compose(calls.EVM.withdraw(address=truncated, value=rao))
+        return await compose_pinned_call(
+            substrate, "EVM", "withdraw", dict(address=truncated, value=rao)
+        )
 
     def summary(self) -> str:
         amount = "ALL TAO" if self.amount_tao == ALL else str(self.amount_tao)
