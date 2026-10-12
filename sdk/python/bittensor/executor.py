@@ -20,6 +20,7 @@ from typing import Any, Optional
 import bittensor_core as _core
 
 from ._generated import calls as generated_calls
+from ._pinned import pinned_inputs
 from ._substrate import Substrate
 from ._transport.contract import UnsignedExtrinsic
 from ._transport.utils.receipt import nested_dispatch_error
@@ -213,9 +214,8 @@ async def _compose_intent_call(
     semantic = await _coerce_addresses(substrate, intent.semantic_intent())
     prepared, recipients = await prepare_recipient_intent(substrate, semantic)
     pinned = getattr(intent, "inner_call_data", None)
-    # Receiving metadata must authenticate the actual pinned bytes. Rebuild
-    # those payments including their guards and origin wrappers, then compare
-    # before allowing wrap_call to substitute the opening approval's bytes.
+    # Reconstruct recipient guards and origin wrappers, retaining approved
+    # dynamic inputs instead of deriving fresh prices/amounts for later rounds.
     verify_pinned = bool(pinned) and await has_receiving_setup_inputs(substrate, wallet, semantic)
     if pinned and not verify_pinned:
         # Later multisig rounds approve round 1's exact bytes. Rebuilds are
@@ -230,7 +230,12 @@ async def _compose_intent_call(
     # origin_view is the multisig itself — correct only when there is no
     # proxy wrap. With both, build against the proxied account.
     origin = _intent_origin_view(substrate, intent, wallet, proxy_for)
-    built = await prepared.build(substrate, origin)
+    with (
+        pinned_inputs(substrate, bytes.fromhex(pinned.removeprefix("0x")))
+        if verify_pinned
+        else contextlib.nullcontext()
+    ):
+        built = await prepared.build(substrate, origin)
     if isinstance(built, BuiltCall):
         call, extras = built.call, {**extras, **built.extras}
     else:
