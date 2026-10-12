@@ -55,21 +55,17 @@ impl<T: Config> Pallet<T> {
     /// Returns true if the current block is within the terminal freeze window of the tempo for the
     /// given subnet. During this window, admin ops are prohibited to avoid interference with
     /// validator weight submissions. Engages immediately on a pending manual trigger (so the trigger
-    /// arms the freeze for the entire countdown to `PendingEpochAt`). Once the
-    /// deadline is reached, scheduler backlog must not keep admin actions frozen.
+    /// arms the freeze for the entire countdown to `PendingEpochAt`).
     pub fn is_in_admin_freeze_window(netuid: NetUid, current_block: u64) -> bool {
         let tempo = Self::get_tempo(netuid);
         if tempo == 0 {
             return false;
         }
         let pending = PendingEpochAt::<T>::get(netuid);
-        let remaining = Self::blocks_until_next_auto_epoch(netuid, tempo, current_block);
-        if remaining == 0 || (pending > 0 && pending <= current_block) {
-            return false;
-        }
         if pending > 0 && pending > current_block {
             return true;
         }
+        let remaining = Self::blocks_until_next_auto_epoch(netuid, tempo, current_block);
         let window = AdminFreezeWindow::<T>::get() as u64;
         remaining < window
     }

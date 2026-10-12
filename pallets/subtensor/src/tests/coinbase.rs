@@ -4636,7 +4636,7 @@ fn test_null_epoch_cap_matches_reveal_deferral_and_emission_drain() {
                 PendingServerEmission::<Test>::get(netuid),
                 AlphaBalance::from(7u64)
             );
-            assert_eq!(PendingEpochAt::<Test>::get(netuid), 1);
+            assert_eq!(PendingEpochAt::<Test>::get(netuid), 2);
         }
 
         // A future Null epoch must not reduce the configured Yuma capacity.
@@ -4651,66 +4651,102 @@ fn test_null_epoch_cap_matches_reveal_deferral_and_emission_drain() {
 }
 
 #[test]
-fn test_epoch_scheduler_prevents_null_and_yuma_starvation() {
-    // Reproduce #3230, then stress both modes at tempo 1 under sustained overload.
-    for (cap, tempos, null_indices) in [
-        (8, [1, 100, 100], vec![1]),
-        (8, [1, 1, 1], vec![0, 1]),
-        (1, [1, 1, 1], vec![]),
-    ] {
+fn test_null_reservation_recovers_starved_epochs() {
+    // #3230: an earlier tempo-1 Yuma must not steal the exclusive Null slot.
+    for (cap, consistent) in [(2, true), (8, true), (2, false)] {
         new_test_ext(1).execute_with(|| {
             SubtensorModule::set_max_epochs_per_block(cap);
-            let subnets = vec![NetUid::from(1), NetUid::from(2), NetUid::from(3)];
-            for (&netuid, tempo) in subnets.iter().zip(tempos) {
+            let subnets = [NetUid::from(1), NetUid::from(2), NetUid::from(3)];
+            for (&netuid, tempo) in subnets.iter().zip([1, 100, 100]) {
                 add_network(netuid, tempo, 0);
                 PendingEpochAt::<Test>::insert(netuid, 1);
             }
-            for index in null_indices {
-                SubtensorModule::set_epoch_consensus(subnets[index], EpochConsensus::Null);
+            let null = subnets[1];
+            SubtensorModule::set_epoch_consensus(null, EpochConsensus::Null);
+            PendingServerEmission::<Test>::insert(null, AlphaBalance::from(7u64));
+            if !consistent {
+                Keys::<Test>::insert(null, 0, U256::from(99));
+                Keys::<Test>::insert(null, 1, U256::from(99));
+                BlocksSinceLastStep::<Test>::insert(null, 101);
             }
-
+            let mut runs = [0; 3];
             for block in 1..=1_000 {
-                System::set_block_number(block);
                 let deferred = SubtensorModule::epochs_deferred_this_block(&subnets, block);
                 let drained = SubtensorModule::drain_pending(&subnets, block);
-                for &netuid in &subnets {
-                    assert_eq!(
-                        deferred.contains(&netuid),
-                        !drained.contains_key(&netuid)
-                            && SubtensorModule::should_run_epoch(netuid, block)
-                    );
-                    let last = LastEpochBlock::<Test>::get(netuid);
-                    assert!(
-                        block.saturating_sub(last) <= u64::from(Tempo::<Test>::get(netuid)) + 3
-                    );
-                    if deferred.contains(&netuid) {
-                        assert_ok!(SubtensorModule::ensure_admin_window_open(netuid));
-                    }
+                if drained.contains_key(&null) {
+                    assert_eq!(drained.len(), 1);
                 }
-                if drained.keys().any(|netuid| {
-                    SubtensorModule::get_epoch_consensus(*netuid) == EpochConsensus::Null
-                }) {
-                    assert_eq!(drained.len(), 1, "Null must settle alone");
+                for (index, netuid) in subnets.iter().enumerate() {
+                    runs[index] += usize::from(drained.contains_key(netuid));
+                    assert_eq!(
+                        deferred.contains(netuid),
+                        PendingEpochAt::<Test>::get(netuid) == block + 1
+                    );
                 }
             }
-            for netuid in subnets {
-                assert!(SubnetEpochIndex::<Test>::get(netuid) >= 9);
+            assert_eq!(
+                runs,
+                if consistent {
+                    [990, 10, 10]
+                } else {
+                    [1_000, 0, 10]
+                }
+            );
+            assert_eq!(
+                PendingServerEmission::<Test>::get(null).to_u64(),
+                if consistent { 0 } else { 7 }
+            );
+            assert_eq!(
+                SubnetEpochIndex::<Test>::get(null),
+                if consistent { 10 } else { 1_000 }
+            );
+        });
+    }
+}
+
+#[test]
+fn test_yuma_preserves_storage_order_and_epoch_capacity() {
+    for cap in [0, 1, 2, 3] {
+        new_test_ext(1).execute_with(|| {
+            SubtensorModule::set_max_epochs_per_block(cap);
+            // Identity storage keys sort by the encoded netuid, not its numeric
+            // value, creation order, or the time of the last epoch.
+            let expected_order = vec![NetUid::from(256), NetUid::from(1), NetUid::from(2)];
+            for (index, &netuid) in expected_order.iter().rev().enumerate() {
+                add_network(netuid, 100, 0);
+                LastEpochBlock::<Test>::insert(netuid, index as u64);
+                PendingEpochAt::<Test>::insert(netuid, 10);
+            }
+            let subnets: Vec<_> = SubtensorModule::get_all_subnet_netuids()
+                .into_iter()
+                .filter(|netuid| !netuid.is_root())
+                .collect();
+            assert_eq!(subnets, expected_order);
+            let deferred = SubtensorModule::epochs_deferred_this_block(&subnets, 10);
+            assert_eq!(
+                deferred,
+                subnets[usize::from(cap)..].iter().copied().collect()
+            );
+            let drained = SubtensorModule::drain_pending(&subnets, 10);
+            assert_eq!(drained.len(), usize::from(cap));
+            for (index, netuid) in subnets.iter().enumerate() {
+                assert_eq!(drained.contains_key(netuid), index < usize::from(cap));
             }
         });
     }
 }
 
 #[test]
-fn test_epoch_scheduler_block_step_recovers_starved_subnets() {
+fn test_null_reservation_block_step_preserves_reveals_and_freeze() {
     new_test_ext(1).execute_with(|| {
         let front = NetUid::from(1);
         let null = NetUid::from(455);
         let later = NetUid::from(456);
         SubtensorModule::set_max_epochs_per_block(8);
+        SubtensorModule::set_admin_freeze_window(5);
         for (netuid, tempo) in [(front, 1), (null, 100), (later, 100)] {
             add_network(netuid, tempo, 0);
             LastEpochBlock::<Test>::insert(netuid, 0);
-            // Model an upgrade with the old scheduler's next-block deferrals.
             PendingEpochAt::<Test>::insert(netuid, 100);
             SubnetEpochIndex::<Test>::insert(netuid, 10);
             let idx = SubtensorModule::get_mechanism_storage_index(netuid, 0.into());
@@ -4719,35 +4755,29 @@ fn test_epoch_scheduler_block_step_recovers_starved_subnets() {
             });
         }
         SubtensorModule::set_epoch_consensus(null, EpochConsensus::Null);
-
-        for block in 100..=102 {
-            System::set_block_number(block);
-            assert_ok!(SubtensorModule::block_step());
-            match block {
-                100 => {
-                    assert_eq!(LastEpochBlock::<Test>::get(front), 100);
-                    assert_eq!(LastEpochBlock::<Test>::get(null), 0);
-                    assert_eq!(LastEpochBlock::<Test>::get(later), 0);
-                    assert_ok!(SubtensorModule::ensure_admin_window_open(null));
-                }
-                101 => {
-                    assert_eq!(LastEpochBlock::<Test>::get(front), 100);
-                    assert_eq!(LastEpochBlock::<Test>::get(null), 101);
-                    assert_eq!(LastEpochBlock::<Test>::get(later), 0);
-                }
-                _ => {
-                    assert_eq!(LastEpochBlock::<Test>::get(front), 102);
-                    assert_eq!(LastEpochBlock::<Test>::get(null), 101);
-                    assert_eq!(LastEpochBlock::<Test>::get(later), 102);
-                }
-            }
-            for netuid in [front, null, later] {
-                let idx = SubtensorModule::get_mechanism_storage_index(netuid, 0.into());
-                assert_eq!(
-                    TimelockedWeightCommits::<Test>::contains_key(idx, 0),
-                    LastEpochBlock::<Test>::get(netuid) == 0
-                );
-            }
+        System::set_block_number(100);
+        assert_ok!(SubtensorModule::block_step());
+        assert_eq!(LastEpochBlock::<Test>::get(null), 100);
+        assert_eq!(LastEpochBlock::<Test>::get(front), 0);
+        assert_eq!(LastEpochBlock::<Test>::get(later), 0);
+        assert_ok!(SubtensorModule::ensure_admin_window_open(null));
+        assert!(SubtensorModule::ensure_admin_window_open(later).is_err());
+        for netuid in [front, null, later] {
+            let idx = SubtensorModule::get_mechanism_storage_index(netuid, 0.into());
+            assert_eq!(
+                TimelockedWeightCommits::<Test>::contains_key(idx, 0),
+                netuid != null
+            );
+        }
+        System::set_block_number(101);
+        assert_ok!(SubtensorModule::block_step());
+        assert_eq!(LastEpochBlock::<Test>::get(front), 101);
+        assert_eq!(LastEpochBlock::<Test>::get(null), 100);
+        assert_eq!(LastEpochBlock::<Test>::get(later), 101);
+        assert_ok!(SubtensorModule::ensure_admin_window_open(later));
+        for netuid in [front, null, later] {
+            let idx = SubtensorModule::get_mechanism_storage_index(netuid, 0.into());
+            assert!(!TimelockedWeightCommits::<Test>::contains_key(idx, 0));
         }
         assert_eq!(SubnetEpochIndex::<Test>::get(null), 11);
         assert_eq!(SubnetEpochIndex::<Test>::get(later), 11);
@@ -4755,101 +4785,76 @@ fn test_epoch_scheduler_block_step_recovers_starved_subnets() {
 }
 
 #[test]
-fn test_epoch_scheduler_orders_by_age_and_keeps_null_exclusive() {
+fn test_null_reservation_respects_zero_cap_and_serializes_nulls() {
     new_test_ext(1).execute_with(|| {
-        SubtensorModule::set_max_epochs_per_block(8);
-        // Storage order is 256, 1, 2, 3. Age order must be 3, 2, 1, 256.
-        let subnets = vec![
-            NetUid::from(256),
-            NetUid::from(1),
-            NetUid::from(2),
-            NetUid::from(3),
-        ];
-        for (index, &netuid) in subnets.iter().rev().enumerate() {
-            add_network(netuid, 100, 0);
-            LastEpochBlock::<Test>::insert(netuid, index as u64);
-            PendingEpochAt::<Test>::insert(netuid, 10);
-            PendingServerEmission::<Test>::insert(netuid, AlphaBalance::from(7u64));
-        }
-        SubtensorModule::set_epoch_consensus(NetUid::from(1), EpochConsensus::Null);
-
-        for (block, expected) in [(10, vec![2, 3]), (11, vec![1]), (12, vec![256])] {
-            System::set_block_number(block);
-            let expected: Vec<_> = expected.into_iter().map(NetUid::from).collect();
-            let deferred = SubtensorModule::epochs_deferred_this_block(&subnets, block);
-            let drained = SubtensorModule::drain_pending(&subnets, block);
-            assert_eq!(drained.keys().copied().collect::<Vec<_>>(), expected);
-            for (netuid, (server, _, _, _)) in drained {
-                assert_eq!(server, AlphaBalance::from(7u64));
-                assert_eq!(
-                    PendingServerEmission::<Test>::get(netuid),
-                    AlphaBalance::ZERO
-                );
-            }
-            for netuid in deferred {
-                assert_eq!(
-                    PendingServerEmission::<Test>::get(netuid),
-                    AlphaBalance::from(7u64)
-                );
-                assert_eq!(PendingEpochAt::<Test>::get(netuid), 10);
-            }
-        }
-    });
-}
-
-#[test]
-fn test_epoch_scheduler_zero_cap_and_inconsistent_null() {
-    new_test_ext(1).execute_with(|| {
-        let subnets = vec![NetUid::from(1), NetUid::from(2), NetUid::from(3)];
+        let subnets: Vec<_> = (1..=4).map(NetUid::from).collect();
         for &netuid in &subnets {
             add_network(netuid, 100, 0);
             PendingEpochAt::<Test>::insert(netuid, 1);
         }
-        SubtensorModule::set_epoch_consensus(subnets[0], EpochConsensus::Null);
-        // An inconsistent Null must neither consume capacity nor block healthy Yuma.
-        Keys::<Test>::insert(subnets[0], 0, U256::from(99));
-        Keys::<Test>::insert(subnets[0], 1, U256::from(99));
+        for index in [1, 3] {
+            SubtensorModule::set_epoch_consensus(subnets[index], EpochConsensus::Null);
+        }
         SubtensorModule::set_max_epochs_per_block(0);
         assert_eq!(
             SubtensorModule::epochs_deferred_this_block(&subnets, 1).len(),
-            3
+            4
         );
         assert!(SubtensorModule::drain_pending(&subnets, 1).is_empty());
-        assert_eq!(SubnetEpochIndex::<Test>::get(subnets[0]), 0);
-
-        SubtensorModule::set_max_epochs_per_block(2);
-        assert!(SubtensorModule::epochs_deferred_this_block(&subnets, 2).is_empty());
-        let drained = SubtensorModule::drain_pending(&subnets, 2);
-        assert_eq!(drained.keys().copied().collect::<Vec<_>>(), subnets[1..]);
-        assert_eq!(LastEpochBlock::<Test>::get(subnets[0]), 2);
-        assert_eq!(SubnetEpochIndex::<Test>::get(subnets[0]), 1);
-        assert_eq!(PendingEpochAt::<Test>::get(subnets[0]), 0);
+        assert!(
+            subnets
+                .iter()
+                .all(|netuid| SubnetEpochIndex::<Test>::get(netuid) == 0)
+        );
+        SubtensorModule::set_max_epochs_per_block(8);
+        for (block, expected) in [(2, vec![2]), (3, vec![4]), (4, vec![1, 3])] {
+            let deferred = SubtensorModule::epochs_deferred_this_block(&subnets, block);
+            let drained = SubtensorModule::drain_pending(&subnets, block);
+            assert_eq!(
+                drained.keys().copied().collect::<Vec<_>>(),
+                expected.into_iter().map(NetUid::from).collect::<Vec<_>>()
+            );
+            for &netuid in &subnets {
+                assert_eq!(
+                    deferred.contains(&netuid),
+                    PendingEpochAt::<Test>::get(netuid) == block + 1
+                );
+            }
+        }
     });
 }
 
 #[test]
-fn test_epoch_scheduler_does_not_admit_null_after_reveal_selection() {
-    new_test_ext(1).execute_with(|| {
-        let yuma = NetUid::from(1);
-        let null = NetUid::from(2);
-        let subnets = [yuma, null];
-        for netuid in subnets {
-            add_network(netuid, 100, 0);
-            LastEpochBlock::<Test>::insert(netuid, 0);
-        }
-        SubtensorModule::set_epoch_consensus(null, EpochConsensus::Null);
-        PendingEpochAt::<Test>::insert(yuma, 1);
-        BlocksSinceLastStep::<Test>::insert(null, 100);
-
-        // Null only becomes due when drain increments its age. It must not
-        // enter this block's already-selected Yuma batch without a matching reveal.
-        assert!(!SubtensorModule::should_run_epoch(null, 1));
-        assert!(SubtensorModule::epochs_deferred_this_block(&subnets, 1).is_empty());
-        let drained = SubtensorModule::drain_pending(&subnets, 1);
-        assert_eq!(drained.keys().copied().collect::<Vec<_>>(), vec![yuma]);
-        let drained = SubtensorModule::drain_pending(&subnets, 2);
-        assert_eq!(drained.keys().copied().collect::<Vec<_>>(), vec![null]);
-    });
+fn test_null_reservation_preserves_yuma_post_increment_eligibility() {
+    for mode in [EpochConsensus::Yuma, EpochConsensus::Null] {
+        new_test_ext(1).execute_with(|| {
+            let subnets = [NetUid::from(1), NetUid::from(2)];
+            for netuid in subnets {
+                add_network(netuid, 100, 0);
+                LastEpochBlock::<Test>::insert(netuid, 0);
+            }
+            SubtensorModule::set_epoch_consensus(subnets[0], mode);
+            PendingEpochAt::<Test>::insert(subnets[1], 1);
+            BlocksSinceLastStep::<Test>::insert(subnets[0], 100);
+            // Only drain's counter increment makes the first subnet due.
+            assert!(!SubtensorModule::should_run_epoch(subnets[0], 1));
+            assert!(SubtensorModule::epochs_deferred_this_block(&subnets, 1).is_empty());
+            let drained = SubtensorModule::drain_pending(&subnets, 1);
+            assert!(drained.contains_key(&subnets[1]));
+            assert_eq!(
+                drained.contains_key(&subnets[0]),
+                mode == EpochConsensus::Yuma
+            );
+            if mode == EpochConsensus::Null {
+                assert_eq!(PendingEpochAt::<Test>::get(subnets[0]), 2);
+                let drained = SubtensorModule::drain_pending(&subnets, 2);
+                assert_eq!(
+                    drained.keys().copied().collect::<Vec<_>>(),
+                    vec![subnets[0]]
+                );
+            }
+        });
+    }
 }
 
 #[test]
