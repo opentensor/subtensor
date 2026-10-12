@@ -1,6 +1,13 @@
 //! Unmeasured fail-closed weights. Replace using reference-hardware benchmarks
 //! before production activation; these are intentionally not operating estimates.
-use frame_support::weights::Weight;
+use core::marker::PhantomData;
+// Keep the reference generator's imports and implementation shape so CI can
+// replace individual methods without leaving an unusable first weight patch.
+#[allow(unused_imports)]
+use frame_support::{
+    traits::Get,
+    weights::{Weight, constants::RocksDbWeight},
+};
 
 pub trait WeightInfo {
     fn register() -> Weight;
@@ -9,9 +16,9 @@ pub trait WeightInfo {
     fn authorize_ed25519(call_len: u32) -> Weight;
 }
 
-pub struct Uncalibrated;
+pub struct SubstrateWeight<T>(PhantomData<T>);
 
-impl WeightInfo for Uncalibrated {
+impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
     fn authorize_ed25519(_: u32) -> Weight {
         Weight::MAX
     }
@@ -27,16 +34,16 @@ impl WeightInfo for Uncalibrated {
 }
 
 impl WeightInfo for () {
-    fn authorize_ed25519(call_len: u32) -> Weight {
-        Uncalibrated::authorize_ed25519(call_len)
+    fn authorize_ed25519(_: u32) -> Weight {
+        Weight::MAX
     }
     fn check_registered() -> Weight {
-        Uncalibrated::check_registered()
+        Weight::MAX
     }
     fn register() -> Weight {
-        Uncalibrated::register()
+        Weight::MAX
     }
-    fn authorize(call_len: u32) -> Weight {
-        Uncalibrated::authorize(call_len)
+    fn authorize(_: u32) -> Weight {
+        Weight::MAX
     }
 }

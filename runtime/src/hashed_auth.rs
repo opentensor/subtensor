@@ -321,7 +321,11 @@ impl pallet_hashed_accounts::OnRegister for OnHashedRegistered {
             sp_runtime::MultiSignature::Sr25519(sp_core::sr25519::Signature::from_raw([0; 64])),
             extension,
         );
-        crate::System::set_extrinsic_index(0);
+        // System's setter is std/test-only; benchmark setup also runs in Wasm.
+        frame_support::storage::unhashed::put(
+            sp_core::storage::well_known_keys::EXTRINSIC_INDEX,
+            &0u32,
+        );
         crate::System::note_extrinsic(xt.encode());
         Ok(())
     }

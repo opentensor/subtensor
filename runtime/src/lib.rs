@@ -183,7 +183,7 @@ impl pallet_hashed_accounts::Config for Runtime {
     type Currency = Balances;
     type RegistrationDeposit = HashedRegistrationDeposit;
     #[cfg(not(test))]
-    type WeightInfo = pallet_hashed_accounts::weights::Uncalibrated;
+    type WeightInfo = pallet_hashed_accounts::weights::SubstrateWeight<Runtime>;
     #[cfg(test)]
     type WeightInfo = hashed_auth::TestWeights;
     type OnRegister = hashed_auth::OnHashedRegistered;
