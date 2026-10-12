@@ -60,24 +60,33 @@ async def prepare_recipient_intent(substrate, intent):
     from .signing import is_address_param
 
     changes, recipients = {}, {}
+
+    async def resolve(item, name):
+        if not is_receiving_address(item):
+            return item
+        recipient = parse_recipient(item)
+        if await hashed_accounts_enabled(substrate) is not True:
+            raise ValueError("hashed receiving addresses are not supported on this chain")
+        recipients[name] = recipient
+        return recipient.account
+
     for field in fields(intent):
+        if intent.op == "set_children" and field.name == "children":
+            children = []
+            for index, (proportion, address) in enumerate(intent.children):
+                address = await coerce_payment_address(substrate, address, "hotkey_ss58")
+                children.append([proportion, await resolve(address, f"children[{index}][1]")])
+            if children != intent.children:
+                changes["children"] = children
+            continue
         if not is_address_param(field.name):
             continue
         value = await coerce_payment_address(substrate, getattr(intent, field.name), field.name)
         values = value if isinstance(value, (list, tuple)) else [value]
         resolved = []
         for index, item in enumerate(values):
-            if is_receiving_address(item):
-                recipient = parse_recipient(item)
-                if await hashed_accounts_enabled(substrate) is not True:
-                    raise ValueError("hashed receiving addresses are not supported on this chain")
-                name = (
-                    field.name if not isinstance(value, (list, tuple)) else f"{field.name}[{index}]"
-                )
-                recipients[name] = recipient
-                resolved.append(recipient.account)
-            else:
-                resolved.append(item)
+            name = field.name if not isinstance(value, (list, tuple)) else f"{field.name}[{index}]"
+            resolved.append(await resolve(item, name))
         normalized = resolved if isinstance(value, (list, tuple)) else resolved[0]
         if normalized != getattr(intent, field.name):
             changes[field.name] = normalized
@@ -141,6 +150,11 @@ def has_local_hashed_recipient(wallet: Any, intent: Any) -> bool:
     """Detect public setup information before an imported-call fast path."""
     from .signing import public_view
 
+    if intent.op == "set_children" and any(
+        isinstance(address, str) and _local_descriptor(wallet, address) is not None
+        for _, address in intent.children
+    ):
+        return True
     parameter = _DESCRIPTOR_TARGETS.get(intent.op)
     address = getattr(intent, parameter, None) if parameter else None
     if address is None and parameter == "hotkey_ss58":
@@ -213,6 +227,13 @@ async def with_recipient_registration(
     from .signing import public_view
 
     recipients = dict(recipients or {})
+    if intent.op == "set_children":
+        for index, (_, address) in enumerate(intent.children):
+            name = f"children[{index}][1]"
+            if name not in recipients and isinstance(address, str):
+                descriptor = _local_descriptor(wallet, address)
+                if descriptor is not None:
+                    recipients[name] = Recipient(address, address, descriptor)
     parameter = _DESCRIPTOR_TARGETS.get(intent.op)
     if parameter is not None:
         address = getattr(intent, parameter, None)

@@ -1340,3 +1340,37 @@ class TestPowRegistration:
         assert len(calls) == 2
         assert calls[0] == calls[1]
         assert len(fake.submissions) == 1
+
+
+@pytest.mark.parametrize("scheme", [4, 6])
+def test_child_set_submits_guarded_hashed_receiving_address(fake, scheme):
+    from bittensor.hashed import descriptor_value
+    from bittensor.receiving import receiving_address
+    from bittensor.sp_core import Keypair
+
+    child = Keypair.create_from_seed(bytes([91]) * 32, scheme)
+    descriptor = descriptor_value(bytes(child.hashed_descriptor))
+    fake.seed_constant("HashedAccounts", "Enabled", True)
+    fake.seed_constant("HashedAccounts", "RegistrationDeposit", 200_000_000)
+    fake.seed("HashedAccounts", "Accounts", [child.ss58_address], {"descriptor": descriptor})
+    fake.seed_default("System", "Account", {"data": {"free": 10**12}})
+    result = invoke(
+        "stake",
+        "child",
+        "set",
+        "--netuid",
+        "1",
+        "--hotkey",
+        ALICE_HOT,
+        "--children",
+        json.dumps([[0.5, receiving_address(child)]]),
+        "--yes",
+    )
+    assert result.exit_code == 0, result.output
+    assert len(fake.submissions) == 1
+    call = fake.submissions[0][0]
+    guard, assignment = call.params["calls"]
+    assert guard.function == "check_registered"
+    assert guard.params["descriptor"] == descriptor
+    assert assignment.function == "set_children"
+    assert assignment.params["children"] == [(round(0.5 * (2**64 - 1)), child.ss58_address)]
