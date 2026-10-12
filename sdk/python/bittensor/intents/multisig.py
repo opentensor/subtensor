@@ -24,20 +24,28 @@ from typing import Any, Optional
 from .._generated import calls
 from .._transport.contract import CallBytes
 from ..multisig import check_multisig_funds, multisig_opening_shortfall
+from ..receiving import parse_recipient
 from ..signing import public_view
-from ..sp_core import ss58_decode
+from ..sp_core import ss58_decode, ss58_encode
 from .base import BuiltCall, Intent, IntentPreflight
 from .registry import build as build_intent
 from .registry import register
 
 
 def _sorted_signatories(signatories: list) -> list:
-    """Other signatories must be sorted by raw account id (not ss58 text) and unique."""
-    return sorted(set(signatories), key=lambda s: bytes(ss58_decode(s)))
+    """Normalize member identities, deduplicate and sort by raw account id.
+
+    Members are identities, not payment destinations: validate receiving
+    descriptors, then use canonical SS58 for derivation and SCALE encoding.
+    Different address spellings must not count as additional signatories.
+    """
+    accounts = {bytes(ss58_decode(parse_recipient(s).account)) for s in signatories}
+    return [ss58_encode(account, 42) for account in sorted(accounts)]
 
 
 def _validate_multisig(threshold: int, other_signatories: list, signer_ss58: str) -> None:
     """Reject parameters the chain would refuse, before composing anything."""
+    other_signatories = _sorted_signatories(other_signatories)
     if threshold < 2:
         raise ValueError(
             f"multisig threshold must be at least 2, got {threshold} "
@@ -69,7 +77,9 @@ def _account_view(
     """
     from ..executor import _OriginView
 
-    account = substrate.multisig_account([signer_ss58, *other_signatories], threshold)
+    account = substrate.multisig_account(
+        [signer_ss58, *_sorted_signatories(other_signatories)], threshold
+    )
     view = _OriginView(account.ss58_address)
     view._wallet = getattr(wallet, "_wallet", wallet)
     return view
@@ -130,7 +140,7 @@ async def _pending_timepoint(substrate, dispatch, wallet: Any, inner):
         return dispatch.timepoint
 
     signer = public_view(wallet, "coldkey").ss58_address
-    signatories = [signer, *dispatch.other_signatories]
+    signatories = [signer, *_sorted_signatories(dispatch.other_signatories)]
     account = substrate.multisig_account(signatories, dispatch.threshold)
     call_hash = bytes(inner.call_hash)
     pending = await substrate.query("Multisig", "Multisigs", [account.ss58_address, call_hash])

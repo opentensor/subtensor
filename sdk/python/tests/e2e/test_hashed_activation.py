@@ -1,4 +1,4 @@
-"""Root can toggle hashed/MS support without replacing runtime metadata."""
+"""Root can toggle hashed support without replacing runtime metadata."""
 
 import os
 

@@ -188,8 +188,8 @@ async def test_cli_mixed_two_of_three_all_pairs_and_orders(tmp_path, modes):
         assert int((await account(client, destination))["data"]["free"]) == before
         await cli("team", *args, "--signatory", "rotating=wallet", "--signatory", "sr=wallet")
         assert int((await account(client, destination))["data"]["free"]) == before + 10**9
-        # Being a member does not make the composite account an MS authority.
-        # The existing no-downgrade proxy policy must still reject it.
+        # Membership does not register the composite as a rotating authority.
+        # Hashed accounts reject it; ordinary accounts retain multisig proxies.
         result = await client.submit_call(
             bt.calls.Proxy.add_proxy(
                 delegate=address,
@@ -198,7 +198,22 @@ async def test_cli_mixed_two_of_three_all_pairs_and_orders(tmp_path, modes):
             ),
             opener,
         )
-        assert not result.success, result.to_dict()
+        if opener.crypto_type in HASHED_CRYPTO_TYPES:
+            assert not result.success, result.to_dict()
+            assert result.error.name == "AccountPolicyViolation", result.to_dict()
+        else:
+            assert result.success, result.to_dict()
+            before = int((await account(client, destination))["data"]["free"])
+            transfer = await client.compose(
+                bt.calls.Balances.transfer_keep_alive(dest=destination, value=10**9)
+            )
+            proxy = bt.calls.Proxy.proxy(
+                real=opener.ss58_address, force_proxy_type="Any", call=transfer
+            )
+            for signer in (opener, keys["sr"]):
+                result = await again.approve(proxy, signer, wait_for_finalization=True)
+                assert result.success, result.to_dict()
+            assert int((await account(client, destination))["data"]["free"]) == before + 10**9
 
 
 class SimulatedVault(VaultSigner):
@@ -232,8 +247,9 @@ class SimulatedVault(VaultSigner):
 
 
 @pytest.mark.parametrize("vault_code", [0, 1])
-async def test_vault_adapter_co_signs_hashed_ms_both_orders(vault_code):
-    rotating = Keypair.create_from_seed(os.urandom(32), 6)
+@pytest.mark.parametrize("hashed_code", [4, 6])
+async def test_vault_adapter_co_signs_hashed_both_orders(vault_code, hashed_code):
+    rotating = Keypair.create_from_seed(os.urandom(32), hashed_code)
     vault_key = Keypair.create_from_seed(os.urandom(32), vault_code)
     third = Keypair.create_from_seed(os.urandom(32), 1)
     vault = SimulatedVault(vault_key)
@@ -260,14 +276,33 @@ async def test_vault_adapter_co_signs_hashed_ms_both_orders(vault_code):
 
 @pytest.mark.parametrize("recipient_code", [4, 6])
 @pytest.mark.parametrize("threshold", [1, 2])
-async def test_direct_sdk_multisig_receiving_transfer(recipient_code, threshold):
-    members = [Keypair.create_from_seed(os.urandom(32), code) for code in (5, 1, 0)]
+@pytest.mark.parametrize("signer_code", [4, 6])
+@pytest.mark.parametrize("address_form", ["receiving", "local_ss58"])
+async def test_direct_sdk_multisig_receiving_transfer(
+    tmp_path, recipient_code, threshold, signer_code, address_form
+):
+    wallets = []
+    for index, code in enumerate((signer_code, 1, 6 if signer_code == 4 else 4)):
+        wallet = bt.Wallet(f"member-{index}", path=str(tmp_path))
+        wallet.regenerate_coldkey(
+            seed=os.urandom(32), crypto_type=code, use_password=False, suppress=True
+        )
+        wallets.append(wallet)
+    members = [wallet.coldkey for wallet in wallets]
     recipient = Keypair.create_from_seed(os.urandom(32), recipient_code)
-    spec = bt.intents.Transfer(receiving_address(recipient), 1).to_dict()
+    bt.Wallet("recipient", path=str(tmp_path)).coldkeypub_file.set_keypair(
+        recipient.public_only(), encrypt=False
+    )
+    destination = (
+        recipient.ss58_address if address_form == "local_ss58" else receiving_address(recipient)
+    )
+    spec = bt.intents.Transfer(destination, 1).to_dict()
 
     def intent_for(index, timepoint=None):
         kwargs = {
-            "other_signatories": [key.ss58_address for i, key in enumerate(members) if i != index],
+            "other_signatories": [
+                receiving_address(key) for i, key in enumerate(members) if i != index
+            ],
             "call": spec,
         }
         if threshold == 1:
@@ -285,7 +320,7 @@ async def test_direct_sdk_multisig_receiving_transfer(recipient_code, threshold)
         result = await client.execute(bt.intents.Transfer(multi.address, 10), dev_wallet())
         assert result.success, result.to_dict()
         with pytest.raises(ValueError, match="direct sponsor"):
-            await client.plan(intent_for(0), members[0])
+            await client.plan(intent_for(0), wallets[0])
         assert int((await account(client, multi.address))["data"]["free"]) == 10**10
 
         registered = await client.submit_call(
@@ -296,7 +331,7 @@ async def test_direct_sdk_multisig_receiving_transfer(recipient_code, threshold)
             wait_for_finalization=True,
         )
         assert registered.success, registered.to_dict()
-        first = await client.execute(intent_for(0), members[0])
+        first = await client.execute(intent_for(0), wallets[0])
         assert first.success, first.to_dict()
         if threshold == 2:
             assert int((await account(client, recipient.ss58_address))["data"]["free"]) == 0
@@ -304,7 +339,7 @@ async def test_direct_sdk_multisig_receiving_transfer(recipient_code, threshold)
                 bt.storage.Multisig.Multisigs,
                 [multi.address, first.data["multisig_call_hash"]],
             )
-            second = await client.execute(intent_for(1, pending["when"]), members[1])
+            second = await client.execute(intent_for(1, pending["when"]), wallets[1])
             assert second.success, second.to_dict()
             assert second.data["multisig_call_data"] == first.data["multisig_call_data"]
             assert (
@@ -317,8 +352,77 @@ async def test_direct_sdk_multisig_receiving_transfer(recipient_code, threshold)
         assert int((await account(client, recipient.ss58_address))["data"]["free"]) == 10**9
         assert int((await account(client, multi.address))["data"]["free"]) == 9 * 10**9
         for key in members:
-            # No approval deposit remains; the MS registration reserve is separate.
+            # No approval deposit remains; the hashed registration reserve is separate.
             assert (
                 int((await account(client, key.ss58_address))["data"]["reserved"])
                 == (reserved_before[key.ss58_address])
             )
+
+
+@pytest.mark.parametrize("hashed_codes", [(4, 6), (6, 4)])
+async def test_direct_sdk_receiving_signatories_approve_execute_and_cancel(hashed_codes):
+    members = [Keypair.create_from_seed(os.urandom(32), code) for code in (1, *hashed_codes)]
+    destination = Keypair.create_from_seed(os.urandom(32), 0).ss58_address
+    spec = bt.intents.Transfer(destination, 1).to_dict()
+
+    def intent_for(intent_type, index, timepoint=None):
+        return intent_type(
+            threshold=3,
+            other_signatories=[
+                receiving_address(key) for i, key in enumerate(members) if i != index
+            ],
+            call=spec,
+            timepoint=timepoint,
+        )
+
+    async with bt.Client(ENDPOINT, fallback_endpoints=[], archive_endpoints=[]) as client:
+        for key in members:
+            await fund(client, key)
+        multi = await client.multisig([receiving_address(key) for key in members], 3)
+        canonical = await client.multisig([key.ss58_address for key in members], 3)
+        assert multi.address == canonical.address
+        funded = await client.execute(bt.intents.Transfer(multi.address, 10), dev_wallet())
+        assert funded.success, funded.to_dict()
+
+        reserved = int((await account(client, members[0].ss58_address))["data"]["reserved"])
+        first = await client.execute(intent_for(bt.intents.MultisigApprove, 0), members[0])
+        assert first.success, first.to_dict()
+        storage_key = [multi.address, first.data["multisig_call_hash"]]
+        pending = await client.query(bt.storage.Multisig.Multisigs, storage_key)
+        assert pending["approvals"] == [members[0].ss58_address]
+        assert int((await account(client, members[0].ss58_address))["data"]["reserved"]) > reserved
+
+        # The second approval is hash-only; the third supplies and executes the
+        # full call. Receiving-address members must resolve identically each time.
+        second = await client.execute(
+            intent_for(bt.intents.MultisigApprove, 1, pending["when"]), members[1]
+        )
+        assert second.success, second.to_dict()
+        assert second.data["multisig_call_data"] == first.data["multisig_call_data"]
+        pending = await client.query(bt.storage.Multisig.Multisigs, storage_key)
+        assert set(pending["approvals"]) == {key.ss58_address for key in members[:2]}
+        assert int((await account(client, destination))["data"]["free"]) == 0
+        final = await client.execute(
+            intent_for(bt.intents.MultisigExecute, 2, pending["when"]), members[2]
+        )
+        assert final.success, final.to_dict()
+        assert final.data["multisig_call_data"] == first.data["multisig_call_data"]
+        assert await client.query(bt.storage.Multisig.Multisigs, storage_key) is None
+        assert int((await account(client, destination))["data"]["free"]) == 10**9
+        assert int((await account(client, members[0].ss58_address))["data"]["reserved"]) == reserved
+
+        # Reopen from a rotating member after it signed an earlier round, then
+        # cancel using the same receiving-address member list and recover the deposit.
+        reserved = int((await account(client, members[1].ss58_address))["data"]["reserved"])
+        reopened = await client.execute(intent_for(bt.intents.MultisigApprove, 1), members[1])
+        assert reopened.success, reopened.to_dict()
+        assert reopened.data["multisig_call_hash"] == first.data["multisig_call_hash"]
+        pending = await client.query(bt.storage.Multisig.Multisigs, storage_key)
+        assert int((await account(client, members[1].ss58_address))["data"]["reserved"]) > reserved
+        cancelled = await client.execute(
+            intent_for(bt.intents.MultisigCancel, 1, pending["when"]), members[1]
+        )
+        assert cancelled.success, cancelled.to_dict()
+        assert await client.query(bt.storage.Multisig.Multisigs, storage_key) is None
+        assert int((await account(client, destination))["data"]["free"]) == 10**9
+        assert int((await account(client, members[1].ss58_address))["data"]["reserved"]) == reserved
