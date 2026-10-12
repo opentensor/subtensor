@@ -336,6 +336,7 @@ where
     ) -> Result<Self::Pre, TransactionValidityError> {
         let discount = T::fee_weight_discount(call, info);
         let fee_info = fee_dispatch_info(info, discount);
+        // EVM gas covers execution, not native account authorization.
         let retained = (AUTHORIZED && T::gas_paid_execution(call)).then_some(info.extension_weight);
         let pre = self.inner.prepare(val, origin, call, &fee_info, len)?;
         Ok((pre, discount, retained))

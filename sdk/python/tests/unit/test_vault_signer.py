@@ -29,7 +29,7 @@ def ctx(tmp_path, monkeypatch):
     )
 
 
-@pytest.mark.parametrize("code", [4, 5, 6, 7])
+@pytest.mark.parametrize("code", [4, 6])
 @pytest.mark.parametrize("reference", ["wallet", "fallback", "descriptor", "contact"])
 def test_cli_rejects_unsupported_vault_member(ctx, monkeypatch, code, reference):
     key = Keypair.create_from_seed(bytes([code]) * 32, code)
@@ -85,7 +85,7 @@ def test_scanned_signatures_are_bound_to_member_scheme_and_payload(code):
         signer._validated_signature(signature.hex(), SimpleNamespace(payload=b"another approval"))
 
 
-@pytest.mark.parametrize("code", [0, 1, 5, 7])
+@pytest.mark.parametrize("code", [0, 1, 4, 6])
 def test_chained_round_keeps_vault_member_metadata(ctx, monkeypatch, code):
     key = Keypair.create_from_seed(bytes([code + 1]) * 32, code)
     monkeypatch.setattr(

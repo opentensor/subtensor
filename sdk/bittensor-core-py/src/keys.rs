@@ -258,7 +258,7 @@ impl Keypair {
         ))
     }
 
-    /// Sign the complete unprehashed FRAME transaction implication.
+    /// Sign a fully composed standard v4 payload for a rotating account.
     fn sign_hashed<'py>(
         &self,
         py: Python<'py>,
@@ -450,8 +450,6 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("CRYPTO_ED25519", keys::CRYPTO_ED25519)?;
     m.add("CRYPTO_SR25519", keys::CRYPTO_SR25519)?;
     m.add("CRYPTO_HASHED", keys::CRYPTO_HASHED)?;
-    m.add("CRYPTO_MLDSA", keys::CRYPTO_MLDSA)?;
     m.add("CRYPTO_HASHED_ED25519", keys::CRYPTO_HASHED_ED25519)?;
-    m.add("CRYPTO_MLDSA_STANDARD", keys::CRYPTO_MLDSA_STANDARD)?;
     Ok(())
 }

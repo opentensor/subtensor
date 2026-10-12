@@ -1080,7 +1080,7 @@ class AdminUtils:
 
     @staticmethod
     def sudo_set_hashed_accounts_enabled(enabled: 'bool') -> Call:
-        'Enables or disables hashed and ML-DSA registration and signing. Root-only. Defaults off. Disabling pauses existing accounts too; their records, generations, EVM aliases and restrictions on alternate authority remain.'
+        'Enables or disables hashed registration and signing. Root-only. Defaults off. Disabling pauses existing accounts too; their records, generations, EVM aliases and restrictions on alternate authority remain.'
         return Call('AdminUtils', 'sudo_set_hashed_accounts_enabled', {'enabled': enabled})
 
     @staticmethod

@@ -2747,7 +2747,7 @@
     },
     "InvalidNextCommitment": {
       "code": "invalid_argument",
-      "description": "The next commitment violates the account mode. Hashed accounts require a new nonzero commitment; standard ML-DSA accounts must retain the current commitment. Restore the wallet with its original signing scheme and account mode.",
+      "description": "Hashed accounts require a new nonzero commitment different from the current key. Restore the wallet with its original signing scheme and account mode.",
       "docs_url": "/docs/errors/chain/InvalidNextCommitment",
       "markdown_url": "/llms.mdx/docs/errors/chain/InvalidNextCommitment/content.md",
       "pallets": [

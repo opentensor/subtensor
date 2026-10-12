@@ -70,46 +70,43 @@ mod tests {
     }
 
     #[test]
-    fn v16_advertises_both_pipelines_with_a_typed_hashed_proof() {
-        let RuntimeMetadata::V16(v16) = metadata(16) else {
-            panic!("expected V16")
+    fn direct_authorization_does_not_add_a_call_or_extension() {
+        let RuntimeMetadata::V15(v15) = metadata(15) else {
+            panic!("v15")
         };
-        assert!(v16.extrinsic.versions.contains(&4));
-        assert!(v16.extrinsic.versions.contains(&5));
-        let pipelines = &v16.extrinsic.transaction_extensions_by_version;
-        let legacy = pipelines.get(&0).unwrap();
-        let hashed = pipelines.get(&1).unwrap();
-        assert_eq!(&hashed[1..], legacy);
-        let authorization = &v16.extrinsic.transaction_extensions[hashed[0].0 as usize];
-        assert_eq!(authorization.identifier, "AuthorizeHashedAccount");
-        let ty = v16.types.resolve(authorization.ty.id).unwrap();
-        let scale_info::TypeDef::Composite(fields) = &ty.type_def else {
-            panic!("authorization must contain the account and proof")
+        let pallet = v15
+            .pallets
+            .iter()
+            .find(|p| p.name == "HashedAccounts")
+            .unwrap();
+        let calls = v15
+            .types
+            .resolve(pallet.calls.as_ref().unwrap().ty.id)
+            .unwrap();
+        let scale_info::TypeDef::Variant(calls) = &calls.type_def else {
+            panic!("calls")
         };
         assert!(
-            fields
-                .fields
+            calls
+                .variants
                 .iter()
-                .any(|field| field.name.as_deref() == Some("account"))
+                .all(|v| !["execute", "submit"].contains(&v.name.as_str()))
         );
-        let proof = fields
-            .fields
-            .iter()
-            .find(|field| field.name.as_deref() == Some("proof"))
-            .unwrap();
-        let proof = v16.types.resolve(proof.ty.id).unwrap();
-        let scale_info::TypeDef::Composite(proof) = &proof.type_def else {
-            panic!("proof must advertise its wire fields")
+        let RuntimeMetadata::V16(v16) = metadata(16) else {
+            panic!("v16")
         };
-        assert_eq!(
-            proof
-                .fields
-                .iter()
-                .filter_map(|field| field.name.as_deref())
-                .collect::<Vec<_>>(),
-            ["generation", "public_key", "next_commitment", "signature"]
+        assert!(
+            !v16.extrinsic
+                .transaction_extensions_by_version
+                .contains_key(&1)
         );
-        assert!(v16.types.resolve(authorization.implicit.id).is_some());
-        assert!(!legacy.iter().any(|index| index == &hashed[0]));
+        assert!(
+            !v16.extrinsic
+                .transaction_extensions_by_version
+                .contains_key(&2)
+        );
+        // Neither proof size is a large fixed-array metadata type anymore.
+        assert!(!v16.types.types.iter().any(|t| matches!(&t.ty.type_def,
+            scale_info::TypeDef::Array(a) if a.len == 3309)));
     }
 }

@@ -22,7 +22,7 @@ use serde_json::{json, Value as JsonValue};
 use crate::codec::extrinsic::{era_birth, TxParams};
 use crate::codec::value::Value;
 use crate::error::CoreError;
-use crate::keys::{is_hashed_crypto, is_mldsa_crypto, Keypair};
+use crate::keys::{is_hashed_crypto, Keypair};
 use crate::mlkem;
 use crate::runtime::type_string::TypeSpec;
 use crate::runtime::{Runtime, RuntimeApiMethodInfo, StorageInfo};
@@ -553,11 +553,10 @@ impl Client {
                 .checked_add(generation_offset)
                 .ok_or_else(|| CoreError::Policy("hashed signing generation exhausted".into()))?;
             let selected = active.at_generation(generation)?;
-            let payload = if is_mldsa_crypto(signer.crypto_type()) {
-                runtime.mldsa_signature_implication(call_data, &params)?
-            } else {
-                runtime.hashed_signature_implication(call_data, &params)?
-            };
+            let (extra, additional) = runtime.signature_payload_parts(&params)?;
+            let mut payload = call_data.to_vec();
+            payload.extend_from_slice(&extra);
+            payload.extend_from_slice(&additional);
             selected.sign_hashed(&payload)?
         } else {
             let payload = runtime.signature_payload(call_data, &params)?;
@@ -606,9 +605,7 @@ impl Client {
         let runtime = self.runtime()?;
         let nonce = self.account_next_index(&signer.ss58_address())?;
         let params = self.transaction_params(nonce, Some(DEFAULT_ERA_PERIOD))?;
-        let proof_len = if is_mldsa_crypto(signer.crypto_type()) {
-            subtensor_hashed::MlDsaProof::max_encoded_len()
-        } else if is_hashed_crypto(signer.crypto_type()) {
+        let proof_len = if is_hashed_crypto(signer.crypto_type()) {
             subtensor_hashed::Proof::max_encoded_len()
         } else {
             64
@@ -1850,32 +1847,16 @@ mod reorg_finalization_tests {
 mod fee_quote_tests {
     #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
-    use codec::Encode;
-    use frame_metadata::{RuntimeMetadata, RuntimeMetadataPrefixed};
     use std::io::{BufRead, BufReader, Read, Write};
     use std::net::TcpListener;
 
     fn runtime() -> Runtime {
-        let fixture: JsonValue =
-            serde_json::from_str(include_str!("../../python/tests/fixtures/golden.json")).unwrap();
-        let encoded = decode_hex(fixture["metadata"]["v15_hex"].as_str().unwrap()).unwrap();
-        let metadata = Option::<Vec<u8>>::decode(&mut encoded.as_slice())
-            .unwrap()
-            .unwrap();
-        let mut metadata = RuntimeMetadataPrefixed::decode(&mut metadata.as_slice()).unwrap();
-        let RuntimeMetadata::V15(inner) = &mut metadata.1 else {
-            panic!("v15 fixture");
-        };
-        let mut pallet = inner.pallets[0].clone();
-        pallet.name = "HashedAccounts".into();
-        pallet.index = 250;
-        inner.pallets.push(pallet);
-        Runtime::parse(&metadata.encode(), 1, 1, 42).unwrap()
+        crate::codec::extrinsic::hashed_tests::runtime(true)
     }
 
     #[test]
     fn fee_and_weight_rpc_use_sized_dummy_proofs_for_every_wallet_mode() {
-        for crypto in [0, 1, 4, 5, 6, 7] {
+        for crypto in [0, 1, 4, 6] {
             let runtime = runtime();
             let full = Keypair::from_seed(&[17; 32], crypto).unwrap();
             // Public-only keys cannot sign or derive a generation's public key.
@@ -1979,13 +1960,21 @@ mod fee_quote_tests {
             let _ = codec::Compact::<u32>::decode(&mut body).unwrap();
             let mut control_body = control.as_slice();
             let _ = codec::Compact::<u32>::decode(&mut control_body).unwrap();
-            let offset = if is_hashed_crypto(crypto) { 34 } else { 35 };
-            assert_eq!(&body[offset..offset + proof.len()], vec![0; proof.len()]);
-            assert_eq!(&body[..offset], &control_body[..offset]);
-            assert_eq!(
-                &body[offset + proof.len()..],
-                &control_body[offset + proof.len()..]
-            );
+            if is_hashed_crypto(crypto) {
+                assert_eq!(&body[..2], &[0x84, 2]);
+                let mut raw = &body[2..];
+                assert_eq!(codec::Compact::<u32>::decode(&mut raw).unwrap().0, 106);
+                let address = subtensor_hashed::SignerAddress::decode(&mut raw).unwrap();
+                assert_eq!(address.account, full.public_key_bytes());
+                assert_eq!(address.public_key, [0; 32]);
+                assert_eq!(address.next_commitment, [0; 32]);
+                assert_eq!(&raw[1..65], &[0; 64]);
+                let active = full.hashed_public_key().unwrap();
+                assert!(!quotes[0].windows(active.len()).any(|w| w == active));
+            } else {
+                assert_eq!(&body[35..99], &[0; 64]);
+                assert_eq!(&body[..35], &control_body[..35]);
+            }
             assert!(client
                 .runtime()
                 .unwrap()

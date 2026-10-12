@@ -6,7 +6,7 @@ use frame_support::{
     traits::{ConstU64, Currency},
 };
 use sp_core::Pair;
-use sp_runtime::{BuildStorage, traits::IdentityLookup};
+use sp_runtime::{BuildStorage, DispatchError, traits::IdentityLookup};
 
 frame_support::construct_runtime!(
     pub enum Test {
@@ -89,13 +89,23 @@ fn fixture() -> (sp_core::sr25519::Pair, Descriptor, AccountId32) {
     (pair, descriptor, account)
 }
 
+fn test_payload(
+    account: &[u8; 32],
+    scheme: Scheme,
+    generation: u64,
+    next: &[u8; 32],
+    call: &[u8],
+) -> Vec<u8> {
+    (account, scheme, generation, next, call).encode()
+}
+
 fn proof(
     pair: &sp_core::sr25519::Pair,
     account: &AccountId32,
     generation: u64,
     next_commitment: [u8; 32],
 ) -> Proof {
-    let payload = subtensor_hashed::transaction_payload(
+    let payload = test_payload(
         account.as_ref(),
         Scheme::Sr25519,
         generation,
@@ -110,6 +120,37 @@ fn proof(
     }
 }
 
+// Signature verification belongs to the standard extrinsic checker; pallet
+// tests model that prerequisite before checking the commitment and advancing.
+fn check_proof(
+    account: &AccountId32,
+    proof: &Proof,
+    implication: &[u8],
+) -> Result<ValidatedProof, DispatchError> {
+    let ticket = HashedAccounts::check_authorization(
+        account,
+        Scheme::Sr25519,
+        &proof.public_key,
+        proof.generation,
+        proof.next_commitment,
+    )?;
+    frame_support::ensure!(
+        sp_core::sr25519::Pair::verify(
+            &sp_core::sr25519::Signature::from_raw(proof.signature),
+            test_payload(
+                account.as_ref(),
+                Scheme::Sr25519,
+                proof.generation,
+                &proof.next_commitment,
+                implication
+            ),
+            &sp_core::sr25519::Public::from_raw(proof.public_key)
+        ),
+        Error::<Test>::InvalidSignature
+    );
+    Ok(ticket)
+}
+
 #[test]
 fn recipient_check_is_read_only_and_never_registers_a_missing_account() {
     new_test_ext().execute_with(|| {
@@ -122,7 +163,7 @@ fn recipient_check_is_read_only_and_never_registers_a_missing_account() {
             RuntimeOrigin::signed(sponsor()),
             descriptor
         ));
-        let ticket = HashedAccounts::check_proof(
+        let ticket = check_proof(
             &account,
             &proof(&pair, &account, 0, [9; 32]),
             b"implication",
@@ -165,7 +206,7 @@ fn registration_is_idempotent_and_sponsor_never_becomes_authority() {
             Some(account.clone())
         );
         let valid = proof(&pair, &account, 0, [9; 32]);
-        let ticket = HashedAccounts::check_proof(&account, &valid, b"implication").unwrap();
+        let ticket = check_proof(&account, &valid, b"implication").unwrap();
         assert_ok!(HashedAccounts::advance(&ticket));
         // A different sponsor can replay registration without payment or reset.
         assert_ok!(HashedAccounts::register(
@@ -183,7 +224,7 @@ fn registration_is_idempotent_and_sponsor_never_becomes_authority() {
             [8; 32],
         );
         assert_noop!(
-            HashedAccounts::check_proof(&account, &foreign, b"implication"),
+            check_proof(&account, &foreign, b"implication"),
             Error::<Test>::WrongCommitment
         );
     });
@@ -197,13 +238,13 @@ fn validation_is_read_only_and_competing_proofs_cannot_advance_twice() {
             RuntimeOrigin::signed(sponsor()),
             descriptor
         ));
-        let first = HashedAccounts::check_proof(
+        let first = check_proof(
             &account,
             &proof(&pair, &account, 0, [8; 32]),
             b"implication",
         )
         .unwrap();
-        let competitor = HashedAccounts::check_proof(
+        let competitor = check_proof(
             &account,
             &proof(&pair, &account, 0, [9; 32]),
             b"implication",
@@ -235,11 +276,11 @@ fn signatures_cannot_change_the_call_or_install_invalid_commitments() {
         ));
         let valid = proof(&pair, &account, 0, [8; 32]);
         assert_noop!(
-            HashedAccounts::check_proof(&account, &valid, b"different call"),
+            check_proof(&account, &valid, b"different call"),
             Error::<Test>::InvalidSignature
         );
         assert_noop!(
-            HashedAccounts::check_proof(
+            check_proof(
                 &account,
                 &proof(&pair, &account, 0, [0; 32]),
                 b"implication"
@@ -247,7 +288,7 @@ fn signatures_cannot_change_the_call_or_install_invalid_commitments() {
             Error::<Test>::InvalidNextCommitment
         );
         assert_noop!(
-            HashedAccounts::check_proof(
+            check_proof(
                 &account,
                 &proof(&pair, &account, 0, descriptor.initial_commitment),
                 b"implication"
@@ -258,7 +299,7 @@ fn signatures_cannot_change_the_call_or_install_invalid_commitments() {
             record.as_mut().unwrap().generation = u64::MAX
         });
         assert_noop!(
-            HashedAccounts::check_proof(
+            check_proof(
                 &account,
                 &proof(&pair, &account, u64::MAX, [8; 32]),
                 b"implication"
@@ -338,7 +379,7 @@ fn zero_balance_does_not_erase_authorization_or_reset_generation() {
             descriptor
         ));
         let _ = Balances::make_free_balance_be(&account, 100);
-        let ticket = HashedAccounts::check_proof(
+        let ticket = check_proof(
             &account,
             &proof(&pair, &account, 0, [9; 32]),
             b"implication",

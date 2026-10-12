@@ -15,9 +15,7 @@ pub enum CryptoType {
     Ed25519 = 0,
     Sr25519 = 1,
     Hashed = 4,
-    MlDsa = 5,
     HashedEd25519 = 6,
-    MlDsaStandard = 7,
 }
 
 fn crypto_code(crypto_type: Option<CryptoType>) -> u8 {
@@ -25,9 +23,7 @@ fn crypto_code(crypto_type: Option<CryptoType>) -> u8 {
         CryptoType::Ed25519 => keys::CRYPTO_ED25519,
         CryptoType::Sr25519 => keys::CRYPTO_SR25519,
         CryptoType::Hashed => keys::CRYPTO_HASHED,
-        CryptoType::MlDsa => keys::CRYPTO_MLDSA,
         CryptoType::HashedEd25519 => keys::CRYPTO_HASHED_ED25519,
-        CryptoType::MlDsaStandard => keys::CRYPTO_MLDSA_STANDARD,
     }
 }
 
@@ -182,7 +178,7 @@ impl Keypair {
         self.inner.hashed_receiving_address().map_err(to_js_err)
     }
 
-    /// Sign the full implication for General extension version 1 (hashed) or 2 (ML-DSA).
+    /// Sign a fully composed standard v4 payload for a rotating account.
     #[wasm_bindgen(js_name = signHashed)]
     pub fn sign_hashed(&self, implication: &[u8]) -> Result<Vec<u8>, JsValue> {
         self.inner.sign_hashed(implication).map_err(to_js_err)

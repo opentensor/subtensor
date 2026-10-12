@@ -3,6 +3,10 @@ title: "Hashed-account cryptographic dependency provenance"
 description: "Version, publisher, source, checksum, and release review for the hashed-account ML-DSA and HKDF dependencies."
 ---
 
+The current implementation has removed ML-DSA and the `fips204` dependency.
+The review below is retained as a historical record of the specified commit;
+only the HKDF dependency remains relevant to hashed Sr25519/Ed25519 accounts.
+
 This records a static dependency provenance review for PR #3220 at commit `684c05e8f4adad71dcdb5787bfb477b88097352c`, compared with main at `5c6e83e2f4936f257234f246957f75684c35227c`. Registry and repository metadata were checked on **2026-10-11 UTC**. Download counts and ownership are snapshots, not security guarantees. No dependency code, builds, or tests were executed during this review.
 
 | Item | `fips204` | `hkdf` |

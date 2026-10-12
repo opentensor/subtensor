@@ -5,19 +5,10 @@ use codec::{Decode, Encode};
 use hkdf::Hkdf;
 use sha2::Sha256;
 use sp_core::{crypto::Pair as _, ed25519, sr25519};
-use subtensor_hashed::fips204::{
-    ml_dsa_65,
-    traits::{KeyGen, SerDes, Signer},
-};
-use subtensor_hashed::{
-    account_id, key_commitment, transaction_payload, Descriptor, Proof, Scheme,
-};
+use subtensor_hashed::{account_id, key_commitment, Descriptor, Proof, Scheme, SignerAddress};
 use zeroize::Zeroizing;
 
-use super::{
-    crypto_err, is_mldsa_crypto, Keypair, KeypairInner, CRYPTO_HASHED, CRYPTO_HASHED_ED25519,
-    CRYPTO_MLDSA, CRYPTO_MLDSA_STANDARD,
-};
+use super::{crypto_err, Keypair, KeypairInner, CRYPTO_HASHED, CRYPTO_HASHED_ED25519};
 use crate::error::CoreError;
 
 const VERSION: u8 = 1;
@@ -37,26 +28,16 @@ impl HashedKeypair {
             .try_into()
             .map_err(|_| crypto_err("hashed master seed must be exactly 32 bytes"))?;
         let master_seed = Zeroizing::new(seed);
-        let scheme = if is_mldsa_crypto(crypto_type) {
-            Scheme::MlDsa65
-        } else if crypto_type == CRYPTO_HASHED_ED25519 {
-            Scheme::Ed25519
-        } else {
-            Scheme::Sr25519
+        let scheme = match crypto_type {
+            CRYPTO_HASHED => Scheme::Sr25519,
+            CRYPTO_HASHED_ED25519 => Scheme::Ed25519,
+            _ => return Err(crypto_err("unsupported hashed signing scheme")),
         };
-        let version = if crypto_type == CRYPTO_MLDSA_STANDARD {
-            2
-        } else {
-            VERSION
-        };
+        let version = VERSION;
         let initial_commitment = match scheme {
             Scheme::Sr25519 => key_commitment(scheme, &Self::derive(&master_seed, 0)?.public().0),
             Scheme::Ed25519 => {
                 key_commitment(scheme, &Self::derive_ed(&master_seed, 0)?.public().0)
-            }
-            Scheme::MlDsa65 => {
-                let (public, _) = Self::derive_mldsa(&master_seed, 0, version)?;
-                key_commitment(scheme, &public.into_bytes())
             }
         };
         Ok(Self {
@@ -99,49 +80,10 @@ impl HashedKeypair {
         Self::derive_ed(master, generation)
     }
 
-    fn derive_mldsa(
-        master: &[u8; 32],
-        generation: u64,
-        version: u8,
-    ) -> Result<(ml_dsa_65::PublicKey, ml_dsa_65::PrivateKey), CoreError> {
-        let kdf = Hkdf::<Sha256>::new(Some(DERIVATION_SALT), master);
-        let mut seed = Zeroizing::new([0u8; 32]);
-        kdf.expand(
-            &(version, Scheme::MlDsa65, generation).encode(),
-            seed.as_mut(),
-        )
-        .map_err(|_| crypto_err("ML-DSA signing-key derivation failed"))?;
-        Ok(ml_dsa_65::KG::keygen_from_seed(&seed))
-    }
-
-    fn mldsa_at(
-        &self,
-        generation: u64,
-    ) -> Result<(ml_dsa_65::PublicKey, ml_dsa_65::PrivateKey), CoreError> {
-        let master = self
-            .master_seed()
-            .ok_or_else(|| crypto_err("ML-DSA signing requires a private wallet"))?;
-        Self::derive_mldsa(
-            master,
-            if self.descriptor.rotates() {
-                generation
-            } else {
-                0
-            },
-            self.descriptor.version,
-        )
-    }
-
     pub(super) fn crypto_type(&self) -> u8 {
         match self.descriptor.scheme {
             Scheme::Sr25519 => CRYPTO_HASHED,
-            Scheme::MlDsa65 => {
-                if self.descriptor.rotates() {
-                    CRYPTO_MLDSA
-                } else {
-                    CRYPTO_MLDSA_STANDARD
-                }
-            }
+
             Scheme::Ed25519 => CRYPTO_HASHED_ED25519,
         }
     }
@@ -244,11 +186,6 @@ impl Keypair {
         if hashed.descriptor.scheme == Scheme::Ed25519 {
             return Ok(hashed.ed_at(hashed.generation)?.public().0);
         }
-        if hashed.descriptor.scheme != Scheme::Sr25519 {
-            return Err(crypto_err(
-                "ML-DSA public keys are 1952 bytes; use hashed_signing_public_key",
-            ));
-        }
         Ok(hashed.pair_at(hashed.generation)?.public().0)
     }
 
@@ -264,10 +201,6 @@ impl Keypair {
             Scheme::Ed25519 => {
                 key_commitment(Scheme::Ed25519, &hashed.ed_at(generation)?.public().0)
             }
-            Scheme::MlDsa65 => key_commitment(
-                Scheme::MlDsa65,
-                &hashed.mldsa_at(generation)?.0.into_bytes(),
-            ),
         })
     }
 
@@ -283,66 +216,37 @@ impl Keypair {
         self.hashed_commitment(next)
     }
 
-    /// Sign the full FRAME transaction implication: version byte, encoded call,
-    /// transaction extensions and their implicit data. Do not pass the legacy
-    /// pre-hashed signing payload: the shared protocol performs its own hash.
-    /// The 136-byte SCALE proof binds the stable account, current generation,
-    /// next commitment and the entire implication.
-    pub fn sign_hashed(&self, implication: &[u8]) -> Result<Vec<u8>, CoreError> {
+    /// Sign a direct call's complete, unshortened Substrate payload. Bind the
+    /// versioned raw signer address (account, scheme, generation, current key
+    /// and next commitment) under the transaction domain before signing.
+    pub fn sign_hashed(&self, payload: &[u8]) -> Result<Vec<u8>, CoreError> {
         let hashed = self.hashed()?;
-        let next_commitment = self.hashed_next_commitment()?;
-        let payload = transaction_payload(
-            &hashed.account_id(),
-            hashed.descriptor.scheme,
-            hashed.generation,
-            &next_commitment,
-            implication,
-        );
-        match hashed.descriptor.scheme {
-            Scheme::Sr25519 => {
-                let pair = hashed.pair_at(hashed.generation)?;
-                Ok(Proof {
-                    generation: hashed.generation,
-                    public_key: pair.public().0,
-                    next_commitment,
-                    signature: pair.sign(&payload).0,
-                }
-                .encode())
-            }
-            Scheme::Ed25519 => {
-                let pair = hashed.ed_at(hashed.generation)?;
-                Ok(Proof {
-                    generation: hashed.generation,
-                    public_key: pair.public().0,
-                    next_commitment,
-                    signature: pair.sign(&payload).0,
-                }
-                .encode())
-            }
-            Scheme::MlDsa65 => {
-                let (public, private) = hashed.mldsa_at(hashed.generation)?;
-                let signature = private
-                    .try_sign_with_rng(
-                        &mut rand_core::OsRng,
-                        &payload,
-                        subtensor_hashed::MLDSA_TRANSACTION_CONTEXT,
-                    )
-                    .map_err(crypto_err)?;
-                Ok(subtensor_hashed::MlDsaProof {
-                    generation: hashed.generation,
-                    public_key: public.into_bytes(),
-                    next_commitment,
-                    signature,
-                }
-                .encode())
-            }
+        let address = SignerAddress {
+            version: VERSION,
+            scheme: hashed.descriptor.scheme,
+            account: self.public_key_bytes(),
+            generation: hashed.generation,
+            public_key: self.hashed_public_key()?,
+            next_commitment: self.hashed_next_commitment()?,
+        };
+        let payload = address.signing_hash(payload);
+        let signature = match hashed.descriptor.scheme {
+            Scheme::Sr25519 => hashed.pair_at(hashed.generation)?.sign(&payload).0,
+            Scheme::Ed25519 => hashed.ed_at(hashed.generation)?.sign(&payload).0,
+        };
+        Ok(Proof {
+            generation: hashed.generation,
+            public_key: self.hashed_public_key()?,
+            next_commitment: self.hashed_next_commitment()?,
+            signature,
         }
+        .encode())
     }
+
     pub fn hashed_signing_public_key(&self) -> Result<Vec<u8>, CoreError> {
         let hashed = self.hashed()?;
         Ok(match hashed.descriptor.scheme {
             Scheme::Sr25519 => hashed.pair_at(hashed.generation)?.public().0.to_vec(),
-            Scheme::MlDsa65 => hashed.mldsa_at(hashed.generation)?.0.into_bytes().to_vec(),
             Scheme::Ed25519 => hashed.ed_at(hashed.generation)?.public().0.to_vec(),
         })
     }
@@ -372,15 +276,6 @@ impl Keypair {
                 envelope.extend_from_slice(&pair.public().0);
                 envelope.extend_from_slice(&pair.sign(&payload).0);
             }
-            Scheme::MlDsa65 => {
-                let (public, private) = hashed.mldsa_at(0)?;
-                envelope.extend_from_slice(&public.into_bytes());
-                envelope.extend_from_slice(
-                    &private
-                        .try_sign_with_rng(&mut rand_core::OsRng, &payload, MESSAGE_MAGIC)
-                        .map_err(crypto_err)?,
-                );
-            }
         }
         Ok(envelope)
     }
@@ -400,11 +295,7 @@ pub(super) fn verify_message(
     message: &[u8],
     envelope: &[u8],
 ) -> bool {
-    let expected_len = if is_mldsa_crypto(crypto_type) {
-        8 + 34 + 1952 + 3309
-    } else {
-        8 + 34 + 32 + 64
-    };
+    let expected_len = 8 + 34 + 32 + 64;
     if envelope.len() != expected_len || !envelope.starts_with(MESSAGE_MAGIC) {
         return false;
     }
@@ -412,15 +303,12 @@ pub(super) fn verify_message(
     let Ok(descriptor) = Descriptor::decode(&mut input) else {
         return false;
     };
-    let scheme = if is_mldsa_crypto(crypto_type) {
-        Scheme::MlDsa65
-    } else if crypto_type == CRYPTO_HASHED_ED25519 {
+    let scheme = if crypto_type == CRYPTO_HASHED_ED25519 {
         Scheme::Ed25519
     } else {
         Scheme::Sr25519
     };
     if !descriptor.is_supported()
-        || descriptor.rotates() == (crypto_type == CRYPTO_MLDSA_STANDARD)
         || descriptor.scheme != scheme
         || account_id(&descriptor) != *account
     {
@@ -456,13 +344,6 @@ pub(super) fn verify_message(
                     &ed25519::Public::from_raw(public),
                 )
         }
-        Scheme::MlDsa65 => {
-            let Ok(public) = <[u8; 1952]>::try_from(&input[..1952]) else {
-                return false;
-            };
-            descriptor.initial_commitment == key_commitment(scheme, &public)
-                && subtensor_hashed::verify_mldsa(&public, &input[1952..], &payload, MESSAGE_MAGIC)
-        }
     }
 }
 
@@ -472,12 +353,38 @@ mod tests {
     use super::*;
     use crate::keys::{CRYPTO_HASHED, DEFAULT_SS58_FORMAT};
 
+    fn transaction_payload(
+        account: &[u8; 32],
+        scheme: Scheme,
+        generation: u64,
+        next: &[u8; 32],
+        public: &[u8; 32],
+        call_and_extensions: &[u8],
+    ) -> Vec<u8> {
+        SignerAddress {
+            version: 1,
+            scheme,
+            account: *account,
+            generation,
+            public_key: *public,
+            next_commitment: *next,
+        }
+        .signing_hash(call_and_extensions)
+        .to_vec()
+    }
+    fn sign_test_transaction(
+        key: &Keypair,
+        call_and_extensions: &[u8],
+    ) -> Result<Vec<u8>, CoreError> {
+        key.sign_hashed(call_and_extensions)
+    }
+
     #[test]
     fn composable_schemes_preserve_mode_recovery_and_signatures() {
         use crate::keys::{account_crypto_type, CRYPTO_ED25519, CRYPTO_SR25519};
         let phrase = "bottom drive obey lake curtain smoke basket hold race lonely fit walk";
         let mut addresses = std::collections::BTreeSet::new();
-        for scheme in [CRYPTO_SR25519, CRYPTO_ED25519, CRYPTO_MLDSA] {
+        for scheme in [CRYPTO_SR25519, CRYPTO_ED25519] {
             for mode in ["standard", "hashed"] {
                 let code = account_crypto_type(scheme, Some(mode)).unwrap();
                 let key = Keypair::from_mnemonic(phrase, code, None).unwrap();
@@ -537,7 +444,7 @@ mod tests {
         let key = Keypair::from_seed(&[31; 32], CRYPTO_HASHED_ED25519).unwrap();
         assert!(key.sign(b"message").is_err());
         let signer = key.at_generation(8).unwrap();
-        let bytes = signer.sign_hashed(b"implication").unwrap();
+        let bytes = sign_test_transaction(&signer, b"implication").unwrap();
         let proof = Proof::decode(&mut bytes.as_slice()).unwrap();
         assert_eq!(proof.generation, 8);
         let payload = transaction_payload(
@@ -545,6 +452,7 @@ mod tests {
             Scheme::Ed25519,
             8,
             &proof.next_commitment,
+            &proof.public_key,
             b"implication",
         );
         assert!(ed25519::Pair::verify(
@@ -557,6 +465,7 @@ mod tests {
             Scheme::Sr25519,
             8,
             &proof.next_commitment,
+            &proof.public_key,
             b"implication",
         );
         assert!(!ed25519::Pair::verify(
@@ -564,71 +473,6 @@ mod tests {
             wrong,
             &ed25519::Public::from_raw(proof.public_key)
         ));
-    }
-
-    #[test]
-    fn mldsa_recovery_rotation_and_messages() {
-        let key = Keypair::from_seed(&[43; 32], CRYPTO_MLDSA).unwrap();
-        let legacy = Keypair::from_seed(&[43; 32], CRYPTO_HASHED).unwrap();
-        assert_ne!(key.ss58_address(), legacy.ss58_address());
-        assert_eq!(key.hashed_descriptor().unwrap()[..2], [1, 2]);
-        let public = key.public_only().unwrap();
-        assert_eq!(public.crypto_type(), CRYPTO_MLDSA);
-        assert!(public.sign(b"message").is_err());
-        for generation in [0, 1, 42, u64::MAX - 1] {
-            let signer = key.at_generation(generation).unwrap();
-            let encoded = signer.sign_hashed(b"complete implication").unwrap();
-            assert_eq!(encoded.len(), 5301);
-            let proof = subtensor_hashed::MlDsaProof::decode(&mut encoded.as_slice()).unwrap();
-            assert_eq!(proof.generation, generation);
-            assert_eq!(
-                key_commitment(Scheme::MlDsa65, &proof.public_key),
-                signer.hashed_current_commitment().unwrap()
-            );
-            let payload = transaction_payload(
-                &key.public_key_bytes(),
-                Scheme::MlDsa65,
-                generation,
-                &proof.next_commitment,
-                b"complete implication",
-            );
-            assert!(subtensor_hashed::verify_mldsa(
-                &proof.public_key,
-                &proof.signature,
-                &payload,
-                subtensor_hashed::MLDSA_TRANSACTION_CONTEXT
-            ));
-            assert!(!subtensor_hashed::verify_mldsa(
-                &proof.public_key,
-                &proof.signature,
-                &payload,
-                MESSAGE_MAGIC
-            ));
-            let message = signer.sign(b"identity challenge").unwrap();
-            assert!(public.verify(b"identity challenge", &message).unwrap());
-            assert!(!public.verify(b"different challenge", &message).unwrap());
-            assert!(!legacy.verify(b"identity challenge", &message).unwrap());
-            let mut changed = message.clone();
-            changed.push(0);
-            assert!(!public.verify(b"identity challenge", &changed).unwrap());
-            changed = message;
-            changed[42] ^= 1;
-            assert!(!public.verify(b"identity challenge", &changed).unwrap());
-        }
-        assert!(key
-            .at_generation(u64::MAX)
-            .unwrap()
-            .sign_hashed(b"payload")
-            .is_err());
-        let recovered = Keypair::from_seed(&[43; 32], CRYPTO_MLDSA).unwrap();
-        assert_eq!(
-            key.hashed_descriptor().unwrap(),
-            recovered.hashed_descriptor().unwrap()
-        );
-        assert_eq!(
-            key.hashed_commitment(42).unwrap(),
-            recovered.hashed_commitment(42).unwrap()
-        );
     }
 
     #[test]
@@ -717,7 +561,7 @@ mod tests {
             .at_generation(4)
             .unwrap();
         let implication = b"\x01call extensions genesis runtime versions";
-        let encoded = key.sign_hashed(implication).unwrap();
+        let encoded = sign_test_transaction(&key, implication).unwrap();
         assert_eq!(encoded.len(), 136);
         let proof = Proof::decode(&mut &encoded[..]).unwrap();
         let payload = transaction_payload(
@@ -725,6 +569,7 @@ mod tests {
             Scheme::Sr25519,
             4,
             &proof.next_commitment,
+            &proof.public_key,
             implication,
         );
         assert!(sr25519::Pair::verify(
@@ -738,6 +583,7 @@ mod tests {
                 Scheme::Sr25519,
                 5,
                 &proof.next_commitment,
+                &proof.public_key,
                 implication,
             ),
             transaction_payload(
@@ -745,6 +591,7 @@ mod tests {
                 Scheme::Sr25519,
                 4,
                 &[0; 32],
+                &proof.public_key,
                 implication,
             ),
             transaction_payload(
@@ -752,6 +599,7 @@ mod tests {
                 Scheme::Sr25519,
                 4,
                 &proof.next_commitment,
+                &proof.public_key,
                 implication,
             ),
             transaction_payload(
@@ -759,6 +607,7 @@ mod tests {
                 Scheme::Sr25519,
                 4,
                 &proof.next_commitment,
+                &proof.public_key,
                 b"different call",
             ),
         ] {
@@ -780,12 +629,15 @@ mod tests {
             .at_generation(41)
             .unwrap();
         let implication = b"\x01restored device transaction";
-        let proof = Proof::decode(&mut &recovered.sign_hashed(implication).unwrap()[..]).unwrap();
+        let proof =
+            Proof::decode(&mut &sign_test_transaction(&recovered, implication).unwrap()[..])
+                .unwrap();
         let payload = transaction_payload(
             &current.public_key_bytes(),
             Scheme::Sr25519,
             proof.generation,
             &proof.next_commitment,
+            &proof.public_key,
             implication,
         );
         assert_eq!(proof.generation, 41);
@@ -813,7 +665,8 @@ mod tests {
                 current.hashed_current_commitment().unwrap()
             );
             let other_proof =
-                Proof::decode(&mut &other.sign_hashed(implication).unwrap()[..]).unwrap();
+                Proof::decode(&mut &sign_test_transaction(&other, implication).unwrap()[..])
+                    .unwrap();
             let other_signature = sr25519::Signature::from_raw(other_proof.signature);
             // These are valid signatures from the old/sibling wallet, not
             // random invalid bytes. Neither controls the expected current key.
@@ -822,6 +675,7 @@ mod tests {
                 Scheme::Sr25519,
                 other_proof.generation,
                 &other_proof.next_commitment,
+                &other_proof.public_key,
                 implication,
             );
             assert!(sr25519::Pair::verify(
@@ -834,6 +688,7 @@ mod tests {
                 Scheme::Sr25519,
                 41,
                 &other_proof.next_commitment,
+                &other_proof.public_key,
                 implication,
             );
             assert!(!sr25519::Pair::verify(

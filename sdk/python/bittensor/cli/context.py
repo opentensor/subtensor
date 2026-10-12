@@ -400,7 +400,7 @@ class AppContext:
         if public is None or public.crypto_type not in (0, 1):
             raise ValueError(
                 "Polkadot Vault signing supports standard sr25519/ed25519 accounts only; "
-                "use --signer wallet (or --signatory NAME=wallet) for hashed or ML-DSA "
+                "use --signer wallet (or --signatory NAME=wallet) for hashed "
                 "members. A standard Vault account can still co-sign the same multisig."
             )
         self._vault_crypto_type = public.crypto_type

@@ -315,7 +315,7 @@ class TestQueries:
     def test_wallet_balance_human_format_uses_three_decimals(self):
         assert format_balance(Balance.from_rao(2_832_438_604_652)) == "τ2,832.439"
 
-    @pytest.mark.parametrize("code", [4, 5])
+    @pytest.mark.parametrize("code", [4, 6])
     def test_wallet_history_queries_underlying_account(self, fake, monkeypatch, code):
         from bittensor.cli.commands import wallet as wallet_commands
         from bittensor.receiving import receiving_address

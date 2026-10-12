@@ -16,7 +16,7 @@ from tests.harness.receiving import descriptor_receiving_address
 from tests.harness.samples import dev_wallet
 
 ENDPOINT = os.getenv("E2E_WALLET_ENDPOINT")
-SCHEMES = ("sr", "ed", "hashed", "ms", "hashed-ed25519", "mldsa-standard")
+SCHEMES = ("sr", "ed", "hashed", "hashed-ed25519")
 pytestmark = [
     pytest.mark.asyncio,
     pytest.mark.skipif(not ENDPOINT, reason="requires an isolated activated Alice-root chain"),
@@ -39,9 +39,6 @@ async def test_cli_wallet_parity(tmp_path, scheme):
     wallet_path = str(tmp_path / "wallets")
 
     async def cli(name, *args, success=True):
-        # This matrix retains the legacy rotating MS case alongside mldsa-standard.
-        if "--crypto-type" in args and args[args.index("--crypto-type") + 1] == "ms":
-            args += ("--type", "hashed")
         command = [
             sys.executable,
             "-m",
@@ -238,7 +235,7 @@ async def test_cli_wallet_parity(tmp_path, scheme):
         )
         multi = saved["multisig_address"]
         await cli("original", "wallet", "transfer", "--dest", multi, "--amount", "20")
-        dest = bt.Wallet("recipient-ms", path=wallet_path).coldkeypub
+        dest = bt.Wallet("recipient-hashed-ed25519", path=wallet_path).coldkeypub
         before = await balance(dest)
         for signer in ("original", "peer"):
             await cli(
@@ -246,7 +243,7 @@ async def test_cli_wallet_parity(tmp_path, scheme):
                 "wallet",
                 "transfer",
                 "--dest",
-                "recipient-ms",
+                "recipient-hashed-ed25519",
                 "--amount",
                 "1",
                 "--signatory",
@@ -262,7 +259,7 @@ async def test_cli_wallet_parity(tmp_path, scheme):
             "wallet",
             "transfer",
             "--dest",
-            "recipient-ms",
+            "recipient-hashed-ed25519",
             "--amount",
             "1",
             "--proxy-for",

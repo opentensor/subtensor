@@ -707,9 +707,7 @@ def _run_app(app: typer.Typer) -> None:
                 "--crypto-type",
                 "--hotkey-crypto-type",
             }:
-                error.message += (
-                    " Choose sr (sr25519), ed (ed25519), hashed, or ms (mldsa / ml-dsa)."
-                )
+                error.message += " Choose sr (sr25519), ed (ed25519), or hashed."
             if isinstance(error, click_exceptions.BadOptionUsage) and error.option_name in {
                 "--type",
                 "--hotkey-type",

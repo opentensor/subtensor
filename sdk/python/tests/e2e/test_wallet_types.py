@@ -26,7 +26,7 @@ pytestmark = [
 ]
 
 
-@pytest.mark.parametrize("scheme", ["ed", "sr", "ms"])
+@pytest.mark.parametrize("scheme", ["ed", "sr"])
 @pytest.mark.parametrize("mode", ["standard", "hashed"])
 async def test_composable_wallet_lifecycle(tmp_path, scheme, mode):
     env = {**os.environ, "BTCLI_CONFIG": str(tmp_path / "config.json")}

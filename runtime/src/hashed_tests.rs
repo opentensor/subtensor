@@ -1,14 +1,16 @@
 #![allow(clippy::unwrap_used, clippy::indexing_slicing)]
 use super::*;
-use crate::{hashed_auth::AuthorizeAccount, hashed_extrinsic::LegacyUnchecked};
+use crate::hashed_extrinsic::LegacyUnchecked;
 use frame_support::{dispatch::GetDispatchInfo, traits::Currency};
 use sp_core::{Pair, sr25519};
 use sp_runtime::{
     generic::Era,
-    traits::{Applyable, Checkable, TransactionExtension},
+    traits::{Applyable, Checkable},
     transaction_validity::{InvalidTransaction, TransactionSource},
 };
-use subtensor_hashed::{Descriptor, Proof, Scheme};
+use subtensor_hashed::{Descriptor, Scheme};
+#[path = "hashed_envelope_tests.rs"]
+mod envelope;
 #[path = "hashed_native_evm_tests.rs"]
 mod native_evm;
 fn ext() -> sp_io::TestExternalities {
@@ -90,32 +92,25 @@ fn signed_with_extra(
     key: &sr25519::Pair,
     extra: TxExtension,
 ) -> UncheckedExtrinsic {
-    let implication = (1u8, &call, &extra, extra.implicit().unwrap()).encode();
     let next_commitment = subtensor_hashed::key_commitment(
         Scheme::Sr25519,
         &pair(u8::try_from(generation).unwrap().checked_add(11).unwrap())
             .public()
             .0,
     );
-    let payload = subtensor_hashed::transaction_payload(
-        account().as_ref(),
-        Scheme::Sr25519,
+    let address = subtensor_hashed::SignerAddress {
+        version: 1,
+        account: *account().as_ref(),
+        scheme: Scheme::Sr25519,
         generation,
-        &next_commitment,
-        &implication,
-    );
-    let proof = Proof {
-        generation,
-        public_key: key.public().0,
         next_commitment,
-        signature: key.sign(&payload).0,
+        public_key: key.public().0,
     };
-    UncheckedExtrinsic::new_hashed(
+    let signature = key.sign(&hashed_extrinsic::signing_hash(&address, &call, &extra).unwrap());
+    UncheckedExtrinsic::new_signed(
         call,
-        AuthorizeAccount {
-            account: account(),
-            proof,
-        },
+        Address::Raw(address.encode()),
+        Signature::Sr25519(signature),
         extra,
     )
 }
@@ -155,14 +150,14 @@ fn wire_roundtrip_preserves_legacy_and_rejects_unknown_pipeline() {
             call(),
             AccountId::from(pair(1).public()).into(),
             Signature::Sr25519(pair(1).sign(b"x")),
-            extra(0),
+            extra(0).into(),
         );
         assert_eq!(
             UncheckedExtrinsic::Legacy(old.clone()).encode(),
             old.encode()
         );
         let general: LegacyUnchecked = sp_runtime::generic::UncheckedExtrinsic {
-            preamble: sp_runtime::generic::Preamble::General(0, extra(0)),
+            preamble: sp_runtime::generic::Preamble::General(0, extra(0).into()),
             function: call(),
         }
         .into();
@@ -174,7 +169,7 @@ fn wire_roundtrip_preserves_legacy_and_rejects_unknown_pipeline() {
         let _ = codec::Compact::<u32>::decode(&mut input).unwrap();
         let offset = bytes.len() - input.len();
         let mut changed = bytes;
-        changed[offset + 1] = 9;
+        changed[offset + 4 + 32] = 9; // Raw version follows its AccountId32 prefix.
         assert!(UncheckedExtrinsic::decode(&mut &changed[..]).is_err());
     });
 }
@@ -192,7 +187,7 @@ fn wire_prefixes() -> [(&'static str, Vec<u8>); 5] {
         )
     };
     let general: LegacyUnchecked = sp_runtime::generic::UncheckedExtrinsic {
-        preamble: Preamble::General(0, extra(0)),
+        preamble: Preamble::General(0, extra(0).into()),
         function: call(),
     }
     .into();
@@ -201,7 +196,7 @@ fn wire_prefixes() -> [(&'static str, Vec<u8>); 5] {
         ("bare v4", bare(4)),
         ("bare v5", bare(5)),
         ("general v0", UncheckedExtrinsic::Legacy(general)),
-        ("general v1", signed(call(), 0, &pair(10))),
+        ("account envelope", signed(call(), 0, &pair(10))),
     ]
     .map(|(name, extrinsic)| {
         let encoded = extrinsic.encode();
@@ -250,7 +245,11 @@ fn direct_call_decoding_bounds_depth_for_every_wire_format() {
         // this bound: these are direct Decode and serde entry points.
         for (name, prefix) in wire_prefixes() {
             for boxed in [true, false] {
-                for depth in [1, frame_support::MAX_EXTRINSIC_DEPTH] {
+                for depth in [
+                    1,
+                    frame_support::MAX_EXTRINSIC_DEPTH
+                        - <u32 as From<bool>>::from(name == "account envelope"),
+                ] {
                     let encoded = wire_with_call(&prefix, &nested_call_bytes(depth, boxed));
                     let mut input = encoded.as_slice();
                     let decoded = UncheckedExtrinsic::decode(&mut input).unwrap_or_else(|error| {
@@ -796,33 +795,55 @@ fn changing_the_call_nonce_tip_or_next_key_cannot_reuse_a_signature() {
         setup();
         let original = signed(call(), 0, &pair(10));
         let before = signing_state();
-        for field in ["call", "nonce", "tip", "next_key", "signature"] {
+        for field in [
+            "call",
+            "nonce",
+            "tip",
+            "account",
+            "generation",
+            "public_key",
+            "scheme",
+            "next_key",
+            "signature",
+        ] {
             let mut changed = original.clone();
-            let UncheckedExtrinsic::Hashed(transaction) = &mut changed else {
-                panic!("expected hashed transaction");
-            };
-            let sp_runtime::generic::Preamble::General(_, (authorization, extensions)) =
+            let UncheckedExtrinsic::Legacy(transaction) = &mut changed;
+            let sp_runtime::generic::Preamble::Signed(signer, signature, extensions) =
                 &mut transaction.0.preamble
             else {
-                panic!("expected general transaction");
+                panic!("signed v4")
             };
+            let Address::Raw(raw) = signer else {
+                panic!("raw signer")
+            };
+            let mut address = subtensor_hashed::SignerAddress::from_bytes(raw).unwrap();
             match field {
                 "call" => {
                     transaction.0.function = RuntimeCall::System(SystemCall::remark {
                         remark: b"altered call".to_vec(),
-                    });
+                    })
                 }
-                "nonce" => extensions.0.5 = check_nonce::CheckNonce::from(1),
+                "nonce" => extensions.0.0.5 = check_nonce::CheckNonce::from(1),
                 "tip" => {
-                    extensions.1.0 =
+                    extensions.0.1.0 =
                         transaction_payment_wrapper::ChargeTransactionPaymentWrapper::new(
                             TaoBalance::new(1),
-                        );
+                        )
                 }
-                "next_key" => authorization.proof.next_commitment = [99; 32],
-                "signature" => authorization.proof.signature[0] ^= 1,
+                "account" => address.account = [99; 32],
+                "generation" => address.generation += 1,
+                "public_key" => address.public_key = pair(99).public().0,
+                "scheme" => address.scheme = Scheme::Ed25519,
+                "next_key" => address.next_commitment = [99; 32],
+                "signature" => {
+                    let Signature::Sr25519(sig) = signature else {
+                        panic!("sr")
+                    };
+                    sig.0[0] ^= 1;
+                }
                 _ => unreachable!(),
             }
+            *raw = address.encode();
             assert_eq!(
                 Executive::apply_extrinsic(changed),
                 Err(InvalidTransaction::BadProof.into()),
@@ -1200,428 +1221,9 @@ fn preassociated_classical_owner_blocks_activation_without_funding_the_account()
     });
 }
 
-mod mldsa {
-    use super::*;
-    use subtensor_hashed::fips204::{
-        ml_dsa_65,
-        traits::{KeyGen, SerDes, Signer},
-    };
-
-    #[test]
-    fn classical_hashed_authority_cannot_control_mldsa_accounts() {
-        ext().execute_with(|| {
-            setup();
-            super::setup();
-            let real = account();
-            let classical = super::account();
-            frame_support::assert_noop!(
-                Proxy::add_proxy_delegate(&real, classical.clone(), ProxyType::Any, 0),
-                pallet_proxy::Error::<Runtime>::AccountPolicyViolation
-            );
-            // Model a grant made before the scheme guard. Execution must also
-            // reject it, including the announced-proxy entry point.
-            pallet_proxy::Proxies::<Runtime>::insert(
-                &real,
-                (
-                    frame_support::BoundedVec::try_from(alloc::vec![
-                        pallet_proxy::ProxyDefinition {
-                            delegate: classical.clone(),
-                            proxy_type: ProxyType::Any,
-                            delay: 0,
-                        }
-                    ])
-                    .unwrap(),
-                    TaoBalance::new(0),
-                ),
-            );
-            frame_support::assert_noop!(
-                Proxy::proxy(
-                    RuntimeOrigin::signed(classical.clone()),
-                    real.clone().into(),
-                    None,
-                    Box::new(call())
-                ),
-                pallet_proxy::Error::<Runtime>::AccountPolicyViolation
-            );
-            frame_support::assert_noop!(
-                Proxy::proxy_announced(
-                    RuntimeOrigin::signed(classical.clone()),
-                    classical.clone().into(),
-                    real.clone().into(),
-                    None,
-                    Box::new(call())
-                ),
-                pallet_proxy::Error::<Runtime>::AccountPolicyViolation
-            );
-            frame_support::assert_noop!(
-                SubtensorModule::set_hotkey_owner(&classical, &real),
-                pallet_subtensor::Error::<Runtime>::HotkeyOwnerPolicyViolation
-            );
-            frame_support::assert_noop!(
-                SubtensorModule::create_account_if_non_existent(&classical, &real),
-                pallet_subtensor::Error::<Runtime>::HotkeyOwnerPolicyViolation
-            );
-            assert_eq!(
-                SubtensorModule::do_swap_coldkey_tracked(&real, &classical)
-                    .unwrap_err()
-                    .1,
-                pallet_subtensor::Error::<Runtime>::HotkeyOwnerPolicyViolation.into()
-            );
-        });
-    }
-
-    #[test]
-    fn registration_rejects_a_classical_hashed_owner_of_an_mldsa_hotkey() {
-        ext().execute_with(|| {
-            super::setup();
-            let sponsor = pair(22);
-            let sponsor_id = AccountId::from(sponsor.public());
-            let _ = Balances::make_free_balance_be(&sponsor_id, TaoBalance::new(1_000_000_000_000));
-            pallet_subtensor::Owner::<Runtime>::insert(account(), super::account());
-            assert_eq!(
-                Executive::apply_extrinsic(legacy(
-                    &sponsor,
-                    first_funding(descriptor(), TaoBalance::new(1_000_000_000))
-                ))
-                .unwrap(),
-                Err(sp_runtime::DispatchError::Other(
-                    "HashedHotkeyRequiresHashedOwner"
-                ))
-            );
-            assert_no_received_account(&account());
-            assert_eq!(Balances::reserved_balance(&sponsor_id), TaoBalance::new(0));
-            assert_eq!(
-                pallet_subtensor::Owner::<Runtime>::get(account()),
-                super::account()
-            );
-        });
-    }
-
-    #[test]
-    fn mldsa_owners_and_delegates_remain_usable_and_allow_coldkey_upgrades() {
-        ext().execute_with(|| {
-            setup();
-            super::setup();
-            let sponsor = pair(23);
-            let sponsor_id = AccountId::from(sponsor.public());
-            let _ = Balances::make_free_balance_be(&sponsor_id, TaoBalance::new(1_000_000_000_000));
-            let hotkey_descriptor = Descriptor {
-                initial_commitment: subtensor_hashed::key_commitment(
-                    Scheme::MlDsa65,
-                    &key(90).0.into_bytes(),
-                ),
-                ..descriptor()
-            };
-            let hotkey = AccountId::new(subtensor_hashed::account_id(&hotkey_descriptor));
-            // An ML-DSA owner is compatible both before and after registration;
-            // the classical sponsor paying for registration gains no authority.
-            frame_support::assert_ok!(SubtensorModule::create_account_if_non_existent(
-                &account(),
-                &hotkey
-            ));
-            frame_support::assert_ok!(
-                Executive::apply_extrinsic(legacy(
-                    &sponsor,
-                    first_funding(hotkey_descriptor, TaoBalance::new(1_000_000_000)),
-                ))
-                .unwrap()
-            );
-            frame_support::assert_ok!(SubtensorModule::set_hotkey_owner(&account(), &hotkey));
-            frame_support::assert_ok!(Proxy::add_proxy_delegate(
-                &account(),
-                hotkey.clone(),
-                ProxyType::Any,
-                0
-            ));
-            frame_support::assert_ok!(Proxy::proxy(
-                RuntimeOrigin::signed(hotkey),
-                account().into(),
-                None,
-                Box::new(call())
-            ));
-        });
-        ext().execute_with(|| {
-            setup();
-            super::setup();
-            // A classical hashed coldkey can upgrade to an ML-DSA coldkey while
-            // retaining its owned hotkeys.
-            let classical_hotkey = AccountId::from(pair(24).public());
-            frame_support::assert_ok!(SubtensorModule::create_account_if_non_existent(
-                &super::account(),
-                &classical_hotkey
-            ));
-            frame_support::assert_ok!(SubtensorModule::do_swap_coldkey_tracked(
-                &super::account(),
-                &account()
-            ));
-            assert_eq!(
-                pallet_subtensor::Owner::<Runtime>::get(classical_hotkey),
-                account()
-            );
-        });
-    }
-
-    fn key(generation: u8) -> (ml_dsa_65::PublicKey, ml_dsa_65::PrivateKey) {
-        ml_dsa_65::KG::keygen_from_seed(&[generation; 32])
-    }
-    fn descriptor() -> Descriptor {
-        Descriptor {
-            version: 1,
-            scheme: Scheme::MlDsa65,
-            initial_commitment: subtensor_hashed::key_commitment(
-                Scheme::MlDsa65,
-                &key(0).0.into_bytes(),
-            ),
-        }
-    }
-    fn account() -> AccountId {
-        AccountId::new(subtensor_hashed::account_id(&descriptor()))
-    }
-    fn setup() {
-        pallet_admin_utils::HashedAccountsEnabled::<Runtime>::put(true);
-        hashed_auth::TestVerificationWeight::set(Weight::zero());
-        let sponsor = pair(22);
-        let sponsor_id = AccountId::from(sponsor.public());
-        let _ = Balances::make_free_balance_be(&sponsor_id, TaoBalance::new(1_000_000_000_000));
-        let call = RuntimeCall::Utility(pallet_utility::Call::batch_all {
-            calls: alloc::vec![
-                RuntimeCall::HashedAccounts(pallet_hashed_accounts::Call::register {
-                    descriptor: descriptor()
-                }),
-                RuntimeCall::Balances(BalancesCall::transfer_keep_alive {
-                    dest: account().into(),
-                    value: TaoBalance::new(10_000_000_000)
-                }),
-            ],
-        });
-        frame_support::assert_ok!(Executive::apply_extrinsic(legacy(&sponsor, call)).unwrap());
-    }
-    fn signed(call: RuntimeCall, generation: u8, nonce: u32) -> UncheckedExtrinsic {
-        let extra = extra(nonce);
-        let implication = (2u8, &call, &extra, extra.implicit().unwrap()).encode();
-        let next_commitment =
-            subtensor_hashed::key_commitment(Scheme::MlDsa65, &key(generation + 1).0.into_bytes());
-        let payload = subtensor_hashed::transaction_payload(
-            account().as_ref(),
-            Scheme::MlDsa65,
-            <u64 as From<u8>>::from(generation),
-            &next_commitment,
-            &implication,
-        );
-        let (public, private) = key(generation);
-        UncheckedExtrinsic::new_mldsa(
-            call,
-            hashed_auth::AuthorizeMlDsa {
-                account: account(),
-                proof: subtensor_hashed::MlDsaProof {
-                    generation: <u64 as From<u8>>::from(generation),
-                    public_key: public.into_bytes(),
-                    next_commitment,
-                    signature: private
-                        .try_sign_with_seed(
-                            &[0; 32],
-                            &payload,
-                            subtensor_hashed::MLDSA_TRANSACTION_CONTEXT,
-                        )
-                        .unwrap(),
-                },
-            },
-            extra,
-        )
-    }
-
-    #[test]
-    fn python_sdk_bytes_execute_and_rotate_through_the_runtime() {
-        ext().execute_with(|| {
-            pallet_admin_utils::HashedAccountsEnabled::<Runtime>::put(true);
-            hashed_auth::TestVerificationWeight::set(Weight::zero());
-            let fixture: serde_json::Value =
-                serde_json::from_str(include_str!("../tests/fixtures/mldsa-python-v5.json"))
-                    .unwrap();
-            assert_eq!(fixture["spec_version"], VERSION.spec_version);
-            assert_eq!(fixture["transaction_version"], VERSION.transaction_version);
-            let encoded = hex::decode(fixture["descriptor"].as_str().unwrap()).unwrap();
-            let descriptor = Descriptor::decode(&mut encoded.as_slice()).unwrap();
-            let account = AccountId::new(subtensor_hashed::account_id(&descriptor));
-            assert_eq!(
-                hex::encode(AsRef::<[u8; 32]>::as_ref(&account)),
-                fixture["account"].as_str().unwrap()
-            );
-            let sponsor = pair(22);
-            let _ = Balances::make_free_balance_be(
-                &AccountId::from(sponsor.public()),
-                TaoBalance::new(1_000_000_000_000),
-            );
-            let register = RuntimeCall::Utility(pallet_utility::Call::batch_all {
-                calls: alloc::vec![
-                    RuntimeCall::HashedAccounts(pallet_hashed_accounts::Call::register {
-                        descriptor
-                    }),
-                    RuntimeCall::Balances(BalancesCall::transfer_keep_alive {
-                        dest: account.clone().into(),
-                        value: TaoBalance::new(10_000_000_000)
-                    }),
-                ],
-            });
-            frame_support::assert_ok!(
-                Executive::apply_extrinsic(legacy(&sponsor, register)).unwrap()
-            );
-            for encoded in fixture["extrinsics"].as_array().unwrap() {
-                let bytes = hex::decode(encoded.as_str().unwrap()).unwrap();
-                let tx = UncheckedExtrinsic::decode(&mut bytes.as_slice()).unwrap();
-                frame_support::assert_ok!(Executive::apply_extrinsic(tx).unwrap());
-            }
-            assert_eq!(HashedAccounts::accounts(&account).unwrap().generation, 2);
-            assert_eq!(System::account_nonce(account), 3);
-        });
-    }
-
-    #[test]
-    fn boxed_mldsa_proof_respects_the_decoder_allocation_budget() {
-        ext().execute_with(|| {
-            let encoded = signed(call(), 0, 0).encode();
-            let mut input = encoded.as_slice();
-            let mut limited = codec::MemTrackingInput::new(
-                &mut input,
-                core::mem::size_of::<hashed_extrinsic::MlDsaUnchecked>() - 1,
-            );
-            assert!(UncheckedExtrinsic::decode(&mut limited).is_err());
-        });
-    }
-
-    #[test]
-    fn registration_dropped_retry_inclusion_rotation_and_replay() {
-        ext().execute_with(|| {
-            setup();
-            let before = HashedAccounts::accounts(account()).unwrap();
-            let tx = signed(call(), 0, 1);
-            assert_eq!(
-                UncheckedExtrinsic::decode(&mut tx.encode().as_slice()).unwrap(),
-                tx
-            );
-            // Pool validation and a discarded payload never retire a key.
-            let checked = tx.clone().check(&ChainContext::default()).unwrap();
-            assert_eq!(tx.get_dispatch_info(), checked.get_dispatch_info());
-            assert!(
-                checked
-                    .validate::<Runtime>(
-                        TransactionSource::External,
-                        &checked.get_dispatch_info(),
-                        tx.encoded_size()
-                    )
-                    .is_ok()
-            );
-            assert_eq!(HashedAccounts::accounts(account()).unwrap(), before);
-            let retry = signed(call(), 0, 1);
-            frame_support::assert_ok!(Executive::apply_extrinsic(retry.clone()).unwrap());
-            assert_eq!(HashedAccounts::accounts(account()).unwrap().generation, 1);
-            assert_eq!(System::account_nonce(account()), 2);
-            assert!(Executive::apply_extrinsic(tx).is_err());
-            assert!(Executive::apply_extrinsic(retry).is_err());
-            frame_support::assert_ok!(Executive::apply_extrinsic(signed(call(), 1, 2)).unwrap());
-            assert_eq!(HashedAccounts::accounts(account()).unwrap().generation, 2);
-        });
-    }
-
-    #[test]
-    fn rejects_tampering_bad_nonce_and_disabled_without_rotating() {
-        ext().execute_with(|| {
-            setup();
-            let before = HashedAccounts::accounts(account()).unwrap();
-            for field in 0..5 {
-                let mut tx = signed(call(), 0, 1);
-                let UncheckedExtrinsic::MlDsa(inner) = &mut tx else {
-                    unreachable!()
-                };
-                let sp_runtime::generic::Preamble::General(_, (authorization, _)) =
-                    &mut inner.0.preamble
-                else {
-                    unreachable!()
-                };
-                match field {
-                    0 => authorization.proof.signature[0] ^= 1,
-                    1 => authorization.proof.public_key[0] ^= 1,
-                    2 => authorization.proof.next_commitment[0] ^= 1,
-                    3 => authorization.account = AccountId::new([99; 32]),
-                    _ => {
-                        inner.0.function = RuntimeCall::System(frame_system::Call::remark {
-                            remark: b"different call".to_vec(),
-                        })
-                    }
-                }
-                assert!(Executive::apply_extrinsic(tx).is_err());
-                assert_eq!(HashedAccounts::accounts(account()).unwrap(), before);
-            }
-            assert!(Executive::apply_extrinsic(signed(call(), 0, 9)).is_err());
-            assert_eq!(HashedAccounts::accounts(account()).unwrap(), before);
-            frame_support::assert_ok!(AdminUtils::sudo_set_hashed_accounts_enabled(
-                RuntimeOrigin::root(),
-                false
-            ));
-            assert!(Executive::apply_extrinsic(signed(call(), 0, 1)).is_err());
-            assert_eq!(HashedAccounts::accounts(account()).unwrap(), before);
-            frame_support::assert_ok!(AdminUtils::sudo_set_hashed_accounts_enabled(
-                RuntimeOrigin::root(),
-                true
-            ));
-            frame_support::assert_ok!(Executive::apply_extrinsic(signed(call(), 0, 1)).unwrap());
-            assert_eq!(HashedAccounts::accounts(account()).unwrap().generation, 1);
-        });
-    }
-
-    #[test]
-    fn included_dispatch_failure_consumes_mldsa_generation() {
-        ext().execute_with(|| {
-            setup();
-            let transfer = RuntimeCall::Balances(BalancesCall::transfer_keep_alive {
-                dest: AccountId::new([88; 32]).into(),
-                value: TaoBalance::new(u64::MAX),
-            });
-            assert!(
-                Executive::apply_extrinsic(signed(transfer, 0, 1))
-                    .unwrap()
-                    .is_err()
-            );
-            assert_eq!(HashedAccounts::accounts(account()).unwrap().generation, 1);
-            assert_eq!(System::account_nonce(account()), 2);
-            frame_support::assert_ok!(Executive::apply_extrinsic(signed(call(), 1, 2)).unwrap());
-        });
-    }
-
-    #[test]
-    fn mldsa_proofs_reject_truncation_trailing_bytes_and_wrong_pipeline() {
-        ext().execute_with(|| {
-            let bytes = signed(call(), 0, 0).encode();
-            for len in [0, 2, 40, 1992, bytes.len() - 1] {
-                assert!(UncheckedExtrinsic::decode(&mut &bytes[..len]).is_err());
-            }
-            let mut input = bytes.as_slice();
-            let prefix = codec::Compact::<u32>::decode(&mut input).unwrap();
-            let mut body = input.to_vec();
-            body[1] = 1;
-            let mut changed = prefix.encode();
-            changed.extend(body);
-            assert!(UncheckedExtrinsic::decode(&mut changed.as_slice()).is_err());
-            let mut trailing = bytes;
-            trailing.push(0);
-            assert!(
-                serde_json::from_value::<UncheckedExtrinsic>(serde_json::json!(format!(
-                    "0x{}",
-                    hex::encode(trailing)
-                )))
-                .is_err()
-            );
-        });
-    }
-}
-
 mod composable_accounts {
     use super::*;
     use sp_core::ed25519;
-    use subtensor_hashed::fips204::{
-        ml_dsa_65,
-        traits::{KeyGen, SerDes, Signer},
-    };
 
     pub(super) fn register(descriptor: Descriptor) -> AccountId {
         System::set_block_number(1);
@@ -1662,28 +1264,22 @@ mod composable_accounts {
             let account = register(descriptor);
             let call = call();
             let extra = extra(1);
-            let implication = (1u8, &call, &extra, extra.implicit().unwrap()).encode();
             let next_commitment =
                 subtensor_hashed::key_commitment(Scheme::Ed25519, &next.public().0);
-            let payload = subtensor_hashed::transaction_payload(
-                account.as_ref(),
-                Scheme::Ed25519,
-                0,
-                &next_commitment,
-                &implication,
-            );
-            let proof = Proof {
+            let address = subtensor_hashed::SignerAddress {
+                version: 1,
+                account: *account.as_ref(),
+                scheme: Scheme::Ed25519,
                 generation: 0,
-                public_key: key.public().0,
                 next_commitment,
-                signature: key.sign(&payload).0,
+                public_key: key.public().0,
             };
-            let xt = UncheckedExtrinsic::new_hashed(
+            let signature =
+                key.sign(&hashed_extrinsic::signing_hash(&address, &call, &extra).unwrap());
+            let xt = UncheckedExtrinsic::new_signed(
                 call,
-                AuthorizeAccount {
-                    account: account.clone(),
-                    proof,
-                },
+                Address::Raw(address.encode()),
+                Signature::Ed25519(signature),
                 extra,
             );
             frame_support::assert_ok!(Executive::apply_extrinsic(xt.clone()).unwrap());
@@ -1693,39 +1289,6 @@ mod composable_accounts {
             assert_eq!(System::account_nonce(&account), 2);
             assert!(Executive::apply_extrinsic(xt).is_err());
             assert_eq!(HashedAccounts::accounts(&account).unwrap(), record);
-        });
-    }
-
-    #[test]
-    fn standard_mldsa_keeps_key_and_advances_replay_sequence_even_on_dispatch_failure() {
-        ext().execute_with(|| {
-            let (public, private) = ml_dsa_65::KG::keygen_from_seed(&[53; 32]);
-            let public_key = public.into_bytes();
-            let commitment = subtensor_hashed::key_commitment(Scheme::MlDsa65, &public_key);
-            let descriptor = Descriptor { version: 2, scheme: Scheme::MlDsa65, initial_commitment: commitment };
-            let account = register(descriptor);
-            super::setup();
-            assert!(!hashed_auth::compatible_authority(&account, &super::account()));
-            for generation in 0u32..2 {
-                let call = if generation == 0 { call() } else { RuntimeCall::Balances(BalancesCall::transfer_keep_alive { dest: super::account().into(), value: TaoBalance::new(u64::MAX) }) };
-                let extra = extra(generation + 1);
-                let implication = (2u8, &call, &extra, extra.implicit().unwrap()).encode();
-                let payload = subtensor_hashed::transaction_payload(account.as_ref(), Scheme::MlDsa65, generation.into(), &commitment, &implication);
-                let proof = subtensor_hashed::MlDsaProof { generation: generation.into(), public_key, next_commitment: commitment,
-                    signature: private.try_sign_with_seed(&[0; 32], &payload, subtensor_hashed::MLDSA_TRANSACTION_CONTEXT).unwrap() };
-                let mut changed = proof.clone();
-                changed.next_commitment = [9; 32];
-                frame_support::assert_noop!(HashedAccounts::check_proof(&account, &changed, &implication), pallet_hashed_accounts::Error::<Runtime>::InvalidNextCommitment);
-                let xt = UncheckedExtrinsic::new_mldsa(call, hashed_auth::AuthorizeMlDsa { account: account.clone(), proof }, extra);
-                assert_eq!(Executive::apply_extrinsic(xt.clone()).unwrap().is_ok(), generation == 0);
-                let record = HashedAccounts::accounts(&account).unwrap();
-                assert_eq!(record.generation, <u64 as From<u32>>::from(generation) + 1);
-                assert_eq!(record.commitment, commitment);
-                assert_eq!(System::account_nonce(&account), generation + 2);
-                assert!(Executive::apply_extrinsic(xt).is_err());
-                assert_eq!(HashedAccounts::accounts(&account).unwrap(), record);
-            }
-            assert!(System::events().iter().any(|e| matches!(&e.event, RuntimeEvent::HashedAccounts(pallet_hashed_accounts::Event::Authorized { account: who, generation: 2 }) if who == &account)));
         });
     }
 }

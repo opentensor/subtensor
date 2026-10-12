@@ -485,10 +485,7 @@ mod tests {
 
     #[test]
     fn new_account_modes_roundtrip_and_reject_mislabeled_backups() {
-        for code in [
-            crate::keys::CRYPTO_HASHED_ED25519,
-            crate::keys::CRYPTO_MLDSA_STANDARD,
-        ] {
+        for code in [crate::keys::CRYPTO_HASHED_ED25519] {
             let key = Keypair::from_seed(&[37; 32], code).unwrap();
             for original in [key.public_only().unwrap(), key] {
                 let bytes = serialized_keypair_to_keyfile_data(&original).unwrap();
@@ -522,28 +519,6 @@ mod tests {
     fn test_mnemonic() -> String {
         "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
             .to_string()
-    }
-
-    #[test]
-    fn mldsa_keyfiles_preserve_identity_and_reject_scheme_substitution() {
-        let key =
-            Keypair::from_mnemonic(&test_mnemonic(), crate::keys::CRYPTO_MLDSA, None).unwrap();
-        for original in [key.public_only().unwrap(), key] {
-            let encoded = serialized_keypair_to_keyfile_data(&original).unwrap();
-            let restored = deserialize_keypair_from_keyfile_data(&encoded).unwrap();
-            assert_eq!(restored.crypto_type(), crate::keys::CRYPTO_MLDSA);
-            assert_eq!(
-                restored.hashed_descriptor().unwrap(),
-                original.hashed_descriptor().unwrap()
-            );
-            assert_eq!(restored.private_key_bytes(), original.private_key_bytes());
-            let mut changed: serde_json::Value = serde_json::from_slice(&encoded).unwrap();
-            changed["cryptoType"] = serde_json::json!(CRYPTO_HASHED);
-            assert!(
-                deserialize_keypair_from_keyfile_data(&serde_json::to_vec(&changed).unwrap())
-                    .is_err()
-            );
-        }
     }
 
     #[test]
@@ -632,7 +607,7 @@ mod tests {
     fn hashed_encrypted_original_backup_restores_after_later_rotations() {
         use codec::Decode;
         use sp_core::{sr25519, Pair};
-        use subtensor_hashed::{transaction_payload, Proof, Scheme};
+        use subtensor_hashed::Proof;
 
         let original = Keypair::from_mnemonic(
             &test_mnemonic(),
@@ -684,16 +659,17 @@ mod tests {
         assert_eq!(proof.generation, 9_001);
         assert_eq!(proof.public_key, public_key);
         assert_eq!(proof.next_commitment, next_commitment);
-        let payload = transaction_payload(
-            &account,
-            Scheme::Sr25519,
-            9_001,
-            &next_commitment,
-            implication,
-        );
         assert!(sr25519::Pair::verify(
             &sr25519::Signature::from_raw(proof.signature),
-            payload,
+            subtensor_hashed::SignerAddress {
+                version: 1,
+                scheme: subtensor_hashed::Scheme::Sr25519,
+                account,
+                generation: proof.generation,
+                public_key,
+                next_commitment,
+            }
+            .signing_hash(implication),
             &sr25519::Public::from_raw(public_key)
         ));
     }

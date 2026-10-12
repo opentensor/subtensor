@@ -26,9 +26,7 @@ from tests.harness.fake_substrate import FakeSubstrate
 from tests.harness.receiving import descriptor_receiving_address
 
 
-@pytest.fixture(
-    params=[0, 1, 4, 5, 6, 7], ids=["ed", "sr", "hashed", "ms", "hashed-ed", "standard-ms"]
-)
+@pytest.fixture(params=[0, 1, 4, 6], ids=["ed", "sr", "hashed", "hashed-ed"])
 def wallet_case(request, tmp_path, monkeypatch):
     for variable in ("BTCLI_CONFIG", "BTCLI_ADDRESSES_PATH"):
         monkeypatch.setenv(variable, str(tmp_path / variable))
@@ -120,7 +118,7 @@ def test_evm_commands_encode_all_wallet_types(wallet_case, command, reference):
 
 
 @pytest.mark.parametrize("command", COMMANDS)
-@pytest.mark.parametrize("wallet_case", [4, 5], indirect=True, ids=["hashed", "ms"])
+@pytest.mark.parametrize("wallet_case", [4, 6], indirect=True, ids=["hashed", "hashed-ed"])
 @pytest.mark.parametrize("failure", ["unfinalized", "mismatch", "rpc_override", "no_finality"])
 def test_protected_commands_fail_before_evm_submission(wallet_case, command, failure):
     wallet, substrate, captured, prefix = wallet_case
@@ -206,7 +204,7 @@ def test_generic_views_resolve_descriptor_addresses_without_registration(wallet_
     assert not substrate.query.call_args_list
 
 
-@pytest.mark.parametrize("wallet_case", [4, 5], indirect=True, ids=["hashed", "ms"])
+@pytest.mark.parametrize("wallet_case", [4, 6], indirect=True, ids=["hashed", "hashed-ed"])
 def test_generic_writes_require_registration_for_every_array_member(wallet_case):
     wallet, substrate, _, _ = wallet_case
     ctx = AppContext(
@@ -222,7 +220,7 @@ def test_generic_writes_require_registration_for_every_array_member(wallet_case)
         _native_arguments(ctx, fn, [json.dumps(addresses)], None)
 
 
-@pytest.mark.parametrize("wallet_case", [4, 5], indirect=True, ids=["hashed", "ms"])
+@pytest.mark.parametrize("wallet_case", [4, 6], indirect=True, ids=["hashed", "hashed-ed"])
 def test_generic_precompile_write_rejects_unregistered_recipient(wallet_case):
     wallet, substrate, captured, prefix = wallet_case
     address = receiving_address(wallet.coldkey)

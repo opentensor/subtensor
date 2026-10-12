@@ -25,7 +25,7 @@ from tests.harness.fake_substrate import FakeSubstrate, success_result
 from tests.harness.samples import ALICE, ALICE_HOT, BOB, BOB_HOT, dev_wallet
 
 
-@pytest.mark.parametrize("code", [4, 5, 6, 7])
+@pytest.mark.parametrize("code", [4, 6])
 @pytest.mark.asyncio
 async def test_sdk_multisig_normalizes_receiving_members(code):
     from bittensor.receiving import receiving_address

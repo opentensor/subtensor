@@ -96,7 +96,7 @@ mod tests {
     use subtensor_hashed::{account_id, Scheme, VERSION};
 
     use super::*;
-    use crate::keys::{CRYPTO_HASHED, CRYPTO_MLDSA, CRYPTO_SR25519, DEFAULT_SS58_FORMAT};
+    use crate::keys::{CRYPTO_HASHED, CRYPTO_SR25519, DEFAULT_SS58_FORMAT};
 
     fn descriptor() -> Vec<u8> {
         Descriptor {
@@ -152,12 +152,7 @@ mod tests {
 
     #[test]
     fn addresses_are_stable_across_networks_and_rotation() {
-        for crypto_type in [
-            CRYPTO_HASHED,
-            CRYPTO_MLDSA,
-            crate::keys::CRYPTO_HASHED_ED25519,
-            crate::keys::CRYPTO_MLDSA_STANDARD,
-        ] {
+        for crypto_type in [CRYPTO_HASHED, crate::keys::CRYPTO_HASHED_ED25519] {
             let key = Keypair::from_seed(&[17; 32], crypto_type).unwrap();
             let address = key.hashed_receiving_address().unwrap();
             assert_eq!(

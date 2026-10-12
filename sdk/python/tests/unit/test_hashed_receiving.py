@@ -641,7 +641,7 @@ async def test_reads_resolve_native_and_independently_encoded_addresses_on_clien
         )
 
 
-@pytest.mark.parametrize("code", [4, 5])
+@pytest.mark.parametrize("code", [4, 6])
 @pytest.mark.parametrize("independent", [False, True])
 async def test_cli_wallet_aggregations_resolve_receiving_addresses(code, independent):
     from bittensor.cli.helpers import wallet_balance_row, wallet_balance_rows, wallet_inspect_data
@@ -667,7 +667,7 @@ async def test_cli_wallet_aggregations_resolve_receiving_addresses(code, indepen
         assert row["free"].rao == 123456
 
 
-@pytest.mark.parametrize("code", [4, 5])
+@pytest.mark.parametrize("code", [4, 6])
 async def test_cli_registrations_match_local_descriptors_to_chain_accounts(code):
     from bittensor.cli.helpers import wallet_registration_rows
 
@@ -689,7 +689,7 @@ async def test_cli_registrations_match_local_descriptors_to_chain_accounts(code)
     ]
 
 
-@pytest.mark.parametrize("code", [4, 5])
+@pytest.mark.parametrize("code", [4, 6])
 async def test_cli_locked_balance_uses_account_for_query_and_response(code):
     from types import SimpleNamespace
 
@@ -752,13 +752,13 @@ async def test_wrapped_preflight_queries_the_internal_account(setup, monkeypatch
     assert seen == [key.ss58_address]
 
 
-@pytest.mark.parametrize("code", [0, 1, 4, 5])
+@pytest.mark.parametrize("code", [0, 1, 4, 6])
 def test_all_wallet_addresses_are_network_independent(code):
     key = Keypair.create_from_seed(bytes([39]) * 32, code)
     assert parse_recipient(receiving_address(key)).account == key.ss58_address
 
 
-@pytest.mark.parametrize("code", [4, 5])
+@pytest.mark.parametrize("code", [4, 6])
 @pytest.mark.parametrize("registered_here", [False, True])
 async def test_descriptor_address_uses_registration_on_selected_chain(code, registered_here):
     chain = FakeSubstrate()
@@ -784,7 +784,7 @@ async def test_live_admin_switch_is_not_cached_and_keeps_existing_evm_bindings()
 
     chain = FakeSubstrate()
     chain.seed_constant("HashedAccounts", "RegistrationDeposit", 100)
-    key = Keypair.create_from_seed(bytes([95]) * 32, 5)
+    key = Keypair.create_from_seed(bytes([95]) * 32, 6)
     alias = "0x" + bytes(ss58_decode(key.ss58_address))[:20].hex()
     chain.seed("HashedAccounts", "EvmAliases", [alias], key.ss58_address)
     chain.seed(

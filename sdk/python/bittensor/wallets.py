@@ -21,10 +21,7 @@ from .sp_core import (
     CRYPTO_ED25519,
     CRYPTO_HASHED,
     CRYPTO_HASHED_ED25519,
-    CRYPTO_MLDSA,
-    CRYPTO_MLDSA_STANDARD,
     CRYPTO_SR25519,
-    MLDSA_CRYPTO_TYPES,
     account_crypto_type,
 )
 from .sp_core import HASHED_CRYPTO_TYPES as HASHED_CRYPTO_TYPES
@@ -34,14 +31,10 @@ CRYPTO_TYPE_NAMES: dict[int, str] = {
     CRYPTO_ED25519: "ed25519",
     CRYPTO_SR25519: "sr25519",
     CRYPTO_HASHED: "hashed",
-    CRYPTO_MLDSA: "mldsa",
     CRYPTO_HASHED_ED25519: "hashed-ed25519",
-    CRYPTO_MLDSA_STANDARD: "mldsa-standard",
 }
 _NAME_TO_CRYPTO_TYPE: dict[str, int] = {name: code for code, name in CRYPTO_TYPE_NAMES.items()}
-_NAME_TO_CRYPTO_TYPE.update(
-    {"ed": CRYPTO_ED25519, "sr": CRYPTO_SR25519, "ms": CRYPTO_MLDSA, "ml-dsa": CRYPTO_MLDSA}
-)
+_NAME_TO_CRYPTO_TYPE.update({"ed": CRYPTO_ED25519, "sr": CRYPTO_SR25519})
 DEFAULT_CRYPTO_TYPE = CRYPTO_SR25519
 
 
@@ -71,11 +64,7 @@ def parse_crypto_type(value: str, account_type: str | None = None) -> int:
 
 
 def account_type_name(crypto_type: int | None) -> str:
-    return (
-        "hashed"
-        if crypto_type in (CRYPTO_HASHED, CRYPTO_HASHED_ED25519, CRYPTO_MLDSA)
-        else "standard"
-    )
+    return "hashed" if crypto_type in (CRYPTO_HASHED, CRYPTO_HASHED_ED25519) else "standard"
 
 
 def signing_scheme_name(crypto_type: int | None) -> str:
@@ -83,8 +72,6 @@ def signing_scheme_name(crypto_type: int | None) -> str:
         return "sr25519"
     if crypto_type in (CRYPTO_HASHED_ED25519, CRYPTO_ED25519):
         return "ed25519"
-    if crypto_type in MLDSA_CRYPTO_TYPES:
-        return "mldsa"
     return format_crypto_type(crypto_type)
 
 

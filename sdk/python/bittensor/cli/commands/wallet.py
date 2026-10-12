@@ -78,12 +78,12 @@ keychain_app = typer.Typer(
 )
 
 _CRYPTO_TYPE_HELP = (
-    "Signing scheme: sr/sr25519 (default), ed/ed25519, or ms/mldsa (ML-DSA-65). "
+    "Signing scheme: sr/sr25519 (default) or ed/ed25519. "
     "Select --type hashed to add rotation. Legacy --crypto-type hashed remains supported."
 )
 _ACCOUNT_TYPE_HELP = (
     "Account mode: standard (fixed signing key) or hashed (rotating keys). "
-    "New wallets default to standard. For ML-DSA recovery, specify the original mode."
+    "New wallets default to standard; restore using the original mode."
 )
 
 _SEED_HELP = (
@@ -92,7 +92,7 @@ _SEED_HELP = (
 )
 
 _PRIVATE_KEY_HELP = (
-    "Hex privateKey from a decrypted keyfile: 32 bytes for ed/hashed/ms, "
+    "Hex privateKey from a decrypted keyfile: 32 bytes for ed/hashed, "
     "64 bytes for sr (legacy 64-byte ed keys also accepted), optional 0x prefix. "
     "Select the original --crypto-type. This is not generally the same as --seed: "
     "the first 32 bytes of an sr25519 private key are not a usable seed. Avoid "
@@ -286,14 +286,6 @@ def _resolve_crypto_type(
                     "--type selects standard or hashed; put the signing scheme in --crypto-type"
                 )
             value, account_type = account_type, None
-        if account_type is None and value.strip().lower() in ("ms", "mldsa", "ml-dsa"):
-            if recovering:
-                raise ValueError(
-                    "ML-DSA recovery requires --type standard or --type hashed matching "
-                    "the original wallet; earlier ms wallets used hashed mode."
-                )
-            if creating:
-                account_type = "standard"
         return wallets.parse_crypto_type(value, account_type)
     except ValueError as error:
         app_ctx.output.error(str(error))
@@ -346,9 +338,7 @@ def _report_unlock_error(app_ctx: AppContext, error: BaseException) -> None:
 @with_globals
 def create(
     ctx: typer.Context,
-    n_words: Optional[int] = typer.Option(
-        None, "--n-words", help=_N_WORDS_HELP + " Default: 24 for ML-DSA, 12 for other schemes."
-    ),
+    n_words: Optional[int] = typer.Option(None, "--n-words", help=_N_WORDS_HELP + " Default: 12."),
     no_password: bool = typer.Option(False, "--no-password", help=_NO_PASSWORD_HELP),
     overwrite: bool = typer.Option(False, "--overwrite", help=_OVERWRITE_HELP),
     crypto_type: str = typer.Option("sr25519", "--crypto-type", help=_CRYPTO_TYPE_HELP),
@@ -437,9 +427,7 @@ def create(
 @with_globals
 def new_coldkey(
     ctx: typer.Context,
-    n_words: Optional[int] = typer.Option(
-        None, "--n-words", help=_N_WORDS_HELP + " Default: 24 for ML-DSA, 12 for other schemes."
-    ),
+    n_words: Optional[int] = typer.Option(None, "--n-words", help=_N_WORDS_HELP + " Default: 12."),
     no_password: bool = typer.Option(False, "--no-password", help=_NO_PASSWORD_HELP),
     overwrite: bool = typer.Option(False, "--overwrite", help=_OVERWRITE_HELP),
     crypto_type: str = typer.Option("sr25519", "--crypto-type", help=_CRYPTO_TYPE_HELP),
@@ -489,9 +477,7 @@ def new_coldkey(
 @with_globals
 def new_hotkey(
     ctx: typer.Context,
-    n_words: Optional[int] = typer.Option(
-        None, "--n-words", help=_N_WORDS_HELP + " Default: 24 for ML-DSA, 12 for other schemes."
-    ),
+    n_words: Optional[int] = typer.Option(None, "--n-words", help=_N_WORDS_HELP + " Default: 12."),
     overwrite: bool = typer.Option(False, "--overwrite", help=_OVERWRITE_HELP),
     crypto_type: str = typer.Option("sr25519", "--crypto-type", help=_CRYPTO_TYPE_HELP),
     account_type: Optional[str] = typer.Option(None, "--type", help=_ACCOUNT_TYPE_HELP),
@@ -872,8 +858,7 @@ def verify(
         if (
             crypto_type is not None
             and account_type is None
-            and crypto_type.strip().lower()
-            in ("sr", "sr25519", "ed", "ed25519", "ms", "mldsa", "ml-dsa")
+            and crypto_type.strip().lower() in ("sr", "sr25519", "ed", "ed25519")
         ):
             # A receiving address commits to its mode. Bare addresses instead
             # use the creation default; legacy rotating accounts require --type.

@@ -272,7 +272,7 @@ def verify(
     ``expected_crypto_type`` must come from trusted configuration or a registry
     lookup for the claimed sender, never from the request's crypto header. Bare
     SS58 identities do not encode a scheme; accepting the header alone would
-    allow classical signatures to impersonate an ML-DSA identity.
+    allow classical signatures to impersonate a hashed identity.
     """
     lowered = {key.lower(): value for key, value in headers.items()}
 

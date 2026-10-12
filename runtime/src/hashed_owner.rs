@@ -34,15 +34,11 @@ mod tests {
                 AccountId::new([1; 32]),
                 AccountId::new([2; 32]),
                 AccountId::new([3; 32]),
-                AccountId::new([4; 32]),
-                AccountId::new([5; 32]),
             ];
-            for (account, (version, scheme)) in accounts[1..].iter().zip([
-                (1, Scheme::Sr25519),
-                (1, Scheme::MlDsa65),
-                (1, Scheme::Ed25519),
-                (2, Scheme::MlDsa65),
-            ]) {
+            for (account, (version, scheme)) in accounts[1..]
+                .iter()
+                .zip([(1, Scheme::Sr25519), (1, Scheme::Ed25519)])
+            {
                 pallet_hashed_accounts::Accounts::<Runtime>::insert(
                     account,
                     pallet_hashed_accounts::AccountRecord {
@@ -56,13 +52,11 @@ mod tests {
                     },
                 );
             }
-            for (real, allowed) in accounts.iter().zip([
-                [true, true, true, true, true],
-                [false, true, true, true, true],
-                [false, false, true, false, true],
-                [false, true, true, true, true],
-                [false, false, true, false, true],
-            ]) {
+            for (real, allowed) in
+                accounts
+                    .iter()
+                    .zip([[true, true, true], [false, true, true], [false, true, true]])
+            {
                 for (authority, expected) in accounts.iter().zip(allowed) {
                     assert_eq!(
                         HashedHotkeyOwnerPolicy::allows_owner(authority, real),

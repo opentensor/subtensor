@@ -1,34 +1,33 @@
-//! Rotating authorization establishes the usual Signed origin before ordinary
-//! nonce, fee and dispatch checks. The wire adapter rolls preparation back on
-//! invalid transactions; included dispatch failures still consume a generation.
-
+//! Standard v4 signatures authenticate the rotating key; this wire-transparent
+//! adapter applies nonce, fee and call policy to its permanent account.
+use crate::{AccountId, Runtime, RuntimeCall, RuntimeOrigin, TxExtension};
+use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode};
-use frame_support::{dispatch::DispatchResult, ensure, weights::Weight};
+use frame_support::{
+    dispatch::{DispatchResult, PostDispatchInfo},
+    ensure,
+    weights::Weight,
+};
 use pallet_hashed_accounts::weights::WeightInfo;
 use scale_info::TypeInfo;
 use sp_runtime::{
     DispatchError,
-    traits::{DispatchInfoOf, Implication, StaticLookup, TransactionExtension, ValidateResult},
+    traits::{
+        DispatchInfoOf, Implication, StaticLookup, TransactionExtension,
+        TransactionExtensionMetadata, ValidateResult,
+    },
     transaction_validity::{
-        InvalidTransaction, TransactionSource, TransactionValidityError, ValidTransaction,
+        InvalidTransaction, TransactionSource, TransactionValidity, TransactionValidityError,
     },
 };
 
-use crate::{AccountId, Runtime, RuntimeCall, RuntimeOrigin};
-
 #[cfg(test)]
-frame_support::parameter_types! {
-    pub static TestVerificationWeight: Weight = Weight::MAX;
-}
-
+frame_support::parameter_types! { pub static TestVerificationWeight: Weight = Weight::MAX; }
 #[cfg(test)]
 pub struct TestWeights;
 #[cfg(test)]
 impl WeightInfo for TestWeights {
     fn authorize_ed25519(_: u32) -> Weight {
-        TestVerificationWeight::get()
-    }
-    fn authorize_mldsa(_: u32) -> Weight {
         TestVerificationWeight::get()
     }
     fn check_registered() -> Weight {
@@ -42,69 +41,168 @@ impl WeightInfo for TestWeights {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
-pub struct AuthorizeAccount<const P: usize = 32, const S: usize = 64> {
-    pub account: AccountId,
-    pub proof: subtensor_hashed::AuthorizationProof<P, S>,
+/// SCALE-transparent: the signed extension fields and metadata are unchanged.
+#[derive(Clone, Debug, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking)]
+pub struct AccountTxExtension(
+    pub TxExtension,
+    #[codec(skip)] pub(crate) Option<subtensor_hashed::SignerAddress>,
+);
+impl TypeInfo for AccountTxExtension {
+    type Identity = Self;
+    fn type_info() -> scale_info::Type {
+        TxExtension::<false>::type_info()
+    }
+}
+impl From<TxExtension> for AccountTxExtension {
+    fn from(value: TxExtension) -> Self {
+        Self(value, None)
+    }
+}
+fn authorized_extension(extension: TxExtension) -> TxExtension<true> {
+    let (system, (payment, sudo, shield, subtensor, drand), metadata) = extension;
+    (
+        system,
+        (
+            payment.with_account_authorization(),
+            sudo,
+            shield,
+            subtensor,
+            drand,
+        ),
+        metadata,
+    )
 }
 
-pub type AuthorizeMlDsa = AuthorizeAccount<1952, 3309>;
+impl TransactionExtension<RuntimeCall> for AccountTxExtension {
+    const IDENTIFIER: &'static str = "AccountTxExtension";
+    type Implicit = <TxExtension as TransactionExtension<RuntimeCall>>::Implicit;
+    type Val = (
+        <TxExtension as TransactionExtension<RuntimeCall>>::Val,
+        Option<pallet_hashed_accounts::ValidatedProof>,
+    );
+    type Pre = <TxExtension as TransactionExtension<RuntimeCall>>::Pre;
 
-impl<const P: usize, const S: usize> TransactionExtension<RuntimeCall> for AuthorizeAccount<P, S> {
-    const IDENTIFIER: &'static str = if P == 32 {
-        "AuthorizeHashedAccount"
-    } else {
-        "AuthorizeMlDsaAccount"
-    };
-    type Implicit = ();
-    type Val = pallet_hashed_accounts::ValidatedProof;
-    type Pre = ();
-
+    fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
+        self.0.implicit()
+    }
+    fn metadata() -> Vec<TransactionExtensionMetadata> {
+        TxExtension::<false>::metadata()
+    }
     fn weight(&self, call: &RuntimeCall) -> Weight {
-        let len = u32::try_from(call.encoded_size()).unwrap_or(u32::MAX);
-        if P == 32 && S == 64 {
-            <Runtime as pallet_hashed_accounts::Config>::WeightInfo::authorize(len).max(
-                <Runtime as pallet_hashed_accounts::Config>::WeightInfo::authorize_ed25519(len),
-            )
-        } else if P == 1952 && S == 3309 {
-            <Runtime as pallet_hashed_accounts::Config>::WeightInfo::authorize_mldsa(len)
+        if let Some(address) = &self.1 {
+            let len = u32::try_from(call.encoded_size()).unwrap_or(u32::MAX);
+            let auth = match address.scheme {
+                subtensor_hashed::Scheme::Sr25519 => {
+                    <Runtime as pallet_hashed_accounts::Config>::WeightInfo::authorize(len)
+                }
+                subtensor_hashed::Scheme::Ed25519 => {
+                    <Runtime as pallet_hashed_accounts::Config>::WeightInfo::authorize_ed25519(len)
+                }
+            };
+            self.0.weight(call).saturating_add(auth)
         } else {
-            Weight::MAX
+            // Preserve Frontier's ordinary signed-v4 fee policy.
+            <Runtime as frame_system::Config>::DbWeight::get().reads(1)
         }
     }
-
     fn validate(
         &self,
         origin: RuntimeOrigin,
-        _: &RuntimeCall,
-        _: &DispatchInfoOf<RuntimeCall>,
-        _: usize,
-        _: (),
+        call: &RuntimeCall,
+        info: &DispatchInfoOf<RuntimeCall>,
+        len: usize,
+        implicit: Self::Implicit,
         implication: &impl Implication,
-        _: TransactionSource,
+        source: TransactionSource,
     ) -> ValidateResult<Self::Val, RuntimeCall> {
-        frame_system::ensure_none(origin).map_err(|_| InvalidTransaction::BadSigner)?;
-        let ticket =
-            crate::HashedAccounts::check_proof(&self.account, &self.proof, &implication.encode())
-                .map_err(|_| InvalidTransaction::BadProof)?;
-        let valid = ValidTransaction {
-            provides: alloc::vec![
-                (b"hashed-generation", &self.account, self.proof.generation).encode()
-            ],
-            ..Default::default()
-        };
-        Ok((valid, ticket, RuntimeOrigin::signed(self.account.clone())))
+        if let Some(address) = &self.1 {
+            let account = AccountId::new(address.account);
+            ensure!(
+                frame_system::ensure_signed(origin.clone()).ok().as_ref() == Some(&account),
+                InvalidTransaction::BadSigner
+            );
+            let ticket = crate::HashedAccounts::check_authorization(
+                &account,
+                address.scheme,
+                &address.public_key,
+                address.generation,
+                address.next_commitment,
+            )
+            .map_err(|_| InvalidTransaction::BadProof)?;
+            let (mut valid, val, origin) = authorized_extension(self.0.clone()).validate(
+                origin,
+                call,
+                info,
+                len,
+                implicit,
+                implication,
+                source,
+            )?;
+            ensure!(
+                frame_system::ensure_signed(origin.clone()).ok().as_ref() == Some(&account),
+                InvalidTransaction::BadSigner
+            );
+            valid
+                .provides
+                .push((b"hashed-generation", &account, address.generation).encode());
+            Ok((valid, (val, Some(ticket)), origin))
+        } else {
+            if let Ok(signer) = frame_system::ensure_signed(origin.clone()) {
+                ensure!(
+                    !crate::HashedAccounts::is_registered(&signer),
+                    InvalidTransaction::BadSigner
+                );
+            }
+            self.0
+                .validate(origin, call, info, len, implicit, implication, source)
+                .map(|(valid, val, origin)| (valid, (val, None), origin))
+        }
     }
-
     fn prepare(
         self,
-        ticket: Self::Val,
-        _: &RuntimeOrigin,
-        _: &RuntimeCall,
-        _: &DispatchInfoOf<RuntimeCall>,
-        _: usize,
+        (val, ticket): Self::Val,
+        origin: &RuntimeOrigin,
+        call: &RuntimeCall,
+        info: &DispatchInfoOf<RuntimeCall>,
+        len: usize,
+    ) -> Result<Self::Pre, TransactionValidityError> {
+        if let Some(ticket) = ticket {
+            crate::HashedAccounts::advance(&ticket).map_err(|_| InvalidTransaction::Stale)?;
+            authorized_extension(self.0).prepare(val, origin, call, info, len)
+        } else {
+            self.0.prepare(val, origin, call, info, len)
+        }
+    }
+    fn post_dispatch(
+        pre: Self::Pre,
+        info: &DispatchInfoOf<RuntimeCall>,
+        post: &mut PostDispatchInfo,
+        len: usize,
+        result: &DispatchResult,
     ) -> Result<(), TransactionValidityError> {
-        crate::HashedAccounts::advance(&ticket).map_err(|_| InvalidTransaction::Stale.into())
+        TxExtension::<false>::post_dispatch(pre, info, post, len, result)
+    }
+    fn bare_validate(
+        call: &RuntimeCall,
+        info: &DispatchInfoOf<RuntimeCall>,
+        len: usize,
+    ) -> TransactionValidity {
+        TxExtension::<false>::bare_validate(call, info, len)
+    }
+    fn bare_validate_and_prepare(
+        call: &RuntimeCall,
+        info: &DispatchInfoOf<RuntimeCall>,
+        len: usize,
+    ) -> Result<(), TransactionValidityError> {
+        TxExtension::<false>::bare_validate_and_prepare(call, info, len)
+    }
+    fn bare_post_dispatch(
+        info: &DispatchInfoOf<RuntimeCall>,
+        post: &mut PostDispatchInfo,
+        len: usize,
+        result: &DispatchResult,
+    ) -> Result<(), TransactionValidityError> {
+        TxExtension::<false>::bare_post_dispatch(info, post, len, result)
     }
 }
 
@@ -125,30 +223,21 @@ impl pallet_hashed_accounts::OnRegister for OnHashedRegistered {
         let mut bytes = encoded.as_slice();
         let outer = crate::UncheckedExtrinsic::decode(&mut bytes).map_err(|_| invalid)?;
         ensure!(bytes.is_empty(), invalid);
-        let (outer_account, call) = match outer {
-            crate::UncheckedExtrinsic::Legacy(outer) => {
-                let Preamble::Signed(address, _, _) = outer.0.preamble else {
-                    return Err(invalid);
-                };
-                (
-                    <Runtime as frame_system::Config>::Lookup::lookup(address)
-                        .map_err(|_| invalid)?,
-                    outer.0.function,
-                )
-            }
-            crate::UncheckedExtrinsic::Hashed(outer) => {
-                let Preamble::General(1, (authorization, _)) = outer.0.preamble else {
-                    return Err(invalid);
-                };
-                (authorization.account, outer.0.function)
-            }
-            crate::UncheckedExtrinsic::MlDsa(outer) => {
-                let Preamble::General(2, (authorization, _)) = outer.0.preamble else {
-                    return Err(invalid);
-                };
-                (authorization.account, outer.0.function)
+        let crate::UncheckedExtrinsic::Legacy(outer) = outer;
+        let Preamble::Signed(address, _, _) = outer.0.preamble else {
+            return Err(invalid);
+        };
+        let outer_account = match address {
+            crate::Address::Raw(bytes) => AccountId::new(
+                subtensor_hashed::SignerAddress::from_bytes(&bytes)
+                    .map_err(|_| invalid)?
+                    .account,
+            ),
+            address => {
+                <Runtime as frame_system::Config>::Lookup::lookup(address).map_err(|_| invalid)?
             }
         };
+        let call = outer.0.function;
         ensure!(&outer_account == sponsor, invalid);
         let matches_registration = |call: &RuntimeCall| {
             matches!(call,
@@ -224,7 +313,7 @@ impl pallet_hashed_accounts::OnRegister for OnHashedRegistered {
                 }),
             ],
         });
-        let extension = crate::TxExtension::decode(&mut &[0u8; 64][..])
+        let extension = crate::TxExtension::<false>::decode(&mut &[0u8; 64][..])
             .map_err(|_| DispatchError::Other("HashedBenchmarkExtension"))?;
         let xt = crate::UncheckedExtrinsic::new_signed(
             call,
@@ -238,25 +327,15 @@ impl pallet_hashed_accounts::OnRegister for OnHashedRegistered {
     }
 }
 
-/// Every alternative authority must preserve the protected account's scheme.
-/// ML-DSA can control every protected scheme; classical schemes cannot control
-/// ML-DSA, in either account mode. Ordinary accounts retain their existing ownership/proxy behavior.
+/// Alternative authorities must also use committed, rotating keys.
+/// Ordinary accounts retain their existing ownership and proxy behavior.
 pub(crate) fn compatible_authority(account: &AccountId, authority: &AccountId) -> bool {
-    pallet_hashed_accounts::Accounts::<Runtime>::get(account)
-        .is_none_or(|record| authority_satisfies_scheme(record.descriptor.scheme, authority))
+    !crate::HashedAccounts::is_registered(account)
+        || crate::HashedAccounts::is_registered(authority)
 }
 
-fn authority_satisfies_scheme(required: subtensor_hashed::Scheme, authority: &AccountId) -> bool {
-    use subtensor_hashed::Scheme;
-    pallet_hashed_accounts::Accounts::<Runtime>::get(authority).is_some_and(|record| {
-        matches!(
-            (required, record.descriptor.scheme),
-            (
-                Scheme::Sr25519 | Scheme::Ed25519,
-                Scheme::Sr25519 | Scheme::Ed25519 | Scheme::MlDsa65
-            ) | (Scheme::MlDsa65, Scheme::MlDsa65)
-        )
-    })
+fn authority_satisfies_scheme(_: subtensor_hashed::Scheme, authority: &AccountId) -> bool {
+    crate::HashedAccounts::is_registered(authority)
 }
 
 /// Prevent weaker delegates from bypassing a protected account's policy.

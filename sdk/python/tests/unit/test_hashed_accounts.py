@@ -51,8 +51,12 @@ class _Codec:
         assert (pallet, name) == ("HashedAccounts", "Enabled")
         return self.enabled
 
+    @staticmethod
+    def call_data(call):
+        return bytes(call)
+
     def signature_payload_parts(self, call, *, nonce, **kwargs):
-        return call, nonce.to_bytes(4, "little"), b"runtime-genesis-era"
+        return bytes(call), nonce.to_bytes(4, "little"), b"runtime-genesis-era"
 
     def encode_signed_extrinsic(
         self, call, *, public_key, signature, signature_version, nonce, **kw
@@ -158,17 +162,17 @@ class _LifecycleRpc:
             b"bittensor/hashed/v1/key\x01\x01" + proof[8:40], digest_size=32
         ).hexdigest()
         assert "0x" + commitment == self.state["commitment"]
-        implication = b"\x01" + call + encoded_nonce + b"runtime-genesis-era"
-        transcript = (
+        address = self.account + b"\x01\x01" + proof[:72]
+        payload = blake2b(
             b"bittensor/hashed/v1/transaction"
-            + self.account
-            + b"\x01"
-            + proof[:8]
-            + proof[40:72]
-            + blake2b(implication, digest_size=32).digest()
-        )
+            + address
+            + call
+            + encoded_nonce
+            + b"runtime-genesis-era",
+            digest_size=32,
+        ).digest()
         verifier = Keypair(public_key=proof[8:40], crypto_type=CRYPTO_SR25519)
-        assert verifier.verify(blake2b(transcript, digest_size=32).digest(), proof[72:])
+        assert verifier.verify(payload, proof[72:])
 
     def include(self):
         assert self.pending is not None
@@ -239,16 +243,11 @@ def _assert_proof(codec, key, generation, nonce, call):
     signer = key.at_generation(generation)
     assert proof[8:40] == bytes(signer.hashed_public_key)
     assert proof[40:72] == bytes(signer.hashed_next_commitment)
-    implication = b"\x01" + call + nonce.to_bytes(4, "little") + b"runtime-genesis-era"
-    transcript = (
-        b"bittensor/hashed/v1/transaction"
-        + bytes(key.public_key)
-        + b"\x01"
-        + generation.to_bytes(8, "little")
-        + proof[40:72]
-        + blake2b(implication, digest_size=32).digest()
-    )
-    payload = blake2b(transcript, digest_size=32).digest()
+    address = bytes(key.public_key) + b"\x01\x01" + proof[:72]
+    _, extra, additional = codec.signature_payload_parts(call, nonce=nonce)
+    payload = blake2b(
+        b"bittensor/hashed/v1/transaction" + address + call + extra + additional, digest_size=32
+    ).digest()
     verifier = Keypair(public_key=proof[8:40], crypto_type=CRYPTO_SR25519)
     assert verifier.verify(payload, proof[72:])
     assert not verifier.verify(bytes(32), proof[72:])

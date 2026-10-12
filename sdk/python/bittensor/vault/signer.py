@@ -76,7 +76,7 @@ class VaultSigner:
         if crypto_type not in (CRYPTO_ED25519, CRYPTO_SR25519):
             raise VaultError(
                 "Polkadot Vault signing supports standard sr25519/ed25519 accounts only; "
-                "use the local wallet signer for hashed or ML-DSA accounts. "
+                "use the local wallet signer for hashed accounts. "
                 "A standard Vault account can still co-sign their multisig."
             )
         self._address = ss58_address

@@ -99,7 +99,7 @@ def test_sync_sdk_exposes_the_same_public_miner():
     assert intent.work_block == 2
 
 
-@pytest.mark.parametrize("crypto_type", [4, 5])
+@pytest.mark.parametrize("crypto_type", [4, 6])
 async def test_miner_resolves_receiving_addresses_but_preserves_hotkey_descriptor(crypto_type):
     from bittensor.receiving import receiving_address
     from bittensor.sp_core import Keypair

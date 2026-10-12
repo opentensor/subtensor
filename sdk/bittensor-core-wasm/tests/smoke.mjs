@@ -47,14 +47,13 @@ const walletAddresses = {
   0: "5HL1qmGT6jk7NutneSqdfmajWzJdH186xueHohK25tMNNKWT",
   1: "5F4STBxfzhAyYMF4AMtkSMm4K8ZR3mEqEuAKKxVy2uRLEbxV",
   4: "5EQ5nerrr7w3CnZnE855GbJxGxikddoFZq8bRMUe62EpnhmB",
-  5: "5DVLtTNPrbWtEQRPtq6VKQSDQZ79JsaSHFDiqmXeN3hgNiiQ",
 };
 for (const scheme of [core.CryptoType.Ed25519, core.CryptoType.Sr25519,
-                      core.CryptoType.Hashed, core.CryptoType.MlDsa]) {
+                      core.CryptoType.Hashed]) {
   const key = core.Keypair.fromSeed(new Uint8Array(32).fill(29), scheme);
   assert.equal(key.cryptoType, scheme);
   assert.equal(key.ss58Address, walletAddresses[scheme]);
-  const rotating = scheme === core.CryptoType.Hashed || scheme === core.CryptoType.MlDsa;
+  const rotating = scheme === core.CryptoType.Hashed;
   const signer = rotating ? key.atGeneration(1n) : key;
   const signed = signer.sign(message);
   assert.equal(key.verify(message, signed), true);
@@ -70,26 +69,26 @@ for (const scheme of [core.CryptoType.Ed25519, core.CryptoType.Sr25519,
                  key.hashedReceivingAddress(new Uint8Array(32)));
     assert.equal(key.hashedReceivingAddress(new Uint8Array(32).fill(9)),
                  key.hashedReceivingAddress());
-    assert.equal(signer.signHashed(message).length, scheme === core.CryptoType.Hashed ? 136 : 5301);
+    assert.equal(signer.signHashed(message).length, 136);
     assert.notDeepEqual(signer.hashedCurrentCommitment, key.hashedCurrentCommitment);
   }
 }
 
-// Account mode composes with all three signature schemes.
-for (const scheme of [core.CryptoType.Ed25519, core.CryptoType.Sr25519, core.CryptoType.MlDsa]) {
+// Account mode composes with both signature schemes.
+for (const scheme of [core.CryptoType.Ed25519, core.CryptoType.Sr25519]) {
   for (const mode of ["standard", "hashed"]) {
     const key = core.Keypair.fromSeed(new Uint8Array(32).fill(29), scheme, mode);
     assert.equal(key.accountType, mode);
     const phrase = "bottom drive obey lake curtain smoke basket hold race lonely fit walk";
     const mnemonic = core.Keypair.fromMnemonic(phrase, scheme, undefined, mode);
     assert.equal(mnemonic.accountType, mode);
-    const registered = mode === "hashed" || scheme === core.CryptoType.MlDsa;
+    const registered = mode === "hashed";
     const signer = registered ? key.atGeneration(12n) : key;
     const signature = signer.sign(message);
     assert.equal(key.verify(message, signature), true);
     assert.equal(key.verify(new Uint8Array([99]), signature), false);
     if (registered) {
-      assert.equal(signer.signHashed(message).length, scheme === core.CryptoType.MlDsa ? 5301 : 136);
+      assert.equal(signer.signHashed(message).length, 136);
       assert.equal(signer.ss58Address, key.ss58Address);
       assert.equal(core.Keypair.fromHashedDescriptor(key.hashedDescriptor).cryptoType, key.cryptoType);
       if (mode === "hashed") {

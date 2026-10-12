@@ -28,7 +28,7 @@ import inspect
 from hashlib import blake2b
 from typing import Any, Optional
 
-from ..sp_core import HASHED_CRYPTO_TYPES, MLDSA_CRYPTO_TYPES
+from ..sp_core import HASHED_CRYPTO_TYPES
 from .codec import RuntimeCodec
 from .contract import SignedExtrinsic, SigningContext, UnsignedExtrinsic
 from .errors import SubstrateRequestException
@@ -55,7 +55,9 @@ HASHED_PROOF_LENGTH = 136
 
 
 def hashed_proof_length(crypto_type: int) -> int:
-    return 5301 if crypto_type in MLDSA_CRYPTO_TYPES else HASHED_PROOF_LENGTH
+    if crypto_type not in HASHED_CRYPTO_TYPES:
+        raise ValueError("unsupported hashed signing scheme")
+    return HASHED_PROOF_LENGTH
 
 
 class NonceCache:
@@ -355,33 +357,24 @@ def create_hashed_extrinsic(
     era_block_hash: str,
     proof: Optional[bytes | str] = None,
 ) -> SignedExtrinsic:
-    """Frame the v5 authorization after the facade has synchronized the key.
-
-    The native key wrapper binds the account, scheme, generation and next key
-    commitment to the complete extension implication. Never use the v4
-    convention that prehashes payloads longer than 256 bytes here.
-    """
+    """Sign a direct v4 call with rotation data in its standard raw signer address."""
     account = bytes(keypair.public_key)
     if len(account) != 32:
         raise ValueError("hashed account IDs must contain exactly 32 bytes")
-    call_data, extra, implicit = codec.signature_payload_parts(
-        call,
-        era=era,
-        nonce=nonce,
-        tip=tip,
-        tip_asset_id=tip_asset_id,
-        genesis_hash=genesis_hash,
-        era_block_hash=era_block_hash,
-    )
+    call_data = codec.call_data(call)
     if proof is None:
-        proof = bytes(
-            keypair.sign_hashed(
-                bytes((2 if keypair.crypto_type in MLDSA_CRYPTO_TYPES else 1,))
-                + call_data
-                + extra
-                + implicit
-            )
+        _, extra, additional = codec.signature_payload_parts(
+            call_data,
+            era=era,
+            nonce=nonce,
+            tip=tip,
+            tip_asset_id=tip_asset_id,
+            genesis_hash=genesis_hash,
+            era_block_hash=era_block_hash,
         )
+        # The native signer binds its entire address and the full payload before
+        # hashing. Never apply the ordinary 256-byte shortcut first.
+        proof = bytes(keypair.sign_hashed(call_data + extra + additional))
     elif isinstance(proof, str):
         proof = bytes.fromhex(proof.removeprefix("0x"))
     if len(proof) != hashed_proof_length(keypair.crypto_type):

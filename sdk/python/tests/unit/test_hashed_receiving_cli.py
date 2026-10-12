@@ -273,7 +273,7 @@ def test_hashed_public_restore_rejects_incomplete_address(wallet_path):
     assert not (wallet_path / "recipient").exists()
 
 
-@pytest.mark.parametrize("scheme", ["sr", "ed", "hashed", "ms"])
+@pytest.mark.parametrize("scheme", ["sr", "ed", "hashed", "hashed-ed25519"])
 def test_wallet_creation_and_listing_need_no_network(wallet_path, monkeypatch, scheme):
     monkeypatch.setattr(AppContext, "run", lambda *_: pytest.fail("unexpected network access"))
     result = _invoke("--network", "test", "wallet", "create", "--type", scheme, "--no-password")
@@ -304,7 +304,7 @@ def test_legacy_creation_and_contact_outputs_keep_ss58(wallet_path):
     assert wallet.coldkeypub.crypto_type == CRYPTO_SR25519
 
 
-@pytest.mark.parametrize("scheme,code", [("hashed", 4), ("ms", 5)])
+@pytest.mark.parametrize("scheme,code", [("hashed", 4), ("hashed-ed25519", 6)])
 def test_named_protected_multisig_signatories_and_saved_presets(wallet_path, scheme, code):
     from bittensor._transport.codec import multisig_account
     from bittensor.cli import multisig_helpers
@@ -367,7 +367,7 @@ def test_multisig_receiving_identity_accepts_descriptor_address(wallet_path, con
         assert ctx._saved_multisig_address("team") == multisig_account(expected, 2).ss58_address
 
 
-@pytest.mark.parametrize("code", [4, 5])
+@pytest.mark.parametrize("code", [4, 6])
 def test_cli_multisig_add_and_show_with_named_protected_member(wallet_path, monkeypatch, code):
     from bittensor._transport.codec import multisig_account
     from tests.harness.samples import BOB
@@ -391,7 +391,7 @@ def test_cli_multisig_add_and_show_with_named_protected_member(wallet_path, monk
     assert json.loads(shown.output)["multisig_address"] == expected
 
 
-@pytest.mark.parametrize("code", [4, 5])
+@pytest.mark.parametrize("code", [4, 6])
 @pytest.mark.parametrize("independent", [False, True])
 def test_cli_evm_associate_uses_protected_account_identity(
     wallet_path, monkeypatch, code, independent
@@ -448,7 +448,7 @@ def test_cli_evm_associate_rejects_malformed_address_before_unlock(wallet_path, 
     assert "61 characters" in result.output
 
 
-@pytest.mark.parametrize("crypto_type", [4, 5, 6, 7])
+@pytest.mark.parametrize("crypto_type", [4, 6])
 @pytest.mark.parametrize("selector", ["receiving", "local", "canonical"])
 def test_explicit_root_claim_matches_receiving_identity(
     wallet_path, monkeypatch, crypto_type, selector

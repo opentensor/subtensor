@@ -7,10 +7,6 @@ use frame_support::{
 };
 use pallet_evm::{AddressMapping, FeeCalculator, runner::Runner};
 use sp_core::{H160, U256, ed25519};
-use subtensor_hashed::fips204::{
-    ml_dsa_65,
-    traits::{KeyGen, SerDes, Signer},
-};
 
 #[derive(Clone, Copy, Debug)]
 enum Mode {
@@ -18,17 +14,8 @@ enum Mode {
     Ed,
     HashedSr,
     HashedEd,
-    HashedMs,
-    Ms,
 }
-const MODES: [Mode; 6] = [
-    Mode::Sr,
-    Mode::Ed,
-    Mode::HashedSr,
-    Mode::HashedEd,
-    Mode::HashedMs,
-    Mode::Ms,
-];
+const MODES: [Mode; 4] = [Mode::Sr, Mode::Ed, Mode::HashedSr, Mode::HashedEd];
 struct Wallet {
     mode: Mode,
     account: AccountId,
@@ -39,7 +26,7 @@ impl Wallet {
             Mode::Sr => AccountId::from(pair(10).public()),
             Mode::Ed => AccountId::new(ed25519::Pair::from_seed(&[10; 32]).public().0),
             _ => composable_accounts::register(Descriptor {
-                version: if matches!(mode, Mode::Ms) { 2 } else { 1 },
+                version: 1,
                 scheme: Self::scheme(mode),
                 initial_commitment: Self::commitment(mode, 0),
             }),
@@ -56,7 +43,6 @@ impl Wallet {
     fn scheme(mode: Mode) -> Scheme {
         match mode {
             Mode::Ed | Mode::HashedEd => Scheme::Ed25519,
-            Mode::Ms | Mode::HashedMs => Scheme::MlDsa65,
             _ => Scheme::Sr25519,
         }
     }
@@ -65,26 +51,16 @@ impl Wallet {
         match Self::scheme(mode) {
             Scheme::Sr25519 => sr25519::Pair::from_seed(&seed).public().0.to_vec(),
             Scheme::Ed25519 => ed25519::Pair::from_seed(&seed).public().0.to_vec(),
-            Scheme::MlDsa65 => ml_dsa_65::KG::keygen_from_seed(&seed)
-                .0
-                .into_bytes()
-                .to_vec(),
         }
     }
     fn commitment(mode: Mode, generation: u8) -> [u8; 32] {
         let public = Self::public(mode, generation);
-        if Self::scheme(mode) == Scheme::MlDsa65 {
-            subtensor_hashed::key_commitment(
-                Self::scheme(mode),
-                <&[u8; 1952]>::try_from(public.as_slice()).unwrap(),
-            )
-        } else {
-            subtensor_hashed::key_commitment(
-                Self::scheme(mode),
-                <&[u8; 32]>::try_from(public.as_slice()).unwrap(),
-            )
-        }
+        subtensor_hashed::key_commitment(
+            Self::scheme(mode),
+            <&[u8; 32]>::try_from(public.as_slice()).unwrap(),
+        )
     }
+
     fn source(&self) -> H160 {
         H160::from_slice(&AsRef::<[u8; 32]>::as_ref(&self.account)[..20])
     }
@@ -107,71 +83,27 @@ impl Wallet {
             );
         }
         let generation = HashedAccounts::accounts(&self.account).unwrap().generation;
-        let key_generation = if matches!(self.mode, Mode::Ms) {
-            0
-        } else {
-            u8::try_from(generation).unwrap()
-        };
-        let next = if matches!(self.mode, Mode::Ms) {
-            0
-        } else {
-            key_generation + 1
-        };
-        let next_commitment = Self::commitment(self.mode, next);
+        let key_generation = u8::try_from(generation).unwrap();
+        let next_commitment = Self::commitment(self.mode, key_generation + 1);
         let scheme = Self::scheme(self.mode);
-        let version = if scheme == Scheme::MlDsa65 { 2u8 } else { 1u8 };
-        let implication = (version, &call, &extra, extra.implicit().unwrap()).encode();
-        let payload = subtensor_hashed::transaction_payload(
-            self.account.as_ref(),
+        let address = subtensor_hashed::SignerAddress {
+            version: 1,
+            account: *self.account.as_ref(),
             scheme,
             generation,
-            &next_commitment,
-            &implication,
-        );
+            next_commitment,
+            public_key: Self::public(self.mode, key_generation).try_into().unwrap(),
+        };
+        let payload = hashed_extrinsic::signing_hash(&address, &call, &extra).unwrap();
         let seed = [10 + key_generation; 32];
-        if scheme == Scheme::MlDsa65 {
-            let (public, private) = ml_dsa_65::KG::keygen_from_seed(&seed);
-            UncheckedExtrinsic::new_mldsa(
-                call,
-                hashed_auth::AuthorizeMlDsa {
-                    account: self.account.clone(),
-                    proof: subtensor_hashed::MlDsaProof {
-                        generation,
-                        public_key: public.into_bytes(),
-                        next_commitment,
-                        signature: private
-                            .try_sign_with_seed(
-                                &[0; 32],
-                                &payload,
-                                subtensor_hashed::MLDSA_TRANSACTION_CONTEXT,
-                            )
-                            .unwrap(),
-                    },
-                },
-                extra,
-            )
-        } else {
-            let signature = if scheme == Scheme::Sr25519 {
-                sr25519::Pair::from_seed(&seed).sign(&payload).0
-            } else {
-                ed25519::Pair::from_seed(&seed).sign(&payload).0
-            };
-            UncheckedExtrinsic::new_hashed(
-                call,
-                AuthorizeAccount {
-                    account: self.account.clone(),
-                    proof: Proof {
-                        generation,
-                        public_key: Self::public(self.mode, key_generation).try_into().unwrap(),
-                        next_commitment,
-                        signature,
-                    },
-                },
-                extra,
-            )
-        }
+        let signature = match scheme {
+            Scheme::Sr25519 => Signature::Sr25519(sr25519::Pair::from_seed(&seed).sign(&payload)),
+            Scheme::Ed25519 => Signature::Ed25519(ed25519::Pair::from_seed(&seed).sign(&payload)),
+        };
+        UncheckedExtrinsic::new_signed(call, Address::Raw(address.encode()), signature, extra)
     }
 }
+
 fn gas_price() -> U256 {
     <Runtime as pallet_evm::Config>::FeeCalculator::min_gas_price().0
 }
@@ -310,9 +242,6 @@ fn authorization_fee_is_not_refunded_when_gas_pays_for_execution() {
                     0,
                 ));
                 let xt = wallet.sign(evm_call(&wallet, None));
-                if matches!(mode, Mode::HashedMs | Mode::Ms) {
-                    assert!(xt.encoded_size() > 5_000);
-                }
                 let mut envelope = xt.get_dispatch_info();
                 envelope.call_weight = Weight::zero();
                 let expected = TransactionPayment::compute_fee(
@@ -430,7 +359,7 @@ fn reverted_and_invalid_evm_calls_keep_authorization_fees_and_reject_replays() {
 
 #[test]
 fn alias_nonce_survives_balance_reaping_and_native_transactions_when_disabled() {
-    for mode in [Mode::HashedSr, Mode::HashedEd, Mode::HashedMs, Mode::Ms] {
+    for mode in [Mode::HashedSr, Mode::HashedEd] {
         ext().execute_with(|| {
             let wallet = Wallet::new(mode);
             assert_ok!(
@@ -544,6 +473,161 @@ fn create2_prediction_and_envelope_fee_match_dispatch() {
                     expected
                 }
             );
+        });
+    }
+}
+
+#[test]
+fn every_wallet_mode_executes_mixed_multisig_and_proxy_transfers() {
+    for mode in MODES {
+        ext().execute_with(|| {
+            let wallet = Wallet::new(mode);
+            let other = pair(24);
+            let other_id = AccountId::from(other.public());
+            let _ = Balances::make_free_balance_be(&other_id, TaoBalance::new(100_000_000_000));
+            let mut members = vec![wallet.account.clone(), other_id.clone()];
+            members.sort();
+            let multisig = Multisig::multi_account_id(&members, 2);
+            let _ = Balances::make_free_balance_be(&multisig, TaoBalance::new(10_000_000_000));
+            let dest = AccountId::new([97; 32]);
+            let transfer = RuntimeCall::Balances(BalancesCall::transfer_keep_alive {
+                dest: dest.clone().into(),
+                value: TaoBalance::new(1_000_000_000),
+            });
+            let hash = sp_io::hashing::blake2_256(&transfer.encode());
+            let weight = transfer.get_dispatch_info().total_weight();
+            let approval = RuntimeCall::Multisig(pallet_multisig::Call::approve_as_multi {
+                threshold: 2,
+                other_signatories: vec![other_id],
+                maybe_timepoint: None,
+                call_hash: hash,
+                max_weight: weight,
+            });
+            assert_ok!(Executive::apply_extrinsic(wallet.sign(approval)).unwrap());
+            let pending = pallet_multisig::Multisigs::<Runtime>::get(&multisig, hash).unwrap();
+            assert_eq!(pending.depositor, wallet.account);
+            let execute = RuntimeCall::Multisig(pallet_multisig::Call::as_multi {
+                threshold: 2,
+                other_signatories: vec![wallet.account.clone()],
+                maybe_timepoint: Some(pending.when),
+                call: Box::new(transfer.clone()),
+                max_weight: weight,
+            });
+            assert_ok!(Executive::apply_extrinsic(legacy(&other, execute)).unwrap());
+            assert_eq!(
+                Balances::free_balance(&dest),
+                TaoBalance::new(1_000_000_000)
+            );
+            assert!(pallet_multisig::Multisigs::<Runtime>::get(&multisig, hash).is_none());
+
+            let delegate = Wallet::new(if matches!(mode, Mode::HashedEd) {
+                Mode::HashedSr
+            } else {
+                Mode::HashedEd
+            });
+            let grant = RuntimeCall::Proxy(pallet_proxy::Call::add_proxy {
+                delegate: delegate.account.clone().into(),
+                proxy_type: ProxyType::Any,
+                delay: 0,
+            });
+            assert_ok!(Executive::apply_extrinsic(wallet.sign(grant)).unwrap());
+            let proxy = RuntimeCall::Proxy(pallet_proxy::Call::proxy {
+                real: wallet.account.clone().into(),
+                force_proxy_type: Some(ProxyType::Any),
+                call: Box::new(transfer),
+            });
+            assert_ok!(Executive::apply_extrinsic(delegate.sign(proxy)).unwrap());
+            assert_eq!(
+                Balances::free_balance(&dest),
+                TaoBalance::new(2_000_000_000)
+            );
+        });
+    }
+}
+
+#[test]
+fn shield_recognizes_every_wallet_mode_without_rewriting_or_rotating_it() {
+    for mode in MODES {
+        ext().execute_with(|| {
+            let wallet = Wallet::new(mode);
+            let mut wire = vec![0xAB; 16];
+            wire.extend_from_slice(&1088u16.to_le_bytes());
+            wire.extend_from_slice(&[0xCC; 1088]);
+            wire.extend_from_slice(&[0xDD; 24]);
+            wire.extend_from_slice(&[0xEE; 64]);
+            let call = RuntimeCall::MevShield(pallet_shield::Call::submit_encrypted {
+                ciphertext: wire.try_into().unwrap(),
+            });
+            let xt = wallet.sign(call);
+            let original = xt.encode();
+            let state = HashedAccounts::accounts(&wallet.account);
+            let parsed = hashed_extrinsic::shielded_transaction(xt.clone()).unwrap();
+            assert_eq!(parsed.key_hash, [0xAB; 16]);
+            assert_eq!(parsed.kem_ct, vec![0xCC; 1088]);
+            assert_eq!(parsed.nonce, [0xDD; 24]);
+            assert_eq!(parsed.aead_ct, vec![0xEE; 64]);
+            assert_eq!(HashedAccounts::accounts(&wallet.account), state);
+            assert_eq!(xt.encode(), original);
+            assert!(hashed_extrinsic::shielded_transaction(wallet.sign(super::call())).is_none());
+            let mut invalid = xt;
+            let UncheckedExtrinsic::Legacy(ref mut tx) = invalid;
+            let sp_runtime::generic::Preamble::Signed(_, signature, _) = &mut tx.0.preamble else {
+                unreachable!()
+            };
+            match signature {
+                Signature::Sr25519(sig) => sig.0[0] ^= 1,
+                Signature::Ed25519(sig) => sig.0[0] ^= 1,
+                _ => unreachable!(),
+            }
+            assert!(hashed_extrinsic::shielded_transaction(invalid).is_none());
+        });
+    }
+}
+
+#[test]
+fn staking_fee_quotes_and_charges_preserve_account_wrapper_costs() {
+    use crate::transaction_payment_wrapper::{
+        ChargeTransactionPaymentWrapper, FeeWeightDiscount, fee_dispatch_info,
+    };
+    use sp_runtime::traits::DispatchTransaction;
+    for mode in [Mode::HashedSr, Mode::HashedEd] {
+        ext().execute_with(|| {
+            let wallet = Wallet::new(mode);
+            let inner = RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake {
+                hotkey: AccountId::new([98; 32]),
+                netuid: 1.into(),
+                amount_unstaked: subtensor_runtime_common::AlphaBalance::new(1_000_000),
+            });
+            let tx = wallet.sign(inner.clone());
+            let info = tx.get_dispatch_info();
+            let len = u32::try_from(tx.encoded_size()).unwrap();
+            let discount = Runtime::fee_weight_discount(&inner, &inner.get_dispatch_info());
+            assert!(discount.ref_time() > 0);
+            let expected = TransactionPayment::compute_fee(
+                len,
+                &fee_dispatch_info(&info, discount),
+                TaoBalance::ZERO,
+            );
+            let quote = staking_fee::query_info(
+                sp_runtime::traits::ExtrinsicCall::call(&tx),
+                &info,
+                len,
+                false,
+            );
+            assert_eq!(quote.partial_fee, expected);
+            let before = Balances::free_balance(&wallet.account);
+            let result = ChargeTransactionPaymentWrapper::<Runtime>::new(TaoBalance::ZERO)
+                .with_account_authorization()
+                .test_run(
+                    RuntimeOrigin::signed(wallet.account.clone()),
+                    &inner,
+                    &info,
+                    len as usize,
+                    0,
+                    |_| Err(sp_runtime::DispatchError::Other("failed inner call").into()),
+                );
+            assert!(result.unwrap().is_err());
+            assert_eq!(before - Balances::free_balance(&wallet.account), expected);
         });
     }
 }

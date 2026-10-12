@@ -17,7 +17,7 @@ import pytest
 import bittensor as bt
 from bittensor.hashed import descriptor_value
 from bittensor.receiving import receiving_address
-from bittensor.sp_core import Keypair
+from bittensor.sp_core import HASHED_CRYPTO_TYPES, Keypair
 from bittensor.vault.signer import VaultSigner
 from tests.harness.samples import dev_wallet
 
@@ -89,16 +89,16 @@ async def test_cli_mixed_two_of_three_all_pairs_and_orders(tmp_path, modes):
         return json.loads(out)
 
     keys = {}
-    for scheme, mode in zip(("ms", "sr", "ed"), modes):
+    for name, scheme, mode in zip(("rotating", "sr", "ed"), ("ed", "sr", "ed"), modes):
         await cli(
-            scheme, "wallet", "create", "--crypto-type", scheme, "--type", mode, "--no-password"
+            name, "wallet", "create", "--crypto-type", scheme, "--type", mode, "--no-password"
         )
-        keys[scheme] = bt.Wallet(scheme, path=path).coldkey
+        keys[name] = bt.Wallet(name, path=path).coldkey
     saved = await cli(
-        "ms", "multisig", "add", "team", "--threshold", "2", "--signatories", "ms,sr,ed"
+        "rotating", "multisig", "add", "team", "--threshold", "2", "--signatories", "rotating,sr,ed"
     )
     address = saved["multisig_address"]
-    recipient = Keypair.create_from_seed(os.urandom(32), 5)
+    recipient = Keypair.create_from_seed(os.urandom(32), 6)
     destination = recipient.ss58_address
     async with bt.Client(ENDPOINT, fallback_endpoints=[], archive_endpoints=[]) as client:
         assert await client.query(bt.storage.AdminUtils.HashedAccountsEnabled) is True
@@ -113,7 +113,7 @@ async def test_cli_mixed_two_of_three_all_pairs_and_orders(tmp_path, modes):
         # Registration is deliberately direct-only in this runtime. The CLI
         # must refuse an unregistered destination before taking a deposit.
         args = ("wallet", "transfer", "--dest", receiving_address(recipient), "--amount", "1")
-        rejected = await cli("team", *args, "--signatory", "ms", success=False)
+        rejected = await cli("team", *args, "--signatory", "rotating", success=False)
         assert "direct sponsor wallet" in rejected, rejected
         result = await client.submit_call(
             bt.calls.HashedAccounts.register(
@@ -123,7 +123,10 @@ async def test_cli_mixed_two_of_three_all_pairs_and_orders(tmp_path, modes):
             wait_for_finalization=True,
         )
         assert result.success, result.to_dict()
-        rejected = await cli("team", *args, "--signatory", "ms=vault", success=False)
+        hashed_member = next(
+            name for name, key in keys.items() if key.crypto_type in HASHED_CRYPTO_TYPES
+        )
+        rejected = await cli("team", *args, "--signatory", f"{hashed_member}=vault", success=False)
         assert "standard sr25519/ed25519 accounts only" in rejected, rejected
         for first, second in permutations(keys, 2):
             before = int((await account(client, destination))["data"]["free"])
@@ -147,14 +150,14 @@ async def test_cli_mixed_two_of_three_all_pairs_and_orders(tmp_path, modes):
         again = await client.multisig([receiving_address(key) for key in keys.values()], 2)
         assert again.address == address
         # A single invocation can collect approvals from different local modes.
-        await cli("team", *args, "--signatory", "ms=wallet", "--signatory", "sr=wallet")
+        await cli("team", *args, "--signatory", "rotating=wallet", "--signatory", "sr=wallet")
         assert int((await account(client, destination))["data"]["free"]) == 7 * 10**9
 
         # Cancellation is authorized by the opener, and restores its deposit.
         call = bt.calls.System.remark(remark="0x1234")
         composed = await client.compose(call)
         call_hash = "0x" + bytes(composed.call_hash).hex()
-        opener = keys["ms"]
+        opener = keys["rotating"]
         reserved = int((await account(client, opener.ss58_address))["data"]["reserved"])
         result = await again.approve(call, opener, wait_for_finalization=True)
         assert result.success, result.to_dict()
@@ -183,7 +186,7 @@ async def test_cli_mixed_two_of_three_all_pairs_and_orders(tmp_path, modes):
         result = await again.approve(failing, keys["sr"], wait_for_finalization=True)
         assert not result.success, result.to_dict()
         assert int((await account(client, destination))["data"]["free"]) == before
-        await cli("team", *args, "--signatory", "ms=wallet", "--signatory", "sr=wallet")
+        await cli("team", *args, "--signatory", "rotating=wallet", "--signatory", "sr=wallet")
         assert int((await account(client, destination))["data"]["free"]) == before + 10**9
         # Being a member does not make the composite account an MS authority.
         # The existing no-downgrade proxy policy must still reject it.
@@ -230,21 +233,21 @@ class SimulatedVault(VaultSigner):
 
 @pytest.mark.parametrize("vault_code", [0, 1])
 async def test_vault_adapter_co_signs_hashed_ms_both_orders(vault_code):
-    ms = Keypair.create_from_seed(os.urandom(32), 5)
+    rotating = Keypair.create_from_seed(os.urandom(32), 6)
     vault_key = Keypair.create_from_seed(os.urandom(32), vault_code)
     third = Keypair.create_from_seed(os.urandom(32), 1)
     vault = SimulatedVault(vault_key)
     destination = Keypair.create_from_seed(os.urandom(32), 1).ss58_address
     async with bt.Client(ENDPOINT, fallback_endpoints=[], archive_endpoints=[]) as client:
-        for key in (ms, vault_key, third):
+        for key in (rotating, vault_key, third):
             await fund(client, key)
         multi = await client.multisig(
-            [receiving_address(ms), vault.ss58_address, third.ss58_address], 2
+            [receiving_address(rotating), vault.ss58_address, third.ss58_address], 2
         )
         result = await client.execute(bt.intents.Transfer(multi.address, 10), dev_wallet())
         assert result.success, result.to_dict()
         call = bt.calls.Balances.transfer_keep_alive(dest=destination, value=10**9)
-        for first, second in ((ms, vault), (vault, ms)):
+        for first, second in ((rotating, vault), (vault, rotating)):
             before = int((await account(client, destination))["data"]["free"])
             result = await multi.approve(call, first, wait_for_finalization=True)
             assert result.success, result.to_dict()
@@ -255,7 +258,7 @@ async def test_vault_adapter_co_signs_hashed_ms_both_orders(vault_code):
         assert vault.rounds == 2
 
 
-@pytest.mark.parametrize("recipient_code", [4, 5, 6, 7])
+@pytest.mark.parametrize("recipient_code", [4, 6])
 @pytest.mark.parametrize("threshold", [1, 2])
 async def test_direct_sdk_multisig_receiving_transfer(recipient_code, threshold):
     members = [Keypair.create_from_seed(os.urandom(32), code) for code in (5, 1, 0)]

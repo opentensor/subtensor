@@ -5,7 +5,6 @@ edition.workspace = true
 publish = false
 
 [dependencies]
-fips204 = { version = "=0.4.6", default-features = false, features = ["ml-dsa-65"] }
 codec = { workspace = true, features = ["derive"] }
 scale-info = { workspace = true, features = ["derive"] }
 sp-core.workspace = true

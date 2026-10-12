@@ -2823,7 +2823,7 @@ impl_runtime_apis! {
 
     impl stp_shield::ShieldApi<Block> for Runtime {
         fn try_decode_shielded_tx(uxt: <Block as BlockT>::Extrinsic) -> Option<ShieldedTransaction> {
-            MevShield::try_decode_shielded_tx::<Block, ChainContext>(uxt)
+            hashed_extrinsic::shielded_transaction(uxt)
         }
 
         fn is_shielded_using_current_key(key_hash: &[u8; 16]) -> bool {

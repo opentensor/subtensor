@@ -1,4 +1,4 @@
-"""Registered-account authorization diagnostics for fixed and rotating keys."""
+"""Registered-account authorization diagnostics for rotating keys."""
 
 DESCRIPTIONS: dict[str, str] = {
     "Disabled": (
@@ -26,8 +26,8 @@ DESCRIPTIONS: dict[str, str] = {
         "Check the mnemonic, derivation version, and current generation before signing again."
     ),
     "InvalidNextCommitment": (
-        "The next commitment violates the account mode. Hashed accounts require a new nonzero "
-        "commitment; standard ML-DSA accounts must retain the current commitment. "
+        "Hashed accounts require a new nonzero "
+        "commitment different from the current key. "
         "Restore the wallet with its original signing scheme and account mode."
     ),
     "GenerationExhausted": (

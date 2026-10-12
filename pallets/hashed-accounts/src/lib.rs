@@ -6,6 +6,8 @@
 //! also be a valid classical public-key encoding.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 pub use pallet::*;
 pub use subtensor_hashed::{Descriptor, Proof, Scheme};
 #[cfg(feature = "runtime-benchmarks")]
@@ -111,11 +113,6 @@ pub mod pallet {
             account: AccountId32,
             generation: u64,
         },
-        /// A fixed-key account consumed an authorization sequence number.
-        Authorized {
-            account: AccountId32,
-            generation: u64,
-        },
     }
 
     #[pallet::error]
@@ -132,7 +129,7 @@ pub mod pallet {
         WrongGeneration,
         /// The revealed public key does not match the active key commitment.
         WrongCommitment,
-        /// The next commitment violates the account mode (rotate or retain the key).
+        /// The next commitment must be nonzero and different from the active key.
         InvalidNextCommitment,
         /// The key generation counter cannot advance any further.
         GenerationExhausted,
@@ -226,56 +223,38 @@ pub mod pallet {
         }
 
         /// Read-only transaction validation. This never advances the key.
-        pub fn check_proof<const P: usize, const S: usize>(
+        /// Check the already authenticated v4 signer against the hidden commitment.
+        pub fn check_authorization(
             account: &AccountId32,
-            proof: &subtensor_hashed::AuthorizationProof<P, S>,
-            implication: &[u8],
+            scheme: Scheme,
+            public_key: &[u8; 32],
+            generation: u64,
+            next_commitment: [u8; 32],
         ) -> Result<ValidatedProof, DispatchError> {
             ensure!(T::Enabled::get(), Error::<T>::Disabled);
             let record = Accounts::<T>::get(account).ok_or(Error::<T>::NotRegistered)?;
             ensure!(
-                record.descriptor.is_supported(),
+                record.descriptor.is_supported() && record.descriptor.scheme == scheme,
                 Error::<T>::UnsupportedDescriptor
             );
             ensure!(
                 record.generation != u64::MAX,
                 Error::<T>::GenerationExhausted
             );
+            ensure!(record.generation == generation, Error::<T>::WrongGeneration);
             ensure!(
-                record.generation == proof.generation,
-                Error::<T>::WrongGeneration
-            );
-            ensure!(
-                record.commitment
-                    == subtensor_hashed::key_commitment(
-                        record.descriptor.scheme,
-                        &proof.public_key
-                    ),
+                record.commitment == subtensor_hashed::key_commitment(scheme, public_key),
                 Error::<T>::WrongCommitment
             );
             ensure!(
-                proof.next_commitment != [0; 32]
-                    && if record.descriptor.rotates() {
-                        proof.next_commitment != record.commitment
-                    } else {
-                        proof.next_commitment == record.commitment
-                    },
+                next_commitment != [0; 32] && next_commitment != record.commitment,
                 Error::<T>::InvalidNextCommitment
-            );
-            ensure!(
-                subtensor_hashed::verify(
-                    account.as_ref(),
-                    record.descriptor.scheme,
-                    proof,
-                    implication
-                ),
-                Error::<T>::InvalidSignature
             );
             Ok(ValidatedProof {
                 account: account.clone(),
-                generation: proof.generation,
+                generation,
                 commitment: record.commitment,
-                next_commitment: proof.next_commitment,
+                next_commitment,
             })
         }
 
@@ -303,18 +282,10 @@ pub mod pallet {
                 record.commitment = validated.next_commitment;
                 Ok(())
             })?;
-            let event = if validated.next_commitment == validated.commitment {
-                Event::Authorized {
-                    account: validated.account.clone(),
-                    generation,
-                }
-            } else {
-                Event::Rotated {
-                    account: validated.account.clone(),
-                    generation,
-                }
-            };
-            Self::deposit_event(event);
+            Self::deposit_event(Event::Rotated {
+                account: validated.account.clone(),
+                generation,
+            });
             Ok(())
         }
     }

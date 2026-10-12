@@ -42,7 +42,7 @@ pub mod pallet {
     #[pallet::without_storage_info]
     pub struct Pallet<T>(_);
 
-    /// Enables hashed and ML-DSA account registration and authorization.
+    /// Enables hashed account registration and authorization.
     /// Existing account records and authority protections survive disabling.
     #[pallet::storage]
     pub type HashedAccountsEnabled<T: Config> = StorageValue<_, bool, ValueQuery>;
@@ -192,7 +192,7 @@ pub mod pallet {
             /// Minimum TAO value through each trade leg, in rao.
             min_trade_rao: u64,
         },
-        /// Hashed and ML-DSA account registration and authorization were toggled.
+        /// Hashed account registration and authorization were toggled.
         HashedAccountsToggled {
             /// Whether registration and authorization are enabled.
             enabled: bool,
@@ -2821,7 +2821,7 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Enables or disables hashed and ML-DSA registration and signing. Root-only.
+        /// Enables or disables hashed registration and signing. Root-only.
         /// Defaults off. Disabling pauses existing accounts too; their records,
         /// generations, EVM aliases and restrictions on alternate authority remain.
         #[pallet::call_index(114)]
