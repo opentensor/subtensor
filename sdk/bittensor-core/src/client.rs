@@ -1911,6 +1911,20 @@ mod fee_quote_tests {
                             length = value.trim().parse::<usize>().unwrap();
                         }
                     }
+                    match headers.lines().next().unwrap() {
+                        "HEAD / HTTP/1.1" => {
+                            // Readiness probes are not JSON-RPC requests or fee quotes.
+                            assert_eq!(length, 0, "HEAD probe must not carry a body");
+                            write!(
+                                stream,
+                                "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                            )
+                            .unwrap();
+                            continue;
+                        }
+                        "POST / HTTP/1.1" => {}
+                        other => panic!("unexpected mock HTTP request: {other}"),
+                    }
                     assert!(length > 0, "mock request has no body length: {headers:?}");
                     let mut body = vec![0; length];
                     reader.read_exact(&mut body).unwrap();
@@ -1948,7 +1962,16 @@ mod fee_quote_tests {
                 genesis_hash: [8; 32],
                 ss58_format: 42,
             };
+            let probe = || {
+                let response = client.http.head(&client.endpoint).send().unwrap();
+                assert_eq!(response.status().as_u16(), 200);
+                assert!(response.bytes().unwrap().is_empty());
+            };
+            // Reproduce a bodyless probe before each real quote. Both quotes must
+            // still reach the server and satisfy the payload assertions below.
+            probe();
             assert_eq!(client.estimate_fee(&call, &public).unwrap(), 1234);
+            probe();
             assert_eq!(
                 client.estimate_weight(&call, &public).unwrap(),
                 json_to_value(&json!({"ref_time":456,"proof_size":78})).unwrap()
