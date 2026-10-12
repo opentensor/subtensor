@@ -1455,27 +1455,39 @@ impl<T: Config> Pallet<T> {
         Self::staking_hotkeys_walk_weight(entries).min(Self::staking_hotkeys_walk_bound())
     }
 
-    /// True for the unstake-side calls whose declared weight includes
-    /// [`Self::staking_hotkeys_walk_bound`] and whose post-dispatch weight reports the
-    /// signer's [`Self::staking_hotkeys_walk_actual`].
+    /// How many [`Self::staking_hotkeys_walk_bound`] walks `call`'s declared weight
+    /// includes; each reports the signer's [`Self::staking_hotkeys_walk_actual`]
+    /// post-dispatch. Zero for calls that declare no walk.
     ///
-    /// The EVM staking precompile subtracts the unused part of the capped walk from the
-    /// declared weight of every call listed here. Keep this list in sync with the weight
-    /// declarations in `dispatches.rs`: a listed call that stops declaring the walk would
-    /// have its own benchmarked weight under-reserved instead.
-    pub fn declares_staking_hotkeys_walk(call: &Call<T>) -> bool {
-        matches!(
-            call,
+    /// The EVM staking precompile and the contracts chain extension drop the unused part
+    /// of every declared walk (see [`Self::staking_hotkeys_walk_unused`]). Keep this in
+    /// sync with the weight declarations in `dispatches.rs`: a count above what a call
+    /// declares would under-reserve the call's own benchmarked weight instead.
+    pub fn declared_staking_hotkeys_walks(call: &Call<T>) -> u64 {
+        match call {
             Call::remove_stake { .. }
-                | Call::remove_stake_limit { .. }
-                | Call::remove_stake_full_limit { .. }
-                | Call::move_stake { .. }
-                | Call::move_stake_limit { .. }
-                | Call::transfer_stake { .. }
-                | Call::transfer_stake_and_hotkey { .. }
-                | Call::swap_stake { .. }
-                | Call::swap_stake_limit { .. }
-        )
+            | Call::remove_stake_limit { .. }
+            | Call::remove_stake_full_limit { .. }
+            | Call::move_stake { .. }
+            | Call::move_stake_limit { .. }
+            | Call::transfer_stake { .. }
+            | Call::transfer_stake_and_hotkey { .. }
+            | Call::swap_stake { .. }
+            | Call::swap_stake_limit { .. } => 1,
+            Call::unstake_all { .. } | Call::unstake_all_alpha { .. } => {
+                Self::unstake_all_declared_walks()
+            }
+            _ => 0,
+        }
+    }
+
+    /// Declared walk weight a stake exit signed by `coldkey`, dispatched immediately, can
+    /// never use: `walks` times the gap between [`Self::staking_hotkeys_walk_bound`] and
+    /// [`Self::staking_hotkeys_walk_immediate_bound`]. Zero for a list at the cap.
+    pub fn staking_hotkeys_walk_unused(coldkey: &T::AccountId, walks: u64) -> Weight {
+        Self::staking_hotkeys_walk_bound()
+            .saturating_sub(Self::staking_hotkeys_walk_immediate_bound(coldkey))
+            .saturating_mul(walks)
     }
 
     /// Attach `weight` as the actual weight of `result`, on success and on failure alike.

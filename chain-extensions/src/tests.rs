@@ -28,6 +28,19 @@ fn stake_exit_walk(coldkey: &AccountId) -> Weight {
         )
 }
 
+/// `declared` `unstake_all*` weight with every slot's walk sized to `coldkey`'s current list,
+/// plus the read that sizes it.
+fn unstake_all_exit_weight(declared: Weight, coldkey: &AccountId) -> Weight {
+    declared
+        .saturating_sub(
+            pallet_subtensor::Pallet::<mock::Test>::staking_hotkeys_walk_unused(
+                coldkey,
+                pallet_subtensor::Pallet::<mock::Test>::unstake_all_declared_walks(),
+            ),
+        )
+        .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(1))
+}
+
 #[derive(Clone)]
 struct MockEnv {
     func_id: u16,
@@ -686,8 +699,10 @@ fn unstake_all_alpha_success_moves_stake_to_root() {
             stake_amount_raw.into(),
         ));
 
-        let expected_weight =
-            pallet_subtensor::Pallet::<mock::Test>::unstake_all_alpha_declared_weight();
+        let expected_weight = unstake_all_exit_weight(
+            pallet_subtensor::Pallet::<mock::Test>::unstake_all_alpha_declared_weight(),
+            &coldkey,
+        );
 
         let mut env = MockEnv::new(FunctionId::UnstakeAllAlphaV1, coldkey, hotkey.encode())
             .with_expected_weight(expected_weight);
@@ -1675,7 +1690,10 @@ fn unstake_all_success_unstakes_balance() {
             stake_amount_raw.into(),
         ));
 
-        let expected_weight = pallet_subtensor::Pallet::<mock::Test>::unstake_all_declared_weight();
+        let expected_weight = unstake_all_exit_weight(
+            pallet_subtensor::Pallet::<mock::Test>::unstake_all_declared_weight(),
+            &coldkey,
+        );
 
         let pre_balance = pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
 

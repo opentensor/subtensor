@@ -236,3 +236,72 @@ fn a_capped_list_still_needs_the_full_walk_allowance() {
         assert!(used >= walk, "used {used} < {walk}");
     });
 }
+
+/// `unstakeAll` and `unstakeAllAlpha` declare a walk at the cap on each of their 16 envelope
+/// slots (~37M gas); sized to the caller's list they fit a few million.
+#[test]
+fn unstake_all_reserves_every_slot_walk_for_the_callers_list() {
+    const UNSTAKE_ALL_GAS_LIMIT: u64 = 3_000_000;
+    for (signature, alpha) in [
+        ("unstakeAll(bytes32)", false),
+        ("unstakeAllAlpha(bytes32)", true),
+    ] {
+        let caller = H160::from_low_u64_be(0x5a10);
+        let hotkey = AccountId::from([0x11; 32]);
+        new_test_ext(caller, &hotkey).execute_with(|| {
+            // Enough subnets that every envelope slot is declared.
+            for netuid in 2..=24_u16 {
+                Subtensor::init_new_network(NetUid::from(netuid), 100);
+            }
+            let coldkey = account(caller);
+            let declared = if alpha {
+                Subtensor::unstake_all_alpha_declared_weight()
+            } else {
+                Subtensor::unstake_all_declared_weight()
+            };
+            assert!(gas(declared) > 10 * UNSTAKE_ALL_GAS_LIMIT);
+            let input = || encode_with_selector(selector(signature), (h256(&hotkey),));
+
+            // At the cap every slot still needs its full walk.
+            let short_list = pallet_subtensor::StakingHotkeys::<Runtime>::get(&coldkey);
+            fill_staking_hotkeys(&coldkey);
+            let (result, _) = call(caller, input(), UNSTAKE_ALL_GAS_LIMIT);
+            assert_eq!(
+                result,
+                Err(PrecompileFailure::Error {
+                    exit_status: ExitError::OutOfGas
+                }),
+                "{signature}"
+            );
+            pallet_subtensor::StakingHotkeys::<Runtime>::insert(&coldkey, short_list);
+
+            let (result, used) = call(caller, input(), UNSTAKE_ALL_GAS_LIMIT);
+            assert_eq!(result, Ok(()), "{signature}");
+            assert!(
+                Subtensor::get_stake_for_hotkey_and_coldkey_on_subnet(
+                    &hotkey,
+                    &coldkey,
+                    NetUid::from(NETUID)
+                )
+                .is_zero()
+            );
+            // Charged at least the one unstaked position and its walk (not capped by the
+            // reservation); skipped empty subnets only add to this.
+            let work = pallet_subtensor::staking::remove_stake::UnstakeAllWork {
+                scanned: 1,
+                legs: 1,
+                validated: 1,
+            };
+            let actual = if alpha {
+                Subtensor::unstake_all_alpha_actual_weight(&coldkey, work)
+            } else {
+                Subtensor::unstake_all_actual_weight(&coldkey, work)
+            };
+            assert!(
+                used >= gas(actual),
+                "{signature}: used {used} < {}",
+                gas(actual)
+            );
+        });
+    }
+}

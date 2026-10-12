@@ -81,11 +81,12 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
     /// Dispatches a stake exit signed by `coldkey`, sizing its `StakingHotkeys` walk
     /// allowance to the coldkey's current list instead of the declared cap.
     ///
-    /// The declared weight of an unstake-side call reserves a walk over the longest list a
-    /// coldkey may hold, because a transaction's weight is fixed before earlier extrinsics
-    /// in its block can grow that list. Here the list is read and the call dispatched with
-    /// nothing in between, so the gas limit only has to cover the walk this coldkey can
-    /// perform. Calls that do not declare the walk dispatch unchanged.
+    /// The declared weight of an unstake-side call reserves its walks over the longest list
+    /// a coldkey may hold (one walk, or one per envelope slot for `unstake_all*`), because
+    /// a transaction's weight is fixed before earlier extrinsics in its block can grow that
+    /// list. Here the list is read and the call dispatched with nothing in between, so the
+    /// gas limit only has to cover the walks this coldkey can perform. Calls that declare
+    /// no walk dispatch unchanged.
     fn try_dispatch_stake_exit<R>(
         &mut self,
         call: pallet_subtensor::Call<R>,
@@ -102,17 +103,15 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
             GetDispatchInfo + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
         <R as frame_system::Config>::RuntimeOrigin: From<RawOrigin<R::AccountId>> + Clone,
     {
-        let declares_walk = pallet_subtensor::Pallet::<R>::declares_staking_hotkeys_walk(&call);
+        let walks = pallet_subtensor::Pallet::<R>::declared_staking_hotkeys_walks(&call);
         let call = <R as frame_system::Config>::RuntimeCall::from(call);
         let mut info = GetDispatchInfo::get_dispatch_info(&call);
 
-        if declares_walk {
+        if walks > 0 {
             self.record_db_reads::<R>(1)?;
-            let unused = pallet_subtensor::Pallet::<R>::staking_hotkeys_walk_bound()
-                .saturating_sub(
-                    pallet_subtensor::Pallet::<R>::staking_hotkeys_walk_immediate_bound(&coldkey),
-                );
-            info.call_weight = info.call_weight.saturating_sub(unused);
+            info.call_weight = info.call_weight.saturating_sub(
+                pallet_subtensor::Pallet::<R>::staking_hotkeys_walk_unused(&coldkey, walks),
+            );
         }
 
         self.dispatch_with_info::<R>(call, RawOrigin::Signed(coldkey), info)

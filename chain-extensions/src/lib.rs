@@ -77,6 +77,22 @@ where
         unit.saturating_add(walk)
     }
 
+    /// Weight charged up front for an `unstake_all*` signed by `origin`: the declared worst
+    /// case (a position on every envelope slot) with each slot's `StakingHotkeys` walk sized
+    /// to the signer's current list, plus the read that sizes it. The environment cannot
+    /// refund, so the slots stay at their worst case.
+    fn unstake_all_exit_weight(declared: Weight, origin: &RawOrigin<T::AccountId>) -> Weight {
+        match origin {
+            RawOrigin::Signed(coldkey) => declared
+                .saturating_sub(pallet_subtensor::Pallet::<T>::staking_hotkeys_walk_unused(
+                    coldkey,
+                    pallet_subtensor::Pallet::<T>::unstake_all_declared_walks(),
+                ))
+                .saturating_add(T::DbWeight::get().reads(1)),
+            _ => declared,
+        }
+    }
+
     fn dispatch_add_stake_v1<Env>(
         env: &mut Env,
         origin: RawOrigin<T::AccountId>,
@@ -153,9 +169,12 @@ where
             .read_as()
             .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
 
-        // The contract environment cannot refund, so charge the declared worst case (a
-        // position on every subnet), never the benchmarked empty-loop constant.
-        let weight = pallet_subtensor::Pallet::<T>::unstake_all_declared_weight();
+        // The contract environment cannot refund, so charge the worst case (a position on
+        // every envelope slot), never the benchmarked empty-loop constant.
+        let weight = Self::unstake_all_exit_weight(
+            pallet_subtensor::Pallet::<T>::unstake_all_declared_weight(),
+            &origin,
+        );
 
         env.charge_weight(weight)?;
 
@@ -182,8 +201,11 @@ where
             .read_as()
             .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
 
-        // See `dispatch_unstake_all_v1`: charge the declared worst case.
-        let weight = pallet_subtensor::Pallet::<T>::unstake_all_alpha_declared_weight();
+        // See `dispatch_unstake_all_v1`: charge the worst case.
+        let weight = Self::unstake_all_exit_weight(
+            pallet_subtensor::Pallet::<T>::unstake_all_alpha_declared_weight(),
+            &origin,
+        );
 
         env.charge_weight(weight)?;
 
