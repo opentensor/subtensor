@@ -30,11 +30,11 @@ function withHeadroom(required: bigint, floor: bigint): bigint {
 /**
  * Size the gas limit for a contract call from a dry run instead of a constant.
  *
- * The chain extension charges the declared weight of the runtime call it dispatches
- * before dispatching it (a stake exit is `remove_stake` plus `staking_hotkeys_walk_bound`,
- * ~93e9 ref_time since spec 464), so any fixed limit goes stale on the next reweigh.
- * `ContractsApi.call` reports `gas_required` as the peak gas the execution needed, which
- * includes that up-front charge, so the limit follows the declared weight automatically.
+ * The chain extension charges the weight of the runtime call it dispatches before
+ * dispatching it (a stake exit is `remove_stake` plus the `StakingHotkeys` walk for the
+ * contract's current list), so any fixed limit goes stale on the next reweigh or as the
+ * list grows. `ContractsApi.call` reports `gas_required` as the peak gas the execution
+ * needed, which includes that up-front charge, so the limit follows it automatically.
  */
 export async function estimateContractCallGasLimit(
     api: TypedApi<typeof subtensor>,

@@ -18,7 +18,6 @@ Usage (from sdk/python, whose environment provides the bittensor SDK):
 from __future__ import annotations
 
 import argparse
-import filecmp
 import functools
 import inspect
 import json
@@ -206,8 +205,8 @@ def params_table(schema: dict) -> str:
 #
 # Each intent declares the chain call(s) it wraps; the pages link (and quote)
 # the actual dispatchable from the Rust source, served by the site's /code
-# viewer. Extraction is deterministic over the checkout, so --check also
-# catches docs whose line anchors drifted after a Rust change.
+# viewer. Extraction is deterministic over the checkout, so --check catches quoted
+# code that changed after a Rust edit (line numbers alone are not checked).
 
 REPO_ROOT = APP_DIR.parents[2]
 
@@ -1342,8 +1341,22 @@ def generate(content_root: Path) -> None:
         )
 
 
+# Source line numbers in /code links and catalog entries move with every unrelated Rust
+# edit. --check masks them so only real drift (wording, snippets, links to a different
+# symbol or file) fails; any regeneration refreshes the numbers.
+_LINE_REF = re.compile(r'(#L)\d+(?:-L\d+)?|("(?:line|end_line)": )\d+')
+
+
+def _same_ignoring_line_numbers(fresh: Path, committed: Path) -> bool:
+    def masked(path: Path) -> str:
+        return _LINE_REF.sub(r"\1\2", path.read_text())
+
+    return masked(fresh) == masked(committed)
+
+
 def check() -> int:
-    """Regenerate into a temp dir and diff against the committed output."""
+    """Regenerate into a temp dir and diff against the committed output, ignoring
+    source line numbers."""
     stale: list[str] = []
     with tempfile.TemporaryDirectory() as tmp:
         tmp_content = Path(tmp) / "content"
@@ -1360,7 +1373,7 @@ def check() -> int:
                     continue
                 rel = fresh.relative_to(fresh_root)
                 committed = committed_root / rel
-                if not committed.exists() or not filecmp.cmp(fresh, committed, shallow=False):
+                if not committed.exists() or not _same_ignoring_line_numbers(fresh, committed):
                     stale.append(str(committed))
         # Files that were generated once but no longer are (e.g. a removed intent).
         for sub in ("tx", "query", "errors"):

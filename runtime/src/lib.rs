@@ -1699,6 +1699,9 @@ pub type TxExtension<const AUTHORIZED: bool = false> = (
 type Migrations = (
     // Schedule bounded conversion; transitional staking getters read both formats.
     pallet_subtensor::migrations::migrate_alpha_v2::Migration<Runtime>,
+    // Rebuild historically missing associations in bounded idle batches, after
+    // alpha conversion and the destructive storage/index cleanups finish.
+    pallet_subtensor::migrations::migrate_restore_staking_hotkeys::Migration<Runtime>,
     // Leave this migration in the runtime, so every runtime upgrade tiny rounding errors (fractions of fractions
     // of a cent) are cleaned up. These tiny rounding errors occur due to floating point coversion.
     pallet_subtensor::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration<

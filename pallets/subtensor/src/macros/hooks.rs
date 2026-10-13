@@ -334,6 +334,27 @@ mod hooks {
                 );
             }
 
+            // Repair historical omissions only after conversion and destructive
+            // index cleanup finish. Normal deposits maintain their own associations.
+            let repair_status = T::DbWeight::get().reads(1);
+            if !seed_in_progress
+                && !alpha_in_progress
+                && storage_bloat_complete
+                && weight.saturating_add(repair_status).all_lte(limit)
+            {
+                let cleanup_done = HasMigrationRun::<T>::get(
+                    migrations::migrate_cleanup_staking_hotkeys::MIGRATION_NAME,
+                );
+                weight.saturating_accrue(repair_status);
+                if cleanup_done {
+                    weight.saturating_accrue(
+                        migrations::migrate_restore_staking_hotkeys::continue_restore::<T>(
+                            limit.saturating_sub(weight),
+                        ),
+                    );
+                }
+            }
+
             weight
         }
     }

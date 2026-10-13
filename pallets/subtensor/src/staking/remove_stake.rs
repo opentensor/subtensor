@@ -260,6 +260,13 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    /// `StakingHotkeys` walks the declared weight of `unstake_all` and `unstake_all_alpha`
+    /// reserves: one per validated envelope slot ([`Self::unstake_all_weight`] charges a
+    /// walk for every unstaked leg and every validated skip).
+    pub fn unstake_all_declared_walks() -> u64 {
+        u64::from(Self::unstake_all_worst_case_work().validated)
+    }
+
     /// Pre-dispatch weight of `unstake_all`: the benchmarked fixed part plus, per
     /// envelope slot, one `remove_stake` and a `StakingHotkeys` walk at the cap,
     /// plus cheap-skip reads for every live subnet the loop can visit
