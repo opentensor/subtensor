@@ -495,7 +495,7 @@ mod tests {
             let err = validate_signed(coldkey, &call).unwrap_err();
             assert_eq!(err, CustomTransactionError::ColdkeySwapDisputed.into());
 
-            assert_ok!(SubtensorModule::reset_coldkey_swap(
+            assert_ok!(SubtensorModule::reset_coldkey_swap_keep_locked(
                 RuntimeOrigin::root(),
                 coldkey
             ));

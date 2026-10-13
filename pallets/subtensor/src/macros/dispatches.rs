@@ -2491,10 +2491,7 @@ mod dispatches {
             Ok(())
         }
 
-        /// Reset a coldkey swap by clearing the announcement and dispute status,
-        /// keeping the coldkey locked until it successfully swaps to a different key.
-        /// The coldkey may announce again, dispute, or execute the new swap, but
-        /// cannot clear the announcement to unlock itself or make unrelated calls.
+        /// Reset a coldkey swap by clearing the announcement and dispute status.
         ///
         /// The dispatch origin of this call must be root.
         ///
@@ -2503,6 +2500,30 @@ mod dispatches {
         #[pallet::call_index(128)]
         #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::reset_coldkey_swap())]
         pub fn reset_coldkey_swap(origin: OriginFor<T>, coldkey: T::AccountId) -> DispatchResult {
+            ensure_root(origin)?;
+
+            ColdkeySwapAnnouncements::<T>::remove(&coldkey);
+            ColdkeySwapDisputes::<T>::remove(&coldkey);
+
+            Self::deposit_event(Event::ColdkeySwapReset { who: coldkey });
+            Ok(())
+        }
+
+        /// Reset a coldkey swap while retaining its recovery lock.
+        ///
+        /// Clears the announcement and active dispute. The coldkey may announce again,
+        /// dispute, or execute the new swap, but cannot clear the announcement to unlock
+        /// itself or make unrelated calls. Uses the existing dispute entry with block zero.
+        ///
+        /// The dispatch origin of this call must be root.
+        ///
+        /// * `coldkey`: The coldkey to reset the swap for while keeping it locked.
+        #[pallet::call_index(153)]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::reset_coldkey_swap_keep_locked())]
+        pub fn reset_coldkey_swap_keep_locked(
+            origin: OriginFor<T>,
+            coldkey: T::AccountId,
+        ) -> DispatchResult {
             ensure_root(origin)?;
 
             ColdkeySwapAnnouncements::<T>::remove(&coldkey);

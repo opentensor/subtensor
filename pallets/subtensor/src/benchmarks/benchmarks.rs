@@ -708,6 +708,22 @@ mod pallet_benchmarks {
         _(RawOrigin::Root, coldkey.clone());
 
         assert!(!ColdkeySwapAnnouncements::<T>::contains_key(&coldkey));
+        assert!(!ColdkeySwapDisputes::<T>::contains_key(&coldkey));
+    }
+
+    #[benchmark]
+    fn reset_coldkey_swap_keep_locked() {
+        let coldkey: T::AccountId = account("old_coldkey", 0, 0);
+        let coldkey_hash: T::Hash = <T as frame_system::Config>::Hashing::hash_of(&coldkey);
+        let now = frame_system::Pallet::<T>::block_number();
+
+        ColdkeySwapAnnouncements::<T>::insert(&coldkey, (now, coldkey_hash));
+        ColdkeySwapDisputes::<T>::insert(&coldkey, now.max(1u32.into()));
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, coldkey.clone());
+
+        assert!(!ColdkeySwapAnnouncements::<T>::contains_key(&coldkey));
         assert_eq!(
             ColdkeySwapDisputes::<T>::get(&coldkey),
             Some(BlockNumberFor::<T>::zero())

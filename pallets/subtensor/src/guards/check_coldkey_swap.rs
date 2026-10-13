@@ -16,7 +16,7 @@ use sp_std::marker::PhantomData;
 /// * Otherwise, only swap-related calls and MEV-protected calls (`submit_encrypted`)
 ///   are allowed through.
 ///
-/// After a root reset, only announcement, dispute, and swap execution are allowed,
+/// After a root reset that keeps the lock, only announcement, dispute, and swap execution are allowed,
 /// even while there is no announcement. Clearing an announcement cannot unlock the key.
 ///
 /// Root origin bypasses this extension entirely.
@@ -316,7 +316,9 @@ mod tests {
             for round in 0..2 {
                 let balance = SubtensorModule::get_coldkey_balance(&who);
                 assert_ok!(dispatch_with_ext(
-                    RuntimeCall::SubtensorModule(crate::Call::reset_coldkey_swap { coldkey: who }),
+                    RuntimeCall::SubtensorModule(crate::Call::reset_coldkey_swap_keep_locked {
+                        coldkey: who
+                    }),
                     RuntimeOrigin::root(),
                 ));
                 assert!(!ColdkeySwapAnnouncements::<Test>::contains_key(who));
@@ -409,7 +411,7 @@ mod tests {
                 &who,
                 SubtensorModule::get_key_swap_cost() + ExistentialDeposit::get(),
             );
-            assert_ok!(SubtensorModule::reset_coldkey_swap(
+            assert_ok!(SubtensorModule::reset_coldkey_swap_keep_locked(
                 RuntimeOrigin::root(),
                 who
             ));
@@ -433,6 +435,25 @@ mod tests {
                     .error,
                 Error::<Test>::ColdkeySwapAnnounced.into(),
             );
+        });
+    }
+
+    #[test]
+    fn original_reset_still_fully_unlocks_a_recovery_locked_key() {
+        new_test_ext(1).execute_with(|| {
+            let who = U256::from(1);
+            setup_swap_disputed(&who);
+            assert_ok!(SubtensorModule::reset_coldkey_swap_keep_locked(
+                RuntimeOrigin::root(),
+                who
+            ));
+            assert_ok!(SubtensorModule::reset_coldkey_swap(
+                RuntimeOrigin::root(),
+                who
+            ));
+            assert!(!ColdkeySwapAnnouncements::<Test>::contains_key(who));
+            assert!(!ColdkeySwapDisputes::<Test>::contains_key(who));
+            assert_ok!(dispatch_with_ext(remark_call(), RuntimeOrigin::signed(who)));
         });
     }
 
@@ -485,7 +506,7 @@ mod tests {
             let delegate1 = U256::from(2);
             let delegate2 = U256::from(3);
             setup_swap_disputed(&real);
-            assert_ok!(SubtensorModule::reset_coldkey_swap(
+            assert_ok!(SubtensorModule::reset_coldkey_swap_keep_locked(
                 RuntimeOrigin::root(),
                 real
             ));
