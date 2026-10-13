@@ -219,6 +219,7 @@ PALLET_DIRS = {
     "Crowdloan": "pallets/crowdloan",
     "Drand": "pallets/drand",
     "LimitOrders": "pallets/limit-orders",
+    "Lending": "pallets/lending",
     "MevShield": "pallets/shield",
     "Proxy": "pallets/proxy",
     "Swap": "pallets/swap",
