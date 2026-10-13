@@ -1719,6 +1719,11 @@ class Lending:
         return Call('Lending', 'open', {'netuid': netuid, 'side': side, 'collateral': collateral, 'hotkey': hotkey, 'min_borrow': min_borrow, 'min_proceeds': min_proceeds})
 
     @staticmethod
+    def open_exact(netuid: 'NetUid', side: 'Side', collateral: 'u64', hotkey: 'AccountId32', principal: 'u64', min_proceeds: 'u64') -> Call:
+        'Open or increase a loan by exactly the requested additional principal. Improved lending capacity cannot increase the signed debt amount.'
+        return Call('Lending', 'open_exact', {'netuid': netuid, 'side': side, 'collateral': collateral, 'hotkey': hotkey, 'principal': principal, 'min_proceeds': min_proceeds})
+
+    @staticmethod
     def set_enabled(enabled: 'bool') -> Call:
         'Pause new loans. Repayment, collection and terminal settlement remain available.'
         return Call('Lending', 'set_enabled', {'enabled': enabled})

@@ -1488,7 +1488,7 @@ fn limit_order_signers_are_blocked_during_recovery_or_dispute() {
 // Fixed-principal subnet lending. Time constants use the chain's 12-second blocks.
 parameter_types! {
     pub const LendingPalletId: PalletId = PalletId(*b"bt/loans");
-    pub const LendingMinimumLoanValue: u64 = 1_000_000_000;
+    pub const LendingMinimumLoanValue: u64 = 100_000_000;
     pub const LendingInterestPeriod: BlockNumber = 50_400;
     pub const LendingBlocksPerYear: u64 = 2_628_000;
     pub const LendingReferenceWarmup: BlockNumber = 7_200;
@@ -1502,6 +1502,11 @@ parameter_types! {
 /// Multipliers count bounded quote evaluations and transfers, rather than invented timings.
 pub struct LendingWeights;
 impl pallet_lending::weights::WeightInfo for LendingWeights {
+    fn open_exact() -> Weight {
+        // The exact-debt call shares opening execution and bounded admission scans.
+        // Reuse the existing conservative reference envelope pending measurement.
+        Self::open()
+    }
     fn open() -> Weight {
         // Retain the existing conservative swap-quote envelope and cover every existing
         // loan read by either admission guard with a measured transfer envelope. Cover
@@ -1920,6 +1925,9 @@ impl_runtime_apis! {
         }
         fn quote_open_for(owner: AccountId, netuid: u16, side: pallet_lending::Side, collateral: u64, hotkey: AccountId) -> Result<pallet_lending::OpeningQuote, sp_runtime::DispatchError> {
             Lending::quote_open_for(&owner, netuid.into(), side, collateral, &hotkey)
+        }
+        fn quote_open_exact_for(owner: AccountId, netuid: u16, side: pallet_lending::Side, collateral: u64, hotkey: AccountId, principal: u64) -> Result<pallet_lending::OpeningQuote, sp_runtime::DispatchError> {
+            Lending::quote_open_exact_for(&owner, netuid.into(), side, collateral, &hotkey, principal)
         }
         fn quote_close(owner: AccountId, netuid: u16, repay_from_wallet: bool) -> Result<pallet_lending::ClosingQuote, sp_runtime::DispatchError> {
             Lending::quote_close(&owner, netuid.into(), repay_from_wallet)

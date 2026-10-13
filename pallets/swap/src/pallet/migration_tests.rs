@@ -405,6 +405,7 @@ fn lending_buy_capacity_handles_dust_quotes_and_near_sell_endpoint_input_guard()
         let output = curve.sell_output(alpha, tao, sell).unwrap();
         AlphaReserve::set_mock_reserve(netuid, (alpha + sell).into());
         TaoReserve::set_mock_reserve(netuid, (tao - output).into());
+        FeeRate::<Test>::insert(netuid, 10_000);
         let capacity = u64::from(Pallet::<Test>::maximum_buy_input(netuid));
         let fee = u64::from(Pallet::<Test>::calculate_fee_amount(
             netuid,
@@ -412,5 +413,97 @@ fn lending_buy_capacity_handles_dust_quotes_and_near_sell_endpoint_input_guard()
             false,
         ));
         assert!(capacity - fee <= (tao - output).saturating_mul(1_000));
+        // The input-reserve limit is on net input. Fees can legitimately lift gross
+        // capacity above that limit, and the quoted capacity must still fully fill.
+        assert!(capacity > (tao - output).saturating_mul(1_000));
+        let fill = <Pallet<Test> as SwapEngine<GetAlphaForTao>>::swap(
+            netuid,
+            GetAlphaForTao::with_amount(capacity),
+            u64::MAX.into(),
+            false,
+            true,
+        )
+        .unwrap();
+        assert_eq!(
+            fill.amount_paid_in.to_u64() + fill.fee_paid.to_u64(),
+            capacity
+        );
+    });
+}
+
+#[test]
+fn lending_sell_capacity_fills_with_fees_and_respects_the_default_price_limit() {
+    use crate::mock::GetTaoForAlpha;
+    use subtensor_swap_interface::{DefaultPriceLimit, Order, SwapEngine};
+    new_test_ext().execute_with(|| {
+        for (id, alpha, tao) in [
+            (97_u16, 2_880_603_110_475_064_u64, 203_305_249_479_705_u64),
+            (98, 1_000_000_000_000_000, 2_000_000_000),
+            (99, 1_000_000_000, 1_000_000_000_000_000),
+        ] {
+            let netuid = NetUid::from(id);
+            AlphaReserve::set_mock_reserve(netuid, alpha.into());
+            TaoReserve::set_mock_reserve(netuid, tao.into());
+            Pallet::<Test>::maybe_initialize_palswap(netuid, None).unwrap();
+            Pallet::<Test>::extract_unreachable_reserves(netuid).unwrap();
+            for fee in [0, 33, 10_000] {
+                FeeRate::<Test>::insert(netuid, fee);
+                let capacity = Pallet::<Test>::maximum_sell_input(netuid).to_u64();
+                assert!(capacity > 0, "no capacity at {id}, fee {fee}");
+                let limit = <Pallet<Test> as DefaultPriceLimit<AlphaBalance, TaoBalance>>::default_price_limit::<TaoBalance>();
+                let filled = <Pallet<Test> as SwapEngine<GetTaoForAlpha>>::swap(netuid,
+                    GetTaoForAlpha::with_amount(capacity), limit, false, true).unwrap();
+                assert_eq!(filled.amount_paid_in.to_u64() + filled.fee_paid.to_u64(), capacity);
+                assert!(filled.amount_paid_out > TaoBalance::ZERO);
+                let next = <Pallet<Test> as SwapEngine<GetTaoForAlpha>>::swap(netuid,
+                    GetTaoForAlpha::with_amount(capacity + 1), limit, false, true);
+                assert!(next.is_err() || next.is_ok_and(|fill| fill.amount_paid_in.to_u64() + fill.fee_paid.to_u64() < capacity + 1));
+            }
+        }
+        assert_eq!(Pallet::<Test>::maximum_sell_input(NetUid::from(crate::mock::NON_EXISTENT_NETUID)), AlphaBalance::ZERO);
+    });
+}
+
+#[test]
+fn lending_buy_capacity_respects_the_explicit_price_wall_in_high_price_pools() {
+    use crate::mock::GetAlphaForTao;
+    use subtensor_swap_interface::{Order, SwapEngine};
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(100);
+        AlphaReserve::set_mock_reserve(netuid, 100_000_000_000_u64.into());
+        TaoReserve::set_mock_reserve(netuid, 21_000_000_000_000_000_u64.into());
+        Pallet::<Test>::maybe_initialize_palswap(netuid, None).unwrap();
+        Pallet::<Test>::extract_unreachable_reserves(netuid).unwrap();
+        for fee in [0, 33, 10_000] {
+            FeeRate::<Test>::insert(netuid, fee);
+            let capacity = Pallet::<Test>::maximum_buy_input(netuid).to_u64();
+            assert!(capacity > 0);
+            let fill = <Pallet<Test> as SwapEngine<GetAlphaForTao>>::swap(
+                netuid,
+                GetAlphaForTao::with_amount(capacity),
+                u64::MAX.into(),
+                false,
+                true,
+            )
+            .unwrap();
+            assert_eq!(
+                fill.amount_paid_in.to_u64() + fill.fee_paid.to_u64(),
+                capacity
+            );
+            assert!(fill.amount_paid_out > AlphaBalance::ZERO);
+            let next = <Pallet<Test> as SwapEngine<GetAlphaForTao>>::swap(
+                netuid,
+                GetAlphaForTao::with_amount(capacity + 1),
+                u64::MAX.into(),
+                false,
+                true,
+            );
+            assert!(
+                next.is_err()
+                    || next
+                        .is_ok_and(|fill| fill.amount_paid_in.to_u64() + fill.fee_paid.to_u64()
+                            < capacity + 1)
+            );
+        }
     });
 }

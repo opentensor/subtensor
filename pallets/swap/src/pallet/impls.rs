@@ -148,36 +148,88 @@ impl<T: Config> Pallet<T> {
             {
                 return Ok(0);
             }
-            // net(gross) = gross - floor(gross*fee_rate) is monotone. Use the
-            // exact execution fee routine, including its fixed-point rounding.
-            let mut low = net;
-            let mut high = u64::MAX;
-            while low < high {
-                let mid = low
-                    .checked_add(
-                        high.checked_sub(low)
-                            .ok_or(Error::<T>::ReservesOutOfBalance)?
-                            .div_ceil(2),
-                    )
-                    .ok_or(Error::<T>::ReservesOutOfBalance)?;
-                let fee = u64::from(Self::calculate_fee_amount(
-                    netuid,
-                    TaoBalance::from(mid),
-                    false,
-                ));
-                if mid
-                    .checked_sub(fee)
-                    .ok_or(Error::<T>::ReservesOutOfBalance)?
-                    <= net
-                {
-                    low = mid;
-                } else {
-                    high = mid.checked_sub(1).ok_or(Error::<T>::ReservesOutOfBalance)?;
-                }
-            }
-            Ok(low)
+            Self::gross_input_for_net::<TaoBalance>(netuid, net)
         };
         capacity().unwrap_or_default().into()
+    }
+
+    /// Maximum fee-inclusive alpha input which fully fills a lending sale,
+    /// including the finite curve boundary, physical reserve floor and default price limit.
+    pub fn maximum_sell_input(netuid: NetUid) -> AlphaBalance {
+        let capacity = || -> Result<u64, DispatchError> {
+            ensure!(
+                T::SubnetInfo::exists(netuid) && T::SubnetInfo::mechanism(netuid) == 1,
+                Error::<T>::MechanismDoesNotExist
+            );
+            ensure!(
+                FeeRate::<T>::get(netuid) < u16::MAX,
+                Error::<T>::FeeRateTooHigh
+            );
+            let alpha = u64::from(T::AlphaReserve::reserve(netuid));
+            let tao = u64::from(T::TaoReserve::reserve(netuid));
+            let curve = Self::superellipse(netuid)?;
+            let bound = alpha.saturating_mul(MAX_SWAP_INPUT_RESERVE_MULTIPLIER);
+            let mut net = curve
+                .max_sell_input_with_reserve_floor(alpha, tao, T::MinimumReserve::get().get())
+                .map_err(|_| Error::<T>::ReservesOutOfBalance)?
+                .min(bound);
+            let limit = U64F64::saturating_from_num(Self::min_price_inner::<TaoBalance>())
+                .safe_div(U64F64::saturating_from_num(1_000_000_000_u64));
+            let output = curve
+                .sell_output(alpha, tao, net)
+                .map_err(|_| Error::<T>::ReservesOutOfBalance)?;
+            let final_price = curve.calculate_price(
+                alpha
+                    .checked_add(net)
+                    .ok_or(Error::<T>::ReservesOutOfBalance)?,
+                tao.checked_sub(output)
+                    .ok_or(Error::<T>::InsufficientLiquidity)?,
+            );
+            if final_price.is_err() || final_price.is_ok_and(|price| price < limit) {
+                net = net.min(
+                    curve
+                        .base_delta_to_price(alpha, tao, limit)
+                        .map_err(|_| Error::<T>::ReservesOutOfBalance)?,
+                );
+            }
+            if net == 0
+                || curve
+                    .sell_output(alpha, tao, net)
+                    .map_err(|_| Error::<T>::ReservesOutOfBalance)?
+                    == 0
+            {
+                return Ok(0);
+            }
+            Self::gross_input_for_net::<AlphaBalance>(netuid, net)
+        };
+        capacity().unwrap_or_default().into()
+    }
+
+    fn gross_input_for_net<C: Token>(netuid: NetUid, net: u64) -> Result<u64, DispatchError> {
+        // net(gross) = gross - floor(gross*fee_rate) is monotone. Use the exact
+        // execution fee rounding. The reserve-input guard applies after fees.
+        let mut low = net;
+        let mut high = u64::MAX;
+        while low < high {
+            let mid = low
+                .checked_add(
+                    high.checked_sub(low)
+                        .ok_or(Error::<T>::ReservesOutOfBalance)?
+                        .div_ceil(2),
+                )
+                .ok_or(Error::<T>::ReservesOutOfBalance)?;
+            let fee = Self::calculate_fee_amount(netuid, C::from(mid), false).to_u64();
+            if mid
+                .checked_sub(fee)
+                .ok_or(Error::<T>::ReservesOutOfBalance)?
+                <= net
+            {
+                low = mid;
+            } else {
+                high = mid.checked_sub(1).ok_or(Error::<T>::ReservesOutOfBalance)?;
+            }
+        }
+        Ok(low)
     }
 
     /// The compute envelope callers charge for initialization or extraction.
@@ -782,6 +834,10 @@ impl<T: Config> SwapHandler for Pallet<T> {
 
     fn max_buy_input(netuid: NetUid) -> TaoBalance {
         Pallet::<T>::maximum_buy_input(netuid)
+    }
+
+    fn max_sell_input(netuid: NetUid) -> AlphaBalance {
+        Pallet::<T>::maximum_sell_input(netuid)
     }
 
     fn extracted_tao(netuid: NetUid) -> TaoBalance {

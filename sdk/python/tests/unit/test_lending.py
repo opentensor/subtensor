@@ -10,232 +10,49 @@ from typer.testing import CliRunner
 
 from bittensor._generated.errors import ERRORS
 from bittensor.balance import Balance, UnitMismatchError
-from bittensor.cli.commands.lending import _bound, _minimum_collateral
+from bittensor.cli.commands.lending import _bound
 from bittensor.cli.main import app
 from bittensor.client import Client
 from bittensor.intents import CloseLoan, OpenLoan, Policy
-from bittensor.result import BittensorError, ChainError
+from bittensor.result import BittensorError, ChainError, PolicyError
 from tests.harness.fake_substrate import DEFAULT_STORAGE, FakeSubstrate
-from tests.harness.samples import ALICE, ALICE_HOT, dev_wallet
+from tests.harness.samples import ALICE, ALICE_HOT, BOB, BOB_HOT, dev_wallet
 from tests.unit.test_cli_commands import fake as _cli_fake
 from tests.unit.test_cli_commands import isolated_cli, wallet_dir  # noqa: F401
 
 runner = CliRunner()
 
 
-def _seed_minimum_quotes(fake, threshold, ceiling=(1 << 64) - 1, target=1_000_000_000):
-    fake.seed_constant("Lending", "MinimumLoanValue", target)
-    calls = []
-
-    def quote(params):
-        calls.append(params)
-        amount = params[3]
-        if amount > ceiling:
-            return {"Err": {"Module": {"index": 33, "error": "0x08000000"}}}
-        value = amount * target // threshold
-        if value < target:
-            return {"Err": {"Module": {"index": 33, "error": "0x06000000"}}}
-        return {"Ok": {"principal": value, "opening_value": value, "annual_interest": value}}
-
-    fake.seed_runtime("LendingRuntimeApi", "quote_open_for", quote)
-    return calls
-
-
-@pytest.mark.parametrize("side,unit", [("short", 0), ("long", 1)])
-@pytest.mark.asyncio
-async def test_minimum_collateral_search_is_exact_and_owner_aware(side, unit):
-    fake = FakeSubstrate()
-    threshold = 95_500_000_001
-    calls = _seed_minimum_quotes(fake, threshold)
-    _seed_position(fake, side.title())
-    async with Client("local", substrate=fake) as client:
-        minimum, target = await _minimum_collateral(client, 1, side, ALICE, ALICE_HOT)
-    assert minimum == Balance.from_rao(threshold, unit)
-    assert target == Balance.from_rao(1_000_000_000)
-    assert all(p[0] == ALICE and p[1] == 1 and p[4] == ALICE_HOT for p in calls)
-    assert len(calls) <= 128
-
-
-@pytest.mark.asyncio
-async def test_minimum_collateral_search_does_not_skip_a_narrow_inventory_window():
-    fake = FakeSubstrate()
-    threshold = 95_500_000_001
-    _seed_minimum_quotes(fake, threshold, ceiling=threshold + 1000)
-    async with Client("local", substrate=fake) as client:
-        minimum, _ = await _minimum_collateral(client, 1, "short", ALICE, ALICE_HOT)
-    assert minimum.rao == threshold
-
-
-@pytest.mark.asyncio
-async def test_minimum_collateral_search_refuses_when_inventory_cannot_fund_target():
-    fake = FakeSubstrate()
-    _seed_minimum_quotes(fake, 95_500_000_001, ceiling=95_500_000_000)
-    async with Client("local", substrate=fake) as client:
-        with pytest.raises(BittensorError, match="inventory"):
-            await _minimum_collateral(client, 1, "short", ALICE, ALICE_HOT)
-
-
-@pytest.mark.asyncio
-async def test_minimum_collateral_search_respects_higher_runtime_minimum():
-    fake = FakeSubstrate()
-    _seed_minimum_quotes(fake, 200_000_000_000, target=2_000_000_000)
-    async with Client("local", substrate=fake) as client:
-        minimum, target = await _minimum_collateral(client, 1, "short", ALICE, ALICE_HOT)
-    assert minimum.rao == 200_000_000_000
-    assert target.rao == 2_000_000_000
-
-
-@pytest.mark.asyncio
-async def test_minimum_collateral_search_preserves_reference_failures():
-    fake = FakeSubstrate()
-    fake.seed_constant("Lending", "MinimumLoanValue", 1_000_000_000)
-    fake.seed_runtime(
-        "LendingRuntimeApi",
-        "quote_open_for",
-        {"Err": {"Module": {"index": 33, "error": "0x03000000"}}},
-    )
-    async with Client("local", substrate=fake) as client:
-        with pytest.raises(ChainError) as failure:
-            await _minimum_collateral(client, 1, "short", ALICE, ALICE_HOT)
-    assert failure.value.name == "ReferenceWarmingUp"
-
-
 @pytest.fixture()
 def cli_fake(request, monkeypatch):
+    from bittensor.cli import prompt
+
     request.getfixturevalue("isolated_cli")
-    return _cli_fake.__wrapped__(None, monkeypatch)
+    monkeypatch.setattr(prompt, "_entered_tokens", [])
+    fake = _cli_fake.__wrapped__(None, monkeypatch)
+    _seed_alpha(fake, 10**18, 10**18)
+    return fake
 
 
-def test_cli_collateral_prompt_shows_estimate_and_requotes_selection(cli_fake, monkeypatch):
-    from bittensor.cli import prompt
-    from bittensor.cli.commands import lending
-
-    monkeypatch.setattr(lending, "interactive", lambda _ctx: True)
-    monkeypatch.setattr(prompt, "interactive", lambda _ctx: True)
-    calls = _seed_minimum_quotes(cli_fake, 95_500_000_001)
-    result = runner.invoke(
-        app,
-        [
-            "--dry-run",
-            "--yes",
-            "lending",
-            "open",
-            "--netuid",
-            "1",
-            "--side",
-            "short",
-            "--hotkey",
-            ALICE_HOT,
-        ],
-        input="\n",
+def _seed_alpha(fake, stake, available, owner=ALICE, hotkey=ALICE_HOT, bond=0):
+    fake.seed_runtime(
+        "StakeInfoRuntimeApi", "get_stake_info_for_hotkey_coldkey_netuid", {"stake": stake}
     )
-    assert result.exit_code == 0, result.output
-    assert "95.500000001" in result.output
-    assert "Estimated minimum additional collateral" in result.output
-    assert "borrowed alpha" in result.output
-    assert calls[-1][3] == 95_500_000_001
-    assert cli_fake.submissions == []
-
-
-@pytest.mark.parametrize("side", ["short", "long"])
-@pytest.mark.parametrize(
-    "error_index,name", [(14, "InsufficientEscrow"), (21, "InsufficientRedemptionBacking")]
-)
-def test_cli_growth_estimate_failure_allows_larger_manual_collateral(
-    cli_fake, monkeypatch, side, error_index, name
-):
-    from bittensor.cli import prompt
-    from bittensor.cli.commands import lending
-
-    monkeypatch.setattr(lending, "interactive", lambda _ctx: True)
-    monkeypatch.setattr(prompt, "interactive", lambda _ctx: True)
-    _seed_position(cli_fake, side.title())
-    cli_fake.seed_constant("Lending", "MinimumLoanValue", 1_000_000_000)
-    calls = []
-
-    def quote(params):
-        calls.append(params[3])
-        if params[3] < 10_000_000_000:
-            return {"Err": {"Module": {"index": 33, "error": f"0x{error_index:02x}000000"}}}
-        return {
-            "Ok": {
-                "principal": 1_000_000_000,
-                "opening_value": 1_000_000_000,
-                "annual_interest": 1_000_000_000,
-            }
-        }
-
-    cli_fake.seed_runtime("LendingRuntimeApi", "quote_open_for", quote)
-    result = runner.invoke(
-        app,
-        [
-            "--dry-run",
-            "--yes",
-            "lending",
-            "open",
-            "--netuid",
-            "1",
-            "--side",
-            side,
-            "--hotkey",
-            ALICE_HOT,
-        ],
-        input="10\n",
+    fake.seed_runtime(
+        "StakeInfoRuntimeApi",
+        "get_stake_availability_for_coldkeys",
+        lambda params: {params[0][0]: {1: {"available": available}}},
     )
-    assert result.exit_code == 0, result.output
-    assert "Minimum collateral estimate unavailable" in result.output
-    assert name in result.output
-    assert "Enter collateral manually" in result.output
-    assert "Estimated minimum additional collateral" not in result.output
-    assert calls == [1_000_000_000, 10_000_000_000]
-    assert cli_fake.submissions == []
+    fake.seed("SubtensorModule", "MinerCollateral", [(1, hotkey, owner)], {"locked": bond})
 
 
-def test_manual_collateral_after_failed_estimate_still_requires_valid_quote(cli_fake, monkeypatch):
-    from bittensor.cli import prompt
-    from bittensor.cli.commands import lending
-
-    monkeypatch.setattr(lending, "interactive", lambda _ctx: True)
-    monkeypatch.setattr(prompt, "interactive", lambda _ctx: True)
-    cli_fake.seed_constant("Lending", "MinimumLoanValue", 1_000_000_000)
-    calls = []
-
-    def quote(params):
-        calls.append(params[3])
-        return {"Err": {"Module": {"index": 33, "error": "0x15000000"}}}
-
-    cli_fake.seed_runtime("LendingRuntimeApi", "quote_open_for", quote)
-    result = runner.invoke(
-        app,
-        [
-            "--yes",
-            "lending",
-            "open",
-            "--netuid",
-            "1",
-            "--side",
-            "short",
-            "--hotkey",
-            ALICE_HOT,
-        ],
-        input="10\n",
+def _seed_wallet(fake, free, *, owner=ALICE, reserved=0, frozen=0):
+    fake.seed(
+        "System",
+        "Account",
+        [owner],
+        {"data": {"free": free, "reserved": reserved, "frozen": frozen}},
     )
-    assert result.exit_code != 0
-    assert "Enter collateral manually" in result.output
-    assert "InsufficientRedemptionBacking" in result.output
-    assert calls == [1_000_000_000, 10_000_000_000]
-    assert cli_fake.submissions == []
-
-
-def test_missing_collateral_in_scripts_does_not_estimate_or_prompt(cli_fake):
-    def unexpected_quote(_params):
-        pytest.fail("missing script option must fail before querying")
-
-    cli_fake.seed_runtime("LendingRuntimeApi", "quote_open_for", unexpected_quote)
-    result = runner.invoke(app, ["--json", "lending", "open", "--netuid", "1", "--side", "short"])
-    assert result.exit_code == 2
-    assert "--collateral" in result.output
-    assert cli_fake.submissions == []
 
 
 def _seed_position(substrate: FakeSubstrate, side: str = "Short", **updates):
@@ -277,6 +94,8 @@ async def test_open_preserves_exact_units_and_atoms(side, collateral_unit, debt_
         ("Long", "min_borrow", 1),
         ("Short", "min_proceeds", 1),
         ("Long", "min_proceeds", 1),
+        ("Short", "amount", 0),
+        ("Long", "amount", 1),
     ],
 )
 def test_open_rejects_wrong_currency(side, field, wrong_unit):
@@ -582,7 +401,8 @@ def test_cli_open_quotes_full_loan_and_sets_floor(cli_fake, side):
     assert plan["op"] == "open_loan"
     assert plan["args"]["min_borrow"] == "0.2475"
     assert plan["args"]["min_proceeds"] == ("0.2475" if side == "short" else "0")
-    assert len(seen) == 1
+    assert len(seen) == 2  # CLI quote, then the mandatory SDK pre-sign quote.
+    assert seen[0] == seen[1]
     owner, netuid, runtime_side, collateral, hotkey = seen[0]
     assert owner
     assert hotkey
@@ -754,3 +574,751 @@ def test_cli_position_table_does_not_present_a_locked_sale_balance(cli_fake):
     assert result.exit_code == 0, result.output
     assert "proceeds" not in result.output.lower()
     assert "principal" in result.output.lower()
+
+
+@pytest.mark.parametrize("side,collateral_unit,debt_unit", [("Short", 0, 1), ("Long", 1, 0)])
+@pytest.mark.asyncio
+async def test_exact_open_builds_the_exact_principal_call(side, collateral_unit, debt_unit):
+    fake = FakeSubstrate()
+    intent = OpenLoan(
+        netuid=1,
+        side=side,
+        collateral=Balance.from_rao(1_000_000_003, collateral_unit),
+        amount=Balance.from_rao(250_000_001, debt_unit),
+        min_borrow=Balance.from_rao(250_000_001, debt_unit),
+        min_proceeds="0.1",
+    )
+    call = await intent.build(fake, dev_wallet())
+    assert call.function == "open_exact"
+    assert call.params == {
+        "netuid": 1,
+        "side": side,
+        "collateral": 1_000_000_003,
+        "hotkey": ALICE_HOT,
+        "principal": 250_000_001,
+        "min_proceeds": 100_000_000,
+    }
+    assert intent.to_dict()["amount"] == "0.250000001"
+    assert "exactly" in intent.summary()
+
+
+@pytest.mark.parametrize("amount", ["0", "-1", "NaN", "Infinity"])
+def test_exact_open_rejects_invalid_amount(amount):
+    with pytest.raises(BittensorError):
+        OpenLoan(netuid=1, side="short", collateral="1", amount=amount)
+
+
+def test_exact_open_rejects_minimum_above_requested_principal():
+    with pytest.raises(BittensorError, match="min_borrow cannot exceed"):
+        OpenLoan(netuid=1, side="long", collateral="1", amount="0.1", min_borrow="0.100000001")
+
+
+@pytest.mark.parametrize(
+    "free,reserved,frozen,allowed,reason",
+    [
+        (1_000_000_000 + 124_414 + 500, 0, 0, True, None),
+        (1_000_000_000 + 124_414 + 499, 0, 0, False, "collateral plus transaction fee"),
+        (1_000_000_000 + 500, 0, 0, False, "collateral plus transaction fee"),
+        (2_000_000_000, 0, 1_100_000_000, False, "insufficient spendable collateral"),
+        (2_000_000_000, 200_000_000, 1_100_000_000, True, None),
+    ],
+)
+@pytest.mark.asyncio
+async def test_short_preflight_uses_spendable_collateral_and_combined_fees(
+    free, reserved, frozen, allowed, reason
+):
+    fake = FakeSubstrate()
+    _seed_wallet(fake, free, reserved=reserved, frozen=frozen)
+    async with Client("local", substrate=fake) as client:
+        plan = await client.plan(OpenLoan(netuid=1, side="short", collateral="1"), dev_wallet())
+    assert plan.ok is allowed
+    if reason is not None:
+        assert any(reason in block for block in plan.violations)
+    assert fake.submissions == []
+
+
+@pytest.mark.parametrize(
+    "stake,available,bond,expected_available",
+    [(200, 90, 0, 90), (90, 200, 0, 90), (200, 300, 120, 80)],
+)
+@pytest.mark.asyncio
+async def test_long_preflight_limits_collateral_by_hotkey_locks_and_bonds(
+    stake, available, bond, expected_available
+):
+    fake = FakeSubstrate()
+    _seed_wallet(fake, 1_000_000)
+    _seed_alpha(fake, stake, available, bond=bond)
+    async with Client("local", substrate=fake) as client:
+        intent = OpenLoan(netuid=1, side="long", collateral=Balance.from_rao(100, 1))
+        preview = await client.preflight(intent, dev_wallet())
+    assert any("insufficient spendable collateral" in block for block in preview.blocks)
+    assert ("available collateral", str(Balance.from_rao(expected_available, 1))) in preview.facts
+
+
+@pytest.mark.asyncio
+async def test_other_hotkey_bond_does_not_freeze_selected_hotkey_alpha():
+    fake = FakeSubstrate()
+    _seed_wallet(fake, 1_000_000)
+    _seed_alpha(fake, 200, 150, hotkey=BOB_HOT, bond=200)
+    async with Client("local", substrate=fake) as client:
+        preview = await client.preflight(
+            OpenLoan(netuid=1, side="long", collateral=Balance.from_rao(100, 1)), dev_wallet()
+        )
+    assert preview.blocks == []
+
+
+@pytest.mark.asyncio
+async def test_long_borrowed_tao_cannot_pay_its_own_inclusion_fee():
+    fake = FakeSubstrate()
+    _seed_wallet(fake, 500)
+    _seed_alpha(fake, 10**9, 10**9)
+    async with Client("local", substrate=fake) as client:
+        plan = await client.plan(OpenLoan(netuid=1, side="long", collateral="1"), dev_wallet())
+    assert not plan.ok
+    assert any("transaction fee" in block for block in plan.violations)
+
+
+@pytest.mark.parametrize("payer_funded", [False, True])
+@pytest.mark.asyncio
+async def test_proxy_collateral_owner_and_fee_payer_are_checked_separately(payer_funded):
+    fake = FakeSubstrate()
+    _seed_wallet(fake, 1_000_000_500)
+    _seed_wallet(fake, 124_914 if payer_funded else 500, owner=BOB)
+    seen = []
+
+    def quote(params):
+        seen.append(params)
+        return {
+            "Ok": {"principal": 250_000_000, "opening_value": 250_000_000, "annual_interest": 1}
+        }
+
+    fake.seed_runtime("LendingRuntimeApi", "quote_open_for", quote)
+    async with Client("local", substrate=fake) as client:
+        plan = await client.plan(
+            OpenLoan(netuid=1, side="short", collateral="1", hotkey_ss58=ALICE_HOT),
+            dev_wallet("//Bob"),
+            proxy_for=ALICE,
+        )
+    assert plan.ok is payer_funded
+    assert seen[0][0] == ALICE
+    assert plan.signer_address == BOB
+    if not payer_funded:
+        assert any("transaction fee" in block for block in plan.violations)
+
+
+@pytest.mark.parametrize("failure", ["fee", "balance", "alpha", "quote"])
+@pytest.mark.asyncio
+async def test_mandatory_lending_preflight_failures_stop_before_signing(monkeypatch, failure):
+    from bittensor import executor
+
+    fake = FakeSubstrate()
+    _seed_wallet(fake, 10**12)
+    _seed_alpha(fake, 10**12, 10**12)
+    side = "long" if failure == "alpha" else "short"
+
+    async def unavailable(*_args, **_kwargs):
+        raise RuntimeError("unavailable")
+
+    if failure == "fee":
+        monkeypatch.setattr(fake, "estimate_fee", unavailable)
+    elif failure == "balance":
+        fake.seed("System", "Account", [ALICE], {"data": {"free": "invalid"}})
+    elif failure == "alpha":
+        fake.seed_runtime("StakeInfoRuntimeApi", "get_stake_availability_for_coldkeys", None)
+    else:
+        fake.seed_runtime("LendingRuntimeApi", "quote_open_for", None)
+
+    def unexpected_signer(*_args, **_kwargs):
+        pytest.fail("failed lending preflight must not request a signer")
+
+    monkeypatch.setattr(executor, "resolve_signer", unexpected_signer)
+    async with Client("local", substrate=fake) as client:
+        with pytest.raises(PolicyError, match="could not verify lending"):
+            await client.execute(OpenLoan(netuid=1, side=side, collateral="1"), dev_wallet())
+    assert fake.submissions == []
+
+
+@pytest.mark.parametrize(
+    "amount,minimum,opening,quoted,reason",
+    [
+        ("0.25", "0", "0", 250_000_001, "does not match the exact"),
+        (None, "0.250000001", "0", 250_000_000, "minimum additional principal"),
+        (None, "0", "0.250000001", 250_000_000, "minimum opening value"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_fresh_preflight_quote_preserves_principal_and_opening_bounds(
+    amount, minimum, opening, quoted, reason
+):
+    fake = FakeSubstrate()
+    _seed_wallet(fake, 10**12)
+    fake.seed_runtime(
+        "LendingRuntimeApi",
+        "quote_open_exact_for" if amount else "quote_open_for",
+        {"Ok": {"principal": quoted, "opening_value": quoted, "annual_interest": quoted}},
+    )
+    async with Client("local", substrate=fake) as client:
+        preview = await client.preflight(
+            OpenLoan(
+                netuid=1,
+                side="short",
+                collateral="1",
+                amount=amount,
+                min_borrow=minimum,
+                min_proceeds=opening,
+            ),
+            dev_wallet(),
+        )
+    assert any(reason in block for block in preview.blocks)
+
+
+def test_cli_requires_one_input_in_scripts_without_querying(cli_fake):
+    def unexpected_quote(_params):
+        pytest.fail("missing input must fail before querying")
+
+    cli_fake.seed_runtime("LendingRuntimeApi", "quote_open_for", unexpected_quote)
+    result = runner.invoke(app, ["--json", "lending", "open", "--netuid", "1", "--side", "short"])
+    assert result.exit_code == 2
+    assert "--amount or --collateral" in result.output
+    assert cli_fake.submissions == []
+
+
+def test_cli_rejects_two_input_modes(cli_fake):
+    result = runner.invoke(
+        app,
+        [
+            "--json",
+            "lending",
+            "open",
+            "--netuid",
+            "1",
+            "--side",
+            "short",
+            "--amount",
+            "0.1",
+            "--collateral",
+            "1",
+        ],
+    )
+    assert result.exit_code == 2
+    assert "mutually exclusive" in result.output
+    assert cli_fake.submissions == []
+
+
+def _mock_required_collateral(monkeypatch, fake, collateral=1_000_000_003):
+    original = Client.read
+    requested = []
+
+    async def read(client, name, **kwargs):
+        if name != "lending_required_collateral":
+            return await original(client, name, **kwargs)
+        requested.append(kwargs)
+        return {"collateral": Balance.from_rao(collateral, 0 if kwargs["side"] == "short" else 1)}
+
+    monkeypatch.setattr(Client, "read", read)
+    seen = []
+
+    def quote(params):
+        seen.append(params)
+        return {
+            "Ok": {
+                "principal": params[5],
+                "opening_value": 100_000_000,
+                "annual_interest": 100_000_000,
+            }
+        }
+
+    fake.seed_runtime("LendingRuntimeApi", "quote_open_exact_for", quote)
+    return requested, seen
+
+
+@pytest.mark.parametrize("side,unit", [("short", 1), ("long", 0)])
+def test_cli_amount_uses_required_collateral_and_exact_principal(cli_fake, monkeypatch, side, unit):
+    required, seen = _mock_required_collateral(monkeypatch, cli_fake)
+    result = runner.invoke(
+        app,
+        [
+            "--json",
+            "--dry-run",
+            "--no-mev-shield",
+            "lending",
+            "open",
+            "--netuid",
+            "1",
+            "--side",
+            side,
+            "--amount",
+            "0.100000001",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    plan = json.loads(result.output)
+    assert plan["args"]["amount"] == "0.100000001"
+    assert plan["args"]["min_borrow"] == "0.100000001"
+    assert plan["args"]["collateral"] == "1.000000003"
+    assert required[0]["amount"] == Balance.from_rao(100_000_001, unit)
+    assert len(seen) == 2  # Fresh CLI quote plus the SDK pre-sign quote.
+    assert all(params[3] == 1_000_000_003 and params[5] == 100_000_001 for params in seen)
+    assert cli_fake.submissions == []
+
+
+@pytest.mark.parametrize("side,label", [("short", "subnet 1 alpha"), ("long", "TAO")])
+def test_cli_prompt_defaults_to_borrow_amount_with_contextual_units(
+    cli_fake, monkeypatch, side, label
+):
+    from bittensor.cli import prompt
+
+    monkeypatch.setattr(prompt, "interactive", lambda _ctx: True)
+    _mock_required_collateral(monkeypatch, cli_fake)
+    result = runner.invoke(
+        app,
+        [
+            "--yes",
+            "--dry-run",
+            "--no-mev-shield",
+            "lending",
+            "open",
+            "--netuid",
+            "1",
+            "--side",
+            side,
+            "--hotkey",
+            ALICE_HOT,
+        ],
+        input="\n0.1\n",
+    )
+    assert result.exit_code == 0, result.output
+    assert "[amount]" in result.output
+    assert f"Additional {label} to borrow" in result.output
+    assert "borrow exactly" in result.output
+    assert "--amount 0.1" in result.output
+    assert "--collateral 0.1" not in result.output
+
+
+@pytest.mark.parametrize("side,label", [("short", "TAO"), ("long", "subnet 1 alpha")])
+def test_cli_prompt_can_choose_collateral_with_contextual_units(cli_fake, monkeypatch, side, label):
+    from bittensor.cli import prompt
+
+    monkeypatch.setattr(prompt, "interactive", lambda _ctx: True)
+    result = runner.invoke(
+        app,
+        [
+            "--yes",
+            "--dry-run",
+            "--no-mev-shield",
+            "lending",
+            "open",
+            "--netuid",
+            "1",
+            "--side",
+            side,
+            "--hotkey",
+            ALICE_HOT,
+        ],
+        input="2\n1\n",
+    )
+    assert result.exit_code == 0, result.output
+    assert f"Additional {label} to lock" in result.output
+    assert "borrowing limit" in " ".join(result.output.split())
+    assert "--collateral 1" in result.output
+    assert "--amount 1" not in result.output
+
+
+def test_cli_failed_wallet_check_prevents_transaction_review(cli_fake, monkeypatch):
+    from bittensor.cli.context import AppContext
+
+    cli_fake.seed_default("System", "Account", {"data": {"free": 500, "reserved": 0, "frozen": 0}})
+
+    def unexpected_review(*_args, **_kwargs):
+        pytest.fail("failed wallet check must prevent the transaction review")
+
+    monkeypatch.setattr(AppContext, "_transaction_card", unexpected_review)
+    result = runner.invoke(
+        app,
+        [
+            "--yes",
+            "--no-mev-shield",
+            "lending",
+            "open",
+            "--netuid",
+            "1",
+            "--side",
+            "short",
+            "--collateral",
+            "1",
+        ],
+    )
+    assert result.exit_code == 1, result.output
+    assert "insufficient spendable collateral" in result.output
+    assert cli_fake.submissions == []
+
+
+def test_cli_proxy_quote_uses_the_collateral_owner(cli_fake):
+    owners = []
+
+    def quote(params):
+        owners.append(params[0])
+        return {
+            "Ok": {"principal": 250_000_000, "opening_value": 250_000_000, "annual_interest": 1}
+        }
+
+    cli_fake.seed_runtime("LendingRuntimeApi", "quote_open_for", quote)
+    result = runner.invoke(
+        app,
+        [
+            "--json",
+            "--dry-run",
+            "--no-mev-shield",
+            "lending",
+            "open",
+            "--netuid",
+            "1",
+            "--side",
+            "short",
+            "--collateral",
+            "1",
+            "--proxy-for",
+            ALICE,
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert owners == [ALICE, ALICE]
+
+
+class _PublicSigner:
+    crypto_type = 1
+
+    def __init__(self):
+        key = dev_wallet("//Bob").coldkey
+        self.ss58_address = key.ss58_address
+        self.public_key = key.public_key
+
+    def sign(self, _payload):
+        pytest.fail("failed preflight must not request an external signature")
+
+    async def close(self):
+        pass
+
+
+@pytest.mark.parametrize("failure", ["collateral", "fee", "fee_rpc"])
+def test_external_wallet_checks_stop_before_review_and_signature(cli_fake, monkeypatch, failure):
+    from bittensor.cli.context import AppContext
+
+    signer = _PublicSigner()
+    monkeypatch.setattr(AppContext, "ledger_signer", lambda _ctx: signer)
+    _seed_wallet(cli_fake, 500 if failure != "fee_rpc" else 10**12, owner=BOB)
+    side = "long" if failure == "fee" else "short"
+    owners = []
+
+    def quote(params):
+        owners.append(params[0])
+        return {
+            "Ok": {
+                "principal": 250_000_000,
+                "opening_value": 250_000_000,
+                "annual_interest": 250_000_000,
+            }
+        }
+
+    cli_fake.seed_runtime("LendingRuntimeApi", "quote_open_for", quote)
+
+    if failure == "fee_rpc":
+
+        async def unavailable(*_args, **_kwargs):
+            raise RuntimeError("fee RPC unavailable")
+
+        monkeypatch.setattr(cli_fake, "estimate_fee", unavailable)
+
+    def unexpected_review(*_args, **_kwargs):
+        pytest.fail("external loan wallet checks must run before review")
+
+    monkeypatch.setattr(AppContext, "_transaction_card", unexpected_review)
+    result = runner.invoke(
+        app,
+        [
+            "--yes",
+            "--no-mev-shield",
+            "lending",
+            "open",
+            "--netuid",
+            "1",
+            "--side",
+            side,
+            "--collateral",
+            "1",
+            "--hotkey",
+            ALICE_HOT,
+            "--signer",
+            "ledger",
+            "--signer-address",
+            BOB,
+        ],
+    )
+    assert result.exit_code == 1, result.output
+    assert owners == [BOB, BOB]
+    expected = {
+        "collateral": "insufficient spendable collateral",
+        "fee": "transaction fee",
+        "fee_rpc": "fee RPC unavailable",
+    }[failure]
+    assert expected in result.output
+    assert cli_fake.submissions == []
+
+
+def test_combined_carrier_and_collateral_shortfall_stops_before_review(cli_fake, monkeypatch):
+    from bittensor.cli.context import AppContext
+
+    # Each fee by itself fits. Reserving collateral and the inner fee leaves
+    # nothing for the outer carrier, so the combined check must refuse.
+    cli_fake.seed_default(
+        "System",
+        "Account",
+        {"data": {"free": 1_000_000_000 + cli_fake.fee.rao + 500, "reserved": 0, "frozen": 0}},
+    )
+    cli_fake.seed("MevShield", "NextKey", [], bytes(32))
+
+    def unexpected_review(*_args, **_kwargs):
+        pytest.fail("combined collateral and shield fee shortfall must prevent review")
+
+    monkeypatch.setattr(AppContext, "_transaction_card", unexpected_review)
+    result = runner.invoke(
+        app,
+        [
+            "--yes",
+            "lending",
+            "open",
+            "--netuid",
+            "1",
+            "--side",
+            "short",
+            "--collateral",
+            "1",
+            "--mev-shield",
+        ],
+    )
+    assert result.exit_code == 1, result.output
+    assert "loan transaction and MEV-shield carrier fees" in " ".join(result.output.split())
+    assert cli_fake.submissions == []
+
+
+@pytest.mark.parametrize("failure", ["combined_shortfall", "carrier_rpc", "key_rpc", "inactive"])
+def test_dry_run_shield_affordability_is_a_hard_violation(cli_fake, monkeypatch, failure):
+    free = 1_000_000_000 + cli_fake.fee.rao + 500 if failure == "combined_shortfall" else 10**12
+    cli_fake.seed_default("System", "Account", {"data": {"free": free, "reserved": 0, "frozen": 0}})
+    if failure != "inactive":
+        cli_fake.seed("MevShield", "NextKey", [], bytes(32))
+    if failure == "carrier_rpc":
+        original_fee = cli_fake.estimate_fee
+
+        async def estimate(call, keypair):
+            if call.function == "submit_encrypted":
+                raise RuntimeError("carrier fee unavailable")
+            return await original_fee(call, keypair)
+
+        monkeypatch.setattr(cli_fake, "estimate_fee", estimate)
+    elif failure == "key_rpc":
+        original_query = cli_fake.query
+
+        async def query(module, item, *args, **kwargs):
+            if (module, item) == ("MevShield", "NextKey"):
+                raise RuntimeError("shield key unavailable")
+            return await original_query(module, item, *args, **kwargs)
+
+        monkeypatch.setattr(cli_fake, "query", query)
+    result = runner.invoke(
+        app,
+        [
+            "--yes",
+            "--json",
+            "--dry-run",
+            "lending",
+            "open",
+            "--netuid",
+            "1",
+            "--side",
+            "short",
+            "--collateral",
+            "1",
+            "--mev-shield",
+        ],
+    )
+    assert result.exit_code == 1, result.output
+    plan = json.loads(result.output)
+    assert plan["ok"] is False
+    expected = {
+        "combined_shortfall": "loan transaction and MEV-shield carrier fees",
+        "carrier_rpc": "carrier fee unavailable",
+        "key_rpc": "shield key unavailable",
+        "inactive": "MEV shield is not active",
+    }[failure]
+    assert any(expected in violation for violation in plan["violations"])
+    assert cli_fake.submissions == []
+
+
+@pytest.mark.asyncio
+async def test_sdk_shield_combined_shortfall_stops_before_signing(monkeypatch):
+    from bittensor import executor
+
+    fake = FakeSubstrate()
+    _seed_wallet(fake, 1_000_000_000 + fake.fee.rao + 500)
+
+    def unexpected_signer(*_args, **_kwargs):
+        pytest.fail("combined shield fee shortfall must prevent a signature")
+
+    monkeypatch.setattr(executor, "resolve_signer", unexpected_signer)
+    async with Client("local", substrate=fake) as client:
+        with pytest.raises(PolicyError, match="carrier fee"):
+            await client.submit_shielded(
+                OpenLoan(netuid=1, side="short", collateral="1"), dev_wallet()
+            )
+    assert fake.submissions == []
+
+
+@pytest.mark.parametrize("change", ["principal", "cap"])
+def test_fresh_owner_quote_failure_stops_before_review(cli_fake, monkeypatch, change):
+    from bittensor.cli.context import AppContext
+
+    count = 0
+
+    def quote(_params):
+        nonlocal count
+        count += 1
+        if count > 1 and change == "cap":
+            return {"Err": {"Module": {"index": 33, "error": "0x08000000"}}}
+        principal = 250_000_000 if count == 1 else 240_000_000
+        return {
+            "Ok": {"principal": principal, "opening_value": principal, "annual_interest": principal}
+        }
+
+    cli_fake.seed_runtime("LendingRuntimeApi", "quote_open_for", quote)
+
+    def unexpected_review(*_args, **_kwargs):
+        pytest.fail("a refused fresh quote must prevent review")
+
+    monkeypatch.setattr(AppContext, "_transaction_card", unexpected_review)
+    result = runner.invoke(
+        app,
+        [
+            "--yes",
+            "--no-mev-shield",
+            "lending",
+            "open",
+            "--netuid",
+            "1",
+            "--side",
+            "short",
+            "--collateral",
+            "1",
+        ],
+    )
+    assert result.exit_code == 1, result.output
+    assert count == 2
+    assert (
+        "minimum additional principal" if change == "principal" else "BorrowingLimit"
+    ) in result.output
+    assert cli_fake.submissions == []
+
+
+def test_extension_uses_one_selected_account_for_quote_and_dry_run(cli_fake, monkeypatch):
+    from bittensor import config
+    from bittensor.cli.context import AppContext
+
+    # The saved default is only a picker default. The real account selection
+    # must define the quote owner and remain selected through SDK preflight.
+    config.set_value("signer_address", ALICE)
+    selections = []
+    requests = []
+    signer = _PublicSigner()
+
+    async def extension(context, *, pick_account=False):
+        requests.append(pick_account)
+        if context._extension_selection is None or pick_account:
+            selections.append(BOB)
+            context._extension_selection = signer
+        return signer
+
+    monkeypatch.setattr(AppContext, "extension_signer", extension)
+    owners = []
+
+    def quote(params):
+        owners.append(params[0])
+        return {
+            "Ok": {
+                "principal": 250_000_000,
+                "opening_value": 250_000_000,
+                "annual_interest": 250_000_000,
+            }
+        }
+
+    cli_fake.seed_runtime("LendingRuntimeApi", "quote_open_for", quote)
+    result = runner.invoke(
+        app,
+        [
+            "--json",
+            "--dry-run",
+            "--no-mev-shield",
+            "lending",
+            "open",
+            "--netuid",
+            "1",
+            "--side",
+            "short",
+            "--collateral",
+            "1",
+            "--hotkey",
+            ALICE_HOT,
+            "--signer",
+            "extension",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output)["signer_address"] == BOB
+    assert owners == [BOB, BOB]
+    assert selections == [BOB]
+    assert requests == [False, False]
+    assert cli_fake.submissions == []
+
+
+@pytest.mark.parametrize("side", ["short", "long"])
+def test_cli_amount_runs_real_required_collateral_search_and_requotes(cli_fake, side):
+    cli_fake.seed_default("Lending", "Positions", None)
+    threshold = 400_000_003
+    seen = []
+
+    def quote(params):
+        seen.append(params)
+        if params[3] < threshold:
+            raise ChainError("more collateral needed", name="InsufficientCollateral")
+        return {
+            "Ok": {
+                "principal": params[5],
+                "opening_value": params[5],
+                "annual_interest": params[5],
+            }
+        }
+
+    cli_fake.seed_runtime("LendingRuntimeApi", "quote_open_exact_for", quote)
+    result = runner.invoke(
+        app,
+        [
+            "--json",
+            "--dry-run",
+            "--no-mev-shield",
+            "lending",
+            "open",
+            "--netuid",
+            "1",
+            "--side",
+            side,
+            "--amount",
+            "0.1",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    plan = json.loads(result.output)
+    assert plan["args"]["collateral"] == "0.400000003"
+    assert plan["args"]["amount"] == "0.1"
+    assert seen[-2] == seen[-1]
+    assert all(params[-1] == 100_000_000 for params in seen)
+    assert all(params[3] == threshold for params in seen[-2:])
+    assert cli_fake.submissions == []

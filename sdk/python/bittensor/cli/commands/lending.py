@@ -4,18 +4,18 @@ from __future__ import annotations
 
 from decimal import ROUND_CEILING, Decimal
 from enum import Enum
-from typing import Optional
+from typing import Optional, cast
 
 import typer
 
 from ...balance import Balance
 from ...intents import CloseLoan, OpenLoan
 from ...intents._money import alpha_amount, tao_amount
-from ...result import BittensorError, ChainError
+from ...result import BittensorError
 from ...settings import guide_docs_url
 from ..context import address_cli_name, ctx_of, ss58_param_help
 from ..globals import with_globals, with_tx_globals
-from ..prompt import PromptSpec, fill_missing, interactive
+from ..prompt import PromptSpec, ask, confirm_wallet, fill_missing
 
 Side = Enum("Side", [("short", "short"), ("long", "long")], type=str)
 
@@ -33,98 +33,91 @@ def _bound(amount: Balance, percent: float, *, ceiling: bool = False) -> Balance
     return Balance.from_rao(max(rao, 0), amount.netuid)
 
 
-async def _minimum_collateral(client, netuid: int, side: str, owner: str, hotkey: str):
-    """Search pinned runtime quotes, including the owner's existing loan and caps."""
-    view = await client.at()
-    target = max(1_000_000_000, int(await view.constant(("Lending", "MinimumLoanValue"))))
-    unit = 0 if side == "short" else netuid
+def _loan_input(context, netuid: int, side: str) -> tuple[Optional[str], Optional[str]]:
+    """Choose one input mode and record only its actual CLI flag for replay."""
 
-    async def classify(amount: int) -> int:
-        try:
-            quote = await view.read(
-                "lending_open_quote",
-                netuid=netuid,
-                side=side,
-                collateral=Balance.from_rao(amount, unit),
-                coldkey_ss58=owner,
-                hotkey_ss58=hotkey,
-            )
-        except ChainError as error:
-            if error.name == "AmountTooSmall":
-                return -1
-            if error.name in ("BorrowingLimit", "InsufficientReserves"):
-                return 1
-            raise
-        return 0 if quote["opening_value"].rao >= target else -1
+    def choose_mode(_ctx, value):
+        choice = value.lower()
+        if choice in ("1", "amount", "borrow"):
+            return "amount"
+        if choice in ("2", "collateral"):
+            return "collateral"
+        raise ValueError("choose amount (1) or collateral (2)")
 
-    low, high = 0, 1_000_000_000
-    maximum = (1 << 64) - 1
-    found = False
-    for _ in range(64):
-        result = await classify(high)
-        if result >= 0:
-            found = result == 0
-            break
-        low = high
-        if high == maximum:
-            raise BittensorError("no collateral amount can quote the minimum loan")
-        high = min(high * 2, maximum)
-    for _ in range(64):
-        if high - low <= 1:
-            break
-        middle = (low + high) // 2
-        result = await classify(middle)
-        if result < 0:
-            low = middle
-        else:
-            high = middle
-            found = result == 0
-    if not found:
-        raise BittensorError("available lending inventory cannot quote the minimum loan")
-    return view.balance(high, unit), Balance.from_rao(target)
+    def choose(console, app_ctx, answers):
+        mode, _raw = ask(
+            console,
+            app_ctx,
+            PromptSpec(
+                "mode",
+                "loan input",
+                "1: desired amount to borrow; 2: collateral to provide.",
+                choose_mode,
+                default="amount",
+            ),
+        )
+        debt = "TAO" if side == "long" else f"subnet {netuid} alpha"
+        collateral_unit = "TAO" if side == "short" else f"subnet {netuid} alpha"
+        unit = debt if mode == "amount" else collateral_unit
 
-
-def _collateral_prompt(context, netuid: int, side: str, owner: str, hotkey: str) -> str:
-    spec = PromptSpec(
-        field="collateral",
-        flag="--collateral",
-        help=OpenLoan.field_help("collateral"),
-        parse=lambda _ctx, value: (
-            tao_amount(value) if side == "short" else alpha_amount(value, netuid)
-        ),
-    )
-    if interactive(context):
-
-        async def estimate(client):
-            # Return quote failures before AppContext.run turns them into an exit:
-            # estimation is advisory; the selected collateral still needs a quote.
+        def parse(_ctx, value):
             try:
-                return await _minimum_collateral(client, netuid, side, owner, hotkey)
+                balance = cast(
+                    Balance, tao_amount(value) if unit == "TAO" else alpha_amount(value, netuid)
+                )
+                if balance.rao <= 0:
+                    raise BittensorError(f"{mode} must be greater than zero")
+                return balance
             except BittensorError as error:
-                return error
+                raise ValueError(str(error)) from error
 
-        with context.output.activity("estimating minimum collateral…"):
-            result = context.run(estimate)
-        if isinstance(result, BittensorError):
-            reason = result.name or str(result) if isinstance(result, ChainError) else str(result)
-            context.output.message(f"Minimum collateral estimate unavailable: {reason}.")
-            if isinstance(result, ChainError) and result.description:
-                context.output.message(result.description)
-            spec.help += (
-                " Enter collateral manually; a fresh runtime quote must pass before submission."
-            )
-        else:
-            minimum, target = result
-            value = format(minimum.decimal, "f")
-            spec.help += (
-                f" Estimated minimum additional collateral: {minimum} for {target} "
-                + ("of borrowed alpha's opening value." if side == "short" else "of borrowed TAO.")
-                + " Based on a current quote; the amount is requoted before submission."
-            )
-            spec.default = value
-    answers = {"collateral": None}
-    fill_missing(context, [spec], answers)
-    return format(answers["collateral"].decimal, "f")
+        value, raw = ask(
+            console,
+            app_ctx,
+            PromptSpec(
+                mode,
+                f"--{mode}",
+                (
+                    f"Additional {unit} to borrow; btcli finds the minimum required collateral."
+                    if mode == "amount"
+                    else f"Additional {unit} to lock; btcli quotes your borrowing limit."
+                ),
+                parse,
+            ),
+        )
+        answers[mode] = format(value.decimal, "f")
+        return [f"--{mode}", raw]
+
+    answers = {"amount": None, "collateral": None}
+    fill_missing(
+        context,
+        [PromptSpec("loan_input", "--amount or --collateral", None, choose_mode, custom=choose)],
+        answers,
+    )
+    return answers["amount"], answers["collateral"]
+
+
+def _loan_owner(context, proxy: Optional[str]) -> Optional[str]:
+    if proxy is not None:
+        return proxy
+    multisig = context._saved_multisig_address(context.multisig_wallet_name or context.wallet_name)
+    if multisig is not None:
+        return multisig
+    if not context.uses_external_signer():
+        return context.review_account()
+    address = context.external_signer_address()
+    if address is not None and not context.uses_extension_signer():
+        return address
+
+    async def select(_client):
+        signer = await context.resolve_signing_wallet("coldkey")
+        try:
+            return signer.ss58_address
+        finally:
+            if hasattr(signer, "close"):
+                await signer.close()
+
+    return context.run(select)
 
 
 @app.command("open")
@@ -136,6 +129,7 @@ def open_loan(
     collateral: Optional[str] = typer.Option(
         None, "--collateral", help=OpenLoan.field_help("collateral")
     ),
+    amount: Optional[str] = typer.Option(None, "--amount", help=OpenLoan.field_help("amount")),
     hotkey_ss58: Optional[str] = typer.Option(
         None, address_cli_name("hotkey_ss58"), help=OpenLoan.field_help("hotkey_ss58")
     ),
@@ -144,10 +138,15 @@ def open_loan(
         "--max-slippage",
         min=0.0,
         max=99.0,
-        help="Maximum fall in quoted principal or short opening value (percent; default 1%).",
+        help="Maximum fall in collateral-mode principal or short opening value (percent).",
     ),
 ):
     """Add collateral and open or increase a short or long on a subnet.
+
+    Pass --amount for the additional quantity to borrow (alpha for a short,
+    TAO for a long) and btcli finds the minimum required collateral. Pass
+    --collateral instead to borrow its quoted limit. The minimum additional
+    loan has a 0.1 TAO opening value.
 
     Shorts receive freely usable alpha on the selected hotkey; opening does
     not sell it. Longs borrow transferable TAO against existing alpha stake.
@@ -156,42 +155,86 @@ def open_loan(
     the combined position and refuses to submit when a quote is unavailable.
     """
     context = ctx_of(ctx)
-    if collateral is None and not interactive(context):
-        fill_missing(
-            context,
-            [PromptSpec("collateral", "--collateral", None, lambda _ctx, value: value)],
-            {"collateral": None},
-        )
-    owner = context.review_account()
+    if amount is not None and collateral is not None:
+        context.output.error("--amount and --collateral are mutually exclusive; provide one")
+        raise typer.Exit(2)
+    if amount is None and collateral is None:
+        amount, collateral = _loan_input(context, netuid, side.value)
+    confirm_wallet(context, help_text="Wallet whose coldkey owns this loan.")
+    proxy = context.resolve_dispatch_proxy()
+    owner = _loan_owner(context, proxy)
     if owner is None:
         context.output.error("select the account that owns this loan before borrowing")
         raise typer.Exit(2)
     hotkey = context.resolve_address("hotkey_ss58", hotkey_ss58)
+    requested = None
+    if amount is not None:
+        requested = cast(
+            Balance, tao_amount(amount) if side == Side.long else alpha_amount(amount, netuid)
+        )
+        if requested.rao <= 0:
+            context.output.error("amount to borrow must be greater than zero")
+            raise typer.Exit(2)
+        with context.output.activity("finding the minimum required collateral…"):
+            required = context.run(
+                lambda client: client.read(
+                    "lending_required_collateral",
+                    netuid=netuid,
+                    side=side.value,
+                    amount=requested,
+                    coldkey_ss58=owner,
+                    hotkey_ss58=hotkey,
+                )
+            )
+        collateral = required["collateral"]
     if collateral is None:
-        collateral = _collateral_prompt(context, netuid, side.value, owner, hotkey)
-    intent = OpenLoan(netuid=netuid, side=side.value, collateral=collateral, hotkey_ss58=hotkey)
+        context.output.error("provide --amount or --collateral")
+        raise typer.Exit(2)
+    intent = OpenLoan(
+        netuid=netuid,
+        side=side.value,
+        collateral=collateral,
+        hotkey_ss58=hotkey,
+        amount=requested,
+    )
     with context.output.activity("quoting the loan…"):
         quote = context.run(
             lambda client: client.read(
                 "lending_open_quote",
                 netuid=netuid,
                 side=side.value,
-                collateral=collateral,
+                collateral=intent.collateral,
                 coldkey_ss58=owner,
                 hotkey_ss58=hotkey,
+                **({"amount": requested} if requested is not None else {}),
             )
         )
-    intent.min_borrow = _bound(quote["principal"], max_slippage)
+    # Amount mode never turns the desired principal into a floor that permits
+    # borrowing more. The exact-principal dispatch transfers that quantity.
+    intent.min_borrow = (
+        requested if requested is not None else _bound(quote["principal"], max_slippage)
+    )
     if side == Side.short:
         intent.min_proceeds = _bound(quote["opening_value"], max_slippage)
     context.submit(
         intent,
+        proxy_for=proxy or "self",
         card_sections=[
             (
                 "Loan",
                 [
-                    ("additional collateral", str(intent.collateral)),
-                    ("additional fixed principal", str(quote["principal"])),
+                    ("loan owner", owner),
+                    ("hotkey", hotkey),
+                    (
+                        "minimum required collateral"
+                        if requested is not None
+                        else "provided collateral",
+                        str(intent.collateral),
+                    ),
+                    (
+                        "exact amount to borrow" if requested is not None else "borrowing limit",
+                        str(quote["principal"]),
+                    ),
                     ("minimum additional principal", str(intent.min_borrow)),
                     ("minimum additional opening value", str(intent.min_proceeds)),
                     ("additional interest per year", str(quote["annual_interest"])),

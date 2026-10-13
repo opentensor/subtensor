@@ -45,6 +45,9 @@ impl weights::WeightInfo for TestWeights {
     fn open() -> Weight {
         Weight::from_parts(1, 0)
     }
+    fn open_exact() -> Weight {
+        Weight::from_parts(1, 0)
+    }
     fn close() -> Weight {
         Weight::from_parts(1, 0)
     }
@@ -328,6 +331,17 @@ impl LendingPoolInterface<Account> for MockPool {
             maximum.into()
         }
     }
+    fn max_sell_input(_: NetUid) -> AlphaBalance {
+        let maximum: u64 = read(b"test/max_sell");
+        if maximum == 0 {
+            u64::MAX.into()
+        } else {
+            maximum.into()
+        }
+    }
+    fn quote_may_round_to_zero(error: &DispatchError) -> bool {
+        *error == DispatchError::Other("rounded zero payout")
+    }
     fn subnet_exists(netuid: NetUid) -> bool {
         market(netuid).0 > 0 && !read::<bool>(&key(b"test/dissolved", netuid))
     }
@@ -433,6 +447,237 @@ fn open(side: Side, collateral: u64) {
 }
 fn position() -> Position<Account, u64> {
     Positions::<Test>::get(account(1), netuid()).unwrap()
+}
+
+#[test]
+fn exact_borrow_never_transfers_unrequested_debt_when_capacity_improves() {
+    for side in [Side::Short, Side::Long] {
+        ext().execute_with(|| {
+            let requested = 40;
+            let quoted = Lending::quote_open_exact_for(
+                &account(1),
+                netuid(),
+                side,
+                1_000,
+                &account(1),
+                requested,
+            )
+            .unwrap();
+            let maximum = Lending::quote_open(netuid(), side, 1_000)
+                .unwrap()
+                .principal;
+            // Funding improves between the review quote and signed execution.
+            Vaults::<Test>::mutate(netuid(), |vault| {
+                vault.as_mut().unwrap().available_tao += 100_000
+            });
+            mint_tao(&Lending::reserve_account(netuid()), 100_000);
+            assert!(
+                Lending::quote_open(netuid(), side, 1_000)
+                    .unwrap()
+                    .principal
+                    >= maximum
+            );
+            let before_tao = tao(&account(1));
+            let before_alpha = alpha(&account(1), &account(1), netuid());
+            assert_ok!(Lending::open_exact(
+                RuntimeOrigin::signed(account(1)),
+                netuid(),
+                side,
+                1_000,
+                account(1),
+                requested,
+                0
+            ));
+            assert_eq!(position().principal, requested);
+            assert_eq!(position().annual_interest, quoted.annual_interest);
+            match side {
+                Side::Short => {
+                    assert_eq!(
+                        alpha(&account(1), &account(1), netuid()) - before_alpha,
+                        requested
+                    );
+                    assert_eq!(before_tao - tao(&account(1)), 1_000);
+                }
+                Side::Long => {
+                    assert_eq!(tao(&account(1)) - before_tao, requested);
+                    assert_eq!(
+                        before_alpha - alpha(&account(1), &account(1), netuid()),
+                        1_000
+                    );
+                }
+            }
+        });
+    }
+}
+
+#[test]
+fn exact_alpha_basis_uses_the_requested_withdrawal_for_other_borrowers() {
+    ext().execute_with(|| {
+        write(
+            b"test/alpha_redemption_basis",
+            Some((100_000_u64, 100_000_u128, true)),
+        );
+        // This loan is covered after a 40-alpha grant, but not the max candidate's 249-alpha grant.
+        indexed_long(2, 1_000, 2_001);
+        Positions::<Test>::mutate(account(2), netuid(), |state| {
+            state.as_mut().unwrap().side = Side::Short
+        });
+        assert_eq!(
+            Lending::quote_open(netuid(), Side::Short, 1_000),
+            Err(Error::<Test>::InsufficientRedemptionBacking.into())
+        );
+        let quote = Lending::quote_open_exact_for(
+            &account(1),
+            netuid(),
+            Side::Short,
+            1_000,
+            &account(1),
+            40,
+        )
+        .unwrap();
+        assert_eq!(quote.principal, 40);
+        assert_eq!(quote.annual_interest, 40);
+        assert_ok!(Lending::open_exact(
+            RuntimeOrigin::signed(account(1)),
+            netuid(),
+            Side::Short,
+            1_000,
+            account(1),
+            40,
+            0
+        ));
+        assert_eq!(
+            Vaults::<Test>::get(netuid()).unwrap().available_alpha,
+            99_960
+        );
+    });
+}
+
+#[test]
+fn exact_borrow_uses_actual_debt_for_utilization_and_minimum_checks() {
+    for side in [Side::Short, Side::Long] {
+        ext().execute_with(|| {
+            Vaults::<Test>::mutate(netuid(), |value| {
+                let vault = value.as_mut().unwrap();
+                match side {
+                    Side::Short => vault.outstanding_alpha = 11_000,
+                    Side::Long => vault.outstanding_tao = 11_000,
+                }
+            });
+            assert!(Lending::quote_open(netuid(), side, 8_000).is_err());
+            assert_eq!(
+                Lending::quote_open_exact_for(&account(1), netuid(), side, 8_000, &account(1), 100)
+                    .unwrap()
+                    .principal,
+                100
+            );
+            assert_eq!(
+                Lending::quote_open_exact_for(&account(1), netuid(), side, 1, &account(1), 101),
+                Err(Error::<Test>::BorrowingLimit.into())
+            );
+            assert_eq!(
+                Lending::quote_open_exact_for(&account(1), netuid(), side, 1, &account(1), 100_001),
+                Err(Error::<Test>::InsufficientReserves.into())
+            );
+            assert_eq!(
+                Lending::quote_open_exact_for(&account(1), netuid(), side, 0, &account(1), 0),
+                Err(Error::<Test>::AmountTooSmall.into())
+            );
+            assert_eq!(
+                Lending::quote_open_exact_for(&account(1), netuid(), side, 0, &account(1), 1),
+                Err(Error::<Test>::InsufficientCollateral.into())
+            );
+        });
+    }
+}
+
+#[test]
+fn exact_borrow_accepts_excess_collateral_past_both_market_input_boundaries() {
+    for side in [Side::Short, Side::Long] {
+        ext().execute_with(|| {
+            write(b"test/max_buy", 200_u64);
+            write(b"test/max_sell", 200_u64);
+            assert!(Lending::quote_open(netuid(), side, 1_000).is_err());
+            let before = sp_io::storage::root(sp_runtime::StateVersion::V1);
+            let quote = Lending::quote_open_exact_for(
+                &account(1),
+                netuid(),
+                side,
+                u64::MAX,
+                &account(1),
+                40,
+            )
+            .unwrap();
+            assert_eq!(sp_io::storage::root(sp_runtime::StateVersion::V1), before);
+            assert_eq!(quote.principal, 40);
+            assert_ok!(Lending::open_exact(
+                RuntimeOrigin::signed(account(1)),
+                netuid(),
+                side,
+                1_000,
+                account(1),
+                40,
+                0
+            ));
+            assert_eq!(position().principal, 40);
+            assert_eq!(swap_count(), 0);
+        });
+    }
+}
+
+#[test]
+fn exact_borrow_preserves_legacy_call_encoding_and_failure_rollback() {
+    let old = Call::<Test>::open {
+        netuid: netuid(),
+        side: Side::Short,
+        collateral: 1000,
+        hotkey: account(1),
+        min_borrow: 1,
+        min_proceeds: 0,
+    }
+    .encode();
+    assert_eq!(old[0], 0);
+    assert_eq!(old.len(), 60);
+    let exact = Call::<Test>::open_exact {
+        netuid: netuid(),
+        side: Side::Short,
+        collateral: 1000,
+        hotkey: account(1),
+        principal: 40,
+        min_proceeds: 0,
+    }
+    .encode();
+    assert_eq!(exact[0], 4);
+    ext().execute_with(|| {
+        let before = sp_io::storage::root(sp_runtime::StateVersion::V1);
+        assert_noop!(
+            Lending::open_exact(
+                RuntimeOrigin::signed(account(1)),
+                netuid(),
+                Side::Short,
+                1000,
+                account(1),
+                300,
+                0
+            ),
+            Error::<Test>::InsufficientCollateral
+        );
+        assert_eq!(sp_io::storage::root(sp_runtime::StateVersion::V1), before);
+        write(b"test/fail_transfer", true);
+        assert_noop!(
+            Lending::open_exact(
+                RuntimeOrigin::signed(account(1)),
+                netuid(),
+                Side::Short,
+                1000,
+                account(1),
+                40,
+                0
+            ),
+            DispatchError::Other("transfer failed")
+        );
+        assert!(Positions::<Test>::get(account(1), netuid()).is_none());
+    });
 }
 
 #[test]
@@ -550,13 +795,15 @@ fn grown_debt_uses_exact_funded_boundary_and_preserves_each_other_loans_coverage
         write(b"test/redemption_supply", Some(2000_u128));
         indexed_long(1, 50, 400);
         let delta =
-            Lending::funded_long_limit_for(netuid(), 800, 1000, 50, Some(&account(1))).unwrap();
+            Lending::funded_long_limit_for(netuid(), 800, 1000, 50, Some(&account(1)), None)
+                .unwrap();
         assert_eq!(delta, 45);
         assert!(4 * (50 + u128::from(delta)) * 2000 <= 800 * (1000 - u128::from(delta)));
         assert!(4 * (50 + u128::from(delta + 1)) * 2000 > 800 * (1000 - u128::from(delta + 1)));
         indexed_long(2, 100, 208);
         let limited =
-            Lending::funded_long_limit_for(netuid(), 800, 1000, 50, Some(&account(1))).unwrap();
+            Lending::funded_long_limit_for(netuid(), 800, 1000, 50, Some(&account(1)), None)
+                .unwrap();
         assert_eq!(limited, 38);
         assert!(208 * (1000 - u128::from(limited)) >= 100 * 2000);
         assert!(208 * (1000 - u128::from(limited + 1)) < 100 * 2000);
@@ -884,7 +1131,8 @@ fn alpha_funded_arithmetic_caps_cash_domain_and_fails_closed_on_bad_basis() {
             Some((u64::MAX, u128::from(u64::MAX), false)),
         );
         assert_eq!(
-            Lending::funded_alpha_limit_for(netuid(), u64::MAX, &vault, 0, u64::MAX, None).unwrap(),
+            Lending::funded_alpha_limit_for(netuid(), u64::MAX, &vault, 0, u64::MAX, None, false)
+                .unwrap(),
             (u64::MAX / 4) / 2
         );
         write(
@@ -892,7 +1140,7 @@ fn alpha_funded_arithmetic_caps_cash_domain_and_fails_closed_on_bad_basis() {
             Some((u64::MAX, u128::MAX, false)),
         );
         assert_eq!(
-            Lending::funded_alpha_limit_for(netuid(), u64::MAX, &vault, 0, u64::MAX, None),
+            Lending::funded_alpha_limit_for(netuid(), u64::MAX, &vault, 0, u64::MAX, None, false),
             Err(Error::<Test>::Arithmetic.into())
         );
         write(b"test/fail_alpha_basis", true);
@@ -3224,4 +3472,132 @@ fn unrepresentable_ema_long_fee_valuation_keeps_alpha_pending() {
         assert_eq!(burned_tao(), 0);
         assert_coupon_inventory_is_backed();
     });
+}
+
+#[test]
+fn exact_collateral_predicate_distinguishes_quote_dust_from_global_failure() {
+    ext().execute_with(|| {
+        Vaults::<Test>::mutate(netuid(), |vault| vault.as_mut().unwrap().available_tao = 0);
+        write(b"test/reject_dust", true);
+        write(b"test/max_buy", 200_u64);
+        assert_eq!(
+            Lending::quote_open_exact_for(&account(1), netuid(), Side::Short, 4, &account(1), 1),
+            Err(Error::<Test>::InsufficientCollateral.into())
+        );
+        assert_eq!(
+            Lending::quote_open_exact_for(&account(1), netuid(), Side::Short, 8, &account(1), 1)
+                .unwrap()
+                .principal,
+            1
+        );
+        write(b"test/fail_buy", true);
+        assert_eq!(
+            Lending::quote_open_exact_for(&account(1), netuid(), Side::Short, 8, &account(1), 1),
+            Err(DispatchError::Other("buy unavailable"))
+        );
+        write(b"test/fail_buy", false);
+        write(b"test/max_buy", 1_u64);
+        assert_eq!(
+            Lending::quote_open_exact_for(&account(1), netuid(), Side::Short, 4, &account(1), 1),
+            Err(DispatchError::Other("rounded zero payout"))
+        );
+    });
+}
+
+#[test]
+fn exact_historical_coverage_compares_requested_debt_without_huge_collateral_overflow() {
+    for (side, reference) in [
+        (Side::Short, U64F64::from_num(1) / U64F64::from_num(16)),
+        (Side::Long, U64F64::from_num(16)),
+    ] {
+        ext().execute_with(|| {
+            References::<Test>::mutate(netuid(), |state| state.as_mut().unwrap().price = reference);
+            let quote = Lending::quote_open_exact_for(
+                &account(1),
+                netuid(),
+                side,
+                u64::MAX,
+                &account(1),
+                40,
+            )
+            .unwrap();
+            assert_eq!(quote.principal, 40);
+            assert_eq!(quote.annual_interest, 3);
+        });
+    }
+}
+
+#[test]
+fn exact_market_capacity_failure_precedes_the_owners_collateral_shortage() {
+    for side in [Side::Short, Side::Long] {
+        ext().execute_with(|| {
+            write(b"test/max_buy", 200_u64);
+            write(b"test/max_sell", 200_u64);
+            assert_eq!(
+                Lending::quote_open_exact_for(&account(1), netuid(), side, 4, &account(1), 200),
+                Err(Error::<Test>::InsufficientReserves.into())
+            );
+            assert_eq!(
+                Lending::quote_open_exact_for(
+                    &account(1),
+                    netuid(),
+                    side,
+                    u64::MAX,
+                    &account(1),
+                    200
+                ),
+                Err(Error::<Test>::InsufficientReserves.into())
+            );
+        });
+    }
+}
+
+#[test]
+fn exact_redemption_failures_precede_tiny_collateral_rejection() {
+    for side in [Side::Short, Side::Long] {
+        ext().execute_with(|| {
+            match side {
+                Side::Short => write(b"test/fail_alpha_basis", true),
+                Side::Long => write(b"test/redemption_supply", Some(0_u128)),
+            }
+            for collateral in [0, 1, 2, 3] {
+                assert_eq!(
+                    Lending::quote_open_exact_for(
+                        &account(1),
+                        netuid(),
+                        side,
+                        collateral,
+                        &account(1),
+                        40
+                    ),
+                    Err(Error::<Test>::RedemptionUnavailable.into())
+                );
+            }
+        });
+        ext().execute_with(|| {
+            indexed_long(2, 100, 1);
+            Positions::<Test>::mutate(account(2), netuid(), |state| {
+                state.as_mut().unwrap().side = side
+            });
+            if side == Side::Short {
+                write(
+                    b"test/alpha_redemption_basis",
+                    Some((100_000_u64, 100_000_u128, false)),
+                );
+            }
+            for collateral in [0, 1, 2, 3] {
+                assert_eq!(
+                    Lending::quote_open_exact_for(
+                        &account(1),
+                        netuid(),
+                        side,
+                        collateral,
+                        &account(1),
+                        40
+                    ),
+                    Err(Error::<Test>::InsufficientRedemptionBacking.into())
+                );
+            }
+        });
+    }
 }

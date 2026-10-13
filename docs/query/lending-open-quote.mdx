@@ -16,7 +16,9 @@ the lending EMA, rounded up, and fixes its annual TAO coupon. A simulated
 buy limits alpha principal but opening makes no AMM swap and pays no sale
 proceeds. Omitting both addresses quotes a fresh loan only.
 A refusal is an error; it never becomes a zero-protection quote. The result
-is indicative until the transaction executes.
+is indicative until the transaction executes. Supply `amount` with both
+addresses to quote exactly that additional principal instead of the
+maximum supported by the collateral.
 
 **Category:** Prices & swaps
 
@@ -29,11 +31,12 @@ is indicative until the transaction executes.
 | `collateral` | string | Additional collateral amount: TAO for a short, alpha for a long. |
 | `coldkey_ss58` | string | Owner to quote an opening or increase for; supply its hotkey too. |
 | `hotkey_ss58` | string | Alpha delivery, collateral or repayment hotkey; supply the owner too. |
+| `amount` | string | Exact additional principal: alpha for a short, TAO for a long; optional. |
 
 ## CLI
 
 ```bash
-btcli query lending-open-quote --netuid <integer> --side <string> --collateral <string> --coldkey <ss58|name> --hotkey <ss58|name> --json
+btcli query lending-open-quote --netuid <integer> --side <string> --collateral <string> --coldkey <ss58|name> --hotkey <ss58|name> --amount <string> --json
 ```
 
 ## Python
@@ -44,13 +47,13 @@ Namespace method (autocomplete, signature help):
 import bittensor as bt
 
 sub = bt.Subtensor()
-result = sub.prices.lending_open_quote(netuid=1, side="...", collateral="...", coldkey_ss58="5F...", hotkey_ss58="5F...")
+result = sub.prices.lending_open_quote(netuid=1, side="...", collateral="...", coldkey_ss58="5F...", hotkey_ss58="5F...", amount="...")
 ```
 
 Or dispatch by name, as an agent would:
 
 ```python
-result = sub.read("lending_open_quote", netuid=1, side="...", collateral="...", coldkey_ss58="5F...", hotkey_ss58="5F...")
+result = sub.read("lending_open_quote", netuid=1, side="...", collateral="...", coldkey_ss58="5F...", hotkey_ss58="5F...", amount="...")
 ```
 
 Async is the same surface awaited: `async with bt.Subtensor() as client:`.

@@ -2,18 +2,93 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass, field
 from typing import Any, Optional, cast
 
 from .._generated.calls import Call
+from .._generated.runtime_apis import StakeInfoRuntimeApi
 from .._generated.storage import Item
 from ..balance import Balance
-from ..result import BittensorError
+from ..result import BittensorError, ChainError
+from ..sp_core import ss58_decode
 from ._money import Money, Spend, alpha_amount, tao_amount
-from .base import Intent
+from .base import Intent, IntentPreflight
 from .registry import register
 
 POSITIONS = Item("Lending", "Positions", "Position")
+
+
+def _nonnegative(value: Any, label: str) -> int:
+    """Reject missing or malformed balance data instead of guessing availability."""
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise BittensorError(f"invalid {label} in wallet balance response")
+    return value
+
+
+async def _spendable_tao(substrate, address: str, *, block_hash=None) -> Balance:
+    """TAO available while retaining the account, matching Preserve + Polite."""
+    account, deposit = await asyncio.gather(
+        substrate.query("System", "Account", [address], block_hash=block_hash),
+        substrate.constant("Balances", "ExistentialDeposit"),
+    )
+    data = account.get("data") if isinstance(account, dict) else None
+    if not isinstance(data, dict):
+        raise BittensorError("wallet TAO balance is unavailable")
+    free = _nonnegative(data.get("free"), "free TAO")
+    reserved = _nonnegative(data.get("reserved"), "reserved TAO")
+    frozen = _nonnegative(data.get("frozen"), "frozen TAO")
+    ed = _nonnegative(deposit, "existential deposit")
+    # Freezes apply to total balance, including reserved funds. The ED must
+    # remain in free balance even when the account also holds reserved funds.
+    return Balance.from_rao(max(free - max(max(frozen - reserved, 0), ed), 0))
+
+
+async def _available_alpha(
+    substrate, owner: str, hotkey: str, netuid: int, *, block_hash=None
+) -> Balance:
+    """Free alpha on this hotkey, excluding conviction locks and miner bonds."""
+    info, availability, bond = await asyncio.gather(
+        substrate.runtime_call(
+            *StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid,
+            [hotkey, owner, netuid],
+            block_hash=block_hash,
+        ),
+        substrate.runtime_call(
+            *StakeInfoRuntimeApi.get_stake_availability_for_coldkeys,
+            [[owner], [netuid]],
+            block_hash=block_hash,
+        ),
+        substrate.query(
+            "SubtensorModule", "MinerCollateral", [(netuid, hotkey, owner)], block_hash=block_hash
+        ),
+    )
+    if info is not None and not isinstance(info, dict):
+        raise BittensorError("wallet alpha stake is unavailable")
+    if not isinstance(availability, dict):
+        raise BittensorError("wallet alpha availability is unavailable")
+    per_owner = availability.get(owner, {})
+    if not isinstance(per_owner, dict):
+        raise BittensorError("invalid wallet alpha availability")
+    entry = per_owner.get(netuid, per_owner.get(str(netuid), {}))
+    if not isinstance(entry, dict):
+        raise BittensorError("invalid wallet alpha availability")
+    stake = _nonnegative(info.get("stake") if info is not None else 0, "alpha stake")
+    available = _nonnegative(entry.get("available", 0), "available alpha")
+    if bond is not None and not isinstance(bond, dict):
+        raise BittensorError("wallet miner collateral is unavailable")
+    locked = _nonnegative(bond.get("locked") if bond is not None else 0, "miner collateral")
+    return Balance.from_rao(min(available, max(stake - locked, 0)), netuid)
+
+
+class _FeeAddress:
+    """Public account information for fee estimates; carries no signing key."""
+
+    crypto_type = 1
+
+    def __init__(self, address: str):
+        self.ss58_address = address
+        self.public_key = bytes(ss58_decode(address))
 
 
 def check_side(side: str) -> str:
@@ -67,6 +142,9 @@ class OpenLoan(Intent):
     The old coupon is not repriced. The combined position must pass current
     opening guards, and an already exhausted position cannot be increased.
 
+    ``amount`` selects exact additional principal: alpha for shorts and TAO
+    for longs. With no amount, the collateral determines the borrowing limit.
+    The runtime transfers exactly the requested amount or refuses the call.
     ``min_borrow`` is a floor on additional principal. The legacy wire field
     ``min_proceeds`` bounds the additional short's opening value in TAO,
     marked at the lending EMA; it does not describe an actual sale.
@@ -76,7 +154,7 @@ class OpenLoan(Intent):
 
     op = "open_loan"
     signer = "coldkey"
-    wraps = (("Lending", "open"),)
+    wraps = (("Lending", "open"), ("Lending", "open_exact"))
     mev_shield_default = True
 
     netuid: int = field(metadata={"help": "Subnet to borrow against."})
@@ -98,6 +176,10 @@ class OpenLoan(Intent):
         default=0,
         metadata={"help": "Minimum additional short opening value in TAO; unused for longs."},
     )
+    amount: Optional[Money] = field(
+        default=None,
+        metadata={"help": "Exact additional amount to borrow: alpha for a short, TAO for a long."},
+    )
 
     def __post_init__(self):
         _check_netuid(self.netuid)
@@ -112,29 +194,134 @@ class OpenLoan(Intent):
         self.min_proceeds = tao_amount(self.min_proceeds)
         if normalized.rao == 0:
             raise BittensorError("collateral must be greater than zero")
+        if self.amount is not None:
+            self.amount = debt_unit(self.amount)
+            requested = cast(Balance, self.amount)
+            if requested.rao == 0:
+                raise BittensorError("amount to borrow must be greater than zero")
+            if cast(Balance, self.min_borrow).rao > requested.rao:
+                raise BittensorError("min_borrow cannot exceed the exact amount to borrow")
 
     async def build(self, substrate, wallet: Any):
         collateral = cast(Balance, self.collateral)
-        minimum = cast(Balance, self.min_borrow)
+        hotkey = self.hotkey_address(wallet, self.hotkey_ss58)
+        self._built_hotkey = hotkey
+        params = {
+            "netuid": self.netuid,
+            "side": self.side,
+            "collateral": collateral.rao,
+            "hotkey": hotkey,
+            "min_proceeds": cast(Balance, self.min_proceeds).rao,
+        }
+        if self.amount is None:
+            params["min_borrow"] = cast(Balance, self.min_borrow).rao
+        else:
+            params["principal"] = cast(Balance, self.amount).rao
         return await substrate.compose(
             Call(
                 "Lending",
-                "open",
-                {
-                    "netuid": self.netuid,
-                    "side": self.side,
-                    "collateral": collateral.rao,
-                    "hotkey": self.hotkey_address(wallet, self.hotkey_ss58),
-                    "min_borrow": minimum.rao,
-                    "min_proceeds": cast(Balance, self.min_proceeds).rao,
-                },
+                "open" if self.amount is None else "open_exact",
+                params,
             )
         )
 
     def summary(self) -> str:
+        if self.amount is not None:
+            return (
+                f"borrow exactly {self.amount} as {self.side.lower()} on netuid {self.netuid}, "
+                f"add {self.collateral}"
+            )
         return (
             f"open or increase {self.side.lower()} on netuid {self.netuid}, add {self.collateral}"
         )
+
+    async def preflight(
+        self, substrate, dispatch_origin: str, fee_payer: str, *, call=None
+    ) -> IntentPreflight:
+        """Verify available collateral and inclusion fees before any signature."""
+        preview = IntentPreflight(effects=[self.summary()], warnings=[], blocks=[])
+        try:
+            from ..reads.lending import _ok
+
+            if call is None:
+                raise BittensorError("composed lending call is unavailable for fee estimation")
+            block_hash = await substrate.block_hash()
+            collateral = cast(Balance, self.collateral)
+            hotkey = getattr(self, "_built_hotkey", None) or self.hotkey_ss58
+            if hotkey is None:
+                raise BittensorError("selected collateral hotkey is unavailable")
+            quote_args = [dispatch_origin, self.netuid, self.side, collateral.rao, hotkey]
+            method = "quote_open_for"
+            if self.amount is not None:
+                method = "quote_open_exact_for"
+                quote_args.append(cast(Balance, self.amount).rao)
+            quote = _ok(
+                await substrate.runtime_call(
+                    "LendingRuntimeApi", method, quote_args, block_hash=block_hash
+                )
+            )
+            principal = _nonnegative(quote.get("principal"), "quoted principal")
+            opening = _nonnegative(quote.get("opening_value"), "quoted opening value")
+            annual = _nonnegative(quote.get("annual_interest"), "quoted annual interest")
+            if principal == 0 or opening == 0 or annual == 0:
+                raise BittensorError("lending quote must contain a positive loan and coupon")
+            if self.amount is not None and principal != cast(Balance, self.amount).rao:
+                raise BittensorError("lending quote does not match the exact amount to borrow")
+            if principal < cast(Balance, self.min_borrow).rao:
+                raise BittensorError(
+                    "fresh lending quote is below the minimum additional principal"
+                )
+            if self.side == "Short" and opening < cast(Balance, self.min_proceeds).rao:
+                raise BittensorError("fresh lending quote is below the minimum opening value")
+            fee = await substrate.estimate_fee(call, _FeeAddress(fee_payer))
+            if not isinstance(fee, Balance) or fee.netuid != 0 or fee.rao < 0:
+                raise BittensorError("invalid lending transaction fee estimate")
+            payer_available = await _spendable_tao(substrate, fee_payer, block_hash=block_hash)
+            same_account = dispatch_origin == fee_payer
+            required = fee.rao
+            if self.side == "Short" and same_account:
+                required += collateral.rao
+            preview.estimated_fee = fee
+            preview.required_free = Balance.from_rao(required)
+            preview.available_free = payer_available
+            preview.facts = [("spendable TAO for fees", str(payer_available))]
+            if self.side == "Short":
+                available = (
+                    payer_available
+                    if same_account
+                    else await _spendable_tao(substrate, dispatch_origin, block_hash=block_hash)
+                )
+            else:
+                available = await _available_alpha(
+                    substrate, dispatch_origin, hotkey, self.netuid, block_hash=block_hash
+                )
+            preview.facts.append(("available collateral", str(available)))
+            if collateral.rao > available.rao:
+                preview.blocks.append(
+                    f"insufficient spendable collateral: need {collateral}, available {available}"
+                    + (f" on hotkey {hotkey}" if self.side == "Long" else "")
+                )
+            elif payer_available.rao < required:
+                preview.blocks.append(
+                    "insufficient spendable TAO for "
+                    + (
+                        "collateral plus transaction fee"
+                        if required > fee.rao
+                        else "transaction fee"
+                    )
+                    + f": need {Balance.from_rao(required)}, available {payer_available} "
+                    + f"(estimated fee {fee})"
+                )
+        except Exception as error:
+            # CLI review previews intentionally suppress thrown exceptions.
+            # Mandatory wallet checks must therefore become explicit hard stops.
+            reason = (
+                f"{error.name}: {error}"
+                if isinstance(error, ChainError) and error.name
+                else str(error)
+            )
+            preview.blocks.append(f"could not verify lending quote, collateral and fees: {reason}")
+        return preview
 
     def spend(self) -> Spend:
         return cast(Balance, self.collateral) if self.side == "Short" else None

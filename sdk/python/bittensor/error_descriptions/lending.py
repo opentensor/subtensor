@@ -25,8 +25,9 @@ DESCRIPTIONS: dict[str, str] = {
         "account."
     ),
     "AmountTooSmall": (
-        "The collateral or loan value is below the minimum. Increase collateral and quote the "
-        "complete opening again."
+        "The collateral or loan opening value is below the runtime minimum. Borrow at least "
+        "0.1 TAO of opening value and quote its collateral requirement. Alpha is valued at "
+        "the lending reference; adding collateral does not raise a fixed requested debt's value."
     ),
     "InsufficientReserves": (
         "The separate lending vault cannot fund this loan. Inspect lending_reserves or reduce "
@@ -58,6 +59,12 @@ DESCRIPTIONS: dict[str, str] = {
     "InsufficientEscrow": (
         "Remaining collateral cannot cover this operation. Inspect accrued interest "
         "and the complete close quote."
+    ),
+    "InsufficientCollateral": (
+        "The requested additional debt needs more collateral under the market-depth, LTV "
+        "or funded-redemption checks. Quote lending_required_collateral for this amount. "
+        "Insufficient wallet funds, unavailable inventory and other loans' uncovered debt "
+        "are separate refusals; the failed call moves no assets."
     ),
     "InvalidQuote": (
         "A required executable-depth quote or repayment swap is unavailable. Check curve "

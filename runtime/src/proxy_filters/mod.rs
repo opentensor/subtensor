@@ -573,10 +573,26 @@ mod tests {
                 max_payment: u64::MAX,
                 min_refund: 0,
             }),
+            RuntimeCall::Lending(pallet_lending::Call::open_exact {
+                netuid,
+                side: pallet_lending::Side::Short,
+                collateral: 1_000_000_000,
+                hotkey: AccountId::new([7; 32]),
+                principal: 100_000_000,
+                min_proceeds: 0,
+            }),
+            RuntimeCall::Lending(pallet_lending::Call::open_exact {
+                netuid,
+                side: pallet_lending::Side::Long,
+                collateral: 1_000_000_000,
+                hotkey: AccountId::new([7; 32]),
+                principal: 100_000_000,
+                min_proceeds: 0,
+            }),
         ];
         assert_eq!(
             group_calls::<LendingValueCalls>(),
-            expected(&["Lending::open", "Lending::close"])
+            expected(&["Lending::open", "Lending::open_exact", "Lending::close"])
         );
         for proxy_type in all_proxy_types() {
             let advertised = allowed_calls(proxy_type);

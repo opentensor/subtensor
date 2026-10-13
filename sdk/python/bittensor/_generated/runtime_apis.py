@@ -107,6 +107,7 @@ class GrandpaApi:
 class LendingRuntimeApi:
     quote_open = Method('LendingRuntimeApi', 'quote_open')
     quote_open_for = Method('LendingRuntimeApi', 'quote_open_for')
+    quote_open_exact_for = Method('LendingRuntimeApi', 'quote_open_exact_for')
     quote_close = Method('LendingRuntimeApi', 'quote_close')
 
 class Metadata:

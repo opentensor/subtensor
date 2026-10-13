@@ -146,6 +146,7 @@ call_filter_group!(
     LendingValueCalls,
     [
         RuntimeCall::Lending(LendingCall::open),
+        RuntimeCall::Lending(LendingCall::open_exact),
         RuntimeCall::Lending(LendingCall::close),
     ]
 );

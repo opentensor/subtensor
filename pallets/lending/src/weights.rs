@@ -3,6 +3,7 @@ use frame_support::weights::Weight;
 
 pub trait WeightInfo {
     fn open() -> Weight;
+    fn open_exact() -> Weight;
     fn close() -> Weight;
     fn set_enabled() -> Weight;
     fn set_min_price_impact() -> Weight;
@@ -14,6 +15,9 @@ pub trait WeightInfo {
 /// The mock runtime has no execution budget. Production must provide measured weights.
 impl WeightInfo for () {
     fn open() -> Weight {
+        Weight::zero()
+    }
+    fn open_exact() -> Weight {
         Weight::zero()
     }
     fn close() -> Weight {

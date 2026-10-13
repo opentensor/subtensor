@@ -253,6 +253,13 @@ READ_SAMPLES: dict[str, dict] = {
     "lending_positions": {"netuid": 1},
     "lending_reserves": {"netuid": 1},
     "lending_open_quote": {"netuid": 1, "side": "Short", "collateral": "1"},
+    "lending_required_collateral": {
+        "netuid": 1,
+        "side": "Long",
+        "amount": "0.1",
+        "coldkey_ss58": ALICE,
+        "hotkey_ss58": ALICE_HOT,
+    },
     "lending_close_quote": {"netuid": 1, "coldkey_ss58": ALICE, "repay_from_wallet": False},
     "locks_for_coldkey": {"coldkey_ss58": ALICE},
     "locks_for_hotkey": {"hotkey_ss58": ALICE_HOT, "netuid": 1},

@@ -96,6 +96,14 @@ def test_rejects_unknown_argument(op: str):
 async def test_composes_and_plans_offline(
     op: str, client: Client, substrate: FakeSubstrate, wallet
 ):
+    if op == "open_loan":
+        # Lending verifies collateral plus the inclusion fee before signing.
+        substrate.seed(
+            "System",
+            "Account",
+            [wallet.coldkey.ss58_address],
+            {"data": {"free": 2 * 10**9, "reserved": 0, "frozen": 0}},
+        )
     if op in ("claim_root", "claim_root_with_hotkey"):
         substrate.seed(
             "System",

@@ -214,15 +214,32 @@ export default function PoolLendingRelease() {
         <section className={styles.section}>
           <h2 className={styles.subtitle}>Three CLI commands</h2>
           <pre className={styles.code_block}>
-            {`btcli lending open --netuid 64 --side short --collateral 1000 -w mywallet
+            {`btcli lending open --netuid 64 --side short --amount 700 --hotkey <hotkey> -w mywallet
+btcli lending open --netuid 64 --side long --amount 50 --hotkey <hotkey> -w mywallet
+btcli lending open --netuid 64 --side short --collateral 1000 -w mywallet
 btcli lending close --netuid 64 -w mywallet
 btcli lending list --netuid 64`}
           </pre>
           <p>
+            Choose the additional quantity to borrow with <code>--amount</code>: alpha for a short,
+            TAO for a long. The CLI quotes the minimum required collateral and the transaction
+            borrows exactly that amount. Alternatively, <code>--collateral</code> shows how much its
+            deposit can borrow. The flags are mutually exclusive; interactive input defaults to
+            choosing the borrowed amount. Openings and increases start at 0.1 TAO of loan value,
+            subject to the existing inventory, borrowing-cap and funded-redemption checks.
+          </p>
+          <p>
+            Before review and signing, the CLI checks the owner&apos;s spendable collateral and the
+            signer&apos;s TAO for transaction fees, including an active MEV-shield carrier. Alpha
+            locks and miner collateral are excluded from available collateral. Insufficient funds or
+            unavailable quotes stop submission.
+          </p>
+          <p>
             Use the SDK shipped with the lending runtime. Open and close take full runtime quotes
-            for the owner and hotkey, and default to a 1% margin on caller protections. The same
-            open command can increase a matching position. Failed quotes stop submission, and failed
-            bounds roll back the complete transaction. The{' '}
+            for the owner and hotkey. Collateral-first openings and closes default to a 1% margin on
+            caller protections; amount-first openings keep principal fixed. The same open command
+            can increase a matching position. Failed quotes stop submission, and failed bounds roll
+            back the complete transaction. The{' '}
             <Link href='/docs/guides/pool-lending' className={styles.inline_link}>
               pool lending guide
             </Link>{' '}

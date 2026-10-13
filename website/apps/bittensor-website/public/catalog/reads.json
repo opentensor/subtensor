@@ -68,9 +68,9 @@
         "container": "SwapRuntimeApi",
         "name": "current_alpha_price_all",
         "path": "runtime/src/lib.rs",
-        "line": 2830,
-        "end_line": 2840,
-        "url": "/code/runtime/src/lib.rs#L2830-L2840",
+        "line": 2838,
+        "end_line": 2848,
+        "url": "/code/runtime/src/lib.rs#L2838-L2848",
         "raw_url": "/code/raw/runtime/src/lib.rs"
       }
     ]
@@ -932,9 +932,9 @@
         "container": "StakeInfoRuntimeApi",
         "name": "get_hotkey_conviction",
         "path": "runtime/src/lib.rs",
-        "line": 2685,
-        "end_line": 2687,
-        "url": "/code/runtime/src/lib.rs#L2685-L2687",
+        "line": 2693,
+        "end_line": 2695,
+        "url": "/code/runtime/src/lib.rs#L2693-L2695",
         "raw_url": "/code/raw/runtime/src/lib.rs"
       }
     ]
@@ -1160,20 +1160,22 @@
   {
     "name": "lending_open_quote",
     "summary": "Quote additional fixed debt, opening value and collateral coupon.",
-    "description": "Quote additional fixed debt, opening value and collateral coupon.\n\nSupply the owner and hotkey together to quote a new position or increase\nan existing position with the same side and hotkey. The runtime accrues old\ninterest and checks the combined position. Alpha loans require conservative\nfunded-claim coverage; TAO loans require conservative funded collateral\nbacking. Both protect each other same-side loan after accrued interest.\nReturned principal, annual_interest and opening_value\nare additions, not totals. Short opening_value is the loan's TAO value at\nthe lending EMA, rounded up, and fixes its annual TAO coupon. A simulated\nbuy limits alpha principal but opening makes no AMM swap and pays no sale\nproceeds. Omitting both addresses quotes a fresh loan only.\nA refusal is an error; it never becomes a zero-protection quote. The result\nis indicative until the transaction executes.",
+    "description": "Quote additional fixed debt, opening value and collateral coupon.\n\nSupply the owner and hotkey together to quote a new position or increase\nan existing position with the same side and hotkey. The runtime accrues old\ninterest and checks the combined position. Alpha loans require conservative\nfunded-claim coverage; TAO loans require conservative funded collateral\nbacking. Both protect each other same-side loan after accrued interest.\nReturned principal, annual_interest and opening_value\nare additions, not totals. Short opening_value is the loan's TAO value at\nthe lending EMA, rounded up, and fixes its annual TAO coupon. A simulated\nbuy limits alpha principal but opening makes no AMM swap and pays no sale\nproceeds. Omitting both addresses quotes a fresh loan only.\nA refusal is an error; it never becomes a zero-protection quote. The result\nis indicative until the transaction executes. Supply `amount` with both\naddresses to quote exactly that additional principal instead of the\nmaximum supported by the collateral.",
     "params": {
       "netuid": "integer",
       "side": "string",
       "collateral": "string",
       "coldkey_ss58": "string",
-      "hotkey_ss58": "string"
+      "hotkey_ss58": "string",
+      "amount": "string"
     },
     "param_docs": {
       "netuid": "Subnet to borrow against.",
       "side": "short or long.",
       "collateral": "Additional collateral amount: TAO for a short, alpha for a long.",
       "coldkey_ss58": "Owner to quote an opening or increase for; supply its hotkey too.",
-      "hotkey_ss58": "Alpha delivery, collateral or repayment hotkey; supply the owner too."
+      "hotkey_ss58": "Alpha delivery, collateral or repayment hotkey; supply the owner too.",
+      "amount": "Exact additional principal: alpha for a short, TAO for a long; optional."
     },
     "category": "Prices & swaps",
     "docs_url": "/docs/query/lending-open-quote",
@@ -1211,6 +1213,29 @@
     "docs_url": "/docs/query/lending-positions",
     "markdown_url": "/llms.mdx/docs/query/lending-positions/content.md",
     "python": "sub.prices.lending_positions(...)"
+  },
+  {
+    "name": "lending_required_collateral",
+    "summary": "Minimum additional collateral for exactly the requested borrowed amount.",
+    "description": "Minimum additional collateral for exactly the requested borrowed amount.\n\nThe search uses exact-principal runtime quotes at one block. It includes\nexisting principal, accrued interest, market depth and funded-redemption\nguards. Only the owner's `InsufficientCollateral` response means to\nsearch higher; unavailable references, inventory, borrowing caps and\nother positions' uncovered debt remain hard refusals. The requested\nopening value must meet the runtime's minimum, currently 0.1 TAO.\n\nReturns collateral and its opening quote. This read does not promise\nthat the wallet owns the collateral or can pay transaction fees. Wallet\naffordability is checked before review and signing. The exact-principal\ntransaction rechecks admission without borrowing extra if state changes.",
+    "params": {
+      "netuid": "integer",
+      "side": "string",
+      "amount": "string",
+      "coldkey_ss58": "string",
+      "hotkey_ss58": "string"
+    },
+    "param_docs": {
+      "netuid": "Subnet to borrow against.",
+      "side": "short or long.",
+      "amount": "Exact additional principal: alpha for a short, TAO for a long.",
+      "coldkey_ss58": "Owner of the new or increased loan.",
+      "hotkey_ss58": "Delivery or collateral hotkey; must match an existing loan."
+    },
+    "category": "Prices & swaps",
+    "docs_url": "/docs/query/lending-required-collateral",
+    "markdown_url": "/llms.mdx/docs/query/lending-required-collateral/content.md",
+    "python": "sub.prices.lending_required_collateral(...)"
   },
   {
     "name": "lending_reserves",
@@ -1483,9 +1508,9 @@
         "container": "StakeInfoRuntimeApi",
         "name": "get_most_convicted_hotkey_on_subnet",
         "path": "runtime/src/lib.rs",
-        "line": 2689,
-        "end_line": 2691,
-        "url": "/code/runtime/src/lib.rs#L2689-L2691",
+        "line": 2697,
+        "end_line": 2699,
+        "url": "/code/runtime/src/lib.rs#L2697-L2699",
         "raw_url": "/code/raw/runtime/src/lib.rs"
       }
     ]
@@ -1736,9 +1761,9 @@
         "container": "SwapRuntimeApi",
         "name": "sim_swap_tao_for_alpha",
         "path": "runtime/src/lib.rs",
-        "line": 2842,
-        "end_line": 2870,
-        "url": "/code/runtime/src/lib.rs#L2842-L2870",
+        "line": 2850,
+        "end_line": 2878,
+        "url": "/code/runtime/src/lib.rs#L2850-L2878",
         "raw_url": "/code/raw/runtime/src/lib.rs"
       }
     ]
@@ -1765,9 +1790,9 @@
         "container": "SwapRuntimeApi",
         "name": "sim_swap_alpha_for_tao",
         "path": "runtime/src/lib.rs",
-        "line": 2872,
-        "end_line": 2900,
-        "url": "/code/runtime/src/lib.rs#L2872-L2900",
+        "line": 2880,
+        "end_line": 2908,
+        "url": "/code/runtime/src/lib.rs#L2880-L2908",
         "raw_url": "/code/raw/runtime/src/lib.rs"
       }
     ]
@@ -1846,9 +1871,9 @@
         "container": "BetaBasketRuntimeApi",
         "name": "get_root_basket_owed",
         "path": "runtime/src/lib.rs",
-        "line": 2702,
-        "end_line": 2704,
-        "url": "/code/runtime/src/lib.rs#L2702-L2704",
+        "line": 2710,
+        "end_line": 2712,
+        "url": "/code/runtime/src/lib.rs#L2710-L2712",
         "raw_url": "/code/raw/runtime/src/lib.rs"
       }
     ]
@@ -1911,9 +1936,9 @@
         "container": "BetaBasketRuntimeApi",
         "name": "get_root_basket_total_nav",
         "path": "runtime/src/lib.rs",
-        "line": 2714,
-        "end_line": 2716,
-        "url": "/code/runtime/src/lib.rs#L2714-L2716",
+        "line": 2722,
+        "end_line": 2724,
+        "url": "/code/runtime/src/lib.rs#L2722-L2724",
         "raw_url": "/code/raw/runtime/src/lib.rs"
       }
     ]
@@ -2483,9 +2508,9 @@
         "container": "SubnetRegistrationRuntimeApi",
         "name": "get_network_registration_cost",
         "path": "runtime/src/lib.rs",
-        "line": 2695,
-        "end_line": 2697,
-        "url": "/code/runtime/src/lib.rs#L2695-L2697",
+        "line": 2703,
+        "end_line": 2705,
+        "url": "/code/runtime/src/lib.rs#L2703-L2705",
         "raw_url": "/code/raw/runtime/src/lib.rs"
       }
     ]
@@ -2780,9 +2805,9 @@
         "container": "BetaBasketRuntimeApi",
         "name": "get_validator_basket_nav",
         "path": "runtime/src/lib.rs",
-        "line": 2708,
-        "end_line": 2710,
-        "url": "/code/runtime/src/lib.rs#L2708-L2710",
+        "line": 2716,
+        "end_line": 2718,
+        "url": "/code/runtime/src/lib.rs#L2716-L2718",
         "raw_url": "/code/raw/runtime/src/lib.rs"
       }
     ]

@@ -78,6 +78,7 @@
     "lending-open-quote",
     "lending-position",
     "lending-positions",
+    "lending-required-collateral",
     "lending-reserves",
     "quote-stake",
     "quote-unstake",

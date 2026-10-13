@@ -61,6 +61,7 @@ NAME_TO_CODE: dict[str, ErrorCode] = {
     "AboveMaximumPayment": _C.INSUFFICIENT_LIQUIDITY,
     "BelowMinimumRefund": _C.INSUFFICIENT_LIQUIDITY,
     "InsufficientEscrow": _C.INSUFFICIENT_BALANCE,
+    "InsufficientCollateral": _C.INSUFFICIENT_BALANCE,
     "InvalidQuote": _C.INSUFFICIENT_LIQUIDITY,
     "Arithmetic": _C.INTERNAL,
     "CustodyUnavailable": _C.INTERNAL,

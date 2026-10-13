@@ -9,7 +9,7 @@ from .._generated.storage import Item
 from ..balance import Balance
 from ..intents._money import alpha_amount, tao_amount
 from ..intents.lending import POSITIONS, check_side
-from ..result import BittensorError, chain_error_from_dispatch
+from ..result import BittensorError, ChainError, chain_error_from_dispatch
 from .base import read
 
 VAULTS = Item("Lending", "Vaults", "Vault")
@@ -17,6 +17,7 @@ OPEN_BY_NETUID = Item("Lending", "OpenByNetuid")
 DISSOLUTIONS = Item("Lending", "Dissolutions", "Dissolution")
 QUOTE_OPEN = Method("LendingRuntimeApi", "quote_open")
 QUOTE_OPEN_FOR = Method("LendingRuntimeApi", "quote_open_for")
+QUOTE_OPEN_EXACT_FOR = Method("LendingRuntimeApi", "quote_open_exact_for")
 QUOTE_CLOSE = Method("LendingRuntimeApi", "quote_close")
 
 
@@ -157,6 +158,7 @@ async def lending_reserves(view, netuid: int) -> dict:
         "collateral": "string",
         "coldkey_ss58": "string",
         "hotkey_ss58": "string",
+        "amount": "string",
     },
     category="Prices & swaps",
     param_docs={
@@ -165,6 +167,7 @@ async def lending_reserves(view, netuid: int) -> dict:
         "collateral": "Additional collateral amount: TAO for a short, alpha for a long.",
         "coldkey_ss58": "Owner to quote an opening or increase for; supply its hotkey too.",
         "hotkey_ss58": "Alpha delivery, collateral or repayment hotkey; supply the owner too.",
+        "amount": "Exact additional principal: alpha for a short, TAO for a long; optional.",
     },
 )
 async def lending_open_quote(
@@ -174,6 +177,7 @@ async def lending_open_quote(
     collateral: str,
     coldkey_ss58: Optional[str] = None,
     hotkey_ss58: Optional[str] = None,
+    amount: Optional[str] = None,
 ) -> dict:
     """Quote additional fixed debt, opening value and collateral coupon.
 
@@ -188,28 +192,151 @@ async def lending_open_quote(
     buy limits alpha principal but opening makes no AMM swap and pays no sale
     proceeds. Omitting both addresses quotes a fresh loan only.
     A refusal is an error; it never becomes a zero-protection quote. The result
-    is indicative until the transaction executes.
+    is indicative until the transaction executes. Supply ``amount`` with both
+    addresses to quote exactly that additional principal instead of the
+    maximum supported by the collateral.
     """
     view = await view.at()
     side = check_side(side)
-    amount = cast(
+    collateral_amount = cast(
         Balance, tao_amount(collateral) if side == "Short" else alpha_amount(collateral, netuid)
     )
     if (coldkey_ss58 is None) != (hotkey_ss58 is None):
         raise BittensorError("an owner-aware lending quote requires both coldkey and hotkey")
     method = QUOTE_OPEN if coldkey_ss58 is None else QUOTE_OPEN_FOR
     params = (
-        [netuid, side, amount.rao]
+        [netuid, side, collateral_amount.rao]
         if coldkey_ss58 is None
-        else [coldkey_ss58, netuid, side, amount.rao, hotkey_ss58]
+        else [coldkey_ss58, netuid, side, collateral_amount.rao, hotkey_ss58]
     )
+    if amount is not None:
+        if coldkey_ss58 is None or hotkey_ss58 is None:
+            raise BittensorError("an exact lending quote requires both coldkey and hotkey")
+        principal = cast(
+            Balance, alpha_amount(amount, netuid) if side == "Short" else tao_amount(amount)
+        )
+        if not 0 < principal.rao <= (1 << 64) - 1:
+            raise BittensorError("borrow amount must be positive and fit the chain's token units")
+        method = QUOTE_OPEN_EXACT_FOR
+        params = [
+            coldkey_ss58,
+            netuid,
+            side,
+            collateral_amount.rao,
+            hotkey_ss58,
+            principal.rao,
+        ]
     raw = _ok(await view.runtime(method, params))
+    if amount is not None and int(raw["principal"]) != principal.rao:
+        raise BittensorError("exact lending quote returned a different borrowed amount")
     collateral_unit = 0 if side == "Short" else netuid
     return {
         "principal": view.balance(int(raw["principal"]), netuid if side == "Short" else 0),
         "annual_interest": view.balance(int(raw["annual_interest"]), collateral_unit),
         "opening_value": Balance.from_rao(int(raw["opening_value"])),
     }
+
+
+@read(
+    "lending_required_collateral",
+    {
+        "netuid": "integer",
+        "side": "string",
+        "amount": "string",
+        "coldkey_ss58": "string",
+        "hotkey_ss58": "string",
+    },
+    category="Prices & swaps",
+    param_docs={
+        "netuid": "Subnet to borrow against.",
+        "side": "short or long.",
+        "amount": "Exact additional principal: alpha for a short, TAO for a long.",
+        "coldkey_ss58": "Owner of the new or increased loan.",
+        "hotkey_ss58": "Delivery or collateral hotkey; must match an existing loan.",
+    },
+)
+async def lending_required_collateral(
+    view,
+    netuid: int,
+    side: str,
+    amount: str,
+    coldkey_ss58: str,
+    hotkey_ss58: str,
+) -> dict:
+    """Minimum additional collateral for exactly the requested borrowed amount.
+
+    The search uses exact-principal runtime quotes at one block. It includes
+    existing principal, accrued interest, market depth and funded-redemption
+    guards. Only the owner's ``InsufficientCollateral`` response means to
+    search higher; unavailable references, inventory, borrowing caps and
+    other positions' uncovered debt remain hard refusals. The requested
+    opening value must meet the runtime's minimum, currently 0.1 TAO.
+
+    Returns collateral and its opening quote. This read does not promise
+    that the wallet owns the collateral or can pay transaction fees. Wallet
+    affordability is checked before review and signing. The exact-principal
+    transaction rechecks admission without borrowing extra if state changes.
+    """
+    view = await view.at()
+    side = check_side(side)
+    principal = cast(
+        Balance, alpha_amount(amount, netuid) if side == "Short" else tao_amount(amount)
+    )
+    if not 0 < principal.rao <= (1 << 64) - 1:
+        raise BittensorError("borrow amount must be positive and fit the chain's token units")
+    unit = 0 if side == "Short" else netuid
+    maximum = (1 << 64) - 1
+    existing = await lending_position(view, coldkey_ss58, netuid)
+    if existing is not None:
+        remaining = existing["collateral"].rao - existing["interest_due"].rao
+        if remaining <= 0:
+            raise BittensorError("the existing position's collateral is exhausted")
+        maximum -= remaining
+    if maximum <= 0:
+        raise BittensorError("the position cannot accept additional collateral")
+
+    quotes: dict[int, Optional[dict]] = {}
+
+    async def quote(collateral: int) -> Optional[dict]:
+        if collateral not in quotes:
+            try:
+                quotes[collateral] = await lending_open_quote(
+                    view,
+                    netuid,
+                    side,
+                    view.balance(collateral, unit),
+                    coldkey_ss58,
+                    hotkey_ss58,
+                    principal,
+                )
+            except ChainError as error:
+                if error.name != "InsufficientCollateral":
+                    raise
+                quotes[collateral] = None
+        return quotes[collateral]
+
+    low, high = 0, min(1_000_000_000, maximum)
+    for _ in range(64):
+        if await quote(high) is not None:
+            break
+        if high == maximum:
+            raise BittensorError("the required collateral exceeds the chain's position limit")
+        low, high = high, min(high * 2, maximum)
+    else:
+        raise BittensorError("could not bound the required collateral")
+
+    for _ in range(64):
+        if high - low <= 1:
+            break
+        middle = (low + high) // 2
+        if await quote(middle) is None:
+            low = middle
+        else:
+            high = middle
+    result = await quote(high)
+    if result is None:
+        raise BittensorError("the requested loan has no admissible collateral quote")
+    return {"collateral": view.balance(high, unit), **result}
 
 
 @read(

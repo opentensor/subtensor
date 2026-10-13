@@ -28,6 +28,9 @@ _TYPES = {"string": str, "integer": int, "number": float, "boolean": bool}
 _TRUE = {"y", "yes", "true", "1"}
 _FALSE = {"n", "no", "false", "0"}
 _OWN_KEY = ("hotkey_ss58", "coldkey_ss58")
+# A missing amount selects the collateral-first lending quote. Unlike an
+# absent netuid, None is a meaningful input for this optional read parameter.
+_OPTIONAL_NONE = {"amount"}
 
 
 def _cli_name(pname: str) -> str:
@@ -53,6 +56,8 @@ def _is_required(pname: str, fetch_params) -> bool:
     if pname in _OWN_KEY:
         return False
     default = _fetch_default(pname, fetch_params)
+    if default is None and pname in _OPTIONAL_NONE:
+        return False
     return default is inspect.Parameter.empty or default is None
 
 

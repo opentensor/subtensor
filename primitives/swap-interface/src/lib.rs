@@ -77,6 +77,10 @@ pub trait SwapHandler {
     fn max_buy_input(_netuid: NetUid) -> TaoBalance {
         u64::MAX.into()
     }
+    /// Conservative maximum gross alpha sale input that fills completely.
+    fn max_sell_input(_netuid: NetUid) -> AlphaBalance {
+        u64::MAX.into()
+    }
     /// Cumulative extraction used by upgrade conservation checks.
     fn extracted_tao(_netuid: NetUid) -> TaoBalance {
         TaoBalance::ZERO

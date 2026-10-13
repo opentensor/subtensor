@@ -1160,14 +1160,17 @@ class AppContext:
         elif semantic_intent.origin == "subnet_owner":
             self.output.message("[dim]requires: subnet owner coldkey[/dim]")
 
-        if self.uses_extension_signer():
+        mandatory_lending = semantic_intent.op == "open_loan"
+        if self.uses_extension_signer() and not mandatory_lending:
             self.reset_extension_session()
         if self.uses_vault_signer():
             # Display-only context for the vault page ("what am I signing?").
             self.vault_signer().summary = summary
 
         async def _plan(client):
-            signer = await self.resolve_signing_wallet(intent.signer, pick_account=True)
+            signer = await self.resolve_signing_wallet(
+                intent.signer, pick_account=not mandatory_lending
+            )
             plan_target = signer if self.uses_external_signer() else wallet
             try:
                 return await client.plan(intent, plan_target, **options)
@@ -1175,8 +1178,47 @@ class AppContext:
                 if self.uses_extension_signer() and hasattr(signer, "close"):
                     await signer.close()
 
+        async def _lending_shield_blocks(client, preview=None, target=None):
+            if not mandatory_lending or not shield:
+                return []
+            preview_signer = None
+            try:
+                key = await client.read("mev_shield_next_key")
+                if key is None:
+                    return (
+                        ["MEV shield is not active on this network"]
+                        if shield_forced or semantic_intent.mev_shield_required
+                        else []
+                    )
+                if target is None:
+                    target = wallet
+                    if self.uses_external_signer():
+                        preview_signer = await self.resolve_signing_wallet(intent.signer)
+                        target = preview_signer
+                blocks = []
+                if preview is None:
+                    preview = await client.preflight(intent, target, **options)
+                    blocks.extend(preview.blocks)
+                payer = public_view(target, intent.signer).ss58_address
+                carrier = await client.estimate_shielded_carrier_fee(payer)
+                if preview.required_free is None or preview.available_free is None:
+                    blocks.append("could not verify collateral and combined transaction fees")
+                elif preview.available_free.rao < preview.required_free.rao + carrier.rao:
+                    blocks.append(
+                        "spendable TAO cannot cover collateral and both the loan transaction "
+                        "and MEV-shield carrier fees"
+                    )
+                return blocks
+            except Exception as error:
+                return [f"could not verify collateral and MEV-shield fees: {error}"]
+            finally:
+                if preview_signer is not None and self.uses_extension_signer():
+                    await preview_signer.close()
+
         if self.dry_run:
             plan = self.run(_plan)
+            if mandatory_lending and shield:
+                plan.violations.extend(self.run(_lending_shield_blocks))
             if base_summary != intent_summary:
                 plan.summary = base_summary
                 plan.effects = [
@@ -1209,18 +1251,36 @@ class AppContext:
         fee_facts: list[tuple[str, str]] = []
         facts_title = "Fees"
         estimated_fee = None
-        if not self.uses_external_signer():
+        if not self.uses_external_signer() or mandatory_lending:
 
             async def _preflight(client):
+                preview_signer = None
                 try:
+                    target = wallet
+                    if self.uses_external_signer():
+                        preview_signer = await self.resolve_signing_wallet(intent.signer)
+                        target = preview_signer
                     preview = await client.preflight(
                         intent,
-                        wallet,
+                        target,
                         proxy_for=proxy_for,
                         proxy_type=force_proxy_type,
                     )
-                except Exception:
+                    preview.blocks.extend(await _lending_shield_blocks(client, preview, target))
+                except Exception as error:
+                    if mandatory_lending:
+                        return (
+                            [],
+                            [],
+                            [f"could not verify loan collateral and fees: {error}"],
+                            [],
+                            "Fees",
+                            None,
+                        )
                     return [], [], [], [], "Fees", None
+                finally:
+                    if preview_signer is not None and self.uses_extension_signer():
+                        await preview_signer.close()
                 warnings = list(preview.warnings)
                 if semantic_intent.op in ("claim_root", "claim_root_with_hotkey"):
                     effects = list(preview.effects)
@@ -1292,7 +1352,7 @@ class AppContext:
         if self.uses_extension_signer():
 
             async def _prepare(_client):
-                signer = await self.extension_signer(pick_account=True)
+                signer = await self.extension_signer(pick_account=not mandatory_lending)
                 await signer.close()
 
             self.run(_prepare)

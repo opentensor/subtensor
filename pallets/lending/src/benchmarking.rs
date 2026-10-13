@@ -64,6 +64,31 @@ mod benchmarks {
         assert!(Positions::<T>::contains_key(owner, netuid));
     }
 
+    #[benchmark]
+    fn open_exact() {
+        let (owner, hotkey, netuid) = setup::<T>();
+        let principal =
+            Pallet::<T>::quote_open_for(&owner, netuid, Side::Short, 16_000_000_000, &hotkey)
+                .unwrap()
+                .principal
+                .checked_div(2)
+                .unwrap();
+        #[extrinsic_call]
+        _(
+            RawOrigin::Signed(owner.clone()),
+            netuid,
+            Side::Short,
+            16_000_000_000,
+            hotkey,
+            principal,
+            0,
+        );
+        assert_eq!(
+            Positions::<T>::get(owner, netuid).unwrap().principal,
+            principal
+        );
+    }
+
     #[benchmark(extra)]
     fn increase_short() {
         let (owner, hotkey, netuid) = setup::<T>();
@@ -224,8 +249,16 @@ mod benchmarks {
         #[block]
         {
             assert!(
-                Pallet::<T>::funded_alpha_limit_for(netuid, 1_000_000_000, &vault, 0, 1, None)
-                    .unwrap()
+                Pallet::<T>::funded_alpha_limit_for(
+                    netuid,
+                    1_000_000_000,
+                    &vault,
+                    0,
+                    1,
+                    None,
+                    false
+                )
+                .unwrap()
                     > 0
             );
         }

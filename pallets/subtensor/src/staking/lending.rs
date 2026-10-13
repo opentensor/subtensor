@@ -121,6 +121,16 @@ impl<T: Config> LendingPoolInterface<T::AccountId> for Pallet<T> {
         T::SwapInterface::max_buy_input(netuid)
     }
 
+    fn max_sell_input(netuid: NetUid) -> AlphaBalance {
+        T::SwapInterface::max_sell_input(netuid)
+    }
+
+    fn quote_may_round_to_zero(error: &DispatchError) -> bool {
+        *error == Error::<T>::AmountTooLow.into()
+            || T::SwapInterface::classify_failure(error)
+                == subtensor_swap_interface::SwapFailureKind::TerminalLiquidity
+    }
+
     fn quote_buy(netuid: NetUid, tao: TaoBalance) -> Result<AlphaBalance, DispatchError> {
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
         let quote = T::SwapInterface::swap(
@@ -147,10 +157,10 @@ impl<T: Config> LendingPoolInterface<T::AccountId> for Pallet<T> {
     }
 
     #[transactional]
-    fn repay_alpha(
+    fn lock_alpha_collateral(
         from: &T::AccountId,
         source_hotkey: &T::AccountId,
-        vault: &T::AccountId,
+        escrow: &T::AccountId,
         custody: &T::AccountId,
         netuid: NetUid,
         amount: AlphaBalance,
@@ -164,18 +174,30 @@ impl<T: Config> LendingPoolInterface<T::AccountId> for Pallet<T> {
         );
         Self::ensure_available_to_unstake(from, netuid, amount)?;
         Self::ensure_hotkey_covers_collateral(from, source_hotkey, netuid, amount)?;
-        // Fixed-token repayment is valid even after its spot value falls below the
-        // minimum trade size. The normal transfer still requires an exact stake debit.
+        // Lending validates the actual loan value; an additional collateral atom
+        // must still satisfy custody, available stake and miner-bond coverage.
         <Self as subtensor_swap_interface::OrderSwapInterface<T::AccountId>>::transfer_staked_alpha(
             from,
             source_hotkey,
-            vault,
+            escrow,
             custody,
             netuid,
             amount,
             false,
             false,
         )
+    }
+
+    #[transactional]
+    fn repay_alpha(
+        from: &T::AccountId,
+        source_hotkey: &T::AccountId,
+        vault: &T::AccountId,
+        custody: &T::AccountId,
+        netuid: NetUid,
+        amount: AlphaBalance,
+    ) -> DispatchResult {
+        Self::lock_alpha_collateral(from, source_hotkey, vault, custody, netuid, amount)
     }
 
     #[transactional]

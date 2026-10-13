@@ -377,8 +377,14 @@ network and wallet; the examples below use subnet 64 as an example, not a
 statement that its lending vault is enabled or has sufficient inventory.
 
 ```bash
-# Prompt for collateral with an estimated minimum for a 1-TAO loan opening value.
+# Choose how much to borrow, or switch to providing collateral.
 btcli lending open --netuid 64 --side short --hotkey <hotkey> -w mywallet
+
+# Borrow exactly 700 additional alpha; quote the required TAO collateral.
+btcli lending open --netuid 64 --side short --amount 700 --hotkey <hotkey> -w mywallet
+
+# Borrow exactly 50 additional TAO; quote the required alpha collateral.
+btcli lending open --netuid 64 --side long --amount 50 --hotkey <hotkey> -w mywallet
 
 # Lock 1,000 TAO and receive freely usable borrowed alpha on this hotkey.
 btcli lending open --netuid 64 --side short --collateral 1000 -w mywallet
@@ -400,45 +406,59 @@ btcli lending list --netuid 64
 btcli lending list --netuid 64 --coldkey <coldkey>
 ```
 
-When `--collateral` is omitted on an interactive terminal, the CLI resolves the
-wallet and hotkey first, then estimates the minimum additional collateral for
-a loan opening value of at least 1 TAO (or the runtime's minimum if higher).
-The estimate is offered as the collateral prompt's default; press Enter to
-accept it or enter another amount. For shorts, this is the TAO opening value
-of borrowed alpha, not sale proceeds. For longs, it is the borrowed TAO amount.
-Collateral is entered in TAO for shorts and subnet alpha for longs.
+Choose one sizing mode. `--amount` specifies the additional quantity to borrow:
+subnet alpha for a short or TAO for a long. The CLI finds the minimum additional
+collateral that passes the runtime's complete admission checks. The transaction
+borrows exactly that principal; a changing quote cannot increase the debt beyond
+the amount you selected. `--collateral` instead specifies additional TAO for a
+short or alpha for a long, and the CLI shows its quoted borrowing limit.
+The two flags are mutually exclusive. If neither is supplied, an interactive
+terminal asks which mode to use, defaulting to the amount to borrow. Scripts
+must provide one flag explicitly.
 
-The estimate uses runtime quotes at one block, including the owner's existing
-position, redemption coverage and borrowing limits. It is a quote of the
-required collateral, not a check that the wallet holds that collateral.
-The selected amount is quoted again before submission because chain state can
-change. If estimation fails, the CLI explains the failure and still prompts for
-manual collateral, without offering an unverified default. This also allows an
-existing loan to grow when the estimator's initial probe is too small to cover
-its existing debt. Manual entry does not bypass admission: the selected amount
-must pass a fresh runtime quote before submission. Scripts must provide
-`--collateral` explicitly.
+Each opening or increase must have an opening loan value of at least **0.1 TAO**.
+For alpha borrowing, that value uses the lending price reference. The existing
+inventory, 10% aggregate borrowing cap, market-depth and funded-redemption guards
+can impose stricter limits. A fixed requested amount below the minimum cannot
+be repaired by posting more collateral.
+
+The collateral requirement uses exact-principal runtime quotes at one block,
+including the owner's existing debt and accrued interest. The loan is quoted
+again before submission. The CLI then checks the actual owner's spendable TAO
+or selected-hotkey alpha, excluding locks and miner collateral, and checks the
+signer's TAO for transaction fees. Shielded submission includes its carrier fee.
+Insufficient funds, unavailable quotes or failed checks stop before transaction
+review and signing. The review shows the borrowed amount, collateral and annual
+interest; the runtime rechecks admission when the transaction executes.
 
 Open and close obtain complete quotes from the runtime. By default,
-`--max-slippage 1` sets an opening principal floor and, for shorts, a separate
+`--max-slippage 1` sets a collateral-mode opening principal floor and, for shorts, a separate
 opening TAO valuation floor, or a closing payment ceiling and refund floor, with a 1%
 margin. The entire call rolls back if its bounds fail.
-The CLI quotes using the signing owner and selected hotkey, so an increase is
+The CLI quotes using the position owner and selected hotkey, so an increase is
 checked against the saved position. An unavailable quote stops submission
 instead of silently dropping protection.
 Quote refusals are decoded into named errors with explanations, including
 `ReferenceWarmingUp`, `AmountTooSmall` and `InsufficientRedemptionBacking`.
-`AmountTooSmall` can mean that the calculated loan opening value is below the
-minimum even when the collateral itself exceeds 1 TAO. Use `btcli explain
+`AmountTooSmall` can mean that the loan opening value is below 0.1 TAO even when
+the collateral itself exceeds that value. `InsufficientCollateral` means the
+selected additional debt requires a larger collateral deposit. Use `btcli explain
 AmountTooSmall` for the error description.
 Writes use the existing wallet, review, signing and MEV-shield submission flow.
 
 The SDK also exposes block-pinned reads through `client.read`:
 `lending_reserves`, `lending_position`, `lending_positions`,
-`lending_open_quote` and `lending_close_quote`. Low-level `OpenLoan` and
+`lending_open_quote`, `lending_required_collateral` and `lending_close_quote`. Low-level `OpenLoan` and
 `CloseLoan` intents accept exact amounts and explicit quote bounds for callers
 that build their own transaction flow.
 
 For an owner-aware opening or increase quote, supply both `coldkey_ss58` and
 `hotkey_ss58` to `lending_open_quote`. Omitting both addresses keeps the fresh-loan
 quote; it does not account for an existing position.
+
+`lending_required_collateral` accepts the desired additional `amount`, owner and
+hotkey, and returns the required collateral with its exact opening quote.
+Supplying optional `amount` to `lending_open_quote` quotes that precise principal
+against a known collateral deposit. `OpenLoan.amount` selects exact borrowing;
+omitting it retains collateral-first borrowing. Both paths share the same
+interest, repayment and terminal settlement rules.

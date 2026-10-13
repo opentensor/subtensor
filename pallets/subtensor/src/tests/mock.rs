@@ -1589,7 +1589,7 @@ frame_support::parameter_types! { pub SwapCurveInitializationWeight: frame_suppo
 
 parameter_types! {
     pub const LendingPalletId: PalletId = PalletId(*b"bt/loans");
-    pub const LendingMinimumLoanValue: u64 = 1_000_000_000;
+    pub const LendingMinimumLoanValue: u64 = 100_000_000;
     pub const LendingInterestPeriod: u64 = 50_400;
     pub const LendingBlocksPerYear: u64 = 2_628_000;
     pub const LendingReferenceWarmup: u64 = 7_200;

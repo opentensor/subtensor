@@ -97,6 +97,13 @@ DEFAULT_RUNTIME: dict[tuple[str, str], Any] = {
             "opening_value": 250_000_000,
         }
     },
+    ("LendingRuntimeApi", "quote_open_exact_for"): lambda params: {
+        "Ok": {
+            "principal": params[-1],
+            "annual_interest": params[-1],
+            "opening_value": params[-1],
+        }
+    },
     ("LendingRuntimeApi", "quote_close"): {"Ok": {"payment": 250_000_000, "refund": 1_000_000_000}},
 }
 
