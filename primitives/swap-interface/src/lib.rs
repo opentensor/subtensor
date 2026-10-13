@@ -73,6 +73,10 @@ pub trait SwapHandler {
     ) -> Result<bool, DispatchError> {
         Err(DispatchError::Other("Price-impact tuning is unavailable"))
     }
+    /// Minimum fee-inclusive TAO input for an exact alpha output.
+    fn quote_buy_input(_netuid: NetUid, _alpha: AlphaBalance) -> Result<TaoBalance, DispatchError> {
+        Err(DispatchError::Other("Inverse buy quote unavailable"))
+    }
     /// Conservative maximum gross TAO purchase input that fills completely.
     fn max_buy_input(_netuid: NetUid) -> TaoBalance {
         u64::MAX.into()
