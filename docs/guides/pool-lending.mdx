@@ -410,7 +410,11 @@ Choose one sizing mode. `--amount` specifies the additional quantity to borrow:
 subnet alpha for a short or TAO for a long. The CLI finds the minimum additional
 collateral that passes the runtime's complete admission checks. The transaction
 borrows exactly that principal; a changing quote cannot increase the debt beyond
-the amount you selected. `--collateral` instead specifies additional TAO for a
+the amount you selected. By default, the CLI adds a 1% collateral allowance and,
+for an existing loan, its interest across a conservative submission window.
+The review shows both the calculated minimum and the collateral to lock.
+`--max-slippage 0` uses the strict minimum without this allowance; a stale quote
+can then require another attempt. `--collateral` instead specifies additional TAO for a
 short or alpha for a long, and the CLI shows its quoted borrowing limit.
 The two flags are mutually exclusive. If neither is supplied, an interactive
 terminal asks which mode to use, defaulting to the amount to borrow. Scripts
@@ -432,7 +436,8 @@ review and signing. The review shows the borrowed amount, collateral and annual
 interest; the runtime rechecks admission when the transaction executes.
 
 Open and close obtain complete quotes from the runtime. By default,
-`--max-slippage 1` sets a collateral-mode opening principal floor and, for shorts, a separate
+`--max-slippage 1` sets the amount-mode collateral allowance, a collateral-mode
+opening principal floor and, for shorts, a separate
 opening TAO valuation floor, or a closing payment ceiling and refund floor, with a 1%
 margin. The entire call rolls back if its bounds fail.
 The CLI quotes using the position owner and selected hotkey, so an increase is

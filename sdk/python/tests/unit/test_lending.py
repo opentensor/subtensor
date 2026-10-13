@@ -10,7 +10,7 @@ from typer.testing import CliRunner
 
 from bittensor._generated.errors import ERRORS
 from bittensor.balance import Balance, UnitMismatchError
-from bittensor.cli.commands.lending import _bound
+from bittensor.cli.commands.lending import _bound, _provided_collateral
 from bittensor.cli.main import app
 from bittensor.client import Client
 from bittensor.intents import CloseLoan, OpenLoan, Policy
@@ -357,6 +357,13 @@ def test_quote_bounds_round_in_protective_direction():
     assert _bound(amount, 1).rao == 99
     assert _bound(amount, 1, ceiling=True).rao == 103
     assert _bound(amount, 1).netuid == 1
+
+
+@pytest.mark.parametrize("rao", [1, (1 << 64) - 1])
+def test_quote_bounds_keep_tiny_positive_margins_at_atomic_precision(rao):
+    amount = Balance.from_rao(rao, 1)
+    assert _bound(amount, 1e-26).rao == rao - 1
+    assert _bound(amount, 1e-26, ceiling=True).rao == rao + 1
 
 
 def test_lending_cli_has_exactly_three_commands():
@@ -806,6 +813,7 @@ def test_cli_rejects_two_input_modes(cli_fake):
 
 
 def _mock_required_collateral(monkeypatch, fake, collateral=1_000_000_003):
+    fake.seed_default("Lending", "Positions", None)
     original = Client.read
     requested = []
 
@@ -855,10 +863,10 @@ def test_cli_amount_uses_required_collateral_and_exact_principal(cli_fake, monke
     plan = json.loads(result.output)
     assert plan["args"]["amount"] == "0.100000001"
     assert plan["args"]["min_borrow"] == "0.100000001"
-    assert plan["args"]["collateral"] == "1.000000003"
+    assert plan["args"]["collateral"] == "1.010000004"
     assert required[0]["amount"] == Balance.from_rao(100_000_001, unit)
     assert len(seen) == 2  # Fresh CLI quote plus the SDK pre-sign quote.
-    assert all(params[3] == 1_000_000_003 and params[5] == 100_000_001 for params in seen)
+    assert all(params[3] == 1_010_000_004 and params[5] == 100_000_001 for params in seen)
     assert cli_fake.submissions == []
 
 
@@ -1316,9 +1324,205 @@ def test_cli_amount_runs_real_required_collateral_search_and_requotes(cli_fake, 
     )
     assert result.exit_code == 0, result.output
     plan = json.loads(result.output)
-    assert plan["args"]["collateral"] == "0.400000003"
+    assert plan["args"]["collateral"] == "0.404000004"
     assert plan["args"]["amount"] == "0.1"
     assert seen[-2] == seen[-1]
     assert all(params[-1] == 100_000_000 for params in seen)
-    assert all(params[3] == threshold for params in seen[-2:])
+    assert all(params[3] == 404_000_004 for params in seen[-2:])
+    assert cli_fake.submissions == []
+
+
+@pytest.mark.parametrize("side", ["short", "long"])
+@pytest.mark.parametrize("percent", [0, 1])
+def test_amount_collateral_buffer_covers_large_existing_coupon_across_block_change(
+    cli_fake, monkeypatch, side, percent
+):
+    _mock_required_collateral(monkeypatch, cli_fake, collateral=400_000_000)
+    cli_fake.seed_constant("Lending", "BlocksPerYear", 100)
+    cli_fake.seed_default(
+        "Lending",
+        "Positions",
+        {
+            **DEFAULT_STORAGE[("Lending", "Positions")],
+            "side": side.title(),
+            "hotkey": ALICE_HOT,
+            "principal": 1_000_000_000,
+            "collateral": 4_000_000_000,
+            "annual_interest": 1_000_000_000,
+        },
+    )
+    original = Client.read
+
+    async def read(client, name, **kwargs):
+        result = await original(client, name, **kwargs)
+        if name == "lending_required_collateral":
+            cli_fake.block += 1
+        return result
+
+    monkeypatch.setattr(Client, "read", read)
+    seen = []
+
+    def quote(params):
+        seen.append(params)
+        # One block's old interest already exceeds 1% of this small increase.
+        required = 400_000_000 + (cli_fake.block - 100) * 10_000_000
+        if params[3] < required:
+            raise ChainError("old coupon accrued", name="InsufficientCollateral")
+        return {
+            "Ok": {
+                "principal": params[5],
+                "opening_value": 100_000_000,
+                "annual_interest": 100_000_000,
+            }
+        }
+
+    cli_fake.seed_runtime("LendingRuntimeApi", "quote_open_exact_for", quote)
+    result = runner.invoke(
+        app,
+        [
+            "--json",
+            "--dry-run",
+            "--no-mev-shield",
+            "lending",
+            "open",
+            "--netuid",
+            "1",
+            "--side",
+            side,
+            "--amount",
+            "0.1",
+            "--hotkey",
+            ALICE_HOT,
+            "--max-slippage",
+            str(percent),
+        ],
+    )
+    if percent == 0:
+        assert result.exit_code == 1, result.output
+        assert "InsufficientCollateral" in result.output
+        assert seen[0][3] == 400_000_000
+    else:
+        assert result.exit_code == 0, result.output
+        plan = json.loads(result.output)
+        # 404m with 1% headroom, plus 1b * 128 / 100 of old coupon.
+        assert plan["args"]["collateral"] == "1.684"
+        assert plan["args"]["amount"] == "0.1"
+        assert plan["args"]["min_borrow"] == "0.1"
+        assert all(params[3] == 1_684_000_000 for params in seen)
+    assert all(params[5] == 100_000_000 for params in seen)
+    assert cli_fake.submissions == []
+
+
+def test_amount_review_distinguishes_minimum_and_buffered_collateral(cli_fake, monkeypatch):
+    from bittensor.cli.context import AppContext
+
+    _mock_required_collateral(monkeypatch, cli_fake)
+    rows = {}
+
+    def submit(_context, intent, **kwargs):
+        rows.update(kwargs["card_sections"][0][1])
+        assert intent.amount == Balance.from_rao(100_000_000, 1)
+        assert intent.collateral == Balance.from_rao(1_010_000_004)
+
+    monkeypatch.setattr(AppContext, "submit", submit)
+    result = runner.invoke(
+        app,
+        [
+            "--yes",
+            "--no-mev-shield",
+            "lending",
+            "open",
+            "--netuid",
+            "1",
+            "--side",
+            "short",
+            "--amount",
+            "0.1",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert rows["calculated minimum collateral"] == str(Balance.from_rao(1_000_000_003))
+    assert rows["provided collateral"] == str(Balance.from_rao(1_010_000_004))
+    assert rows["additional interest per year"] == str(Balance.from_rao(100_000_000))
+
+
+@pytest.mark.asyncio
+async def test_tiny_positive_collateral_headroom_rounds_up_one_atom():
+    fake = FakeSubstrate()
+    fake.seed_default("Lending", "Positions", None)
+    async with Client("local", substrate=fake) as client:
+        provided = await _provided_collateral(client, Balance.from_rao(1), 1, ALICE, 1e-26)
+    assert provided == Balance.from_rao(2)
+
+
+@pytest.mark.asyncio
+async def test_zero_collateral_headroom_does_not_query_old_coupon():
+    class NoReads:
+        async def at(self):
+            pytest.fail("zero tolerance must keep the calculated minimum without extra reads")
+
+    minimum = Balance.from_rao(1_000_000_001, 1)
+    assert await _provided_collateral(NoReads(), minimum, 1, ALICE, 0) == minimum
+
+
+def test_buffered_collateral_overflow_stops_before_composition(cli_fake, monkeypatch):
+    _required, seen = _mock_required_collateral(monkeypatch, cli_fake, collateral=(1 << 64) - 1)
+
+    async def unexpected_compose(*_args, **_kwargs):
+        pytest.fail("an overflowing collateral deposit must not reach composition")
+
+    monkeypatch.setattr(cli_fake, "compose", unexpected_compose)
+    result = runner.invoke(
+        app,
+        [
+            "--json",
+            "--dry-run",
+            "--no-mev-shield",
+            "lending",
+            "open",
+            "--netuid",
+            "1",
+            "--side",
+            "short",
+            "--amount",
+            "0.1",
+        ],
+    )
+    assert result.exit_code == 1, result.output
+    assert "buffered collateral does not fit" in result.output
+    assert seen == []
+    assert cli_fake.submissions == []
+
+
+def test_wallet_must_cover_buffered_collateral_before_review(cli_fake, monkeypatch):
+    from bittensor.cli.context import AppContext
+
+    _mock_required_collateral(monkeypatch, cli_fake)
+    cli_fake.seed_default(
+        "System",
+        "Account",
+        {"data": {"free": 1_000_000_003 + cli_fake.fee.rao + 500, "reserved": 0, "frozen": 0}},
+    )
+
+    def unexpected_review(*_args, **_kwargs):
+        pytest.fail("buffer affordability must be checked before review")
+
+    monkeypatch.setattr(AppContext, "_transaction_card", unexpected_review)
+    result = runner.invoke(
+        app,
+        [
+            "--yes",
+            "--no-mev-shield",
+            "lending",
+            "open",
+            "--netuid",
+            "1",
+            "--side",
+            "short",
+            "--amount",
+            "0.1",
+        ],
+    )
+    assert result.exit_code == 1, result.output
+    assert "insufficient spendable collateral" in result.output
     assert cli_fake.submissions == []

@@ -223,10 +223,12 @@ btcli lending list --netuid 64`}
           <p>
             Choose the additional quantity to borrow with <code>--amount</code>: alpha for a short,
             TAO for a long. The CLI quotes the minimum required collateral and the transaction
-            borrows exactly that amount. Alternatively, <code>--collateral</code> shows how much its
-            deposit can borrow. The flags are mutually exclusive; interactive input defaults to
-            choosing the borrowed amount. Openings and increases start at 0.1 TAO of loan value,
-            subject to the existing inventory, borrowing-cap and funded-redemption checks.
+            borrows exactly that amount. The review shows the minimum required collateral and a
+            small allowance for quote changes and interest while signing. Alternatively,
+            <code>--collateral</code> shows how much its deposit can borrow. The flags are mutually
+            exclusive; interactive input defaults to choosing the borrowed amount. Openings and
+            increases start at 0.1 TAO of loan value, subject to the existing inventory,
+            borrowing-cap and funded-redemption checks.
           </p>
           <p>
             Before review and signing, the CLI checks the owner&apos;s spendable collateral and the

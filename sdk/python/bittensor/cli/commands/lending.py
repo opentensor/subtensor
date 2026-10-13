@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from decimal import ROUND_CEILING, Decimal
+from decimal import Decimal
 from enum import Enum
 from typing import Optional, cast
 
@@ -12,7 +12,7 @@ from ...balance import Balance
 from ...intents import CloseLoan, OpenLoan
 from ...intents._money import alpha_amount, tao_amount
 from ...result import BittensorError
-from ...settings import guide_docs_url
+from ...settings import DEFAULT_ERA_PERIOD, MEV_SHIELD_ERA_PERIOD, guide_docs_url
 from ..context import address_cli_name, ctx_of, ss58_param_help
 from ..globals import with_globals, with_tx_globals
 from ..prompt import PromptSpec, ask, confirm_wallet, fill_missing
@@ -27,10 +27,37 @@ app = typer.Typer(
 
 def _bound(amount: Balance, percent: float, *, ceiling: bool = False) -> Balance:
     """Integer quote protection with ceilings rounded up and floors down."""
-    factor = Decimal(1) + Decimal(str(percent)) / 100 * (1 if ceiling else -1)
-    raw = Decimal(amount.rao) * factor
-    rao = int(raw.to_integral_value(rounding=ROUND_CEILING)) if ceiling else int(raw)
+    numerator, denominator = Decimal(str(percent)).as_integer_ratio()
+    denominator *= 100
+    margin = (amount.rao * numerator + denominator - 1) // denominator
+    rao = amount.rao + margin if ceiling else amount.rao - margin
     return Balance.from_rao(max(rao, 0), amount.netuid)
+
+
+async def _provided_collateral(client, minimum: Balance, netuid: int, owner: str, percent: float):
+    """Add quote tolerance and the old coupon's conservative submission window."""
+    maximum = (1 << 64) - 1
+    if not 0 < minimum.rao <= maximum:
+        raise BittensorError("calculated collateral does not fit the chain's deposit units")
+    if percent == 0:
+        return minimum
+    provided = _bound(minimum, percent, ceiling=True).rao
+    view = await client.at()
+    existing = await view.read("lending_position", coldkey_ss58=owner, netuid=netuid)
+    if existing is not None:
+        coupon = existing.get("annual_interest")
+        if not isinstance(coupon, Balance) or coupon.netuid != minimum.netuid or coupon.rao < 0:
+            raise BittensorError("the existing loan's collateral coupon is unavailable or changed")
+        year = await view.constant(("Lending", "BlocksPerYear"))
+        if not isinstance(year, int) or isinstance(year, bool) or year <= 0:
+            raise BittensorError("the lending interest year is unavailable")
+        # Shielding may fall back to bare submission, whose normal mortal era
+        # is longer. Reserve the old fixed coupon across either submission path.
+        window = max(DEFAULT_ERA_PERIOD, MEV_SHIELD_ERA_PERIOD)
+        provided += (coupon.rao * window + year - 1) // year
+    if provided > maximum:
+        raise BittensorError("buffered collateral does not fit the chain's deposit units")
+    return view.balance(provided, minimum.netuid)
 
 
 def _loan_input(context, netuid: int, side: str) -> tuple[Optional[str], Optional[str]]:
@@ -138,7 +165,11 @@ def open_loan(
         "--max-slippage",
         min=0.0,
         max=99.0,
-        help="Maximum fall in collateral-mode principal or short opening value (percent).",
+        help=(
+            "Quote tolerance (percent). Amount mode adds collateral headroom and the existing "
+            "coupon's submission window; 0 uses the calculated minimum. Collateral mode sets "
+            "a principal floor. Shorts also set an opening value floor."
+        ),
     ),
 ):
     """Add collateral and open or increase a short or long on a subnet.
@@ -147,6 +178,9 @@ def open_loan(
     TAO for a long) and btcli finds the minimum required collateral. Pass
     --collateral instead to borrow its quoted limit. The minimum additional
     loan has a 0.1 TAO opening value.
+    Amount mode provides collateral headroom using --max-slippage (default
+    1%) and the old coupon's conservative submission window. Use 0 to provide
+    exactly the calculated minimum. Borrowed principal stays exact.
 
     Shorts receive freely usable alpha on the selected hotkey; opening does
     not sell it. Longs borrow transferable TAO against existing alpha stake.
@@ -168,6 +202,7 @@ def open_loan(
         raise typer.Exit(2)
     hotkey = context.resolve_address("hotkey_ss58", hotkey_ss58)
     requested = None
+    minimum_collateral = None
     if amount is not None:
         requested = cast(
             Balance, tao_amount(amount) if side == Side.long else alpha_amount(amount, netuid)
@@ -175,18 +210,22 @@ def open_loan(
         if requested.rao <= 0:
             context.output.error("amount to borrow must be greater than zero")
             raise typer.Exit(2)
-        with context.output.activity("finding the minimum required collateral…"):
-            required = context.run(
-                lambda client: client.read(
-                    "lending_required_collateral",
-                    netuid=netuid,
-                    side=side.value,
-                    amount=requested,
-                    coldkey_ss58=owner,
-                    hotkey_ss58=hotkey,
-                )
+
+        async def size(client):
+            required = await client.read(
+                "lending_required_collateral",
+                netuid=netuid,
+                side=side.value,
+                amount=requested,
+                coldkey_ss58=owner,
+                hotkey_ss58=hotkey,
             )
-        collateral = required["collateral"]
+            minimum = required["collateral"]
+            provided = await _provided_collateral(client, minimum, netuid, owner, max_slippage)
+            return minimum, provided
+
+        with context.output.activity("finding the minimum required collateral…"):
+            minimum_collateral, collateral = context.run(size)
     if collateral is None:
         context.output.error("provide --amount or --collateral")
         raise typer.Exit(2)
@@ -225,12 +264,12 @@ def open_loan(
                 [
                     ("loan owner", owner),
                     ("hotkey", hotkey),
-                    (
-                        "minimum required collateral"
-                        if requested is not None
-                        else "provided collateral",
-                        str(intent.collateral),
+                    *(
+                        [("calculated minimum collateral", str(minimum_collateral))]
+                        if minimum_collateral is not None
+                        else []
                     ),
+                    ("provided collateral", str(intent.collateral)),
                     (
                         "exact amount to borrow" if requested is not None else "borrowing limit",
                         str(quote["principal"]),
