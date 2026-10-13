@@ -1039,6 +1039,59 @@ mod precompile_mapping_budget {
     }
 
     #[test]
+    fn typed_dispatch_rejects_mapping_gas_shortfall_before_balance_transfer() {
+        ext().execute_with(|| {
+            let alias = H160::repeat_byte(95);
+            let owner = bind(alias);
+            let recipient = AccountId32::new([96; 32]);
+            fund(&owner);
+            fund(&recipient);
+            let amount = TaoBalance::new(1_000_000);
+            let call = RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive {
+                dest: recipient.clone().into(),
+                value: amount,
+            });
+            let mapping_cost = Mapping::extra_read_weight();
+            let mapping_gas = pallet_evm::account_cost::gas::<Runtime>(mapping_cost);
+            let dispatch_gas =
+                pallet_evm::account_cost::gas::<Runtime>(call.get_dispatch_info().total_weight());
+            assert!(mapping_gas > 0 && dispatch_gas > 0);
+            let sufficient_gas = mapping_gas.checked_add(dispatch_gas).unwrap();
+            let mut input =
+                sp_io::hashing::keccak_256(b"transferKeepAlive(bytes32,uint256)")[..4].to_vec();
+            input.extend(AsRef::<[u8; 32]>::as_ref(&recipient));
+            input.extend(U256::from(1_000_000).to_big_endian());
+            let owner_before = Balances::free_balance(&owner);
+            let recipient_before = Balances::free_balance(&recipient);
+
+            let mut short = handle(input.clone(), alias, sufficient_gas - 1, Weight::MAX);
+            // Direct precompile execution has no EVM frame to roll back a late gas error.
+            // Unchanged balances and no dispatch-weight reservation prove early rejection.
+            assert_eq!(
+                BalanceTransferPrecompile::<Runtime>::execute(&mut short),
+                Err(PrecompileFailure::Error {
+                    exit_status: ExitError::OutOfGas
+                })
+            );
+            assert_eq!(short.inner.gas_used, mapping_gas);
+            assert_eq!(short.charged, mapping_cost);
+            assert_eq!(Balances::free_balance(&owner), owner_before);
+            assert_eq!(Balances::free_balance(&recipient), recipient_before);
+
+            // The same call succeeds once both mapping and dispatch fit the budget.
+            let mut sufficient = handle(input, alias, sufficient_gas, Weight::MAX);
+            assert_ok!(BalanceTransferPrecompile::<Runtime>::execute(
+                &mut sufficient
+            ));
+            assert_eq!(Balances::free_balance(&owner), owner_before - amount);
+            assert_eq!(
+                Balances::free_balance(&recipient),
+                recipient_before + amount
+            );
+        });
+    }
+
+    #[test]
     fn routed_dispatch_precompile_charges_mapping_before_lookup() {
         use pallet_evm::PrecompileSet;
         use subtensor_precompiles::Precompiles;

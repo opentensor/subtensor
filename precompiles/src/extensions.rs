@@ -127,7 +127,7 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
         self.dispatch_with_info::<R>(call, RawOrigin::Signed(coldkey), info)
     }
 
-    /// Checks `info` against the gas limit, reserves it, dispatches `call`, then charges the
+    /// Checks `info` against remaining gas, reserves it, dispatches `call`, then charges the
     /// weight the dispatch reports (capped at `info`) and refunds the rest.
     fn dispatch_with_info<R>(
         &mut self,
@@ -141,8 +141,8 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
             Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
         <R as frame_system::Config>::RuntimeOrigin: From<RawOrigin<R::AccountId>>,
     {
-        let target_gas = self.gas_limit();
-        if let Some(gas) = target_gas {
+        if self.gas_limit().is_some() {
+            let gas = self.remaining_gas();
             let valid_weight =
                 <R as pallet_evm::Config>::GasWeightMapping::gas_to_weight(gas, false).ref_time();
             if info.total_weight().ref_time() > valid_weight {
