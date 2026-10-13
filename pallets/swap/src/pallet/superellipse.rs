@@ -667,22 +667,36 @@ impl Superellipse {
         if output > alpha {
             return Err(EllipseError::InsufficientReserves);
         }
-        let mut high = self.max_buy_input(alpha, tao)?;
-        if self.buy_output(alpha, tao, high)? < output {
+        let (x, y) = self.coordinates(alpha, tao)?;
+        let (a2, b2) = self.squares()?;
+        let delta = mul(U512::from(output), U512::from(SCALE))?;
+        // floor(sqrt(x² + floor(gain*a²/b²))) >= x + output*SCALE.
+        // Invert both floors exactly: gain must be at least ceil(required*b²/a²).
+        let required = mul(delta, add(mul(x, U512::from(2))?, delta)?)?;
+        let numerator = mul(required, b2)?;
+        let gain = add(
+            div(numerator, a2)?,
+            U512::from(u8::from(
+                !numerator
+                    .checked_rem(a2)
+                    .ok_or(EllipseError::Overflow)?
+                    .is_zero(),
+            )),
+        )?;
+        let remaining = y
+            .checked_mul(y)
+            .and_then(|square| square.checked_sub(gain))
+            .filter(|value| !value.is_zero())
+            .ok_or(EllipseError::OutsideDomain)?;
+        let room = sub(y, sqrt_floor(remaining))?;
+        let input = narrow_amount(narrow(div(
+            add(room, U512::from(SCALE - 1))?,
+            U512::from(SCALE),
+        )?)?)?;
+        if input > self.max_buy_input(alpha, tao)? {
             return Err(EllipseError::OutsideDomain);
         }
-        let mut low = 0;
-        while low < high {
-            let mid = low
-                .checked_add(high.checked_sub(low).ok_or(EllipseError::Overflow)? >> 1)
-                .ok_or(EllipseError::Overflow)?;
-            if self.buy_output(alpha, tao, mid)? >= output {
-                high = mid;
-            } else {
-                low = mid.checked_add(1).ok_or(EllipseError::Overflow)?;
-            }
-        }
-        Ok(low)
+        Ok(input)
     }
 
     /// Translate both centers by the injected reserves. The existing price,
@@ -1665,6 +1679,35 @@ mod tests {
             curve.quote_needed_for_base(alpha, tao, alpha),
             Err(EllipseError::OutsideDomain)
         );
+    }
+
+    #[test]
+    fn inverse_buy_matches_forward_quote_across_weights_and_endpoints() {
+        for (alpha, tao) in [
+            (10_000, 500),
+            (1_000_000_000, 4_000_000_000),
+            (u64::MAX / 4, u64::MAX / 8),
+        ] {
+            for weight in [
+                100_000_000_000_000_000,
+                500_000_000_000_000_000,
+                900_000_000_000_000_000,
+            ] {
+                let curve = Superellipse::from_weights(alpha, tao, Perquintill::from_parts(weight))
+                    .unwrap();
+                let max = curve.max_buy_input(alpha, tao).unwrap();
+                for input in [1, max / 100, max / 2, max.saturating_sub(1), max] {
+                    let output = curve.buy_output(alpha, tao, input).unwrap();
+                    if output == 0 {
+                        continue;
+                    }
+                    let required = curve.quote_needed_for_base(alpha, tao, output).unwrap();
+                    assert!(required <= input);
+                    assert!(curve.buy_output(alpha, tao, required).unwrap() >= output);
+                    assert!(curve.buy_output(alpha, tao, required - 1).unwrap() < output);
+                }
+            }
+        }
     }
 
     #[test]

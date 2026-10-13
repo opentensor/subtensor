@@ -44,6 +44,8 @@ pub trait LendingPoolInterface<AccountId>: OrderSwapInterface<AccountId> {
         true
     }
     fn quote_sell(netuid: NetUid, alpha: AlphaBalance) -> Result<TaoBalance, DispatchError>;
+    /// Minimum gross TAO purchase input, including execution fees.
+    fn quote_buy_input(netuid: NetUid, alpha: AlphaBalance) -> Result<TaoBalance, DispatchError>;
     fn quote_buy(netuid: NetUid, tao: TaoBalance) -> Result<AlphaBalance, DispatchError>;
     /// A mature short-horizon price EMA, when one exists. Terminal marks use the
     /// higher of this reference and lending's long-horizon EMA, never spot price.
@@ -1694,26 +1696,9 @@ impl<T: Config> Pallet<T> {
 
     fn buyback_input(netuid: NetUid, principal: u64, budget: u64) -> Result<u64, DispatchError> {
         ensure!(budget > 0, Error::<T>::InsufficientEscrow);
-        // Capacity is supplied independently of quote dust errors. Positive-input
-        // quotes whose rounded output is zero are lower-bound failures, never evidence
-        // that larger inputs cross the finite buy endpoint.
-        let mut high = budget.min(T::Pool::max_buy_input(netuid).to_u64());
-        ensure!(high > 0, Error::<T>::InsufficientEscrow);
-        ensure!(
-            T::Pool::quote_buy(netuid, high.into())?.to_u64() >= principal,
-            Error::<T>::InsufficientEscrow
-        );
-        let mut low = 1_u64;
-        while low < high {
-            let mid =
-                low.saturating_add(high.saturating_sub(low).checked_div(2).unwrap_or_default());
-            if T::Pool::quote_buy(netuid, mid.into()).is_ok_and(|out| out.to_u64() >= principal) {
-                high = mid;
-            } else {
-                low = mid.saturating_add(1);
-            }
-        }
-        Ok(low)
+        let input = T::Pool::quote_buy_input(netuid, principal.into())?.to_u64();
+        ensure!(input <= budget, Error::<T>::InsufficientEscrow);
+        Ok(input)
     }
 
     fn execute_buyback(
