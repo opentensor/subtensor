@@ -38,7 +38,7 @@ describeSuite({
 
         it({
             id: "T01",
-            title: "reset as root: clears announcement and dispute",
+            title: "reset as root: clears announcement and dispute while retaining the recovery lock",
             test: async () => {
                 const oldColdkey = generateKeyringPair("sr25519");
                 const newColdkey = generateKeyringPair("sr25519");
@@ -57,16 +57,18 @@ describeSuite({
                 await sudoResetColdkeySwap(api, oldColdkey.address);
                 log("Reset via sudo");
 
-                // Verify storage cleared
+                // Zero replaces the active dispute timestamp and retains the recovery lock.
                 const annAfter = await getColdkeySwapAnnouncement(api, oldColdkey.address);
                 expect(annAfter, "announcement should be cleared").toBeNull();
                 const dispAfter = await getColdkeySwapDispute(api, oldColdkey.address);
-                expect(dispAfter, "dispute should be cleared").toBeNull();
-                log("Storage cleared");
+                expect(dispAfter, "recovery lock should remain without an active dispute").toBe(0);
+                log("Announcement and active dispute cleared; recovery lock retained");
 
                 // Re-announce should succeed
                 await announceColdkeySwap(api, oldColdkey, coldkeyHashBinary(newColdkey));
                 log("Re-announce after reset succeeded");
+                await disputeColdkeySwap(api, oldColdkey);
+                expect(await getColdkeySwapDispute(api, oldColdkey.address)).toBeGreaterThan(0);
             },
         });
 

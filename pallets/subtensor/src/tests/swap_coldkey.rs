@@ -1668,6 +1668,7 @@ fn test_reset_coldkey_swap_works() {
         let who = U256::from(1);
         let new_coldkey = U256::from(2);
         announce_coldkey_swap(who, new_coldkey);
+        dispute_coldkey_swap(who);
 
         assert_ok!(SubtensorModule::reset_coldkey_swap(
             RuntimeOrigin::root(),
@@ -1675,7 +1676,7 @@ fn test_reset_coldkey_swap_works() {
         ));
 
         assert!(!ColdkeySwapAnnouncements::<Test>::contains_key(who));
-        assert!(!ColdkeySwapDisputes::<Test>::contains_key(who));
+        assert_eq!(ColdkeySwapDisputes::<Test>::get(who), Some(0));
         assert!(matches!(
             last_event(),
             RuntimeEvent::SubtensorModule(Event::ColdkeySwapReset { who })

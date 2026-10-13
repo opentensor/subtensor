@@ -2450,6 +2450,11 @@ mod dispatches {
                     Self::fail_with_weight(error, base.saturating_add(done))
                 })?;
 
+            // A self-swap must not release a root-imposed recovery lock.
+            if who != new_coldkey {
+                ColdkeySwapDisputes::<T>::remove(&who);
+            }
+
             Ok((
                 Some(Self::swap_coldkey_announced_actual_weight(work)),
                 Pays::Yes,
@@ -2474,18 +2479,22 @@ mod dispatches {
                 Error::<T>::ColdkeySwapAnnouncementNotFound
             );
             ensure!(
-                !ColdkeySwapDisputes::<T>::contains_key(&coldkey),
+                !ColdkeySwapDisputes::<T>::get(&coldkey).is_some_and(|when| !when.is_zero()),
                 Error::<T>::ColdkeySwapAlreadyDisputed
             );
 
             let now = <frame_system::Pallet<T>>::block_number();
-            ColdkeySwapDisputes::<T>::insert(&coldkey, now);
+            // Zero is reserved for a root reset that retains the recovery lock.
+            ColdkeySwapDisputes::<T>::insert(&coldkey, now.max(1u32.into()));
 
             Self::deposit_event(Event::ColdkeySwapDisputed { coldkey });
             Ok(())
         }
 
-        /// Reset a coldkey swap by clearing the announcement and dispute status.
+        /// Reset a coldkey swap by clearing the announcement and dispute status,
+        /// keeping the coldkey locked until it successfully swaps to a different key.
+        /// The coldkey may announce again, dispute, or execute the new swap, but
+        /// cannot clear the announcement to unlock itself or make unrelated calls.
         ///
         /// The dispatch origin of this call must be root.
         ///
@@ -2497,7 +2506,7 @@ mod dispatches {
             ensure_root(origin)?;
 
             ColdkeySwapAnnouncements::<T>::remove(&coldkey);
-            ColdkeySwapDisputes::<T>::remove(&coldkey);
+            ColdkeySwapDisputes::<T>::insert(&coldkey, BlockNumberFor::<T>::zero());
 
             Self::deposit_event(Event::ColdkeySwapReset { who: coldkey });
             Ok(())

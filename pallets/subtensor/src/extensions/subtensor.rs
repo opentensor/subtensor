@@ -494,6 +494,17 @@ mod tests {
             ColdkeySwapDisputes::<Test>::insert(coldkey, System::block_number());
             let err = validate_signed(coldkey, &call).unwrap_err();
             assert_eq!(err, CustomTransactionError::ColdkeySwapDisputed.into());
+
+            assert_ok!(SubtensorModule::reset_coldkey_swap(
+                RuntimeOrigin::root(),
+                coldkey
+            ));
+            let err = validate_signed(coldkey, &call).unwrap_err();
+            assert_eq!(err, CustomTransactionError::ColdkeyInSwapSchedule.into());
+            let announce = RuntimeCall::SubtensorModule(crate::Call::announce_coldkey_swap {
+                new_coldkey_hash,
+            });
+            assert_ok!(validate_signed(coldkey, &announce));
         });
     }
 
