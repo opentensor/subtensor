@@ -2512,8 +2512,9 @@ mod dispatches {
         /// Reset a coldkey swap while retaining its recovery lock.
         ///
         /// Clears the announcement and active dispute. The coldkey may announce again,
-        /// dispute, or execute the new swap, but cannot clear the announcement to unlock
-        /// itself or make unrelated calls. Uses the existing dispute entry with block zero.
+        /// dispute, execute the new swap, or submit an encrypted transaction, but cannot
+        /// clear the announcement to unlock itself or make unrelated calls. Uses the
+        /// existing dispute entry with block zero.
         ///
         /// The dispatch origin of this call must be root.
         ///

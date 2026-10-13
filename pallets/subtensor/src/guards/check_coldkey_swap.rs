@@ -16,8 +16,10 @@ use sp_std::marker::PhantomData;
 /// * Otherwise, only swap-related calls and MEV-protected calls (`submit_encrypted`)
 ///   are allowed through.
 ///
-/// After a root reset that keeps the lock, only announcement, dispute, and swap execution are allowed,
-/// even while there is no announcement. Clearing an announcement cannot unlock the key.
+/// After a root reset that keeps the lock, announcement, dispute, swap execution, and
+/// `submit_encrypted` are allowed, even while there is no announcement. Clearing an
+/// announcement cannot unlock the key. An active dispute still blocks every call,
+/// including `submit_encrypted`.
 ///
 /// Root origin bypasses this extension entirely.
 /// Non-signed origins pass through.
@@ -58,14 +60,14 @@ where
                     | Call::swap_coldkey_announced { .. }
                     | Call::dispute_coldkey_swap { .. }
             )
+        ) || matches!(
+            IsSubType::<pallet_shield::Call<T>>::is_sub_type(call),
+            Some(pallet_shield::Call::submit_encrypted { .. })
         ) || (!locked
-            && (matches!(
+            && matches!(
                 call.is_sub_type(),
                 Some(Call::clear_coldkey_swap_announcement { .. })
-            ) || matches!(
-                IsSubType::<pallet_shield::Call<T>>::is_sub_type(call),
-                Some(pallet_shield::Call::submit_encrypted { .. })
-            )))
+            ))
     }
 }
 
@@ -324,11 +326,9 @@ mod tests {
                 assert!(!ColdkeySwapAnnouncements::<Test>::contains_key(who));
                 assert_eq!(ColdkeySwapDisputes::<Test>::get(who), Some(0));
                 assert_eq!(SubtensorModule::get_coldkey_balance(&who), balance);
+                assert_ok!(dispatch_with_ext(shield.clone(), signed.clone()));
 
-                for call in forbidden_calls()
-                    .into_iter()
-                    .chain([clear.clone(), shield.clone()])
-                {
+                for call in forbidden_calls().into_iter().chain([clear.clone()]) {
                     assert_eq!(
                         dispatch_with_ext(call, signed.clone()).unwrap_err().error,
                         Error::<Test>::ColdkeySwapAnnounced.into(),
@@ -357,6 +357,7 @@ mod tests {
                 );
                 assert!(ColdkeySwapAnnouncements::<Test>::contains_key(who));
                 assert_eq!(ColdkeySwapDisputes::<Test>::get(who), Some(0));
+                assert_ok!(dispatch_with_ext(shield.clone(), signed.clone()));
 
                 // Even once ordinary cancellation would be allowed, the root lock persists.
                 System::set_block_number(
@@ -368,6 +369,7 @@ mod tests {
                         .error,
                     Error::<Test>::ColdkeySwapAnnounced.into(),
                 );
+                assert_ok!(dispatch_with_ext(shield.clone(), signed.clone()));
                 assert_eq!(
                     dispatch_with_ext(remark_call(), signed.clone())
                         .unwrap_err()
@@ -380,6 +382,7 @@ mod tests {
                         announce.clone(),
                         dispute.clone(),
                         swap.clone(),
+                        shield.clone(),
                         remark_call(),
                     ] {
                         assert_eq!(
