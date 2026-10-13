@@ -58,7 +58,6 @@ impl AddressMapping<AccountId32> for HashedAddressMapping {
     }
 
     fn into_account_id(address: H160) -> AccountId32 {
-        pallet_evm::account_cost::record_precompile_mapping_read();
         hashed_owner(&address).unwrap_or_else(|| legacy_backing_account(address))
     }
 
@@ -154,11 +153,6 @@ where
         })
     }
 }
-
-pub type MeteredPrecompiles = pallet_evm::account_cost::MeteredPrecompiles<
-    crate::Runtime,
-    subtensor_precompiles::Precompiles<crate::Runtime>,
->;
 
 impl crate::transaction_payment_wrapper::GasPaidExecution<crate::RuntimeCall> for crate::Runtime {
     fn gas_paid_execution(call: &crate::RuntimeCall) -> bool {

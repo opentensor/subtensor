@@ -96,39 +96,13 @@ pub fn check_budget<T: Config>(
 	Ok(())
 }
 
-// AddressMapping is infallible, so collect precompile lookups here and charge
-// them before the executor commits its precompile frame. No precompile's ABI,
-// caller mapping or implementation needs to change.
-environmental::environmental!(precompile_reads: u64);
-
-pub fn record_precompile_mapping_read() {
-	precompile_reads::with(|reads| *reads = reads.saturating_add(1));
-}
-
-pub struct MeteredPrecompiles<T, P>(P, core::marker::PhantomData<T>);
-
-impl<T, P> MeteredPrecompiles<T, P> {
-	pub fn new(inner: P) -> Self {
-		Self(inner, core::marker::PhantomData)
-	}
-}
-
-impl<T: Config, P: crate::PrecompileSet> crate::PrecompileSet for MeteredPrecompiles<T, P> {
-	fn execute(
-		&self,
-		handle: &mut impl crate::PrecompileHandle,
-	) -> Option<crate::PrecompileResult> {
-		let mut reads = 0;
-		let result = precompile_reads::using(&mut reads, || self.0.execute(handle));
-		result.map(|result| {
-			let cost = weight::<T>(reads);
-			handle.record_cost(gas::<T>(cost))?;
-			handle.record_external_cost(Some(cost.ref_time()), Some(cost.proof_size()), None)?;
-			result
-		})
-	}
-
-	fn is_precompile(&self, address: sp_core::H160, gas: u64) -> crate::IsPrecompileResult {
-		self.0.is_precompile(address, gas)
-	}
+/// Charge a precompile's mapping lookup before the infallible mapper reads storage.
+/// Both gas and external weight must be available, including on failure paths.
+pub fn record_precompile_mapping_cost<T: Config>(
+	handle: &mut (impl crate::PrecompileHandle + ?Sized),
+) -> Result<(), crate::ExitError> {
+	let cost = weight::<T>(1);
+	handle.record_cost(gas::<T>(cost))?;
+	handle.record_external_cost(Some(cost.ref_time()), Some(cost.proof_size()), None)?;
+	Ok(())
 }

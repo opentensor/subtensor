@@ -488,3 +488,168 @@ def test_explicit_root_claim_matches_receiving_identity(
     assert result.exit_code == 0, (result.output, result.exception)
     assert len(submitted) == 1
     assert submitted[0].hotkey_ss58 == key.ss58_address
+
+
+@pytest.mark.parametrize("crypto_type", [4, 6])
+@pytest.mark.parametrize("selector", ["receiving", "contact", "local", "canonical"])
+@pytest.mark.parametrize("pick_destination", [False, True])
+def test_root_move_matches_identity_and_preserves_receiving_descriptors(
+    wallet_path, monkeypatch, crypto_type, selector, pick_destination
+):
+    import importlib
+
+    from bittensor import Balance
+    from bittensor.cli.root_helpers import RootPosition
+    from tests.harness.samples import ALICE
+
+    move = importlib.import_module("bittensor.cli.commands.root_move")
+    wallet = Wallet("recipient", path=str(wallet_path))
+    if selector == "local":
+        wallet.regenerate_coldkey(seed=bytes([20]) * 32, use_password=False, suppress=True)
+    wallet.regenerate_hotkey(seed=bytes([21]) * 32, crypto_type=crypto_type, suppress=True)
+    key = wallet.hotkeypub
+    source = receiving_address(key)
+    destination_key = Keypair.create_from_seed(bytes([22]) * 32, crypto_type)
+    destination = receiving_address(destination_key)
+    config.add_address({"name": "source-contact", "address": source})
+    config.add_address({"name": "destination-contact", "address": destination})
+    selected = {
+        "receiving": source,
+        "contact": "source-contact",
+        "local": "default",
+        "canonical": key.ss58_address,
+    }[selector]
+
+    async def positions(client, owner):
+        return [RootPosition(key.ss58_address, Balance.from_tao(10), Balance.from_tao(1))]
+
+    class ReadClient:
+        async def read(self, name, **kwargs):
+            assert name == "root_baskets"
+            return []
+
+    def pick_fund(*args, **kwargs):
+        assert kwargs["exclude"] == {key.ss58_address}
+        return {"hotkey": destination_key.ss58_address, "name": "destination"}
+
+    monkeypatch.setattr(move, "fetch_root_positions", positions)
+    monkeypatch.setattr(move, "interactive", lambda _: True)
+    monkeypatch.setattr(move, "pick_fund", pick_fund)
+    monkeypatch.setattr(AppContext, "run", lambda self, fn: asyncio.run(fn(ReadClient())))
+    submitted = []
+    monkeypatch.setattr(
+        AppContext, "submit", lambda self, intent, **kwargs: submitted.append(intent)
+    )
+    args = ["root", "move", "--coldkey", ALICE, "--from", selected]
+    if not pick_destination:
+        args.extend(["--to", "destination-contact"])
+    result = _invoke(*args)
+    assert result.exit_code == 0, (result.output, result.exception)
+    assert len(submitted) == 1
+    intent = submitted[0]
+    assert intent.origin_hotkey_ss58 == (
+        key.ss58_address if selector in ("canonical", "local") else source
+    )
+    assert intent.dest_hotkey_ss58 == (
+        destination_key.ss58_address if pick_destination else destination
+    )
+    assert intent.claim is True
+    assert intent.origin_netuid == intent.dest_netuid == 0
+
+    if not pick_destination:
+        # Carry the actual CLI intent through recipient preparation and composition.
+        # The destination descriptor must still produce an atomic guard before payment.
+        from bittensor.executor import _compose_intent_call
+        from tests.harness.samples import dev_wallet
+
+        chain = FakeSubstrate()
+        chain.seed_constant("HashedAccounts", "Enabled", True)
+        chain.seed_constant("HashedAccounts", "RegistrationDeposit", 200_000_000)
+        for public in (key, destination_key):
+            chain.seed(
+                "HashedAccounts",
+                "Accounts",
+                [public.ss58_address],
+                {"descriptor": descriptor_value(bytes(public.hashed_descriptor))},
+            )
+        call, _ = asyncio.run(_compose_intent_call(chain, intent, dev_wallet()))
+        assert call.function == "batch_all"
+        children = call.params["calls"]
+        guards = [child for child in children if child.function == "check_registered"]
+        assert any(
+            child.params["descriptor"] == descriptor_value(bytes(destination_key.hashed_descriptor))
+            for child in guards
+        )
+        assert [child.function for child in children[len(guards) :]] == [
+            "claim_root_with_hotkey",
+            "move_stake",
+        ]
+        assert children[-1].params["destination_hotkey"] == destination_key.ss58_address
+        chain.seed_constant("HashedAccounts", "Enabled", False)
+        with pytest.raises(ValueError, match="hashed receiving addresses are not supported"):
+            asyncio.run(_compose_intent_call(chain, intent, dev_wallet()))
+
+
+@pytest.mark.parametrize("crypto_type", [4, 6])
+def test_root_move_rejects_same_validator_in_different_encodings(
+    wallet_path, monkeypatch, crypto_type
+):
+    import importlib
+
+    from bittensor import Balance
+    from bittensor.cli.root_helpers import RootPosition
+    from tests.harness.samples import ALICE
+
+    move = importlib.import_module("bittensor.cli.commands.root_move")
+    key = Keypair.create_from_seed(bytes([23]) * 32, crypto_type)
+
+    async def positions(*args):
+        return [RootPosition(key.ss58_address, Balance.from_tao(10), Balance.from_tao(1))]
+
+    monkeypatch.setattr(move, "fetch_root_positions", positions)
+    monkeypatch.setattr(AppContext, "run", lambda self, fn: asyncio.run(fn(None)))
+    submitted = []
+    monkeypatch.setattr(AppContext, "submit", lambda *args, **kwargs: submitted.append(args))
+    result = _invoke(
+        "root",
+        "move",
+        "--coldkey",
+        ALICE,
+        "--from",
+        receiving_address(key),
+        "--to",
+        key.ss58_address,
+    )
+    assert result.exit_code == 2, (result.output, result.exception)
+    assert "source and destination are the same validator" in result.output
+    assert not submitted
+
+
+@pytest.mark.parametrize("crypto_type", [4, 6])
+def test_root_list_receiving_selector_matches_position(wallet_path, monkeypatch, crypto_type):
+    from bittensor import Balance
+    from bittensor.cli.commands import root
+    from bittensor.cli.root_helpers import RootPosition
+    from tests.harness.samples import ALICE
+
+    key = Keypair.create_from_seed(bytes([24]) * 32, crypto_type)
+    position = RootPosition(key.ss58_address, Balance.from_tao(10), Balance.from_tao(1))
+
+    async def positions(*args):
+        return [position]
+
+    class ReadClient:
+        async def read(self, name, **kwargs):
+            assert name == "validator_basket_summary"
+            assert kwargs["hotkey_ss58"] == key.ss58_address
+            return {"hotkey": key.ss58_address}
+
+    monkeypatch.setattr(root, "fetch_root_positions", positions)
+    monkeypatch.setattr(AppContext, "run", lambda self, fn: asyncio.run(fn(ReadClient())))
+    rendered = []
+    monkeypatch.setattr(
+        root, "render_validator_detail", lambda ctx, summary, yours: rendered.append(yours)
+    )
+    result = _invoke("root", "list", receiving_address(key), "--coldkey", ALICE)
+    assert result.exit_code == 0, (result.output, result.exception)
+    assert rendered == [position]

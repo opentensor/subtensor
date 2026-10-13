@@ -1224,7 +1224,7 @@ fn weight_per_gas() -> Weight {
 parameter_types! {
     pub BlockGasLimit: U256 = U256::from(BLOCK_GAS_LIMIT);
     pub const GasLimitPovSizeRatio: u64 = 0;
-    pub PrecompilesValue: evm_origin::MeteredPrecompiles = evm_origin::MeteredPrecompiles::new(Precompiles::<Runtime>::new());
+    pub PrecompilesValue: Precompiles<Runtime> = Precompiles::<Runtime>::new();
     pub WeightPerGas: Weight = weight_per_gas();
 }
 
@@ -1290,7 +1290,7 @@ impl pallet_evm::Config for Runtime {
     type WithdrawOrigin = evm_origin::EnsureAddressTruncatedNonZero;
     type AddressMapping = evm_origin::HashedAddressMapping;
     type Currency = Balances;
-    type PrecompilesType = evm_origin::MeteredPrecompiles;
+    type PrecompilesType = Precompiles<Runtime>;
     type PrecompilesValue = PrecompilesValue;
     type ChainId = ConfigurableChainId;
     type BlockGasLimit = BlockGasLimit;
