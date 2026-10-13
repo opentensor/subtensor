@@ -121,6 +121,15 @@ impl<T: Config> LendingPoolInterface<T::AccountId> for Pallet<T> {
         T::SwapInterface::max_buy_input(netuid)
     }
 
+    fn quote_buy_input(netuid: NetUid, alpha: AlphaBalance) -> Result<TaoBalance, DispatchError> {
+        let input = T::SwapInterface::quote_buy_input(netuid, alpha)?;
+        // Verify execution limits and reserve floors with one full quote.
+        ensure!(
+            Self::quote_buy(netuid, input)? >= alpha,
+            Error::<T>::SlippageTooHigh
+        );
+        Ok(input)
+    }
     fn quote_buy(netuid: NetUid, tao: TaoBalance) -> Result<AlphaBalance, DispatchError> {
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
         let quote = T::SwapInterface::swap(

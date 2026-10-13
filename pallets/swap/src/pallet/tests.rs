@@ -995,3 +995,59 @@ fn test_swap_storage_cleanup_is_wired_and_cleanup_only() {
         assert!(HasMigrationRun::<Test>::get(migration_name));
     });
 }
+
+#[test]
+fn inverse_buy_input_includes_exact_execution_fee_and_is_minimal() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1);
+        TaoReserve::set_mock_reserve(netuid, 1_000_000_000_u64.into());
+        AlphaReserve::set_mock_reserve(netuid, 4_000_000_000_u64.into());
+        assert_ok!(Swap::maybe_initialize_palswap(netuid, None));
+        let curve = SwapSuperellipse::<Test>::get(netuid).unwrap();
+        for rate in [0, 1, 1_000, 32_767, 65_534] {
+            FeeRate::<Test>::insert(netuid, rate);
+            for output in [1, 2, 500, 1_000_000, 100_000_000] {
+                let gross = u64::from(Swap::minimum_buy_input(netuid, output.into()).unwrap());
+                let net = gross
+                    - u64::from(Swap::calculate_fee_amount(
+                        netuid,
+                        TaoBalance::from(gross),
+                        false,
+                    ));
+                assert!(curve.buy_output(4_000_000_000, 1_000_000_000, net).unwrap() >= output);
+                if rate <= 1_000 {
+                    let quote = Swap::do_swap(
+                        netuid,
+                        GetAlphaForTao::with_amount(gross),
+                        U64F64::from_num(u64::MAX) / U64F64::from_num(1_000_000_000_u64),
+                        false,
+                        true,
+                    )
+                    .unwrap();
+                    assert_eq!(
+                        u64::from(quote.amount_paid_in) + u64::from(quote.fee_paid),
+                        gross
+                    );
+                    assert!(u64::from(quote.amount_paid_out) >= output);
+                }
+                let previous = gross - 1;
+                let previous_net = previous
+                    - u64::from(Swap::calculate_fee_amount(
+                        netuid,
+                        TaoBalance::from(previous),
+                        false,
+                    ));
+                assert!(
+                    curve
+                        .buy_output(4_000_000_000, 1_000_000_000, previous_net)
+                        .unwrap()
+                        < output
+                );
+            }
+        }
+        assert_eq!(SwapSuperellipse::<Test>::get(netuid), Some(curve));
+        assert_eq!(u64::from(TaoReserve::reserve(netuid)), 1_000_000_000);
+        FeeRate::<Test>::insert(netuid, u16::MAX);
+        assert!(Swap::minimum_buy_input(netuid, 1.into()).is_err());
+    });
+}

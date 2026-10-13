@@ -334,6 +334,30 @@ impl LendingPoolInterface<Account> for MockPool {
     fn quote_sell(netuid: NetUid, amount: AlphaBalance) -> Result<TaoBalance, DispatchError> {
         Self::sell_quote(netuid, amount.to_u64()).map(Into::into)
     }
+    fn quote_buy_input(netuid: NetUid, alpha: AlphaBalance) -> Result<TaoBalance, DispatchError> {
+        let principal = alpha.to_u64();
+        let budget = u64::MAX;
+        // Capacity is supplied independently of quote dust errors. Positive-input
+        // quotes whose rounded output is zero are lower-bound failures, never evidence
+        // that larger inputs cross the finite buy endpoint.
+        let mut high = budget.min(Self::max_buy_input(netuid).to_u64());
+        ensure!(high > 0, DispatchError::Other("InsufficientEscrow"));
+        ensure!(
+            Self::quote_buy(netuid, high.into())?.to_u64() >= principal,
+            DispatchError::Other("InsufficientEscrow")
+        );
+        let mut low = 1_u64;
+        while low < high {
+            let mid =
+                low.saturating_add(high.saturating_sub(low).checked_div(2).unwrap_or_default());
+            if Self::quote_buy(netuid, mid.into()).is_ok_and(|out| out.to_u64() >= principal) {
+                high = mid;
+            } else {
+                low = mid.saturating_add(1);
+            }
+        }
+        Ok(low.into())
+    }
     fn quote_buy(netuid: NetUid, amount: TaoBalance) -> Result<AlphaBalance, DispatchError> {
         Self::buy_quote(netuid, amount.to_u64()).map(Into::into)
     }

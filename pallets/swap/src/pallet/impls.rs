@@ -101,6 +101,43 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Invert the curve and the exact Q64 fee rounding without iterative quotes.
+    pub fn minimum_buy_input(
+        netuid: NetUid,
+        output: AlphaBalance,
+    ) -> Result<TaoBalance, DispatchError> {
+        ensure!(
+            T::SubnetInfo::exists(netuid) && T::SubnetInfo::mechanism(netuid) == 1,
+            Error::<T>::MechanismDoesNotExist
+        );
+        let curve = Self::superellipse(netuid)?;
+        let alpha = u64::from(T::AlphaReserve::reserve(netuid));
+        let tao = u64::from(T::TaoReserve::reserve(netuid));
+        let net = curve
+            .quote_needed_for_base(alpha, tao, output.into())
+            .map_err(|_| Error::<T>::ReservesOutOfBalance)?;
+        if net == 0 {
+            return Ok(TaoBalance::ZERO);
+        }
+        let fee = U64F64::from_num(FeeRate::<T>::get(netuid))
+            .safe_div(U64F64::from_num(u16::MAX))
+            .to_bits();
+        let scale = 1_u128 << 64;
+        let retained = scale
+            .checked_sub(fee)
+            .filter(|v| *v > 0)
+            .ok_or(Error::<T>::FeeRateTooHigh)?;
+        // net(gross) = ceil(gross * retained / 2^64).
+        // Minimal gross therefore is floor((net - 1)*2^64/retained) + 1.
+        let gross = u128::from(net.saturating_sub(1))
+            .checked_mul(scale)
+            .and_then(|v| v.checked_div(retained))
+            .and_then(|v| v.checked_add(1))
+            .and_then(|v| u64::try_from(v).ok())
+            .ok_or(Error::<T>::ReservesOutOfBalance)?;
+        Ok(gross.into())
+    }
+
     /// Maximum fee-inclusive TAO input which fully fills a lending buy at its
     /// maximal explicit price limit. This is a geometric bound, so tiny inputs
     /// with a zero rounded payout do not get mistaken for the upper endpoint.
@@ -778,6 +815,10 @@ impl<T: Config> SwapHandler for Pallet<T> {
         bps: u16,
     ) -> Result<bool, DispatchError> {
         Pallet::<T>::tune_min_price_impact(netuid, reference, bps)
+    }
+
+    fn quote_buy_input(netuid: NetUid, alpha: AlphaBalance) -> Result<TaoBalance, DispatchError> {
+        Self::minimum_buy_input(netuid, alpha)
     }
 
     fn max_buy_input(netuid: NetUid) -> TaoBalance {
