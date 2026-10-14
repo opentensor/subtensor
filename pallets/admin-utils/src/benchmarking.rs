@@ -988,8 +988,17 @@ mod benchmarks {
 
     #[benchmark]
     fn sudo_set_subnet_owner_cut() {
-        #[extrinsic_call]
-        _(RawOrigin::Root, u16::MAX);
+        let call = Call::<T>::sudo_set_subnet_owner_cut {
+            subnet_owner_cut: u16::MAX,
+        };
+
+        #[block]
+        {
+            assert_noop!(
+                call.dispatch_bypass_filter(RawOrigin::Root.into()),
+                Error::<T>::Deprecated
+            );
+        }
     }
 
     #[benchmark]
@@ -1199,11 +1208,18 @@ mod benchmarks {
 
     #[benchmark]
     fn sudo_set_owner_cut_enabled() {
-        let netuid = NetUid::from(1);
-        let owner = setup_worst_case_admin_subnet::<T>(netuid);
+        let call = Call::<T>::sudo_set_owner_cut_enabled {
+            netuid: NetUid::from(1),
+            enabled: true,
+        };
 
-        #[extrinsic_call]
-        _(RawOrigin::Signed(owner), netuid, true);
+        #[block]
+        {
+            assert_noop!(
+                call.dispatch_bypass_filter(RawOrigin::Root.into()),
+                Error::<T>::Deprecated
+            );
+        }
     }
 
     #[benchmark]

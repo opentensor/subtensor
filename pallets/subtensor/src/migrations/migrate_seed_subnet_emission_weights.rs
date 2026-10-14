@@ -27,11 +27,11 @@ pub fn migrate_seed_subnet_emission_weights<T: Config>() -> Weight {
     let mut total_weight = T::DbWeight::get().reads(1);
 
     if HasMigrationRun::<T>::get(&mig_name) {
-        log::info!("Migration '{mig_name_str}' already executed - skipping");
+        log::info!(target: "runtime", "Migration '{mig_name_str}' already executed - skipping");
         return total_weight;
     }
 
-    log::info!("Running migration '{mig_name_str}'");
+    log::info!(target: "runtime", "Running migration '{mig_name_str}'");
 
     let legacy_owner_cut = Pallet::<T>::get_subnet_owner_cut();
     total_weight = total_weight.saturating_add(T::DbWeight::get().reads(1));
@@ -60,7 +60,10 @@ pub fn migrate_seed_subnet_emission_weights<T: Config>() -> Weight {
     HasMigrationRun::<T>::insert(&mig_name, true);
     total_weight = total_weight.saturating_add(T::DbWeight::get().writes(1));
 
-    log::info!("Migration '{mig_name_str}' completed: seeded {seeded} subnets");
+    log::info!(
+        target: "runtime",
+        "Migration '{mig_name_str}' completed: seeded {seeded} subnets"
+    );
 
     total_weight
 }
