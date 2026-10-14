@@ -205,6 +205,7 @@ class SubtensorModule:
     PendingValidatorEmission = Item('SubtensorModule', 'PendingValidatorEmission', 'AlphaBalance')
     PendingRootAlphaDivs = Item('SubtensorModule', 'PendingRootAlphaDivs', 'AlphaBalance')
     PendingOwnerCut = Item('SubtensorModule', 'PendingOwnerCut', 'AlphaBalance')
+    SubnetOwnerCutAccrued = Item('SubtensorModule', 'SubnetOwnerCutAccrued', 'AlphaBalance')
     MinerBurned = Item('SubtensorModule', 'MinerBurned', 'FixedU128')
     BlocksSinceLastStep = Item('SubtensorModule', 'BlocksSinceLastStep', 'u64')
     LastMechansimStepBlock = Item('SubtensorModule', 'LastMechansimStepBlock', 'u64')
