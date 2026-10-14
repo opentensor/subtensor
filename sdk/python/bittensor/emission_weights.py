@@ -26,6 +26,8 @@ checks and names the same error codes.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
+from fractions import Fraction
 from typing import Iterable, Mapping, Optional, Union
 
 U64_MAX = 2**64 - 1
@@ -94,15 +96,15 @@ def parse_share(value: ShareLike) -> int:
     if isinstance(value, int):
         parts = value
     elif isinstance(value, float):
-        parts = _fraction_to_parts(value, repr(value))
+        parts = _fraction_to_parts(_exact(repr(value), value), value)
     else:
         text = value.strip().replace("_", "")
         if not text:
             raise ValueError("emission share is empty")
         if text.endswith("%"):
-            parts = _fraction_to_parts(float(text[:-1]) / 100, value)
+            parts = _fraction_to_parts(_exact(text[:-1], value) / 100, value)
         elif "." in text or "e" in text.lower():
-            parts = _fraction_to_parts(float(text), value)
+            parts = _fraction_to_parts(_exact(text, value), value)
         else:
             try:
                 parts = int(text)
@@ -116,10 +118,22 @@ def parse_share(value: ShareLike) -> int:
     return parts
 
 
-def _fraction_to_parts(fraction_value: float, shown: object) -> int:
-    if not 0.0 <= fraction_value <= 1.0:
+def _exact(text: str, shown: object) -> Fraction:
+    """Decimal text -> exact rational, so ``"50%"`` lands on ``fraction(50, 100)``."""
+    try:
+        return Fraction(Decimal(text))
+    except (InvalidOperation, ValueError) as error:
+        raise ValueError(
+            f"cannot read emission share {shown!r}; give a 0..1 fraction "
+            "(0.41), a percentage (41%), or raw u64 parts"
+        ) from error
+
+
+def _fraction_to_parts(fraction_value: Fraction, shown: object) -> int:
+    """Exact rational -> u64 parts with the chain's floor convention."""
+    if not 0 <= fraction_value <= 1:
         raise ValueError(f"emission share {shown!r} must be between 0 and 1 (0% and 100%)")
-    return min(ONE, round(fraction_value * ONE))
+    return min(ONE, fraction(fraction_value.numerator, fraction_value.denominator))
 
 
 def share_to_float(parts: int) -> float:

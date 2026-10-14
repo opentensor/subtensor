@@ -54,13 +54,59 @@ def test_slot_index_rejects_unknown(raw):
 
 
 def test_parse_share_forms():
-    assert ew.parse_share(0.5) == ONE // 2 + 1 or ew.parse_share(0.5) == round(ONE / 2)
-    assert ew.parse_share("41%") == round(0.41 * ONE)
-    assert ew.parse_share("0.41") == round(0.41 * ONE)
+    assert ew.parse_share(0.5) == ew.fraction(1, 2)
+    assert ew.parse_share("41%") == ew.fraction(41, 100)
+    assert ew.parse_share("0.41") == ew.fraction(41, 100)
+    assert ew.parse_share(" 12.5% ") == ew.fraction(125, 1000)
+    assert ew.parse_share("1e-1") == ew.fraction(1, 10)
     assert ew.parse_share(12345) == 12345
     assert ew.parse_share("12345") == 12345
     assert ew.parse_share("1.0") == ONE
+    assert ew.parse_share("100%") == ONE
     assert ew.parse_share("0") == 0
+    assert ew.parse_share("0%") == 0
+
+
+@pytest.mark.parametrize(
+    ("raw", "bound"),
+    [
+        ("33%", ew.MAX_OWNER),
+        ("0.33", ew.MAX_OWNER),
+        (0.33, ew.MAX_OWNER),
+        ("50%", ew.MAX_VALIDATOR),
+        ("0.5", ew.MAX_VALIDATOR),
+        (0.5, ew.MAX_VALIDATOR),
+        ("33%", ew.MIN_MINER),
+    ],
+)
+def test_parse_share_lands_exactly_on_chain_bounds(raw, bound):
+    # The chain's bounds are floor(ONE * n / d); every spelling of the documented
+    # inclusive maxima must parse to exactly that value, never one part above.
+    assert ew.parse_share(raw) == bound
+
+
+@pytest.mark.parametrize(
+    "pinned",
+    [
+        # owner at its inclusive maximum, miner absorbs the rest
+        {"owner": "33%", "validator": "34%"},
+        {"owner": "0.33", "validator": "0.34"},
+        {"owner": 0.33, "validator": 0.34},
+        # validator at its inclusive maximum
+        {"owner": "17%", "validator": "50%"},
+        {"owner": "0.17", "validator": "0.5"},
+        # miner exactly at its inclusive minimum (validator absorbs the rounding ulps)
+        {"owner": "18%", "miner": "33%"},
+        {"owner": 0.18, "miner": 0.33},
+    ],
+)
+def test_documented_bounds_pass_validation_in_every_spelling(pinned):
+    rules = ew.Rules(min_validator=1)
+    weights = ew.renormalize(
+        ew.default_weights(),
+        {slot: ew.parse_share(value) for slot, value in pinned.items()},
+    )
+    assert ew.validate(weights, rules) == [], pinned
 
 
 @pytest.mark.parametrize("raw", ["1.5", "150%", "-0.1", -5, ONE + 1, "abc", "", True])
