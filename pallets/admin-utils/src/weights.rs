@@ -145,12 +145,7 @@ pub trait WeightInfo {
 	fn sudo_set_basket_min_trade_tao() -> Weight {
 		Self::sudo_set_basket_liquidity_cap()
 	}
-	/// Same owner-or-root rate-limit check, admin-window read and single bounded
-	/// write as the mechanism emission split setter. CI reference benchmarking
-	/// replaces this shared envelope with measured weights.
-	fn sudo_set_subnet_emission_weights() -> Weight {
-		Self::sudo_set_mechanism_emission_split()
-	}
+	fn sudo_set_subnet_emission_weights() -> Weight;
 }
 
 /// Weights for `pallet_admin_utils` using the Substrate node and recommended hardware.
@@ -1351,6 +1346,17 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(45_668_000, 4504)
 			.saturating_add(T::DbWeight::get().reads(8_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
+	/// Interim envelope until CI reference benchmarking lands. Base: the mechanism
+	/// emission split setter's measured owner-or-root rate-limit check, admin-window
+	/// read and `NetworksAdded` read. On top of that this call reads
+	/// `SubnetEmissionWeights`, `SubnetCreatedViaLease`, `BaseValidatorEmissionShare`,
+	/// `TaoWeight` and `SubnetTaoWeightMultiplier` (r:5, counted as 6) and writes
+	/// `SubnetEmissionWeights` plus `SubnetTaoWeightMultiplier` instead of one item (w:+1).
+	fn sudo_set_subnet_emission_weights() -> Weight {
+		Self::sudo_set_mechanism_emission_split()
+			.saturating_add(T::DbWeight::get().reads(6_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: `SubtensorModule::TaoFlowCutoff` (r:0 w:1)
 	/// Proof: `SubtensorModule::TaoFlowCutoff` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
@@ -2799,6 +2805,17 @@ impl WeightInfo for () {
 		Weight::from_parts(45_668_000, 4504)
 			.saturating_add(RocksDbWeight::get().reads(8_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
+	}
+	/// Interim envelope until CI reference benchmarking lands. Base: the mechanism
+	/// emission split setter's measured owner-or-root rate-limit check, admin-window
+	/// read and `NetworksAdded` read. On top of that this call reads
+	/// `SubnetEmissionWeights`, `SubnetCreatedViaLease`, `BaseValidatorEmissionShare`,
+	/// `TaoWeight` and `SubnetTaoWeightMultiplier` (r:5, counted as 6) and writes
+	/// `SubnetEmissionWeights` plus `SubnetTaoWeightMultiplier` instead of one item (w:+1).
+	fn sudo_set_subnet_emission_weights() -> Weight {
+		<() as WeightInfo>::sudo_set_mechanism_emission_split()
+			.saturating_add(RocksDbWeight::get().reads(6_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `SubtensorModule::TaoFlowCutoff` (r:0 w:1)
 	/// Proof: `SubtensorModule::TaoFlowCutoff` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
