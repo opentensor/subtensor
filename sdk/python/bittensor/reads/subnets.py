@@ -10,6 +10,14 @@ from .._generated import constants
 from .._generated import runtime_apis as api
 from .._generated import storage as st
 from ..balance import Balance
+from ..emission_weights import (
+    DEFAULT_OWNER,
+    SLOT_NAMES,
+    TAO_WEIGHT_MULTIPLIER_SCALE,
+    Rules,
+    normalize_weights,
+    share_to_float,
+)
 from .base import read, utf8_text
 
 
@@ -165,6 +173,77 @@ async def subnet_hyperparameters(view, netuid: int) -> Optional[dict]:
     if entries is None:
         return None
     return {entry["name"]: _hyperparam_value(entry["value"]) for entry in entries}
+
+
+@dataclass
+class SubnetEmissionWeights:
+    """A subnet's emission weight vector and the rule inputs that bound it.
+
+    Shares are u64 parts of ``u64::MAX``; ``shares`` carries the same values as
+    0..1 floats keyed by slot name. ``min_validator`` is the TAO-weight floor
+    the validator slot may not drop below, ``base_validator`` the share the
+    TAO-weight multiplier is measured against, ``tao_weight_multiplier`` the
+    stored ``base / validator`` ratio and ``effective_tao_weight`` the global
+    TAO weight after that multiplier, saturating at one.
+    """
+
+    netuid: int
+    weights: list[int]
+    shares: dict[str, float]
+    burn: int
+    recycle: int
+    owner: int
+    validator: int
+    miner: int
+    base_validator: int
+    min_validator: int
+    tao_weight_multiplier: float
+    effective_tao_weight: float
+    created_via_lease: bool
+
+    def rules(self) -> Rules:
+        return Rules(
+            min_validator=self.min_validator,
+            min_owner=DEFAULT_OWNER,
+            created_via_lease=self.created_via_lease,
+            base_validator=self.base_validator,
+        )
+
+
+@read(
+    "subnet_emission_weights",
+    {"netuid": "integer"},
+    category="Subnets",
+    param_docs={"netuid": "Subnet whose emission weight vector to read."},
+)
+async def subnet_emission_weights(view, netuid: int) -> Optional[SubnetEmissionWeights]:
+    """The subnet's emission weight vector ``[burn, recycle, owner, validator,
+    miner]`` with the bounds that apply to it, or None if the subnet does not
+    exist (the root subnet has no vector).
+
+    Pair with the ``set_subnet_emission_weights`` intent: ``min_validator``
+    and ``created_via_lease`` are exactly the per-subnet inputs the chain uses
+    to accept or reject a change.
+    """
+    info = await view.runtime(api.SubnetInfoRuntimeApi.get_subnet_emission_weights, [netuid])
+    if info is None:
+        return None
+    weights = normalize_weights(info["weights"])
+    return SubnetEmissionWeights(
+        netuid=int(info["netuid"]),
+        weights=weights,
+        shares={name: share_to_float(w) for name, w in zip(SLOT_NAMES, weights)},
+        burn=int(info["burn"]),
+        recycle=int(info["recycle"]),
+        owner=int(info["owner"]),
+        validator=int(info["validator"]),
+        miner=int(info["miner"]),
+        base_validator=int(info["base_validator"]),
+        min_validator=int(info["min_validator"]),
+        tao_weight_multiplier=int(info["tao_weight_multiplier"]) / TAO_WEIGHT_MULTIPLIER_SCALE,
+        effective_tao_weight=share_to_float(int(info["effective_tao_weight"])),
+        created_via_lease=bool(info["created_via_lease"]),
+    )
 
 
 @read(

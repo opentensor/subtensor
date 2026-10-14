@@ -283,7 +283,9 @@ DESCRIPTIONS: dict[str, str] = {
     ),
     "Deprecated": (
         "The extrinsic has been removed and always fails, e.g. `schedule_swap_coldkey`, the "
-        "swap pallet's user-liquidity calls, or `sudo_set_total_issuance`. Migrate to the "
+        "swap pallet's user-liquidity calls, `sudo_set_total_issuance`, or the owner-cut "
+        "setters `sudo_set_subnet_owner_cut` / `sudo_set_owner_cut_enabled` (replaced by "
+        "`sudo_set_subnet_emission_weights`, `btcli subnets emission`). Migrate to the "
         "replacement call noted in the deprecation (for coldkey swaps, "
         "`btcli wallet announce-coldkey-swap` then `btcli wallet swap-coldkey`)."
     ),
@@ -796,6 +798,71 @@ DESCRIPTIONS: dict[str, str] = {
         "existing subnet is eligible to be pruned. Check the number of registered subnets "
         "(`btcli subnets list`) against the subnet limit and retry once a subnet becomes "
         "prunable."
+    ),
+    "EmissionWeightsLengthMismatch": (
+        "`sudo_set_subnet_emission_weights` was given `uids` and `values` lists of different "
+        "lengths. Each slot index in `uids` needs exactly one share in `values`; pass the two "
+        "lists pairwise (e.g. `uids=[2, 3, 4]`, `values=[owner, validator, miner]`)."
+    ),
+    "EmissionWeightIndexOutOfRange": (
+        "`sudo_set_subnet_emission_weights` named a slot index outside the five-slot emission "
+        "weight vector. Valid indices are 0 = burn, 1 = recycle, 2 = owner, 3 = validator, "
+        "4 = miner; later slots (e.g. gamma buys) are reserved for a future runtime."
+    ),
+    "EmissionWeightIndexDuplicated": (
+        "`sudo_set_subnet_emission_weights` listed the same slot index twice in `uids`. Give "
+        "each slot at most once per call."
+    ),
+    "EmissionWeightsDoNotSumToOne": (
+        "After merging your update into the subnet's current emission weight vector, the five "
+        "shares do not sum to exactly `u64::MAX` (1.0). Omitted slots keep their current value, "
+        "so raising one slot requires lowering another in the same call. `btcli subnets "
+        "emission set-value/increase/decrease` renormalise the other slots for you; with the "
+        "raw call, pass a full `[0, 0, owner, validator, miner]` vector whose parts total "
+        "18446744073709551615."
+    ),
+    "BurnEmissionMustBeZero": (
+        "Slot 0 (burn) of the emission weight vector was set to a non-zero share. Burning "
+        "alpha emission is reserved for a future runtime; in v1 the burn share must be 0 "
+        "(or simply omitted)."
+    ),
+    "RecycleEmissionMustBeZero": (
+        "Slot 1 (recycle) of the emission weight vector was set to a non-zero share. Recycling "
+        "alpha emission is reserved for a future runtime; in v1 the recycle share must be 0 "
+        "(or simply omitted)."
+    ),
+    "OwnerEmissionAboveMaximum": (
+        "Slot 2 (owner) of the emission weight vector exceeds the 33% ceiling. The subnet "
+        "owner may take at most 0.33 of block emission; lower the owner share (0 disables the "
+        "owner cut entirely on subnets that were not created through a lease)."
+    ),
+    "LeasedSubnetOwnerCutBelowMinimum": (
+        "The subnet was created through a crowdloan lease, so slot 2 (owner) of its emission "
+        "weight vector may not drop below the 18% launch default that lease contributors are "
+        "paid from. Keep the owner share at or above 0.18 on lease-created subnets."
+    ),
+    "ValidatorEmissionAboveMaximum": (
+        "Slot 3 (validator) of the emission weight vector exceeds the 50% ceiling. Validator "
+        "dividends may draw at most 0.50 of block emission; lower the validator share."
+    ),
+    "ValidatorEmissionBelowTaoWeightFloor": (
+        "Slot 3 (validator) of the emission weight vector is below the subnet's TAO-weight "
+        "floor `V0 * TaoWeight`, where `V0` is the subnet's base validator share (0.41 on "
+        "mainnet subnets with the owner cut, 0.50 without). Lowering the validator share "
+        "scales the subnet's TAO weight by `V0 / V` so root holders keep their payout; below "
+        "the floor that scaled weight would exceed 1, and a validator share of 0 would need an "
+        "infinite TAO weight, so it is always rejected. Read the current floor with "
+        "`btcli subnets emission show --netuid <n>` and keep the validator share at or above it."
+    ),
+    "MinerEmissionBelowMinimum": (
+        "Slot 4 (miner) of the emission weight vector is below the 33% floor. Miner incentive "
+        "must receive at least 0.33 of block emission; raise the miner share (or lower the "
+        "owner/validator shares that crowd it out)."
+    ),
+    "EmissionWeightsNotSettableOnRoot": (
+        "`sudo_set_subnet_emission_weights` was called for netuid 0. The root network has no "
+        "alpha emission to divide, so it carries no emission weight vector; pass a subnet "
+        "netuid."
     ),
     "SubnetNotExists": (
         "The netuid passed to the call does not correspond to a registered subnet. Verify the "

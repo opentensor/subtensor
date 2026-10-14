@@ -20,6 +20,29 @@ ALICE_HOT = Keypair.create_from_uri("//Alice//hot").ss58_address
 BOB = Keypair.create_from_uri("//Bob").ss58_address
 BOB_HOT = Keypair.create_from_uri("//Bob//hot").ss58_address
 
+_U64_MAX = 2**64 - 1
+_OWNER_18 = (11796 * _U64_MAX) // 65535
+_VALIDATOR_41 = (_U64_MAX - _OWNER_18) // 2
+# Mainnet ``SubtensorInitialTaoWeight`` (~5.27%).
+TAO_WEIGHT = 971_718_665_099_567_868
+
+# The chain's default emission weight vector as ``get_subnet_emission_weights``
+# decodes it (mainnet: 18% owner, 41% validator, 41% miner, 5.27% TaoWeight).
+EMISSION_WEIGHTS_INFO: dict = {
+    "netuid": 1,
+    "weights": [0, 0, _OWNER_18, _VALIDATOR_41, _U64_MAX - _OWNER_18 - _VALIDATOR_41],
+    "burn": 0,
+    "recycle": 0,
+    "owner": _OWNER_18,
+    "validator": _VALIDATOR_41,
+    "miner": _U64_MAX - _OWNER_18 - _VALIDATOR_41,
+    "base_validator": _VALIDATOR_41,
+    "min_validator": (_VALIDATOR_41 * TAO_WEIGHT) // _U64_MAX,
+    "tao_weight_multiplier": 1_000_000_000,
+    "effective_tao_weight": TAO_WEIGHT,
+    "created_via_lease": False,
+}
+
 
 def dev_wallet(cold: str = "//Alice", hot: str = "//Alice//hot") -> SimpleNamespace:
     """A KeyedWallet-shaped object carrying dev keypairs (no keyfiles)."""
@@ -126,6 +149,12 @@ INTENT_SAMPLES: dict[str, dict] = {
     "clear_coldkey_swap_announcement": {},
     "dispute_coldkey_swap": {},
     "set_hyperparameter": {"netuid": 1, "name": "immunity_period", "value": 42},
+    "set_subnet_emission_weights": {
+        "netuid": 1,
+        "slots": ["owner"],
+        "values": ["10%"],
+        "renormalize": True,
+    },
     "set_identity": {"name": "verify"},
     "set_subnet_identity": {"netuid": 1, "subnet_name": "verify"},
     "trim_subnet": {"netuid": 1, "max_n": 64},
@@ -285,6 +314,7 @@ READ_SAMPLES: dict[str, dict] = {
     "subnet": {"netuid": 1},
     "subnet_convictions": {"netuid": 1},
     "subnet_emission_enabled": {"netuid": 1},
+    "subnet_emission_weights": {"netuid": 1},
     "subnet_hyperparameters": {"netuid": 1},
     "subnet_identity": {"netuid": 1},
     "subnet_names": {},

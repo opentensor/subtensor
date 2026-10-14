@@ -397,8 +397,40 @@ HYPERPARAMS: dict[str, Hyperparam] = {
     ),
     "owner_cut_enabled": Hyperparam(
         "bool",
-        "Whether the subnet owner takes their emission cut.",
-        short="owner emission cut toggle",
+        "Whether the subnet owner takes any emission cut: true iff the owner slot of the "
+        "emission weight vector is non-zero. Derived, read-only; change the owner share "
+        "with `btcli subnets emission set-value --slot owner`.",
+        short="owner cut on? (derived, read-only)",
+    ),
+    "owner_emission": Hyperparam(
+        "u64",
+        "Owner slot of the emission weight vector: the share of block alpha emission paid "
+        "to the subnet owner (0 disables the cut; at most 0.33; lease-created subnets keep "
+        "at least the 0.18 launch default). Set via `btcli subnets emission`.",
+        short="owner share of emission (slot 2)",
+    ),
+    "validator_emission": Hyperparam(
+        "u64",
+        "Validator slot of the emission weight vector: the share of block alpha emission "
+        "that becomes validator dividends (root alpha is carved from it). Between the "
+        "subnet's TAO-weight floor and 0.50; lowering it scales the subnet's TAO weight by "
+        "base/new so root payouts hold. Set via `btcli subnets emission`.",
+        short="validator share of emission (slot 3)",
+    ),
+    "miner_emission": Hyperparam(
+        "u64",
+        "Miner slot of the emission weight vector: the share of block alpha emission paid "
+        "as miner incentive (split across mechanisms). At least 0.33. Set via "
+        "`btcli subnets emission`.",
+        short="miner share of emission (slot 4)",
+    ),
+    "effective_tao_weight": Hyperparam(
+        "u64",
+        "The global TaoWeight multiplied by this subnet's TAO-weight multiplier "
+        "(base validator share / current validator share), saturating at 1. Weights root "
+        "TAO against alpha in both the root dividend share and consensus stake. Derived, "
+        "read-only.",
+        short="TAO weight after the subnet multiplier",
     ),
     "owner_cut_auto_lock_enabled": Hyperparam(
         "bool",
@@ -456,8 +488,14 @@ STORAGE_ITEMS: dict[str, st.Item] = {
     "subnet_emission_enabled": st.SubtensorModule.SubnetEmissionEnabled,
     "bonds_reset_enabled": st.SubtensorModule.BondsResetOn,
     "transfers_enabled": st.SubtensorModule.TransferToggle,
-    "owner_cut_enabled": st.SubtensorModule.OwnerCutEnabled,
     "owner_cut_auto_lock_enabled": st.SubtensorModule.OwnerCutAutoLockEnabled,
+    # The three emission slots live in one vector; owner_cut_enabled is derived
+    # from its owner slot and effective_tao_weight from the multiplier beside it.
+    "owner_cut_enabled": st.SubtensorModule.SubnetEmissionWeights,
+    "owner_emission": st.SubtensorModule.SubnetEmissionWeights,
+    "validator_emission": st.SubtensorModule.SubnetEmissionWeights,
+    "miner_emission": st.SubtensorModule.SubnetEmissionWeights,
+    "effective_tao_weight": st.SubtensorModule.SubnetTaoWeightMultiplier,
 }
 
 # Unit-bearing type identities -> the unit kind they dictate. Ratio types are
