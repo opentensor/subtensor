@@ -441,6 +441,30 @@ mod events {
             incentive: AlphaBalance,
         },
 
+        /// Claim-based miner emissions toggled for a subnet.
+        ClaimBasedMinerEmissionsSet {
+            /// Subnet identifier.
+            netuid: NetUid,
+            /// Whether miner incentive accrues for later claim.
+            enabled: bool,
+        },
+
+        /// Pending miner incentive was claimed (or force-paid on deregister).
+        MinerIncentiveClaimed {
+            /// Subnet identifier.
+            netuid: NetUid,
+            /// Mining hotkey that accrued the incentive.
+            hotkey: T::AccountId,
+            /// Coldkey that owns the hotkey.
+            owner: T::AccountId,
+            /// Hotkey that received the staked remainder (may be an auto-stake dest).
+            destination: T::AccountId,
+            /// Alpha staked after the claim fee.
+            staked: AlphaBalance,
+            /// Alpha recycled as the weight-proportional claim fee (zero on forced payout).
+            fee: AlphaBalance,
+        },
+
         /// End-of-epoch miner incentive alpha by UID
         IncentiveAlphaEmittedToMiners {
             /// Subnet identifier.

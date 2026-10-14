@@ -1003,9 +1003,17 @@ pub fn register_ok_neuron(
     );
 }
 
+/// Production turns claim-based miner emissions on for every new subnet. Unit tests
+/// that assert immediate stake-after-epoch keep the legacy path unless they opt in
+/// (see `tests::claim_miner`).
+fn disable_claim_based_miner_emissions_for_tests(netuid: NetUid) {
+    ClaimBasedMinerEmissions::<Test>::insert(netuid, false);
+}
+
 #[allow(dead_code)]
 pub fn add_network(netuid: NetUid, tempo: u16, _modality: u16) {
     SubtensorModule::init_new_network(netuid, tempo);
+    disable_claim_based_miner_emissions_for_tests(netuid);
     SubtensorModule::set_network_registration_allowed(netuid, true);
     FirstEmissionBlockNumber::<Test>::insert(netuid, 1);
     SubtokenEnabled::<Test>::insert(netuid, true);
@@ -1018,6 +1026,7 @@ pub fn add_network(netuid: NetUid, tempo: u16, _modality: u16) {
 #[allow(dead_code)]
 pub fn add_network_without_emission_block(netuid: NetUid, tempo: u16, _modality: u16) {
     SubtensorModule::init_new_network(netuid, tempo);
+    disable_claim_based_miner_emissions_for_tests(netuid);
     SubtensorModule::set_network_registration_allowed(netuid, true);
 
     BurnHalfLife::<Test>::insert(netuid, 1);
@@ -1027,6 +1036,7 @@ pub fn add_network_without_emission_block(netuid: NetUid, tempo: u16, _modality:
 #[allow(dead_code)]
 pub fn add_network_disable_subtoken(netuid: NetUid, tempo: u16, _modality: u16) {
     SubtensorModule::init_new_network(netuid, tempo);
+    disable_claim_based_miner_emissions_for_tests(netuid);
     SubtensorModule::set_network_registration_allowed(netuid, true);
 
     SubtokenEnabled::<Test>::insert(netuid, false);
@@ -1049,6 +1059,7 @@ pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> NetUid {
         RawOrigin::Signed(*coldkey).into(),
         *hotkey
     ));
+    disable_claim_based_miner_emissions_for_tests(netuid);
     NetworkRegistrationAllowed::<Test>::insert(netuid, true);
     FirstEmissionBlockNumber::<Test>::insert(netuid, 0);
     SubtokenEnabled::<Test>::insert(netuid, true);
@@ -1073,6 +1084,7 @@ pub fn add_dynamic_network_without_emission_block(hotkey: &U256, coldkey: &U256)
         RawOrigin::Signed(*coldkey).into(),
         *hotkey
     ));
+    disable_claim_based_miner_emissions_for_tests(netuid);
 
     NetworkRegistrationAllowed::<Test>::insert(netuid, true);
     BurnHalfLife::<Test>::insert(netuid, 1);

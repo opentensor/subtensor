@@ -766,6 +766,7 @@ mod tests {
                 "SubtensorModule::add_collateral",
                 "SubtensorModule::add_stake",
                 "SubtensorModule::add_stake_limit",
+                "SubtensorModule::claim_miner_emission",
                 "SubtensorModule::remove_stake",
                 "SubtensorModule::remove_stake_limit",
                 "SubtensorModule::remove_stake_full_limit",

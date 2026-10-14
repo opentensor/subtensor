@@ -9,6 +9,7 @@ pub(crate) use basket_flush::{MAX_BASKET_FLUSH_ROWS, MAX_BASKET_ROWS};
 mod basket_trade;
 mod basket_views;
 pub mod beta_pricing;
+mod claim_miner;
 mod claim_root;
 #[cfg(test)]
 pub(crate) use claim_root::RootClaimOutcome;

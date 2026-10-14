@@ -1510,6 +1510,27 @@ mod pallet_benchmarks {
     }
 
     #[benchmark]
+    fn claim_miner_emission() {
+        let coldkey: T::AccountId = whitelisted_caller();
+        let hot: T::AccountId = account("claim_miner_hot", 0, 1);
+        let netuid = NetUid::from(1);
+
+        SubtokenEnabled::<T>::insert(netuid, true);
+        Subtensor::<T>::init_new_network(netuid, 1);
+        ClaimBasedMinerEmissions::<T>::insert(netuid, true);
+        MinerClaimAlphaFeePerWeightSecond::<T>::put(0);
+        let _ = Subtensor::<T>::create_account_if_non_existent(&coldkey, &hot);
+        Subtensor::<T>::accrue_pending_miner_alpha(
+            netuid,
+            &hot,
+            AlphaBalance::from(1_000_000_000u64),
+        );
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(coldkey.clone()), hot.clone(), netuid);
+    }
+
+    #[benchmark]
     fn swap_stake() {
         let coldkey: T::AccountId = whitelisted_caller();
         let hot: T::AccountId = account("A", 0, 9);

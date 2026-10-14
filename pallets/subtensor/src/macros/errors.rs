@@ -414,5 +414,8 @@ mod errors {
         CommitPayloadTooLarge,
         /// The subnet's shared Null timelock queue has reached its byte or count budget.
         CommitQueueFull,
+        /// `claim_miner_emission` was called on a subnet that still distributes miner
+        /// incentive every epoch ([`crate::ClaimBasedMinerEmissions`] is false).
+        ClaimBasedMinerEmissionsDisabled,
     }
 }

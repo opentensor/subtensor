@@ -799,6 +799,18 @@ impl<T: Config> Pallet<T> {
                 continue;
             }
 
+            // Claim-based mode: accrue liquid incentive for later claim. Collateral
+            // capture above still stakes immediately so floors keep filling. Auto-stake
+            // destination is applied at claim / forced payout, not here, so pending
+            // stays keyed by the mining hotkey through UID replace and hotkey swap.
+            if Self::get_claim_based_miner_emissions(netuid) {
+                log::debug!(
+                    "incentives: accruing {liquid:?} pending for hotkey {hotkey:?} on {netuid:?}"
+                );
+                Self::accrue_pending_miner_alpha(netuid, &hotkey, liquid);
+                continue;
+            }
+
             let maybe_dest = AutoStakeDestination::<T>::get(&owner, netuid);
 
             // Always stake but only emit event if autostake is set.

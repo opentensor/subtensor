@@ -77,6 +77,10 @@ sp_api::decl_runtime_apis! {
         fn get_coldkey_lock(coldkey: AccountId32, netuid: NetUid) -> Option<LockState>;
         fn get_hotkey_conviction(hotkey: AccountId32, netuid: NetUid) -> U64F64;
         fn get_most_convicted_hotkey_on_subnet(netuid: NetUid) -> Option<AccountId32>;
+        /// Pending (unclaimed) miner incentive alpha for `hotkey` on `netuid`.
+        fn get_pending_miner_emission(hotkey: AccountId32, netuid: NetUid) -> AlphaBalance;
+        /// Subnet-wide sum of pending miner incentive alpha.
+        fn get_pending_miner_emission_total(netuid: NetUid) -> AlphaBalance;
     }
 
     pub trait SubnetRegistrationRuntimeApi {

@@ -3,6 +3,7 @@ mod basket_flush;
 mod batch_tx;
 mod beta_pricing;
 mod children;
+mod claim_miner;
 mod claim_root;
 mod claim_root_dust;
 mod cleanup_tests;

@@ -145,6 +145,14 @@ pub trait WeightInfo {
 	fn sudo_set_basket_min_trade_tao() -> Weight {
 		Self::sudo_set_basket_liquidity_cap()
 	}
+	/// Conservative envelope until reference measurement replaces it.
+	fn sudo_set_claim_based_miner_emissions() -> Weight {
+		Self::sudo_set_basket_trading_enabled()
+	}
+	/// Conservative envelope until reference measurement replaces it.
+	fn sudo_set_miner_claim_alpha_fee_per_weight_second() -> Weight {
+		Self::sudo_set_basket_trading_enabled()
+	}
 }
 
 /// Weights for `pallet_admin_utils` using the Substrate node and recommended hardware.

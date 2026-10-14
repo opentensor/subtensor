@@ -988,6 +988,10 @@ impl<T: Config> Pallet<T> {
             AutoStakeDestinationColdkeys::<T>::insert(new_hotkey, netuid, old_auto_stake_coldkeys);
         }
 
+        // 6.5 Move accrued (unclaimed) miner incentive with the hotkey.
+        Self::transfer_pending_miner_alpha(netuid, old_hotkey, new_hotkey);
+        weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+
         // 7. Swap SubnetOwnerHotkey
         // SubnetOwnerHotkey( netuid ) --> hotkey -- the hotkey that is the owner of the subnet.
         if let Ok(old_subnet_owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid) {

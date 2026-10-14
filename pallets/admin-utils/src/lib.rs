@@ -187,6 +187,20 @@ pub mod pallet {
             /// Minimum TAO value through each trade leg, in rao.
             min_trade_rao: u64,
         },
+
+        /// Claim-based miner emissions toggled for a subnet.
+        ClaimBasedMinerEmissionsToggled {
+            /// Subnet identifier.
+            netuid: NetUid,
+            /// Whether miner incentive accrues for later claim.
+            enabled: bool,
+        },
+
+        /// Miner claim weight→alpha fee rate was set.
+        MinerClaimAlphaFeePerWeightSecondSet {
+            /// Alpha (rao) charged per second of claim weight.
+            fee_per_weight_second: u64,
+        },
     }
 
     // Errors inform users that something went wrong.
@@ -2822,6 +2836,50 @@ pub mod pallet {
             ensure!(max_epochs_per_block >= 1, Error::<T>::ValueNotInBounds);
             pallet_subtensor::Pallet::<T>::set_max_epochs_per_block(max_epochs_per_block);
 
+            Ok(())
+        }
+
+        /// Enables or disables claim-based miner emissions on one subnet.
+        ///
+        /// When enabled, miner (server) incentive accrues in
+        /// [`pallet_subtensor::PendingMinerAlpha`] and is staked only on
+        /// `claim_miner_emission` (or forced payout). Validator dividends are
+        /// unchanged. Root-only emergency toggle — subnet owners cannot flip
+        /// this (returning to per-UID stake every epoch recreates the write
+        /// load claim-based mode removes).
+        #[pallet::call_index(114)]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::sudo_set_claim_based_miner_emissions())]
+        pub fn sudo_set_claim_based_miner_emissions(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            enabled: bool,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
+            pallet_subtensor::Pallet::<T>::set_claim_based_miner_emissions(netuid, enabled);
+            Self::deposit_event(Event::ClaimBasedMinerEmissionsToggled { netuid, enabled });
+            log::debug!(
+                "ClaimBasedMinerEmissionsToggled( netuid: {netuid:?}, enabled: {enabled:?} )"
+            );
+            Ok(())
+        }
+
+        /// Sets the alpha (rao) charged per second of `claim_miner_emission` weight.
+        /// See `pallet_subtensor::MinerClaimAlphaFeePerWeightSecond`. Root-only.
+        #[pallet::call_index(115)]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::sudo_set_miner_claim_alpha_fee_per_weight_second())]
+        pub fn sudo_set_miner_claim_alpha_fee_per_weight_second(
+            origin: OriginFor<T>,
+            fee_per_weight_second: u64,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::MinerClaimAlphaFeePerWeightSecond::<T>::put(fee_per_weight_second);
+            Self::deposit_event(Event::MinerClaimAlphaFeePerWeightSecondSet {
+                fee_per_weight_second,
+            });
             Ok(())
         }
     }

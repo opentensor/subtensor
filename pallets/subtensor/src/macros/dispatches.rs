@@ -2915,5 +2915,38 @@ mod dispatches {
         ) -> DispatchResult {
             Self::do_set_min_collateral(origin, netuid, hotkey, min_locked)
         }
+
+        /// Claim accrued miner (server) incentive alpha for `hotkey` on `netuid`.
+        ///
+        /// When [`ClaimBasedMinerEmissions`] is enabled for the subnet, epoch distribution
+        /// accrues miner incentive into [`PendingMinerAlpha`] instead of staking it every
+        /// tempo. The coldkey that owns `hotkey` calls this to stake the pending balance.
+        ///
+        /// An alpha fee proportional to this call's weight is recycled from the pending
+        /// amount before the remainder is staked (see `staking/claim_miner.rs`). Validator
+        /// dividends are unchanged and are never claimed through this extrinsic.
+        ///
+        /// # Arguments
+        /// * `origin`: Coldkey that owns `hotkey`.
+        /// * `hotkey`: Mining hotkey with pending incentive.
+        /// * `netuid`: Subnet the incentive was earned on.
+        ///
+        /// # Events
+        /// * `MinerIncentiveClaimed`: On success (includes staked amount and fee).
+        /// * `AutoStakeAdded`: When the owner has an auto-stake destination on this subnet.
+        ///
+        /// # Errors
+        /// * `ClaimBasedMinerEmissionsDisabled`: Subnet still distributes every epoch.
+        /// * `AmountTooLow`: No pending incentive to claim.
+        /// * `NonAssociatedColdKey`: Signer does not own `hotkey`.
+        #[pallet::call_index(146)]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::claim_miner_emission())]
+        pub fn claim_miner_emission(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            netuid: NetUid,
+        ) -> DispatchResult {
+            Self::do_claim_miner_emission(origin, hotkey, netuid)
+        }
     }
 }

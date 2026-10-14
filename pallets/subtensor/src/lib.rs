@@ -2451,6 +2451,58 @@ pub mod pallet {
     pub type PendingOwnerCut<T> =
         StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
 
+    /// Default for [`ClaimBasedMinerEmissions`]: off until the enablement migration
+    /// (or `init_new_network`) turns a subnet on. Absent keys therefore read as the
+    /// pre-claim epoch path, matching historical behaviour for any netuid the
+    /// migration has not yet touched.
+    #[pallet::type_value]
+    pub fn DefaultClaimBasedMinerEmissions<T: Config>() -> bool {
+        false
+    }
+
+    /// MAP ( netuid ) --> claim_based_miner_emissions
+    ///
+    /// When true, miner (server) incentive accrues in [`PendingMinerAlpha`] each
+    /// epoch and is staked only on claim / forced payout. Validator dividends are
+    /// unaffected. Root can toggle per subnet for emergency rollback; subnet
+    /// owners cannot (flipping back to per-UID stake would recreate the epoch
+    /// write load this feature removes).
+    #[pallet::storage]
+    pub type ClaimBasedMinerEmissions<T: Config> =
+        StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultClaimBasedMinerEmissions<T>>;
+
+    /// MAP ( netuid, hotkey ) --> pending miner incentive alpha not yet staked.
+    #[pallet::storage]
+    pub type PendingMinerAlpha<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        NetUid,
+        Blake2_128Concat,
+        T::AccountId,
+        AlphaBalance,
+        ValueQuery,
+        DefaultZeroAlpha<T>,
+    >;
+
+    /// MAP ( netuid ) --> sum of [`PendingMinerAlpha`] for that subnet.
+    /// Kept so dissolve / accounting can read the unclaimed bucket in O(1).
+    #[pallet::storage]
+    pub type PendingMinerAlphaTotal<T: Config> =
+        StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
+
+    /// Default claim fee: 10_000_000 rao (0.01 alpha) per second of declared
+    /// claim weight. A ~50 ms claim therefore costs ~500_000 rao (0.0005 alpha).
+    #[pallet::type_value]
+    pub fn DefaultMinerClaimAlphaFeePerWeightSecond<T: Config>() -> u64 {
+        10_000_000
+    }
+
+    /// ITEM --> alpha (rao) charged per `WEIGHT_REF_TIME_PER_SECOND` of
+    /// `claim_miner_emission` weight. See `staking/claim_miner.rs`.
+    #[pallet::storage]
+    pub type MinerClaimAlphaFeePerWeightSecond<T: Config> =
+        StorageValue<_, u64, ValueQuery, DefaultMinerClaimAlphaFeePerWeightSecond<T>>;
+
     /// Default miner-burned proportion.
     #[pallet::type_value]
     pub fn DefaultMinerBurned<T: Config>() -> U96F32 {
