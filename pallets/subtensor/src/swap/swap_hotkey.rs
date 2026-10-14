@@ -632,6 +632,18 @@ impl<T: Config> Pallet<T> {
             )?;
         }
 
+        // 6.1 Dissolving subnets leave `NetworksAdded` immediately but keep
+        // `PendingMinerAlpha` until the resumable cleanup pays it out. The live
+        // loop above skips them, so migrate those pending rows here — otherwise
+        // a `keep_stake=false` swap can retire `Owner[old_hotkey]` and the later
+        // payout credits the wrong coldkey.
+        let dissolving = DissolveCleanupQueue::<T>::get();
+        weight.saturating_accrue(T::DbWeight::get().reads(1));
+        for netuid in dissolving {
+            Self::transfer_pending_miner_alpha(netuid, old_hotkey, new_hotkey);
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+        }
+
         // 7. Swap LastTxBlock
         // LastTxBlock( hotkey ) --> u64 -- the last transaction block for the hotkey.
         Self::remove_last_tx_block(old_hotkey);

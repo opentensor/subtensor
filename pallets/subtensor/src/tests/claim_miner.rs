@@ -307,3 +307,63 @@ fn claim_rejects_non_owner() {
         );
     });
 }
+
+#[test]
+fn dissolve_then_hotkey_swap_preserves_pending_owner() {
+    new_test_ext(0).execute_with(|| {
+        let (cold, hot, netuid) = setup_claim_subnet();
+        let new_hot = U256::from(77);
+        SubtensorModule::create_account_if_non_existent(&cold, &new_hot).unwrap();
+
+        let amount: AlphaBalance = 777_000u64.into();
+        SubtensorModule::accrue_pending_miner_alpha(netuid, &hot, amount);
+
+        // Queue dissolution the same way production does: drop NetworksAdded and
+        // park the netuid on the cleanup queue while PendingMinerAlpha remains.
+        assert_ok!(SubtensorModule::do_dissolve_network(netuid));
+        assert!(!NetworksAdded::<Test>::get(netuid));
+        assert!(DissolveCleanupQueue::<Test>::get().contains(&netuid));
+        assert_eq!(
+            SubtensorModule::get_pending_miner_emission(&hot, netuid),
+            amount
+        );
+
+        // All-subnet swap with keep_stake=false retires Owner[old]. The dissolving
+        // subnet is absent from get_all_subnet_netuids, so the dedicated dissolving
+        // transfer must still move the pending row.
+        let mut weight = Weight::from_parts(u64::MAX / 4, u64::MAX / 4);
+        assert_ok!(SubtensorModule::perform_hotkey_swap_on_all_subnets(
+            &hot,
+            &new_hot,
+            &cold,
+            &mut weight,
+            false,
+        ));
+        assert!(!Owner::<Test>::contains_key(hot));
+        assert_eq!(Owner::<Test>::get(new_hot), cold);
+        assert_eq!(
+            SubtensorModule::get_pending_miner_emission(&hot, netuid),
+            AlphaBalance::ZERO
+        );
+        assert_eq!(
+            SubtensorModule::get_pending_miner_emission(&new_hot, netuid),
+            amount
+        );
+
+        SubtensorModule::force_payout_pending_miner_alpha(netuid, &new_hot);
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&new_hot, &cold, netuid),
+            amount
+        );
+    });
+}
+
+#[test]
+fn dissolve_pending_row_weight_covers_claim_envelope() {
+    // The per-row dissolve meter must dominate the extrinsic claim weight so a
+    // force payout cannot exceed what the cleanup phase reserved.
+    let row = SubtensorModule::dissolve_pending_miner_alpha_row_weight();
+    let claim = <Test as Config>::WeightInfo::claim_miner_emission();
+    assert!(row.ref_time() >= claim.ref_time());
+    assert!(row.proof_size() >= claim.proof_size());
+}

@@ -221,6 +221,19 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Worst-case weight for one fee-free dissolve payout of a pending miner row.
+    ///
+    /// Covers iterator progress, pending take / total mutate, Owner + AutoStake
+    /// reads, and a full `credit_epoch_owner_emission` share-pool transition
+    /// (including a large `StakingHotkeys` read). Proof-size allowance matches
+    /// the measured `add_stake` envelope. Charged *before* each row so cleanup
+    /// cannot exceed the remaining block weight meter.
+    pub fn dissolve_pending_miner_alpha_row_weight() -> Weight {
+        <T as Config>::WeightInfo::claim_miner_emission()
+            .saturating_add(T::DbWeight::get().reads_writes(4, 2))
+            .saturating_add(Weight::from_parts(0, 8_192))
+    }
+
     /// Resumable dissolve helper: stake every pending row on `netuid` (fee-free)
     /// so later AlphaInOut settlement can convert it to TAO with the rest of stake.
     pub fn dissolve_pending_miner_alpha_to_stake(
@@ -228,7 +241,9 @@ impl<T: Config> Pallet<T> {
         weight_meter: &mut WeightMeter,
         last_key: Option<Vec<u8>>,
     ) -> (bool, Option<Vec<u8>>) {
-        let rw = T::DbWeight::get().reads_writes(4, 6);
+        let row_weight = Self::dissolve_pending_miner_alpha_row_weight();
+        // Final total-map removal after the last row.
+        let finish_weight = T::DbWeight::get().writes(1);
         let mut done = true;
         let mut cursor = last_key.clone();
 
@@ -238,16 +253,22 @@ impl<T: Config> Pallet<T> {
         };
 
         for (hotkey, _amount) in iter {
-            if !weight_meter.can_consume(rw) {
+            if !weight_meter.can_consume(row_weight) {
                 done = false;
                 break;
             }
-            weight_meter.consume(rw);
+            weight_meter.consume(row_weight);
             cursor = Some(PendingMinerAlpha::<T>::hashed_key_for(netuid, &hotkey));
             Self::force_payout_pending_miner_alpha(netuid, &hotkey);
         }
 
         if done {
+            if !weight_meter.can_consume(finish_weight) {
+                // Rows are drained but the total removal must wait for a later
+                // block; keep the cursor so the phase resumes and finishes.
+                return (false, cursor);
+            }
+            weight_meter.consume(finish_weight);
             PendingMinerAlphaTotal::<T>::remove(netuid);
             cursor = None;
         }
