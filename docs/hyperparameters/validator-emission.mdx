@@ -1,0 +1,48 @@
+---
+title: validator_emission
+description: Validator slot of the subnet's emission weight vector — the share of alpha emission paid as validator dividends, and the source of root's alpha.
+---
+
+Slot 3 of the [emission weight vector](/docs/concepts/emission-weights):
+the fraction of each block's `alpha_out` that becomes validator dividends.
+Root TAO stakers are paid out of this slot via the subnet's
+`root_proportion`. Stored as `u64` parts of `u64::MAX`.
+
+## How it works
+
+Per block, `alpha_out × validator_emission` goes to the validator bucket;
+the root proportion of it is set aside for root TAO stakers and the rest is
+distributed through Yuma Consensus dividends at the epoch.
+
+Lowering this slot below the base share `V₀` the subnet was seeded with
+(0.41 on mainnet) multiplies the subnet's TAO weight by `V₀ / V` for both
+the root proportion and consensus stake weighting, so root's alpha is
+preserved to first order and TAO counts for more on that subnet. Raising it
+back restores the multiplier to one. The result is read as
+[`effective_tao_weight`](/docs/hyperparameters/effective-tao-weight).
+
+## Bounds
+
+`V₀ × TaoWeight ≤ validator_emission ≤ 0.50`. The floor (≈ 2.2% on mainnet)
+is where the scaled TAO weight would reach one; zero is never accepted
+because the multiplier would be infinite. Errors:
+`ValidatorEmissionAboveMaximum`, `ValidatorEmissionBelowTaoWeightFloor`,
+`EmissionWeightsDoNotSumToOne`.
+
+## Reading and setting
+
+```bash
+btcli subnets emission show --netuid 12          # prints the current floor
+btcli subnets emission decrease --netuid 12 --slot validator --by 0.05
+```
+
+Settable by the subnet owner (once per week per subnet) or root through
+[`set-subnet-emission-weights`](/docs/tx/set-subnet-emission-weights); not
+available on the root subnet.
+
+## Related
+
+- [`owner_emission`](/docs/hyperparameters/owner-emission),
+  [`miner_emission`](/docs/hyperparameters/miner-emission),
+  [`effective_tao_weight`](/docs/hyperparameters/effective-tao-weight)
+- [Emission weights](/docs/concepts/emission-weights)
