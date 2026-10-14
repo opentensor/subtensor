@@ -4,7 +4,8 @@
 
 use crate::codec::value::ValueExt;
 use crate::{codec::value::Value, runtime::Runtime, CoreError};
-use unicode_general_category::{get_general_category, GeneralCategory};
+#[path = "python_printable.rs"]
+mod python_printable;
 
 #[path = "dispatch_error_tables.rs"]
 mod tables;
@@ -239,20 +240,7 @@ fn string_repr(value: &str) -> String {
                 result.push('\\');
                 result.push(character);
             }
-            character
-                if character != ' '
-                    && matches!(
-                        get_general_category(character),
-                        GeneralCategory::Control
-                            | GeneralCategory::Format
-                            | GeneralCategory::PrivateUse
-                            | GeneralCategory::Surrogate
-                            | GeneralCategory::Unassigned
-                            | GeneralCategory::LineSeparator
-                            | GeneralCategory::ParagraphSeparator
-                            | GeneralCategory::SpaceSeparator
-                    ) =>
-            {
+            character if !python_printable::printable(character) => {
                 let ordinal = u32::from(character);
                 result.push_str(&if ordinal <= 0xff {
                     format!("\\x{ordinal:02x}")
