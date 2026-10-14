@@ -47,6 +47,7 @@ sodiumoxide = { version = "0.2", default-features = false, features = ["std"], o
 # needed either way for the ss58 codec.
 sp-core = { workspace = true, features = ["full_crypto", "serde"] }
 zeroize = "1"
+unicode-general-category = "1"
 
 # timelock (absorbed from bittensor-drand). tle and w3f-bls inherit the
 # workspace pins (the ideal-lab5 rev and the vendored no-std fork in
