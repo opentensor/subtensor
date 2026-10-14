@@ -151,3 +151,11 @@ fn prediction_refuses_overflow_and_disabled_tempo() {
         Err(EpochScheduleError::TempoIsZero)
     );
 }
+
+#[test]
+fn overflowing_simulation_budget_fails_before_searching() {
+    assert_eq!(
+        predict_first_reveal_block(&state(), u64::MAX),
+        Err(EpochScheduleError::BoundExceeded)
+    );
+}

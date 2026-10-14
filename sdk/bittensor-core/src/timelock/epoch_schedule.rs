@@ -4,7 +4,7 @@
 //! reveal blocks for timelock-encrypted commits.  See `constants.rs` for
 //! chain-verified bounds.
 
-use crate::timelock::constants::{max_simulation_blocks, COMMIT_INCLUSION_BLOCK_OFFSET};
+use crate::timelock::constants::{COMMIT_INCLUSION_BLOCK_OFFSET, MAX_TEMPO_U64};
 
 /// Snapshot of on-chain epoch schedule state at a given block.
 ///
@@ -115,7 +115,13 @@ pub fn predict_first_reveal_block(
     let target_epoch = commit_epoch
         .checked_add(reveal_period_epochs)
         .ok_or(EpochScheduleError::BoundExceeded)?;
-    let end = extrinsic_block.saturating_add(max_simulation_blocks(reveal_period_epochs));
+    let budget = reveal_period_epochs
+        .checked_mul(MAX_TEMPO_U64)
+        .and_then(|blocks| blocks.checked_add(MAX_TEMPO_U64))
+        .ok_or(EpochScheduleError::BoundExceeded)?;
+    let end = extrinsic_block
+        .checked_add(budget)
+        .ok_or(EpochScheduleError::BoundExceeded)?;
     let mut previous = before_extrinsic;
     for block in extrinsic_block..=end {
         if current_epoch_pre_run_coinbase(&previous, block) == target_epoch {
