@@ -140,6 +140,8 @@ class StakeInfoRuntimeApi:
     get_coldkey_lock = Method('StakeInfoRuntimeApi', 'get_coldkey_lock')
     get_hotkey_conviction = Method('StakeInfoRuntimeApi', 'get_hotkey_conviction')
     get_most_convicted_hotkey_on_subnet = Method('StakeInfoRuntimeApi', 'get_most_convicted_hotkey_on_subnet')
+    get_pending_miner_emission = Method('StakeInfoRuntimeApi', 'get_pending_miner_emission')
+    get_pending_miner_emission_total = Method('StakeInfoRuntimeApi', 'get_pending_miner_emission_total')
 
 class SubnetInfoRuntimeApi:
     get_subnet_info = Method('SubnetInfoRuntimeApi', 'get_subnet_info')

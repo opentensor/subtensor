@@ -256,6 +256,11 @@ class SubtensorModule:
         return Call('SubtensorModule', 'burned_register', {'netuid': netuid, 'hotkey': hotkey})
 
     @staticmethod
+    def claim_miner_emission(hotkey: 'AccountId32', netuid: 'NetUid') -> Call:
+        "Claim accrued miner (server) incentive alpha for `hotkey` on `netuid`.  When [`ClaimBasedMinerEmissions`] is enabled for the subnet, epoch distribution accrues miner incentive into [`PendingMinerAlpha`] instead of staking it every tempo. The coldkey that owns `hotkey` calls this to stake the pending balance.  An alpha fee proportional to this call's weight is recycled from the pending amount before the remainder is staked (see `staking/claim_miner.rs`). Validator dividends are unchanged and are never claimed through this extrinsic.  # Arguments * `origin`: Coldkey that owns `hotkey`. * `hotkey`: Mining hotkey with pending incentive. * `netuid`: Subnet the incentive was earned on.  # Events * `MinerIncentiveClaimed`: On success (includes staked amount and fee). * `AutoStakeAdded`: When the owner has an auto-stake destination on this subnet.  # Errors * `ClaimBasedMinerEmissionsDisabled`: Subnet still distributes every epoch. * `AmountTooLow`: No pending incentive to claim. * `NonAssociatedColdKey`: Signer does not own `hotkey`."
+        return Call('SubtensorModule', 'claim_miner_emission', {'hotkey': hotkey, 'netuid': netuid})
+
+    @staticmethod
     def claim_root(subnets: 'BTreeSet') -> Call:
         "Claims the root emissions for a coldkey across every validator it root-stakes to.  Redemption is fund-level: for each validator, the staker's accrued entitlement is paid as their pro-rata fraction of the basket's full-liquidation NAV and staked on root. The corresponding alpha fraction is sold; any concavity surplus over the NAV-priced entitlement remains in the basket as root TAO for the other holders. The `subnets` argument is retained for call-data compatibility with pre-basket clients; it is ignored — baskets have no per-subnet claim selection.  Prefer [`Pallet::claim_root_with_hotkey`] to claim a single validator.  Dust rows are not sold (see [`Pallet::claim_root_with_hotkey`]); the claimant's slice of them stays in the fund. A claim that is admitted and then fails is charged the work it did, not the declared envelope; a claim refused at admission keeps the envelope.  # Arguments * `origin`: The signature of the caller's coldkey. * `subnets`: Ignored. Kept so old clients' encoded call data still decodes.  # Events * `RootClaimed`: On successfully claiming the root emissions for a coldkey. * `BasketClaimDustSkipped`: Per fund whose dust rows were left unsold.  # Errors * `RootClaimTooHeavy`: More hotkeys or fund rows than one claim may walk."
         return Call('SubtensorModule', 'claim_root', {'subnets': subnets})
@@ -998,6 +1003,11 @@ class AdminUtils:
         return Call('AdminUtils', 'sudo_set_ck_burn', {'burn': burn})
 
     @staticmethod
+    def sudo_set_claim_based_miner_emissions(netuid: 'NetUid', enabled: 'bool') -> Call:
+        'Enables or disables claim-based miner emissions on one subnet.  When enabled, miner (server) incentive accrues in [`pallet_subtensor::PendingMinerAlpha`] and is staked only on `claim_miner_emission` (or forced payout). Validator dividends are unchanged. Root-only emergency toggle — subnet owners cannot flip this (returning to per-UID stake every epoch recreates the write load claim-based mode removes).'
+        return Call('AdminUtils', 'sudo_set_claim_based_miner_emissions', {'netuid': netuid, 'enabled': enabled})
+
+    @staticmethod
     def sudo_set_coldkey_swap_announcement_delay(duration: 'u32') -> Call:
         'Sets the announcement delay for coldkey swap.'
         return Call('AdminUtils', 'sudo_set_coldkey_swap_announcement_delay', {'duration': duration})
@@ -1181,6 +1191,11 @@ class AdminUtils:
     def sudo_set_min_non_immune_uids(netuid: 'NetUid', min: 'u16') -> Call:
         'Sets the minimum number of non-immortal & non-immune UIDs that must remain in a subnet'
         return Call('AdminUtils', 'sudo_set_min_non_immune_uids', {'netuid': netuid, 'min': min})
+
+    @staticmethod
+    def sudo_set_miner_claim_alpha_fee_per_weight_second(fee_per_weight_second: 'u64') -> Call:
+        'Sets the alpha (rao) charged per second of `claim_miner_emission` weight. See `pallet_subtensor::MinerClaimAlphaFeePerWeightSecond`. Root-only.'
+        return Call('AdminUtils', 'sudo_set_miner_claim_alpha_fee_per_weight_second', {'fee_per_weight_second': fee_per_weight_second})
 
     @staticmethod
     def sudo_set_net_tao_flow_enabled(enabled: 'bool') -> Call:
