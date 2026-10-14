@@ -563,6 +563,8 @@ fn dissolve_owner_cut_refund_logic() {
             .saturating_mul(frac)
             .floor()
             .saturating_to_num::<u64>();
+        // The pallet deducts the accrued owner-cut history, not issuance × share.
+        SubnetOwnerCutAccrued::<Test>::insert(net, AlphaBalance::from(owner_alpha_u64));
 
         // Use the current alpha price to estimate the TAO equivalent.
         let owner_emission_tao = {
@@ -605,6 +607,8 @@ fn dissolve_zero_refund_when_emission_exceeds_lock() {
         SubtensorModule::set_subnet_locked_balance(net, TaoBalance::from(1_000));
         set_subnet_owner_cut_for_test(net, u16::MAX); // 100 %
         Emission::<Test>::insert(net, vec![AlphaBalance::from(2_000)]);
+        // Owner-cut history large enough that its TAO value exceeds the lock.
+        SubnetOwnerCutAccrued::<Test>::insert(net, AlphaBalance::from(u64::MAX / 4));
 
         let before = SubtensorModule::get_coldkey_balance(&oc);
         assert_ok!(SubtensorModule::do_dissolve_network(net));
@@ -1555,6 +1559,8 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
             .saturating_mul(frac)
             .floor()
             .saturating_to_num::<u64>();
+        // The pallet deducts the accrued owner-cut history, not issuance × share.
+        SubnetOwnerCutAccrued::<Test>::insert(netuid, AlphaBalance::from(owner_alpha_u64));
 
         let owner_emission_tao: u64 = {
             // Fallback matches the pallet's fallback
@@ -1638,6 +1644,8 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
             .saturating_mul(frac)
             .floor()
             .saturating_to_num::<u64>();
+        // The pallet deducts the accrued owner-cut history, not issuance × share.
+        SubnetOwnerCutAccrued::<Test>::insert(netuid, AlphaBalance::from(owner_alpha_u64));
 
         let owner_emission_tao_u64 = {
             let price: U96F32 = U96F32::from_num(

@@ -321,8 +321,12 @@ impl<T: Config> Pallet<T> {
             let owner_cut_i = share(EmissionIndex::Owner);
             log::debug!("owner_cut_i: {owner_cut_i:?}");
             if owner_cut_i > asfloat!(0) {
+                let owner_cut_alpha: AlphaBalance = tou64!(owner_cut_i).into();
                 PendingOwnerCut::<T>::mutate(*netuid_i, |total| {
-                    *total = total.saturating_add(tou64!(owner_cut_i).into());
+                    *total = total.saturating_add(owner_cut_alpha);
+                });
+                SubnetOwnerCutAccrued::<T>::mutate(*netuid_i, |total| {
+                    *total = total.saturating_add(owner_cut_alpha);
                 });
             }
 

@@ -312,7 +312,9 @@ impl<T: Config> Pallet<T> {
     // ---------------------------------------------------------------------
 
     /// Seed a freshly registered subnet with the canonical vector, base
-    /// validator share and a unit multiplier.
+    /// validator share and a unit multiplier, and clear any per-subnet state a
+    /// previous occupant of this netuid may have left (lease marker, accrued
+    /// owner cut). Lease registration sets the marker after this runs.
     pub fn seed_subnet_emission_weights(netuid: NetUid) {
         if netuid.is_root() {
             return;
@@ -321,6 +323,8 @@ impl<T: Config> Pallet<T> {
         SubnetEmissionWeights::<T>::insert(netuid, Self::emission_weights_to_vec(weights));
         BaseValidatorEmissionShare::<T>::insert(netuid, Self::default_validator_emission());
         SubnetTaoWeightMultiplier::<T>::insert(netuid, U96F32::saturating_from_num(1));
+        SubnetCreatedViaLease::<T>::remove(netuid);
+        SubnetOwnerCutAccrued::<T>::remove(netuid);
     }
 
     /// Write a vector verbatim: no rule checks, no multiplier update, no

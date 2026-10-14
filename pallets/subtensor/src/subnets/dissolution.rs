@@ -299,7 +299,7 @@ impl<T: Config> Pallet<T> {
     pub fn remove_network_parameters(netuid: NetUid, weight_meter: &mut WeightMeter) -> bool {
         // Flat write charge for the `::remove(netuid)` list below. Bump this when
         // adding or removing entries from that list so the weight stays in step.
-        let removal_weight = T::DbWeight::get().writes(87);
+        let removal_weight = T::DbWeight::get().writes(92);
         if !weight_meter.can_consume(removal_weight) {
             return false;
         }
@@ -402,6 +402,11 @@ impl<T: Config> Pallet<T> {
         VotingPowerDisableAtBlock::<T>::remove(netuid);
         VotingPowerEmaAlpha::<T>::remove(netuid);
         TotalAlphaStaked::<T>::remove(netuid);
+        SubnetEmissionWeights::<T>::remove(netuid);
+        BaseValidatorEmissionShare::<T>::remove(netuid);
+        SubnetTaoWeightMultiplier::<T>::remove(netuid);
+        SubnetCreatedViaLease::<T>::remove(netuid);
+        SubnetOwnerCutAccrued::<T>::remove(netuid);
 
         if SubnetIdentitiesV3::<T>::contains_key(netuid) {
             SubnetIdentitiesV3::<T>::remove(netuid);

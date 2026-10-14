@@ -16,6 +16,7 @@ use frame_support::{assert_noop, assert_ok};
 use sp_core::U256;
 use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance};
+use subtensor_swap_interface::SwapHandler;
 
 const ONE: u64 = EMISSION_WEIGHT_ONE;
 const BURN: u16 = EmissionIndex::Burn as u16;
@@ -691,6 +692,8 @@ fn test_migration_seeds_from_legacy_owner_cut_state() {
             SubnetTaoWeightMultiplier::<Test>::insert(netuid, U96F32::saturating_from_num(3));
         }
         add_network(NetUid::ROOT, 1, 0);
+        SubnetAlphaOut::<Test>::insert(enabled, AlphaBalance::from(1_000_000_u64));
+        SubnetAlphaOut::<Test>::insert(disabled, AlphaBalance::from(2_000_000_u64));
         SubnetOwnerCut::<Test>::put(11_796u16);
         OwnerCutEnabled::<Test>::insert(disabled, false);
         SubnetUidToLeaseId::<Test>::insert(leased, 0u32);
@@ -735,6 +738,18 @@ fn test_migration_seeds_from_legacy_owner_cut_state() {
         assert!(!SubtensorModule::get_subnet_created_via_lease(enabled));
         assert!(!SubnetEmissionWeights::<Test>::contains_key(NetUid::ROOT));
 
+        // The accrued owner cut is seeded to the legacy refund deduction
+        // (issuance × global cut), independent of OwnerCutEnabled.
+        for netuid in [enabled, disabled, leased] {
+            let issuance = SubtensorModule::get_alpha_issuance(netuid).to_u64();
+            let expected = (issuance as u128 * 11_796 / u16::MAX as u128) as u64;
+            assert_eq!(
+                SubnetOwnerCutAccrued::<Test>::get(netuid).to_u64(),
+                expected,
+                "netuid {netuid:?}"
+            );
+        }
+
         // A re-run is a stamped no-op.
         SubtensorModule::set_subnet_emission_weights_unchecked(
             enabled,
@@ -749,5 +764,133 @@ fn test_migration_seeds_from_legacy_owner_cut_state() {
             SubtensorModule::get_subnet_emission_weights(enabled),
             [0, 0, 0, ONE / 2, ONE / 2 + 1]
         );
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Owner-cut history and netuid reuse
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_coinbase_accrues_owner_cut_history() {
+    new_test_ext(1).execute_with(|| {
+        let (_, owner, _, _, _) = emit_once(Some(pct(40)));
+        assert!(owner > 0);
+        let netuid = NetUid::from(1);
+        assert_eq!(SubnetOwnerCutAccrued::<Test>::get(netuid).to_u64(), owner);
+
+        // Draining the pending cut at epoch does not touch the history.
+        PendingOwnerCut::<Test>::insert(netuid, AlphaBalance::ZERO);
+        assert_eq!(SubnetOwnerCutAccrued::<Test>::get(netuid).to_u64(), owner);
+    });
+}
+
+#[test]
+fn test_dissolve_refund_deducts_accrued_owner_cut_not_current_share() {
+    new_test_ext(1).execute_with(|| {
+        let owner_cold = U256::from(70);
+        let owner_hot = U256::from(71);
+        let netuid = add_dynamic_network(&owner_hot, &owner_cold);
+        remove_owner_registration_stake(netuid);
+
+        // Legacy subnet: eligible for the lock refund.
+        let reg_at = NetworkRegisteredAt::<Test>::get(netuid);
+        NetworkRegistrationStartBlock::<Test>::put(reg_at.saturating_add(1));
+        let lock = TaoBalance::from(2_000_000_u64);
+        SubtensorModule::set_subnet_locked_balance(netuid, lock);
+        // A small pot (well below the refund) so no pot leftover is folded into the
+        // owner's payout, with a 1:1 reserve ratio so α prices at ~1 τ.
+        SubnetTAO::<Test>::insert(netuid, TaoBalance::from(1_000_u64));
+        SubnetAlphaIn::<Test>::insert(netuid, AlphaBalance::from(1_000_u64));
+
+        // The owner has already been paid 500_000 α of owner cut ...
+        let accrued = AlphaBalance::from(500_000_u64);
+        SubnetOwnerCutAccrued::<Test>::insert(netuid, accrued);
+        // ... and now zeroes the owner slot right before dissolving.
+        let (uids, values) = full_vector(0, pct(50));
+        assert_ok!(SubtensorModule::do_set_subnet_emission_weights(
+            netuid, uids, values
+        ));
+        assert_eq!(SubtensorModule::get_subnet_owner_emission_cut(netuid), 0);
+
+        let price = U96F32::saturating_from_num(
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into()),
+        );
+        let deduction: u64 = U96F32::from_num(accrued.to_u64())
+            .saturating_mul(price)
+            .floor()
+            .saturating_to_num::<u64>();
+        assert!(deduction > 1_000, "test needs a deduction above the pot");
+        let expected_refund = lock.to_u64() - deduction;
+
+        let before = SubtensorModule::get_coldkey_balance(&owner_cold);
+        assert_ok!(SubtensorModule::do_dissolve_network(netuid));
+        run_block_idle();
+        let after = SubtensorModule::get_coldkey_balance(&owner_cold);
+        let gain = after.to_u64() - before.to_u64();
+
+        assert!(
+            gain < lock.to_u64(),
+            "zeroing the owner slot must not restore the full lock: gain {gain}"
+        );
+        assert_abs_diff_eq!(gain as f64, expected_refund as f64, epsilon = 2.0);
+    });
+}
+
+#[test]
+fn test_dissolution_clears_emission_weight_state_and_reuse_starts_clean() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = new_subnet();
+        remove_owner_registration_stake(netuid);
+        let (uids, values) = full_vector(pct(20), pct(30));
+        assert_ok!(SubtensorModule::do_set_subnet_emission_weights(
+            netuid, uids, values
+        ));
+        SubnetCreatedViaLease::<Test>::insert(netuid, true);
+        SubnetOwnerCutAccrued::<Test>::insert(netuid, AlphaBalance::from(123_u64));
+        assert_ne!(
+            SubtensorModule::get_subnet_tao_weight_multiplier(netuid),
+            U96F32::saturating_from_num(1)
+        );
+
+        assert_ok!(SubtensorModule::do_dissolve_network(netuid));
+        run_block_idle();
+
+        assert!(!SubnetEmissionWeights::<Test>::contains_key(netuid));
+        assert!(!BaseValidatorEmissionShare::<Test>::contains_key(netuid));
+        assert!(!SubnetTaoWeightMultiplier::<Test>::contains_key(netuid));
+        assert!(!SubnetCreatedViaLease::<Test>::contains_key(netuid));
+        assert!(!SubnetOwnerCutAccrued::<Test>::contains_key(netuid));
+
+        // A plain registration reusing the netuid is not bound by the old lease.
+        let reused = add_dynamic_network(&U256::from(5), &U256::from(6));
+        assert_eq!(reused, netuid, "test expects the freed netuid to be reused");
+        assert!(!SubtensorModule::get_subnet_created_via_lease(reused));
+        assert_eq!(SubnetOwnerCutAccrued::<Test>::get(reused).to_u64(), 0);
+        assert_eq!(
+            SubtensorModule::get_subnet_emission_weights(reused),
+            SubtensorModule::default_emission_weights()
+        );
+        assert_eq!(
+            SubtensorModule::get_subnet_tao_weight_multiplier(reused),
+            U96F32::saturating_from_num(1)
+        );
+        // ... so it may lower its owner cut below the lease floor.
+        let (uids, values) = full_vector(pct(5), pct(45));
+        assert_ok!(SubtensorModule::do_set_subnet_emission_weights(
+            reused, uids, values
+        ));
+    });
+}
+
+#[test]
+fn test_registration_seed_clears_stale_lease_marker_even_without_cleanup() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(7);
+        SubnetCreatedViaLease::<Test>::insert(netuid, true);
+        SubnetOwnerCutAccrued::<Test>::insert(netuid, AlphaBalance::from(9_u64));
+        SubtensorModule::seed_subnet_emission_weights(netuid);
+        assert!(!SubtensorModule::get_subnet_created_via_lease(netuid));
+        assert_eq!(SubnetOwnerCutAccrued::<Test>::get(netuid).to_u64(), 0);
     });
 }

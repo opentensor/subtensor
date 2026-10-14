@@ -2512,6 +2512,14 @@ pub mod pallet {
     pub type PendingOwnerCut<T> =
         StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
 
+    /// MAP ( netuid ) --> cumulative alpha accrued to the owner slot since the subnet was
+    /// registered (seeded at migration from the legacy global cut). The legacy lock refund
+    /// on dissolution deducts this history, so it must not depend on the owner's current,
+    /// adjustable share.
+    #[pallet::storage]
+    pub type SubnetOwnerCutAccrued<T> =
+        StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
+
     /// Default miner-burned proportion.
     #[pallet::type_value]
     pub fn DefaultMinerBurned<T: Config>() -> U96F32 {
