@@ -4876,7 +4876,7 @@ fn test_epoch_distribution_auto_locks_owner_cut() {
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_max_allowed_validators(netuid, 1);
         step_block(subnet_tempo);
-        SubnetOwnerCut::<Test>::set(u16::MAX / 10);
+        set_subnet_owner_cut_for_test(netuid, u16::MAX / 10);
         OwnerCutAutoLockEnabled::<Test>::insert(netuid, true);
 
         let owner_uid =

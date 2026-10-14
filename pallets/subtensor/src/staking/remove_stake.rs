@@ -606,7 +606,7 @@ impl<T: Config> Pallet<T> {
             let total_emitted_alpha_u128: u128 = Self::get_alpha_issuance(netuid).to_u64() as u128;
 
             if total_emitted_alpha_u128 > 0 {
-                let owner_fraction: U96F32 = Self::get_float_subnet_owner_cut();
+                let owner_fraction: U96F32 = Self::get_float_subnet_owner_emission_cut(netuid);
                 let owner_alpha_u64 = U96F32::from_num(total_emitted_alpha_u128)
                     .saturating_mul(owner_fraction)
                     .floor()

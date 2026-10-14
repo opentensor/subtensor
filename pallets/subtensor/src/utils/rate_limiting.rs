@@ -18,6 +18,7 @@ pub enum TransactionType {
     MaxUidsTrimming,
     AddStakeBurn,
     TempoUpdate,
+    SetSubnetEmissionWeights,
 }
 
 impl TransactionType {
@@ -30,6 +31,7 @@ impl TransactionType {
             Self::MechanismCountUpdate => MechanismCountSetRateLimit::<T>::get(),
             Self::MechanismEmission => MechanismEmissionRateLimit::<T>::get(),
             Self::MaxUidsTrimming => MaxUidsTrimmingRateLimit::<T>::get(),
+            Self::SetSubnetEmissionWeights => SubnetEmissionWeightsRateLimit::<T>::get(),
             Self::Unknown => 0, // Default to no limit for unknown types (no limit)
             _ => 0,
         }
@@ -147,6 +149,7 @@ impl From<TransactionType> for u16 {
             TransactionType::MaxUidsTrimming => 9,
             TransactionType::AddStakeBurn => 10,
             TransactionType::TempoUpdate => 11,
+            TransactionType::SetSubnetEmissionWeights => 12,
         }
     }
 }
@@ -166,6 +169,7 @@ impl From<u16> for TransactionType {
             9 => TransactionType::MaxUidsTrimming,
             10 => TransactionType::AddStakeBurn,
             11 => TransactionType::TempoUpdate,
+            12 => TransactionType::SetSubnetEmissionWeights,
             _ => TransactionType::Unknown,
         }
     }

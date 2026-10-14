@@ -554,10 +554,10 @@ fn dissolve_owner_cut_refund_logic() {
         assert!(SubtensorModule::get_alpha_issuance(net).to_u64() > 0);
 
         // Owner cut = 11796 / 65535 (about 18%).
-        SubnetOwnerCut::<Test>::put(11_796u16);
+        set_subnet_owner_cut_for_test(net, 11_796u16);
 
         // Compute expected refund with the SAME math as the pallet.
-        let frac: U96F32 = SubtensorModule::get_float_subnet_owner_cut();
+        let frac: U96F32 = SubtensorModule::get_float_subnet_owner_emission_cut(net);
         let total_emitted_alpha: u64 = SubtensorModule::get_alpha_issuance(net).to_u64();
         let owner_alpha_u64: u64 = U96F32::from_num(total_emitted_alpha)
             .saturating_mul(frac)
@@ -603,7 +603,7 @@ fn dissolve_zero_refund_when_emission_exceeds_lock() {
         remove_owner_registration_stake(net);
 
         SubtensorModule::set_subnet_locked_balance(net, TaoBalance::from(1_000));
-        SubnetOwnerCut::<Test>::put(u16::MAX); // 100 %
+        set_subnet_owner_cut_for_test(net, u16::MAX); // 100 %
         Emission::<Test>::insert(net, vec![AlphaBalance::from(2_000)]);
 
         let before = SubtensorModule::get_coldkey_balance(&oc);
@@ -1518,7 +1518,7 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
         assert!(SubtensorModule::get_alpha_issuance(netuid).to_u64() > 0);
 
         // Owner already earned some emission; owner-cut = 50 %
-        SubnetOwnerCut::<Test>::put(32_768u16); // ~ 0.5 in fixed-point
+        set_subnet_owner_cut_for_test(netuid, 32_768u16); // ~ 0.5 in fixed-point
 
         // ── 4) balances before ──────────────────────────────────────────────
         let mut bal_before = [TaoBalance::new(0); N];
@@ -1549,7 +1549,7 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
         }
 
         // ── 5b) expected owner refund with price-aware emission deduction ───
-        let frac: U96F32 = SubtensorModule::get_float_subnet_owner_cut();
+        let frac: U96F32 = SubtensorModule::get_float_subnet_owner_emission_cut(netuid);
         let total_emitted_alpha: u64 = SubtensorModule::get_alpha_issuance(netuid).to_u64();
         let owner_alpha_u64: u64 = U96F32::from_num(total_emitted_alpha)
             .saturating_mul(frac)
@@ -1616,7 +1616,7 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
         let lock_u64: u64 = 50_000;
         SubtensorModule::set_subnet_locked_balance(netuid, TaoBalance::from(lock_u64));
         // Owner cut ≈ 50%
-        SubnetOwnerCut::<Test>::put(32_768u16);
+        set_subnet_owner_cut_for_test(netuid, 32_768u16);
 
         // give some stake to other key
         let other_cold = U256::from(1_234);
@@ -1632,7 +1632,7 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
         assert!(SubtensorModule::get_alpha_issuance(netuid).to_u64() > 0);
 
         // Compute expected refund using the same math as the pallet
-        let frac: U96F32 = SubtensorModule::get_float_subnet_owner_cut();
+        let frac: U96F32 = SubtensorModule::get_float_subnet_owner_emission_cut(netuid);
         let total_emitted_alpha: u64 = SubtensorModule::get_alpha_issuance(netuid).to_u64();
         let owner_alpha_u64: u64 = U96F32::from_num(total_emitted_alpha)
             .saturating_mul(frac)
@@ -1704,7 +1704,7 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
         );
         // ensure there was some Alpha issued
         assert!(SubtensorModule::get_alpha_issuance(netuid).to_u64() > 0);
-        SubnetOwnerCut::<Test>::put(32_768u16); // ~50%
+        set_subnet_owner_cut_for_test(netuid, 32_768u16); // ~50%
 
         // Balances before
         let owner_before = SubtensorModule::get_coldkey_balance(&owner_cold);
@@ -1750,7 +1750,7 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
         SubnetAlphaOut::<Test>::insert(netuid, AlphaBalance::from(10_000));
         // ensure there was some Alpha issued
         assert!(SubtensorModule::get_alpha_issuance(netuid).to_u64() > 0);
-        SubnetOwnerCut::<Test>::put(32_768u16); // ~50%
+        set_subnet_owner_cut_for_test(netuid, 32_768u16); // ~50%
 
         let owner_before = SubtensorModule::get_coldkey_balance(&owner_cold);
         let mut weight_meter =

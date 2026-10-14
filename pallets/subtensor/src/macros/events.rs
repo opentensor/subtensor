@@ -907,5 +907,18 @@ mod events {
             /// Pending pre-compaction commits cancelled in this step.
             cleared_commits: u32,
         },
+        /// The subnet owner or root set the subnet's emission weight vector.
+        SubnetEmissionWeightsSet {
+            /// Subnet whose vector changed.
+            netuid: NetUid,
+            /// Full post-merge vector `[burn, recycle, owner, validator, miner]` in
+            /// `u64::MAX` parts.
+            weights: Vec<u64>,
+            /// `base_validator_share / validator_share` applied to the global TAO weight on
+            /// this subnet.
+            tao_weight_multiplier: U96F32,
+            /// `min(1, TaoWeight × multiplier)` in `u64::MAX` parts.
+            effective_tao_weight: u64,
+        },
     }
 }
