@@ -1279,12 +1279,18 @@ mod benchmarks {
     fn sudo_set_subnet_emission_weights() {
         let netuid = NetUid::from(1);
         let owner = setup_worst_case_admin_subnet::<T>(netuid);
+        // Move one percent of emission from validators to miners on top of the
+        // seeded vector. Valid under any `InitialSubnetOwnerCut` (0 in the mock,
+        // 18% in production): the validator slot stays far above the TAO-weight
+        // floor and the miner slot only grows, so every rule check runs and passes.
         let current = pallet_subtensor::Pallet::<T>::get_subnet_emission_weights(netuid);
-        let owner_share = current
-            .get(pallet_subtensor::EmissionIndex::Owner.position())
-            .copied()
-            .unwrap_or(0);
-        let validator = pallet_subtensor::MAX_VALIDATOR_EMISSION;
+        let slot = |index: pallet_subtensor::EmissionIndex| -> u64 {
+            current.get(index.position()).copied().unwrap_or(0)
+        };
+        let one_percent = pallet_subtensor::emission_fraction(1, 100);
+        let owner_share = slot(pallet_subtensor::EmissionIndex::Owner);
+        let validator =
+            slot(pallet_subtensor::EmissionIndex::Validator).saturating_sub(one_percent);
         let miner = pallet_subtensor::EMISSION_WEIGHT_ONE
             .saturating_sub(owner_share)
             .saturating_sub(validator);
