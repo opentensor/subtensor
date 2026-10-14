@@ -160,6 +160,13 @@ DESCRIPTIONS: dict[str, str] = {
         "There is no active raise site in current code; if seen, check release notes for "
         "whether the call was re-enabled in a newer runtime version."
     ),
+    "ClaimBasedMinerEmissionsDisabled": (
+        "`claim_miner_emission` was called on a subnet that still stakes miner incentive "
+        "every epoch (`ClaimBasedMinerEmissions` is false). Accrual only happens when claim "
+        "mode is enabled; with it off there is nothing to claim and the call is refused. "
+        "Check `ClaimBasedMinerEmissions` for the netuid — root can re-enable with "
+        "`sudo_set_claim_based_miner_emissions`."
+    ),
     "CanNotSetRootNetworkWeights": (
         "`set_weights` was called with netuid 0, the root network, where weight setting is "
         "not allowed: root validators do not set weights at all. Use a non-root `netuid` "

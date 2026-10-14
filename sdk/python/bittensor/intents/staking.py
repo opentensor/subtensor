@@ -1604,6 +1604,47 @@ class TransferStake(Intent):
 
 @register
 @dataclass
+class ClaimMinerEmission(Intent):
+    """Claim accrued miner (server) incentive alpha on a subnet.
+
+    When claim-based miner emissions are enabled for the subnet, epoch
+    distribution accrues miner incentive into ``PendingMinerAlpha`` instead of
+    staking it every tempo. The coldkey that owns ``hotkey_ss58`` calls this
+    to stake the pending balance. An alpha fee proportional to the call's
+    weight is recycled from the pending amount before the remainder is
+    staked (or auto-staked to the coldkey's destination on that subnet).
+    Validator dividends are unchanged and are never claimed through this
+    extrinsic. Preview the pending amount with the ``pending_miner_emission``
+    read. Fails with ``ClaimBasedMinerEmissionsDisabled`` when the subnet
+    still distributes every epoch, and with ``AmountTooLow`` when nothing is
+    pending.
+    """
+
+    op = "claim_miner_emission"
+    signer = "coldkey"
+    wraps = (("SubtensorModule", "claim_miner_emission"),)
+
+    netuid: int = field(metadata={"help": "Subnet the incentive was earned on."})
+    hotkey_ss58: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "Mining hotkey with pending incentive. Defaults to the wallet's own hotkey."
+        },
+    )
+
+    async def build(self, substrate, wallet: Any):
+        hotkey = self.hotkey_address(wallet, self.hotkey_ss58)
+        return await substrate.compose(
+            calls.SubtensorModule.claim_miner_emission(hotkey=hotkey, netuid=self.netuid)
+        )
+
+    def summary(self) -> str:
+        target = self.hotkey_ss58 or "the wallet hotkey"
+        return f"claim pending miner incentive for {target} on netuid {self.netuid}"
+
+
+@register
+@dataclass
 class SetAutoStake(Intent):
     """Auto-stake future mining rewards on a subnet to a chosen hotkey.
 

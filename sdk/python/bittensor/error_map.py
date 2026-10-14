@@ -174,6 +174,7 @@ NAME_TO_CODE: dict[str, ErrorCode] = {
     "TransferDisallowed": _C.DISABLED,
     "ActivityCutoffTooLow": _C.INVALID_ARGUMENT,
     "CallDisabled": _C.DISABLED,
+    "ClaimBasedMinerEmissionsDisabled": _C.DISABLED,
     "FirstEmissionBlockNumberAlreadySet": _C.ALREADY_EXISTS,
     "NeedWaitingMoreBlocksToStarCall": _C.TOO_EARLY,
     "StartCallNotReady": _C.TOO_EARLY,

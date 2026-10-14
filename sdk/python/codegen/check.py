@@ -221,6 +221,8 @@ RAW_ONLY: dict[str, set[str]] = {
         "sudo_set_adjustment_interval",
         "sudo_set_admin_freeze_window",
         "sudo_set_ck_burn",
+        # claim-based miner emissions — root-only emergency toggle / fee knob
+        "sudo_set_claim_based_miner_emissions",
         "sudo_set_coldkey_swap_announcement_delay",
         "sudo_set_coldkey_swap_reannouncement_delay",
         "sudo_set_commit_reveal_version",
@@ -243,6 +245,7 @@ RAW_ONLY: dict[str, set[str]] = {
         # still reachable via `btcli call` if needed
         "sudo_set_mechanism_emission_split",
         "sudo_set_max_registrations_per_block",
+        "sudo_set_miner_claim_alpha_fee_per_weight_second",
         "sudo_set_min_allowed_uids",
         "sudo_set_min_delegate_take",
         "sudo_set_min_difficulty",
