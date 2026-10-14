@@ -1260,6 +1260,31 @@ mod benchmarks {
     }
 
     #[benchmark]
+    fn sudo_set_subnet_emission_weights() {
+        let netuid = NetUid::from(1);
+        let owner = setup_worst_case_admin_subnet::<T>(netuid);
+        let current = pallet_subtensor::Pallet::<T>::get_subnet_emission_weights(netuid);
+        let owner_share = current
+            .get(pallet_subtensor::EmissionIndex::Owner.as_usize())
+            .copied()
+            .unwrap_or(0);
+        let validator = pallet_subtensor::MAX_VALIDATOR_EMISSION;
+        let miner = pallet_subtensor::EMISSION_WEIGHT_ONE
+            .saturating_sub(owner_share)
+            .saturating_sub(validator);
+        let uids = vec![0u16, 1, 2, 3, 4];
+        let values = vec![0u64, 0, owner_share, validator, miner];
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(owner), netuid, uids, values);
+
+        assert_eq!(
+            pallet_subtensor::Pallet::<T>::get_subnet_emission_weights(netuid),
+            [0, 0, owner_share, validator, miner]
+        );
+    }
+
+    #[benchmark]
     fn sudo_set_basket_claim_dust() {
         #[extrinsic_call]
         _(

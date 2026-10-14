@@ -145,6 +145,12 @@ pub trait WeightInfo {
 	fn sudo_set_basket_min_trade_tao() -> Weight {
 		Self::sudo_set_basket_liquidity_cap()
 	}
+	/// Same owner-or-root rate-limit check, admin-window read and single bounded
+	/// write as the mechanism emission split setter. CI reference benchmarking
+	/// replaces this shared envelope with measured weights.
+	fn sudo_set_subnet_emission_weights() -> Weight {
+		Self::sudo_set_mechanism_emission_split()
+	}
 }
 
 /// Weights for `pallet_admin_utils` using the Substrate node and recommended hardware.
