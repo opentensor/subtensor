@@ -81,6 +81,8 @@
     "auto-stake-all",
     "basket-position",
     "basket-trading-status",
+    "pending-miner-emission",
+    "pending-miner-emission-total",
     "root-basket-owed",
     "root-basket-owed-breakdown",
     "root-basket-portfolio",

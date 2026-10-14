@@ -45,6 +45,7 @@
     "associate-evm-key",
     "associate-hotkey",
     "burned-register",
+    "claim-miner-emission",
     "claim-root",
     "claim-root-with-hotkey",
     "clear-coldkey-swap-announcement",
