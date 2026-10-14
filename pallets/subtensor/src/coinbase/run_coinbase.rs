@@ -304,7 +304,7 @@ impl<T: Config> Pallet<T> {
             let weights = Self::get_subnet_emission_weights(*netuid_i);
             let share = |index: EmissionIndex| -> U96F32 {
                 alpha_out_i.saturating_mul(Self::emission_weight_to_fixed(
-                    weights.get(index.as_usize()).copied().unwrap_or(0),
+                    weights.get(index.position()).copied().unwrap_or(0),
                 ))
             };
 

@@ -1265,7 +1265,7 @@ mod benchmarks {
         let owner = setup_worst_case_admin_subnet::<T>(netuid);
         let current = pallet_subtensor::Pallet::<T>::get_subnet_emission_weights(netuid);
         let owner_share = current
-            .get(pallet_subtensor::EmissionIndex::Owner.as_usize())
+            .get(pallet_subtensor::EmissionIndex::Owner.position())
             .copied()
             .unwrap_or(0);
         let validator = pallet_subtensor::MAX_VALIDATOR_EMISSION;

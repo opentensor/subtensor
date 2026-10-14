@@ -15,8 +15,8 @@ use sp_std::{vec, vec::Vec};
 use subtensor_runtime_common::{NetUid, TaoBalance, Token};
 
 use crate::{PrecompileExt, PrecompileHandleExt};
+use pallet_subtensor::EMISSION_WEIGHT_SLOTS;
 use pallet_subtensor::subnets::dissolution::DissolveCleanupPhase;
-use pallet_subtensor::{EMISSION_WEIGHT_SLOTS, TAO_WEIGHT_MULTIPLIER_SCALE};
 
 pub struct SubnetPrecompile<R>(PhantomData<R>);
 
@@ -1486,6 +1486,7 @@ mod tests {
         AccountId, Runtime, addr_from_index, assert_static_call, execute_precompile,
         mapped_account, new_test_ext, precompiles, selector_u32,
     };
+    use pallet_subtensor::TAO_WEIGHT_MULTIPLIER_SCALE;
     use precompile_utils::solidity::encode_with_selector;
     use precompile_utils::testing::PrecompileTesterExt;
     use sp_core::{H160, H256, U256};

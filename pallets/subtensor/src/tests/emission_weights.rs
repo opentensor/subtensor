@@ -13,7 +13,7 @@ use crate::*;
 use alloc::collections::BTreeMap;
 use approx::assert_abs_diff_eq;
 use frame_support::{assert_noop, assert_ok};
-use sp_core::{Get, U256};
+use sp_core::U256;
 use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance};
 
@@ -58,7 +58,7 @@ fn test_constants_are_consistent() {
     assert_eq!(emission_fraction(0, 1), 0);
     assert_eq!(EmissionIndex::ALL.len(), EMISSION_WEIGHT_SLOTS as usize);
     for (position, index) in EmissionIndex::ALL.iter().enumerate() {
-        assert_eq!(index.as_usize(), position);
+        assert_eq!(index.position(), position);
         assert_eq!(EmissionIndex::from_u16(position as u16), Some(*index));
     }
     assert_eq!(EmissionIndex::from_u16(EMISSION_WEIGHT_SLOTS as u16), None);
@@ -558,7 +558,7 @@ fn emit_once(validator_share: Option<u64>) -> (u64, u64, u64, u64, u64) {
         TaoBalance::from(1_000_000_000_000_000_u64),
         AlphaBalance::from(1_000_000_000_000_000_u64),
     );
-    Swap::maybe_initialize_palswap(netuid, None);
+    assert_ok!(Swap::maybe_initialize_palswap(netuid, None));
     if let Some(validator) = validator_share {
         let (uids, values) = full_vector(pct(10), validator);
         assert_ok!(SubtensorModule::do_set_subnet_emission_weights(
@@ -566,7 +566,7 @@ fn emit_once(validator_share: Option<u64>) -> (u64, u64, u64, u64, u64) {
         ));
     }
 
-    let tao_emission = U96F32::saturating_from_num(12_345_678);
+    let tao_emission = U96F32::from_num(12_345_678);
     let subnet_emissions = BTreeMap::from([(netuid, tao_emission)]);
     let alpha_emission = SubtensorModule::get_block_emission_for_issuance(
         SubtensorModule::get_alpha_issuance(netuid).into(),

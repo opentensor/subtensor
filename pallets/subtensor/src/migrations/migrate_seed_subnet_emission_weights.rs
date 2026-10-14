@@ -74,7 +74,7 @@ pub fn seed_for<T: Config>(netuid: NetUid, legacy_owner_cut: u16) -> (EmissionWe
     };
     let weights = Pallet::<T>::emission_weights_with_owner(owner);
     let validator = weights
-        .get(EmissionIndex::Validator.as_usize())
+        .get(EmissionIndex::Validator.position())
         .copied()
         .unwrap_or(0);
     (weights, validator)

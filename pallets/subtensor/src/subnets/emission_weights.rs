@@ -38,7 +38,13 @@ pub type EmissionWeights = [u64; EMISSION_WEIGHT_SLOTS as usize];
 
 /// `num / den` expressed in parts of [`EMISSION_WEIGHT_ONE`].
 pub const fn emission_fraction(num: u64, den: u64) -> u64 {
-    ((EMISSION_WEIGHT_ONE as u128).saturating_mul(num as u128) / (den as u128)) as u64
+    match (EMISSION_WEIGHT_ONE as u128)
+        .saturating_mul(num as u128)
+        .checked_div(den as u128)
+    {
+        Some(parts) => parts as u64,
+        None => 0,
+    }
 }
 
 /// Owner slot may be at most 33% of emission.
@@ -104,7 +110,7 @@ impl EmissionIndex {
     }
 
     /// Position of this slot in the vector.
-    pub const fn as_usize(self) -> usize {
+    pub const fn position(self) -> usize {
         self as u16 as usize
     }
 }
@@ -116,7 +122,9 @@ impl<T: Config> Pallet<T> {
 
     /// Scale a legacy `u16 / u16::MAX` fraction to `u64 / u64::MAX` parts.
     pub fn scale_u16_fraction_to_emission_weight(value: u16) -> u64 {
-        ((value as u128).saturating_mul(EMISSION_WEIGHT_ONE as u128) / (u16::MAX as u128)) as u64
+        (value as u128)
+            .saturating_mul(EMISSION_WEIGHT_ONE as u128)
+            .safe_div(u16::MAX as u128) as u64
     }
 
     /// Canonical owner share for subnets that never set a vector: the legacy
@@ -151,7 +159,6 @@ impl<T: Config> Pallet<T> {
     /// `[0, 0, owner, validator, miner]` with the non-owner remainder split
     /// evenly between validators and miners (miner absorbs rounding).
     pub fn emission_weights_with_owner(owner: u64) -> EmissionWeights {
-        let owner = owner.min(EMISSION_WEIGHT_ONE);
         let validator = EMISSION_WEIGHT_ONE.saturating_sub(owner) / 2;
         let miner = EMISSION_WEIGHT_ONE
             .saturating_sub(owner)
@@ -180,7 +187,7 @@ impl<T: Config> Pallet<T> {
     /// One slot of the subnet's emission weight vector.
     pub fn get_subnet_emission_weight(netuid: NetUid, index: EmissionIndex) -> u64 {
         Self::get_subnet_emission_weights(netuid)
-            .get(index.as_usize())
+            .get(index.position())
             .copied()
             .unwrap_or_default()
     }
@@ -271,7 +278,9 @@ impl<T: Config> Pallet<T> {
     pub fn min_validator_emission_for_tao_weight(netuid: NetUid) -> u64 {
         let base = Self::get_base_validator_emission_share(netuid) as u128;
         let tao_weight = TaoWeight::<T>::get() as u128;
-        let floor = (base.saturating_mul(tao_weight) / (EMISSION_WEIGHT_ONE as u128)) as u64;
+        let floor = base
+            .saturating_mul(tao_weight)
+            .safe_div(EMISSION_WEIGHT_ONE as u128) as u64;
         floor.max(1)
     }
 
@@ -335,7 +344,7 @@ impl<T: Config> Pallet<T> {
         );
         let mut merged = current;
         for reserved in [EmissionIndex::Burn, EmissionIndex::Recycle] {
-            if let Some(target) = merged.get_mut(reserved.as_usize()) {
+            if let Some(target) = merged.get_mut(reserved.position()) {
                 *target = 0;
             }
         }
@@ -343,7 +352,7 @@ impl<T: Config> Pallet<T> {
         for (uid, value) in uids.iter().zip(values.iter()) {
             let index =
                 EmissionIndex::from_u16(*uid).ok_or(Error::<T>::EmissionWeightIndexOutOfRange)?;
-            let slot = index.as_usize();
+            let slot = index.position();
             ensure!(
                 !seen.get(slot).copied().unwrap_or(true),
                 Error::<T>::EmissionWeightIndexDuplicated
@@ -364,7 +373,7 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         weights: &EmissionWeights,
     ) -> DispatchResult {
-        let slot = |index: EmissionIndex| weights.get(index.as_usize()).copied().unwrap_or(0);
+        let slot = |index: EmissionIndex| weights.get(index.position()).copied().unwrap_or(0);
 
         ensure!(
             slot(EmissionIndex::Burn) == 0,
@@ -430,7 +439,7 @@ impl<T: Config> Pallet<T> {
 
         let base_validator = Self::get_base_validator_emission_share(netuid);
         let validator = merged
-            .get(EmissionIndex::Validator.as_usize())
+            .get(EmissionIndex::Validator.position())
             .copied()
             .unwrap_or(0);
         let multiplier = Self::compute_tao_weight_multiplier(base_validator, validator);
