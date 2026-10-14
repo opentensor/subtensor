@@ -971,72 +971,32 @@ impl Client {
         extrinsic_index: u32,
     ) -> Result<TxOutcome, CoreError> {
         let records = self.query("System", "Events", &[], Some(&block_hash))?;
-        let mut events = Vec::new();
-        if let Value::List(items) = records {
-            for item in items {
-                if field(&item, "extrinsic_idx")
-                    .and_then(as_u128)
-                    .is_some_and(|index| index == u128::from(extrinsic_index))
-                {
-                    events.push(item);
-                }
-            }
-        }
         let runtime = self.runtime()?;
-        let mut success = events
-            .iter()
-            .any(|event| event_is(event, "System", "ExtrinsicSuccess"));
-        let mut error = events
-            .iter()
-            .find(|event| event_is(event, "System", "ExtrinsicFailed"))
-            .and_then(event_attributes)
-            .and_then(|attributes| field(attributes, "dispatch_error").or(Some(attributes)))
-            .map(|value| dispatch_error(&runtime, value))
-            .transpose()?;
-
-        if error.is_none() {
-            for (module, event_name) in [
-                ("Proxy", "ProxyExecuted"),
-                ("Sudo", "Sudid"),
-                ("Multisig", "MultisigExecuted"),
-            ] {
-                let Some(attributes) = events
-                    .iter()
-                    .find(|event| event_is(event, module, event_name))
-                    .and_then(event_attributes)
-                else {
-                    continue;
-                };
-                let result = field(attributes, "result").unwrap_or(attributes);
-                if let Some(inner) = variant(result, "Err") {
-                    error = Some(dispatch_error(&runtime, inner)?);
-                    success = false;
-                    break;
-                }
-            }
-        }
-
-        let fee_rao = events
-            .iter()
-            .find(|event| event_is(event, "TransactionPayment", "TransactionFeePaid"))
-            .and_then(event_attributes)
-            .and_then(|attributes| field(attributes, "actual_fee"))
-            .and_then(as_u128);
-        let message = match &error {
-            Some(error) => error.to_string(),
-            None if success => "extrinsic succeeded".into(),
+        let events = crate::protocol::receipt::events_for_extrinsic(&records, extrinsic_index)?;
+        let outcome = crate::protocol::receipt::resolve_outcome(&runtime, &events)?;
+        let message = match &outcome.error {
+            Some(error) => error.result_message()?,
+            None if outcome.success => "extrinsic succeeded".into(),
             None => "extrinsic did not emit System.ExtrinsicSuccess".into(),
         };
+        let fee_rao = events
+            .iter()
+            .any(|event| {
+                event_is(event, "TransactionPayment", "TransactionFeePaid")
+                    || event_is(event, "Treasury", "Deposit")
+                    || event_is(event, "Balances", "Deposit")
+            })
+            .then_some(u128::from(outcome.total_fee_amount));
         Ok(TxOutcome {
-            success,
+            success: outcome.success,
             extrinsic_hash,
             block_hash: Some(block_hash),
             block_number: Some(block_number),
             extrinsic_index: Some(extrinsic_index),
             fee_rao,
-            events,
-            error,
+            error: outcome.error.map(dispatch_error_info),
             message,
+            events,
             data: BTreeMap::new(),
         })
     }
@@ -1292,11 +1252,6 @@ fn decode_storage(
     crate::protocol::storage::decode_storage(runtime, info, raw)
 }
 
-fn dispatch_error(runtime: &Runtime, value: &Value) -> Result<DispatchError, CoreError> {
-    let error = crate::protocol::dispatch_error::decode(runtime, value)?
-        .ok_or_else(|| CoreError::Codec("dispatch error has no diagnostic".into()))?;
-    Ok(dispatch_error_info(error))
-}
 fn dispatch_error_info(error: crate::protocol::dispatch_error::DispatchErrorInfo) -> DispatchError {
     let docs = match error.docs {
         Value::List(docs) => docs
@@ -1360,11 +1315,6 @@ fn event_is(record: &Value, module: &str, name: &str) -> bool {
             .or_else(|| field(record, "event").and_then(|event| field(event, "event_id")))
             .and_then(as_str)
             == Some(name)
-}
-
-fn event_attributes(record: &Value) -> Option<&Value> {
-    field(record, "attributes")
-        .or_else(|| field(record, "event").and_then(|event| field(event, "attributes")))
 }
 
 /// Flatten `get_subnet_hyperparams_v3`'s `[{name, value}, ...]` list into a

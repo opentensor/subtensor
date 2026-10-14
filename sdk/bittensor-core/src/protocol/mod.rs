@@ -5,6 +5,7 @@ pub mod dispatch_error;
 pub mod extrinsic_lookup;
 pub mod fee;
 pub mod metadata;
+pub mod receipt;
 pub mod runtime_api;
 pub mod storage;
 
