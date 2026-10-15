@@ -402,6 +402,157 @@ fn pq_delegates_preserve_identity_and_classical_delegates_are_rejected() {
 }
 
 #[test]
+fn derived_protection_cannot_elevate_restricted_proxies_through_evm() {
+    use pallet_evm::{AddressMapping, FeeCalculator};
+    use sp_core::{H160, U256};
+    for kind in 0..3 {
+        with_profiles(|| {
+            let parent = register(54);
+            let member = register(55);
+            let delegate = register(56);
+            let attacker = register(57);
+            let descriptor = match kind {
+                0 => {
+                    let mut members = vec![parent.clone(), member];
+                    members.sort();
+                    DerivedDescriptor::Multisig {
+                        threshold: 2,
+                        signatories: members.try_into().unwrap(),
+                    }
+                }
+                1 => DerivedDescriptor::Derivative {
+                    parent: parent.clone(),
+                    index: 42,
+                },
+                _ => {
+                    assert_ok!(Proxy::create_protected_pure(
+                        RuntimeOrigin::signed(parent.clone()),
+                        ProxyType::Any,
+                        0,
+                        42
+                    ));
+                    DerivedDescriptor::PureProxy {
+                        spawner: parent.clone(),
+                        proxy_type: ProxyType::Any.encode().try_into().unwrap(),
+                        index: 42,
+                        height: System::block_number(),
+                        extrinsic_index: System::extrinsic_index().unwrap_or_default(),
+                    }
+                }
+            };
+            let account = descriptor.account_id();
+            let _ =
+                Balances::make_free_balance_be(&account, TaoBalance::new(1_000_000_000_000_000));
+            assert_ok!(Proxy::add_proxy(
+                RuntimeOrigin::signed(account.clone()),
+                delegate.clone().into(),
+                ProxyType::NonCritical,
+                0
+            ));
+            assert_ok!(HashedAccounts::register_derived(
+                RuntimeOrigin::signed(account.clone()),
+                descriptor
+            ));
+            let source = H160::from_slice(&AsRef::<[u8; 32]>::as_ref(&account)[..20]);
+            assert_eq!(
+                crate::evm_origin::HashedAddressMapping::into_account_id(source),
+                account
+            );
+            assert!(
+                Proxy::proxies(account.clone())
+                    .0
+                    .iter()
+                    .any(|p| p.delegate == delegate && p.proxy_type == ProxyType::NonCritical)
+            );
+            let escalation = RuntimeCall::Proxy(pallet_proxy::Call::add_proxy {
+                delegate: attacker.clone().into(),
+                proxy_type: ProxyType::Any,
+                delay: 0,
+            });
+            let evm = RuntimeCall::EVM(pallet_evm::Call::call {
+                source,
+                target: H160::from_low_u64_be(6),
+                input: escalation.encode(),
+                value: U256::zero(),
+                gas_limit: 5_000_000,
+                max_fee_per_gas: <Runtime as pallet_evm::Config>::FeeCalculator::min_gas_price().0,
+                max_priority_fee_per_gas: None,
+                nonce: None,
+                access_list: vec![],
+                authorization_list: Default::default(),
+            });
+            let nested = RuntimeCall::Utility(pallet_utility::Call::batch_all {
+                calls: vec![evm.clone()],
+            });
+            for inner in [evm.clone(), nested] {
+                System::reset_events();
+                assert_ok!(Proxy::proxy(
+                    RuntimeOrigin::signed(delegate.clone()),
+                    account.clone().into(),
+                    Some(ProxyType::NonCritical),
+                    Box::new(inner)
+                ));
+                assert!(System::events().iter().any(|record| matches!(&record.event,
+                    RuntimeEvent::Proxy(pallet_proxy::Event::ProxyExecuted { result: Err(error) })
+                    if *error == frame_system::Error::<Runtime>::CallFiltered.into()
+                )));
+                assert!(
+                    !Proxy::proxies(account.clone())
+                        .0
+                        .iter()
+                        .any(|p| p.delegate == attacker)
+                );
+            }
+            let call_hash = sp_io::hashing::blake2_256(&evm.encode()).into();
+            assert_ok!(Proxy::announce(
+                RuntimeOrigin::signed(delegate.clone()),
+                account.clone().into(),
+                call_hash
+            ));
+            System::reset_events();
+            assert_ok!(Proxy::proxy_announced(
+                RuntimeOrigin::signed(parent),
+                delegate.clone().into(),
+                account.clone().into(),
+                Some(ProxyType::NonCritical),
+                Box::new(evm.clone())
+            ));
+            assert!(System::events().iter().any(|record| matches!(&record.event,
+                RuntimeEvent::Proxy(pallet_proxy::Event::ProxyExecuted { result: Err(error) })
+                if *error == frame_system::Error::<Runtime>::CallFiltered.into()
+            )));
+            assert!(
+                !Proxy::proxies(account.clone())
+                    .0
+                    .iter()
+                    .any(|p| p.delegate == attacker)
+            );
+            // A grant of full authority may use precisely the same EVM call.
+            // This proves the negative cases are filter enforcement, not an
+            // unusable payload, gas shortage or unrelated precompile failure.
+            assert_ok!(Proxy::add_proxy(
+                RuntimeOrigin::signed(account.clone()),
+                delegate.clone().into(),
+                ProxyType::Any,
+                0
+            ));
+            assert_ok!(Proxy::proxy(
+                RuntimeOrigin::signed(delegate),
+                account.clone().into(),
+                Some(ProxyType::Any),
+                Box::new(evm)
+            ));
+            assert!(
+                Proxy::proxies(account)
+                    .0
+                    .iter()
+                    .any(|p| p.delegate == attacker && p.proxy_type == ProxyType::Any)
+            );
+        });
+    }
+}
+
+#[test]
 fn protected_derivatives_and_pure_proxies_preserve_their_floor_through_lifecycle() {
     with_profiles(|| {
         let parent = register(50);

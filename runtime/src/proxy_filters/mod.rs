@@ -96,10 +96,11 @@ type NonFungibleAllowed = (
 /// wrappers (they re-dispatch a caller-supplied call as the real coldkey),
 /// Multisig wrappers, `store_encrypted`, owner-key rotation, deferred order approvals,
 /// protected-account creation, or basket
-/// trading (which needs the explicit `BasketTrading` grant).
+/// trading (which needs the explicit `BasketTrading` grant). EVM execution can
+/// reconstruct an unrestricted native origin through precompiles, so it requires
+/// full authority even when the requested target is an ordinary contract.
 type NonCriticalAllowed = (
     InfraCommonCalls,
-    EvmCalls,
     ContractsCalls,
     AdminAll,
     BalanceTransferCalls,
@@ -572,7 +573,7 @@ mod tests {
         let denied = &(&(&group_calls::<SudoCalls>() | &group_calls::<BurnedRegistrationCalls>())
             | &(&group_calls::<RootRegistrationCalls>() | &group_calls::<CriticalNetworkCalls>()))
             | &group_calls::<ColdkeySwapCalls>();
-        let denied = &denied | &group_calls::<(CrowdloanCalls, MultisigCalls)>();
+        let denied = &denied | &group_calls::<(EvmCalls, CrowdloanCalls, MultisigCalls)>();
         let denied = &denied | &group_calls::<BasketTradingCalls>();
         let denied = &denied
             | &group_calls::<(
@@ -642,12 +643,12 @@ mod tests {
             assert_eq!(info.proxy_type, proxy_type as u8);
             for call in &calls {
                 let metadata = call.get_call_metadata();
-                let is_crowdloan = metadata.pallet_name == "Crowdloan";
+                let recreates_origin = matches!(metadata.pallet_name, "Crowdloan" | "EVM");
                 // Crowdloan wrappers re-dispatch as the real coldkey; they stay on Any
-                // only. EVM / Contracts remain on NonCritical.
+                // only. EVM precompiles also recreate an unrestricted origin.
                 let expected = match proxy_type {
                     ProxyType::Any => true,
-                    ProxyType::NonCritical => !is_crowdloan,
+                    ProxyType::NonCritical => !recreates_origin,
                     ProxyType::NonTransfer | ProxyType::NonFungible => false,
                     _ => false,
                 };

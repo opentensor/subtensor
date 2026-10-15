@@ -335,3 +335,141 @@ async def test_original_owner_calls_embed_the_same_nonce_and_complete_terms(wall
                 }
             ]
         )
+
+
+@pytest.mark.parametrize("crypto_type", [4, 6, 7, 8])
+@pytest.mark.parametrize("route", ["prepare", "authorize", "execute", "netted"])
+@pytest.mark.parametrize("registration", ["missing", "unfinalized", "mismatch", "finalized"])
+async def test_fee_descriptors_require_matching_finalized_registration(
+    crypto_type, route, registration
+):
+    from bittensor.hashed import descriptor_storage, descriptor_value
+    from bittensor.receiving import receiving_address
+    from tests.harness.samples import dev_wallet
+
+    key = Keypair.create_from_seed(bytes([43]) * 32, crypto_type)
+    descriptor = bytes(key.hashed_descriptor)
+    chain = OrderSubstrate()
+    finalized = await chain.block_hash(await chain.finalized_block_number())
+    value = order(dev_wallet().coldkey.ss58_address)
+    value["V1"]["fee_rate"] = 10_000_000
+    value["V1"]["fee_recipient"] = receiving_address(key)
+    original = deepcopy(value)
+    record = {"descriptor": descriptor_value(descriptor)}
+    if registration == "mismatch":
+        other = Keypair.create_from_seed(bytes([44]) * 32, crypto_type)
+        record = {"descriptor": descriptor_value(bytes(other.hashed_descriptor))}
+
+    async def query(module, storage, params=None, block_hash=None):
+        assert (module, storage, params) == (
+            "HashedAccounts",
+            descriptor_storage(descriptor),
+            [key.ss58_address],
+        )
+        assert block_hash == finalized
+        # A record visible only at the best head does not protect a payment.
+        if registration == "missing" or (registration == "unfinalized" and block_hash):
+            return None
+        return record
+
+    chain.query = AsyncMock(side_effect=query)
+    chain.compose = AsyncMock(wraps=chain.compose)
+    if route in ("execute", "netted"):
+        signed = {"order": value, "signature": {"Sr25519": "0x" + "00" * 64}, "partial_fill": None}
+        intent = (ExecuteOrders if route == "execute" else ExecuteBatchedOrders)([signed])
+        # Serialization and reconstruction must retain the payment descriptor.
+        assert intent.to_dict()["orders"][0]["order"]["V1"]["fee_recipient"] == receiving_address(
+            key
+        )
+        action = intent.build(chain, dev_wallet())
+    elif route == "authorize":
+        intent = AuthorizeOrder(1, value)
+        assert intent.to_dict()["order"]["V1"]["fee_recipient"] == receiving_address(key)
+        action = intent.build(chain, dev_wallet())
+    else:
+        action = prepare_order(chain, 1, value)
+    if registration != "finalized":
+        with pytest.raises(
+            ValueError, match=r"(registration is not finalized|descriptor does not match)"
+        ):
+            await action
+        chain.compose.assert_not_called()
+    else:
+        # Registration is permanent: no activation-flag lookup is necessary.
+        result = await action
+        assert result is not None
+        for call in chain.compose.call_args_list:
+            assert receiving_address(key) not in str(call)
+    chain.query.assert_awaited_once()
+    assert value == original
+
+
+@pytest.mark.parametrize("route", [ExecuteOrders, ExecuteBatchedOrders])
+@pytest.mark.parametrize("proof", ["AccountApproved", "MlDsa"])
+async def test_authorized_order_relays_preserve_fee_descriptors(route, proof):
+    from bittensor.hashed import descriptor_value
+    from bittensor.limit_orders import authorized_order
+    from bittensor.receiving import receiving_address
+    from tests.harness.samples import dev_wallet
+
+    key = Keypair.create_from_seed(bytes([45]) * 32, 8)
+    value = order(BOB)
+    value["V1"]["fee_recipient"] = receiving_address(key)
+    signature = "AccountApproved"
+    if proof == "MlDsa":
+        signature = {"MlDsa": {"epoch": 1, "public_key": "00" * 1952, "signature": "00" * 3309}}
+    intent = route(
+        [{"order": authorized_order(3, value), "signature": signature, "partial_fill": None}]
+    )
+    chain = OrderSubstrate()
+    chain.query = AsyncMock(return_value=None)
+    with pytest.raises(ValueError, match="registration is not finalized"):
+        await intent.build(chain, dev_wallet())
+    chain.query.return_value = {"descriptor": descriptor_value(bytes(key.hashed_descriptor))}
+    built = await intent.build(chain, dev_wallet())
+    terms = built.params["orders"][0]["order"]["Authorized"]["terms"]["V1"]
+    assert terms["fee_recipient"] == key.ss58_address
+    assert intent.orders[0]["order"]["Authorized"]["terms"]["V1"] == value["V1"]
+
+
+async def test_trading_capability_retains_fee_descriptor_until_finalized_setup():
+    from bittensor.hashed import descriptor_value
+    from bittensor.intents.limit_orders import InstallOrderCapability
+    from bittensor.receiving import receiving_address
+    from tests.harness.samples import dev_wallet
+
+    key = Keypair.create_from_seed(bytes([46]) * 32, 7)
+    scope = {
+        "Trading": {
+            "netuid": 1,
+            "hotkey": BOB,
+            "fee_recipient": receiving_address(key),
+            "max_fee_perbill": 1_000_000,
+            "max_tao_per_order": 100,
+            "max_alpha_per_order": 0,
+            "total_tao": 1000,
+            "total_alpha": 0,
+        }
+    }
+    intent = InstallOrderCapability(1, "01" * 64, 1000, scope)
+    chain = OrderSubstrate()
+    chain.query = AsyncMock(return_value=None)
+    with pytest.raises(ValueError, match="registration is not finalized"):
+        await intent.build(chain, dev_wallet())
+    assert intent.to_dict()["scope"] == scope
+    chain.query.return_value = {"descriptor": descriptor_value(bytes(key.hashed_descriptor))}
+    built = await intent.build(chain, dev_wallet())
+    assert built.params["scope"]["Trading"]["fee_recipient"] == key.ss58_address
+
+
+async def test_order_fee_registration_fails_closed_without_finalized_hash():
+    from bittensor.receiving import receiving_address
+
+    chain = OrderSubstrate()
+    chain.block_hash = AsyncMock(return_value=None)
+    chain.query = AsyncMock()
+    value = order(BOB)
+    value["V1"]["fee_recipient"] = receiving_address(Keypair.create_from_seed(bytes([47]) * 32, 7))
+    with pytest.raises(ValueError, match="could not verify finalized"):
+        await prepare_order(chain, 1, value)
+    chain.query.assert_not_called()

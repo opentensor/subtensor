@@ -429,16 +429,21 @@ async def with_recipient_registration(
             recipients[parameter] = typed or Recipient(address, address, descriptor)
     if not recipients:
         return (await atomic_calls(substrate, call) if as_calls else call), {}
+    descriptors: dict[str, bytes] = {}
     for recipient in recipients.values():
-        if recipient.descriptor[0] == 1:
+        descriptor = recipient.descriptor
+        if descriptor is None:
+            raise ValueError("hashed recipient registration requires a descriptor")
+        descriptors[recipient.account] = descriptor
+        if descriptor[0] == 1:
             if await hashed_accounts_enabled(substrate) is not True:
                 raise ValueError("hashed accounts are not enabled on this chain")
         else:
-            await _require_receiving_support(substrate, recipient.descriptor)
+            await _require_receiving_support(substrate, descriptor)
     if intent.op == "associate_hotkey":
         owner = public_view(wallet if origin is None else origin, "coldkey").ss58_address
         kind, _ = await protected_account_record(substrate, owner)
-        requires_pq = any(recipient.descriptor[0] == 2 for recipient in recipients.values())
+        requires_pq = any(descriptor[0] == 2 for descriptor in descriptors.values())
         if kind is None or (requires_pq and kind not in ("v2", "derived")):
             raise ValueError("a hashed hotkey requires a registered hashed coldkey owner")
     finalized_hash = None
@@ -448,7 +453,7 @@ async def with_recipient_registration(
         # checks registration. Keep first-use setup atomic, but require finality
         # and a direct call once the destination has a permanent registration.
         destination = recipients["new_coldkey_ss58"].account
-        storage = descriptor_storage(recipients["new_coldkey_ss58"].descriptor)
+        storage = descriptor_storage(descriptors[destination])
         direct = await substrate.query("HashedAccounts", storage, [destination]) is not None
     if direct:
         operation = {
@@ -463,18 +468,19 @@ async def with_recipient_registration(
     unique = {recipient.account: recipient for recipient in recipients.values()}
     registrations, new_accounts = [], []
     total_deposit = 0
-    for address, recipient in unique.items():
+    for address in unique:
+        descriptor = descriptors[address]
         record = await substrate.query(
             "HashedAccounts",
-            descriptor_storage(recipient.descriptor),
+            descriptor_storage(descriptor),
             [address],
             block_hash=finalized_hash,
         )
         if record is not None:
-            if descriptor_bytes(record["descriptor"]) != recipient.descriptor:
+            if descriptor_bytes(record["descriptor"]) != descriptor:
                 raise ValueError("registered hashed descriptor does not match the destination")
         else:
-            if await descriptor_registration_enabled(substrate, recipient.descriptor) is not True:
+            if await descriptor_registration_enabled(substrate, descriptor) is not True:
                 raise ValueError("new account registrations are not enabled on this chain")
             if finalized_hash is not None:
                 raise ValueError(
@@ -492,9 +498,7 @@ async def with_recipient_registration(
                     "before using this operation"
                 )
             new_accounts.append(address)
-            deposit_name = (
-                "V2RegistrationDeposit" if recipient.descriptor[0] == 2 else "RegistrationDeposit"
-            )
+            deposit_name = "V2RegistrationDeposit" if descriptor[0] == 2 else "RegistrationDeposit"
             total_deposit += int(await substrate.constant("HashedAccounts", deposit_name))
         if finalized_hash is not None:
             continue
@@ -504,7 +508,7 @@ async def with_recipient_registration(
                 calls.Call(
                     "HashedAccounts",
                     name,
-                    {"descriptor": registration_descriptor_value(recipient.descriptor)},
+                    {"descriptor": registration_descriptor_value(descriptor)},
                 )
             )
         )

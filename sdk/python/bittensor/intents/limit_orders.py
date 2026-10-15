@@ -12,7 +12,9 @@ from ..limit_orders import (
     authorized_order,
     canonical_order,
     encoded_order,
+    order_for_chain,
     order_terms,
+    registered_fee_recipient,
     validate_trading_scope,
 )
 from ._money import UNBOUNDED
@@ -51,8 +53,9 @@ class _OwnerOrder(Intent):
             raise ValueError(
                 "pinned order bytes changed; prepare and authorize the complete order again"
             )
+        order = await order_for_chain(substrate, self.order)
         return await substrate.compose(
-            Call("LimitOrders", self.op, {"order": authorized_order(self.nonce, self.order)})
+            Call("LimitOrders", self.op, {"order": authorized_order(self.nonce, order)})
         )
 
 
@@ -155,11 +158,14 @@ class ExecuteOrders(Intent):
             raise ValueError("authorized execution requires 1..8 orders")
 
     async def build(self, substrate, wallet):
+        orders = deepcopy(self.orders)
+        for signed in orders:
+            signed["order"] = await order_for_chain(substrate, signed["order"])
         return await substrate.compose(
             Call(
                 "LimitOrders",
                 "execute_orders",
-                {"orders": deepcopy(self.orders), "should_fail": self.should_fail},
+                {"orders": orders, "should_fail": self.should_fail},
             )
         )
 
@@ -188,11 +194,14 @@ class ExecuteBatchedOrders(ExecuteOrders):
             raise ValueError("netted batches are atomic")
 
     async def build(self, substrate, wallet):
+        orders = deepcopy(self.orders)
+        for signed in orders:
+            signed["order"] = await order_for_chain(substrate, signed["order"])
         return await substrate.compose(
             Call(
                 "LimitOrders",
                 "execute_batched_orders",
-                {"netuid": self.netuid, "orders": deepcopy(self.orders)},
+                {"netuid": self.netuid, "orders": orders},
             )
         )
 
@@ -234,6 +243,12 @@ class InstallOrderCapability(Intent):
         self.scope = validate_trading_scope(self.scope)
 
     async def build(self, substrate, wallet):
+        scope = deepcopy(self.scope)
+        if "Trading" in scope:
+            terms = scope["Trading"]
+            terms["fee_recipient"] = await registered_fee_recipient(
+                substrate, terms["fee_recipient"]
+            )
         return await substrate.compose(
             Call(
                 "HashedAccounts",
@@ -242,7 +257,7 @@ class InstallOrderCapability(Intent):
                     "expected_epoch": self.expected_epoch,
                     "key_commitment": _bytes(self.key_commitment),
                     "expires_at": self.expires_at,
-                    "scope": deepcopy(self.scope),
+                    "scope": scope,
                 },
             )
         )

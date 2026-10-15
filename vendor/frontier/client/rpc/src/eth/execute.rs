@@ -47,6 +47,8 @@ use crate::{
 	frontier_backend_client, internal_err,
 };
 
+use crate::execution_admission::retry_execution_capacity;
+
 /// Allow to adapt a request for `estimate_gas`.
 /// Can be used to estimate gas of some contracts using a different function
 /// in the case the normal gas estimation doesn't work.
@@ -77,6 +79,19 @@ where
 	P: TransactionPool<Block = B, Hash = B::Hash> + 'static,
 {
 	pub async fn call(
+		&self,
+		request: TransactionRequest,
+		number_or_hash: Option<BlockNumberOrHash>,
+		state_overrides: Option<BTreeMap<H160, CallStateOverride>>,
+	) -> RpcResult<Bytes> {
+		retry_execution_capacity(
+			|| self.call_inner(request.clone(), number_or_hash, state_overrides.clone()),
+			tokio::time::Instant::now() + std::time::Duration::from_secs(5),
+		)
+		.await
+	}
+
+	async fn call_inner(
 		&self,
 		request: TransactionRequest,
 		number_or_hash: Option<BlockNumberOrHash>,
@@ -1076,18 +1091,25 @@ where
 
 		// Verify that the transaction succeed with the highest capacity
 		let cap = highest;
+		let admission_deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(5);
 		let estimate_mode = !cfg!(feature = "rpc-binary-search-estimate");
 		let ExecutableResult {
 			data,
 			exit_reason,
 			used_gas,
-		} = executable(
-			request.clone(),
-			highest,
-			api_version,
-			client.runtime_api(),
-			estimate_mode,
-		)?;
+		} = retry_execution_capacity(
+			|| async {
+				executable(
+					request.clone(),
+					highest,
+					api_version,
+					client.runtime_api(),
+					estimate_mode,
+				)
+			},
+			admission_deadline,
+		)
+		.await?;
 		match exit_reason {
 			ExitReason::Succeed(_) => (),
 			ExitReason::Error(ExitError::OutOfGas) => {
@@ -1108,13 +1130,19 @@ where
 						data,
 						exit_reason,
 						used_gas: _,
-					} = executable(
-						request.clone(),
-						max_gas_limit,
-						api_version,
-						client.runtime_api(),
-						estimate_mode,
-					)?;
+					} = retry_execution_capacity(
+						|| async {
+							executable(
+								request.clone(),
+								max_gas_limit,
+								api_version,
+								client.runtime_api(),
+								estimate_mode,
+							)
+						},
+						admission_deadline,
+					)
+					.await?;
 					match exit_reason {
 						ExitReason::Succeed(_) => {
 							return Err(internal_err(format!(
@@ -1153,13 +1181,19 @@ where
 					data,
 					exit_reason,
 					used_gas: _,
-				} = executable(
-					request.clone(),
-					mid,
-					api_version,
-					client.runtime_api(),
-					estimate_mode,
-				)?;
+				} = retry_execution_capacity(
+					|| async {
+						executable(
+							request.clone(),
+							mid,
+							api_version,
+							client.runtime_api(),
+							estimate_mode,
+						)
+					},
+					admission_deadline,
+				)
+				.await?;
 				match exit_reason {
 					ExitReason::Succeed(_) => {
 						highest = mid;

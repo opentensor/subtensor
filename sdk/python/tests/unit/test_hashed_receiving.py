@@ -10,7 +10,11 @@ import pytest
 
 from bittensor import Balance, Client, Policy, PolicyError
 from bittensor.executor import Executor, _compose_intent_call
-from bittensor.hashed import descriptor_value, registration_descriptor_value
+from bittensor.hashed import (
+    descriptor_value,
+    registration_descriptor_value,
+    with_recipient_registration,
+)
 from bittensor.intents import Batch, Transfer, TransferAll
 from bittensor.intents.coldkey import AnnounceColdkeySwap, SwapColdkeyAnnounced
 from bittensor.intents.evm import FundEvmKey
@@ -23,7 +27,7 @@ from bittensor.intents.multisig import (
 )
 from bittensor.intents.registration import BurnedRegister, PowRegister, RegisterSubnet
 from bittensor.intents.staking import MoveSwapStake, RemoveStake
-from bittensor.receiving import parse_recipient, receiving_address
+from bittensor.receiving import Recipient, parse_recipient, receiving_address
 from bittensor.result import BittensorError
 from bittensor.sp_core import CRYPTO_HASHED, Keypair
 from bittensor.wallet import Wallet
@@ -33,6 +37,19 @@ from tests.harness.samples import ALICE, BOB, dev_wallet
 
 GENESIS = bytes(32)
 RESERVE = 200_000_000
+
+
+async def test_registration_rejects_missing_descriptor_before_chain_access():
+    chain = AsyncMock()
+    with pytest.raises(ValueError, match="requires a descriptor"):
+        await with_recipient_registration(
+            chain,
+            dev_wallet(),
+            Transfer(BOB, 1),
+            object(),
+            recipients={"dest_ss58": Recipient(BOB, BOB)},
+        )
+    assert not chain.mock_calls
 
 
 @pytest.fixture

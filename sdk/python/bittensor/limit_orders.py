@@ -51,13 +51,53 @@ def order_terms(order: dict) -> dict:
 
 
 def canonical_order(order: dict) -> dict:
-    """Normalize address identities without replacing any economic term."""
+    """Normalize identities, retaining fee descriptors until a finalized check."""
     result = deepcopy(order)
     terms = order_terms(result)
-    for field in ("signer", "hotkey", "fee_recipient"):
+    for field in ("signer", "hotkey"):
         terms[field] = parse_recipient(terms[field]).account
+    recipient = parse_recipient(terms["fee_recipient"])
+    if recipient.descriptor is None:
+        terms["fee_recipient"] = recipient.account
     if terms.get("relayer") is not None:
         terms["relayer"] = [parse_recipient(item).account for item in terms["relayer"]]
+    return result
+
+
+async def registered_fee_recipient(substrate, address: str) -> str:
+    """Resolve a payment identity only after its descriptor is permanently bound.
+
+    Orders may be relayed much later and through either execution route. A
+    finalized, immutable registration protects their fees without changing the
+    signed payload, inserting setup calls, or requiring activation to stay on.
+    """
+    from .hashed import descriptor_bytes, descriptor_storage
+
+    recipient = parse_recipient(address)
+    if recipient.descriptor is not None:
+        block_hash = await substrate.block_hash(await substrate.finalized_block_number())
+        if not block_hash:
+            raise ValueError("could not verify finalized order fee recipient registration")
+        record = await substrate.query(
+            "HashedAccounts",
+            descriptor_storage(recipient.descriptor),
+            [recipient.account],
+            block_hash=block_hash,
+        )
+        if record is None:
+            raise ValueError(
+                "order fee recipient registration is not finalized; register the "
+                "recipient and wait for finalization before preparing or executing orders"
+            )
+        if descriptor_bytes(record["descriptor"]) != recipient.descriptor:
+            raise ValueError("registered order fee recipient descriptor does not match")
+    return recipient.account
+
+
+async def order_for_chain(substrate, order: dict) -> dict:
+    result = canonical_order(order)
+    terms = order_terms(result)
+    terms["fee_recipient"] = await registered_fee_recipient(substrate, terms["fee_recipient"])
     return result
 
 
@@ -76,6 +116,7 @@ async def encoded_order(substrate, nonce: int, order: dict) -> bytes:
     the cryptographic transcript over the original complete economic terms.
     """
     _u64(nonce, "order nonce")
+    order = await order_for_chain(substrate, order)
     call = await substrate.compose(
         Call("LimitOrders", "authorize_order", {"order": authorized_order(nonce, order)})
     )
@@ -132,7 +173,7 @@ class SignedOrder:
 
 
 async def prepare_order(substrate, nonce: int, order: dict) -> PreparedOrder:
-    order = canonical_order(order)
+    order = await order_for_chain(substrate, order)
     genesis = _bytes(await substrate.block_hash(0))
     if len(genesis) != 32:
         raise ValueError("chain genesis hash must contain 32 bytes")
@@ -299,8 +340,10 @@ def validate_trading_scope(scope):
         or (terms["max_alpha_per_order"] and terms["total_alpha"])
     ):
         raise ValueError("trading capability must authorize a positive buy or sell budget")
-    for name in ("hotkey", "fee_recipient"):
-        terms[name] = parse_recipient(terms[name]).account
+    terms["hotkey"] = parse_recipient(terms["hotkey"]).account
+    recipient = parse_recipient(terms["fee_recipient"])
+    if recipient.descriptor is None:
+        terms["fee_recipient"] = recipient.account
     return result
 
 

@@ -2,9 +2,11 @@
 //!
 //! Pool admission alone cannot bound `state_call`, chain-head/archive calls,
 //! dry-run, or simulations carrying detached ML-DSA order proofs. Executor clones
-//! share this budget. A permit lives until synchronous Wasm execution returns,
-//! including when the original RPC future is cancelled. These are local resource
-//! limits, never consensus checks: block import and authoring use `Onchain`.
+//! share per-service budgets. Unknown exports cannot consume simulation or
+//! transaction-validation capacity. A permit lives until synchronous Wasm
+//! execution returns, including when the original RPC future is cancelled.
+//! These are local resource limits, never consensus checks: block import and
+//! authoring use `Onchain`.
 
 use sc_executor::{RuntimeVersion, RuntimeVersionOf, error};
 use sp_core::traits::{CallContext, CodeExecutor, Externalities, ReadRuntimeVersion, RuntimeCode};
@@ -16,13 +18,14 @@ use std::{
 
 const MAX_ACTIVE: usize = 2;
 const MAX_INPUT_BYTES: usize = 16 * 1024 * 1024;
-const MAX_ACTIVE_BYTES: usize = 64 * 1024 * 1024;
+// Reserve an independent 16 MiB input budget for each of four services.
+const MAX_ACTIVE_BYTES: usize = MAX_INPUT_BYTES;
 const BURST: u32 = 16;
 const REFILL: Duration = Duration::from_millis(125);
 const MLDSA_ADDRESS_BYTES: u32 = 5367;
 
 fn busy() -> error::Error {
-    error::Error::Other("Local runtime execution capacity reached; retry later".into())
+    error::Error::Other(fp_rpc::LOCAL_EXECUTION_CAPACITY_ERROR.into())
 }
 
 /// Explicitly enumerated read/conversion APIs. New exports are budgeted until
@@ -170,6 +173,32 @@ fn needs_admission(method: &str, data: &[u8], context: CallContext) -> bool {
         && (method != "TaggedTransactionQueue_validate_transaction" || mldsa_validation(data))
 }
 
+/// Keep independent workloads available even if another API is flooded with
+/// malformed requests. The executor boundary has no authenticated caller ID.
+/// Each service retains its own bounded concurrency, bytes and token bucket;
+/// no idle quota is borrowed across services. Four services permit at most
+/// eight concurrent executions (and 64 MiB of input) across executor clones.
+#[derive(Clone, Copy)]
+enum Service {
+    Validation = 0,
+    Evm = 1,
+    Contracts = 2,
+    Other = 3,
+}
+
+fn service(method: &str) -> Service {
+    match method {
+        "TaggedTransactionQueue_validate_transaction" => Service::Validation,
+        "EthereumRuntimeRPCApi_call"
+        | "EthereumRuntimeRPCApi_create"
+        | "EthereumRuntimeRPCApi_pending_block" => Service::Evm,
+        "ContractsApi_call" | "ContractsApi_instantiate" | "ContractsApi_upload_code" => {
+            Service::Contracts
+        }
+        _ => Service::Other,
+    }
+}
+
 struct State {
     active: usize,
     bytes: usize,
@@ -231,29 +260,36 @@ impl Drop for Permit {
     }
 }
 
-/// Runtime executor with a budget shared by RPC, pool and maintenance callers.
+/// Runtime executor with isolated service budgets shared by all its clones.
 #[derive(Clone)]
 pub struct AdmissionExecutor<E> {
     inner: E,
-    state: Arc<Mutex<State>>,
+    states: [Arc<Mutex<State>>; 4],
 }
 
 impl<E> AdmissionExecutor<E> {
-    /// Wrap an executor with a fresh budget shared by all subsequent clones.
+    /// Wrap an executor with fresh service budgets shared by subsequent clones.
     pub fn new(inner: E) -> Self {
         Self {
             inner,
-            state: Arc::new(Mutex::new(State::new(Instant::now()))),
+            states: std::array::from_fn(|_| Arc::new(Mutex::new(State::new(Instant::now())))),
         }
     }
 
-    fn acquire(&self, bytes: usize) -> Result<Permit, error::Error> {
-        self.state
+    fn acquire(&self, service: Service, bytes: usize) -> Result<Permit, error::Error> {
+        let [validation, evm, contracts, other] = &self.states;
+        let state = match service {
+            Service::Validation => validation,
+            Service::Evm => evm,
+            Service::Contracts => contracts,
+            Service::Other => other,
+        };
+        state
             .lock()
             .map_err(|_| busy())?
             .acquire(bytes, Instant::now())?;
         Ok(Permit {
-            state: self.state.clone(),
+            state: state.clone(),
             bytes,
         })
     }
@@ -271,7 +307,7 @@ impl<E: CodeExecutor<Error = error::Error>> CodeExecutor for AdmissionExecutor<E
         context: CallContext,
     ) -> (Result<Vec<u8>, Self::Error>, bool) {
         let _permit = if needs_admission(method, data, context) {
-            match self.acquire(data.len()) {
+            match self.acquire(service(method), data.len()) {
                 Ok(permit) => Some(permit),
                 Err(error) => return (Err(error), false),
             }
@@ -463,8 +499,8 @@ mod tests {
     fn overload_precedes_execution_and_does_not_block_queries_or_consensus() {
         use sc_transaction_pool_api::error::IntoPoolError;
         let (executor, _) = executor();
-        let first = executor.acquire(1).unwrap();
-        let second = executor.clone().acquire(1).unwrap();
+        let first = executor.acquire(Service::Other, 1).unwrap();
+        let second = executor.clone().acquire(Service::Other, 1).unwrap();
         let error =
             execute(&executor, "Core_execute_block", &[], CallContext::Offchain).unwrap_err();
         assert_eq!(executor.inner.calls.load(Ordering::SeqCst), 0);
@@ -495,7 +531,16 @@ mod tests {
         assert_eq!(executor.inner.calls.load(Ordering::SeqCst), 4);
         drop((first, second));
         execute(&executor, "Core_execute_block", &[], CallContext::Offchain).unwrap();
-        assert_eq!(executor.state.lock().unwrap().active, 0);
+        assert_eq!(
+            executor
+                .states
+                .get(Service::Other as usize)
+                .unwrap()
+                .lock()
+                .unwrap()
+                .active,
+            0
+        );
     }
 
     #[test]
@@ -510,7 +555,12 @@ mod tests {
             )
             .is_err()
         );
-        let state = executor.state.lock().unwrap();
+        let state = executor
+            .states
+            .get(Service::Other as usize)
+            .unwrap()
+            .lock()
+            .unwrap();
         assert_eq!(state.active, 0);
         assert_eq!(state.bytes, 0);
         assert_eq!(state.tokens, BURST - 1);
@@ -541,8 +591,70 @@ mod tests {
         for _ in 0..MAX_ACTIVE {
             finished_rx.recv_timeout(Duration::from_secs(5)).unwrap();
         }
-        assert_eq!(executor.state.lock().unwrap().active, 0);
+        assert_eq!(
+            executor
+                .states
+                .get(Service::Other as usize)
+                .unwrap()
+                .lock()
+                .unwrap()
+                .active,
+            0
+        );
         execute(&executor, "Core_execute_block", &[], CallContext::Offchain).unwrap();
+    }
+
+    #[test]
+    fn malformed_requests_cannot_exhaust_other_services() {
+        let (executor, _) = executor();
+        // Freeze refill so the test does not depend on machine speed.
+        for state in &executor.states {
+            state.lock().unwrap().refilled = Instant::now() + Duration::from_secs(60);
+        }
+        for method in [
+            "NonexistentApi_call",
+            "EthereumRuntimeRPCApi_call",
+            "ContractsApi_call",
+        ] {
+            for _ in 0..BURST {
+                assert!(execute(&executor, method, b"fail", CallContext::Offchain).is_err());
+            }
+            let calls = executor.inner.calls.load(Ordering::SeqCst);
+            assert!(execute(&executor, method, b"fail", CallContext::Offchain).is_err());
+            assert_eq!(executor.inner.calls.load(Ordering::SeqCst), calls);
+            // Neither bad names, EVM failures nor contract failures spend the
+            // reserved ML-DSA validation tokens, including through a clone.
+            execute(
+                &executor.clone(),
+                "TaggedTransactionQueue_validate_transaction",
+                &validation(Some(5367)),
+                CallContext::Offchain,
+            )
+            .unwrap();
+        }
+    }
+
+    #[test]
+    fn active_calls_do_not_occupy_other_service_slots() {
+        let (executor, _) = executor();
+        let first = executor
+            .acquire(Service::Other, MAX_INPUT_BYTES / 2)
+            .unwrap();
+        let second = executor
+            .acquire(Service::Other, MAX_INPUT_BYTES / 2)
+            .unwrap();
+        assert!(execute(&executor, "UnknownApi_call", &[], CallContext::Offchain).is_err());
+        for method in ["EthereumRuntimeRPCApi_call", "ContractsApi_call"] {
+            execute(&executor.clone(), method, &[], CallContext::Offchain).unwrap();
+        }
+        execute(
+            &executor,
+            "TaggedTransactionQueue_validate_transaction",
+            &validation(Some(5367)),
+            CallContext::Offchain,
+        )
+        .unwrap();
+        drop((first, second));
     }
 
     #[test]
@@ -564,5 +676,95 @@ mod tests {
         assert_eq!(state.refilled, now);
         state.acquire(0, now + REFILL).unwrap();
         assert_eq!(state.tokens, 0);
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::arithmetic_side_effects)]
+mod admission_tests {
+    use fc_rpc::{execution_admission::retry_execution_capacity, internal_err};
+    use jsonrpsee::types::error::CALL_EXECUTION_FAILED_CODE;
+    use std::{cell::Cell, time::Duration};
+
+    fn capacity_error() -> jsonrpsee::types::ErrorObjectOwned {
+        internal_err(format!(
+            "runtime error: Execution failed: Other: {}",
+            fp_rpc::LOCAL_EXECUTION_CAPACITY_ERROR
+        ))
+    }
+
+    #[tokio::test]
+    async fn retries_only_temporary_execution_capacity_failures() {
+        let attempts = Cell::new(0);
+        let result = retry_execution_capacity(
+            || async {
+                attempts.set(attempts.get() + 1);
+                if attempts.get() < 3 {
+                    Err(capacity_error())
+                } else {
+                    Ok(42)
+                }
+            },
+            tokio::time::Instant::now() + Duration::from_secs(2),
+        )
+        .await;
+        assert_eq!(result, Ok(42));
+        assert_eq!(attempts.get(), 3);
+    }
+
+    #[tokio::test]
+    async fn execution_errors_are_returned_without_retry() {
+        for error in [
+            internal_err("VM Exception while processing transaction: revert"),
+            internal_err("runtime error: Execution failed: Other: unrelated error"),
+            jsonrpsee::types::ErrorObjectOwned::owned(
+                CALL_EXECUTION_FAILED_CODE,
+                capacity_error().message(),
+                None::<()>,
+            ),
+        ] {
+            let attempts = Cell::new(0);
+            let result = retry_execution_capacity::<(), _>(
+                || async {
+                    attempts.set(attempts.get() + 1);
+                    Err(error.clone())
+                },
+                tokio::time::Instant::now() + Duration::from_secs(2),
+            )
+            .await;
+            assert_eq!(result, Err(error));
+            assert_eq!(attempts.get(), 1);
+        }
+    }
+
+    #[tokio::test]
+    async fn expired_deadline_does_not_retry() {
+        let attempts = Cell::new(0);
+        let result = retry_execution_capacity::<(), _>(
+            || async {
+                attempts.set(attempts.get() + 1);
+                Err(capacity_error())
+            },
+            tokio::time::Instant::now(),
+        )
+        .await;
+        assert_eq!(result, Err(capacity_error()));
+        assert_eq!(attempts.get(), 1);
+    }
+
+    #[tokio::test]
+    async fn cancellation_drops_pending_retry() {
+        let attempts = Cell::new(0);
+        let mut pending = Box::pin(retry_execution_capacity::<(), _>(
+            || async {
+                attempts.set(attempts.get() + 1);
+                Err(capacity_error())
+            },
+            tokio::time::Instant::now() + Duration::from_secs(2),
+        ));
+        assert!(futures::poll!(&mut pending).is_pending());
+        drop(pending);
+        tokio::time::sleep(Duration::from_millis(150)).await;
+        assert_eq!(attempts.get(), 1);
     }
 }

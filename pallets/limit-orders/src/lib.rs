@@ -8,7 +8,7 @@ mod authorization;
 pub use v2::{LinkedAsset, LinkedOutput, OrderAmount, OrderV2, OrderView};
 
 #[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
+pub mod benchmarking;
 pub(crate) mod migrations;
 #[cfg(test)]
 mod tests;

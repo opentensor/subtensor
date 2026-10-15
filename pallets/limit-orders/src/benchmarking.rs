@@ -49,8 +49,8 @@ fn sign_order<T: crate::Config>(
 
 /// Generate a deterministic sr25519 key for benchmark index `i` and return its
 /// public key. The key is inserted into the runtime keystore so it can sign.
-fn benchmark_key(i: u32) -> (sp_core::sr25519::Public, AccountId32) {
-    let seed = alloc::format!("//BenchSigner{}", i).into_bytes();
+fn benchmark_key(namespace: &str, i: u32) -> (sp_core::sr25519::Public, AccountId32) {
+    let seed = alloc::format!("//BenchSigner//{}//{}", namespace, i).into_bytes();
     let public = sp_io::crypto::sr25519_generate(sp_core::crypto::key_types::ACCOUNT, Some(seed));
     let account = AccountId32::from(public);
     (public, account)
@@ -63,7 +63,7 @@ pub fn order_id<T: crate::Config>(order: &crate::VersionedOrder<T::AccountId>) -
 /// Build `n` signed benchmark orders for `netuid`, one per distinct signer.
 ///
 /// For each index `i` in `0..n` the function:
-/// - derives a deterministic sr25519 key via `benchmark_key(i)`,
+/// - derives a deterministic sr25519 key in the classical signer namespace,
 /// - calls `T::SwapInterface::set_up_acc_for_benchmark` so the account has
 ///   sufficient balance / stake,
 /// - constructs a worst-case `LimitBuy` order (amount = 1 TAO, price = u64::MAX,
@@ -78,14 +78,22 @@ fn make_benchmark_orders<T: crate::Config>(
     n: u32,
     netuid: NetUid,
 ) -> alloc::vec::Vec<crate::SignedOrder<T::AccountId>> {
+    make_benchmark_orders_in_namespace::<T>(n, netuid, "classical")
+}
+
+fn make_benchmark_orders_in_namespace<T: crate::Config>(
+    n: u32,
+    netuid: NetUid,
+    namespace: &'static str,
+) -> alloc::vec::Vec<crate::SignedOrder<T::AccountId>> {
     use subtensor_swap_interface::OrderSwapInterface;
 
     let mut orders = alloc::vec::Vec::new();
 
     for i in 0..n {
-        let (public, account_id) = benchmark_key(i);
+        let (public, account_id) = benchmark_key(namespace, i);
         let account: T::AccountId = account_id.into();
-        let fee_recipient: T::AccountId = frame_benchmarking::account("fee_recipient", i, 0);
+        let fee_recipient: T::AccountId = frame_benchmarking::account(namespace, i, 1);
 
         T::SwapInterface::set_up_acc_for_benchmark(&account, &account);
         T::SwapInterface::set_up_acc_for_benchmark(&fee_recipient, &fee_recipient);
@@ -124,7 +132,9 @@ fn make_benchmark_orders_v2<T: crate::Config>(
     use codec::Encode;
     let mut entries = alloc::vec::Vec::new();
     let mut ids = alloc::vec::Vec::new();
-    for (i, legacy) in make_benchmark_orders::<T>(n, netuid)
+    // Capability setup permanently protects these owners in the real runtime.
+    // They must never overlap with the classical orders in a mixed batch.
+    for (i, legacy) in make_benchmark_orders_in_namespace::<T>(n, netuid, "mldsa")
         .into_iter()
         .enumerate()
     {
@@ -199,7 +209,7 @@ mod benchmarks {
 
     #[benchmark]
     fn cancel_order() {
-        let (public, account_id) = benchmark_key(0);
+        let (public, account_id) = benchmark_key("classical", 0);
         let account: T::AccountId = account_id.into();
 
         let order = crate::VersionedOrder::V1(crate::Order {
@@ -236,7 +246,7 @@ mod benchmarks {
 
     #[benchmark]
     fn prune_linked_output() {
-        let (_, account_id) = benchmark_key(0);
+        let (_, account_id) = benchmark_key("classical", 0);
         let account: T::AccountId = account_id.into();
         let order_id = H256::repeat_byte(0x11);
         crate::LinkedOutputs::<T>::insert(
@@ -376,12 +386,16 @@ mod benchmarks {
         let netuid = NetUid::from(1u16);
         crate::LimitOrdersEnabled::<T>::set(true);
         T::SwapInterface::set_up_netuid_for_benchmark(netuid);
-        let (orders, ids) = make_benchmark_orders_v2::<T>(p, netuid);
+        let (orders, _) = make_benchmark_orders_v2::<T>(p, netuid);
         let mut combined: alloc::vec::Vec<_> = orders
             .into_iter()
             .map(|signed| crate::SignedOrder::try_from(signed).unwrap())
             .collect();
         combined.extend(make_benchmark_orders::<T>(n.saturating_sub(p), netuid));
+        let ids: alloc::vec::Vec<_> = combined
+            .iter()
+            .map(|signed| Pallet::<T>::derive_order_id(&signed.order))
+            .collect();
         let orders: frame_support::BoundedVec<_, T::MaxOrdersPerBatch> =
             combined.try_into().unwrap();
         let caller: T::AccountId = frame_benchmarking::account("caller", 0, 0);
@@ -409,12 +423,16 @@ mod benchmarks {
         let pallet_acct: T::AccountId = T::PalletId::get().into_account_truncating();
         let pallet_hotkey = T::PalletHotkey::get();
         T::SwapInterface::set_up_acc_for_benchmark(&pallet_hotkey, &pallet_acct);
-        let (orders, ids) = make_benchmark_orders_v2::<T>(p, netuid);
+        let (orders, _) = make_benchmark_orders_v2::<T>(p, netuid);
         let mut combined: alloc::vec::Vec<_> = orders
             .into_iter()
             .map(|signed| crate::SignedOrder::try_from(signed).unwrap())
             .collect();
         combined.extend(make_benchmark_orders::<T>(n.saturating_sub(p), netuid));
+        let ids: alloc::vec::Vec<_> = combined
+            .iter()
+            .map(|signed| Pallet::<T>::derive_order_id(&signed.order))
+            .collect();
         let orders: frame_support::BoundedVec<_, T::MaxOrdersPerBatch> =
             combined.try_into().unwrap();
         let caller: T::AccountId = frame_benchmarking::account("caller", 0, 0);
@@ -431,9 +449,32 @@ mod benchmarks {
         }
     }
 
+    /// Execute setup, dispatch and verification only: no timing or weight output.
+    pub fn verify_mixed_order_fixture<T: Config>(
+        n: u32,
+        p: u32,
+        netted: bool,
+    ) -> Result<(), frame_benchmarking::BenchmarkError> {
+        use frame_benchmarking::{BenchmarkParameter, BenchmarkingSetup};
+        let components = [(BenchmarkParameter::n, n), (BenchmarkParameter::p, p)];
+        if netted {
+            <execute_authenticated_batched_orders as BenchmarkingSetup<T>>::unit_test_instance(
+                &execute_authenticated_batched_orders,
+                &components,
+            )
+        } else {
+            <execute_authenticated_orders as BenchmarkingSetup<T>>::unit_test_instance(
+                &execute_authenticated_orders,
+                &components,
+            )
+        }
+    }
+
     impl_benchmark_test_suite!(
         Pallet,
         crate::tests::mock::new_test_ext(),
         crate::tests::mock::Test
     );
 }
+
+pub use benchmarks::verify_mixed_order_fixture;
