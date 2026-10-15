@@ -337,9 +337,10 @@ impl<T: Config> Pallet<T> {
             log::debug!("total_validator_alpha: {total_validator_alpha:?}");
             log::debug!("pending_server_alpha: {pending_server_alpha:?}");
 
-            // Root proportion already carries the subnet's TAO-weight multiplier
-            // (`V₀ / V`), so a lower validator slot does not lower root's payout.
-            let root_proportion = Self::root_proportion(*netuid_i);
+            // The consensus-side root proportion carries the subnet's TAO-weight
+            // multiplier (`V₀ / V`), so a lower validator slot does not lower root's
+            // payout. The pool-side `root_proportion` (injection cap) does not.
+            let root_proportion = Self::consensus_root_proportion(*netuid_i);
             log::debug!("root_proportion: {root_proportion:?}");
 
             // Root alpha is carved out of the validator slot; root_proportion < 1 keeps the

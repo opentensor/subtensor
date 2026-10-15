@@ -688,6 +688,110 @@ fn test_root_payout_is_invariant_to_validator_share() {
 }
 
 // ---------------------------------------------------------------------------
+// Pool side (tao_in / alpha_in / injection cap) ignores the vector
+// ---------------------------------------------------------------------------
+
+/// A fresh subnet with a funded root and a TAO emission large enough that the
+/// alpha-injection cap (`root_proportion × alpha_emission`) binds.
+fn pool_subnet() -> (NetUid, BTreeMap<NetUid, U96F32>) {
+    let netuid = new_subnet();
+    SubtensorModule::set_tao_weight(pct(18));
+    SubnetTAO::<Test>::insert(NetUid::ROOT, TaoBalance::from(100_000_000_000_000_u64));
+    setup_reserves(
+        netuid,
+        TaoBalance::from(1_000_000_000_000_000_u64),
+        AlphaBalance::from(1_000_000_000_000_000_u64),
+    );
+    assert_ok!(Swap::maybe_initialize_palswap(netuid, None));
+    let emissions = BTreeMap::from([(netuid, U96F32::from_num(POOL_TAO_EMISSION))]);
+    (netuid, emissions)
+}
+
+const POOL_TAO_EMISSION: u64 = 5_000_000_000;
+
+/// `(tao_in, alpha_in, alpha_out, excess)` for the single subnet in `emissions`.
+fn subnet_terms(
+    netuid: NetUid,
+    emissions: &BTreeMap<NetUid, U96F32>,
+) -> (U96F32, U96F32, U96F32, U96F32) {
+    let (tao_in, alpha_in, alpha_out, excess) = SubtensorModule::get_subnet_terms(emissions);
+    (
+        tao_in[&netuid],
+        alpha_in[&netuid],
+        alpha_out[&netuid],
+        excess[&netuid],
+    )
+}
+
+#[test]
+fn test_pool_injection_terms_ignore_validator_share() {
+    new_test_ext(1).execute_with(|| {
+        let (netuid, emissions) = pool_subnet();
+        let root_prop_before = SubtensorModule::root_proportion(netuid);
+        let terms_before = subnet_terms(netuid, &emissions);
+        // The cap binds: some TAO is excess rather than injected.
+        assert!(terms_before.3 > U96F32::from_num(0));
+        assert_eq!(
+            SubtensorModule::consensus_root_proportion(netuid),
+            root_prop_before
+        );
+
+        // Halve V: the consensus-side proportion doubles (to first order)...
+        let (uids, values) = full_vector(pct(10), ONE / 4);
+        assert_ok!(SubtensorModule::do_set_subnet_emission_weights(
+            netuid, uids, values
+        ));
+        let consensus_after = SubtensorModule::consensus_root_proportion(netuid);
+        assert!(consensus_after > root_prop_before);
+        assert_abs_diff_eq!(
+            consensus_after.to_num::<f64>(),
+            root_prop_before.to_num::<f64>() * 2.0,
+            epsilon = root_prop_before.to_num::<f64>() * 0.1
+        );
+
+        // ...while the pool side is bit-for-bit unchanged.
+        assert_eq!(SubtensorModule::root_proportion(netuid), root_prop_before);
+        assert_eq!(subnet_terms(netuid, &emissions), terms_before);
+        SubtensorModule::update_root_prop();
+        assert_eq!(RootProp::<Test>::get(netuid), root_prop_before);
+    });
+}
+
+#[test]
+fn test_pool_reserves_move_identically_whatever_the_validator_share() {
+    new_test_ext(1).execute_with(|| {
+        let mut deltas = Vec::new();
+        for validator_share in [None, Some(ONE / 4), Some(pct(50))] {
+            let (netuid, emissions) = pool_subnet();
+            if let Some(validator) = validator_share {
+                let (uids, values) = full_vector(pct(10), validator);
+                assert_ok!(SubtensorModule::do_set_subnet_emission_weights(
+                    netuid, uids, values
+                ));
+            }
+            let tao_before = SubnetTAO::<Test>::get(netuid).to_u64();
+            let alpha_in_before = SubnetAlphaIn::<Test>::get(netuid).to_u64();
+            let alpha_out_before = SubnetAlphaOut::<Test>::get(netuid).to_u64();
+            let credit = SubtensorModule::mint_tao(POOL_TAO_EMISSION.into());
+            SubtensorModule::emit_to_subnets(&[netuid], &emissions, credit, true);
+            deltas.push((
+                SubnetTAO::<Test>::get(netuid).to_u64() as i128 - tao_before as i128,
+                SubnetAlphaIn::<Test>::get(netuid).to_u64() as i128 - alpha_in_before as i128,
+                SubnetAlphaOut::<Test>::get(netuid).to_u64() as i128 - alpha_out_before as i128,
+                SubnetTaoInEmission::<Test>::get(netuid).to_u64(),
+                SubnetAlphaInEmission::<Test>::get(netuid).to_u64(),
+                SubnetAlphaOutEmission::<Test>::get(netuid).to_u64(),
+            ));
+        }
+        assert!(
+            deltas[0].0 != 0 || deltas[0].1 != 0,
+            "pool did not move at all"
+        );
+        assert!(deltas.iter().all(|d| *d == deltas[0]), "{deltas:?}");
+    });
+}
+
+// ---------------------------------------------------------------------------
 // Consensus stake weighting uses the subnet TAO weight
 // ---------------------------------------------------------------------------
 

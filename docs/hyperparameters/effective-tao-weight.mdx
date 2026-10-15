@@ -12,12 +12,16 @@ by the subnet's TAO-weight multiplier `V₀ / V`, saturating at one. Stored as
 `V₀` is the validator share the subnet was seeded with and `V` its current
 [`validator_emission`](/docs/hyperparameters/validator-emission). The
 multiplier is recomputed every time the vector is set and stored per subnet;
-this value is what the chain uses on the subnet wherever it used the global
-weight: the root proportion of validator emission and the TAO-vs-alpha
-stake weighting inside Yuma Consensus. Lowering the validator slot therefore
+this value is what the chain uses on the consensus side of the subnet: the
+root share carved out of validator emission and the TAO-vs-alpha stake
+weighting inside Yuma Consensus. Lowering the validator slot therefore
 raises the effective TAO weight by the same factor, so root TAO stakers are
 paid the same alpha to first order and TAO is worth proportionally more in
 consensus on that subnet.
+
+It is **not** used on the pool side: `tao_in`, `alpha_in` and the
+alpha-injection cap keep using the global `TaoWeight`, so the vector never
+changes how much is injected into the subnet's pool.
 
 Because the multiplier is stored rather than the absolute weight, a later
 root change to the global `TaoWeight` composes with it automatically.

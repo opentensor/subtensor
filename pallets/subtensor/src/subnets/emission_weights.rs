@@ -357,8 +357,11 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Effective TAO weight on `netuid`: the global weight scaled by the
-    /// subnet multiplier, saturating at one. Used by both the root proportion
-    /// and consensus stake weighting.
+    /// subnet multiplier, saturating at one. Consensus-side only: it feeds the
+    /// root carve-out of the validator slot, dividend and child/parent
+    /// contribution splits, and the stake weighting in Yuma Consensus. The
+    /// pool side (`tao_in`, `alpha_in`, the injection cap, `RootProp`) uses the
+    /// global [`Pallet::get_tao_weight`] and must never read this.
     pub fn get_subnet_tao_weight(netuid: NetUid) -> U96F32 {
         effective_tao_weight(
             Self::get_tao_weight(),

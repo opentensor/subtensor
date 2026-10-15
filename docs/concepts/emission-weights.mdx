@@ -36,8 +36,9 @@ non-zero value in either is rejected today.
 
 Per block, `alpha_out × owner` accrues to the owner, `alpha_out × validator`
 to the validator bucket and `alpha_out × miner` to the miner bucket. Root's
-share is carved out of the validator bucket by the subnet's
-[`root_proportion`](/code/pallets/subtensor/src/coinbase/block_step.rs), so
+share is carved out of the validator bucket by the subnet's consensus-side
+root proportion (`consensus_root_proportion` in
+[`block_step.rs`](/code/pallets/subtensor/src/coinbase/block_step.rs)), so
 shrinking the validator slot would, on its own, shrink what root TAO stakers
 receive. The multiplier below prevents that.
 
@@ -51,11 +52,19 @@ seeded with to `V`, the chain stores a per-subnet multiplier
 k = V₀ / V
 ```
 
-and uses `min(1, TaoWeight × k)` wherever it used `TaoWeight` for that
-subnet: the root proportion of validator emission **and** the stake weighting
-inside Yuma Consensus. To first order, root TAO stakers are paid the same
-alpha as before, so an owner cannot reduce root's take by squeezing the
-validator slot — TAO simply counts for more on that subnet.
+and uses `min(1, TaoWeight × k)` in place of `TaoWeight` on the **consensus
+side** of that subnet only: the root share carved out of the validator slot
+and the TAO-vs-alpha stake weighting inside Yuma Consensus. To first order,
+root TAO stakers are paid the same alpha as before, so an owner cannot reduce
+root's take by squeezing the validator slot — TAO simply counts for more on
+that subnet.
+
+The **pool side** never sees the multiplier. `tao_in`, `alpha_in` and the
+alpha-injection cap in `get_subnet_terms` use the pool-side
+[`root_proportion`](/code/pallets/subtensor/src/coinbase/block_step.rs) with
+the global `TaoWeight`, exactly as before emission weights existed. Changing
+a subnet's vector changes how its alpha is distributed; it does not change
+how much TAO or alpha is injected into its pool.
 
 Two consequences follow:
 

@@ -72,16 +72,32 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         }
     }
 
+    /// Pool-side root proportion
+    /// `root_tao · TaoWeight / (root_tao · TaoWeight + alpha_issuance)` with the
+    /// *global* TAO weight. It drives the alpha-injection cap in
+    /// `get_subnet_terms` and the `RootProp` view, and is deliberately
+    /// independent of the subnet's emission weight vector: changing the
+    /// validator share must not move TAO-in, alpha-in or the pool cap.
     pub fn root_proportion(netuid: NetUid) -> U96F32 {
+        Self::root_proportion_with_tao_weight(netuid, Self::get_tao_weight())
+    }
+
+    /// Consensus-side root proportion: the same formula with the subnet's
+    /// effective TAO weight (`TaoWeight · V₀ / V`). Used only to carve root's
+    /// alpha out of the validator slot, so lowering `V` does not lower root's
+    /// alpha payout. Never used on the pool / injection side.
+    pub fn consensus_root_proportion(netuid: NetUid) -> U96F32 {
+        Self::root_proportion_with_tao_weight(netuid, Self::get_subnet_tao_weight(netuid))
+    }
+
+    fn root_proportion_with_tao_weight(netuid: NetUid, tao_weight: U96F32) -> U96F32 {
         let alpha_issuance = U96F32::from_num(Self::get_alpha_issuance(netuid));
         let root_tao: U96F32 = U96F32::from_num(Self::get_subnet_tao(NetUid::ROOT));
-        let tao_weight: U96F32 = root_tao.saturating_mul(Self::get_subnet_tao_weight(netuid));
+        let weighted_root_tao: U96F32 = root_tao.saturating_mul(tao_weight);
 
-        let root_proportion: U96F32 = tao_weight
-            .checked_div(tao_weight.saturating_add(alpha_issuance))
-            .unwrap_or(U96F32::from_num(0.0));
-
-        root_proportion
+        weighted_root_tao
+            .checked_div(weighted_root_tao.saturating_add(alpha_issuance))
+            .unwrap_or(U96F32::from_num(0.0))
     }
 
     pub fn reveal_crv3_commits() {
