@@ -1885,8 +1885,8 @@
         {
           "pallet": "SubtensorModule",
           "path": "pallets/subtensor/src/macros/errors.rs",
-          "line": 452,
-          "url": "/code/pallets/subtensor/src/macros/errors.rs#L452",
+          "line": 454,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L454",
           "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
         }
       ]
@@ -3612,8 +3612,8 @@
         {
           "pallet": "SubtensorModule",
           "path": "pallets/subtensor/src/macros/errors.rs",
-          "line": 450,
-          "url": "/code/pallets/subtensor/src/macros/errors.rs#L450",
+          "line": 452,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L452",
           "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
         }
       ]
@@ -6203,11 +6203,11 @@
         }
       ]
     },
-    "ValidatorEmissionBelowTaoWeightFloor": {
+    "ValidatorEmissionTooLowToPreserveRoot": {
       "code": "policy_violation",
-      "description": "Slot 3 (validator) of the emission weight vector is below the subnet's TAO-weight floor `V0 * TaoWeight`, where `V0` is the subnet's base validator share (0.41 on mainnet subnets with the owner cut, 0.50 without). Lowering the validator share scales the subnet's TAO weight by `V0 / V` so root holders keep their payout; below the floor that scaled weight would exceed 1, and a validator share of 0 would need an infinite TAO weight, so it is always rejected. Read the current floor with `btcli subnets emission show --netuid <n>` and keep the validator share at or above it.",
-      "docs_url": "/docs/errors/chain/ValidatorEmissionBelowTaoWeightFloor",
-      "markdown_url": "/llms.mdx/docs/errors/chain/ValidatorEmissionBelowTaoWeightFloor/content.md",
+      "description": "Slot 3 (validator) of the emission weight vector is too low to keep root whole. Changing the validator share makes the chain re-solve this subnet's effective TAO weight once, at this block, so root holders keep exactly their current share of the subnet's emission; that weight is capped at 1 (root TAO never counts more than 1:1). The requested share is at or below root's current share, or would need a weight above 1. The floor is `r * (1 + alpha_issuance / root_tao)` where `r` is root's current share; `btcli subnets emission show --netuid <n>` prints it for this block. Raise the validator share and resubmit.",
+      "docs_url": "/docs/errors/chain/ValidatorEmissionTooLowToPreserveRoot",
+      "markdown_url": "/llms.mdx/docs/errors/chain/ValidatorEmissionTooLowToPreserveRoot/content.md",
       "pallets": [
         "SubtensorModule"
       ],
@@ -6215,8 +6215,8 @@
         {
           "pallet": "SubtensorModule",
           "path": "pallets/subtensor/src/macros/errors.rs",
-          "line": 447,
-          "url": "/code/pallets/subtensor/src/macros/errors.rs#L447",
+          "line": 449,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L449",
           "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
         }
       ]

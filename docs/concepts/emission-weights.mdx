@@ -1,6 +1,6 @@
 ---
 title: Emission weights
-description: How a subnet owner divides alpha emission between owner, validators and miners, and how the TAO-weight multiplier keeps root payouts whole.
+description: How a subnet owner divides alpha emission between owner, validators and miners, and how the per-subnet effective TAO weight keeps root payouts whole.
 ---
 
 Every subnet carries a five-slot **emission weight vector**
@@ -26,7 +26,7 @@ mainnet — so nothing changes until an owner decides it should.
 | 0 | `burn` | nothing — alpha is destroyed | must be 0 (reserved) |
 | 1 | `recycle` | nothing — alpha returns to the unissued pool | must be 0 (reserved) |
 | 2 | `owner` | the subnet owner's hotkey at each epoch | `0 ≤ owner ≤ 0.33`; lease-created subnets `≥ 0.18` |
-| 3 | `validator` | validator dividends (root TAO stakers are paid from this slot) | `V₀ × TaoWeight ≤ validator ≤ 0.50` |
+| 3 | `validator` | validator dividends (root TAO stakers are paid from this slot) | `validator ≤ 0.50`, and root's share must stay whole |
 | 4 | `miner` | miner incentive, split across the subnet's mechanisms | `miner ≥ 0.33` |
 
 The owner slot at zero means "no owner cut"; the legacy `owner_cut_enabled`
@@ -40,46 +40,55 @@ share is carved out of the validator bucket by the subnet's consensus-side
 root proportion (`consensus_root_proportion` in
 [`block_step.rs`](/code/pallets/subtensor/src/coinbase/block_step.rs)), so
 shrinking the validator slot would, on its own, shrink what root TAO stakers
-receive. The multiplier below prevents that.
+receive. The effective TAO weight below prevents that.
 
-## The TAO-weight multiplier
+## The effective TAO weight
 
-Root TAO is weighted against alpha by the global `TaoWeight` (≈ 0.0527 on
-mainnet). When a subnet lowers its validator share from the base `V₀` it was
-seeded with to `V`, the chain stores a per-subnet multiplier
+Root TAO is weighted against alpha by a TAO weight `w`. Each block, root's
+alpha on a subnet is
 
 ```
-k = V₀ / V
+root_alpha = V × x / (x + A) × alpha_out        with x = root_tao × w
 ```
 
-and uses `min(1, TaoWeight × k)` in place of `TaoWeight` on the **consensus
-side** of that subnet only: the root share carved out of the validator slot
-and the TAO-vs-alpha stake weighting inside Yuma Consensus. To first order,
-root TAO stakers are paid the same alpha as before, so an owner cannot reduce
-root's take by squeezing the validator slot — TAO simply counts for more on
-that subnet.
+where `V` is the validator slot and `A` the subnet's alpha issuance. Every
+subnet carries its own **effective TAO weight** `w_s` (`SubnetTaoWeight`),
+used on the **consensus side** of that subnet only: the root share carved out
+of the validator slot, the TAO-vs-alpha split of validator dividends, and the
+stake weighting inside Yuma Consensus. A subnet that has never changed its
+validator share has no entry and simply follows the global `TaoWeight`
+(≈ 0.0527 on mainnet), exactly as before emission weights existed.
 
-The **pool side** never sees the multiplier. `tao_in`, `alpha_in` and the
+When a set call changes `V`, the chain solves `w_s` **once**, at that block,
+from live chain values:
+
+1. root's current share of emission, `r = V_old × x_old / (x_old + A)`;
+2. the weight that keeps `r` under the new slot,
+   `x_new = r × A / (V_new − r)`, `w_s = x_new / root_tao`.
+
+Root TAO stakers therefore receive exactly the same alpha the block after the
+change as the block before — not to first order, exactly. Afterwards `w_s`
+is left alone and everything scales with stake and issuance as usual; it is
+re-solved only by the next change to `V`. Setting the owner or miner slot
+without touching `V` never writes `w_s`.
+
+The weight is capped at one — root TAO never counts more than 1:1 against
+alpha — so not every `V` is reachable. The call fails with
+`ValidatorEmissionTooLowToPreserveRoot` when `V_new ≤ r` or the solved
+weight would exceed one; equivalently the floor at this block is
+`r × (1 + A / root_tao)`. On a mainnet subnet with 5.4M TAO on root, 6.5M
+alpha issued and `w_s = 0.18`, a 41% validator share can go down to about
+11.8%. The floor moves with root stake and issuance, so
+`btcli subnets emission show` prints the current value. With no root stake
+on the chain there is nothing to preserve: any valid `V` is accepted and
+`w_s` is untouched.
+
+The **pool side** never sees `w_s`. `tao_in`, `alpha_in` and the
 alpha-injection cap in `get_subnet_terms` use the pool-side
 [`root_proportion`](/code/pallets/subtensor/src/coinbase/block_step.rs) with
 the global `TaoWeight`, exactly as before emission weights existed. Changing
 a subnet's vector changes how its alpha is distributed; it does not change
 how much TAO or alpha is injected into its pool.
-
-Two consequences follow:
-
-- `V` can never be zero (the multiplier would be infinite), and it may not drop
-  below `V₀ × TaoWeight` (≈ 2.2% on mainnet) because the scaled weight may not
-  exceed one. The chain error `ValidatorEmissionBelowTaoWeightFloor` names
-  this floor; `btcli subnets emission show` prints the current value.
-- Raising `V` back to `V₀` restores `k = 1`. `V₀` is fixed at seeding and
-  never moves, so the multiplier always tracks the current validator share.
-
-The multiplier is linear while the root share is not (`kT / (kT + A)`), so the
-compensation is exact only as root stake becomes small relative to alpha
-stake; at `T/A ≈ 0.05` and `k = 2` root receives ≈ 4.5% less than before.
-This is a deliberate trade-off for a rule that is simple, auditable and
-independent of live root stake.
 
 ## Changing the vector
 
@@ -89,7 +98,7 @@ five slots must still sum to one, lowering one slot means raising another in
 the same call. `btcli` does the arithmetic:
 
 ```bash
-# see the vector, the multiplier, and the rule table
+# see the vector, root's share, the current validator floor, and the rule table
 btcli subnets emission show --netuid 12
 
 # set one slot; the other two are rescaled proportionally
@@ -105,22 +114,23 @@ btcli subnets emission set --netuid 12 --owner 0.10 --validator 0.40 --miner 0.5
 
 Every write validates against the rules locally first and prints each broken
 rule in the same words the chain error carries, so a rejected change teaches
-the constraint. Add `--dry-run` to preview the plan — including the
-resulting multiplier and effective TAO weight — without signing.
+the constraint. Add `--dry-run` to preview the plan — including root's
+preserved share and the resulting effective TAO weight — without signing.
 
-Owners may change the vector **once per week** per subnet (50,400 blocks);
-the first change on a subnet is never rate-limited and root is exempt. Both
-owner and root must obey every rule, including the lease floor. Changes
-take effect on the next block's emission and are announced by the
-`SubnetEmissionWeightsSet` event, which carries the full post-merge vector,
-the multiplier, and the effective TAO weight.
+Owners may change the vector **once per week** per subnet (50,400 blocks).
+The limit is keyed by subnet, not by owner coldkey, so handing the subnet to
+a new owner does not reset it; the first change on a subnet is never
+rate-limited, root is exempt, and dissolving a subnet clears the key so a
+reused netuid starts fresh. Both owner and root must obey every rule,
+including the lease floor. Changes take effect on the next block's emission
+and are announced by the `SubnetEmissionWeightsSet` event, which carries the
+full post-merge vector.
 
 ## Related
 
 - [Emissions](/docs/concepts/emissions) — the full per-tempo flow
 - [`owner_emission`](/docs/hyperparameters/owner-emission),
   [`validator_emission`](/docs/hyperparameters/validator-emission),
-  [`miner_emission`](/docs/hyperparameters/miner-emission),
-  [`effective_tao_weight`](/docs/hyperparameters/effective-tao-weight)
+  [`miner_emission`](/docs/hyperparameters/miner-emission)
 - [`set-subnet-emission-weights`](/docs/tx/set-subnet-emission-weights) — the intent
 - [`subnet-emission-weights`](/docs/query/subnet-emission-weights) — the read

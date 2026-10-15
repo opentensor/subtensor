@@ -390,7 +390,7 @@
     "Unreachable",
     "UnverifiedPulse",
     "ValidatorEmissionAboveMaximum",
-    "ValidatorEmissionBelowTaoWeightFloor",
+    "ValidatorEmissionTooLowToPreserveRoot",
     "ValueNotInBounds",
     "ValueTooLarge",
     "VestingBalance",

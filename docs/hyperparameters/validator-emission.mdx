@@ -5,8 +5,8 @@ description: Validator slot of the subnet's emission weight vector — the share
 
 Slot 3 of the [emission weight vector](/docs/concepts/emission-weights):
 the fraction of each block's `alpha_out` that becomes validator dividends.
-Root TAO stakers are paid out of this slot via the subnet's
-`root_proportion`. Stored as `u64` parts of `u64::MAX`.
+Root TAO stakers are paid out of this slot via the subnet's consensus-side
+root proportion. Stored as `u64` parts of `u64::MAX`.
 
 ## How it works
 
@@ -14,20 +14,22 @@ Per block, `alpha_out × validator_emission` goes to the validator bucket;
 the root proportion of it is set aside for root TAO stakers and the rest is
 distributed through Yuma Consensus dividends at the epoch.
 
-Lowering this slot below the base share `V₀` the subnet was seeded with
-(0.41 on mainnet) multiplies the subnet's TAO weight by `V₀ / V` for both
-the root proportion and consensus stake weighting, so root's alpha is
-preserved to first order and TAO counts for more on that subnet. Raising it
-back restores the multiplier to one. The result is read as
-[`effective_tao_weight`](/docs/hyperparameters/effective-tao-weight).
+Changing this slot makes the chain re-solve the subnet's
+[effective TAO weight](/docs/concepts/emission-weights#the-effective-tao-weight)
+once, at that block, so root TAO stakers keep exactly their current share of
+the subnet's emission. Lowering the slot raises the weight, raising it lowers
+the weight; the weight is then left alone until the next change.
 
 ## Bounds
 
-`V₀ × TaoWeight ≤ validator_emission ≤ 0.50`. The floor (≈ 2.2% on mainnet)
-is where the scaled TAO weight would reach one; zero is never accepted
-because the multiplier would be infinite. Errors:
-`ValidatorEmissionAboveMaximum`, `ValidatorEmissionBelowTaoWeightFloor`,
-`EmissionWeightsDoNotSumToOne`.
+`validator_emission ≤ 0.50`, and the new value must leave room to keep root
+whole with a TAO weight no greater than one. Writing `r` for root's current
+share of the subnet's emission, `A` for its alpha issuance and `T` for root
+TAO, the floor at this block is `r × (1 + A / T)`; on a mainnet subnet with
+5.4M TAO on root and 6.5M alpha issued that is about 11.8%. The floor moves
+with root stake and issuance, so `btcli subnets emission show` prints the
+current value. Errors: `ValidatorEmissionAboveMaximum`,
+`ValidatorEmissionTooLowToPreserveRoot`, `EmissionWeightsDoNotSumToOne`.
 
 ## Reading and setting
 
@@ -43,6 +45,5 @@ available on the root subnet.
 ## Related
 
 - [`owner_emission`](/docs/hyperparameters/owner-emission),
-  [`miner_emission`](/docs/hyperparameters/miner-emission),
-  [`effective_tao_weight`](/docs/hyperparameters/effective-tao-weight)
+  [`miner_emission`](/docs/hyperparameters/miner-emission)
 - [Emission weights](/docs/concepts/emission-weights)

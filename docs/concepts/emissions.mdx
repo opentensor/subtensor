@@ -159,20 +159,21 @@ A [`consensus_root_proportion`](/code/pallets/subtensor/src/coinbase/block_step.
 injection cap, but with the subnet's effective TAO weight) is reserved for
 **root TAO stakers** and accumulated as claimable root dividends — but only
 in blocks where the sum of eligible non-root subnets' EMA prices exceeds 1.0;
-otherwise that alpha is recycled. Lowering the validator slot scales the
-subnet's effective TAO weight up by the same factor, so root's alpha is
-preserved to first order; the injection cap itself keeps the global
-`TaoWeight` and is unaffected.
+otherwise that alpha is recycled. When a subnet changes its validator slot,
+the chain re-solves that subnet's effective TAO weight once, at that block,
+so root's share of the subnet's emission is exactly what it was the block
+before (see [Emission weights](/docs/concepts/emission-weights#the-effective-tao-weight));
+the injection cap itself keeps the global `TaoWeight` and is unaffected.
 
 If an epoch ends with zero total miner incentive, the miner half of that
 tempo's pending alpha is paid to validators instead of being withheld.
 
 Within a validator's dividends, each staker is paid according to the
 validator's stake mix: the TAO-staker portion is `τ × w / (α + τ × w)` and
-the alpha-staker portion is `α / (α + τ × w)`, where `w` is the global TAO
-weight (≈ 0.0527 on mainnet, governance-set) times the subnet's
-[TAO-weight multiplier](/docs/concepts/emission-weights#the-tao-weight-multiplier),
-capped at 1. The validator's
+the alpha-staker portion is `α / (α + τ × w)`, where `w` is the subnet's
+[effective TAO weight](/docs/concepts/emission-weights#the-effective-tao-weight)
+(the global `TaoWeight`, ≈ 0.0527 on mainnet and governance-set, until the
+subnet changes its validator share). The validator's
 [take](/docs/tx/set-take) is
 deducted before delegators are paid.
 

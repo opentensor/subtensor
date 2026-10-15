@@ -9,15 +9,16 @@ Dispatches `AdminUtils.sudo_set_subnet_emission_weights` for the named
 slots. The signer must be the subnet's owner coldkey (root may also call
 it). With `renormalize` the untouched owner/validator/miner slots are
 rescaled so the vector still sums to one; without it the merged vector is
-submitted as given. Lowering the validator share raises the subnet's TAO
-weight by `base_share / new_share` so root stakers keep their payout —
-the pre-sign plan shows the resulting multiplier and effective TAO weight
-and lists every rule the chain would reject, so a bad vector is caught
+submitted as given. Changing the validator share makes the chain re-solve
+the subnet's effective TAO weight so root stakers keep exactly their
+current share of emission — the pre-sign plan shows that share and the
+resulting weight, and lists every rule the chain would reject (including
+a validator share too low to keep root whole), so a bad vector is caught
 before signing. Owners may change the vector once per week per subnet.
 
 | Signer | Origin | Pallet | Wraps |
 | --- | --- | --- | --- |
-| `coldkey` | subnet owner | AdminUtils | [`AdminUtils.sudo_set_subnet_emission_weights`](/code/pallets/admin-utils/src/lib.rs#L2690-L2713) |
+| `coldkey` | subnet owner | AdminUtils | [`AdminUtils.sudo_set_subnet_emission_weights`](/code/pallets/admin-utils/src/lib.rs#L2691-L2714) |
 
 ## Verify
 
@@ -34,7 +35,7 @@ btcli query subnet-emission-weights --netuid <integer> --json
 | --- | --- | --- | --- |
 | `netuid` | integer | yes | Subnet to configure; the signer must be its owner. |
 | `slots` | array of ['integer', 'string'] | yes | Slots to set, by name or uid: 0 burn, 1 recycle, 2 owner, 3 validator, 4 miner. Omitted owner/validator/miner slots keep their current share; omitted burn/recycle are zero. |
-| `values` | array of ['integer', 'number', 'string'] | yes | New share for each slot, pairwise with `slots`: a 0..1 fraction (0.41), a percentage ("41%"), or raw u64 parts of 2^64-1. Rules: burn = recycle = 0; owner \<= 33% (>= 18% on lease-created subnets); validator between the subnet's TAO-weight floor and 50%; miner >= 33%; all five sum to exactly 1. |
+| `values` | array of ['integer', 'number', 'string'] | yes | New share for each slot, pairwise with `slots`: a 0..1 fraction (0.41), a percentage ("41%"), or raw u64 parts of 2^64-1. Rules: burn = recycle = 0; owner \<= 33% (>= 18% on lease-created subnets); validator \<= 50% and high enough that root's share of emission can be preserved (see `btcli subnets emission show`); miner >= 33%; all five sum to exactly 1. |
 | `renormalize` | boolean | no | Keep the named slots as given and rescale the other owner/validator/miner slots proportionally so the vector sums to 1 (the miner slot absorbs rounding). Without it, the update is applied verbatim and must already sum to 1. |
 
 Address parameters (`--hotkey`, `--coldkey`, `--dest`, ...) accept a raw ss58
@@ -82,7 +83,7 @@ result = sub.execute_tool("set_subnet_emission_weights", {...}, wallet)
 
 ## On-chain implementation
 
-`AdminUtils.sudo_set_subnet_emission_weights` — [`pallets/admin-utils/src/lib.rs#L2692`](/code/pallets/admin-utils/src/lib.rs#L2690-L2713):
+`AdminUtils.sudo_set_subnet_emission_weights` — [`pallets/admin-utils/src/lib.rs#L2693`](/code/pallets/admin-utils/src/lib.rs#L2691-L2714):
 
 ```rust
 #[pallet::call_index(114)]
@@ -96,7 +97,7 @@ pub fn sudo_set_subnet_emission_weights(
     let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
         origin,
         netuid,
-        &[TransactionType::SetSubnetEmissionWeights],
+        &[Hyperparameter::EmissionWeights.into()],
     )?;
     pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
@@ -105,7 +106,7 @@ pub fn sudo_set_subnet_emission_weights(
     pallet_subtensor::Pallet::<T>::record_owner_rl(
         maybe_owner,
         netuid,
-        &[TransactionType::SetSubnetEmissionWeights],
+        &[Hyperparameter::EmissionWeights.into()],
     );
     Ok(())
 }

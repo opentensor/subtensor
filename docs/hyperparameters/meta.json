@@ -52,7 +52,6 @@
     "owner-emission",
     "validator-emission",
     "miner-emission",
-    "effective-tao-weight",
     "owner-cut-auto-lock-enabled"
   ]
 }
