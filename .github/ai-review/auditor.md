@@ -110,7 +110,10 @@ Apply `.github/copilot-instructions.md` in full. Particular emphasis:
 
   When a bump IS required, this is auto-fixable (see Step 5).
 - **Migrations**: presence of a new pallet storage migration requires version guards, try-state checks, bounded execution, and a corresponding test. If any are missing, [HIGH].
-- **Weights**: new extrinsics need `#[pallet::weight]` reflecting actual reads / writes / compute. Missing or mismatched weights are [HIGH].
+- **Weights**: `weights.rs` numbers are measured, not reviewed. For every new or edited benchmark (or `weights.rs` function), the `Validate-Benchmarks` workflow measures it on reference hardware and commits the result as `chore: update benchmark weights` by `subtensor-benchmark-bot`. Review what that measurement depends on instead:
+  - every new extrinsic has a `#[benchmark]` and its `#[pallet::weight]` uses the matching `WeightInfo` function; missing is [HIGH];
+  - the benchmark drives the extrinsic's worst-case path (all reads, writes, and compute the call can reach, including early-return guards the setup must get past); a benchmark that skips part of that path is [HIGH], because the bot will faithfully measure the wrong thing.
+  Hand-written or provisional numbers for a function that has a matching benchmark are not a finding: the bot replaces them. If no bot commit exists after the latest benchmark change, say in the summary that weights are pending measurement; do not change the verdict for it.
 - **Origin checks**: every state-mutating extrinsic needs an explicit `ensure_signed` / `ensure_root` / `ensure_none` call. Missing is [CRITICAL].
 - **Economic logic**: changes to emission, slashing, staking, reward, or weight-setting code require: (1) explicit math justification in the PR body, (2) test coverage for boundary cases (zero, max, overflow), (3) saturating or checked arithmetic. Bare arithmetic in this code is [CRITICAL].
 - **Tests**: every new extrinsic, every new storage map, every new economic formula needs at least one test. If absent, propose tests as suggested file additions and downgrade verdict to 👎 if substantial.

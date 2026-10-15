@@ -149,19 +149,27 @@ The generated weight includes base values plus per-parameter slope terms
 ## CI workflow
 
 The `Validate-Benchmarks` workflow (`.github/workflows/run-benchmarks.yml`)
-runs on every PR:
+keeps committed weights measured on the reference machine without labels:
 
-1. Builds the node with `--features runtime-benchmarks`
-2. Runs benchmarks for every pallet, generating new `weights.rs` to temp files
-3. Uses `weight-compare` to compare old vs new values with a **40% threshold**
-   - Base weight: threshold-based (allows measurement noise)
-   - Reads/writes: exact match (these are deterministic)
-   - Component slopes: threshold-based for weights, exact for reads/writes
-4. If drift is detected, prepares a patch in `.bench_patch/`
-5. Adding the `apply-benchmark-patch` label auto-applies the patch
+1. **Pull requests.** `scripts/benchmark_targets.py` selects the benchmarks
+   whose `#[benchmark]` function or `weights.rs` function differs from the
+   merge base. When nothing is selected, the Benchmarking runner is not used.
+   Otherwise only those benchmarks are measured, and a bot commit
+   (`chore: update benchmark weights`) writes the measurements to the PR
+   branch. A benchmark is measured once per definition: after the bot commit it
+   is selected again only if it changes again. Do not hand-write weights for a
+   new or changed benchmark; push the benchmark and let the bot fill them in.
+2. **Nightly.** The full suite runs on `main`. `weight-compare` checks each
+   benchmark against its committed weight (reads/writes must match exactly;
+   times may drift up to the threshold), and drifted weights land in the
+   `automated/benchmark-weights` PR, which is reset and updated every night.
+   This catches drift from logic changes under an unchanged benchmark, which
+   PR selection does not track.
+3. **Manual.** `gh workflow run run-benchmarks.yml --ref <branch>` measures the
+   full suite on a branch and commits drifted weights to it.
 
-To skip benchmarks on a PR, add the `skip-validate-benchmarks` label. This can
-be added at any point during the job — it's checked between expensive steps.
+The node binary is cached by `Cargo.lock`, `rust-toolchain.toml`, and `node/`;
+most runs build only the runtime WASM.
 
 ## Running benchmarks locally
 

@@ -16,9 +16,11 @@ Do not remove or rename these without updating their consumers.
 
 | Script | Used by |
 |--------|---------|
-| `benchmark_action.sh` | `run-benchmarks.yml` — validates benchmark weights on PRs |
+| `benchmark_targets.py` | `run-benchmarks.yml` — selects the benchmarks a PR must re-measure (changed `#[benchmark]` or `weights.rs` function) |
+| `benchmark_action.sh` | `run-benchmarks.yml` — measures selected benchmarks (PRs) or the full suite (nightly) and prepares the `weights.rs` patch |
+| `benchmark_action.py` | Helper for both scripts above; parses and splices `weights.rs` functions |
 | `benchmark_all.sh` | Manual companion to the above; regenerates `weights.rs` for all pallets using `.maintain/frame-weight-template.hbs` (see [Benchmarks and weights](/docs/internals/benchmarks-and-weights)) |
-| `discover_pallets.sh` | Helper sourced by both benchmark scripts |
+| `discover_pallets.sh` | Helper used by the benchmark scripts |
 | `build_all_chainspecs.sh` | `update-chainspec.yml` — rebuilds `chainspecs/*.json` while preserving each file's genesis. The genesis wasm is not reproducible across build architectures, so the committed chainspec files are the canonical genesis source. Never delete them. |
 | `docker_entrypoint.sh` | `Dockerfile` entrypoint for both image targets |
 | `fix_rust.sh` | PR template, AI-review tooling, and agent skills; runs fmt + clippy fix + zepter |
