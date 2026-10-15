@@ -2158,11 +2158,7 @@ pub mod pallet {
         /// the lowest emitters while preserving temporally and owner immune UIDs. The UIDs are
         /// then compressed to the left and storage is migrated to the new compressed UIDs.
         #[pallet::call_index(78)]
-        #[pallet::weight(if pallet_subtensor::Pallet::<T>::get_epoch_consensus(*netuid) == pallet_subtensor::EpochConsensus::Null {
-            <T as pallet::Config>::WeightInfo::sudo_trim_null_uids_batch().max(<T as pallet::Config>::WeightInfo::sudo_trim_null_uids_batch_many_mechanisms())
-        } else {
-            <T as pallet::Config>::WeightInfo::sudo_trim_to_max_allowed_uids()
-        }.saturating_add(T::DbWeight::get().reads(1)))]
+        #[pallet::weight(Pallet::<T>::sudo_trim_to_max_allowed_uids_weight(*netuid, *max_n))]
         pub fn sudo_trim_to_max_allowed_uids(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -2189,7 +2185,7 @@ pub mod pallet {
         /// batch leaves the subnet usable. Only the same final target may
         /// continue the original operation without restarting its cooldown.
         #[pallet::call_index(112)]
-        #[pallet::weight(<T as pallet::Config>::WeightInfo::sudo_trim_null_uids_batch().max(<T as pallet::Config>::WeightInfo::sudo_trim_null_uids_batch_many_mechanisms()))]
+        #[pallet::weight(Pallet::<T>::sudo_trim_null_uids_batch_weight())]
         pub fn sudo_trim_null_uids_batch(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -2881,6 +2877,36 @@ pub mod pallet {
                 fee_per_weight_second,
             });
             Ok(())
+        }
+    }
+
+    impl<T: Config> Pallet<T> {
+        /// Declared weight for `sudo_trim_to_max_allowed_uids`, including a force-payout
+        /// envelope per UID that may be deleted when shrinking from a full subnet.
+        pub fn sudo_trim_to_max_allowed_uids_weight(netuid: NetUid, max_n: u16) -> Weight {
+            let base = if pallet_subtensor::Pallet::<T>::get_epoch_consensus(netuid)
+                == pallet_subtensor::EpochConsensus::Null
+            {
+                <T as Config>::WeightInfo::sudo_trim_null_uids_batch()
+                    .max(<T as Config>::WeightInfo::sudo_trim_null_uids_batch_many_mechanisms())
+            } else {
+                <T as Config>::WeightInfo::sudo_trim_to_max_allowed_uids()
+            };
+            let removals = u32::from(pallet_subtensor::DefaultMaxAllowedUids::<T>::get())
+                .saturating_sub(u32::from(max_n));
+            base.saturating_add(T::DbWeight::get().reads(1))
+                .saturating_add(pallet_subtensor::Pallet::<T>::trim_pending_payout_weight(
+                    removals,
+                ))
+        }
+
+        /// Declared weight for one Null pruning batch, including force-payouts.
+        pub fn sudo_trim_null_uids_batch_weight() -> Weight {
+            <T as Config>::WeightInfo::sudo_trim_null_uids_batch()
+                .max(<T as Config>::WeightInfo::sudo_trim_null_uids_batch_many_mechanisms())
+                .saturating_add(pallet_subtensor::Pallet::<T>::trim_pending_payout_weight(
+                    u32::from(pallet_subtensor::subnets::uids::NULL_PRUNING_BATCH),
+                ))
         }
     }
 }

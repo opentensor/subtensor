@@ -104,20 +104,28 @@ fn claim_miner_emission_charges_weight_proportional_fee() {
 }
 
 #[test]
-fn claim_rejects_when_disabled_or_empty() {
+fn claim_succeeds_after_emergency_disable() {
     new_test_ext(0).execute_with(|| {
         let (cold, hot, netuid) = setup_claim_subnet();
-        ClaimBasedMinerEmissions::<Test>::insert(netuid, false);
-        SubtensorModule::accrue_pending_miner_alpha(netuid, &hot, 100u64.into());
+        let amount: AlphaBalance = 100u64.into();
+        SubtensorModule::accrue_pending_miner_alpha(netuid, &hot, amount);
 
-        assert_noop!(
-            SubtensorModule::claim_miner_emission(RuntimeOrigin::signed(cold), hot, netuid),
-            Error::<Test>::ClaimBasedMinerEmissionsDisabled
+        // Emergency disable stops accrual but must not strand prior pending.
+        ClaimBasedMinerEmissions::<Test>::insert(netuid, false);
+        assert_ok!(SubtensorModule::claim_miner_emission(
+            RuntimeOrigin::signed(cold),
+            hot,
+            netuid
+        ));
+        assert_eq!(
+            SubtensorModule::get_pending_miner_emission(&hot, netuid),
+            AlphaBalance::ZERO
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot, &cold, netuid),
+            amount
         );
 
-        ClaimBasedMinerEmissions::<Test>::insert(netuid, true);
-        // Clear pending
-        let _ = SubtensorModule::payout_pending_miner_alpha(netuid, &hot, false, Weight::zero());
         assert_noop!(
             SubtensorModule::claim_miner_emission(RuntimeOrigin::signed(cold), hot, netuid),
             Error::<Test>::AmountTooLow

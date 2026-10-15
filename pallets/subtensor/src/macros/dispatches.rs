@@ -800,7 +800,9 @@ mod dispatches {
         /// * `InvalidSeal`: The seal is incorrect.
         ///
         #[pallet::call_index(6)]
-        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::register())]
+        #[pallet::weight(Pallet::<T>::registration_with_replace_weight(
+            <T as crate::pallet::Config>::WeightInfo::register()
+        ))]
         pub fn register(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -837,7 +839,9 @@ mod dispatches {
 
         /// User register a new subnetwork via burning token
         #[pallet::call_index(7)]
-        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::burned_register())]
+        #[pallet::weight(Pallet::<T>::registration_with_replace_weight(
+            <T as crate::pallet::Config>::WeightInfo::burned_register()
+        ))]
         pub fn burned_register(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -850,7 +854,12 @@ mod dispatches {
         /// or transaction fee. The signing coldkey is bound into the proof.
         /// Transaction validation verifies the proof before pool admission.
         #[pallet::call_index(152)]
-        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::pow_register(), Pays::No))]
+        #[pallet::weight((
+            Pallet::<T>::registration_with_replace_weight(
+                <T as crate::pallet::Config>::WeightInfo::pow_register()
+            ),
+            Pays::No
+        ))]
         pub fn pow_register(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -2618,7 +2627,13 @@ mod dispatches {
         ///
         /// `limit_price` is expressed in the same TaoCurrency/u64 units as `Burn`.
         #[pallet::call_index(134)]
-        #[pallet::weight((<T as Config>::WeightInfo::register_limit(), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight((
+            Pallet::<T>::registration_with_replace_weight(
+                <T as Config>::WeightInfo::register_limit()
+            ),
+            DispatchClass::Normal,
+            Pays::Yes
+        ))]
         pub fn register_limit(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -2936,9 +2951,11 @@ mod dispatches {
         /// * `AutoStakeAdded`: When the owner has an auto-stake destination on this subnet.
         ///
         /// # Errors
-        /// * `ClaimBasedMinerEmissionsDisabled`: Subnet still distributes every epoch.
         /// * `AmountTooLow`: No pending incentive to claim.
         /// * `NonAssociatedColdKey`: Signer does not own `hotkey`.
+        ///
+        /// Claims remain available after an emergency disable of
+        /// [`ClaimBasedMinerEmissions`]; that toggle only stops new epoch accrual.
         #[pallet::call_index(146)]
         #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::claim_miner_emission())]
         pub fn claim_miner_emission(

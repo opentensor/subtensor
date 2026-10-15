@@ -161,11 +161,10 @@ DESCRIPTIONS: dict[str, str] = {
         "whether the call was re-enabled in a newer runtime version."
     ),
     "ClaimBasedMinerEmissionsDisabled": (
-        "`claim_miner_emission` was called on a subnet that still stakes miner incentive "
-        "every epoch (`ClaimBasedMinerEmissions` is false). Accrual only happens when claim "
-        "mode is enabled; with it off there is nothing to claim and the call is refused. "
-        "Check `ClaimBasedMinerEmissions` for the netuid — root can re-enable with "
-        "`sudo_set_claim_based_miner_emissions`."
+        "Retired on current runtimes: `claim_miner_emission` no longer raises this error. "
+        "Claims succeed whenever pending alpha exists, including after an emergency disable "
+        "of `ClaimBasedMinerEmissions` (the toggle only stops new epoch accrual). Seeing this "
+        "means an older runtime or a stale client error catalog."
     ),
     "CanNotSetRootNetworkWeights": (
         "`set_weights` was called with netuid 0, the root network, where weight setting is "

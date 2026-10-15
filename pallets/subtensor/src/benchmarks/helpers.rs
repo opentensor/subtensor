@@ -169,6 +169,8 @@ pub(super) fn setup_full_subnet_registration_benchmark<T: Config>(
     let netuid_index = NetUidStorageIndex::from(netuid);
     let dense_weights = dense_benchmark_weights(uid_count);
 
+    ClaimBasedMinerEmissions::<T>::insert(netuid, true);
+    let pending_per_uid = AlphaBalance::from(1_000_000u64);
     for uid in 0..uid_count {
         seed_benchmark_neuron::<T>(
             netuid,
@@ -180,6 +182,10 @@ pub(super) fn setup_full_subnet_registration_benchmark<T: Config>(
         Subtensor::<T>::set_validator_permit_for_uid(netuid, uid, true);
         Weights::<T>::insert(netuid_index, uid, dense_weights.clone());
         Bonds::<T>::insert(netuid_index, uid, dense_weights.clone());
+        // Full-subnet registration replaces a UID; seed pending so the
+        // force-payout path in `replace_neuron` is measured.
+        let hotkey = Keys::<T>::get(netuid, uid);
+        Subtensor::<T>::accrue_pending_miner_alpha(netuid, &hotkey, pending_per_uid);
     }
 
     assert_eq!(Subtensor::<T>::get_subnetwork_n(netuid), uid_count);

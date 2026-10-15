@@ -1615,9 +1615,9 @@ class ClaimMinerEmission(Intent):
     staked (or auto-staked to the coldkey's destination on that subnet).
     Validator dividends are unchanged and are never claimed through this
     extrinsic. Preview the pending amount with the ``pending_miner_emission``
-    read. Fails with ``ClaimBasedMinerEmissionsDisabled`` when the subnet
-    still distributes every epoch, and with ``AmountTooLow`` when nothing is
-    pending.
+    read. Claims remain available after an emergency disable of
+    ``ClaimBasedMinerEmissions`` (that toggle only stops new epoch accrual).
+    Fails with ``AmountTooLow`` when nothing is pending.
     """
 
     op = "claim_miner_emission"

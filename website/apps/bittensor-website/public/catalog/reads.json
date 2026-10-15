@@ -1621,9 +1621,9 @@
         "container": "StakeInfoRuntimeApi",
         "name": "get_pending_miner_emission",
         "path": "pallets/subtensor/src/staking/claim_miner.rs",
-        "line": 61,
-        "end_line": 63,
-        "url": "/code/pallets/subtensor/src/staking/claim_miner.rs#L61-L63",
+        "line": 72,
+        "end_line": 74,
+        "url": "/code/pallets/subtensor/src/staking/claim_miner.rs#L72-L74",
         "raw_url": "/code/raw/pallets/subtensor/src/staking/claim_miner.rs"
       }
     ]
@@ -1648,9 +1648,9 @@
         "container": "StakeInfoRuntimeApi",
         "name": "get_pending_miner_emission_total",
         "path": "pallets/subtensor/src/staking/claim_miner.rs",
-        "line": 67,
-        "end_line": 69,
-        "url": "/code/pallets/subtensor/src/staking/claim_miner.rs#L67-L69",
+        "line": 78,
+        "end_line": 80,
+        "url": "/code/pallets/subtensor/src/staking/claim_miner.rs#L78-L80",
         "raw_url": "/code/raw/pallets/subtensor/src/staking/claim_miner.rs"
       }
     ]

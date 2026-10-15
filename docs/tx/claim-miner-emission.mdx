@@ -13,13 +13,13 @@ weight is recycled from the pending amount before the remainder is
 staked (or auto-staked to the coldkey's destination on that subnet).
 Validator dividends are unchanged and are never claimed through this
 extrinsic. Preview the pending amount with the `pending_miner_emission`
-read. Fails with `ClaimBasedMinerEmissionsDisabled` when the subnet
-still distributes every epoch, and with `AmountTooLow` when nothing is
-pending.
+read. Claims remain available after an emergency disable of
+`ClaimBasedMinerEmissions` (that toggle only stops new epoch accrual).
+Fails with `AmountTooLow` when nothing is pending.
 
 | Signer | Origin | Pallet | Wraps |
 | --- | --- | --- | --- |
-| `coldkey` | signed account (pallet role may apply) | SubtensorModule | [`SubtensorModule.claim_miner_emission`](/code/pallets/subtensor/src/macros/dispatches.rs#L2942-L2950) |
+| `coldkey` | signed account (pallet role may apply) | SubtensorModule | [`SubtensorModule.claim_miner_emission`](/code/pallets/subtensor/src/macros/dispatches.rs#L2959-L2967) |
 
 ## Parameters
 
@@ -69,7 +69,7 @@ result = sub.execute_tool("claim_miner_emission", {...}, wallet)
 
 ## On-chain implementation
 
-`SubtensorModule.claim_miner_emission` — [`pallets/subtensor/src/macros/dispatches.rs#L2944`](/code/pallets/subtensor/src/macros/dispatches.rs#L2942-L2950):
+`SubtensorModule.claim_miner_emission` — [`pallets/subtensor/src/macros/dispatches.rs#L2961`](/code/pallets/subtensor/src/macros/dispatches.rs#L2959-L2967):
 
 ```rust
 #[pallet::call_index(146)]
@@ -83,6 +83,6 @@ pub fn claim_miner_emission(
 }
 ```
 
-Delegates to [`do_claim_miner_emission`](/code/pallets/subtensor/src/staking/claim_miner.rs#L192).
+Delegates to [`do_claim_miner_emission`](/code/pallets/subtensor/src/staking/claim_miner.rs#L203).
 
 Every file is browsable under [/code](/code) exactly as built into the runtime, or as plain text under `/code/raw/<path>` (index: [`/code/index.json`](/code/index.json)).

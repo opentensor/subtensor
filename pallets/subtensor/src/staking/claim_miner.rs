@@ -51,6 +51,17 @@ impl<T: Config> Pallet<T> {
         ClaimBasedMinerEmissions::<T>::get(netuid)
     }
 
+    /// Registration weight when the subnet is full and `replace_neuron` may force-pay
+    /// accrued miner incentive for the evicted hotkey.
+    pub fn registration_with_replace_weight(base: Weight) -> Weight {
+        base.saturating_add(<T as Config>::WeightInfo::claim_miner_emission())
+    }
+
+    /// Per-UID force-payout allowance for trimming / Null pruning batches.
+    pub fn trim_pending_payout_weight(uids_removed: u32) -> Weight {
+        <T as Config>::WeightInfo::claim_miner_emission().saturating_mul(uids_removed.into())
+    }
+
     /// Root/sudo toggle. New subnets and the enablement migration default this on.
     pub fn set_claim_based_miner_emissions(netuid: NetUid, enabled: bool) {
         ClaimBasedMinerEmissions::<T>::insert(netuid, enabled);
@@ -200,10 +211,9 @@ impl<T: Config> Pallet<T> {
             !netuid.is_root(),
             Error::<T>::RegistrationNotPermittedOnRootSubnet
         );
-        ensure!(
-            Self::get_claim_based_miner_emissions(netuid),
-            Error::<T>::ClaimBasedMinerEmissionsDisabled
-        );
+        // Claims remain available after an emergency disable so previously
+        // accrued `PendingMinerAlpha` is not stranded. The toggle only gates
+        // epoch accrual (see `distribute_dividends_and_incentives`).
         ensure!(
             Self::hotkey_account_exists(&hotkey),
             Error::<T>::HotKeyAccountNotExists

@@ -31,7 +31,7 @@ refuses when free TAO cannot cover the reserve.
 
 | Signer | Origin | Pallet | Wraps |
 | --- | --- | --- | --- |
-| `coldkey` | signed account (pallet role may apply) | SubtensorModule | [`SubtensorModule.claim_root`](/code/pallets/subtensor/src/macros/dispatches.rs#L2096-L2138) |
+| `coldkey` | signed account (pallet role may apply) | SubtensorModule | [`SubtensorModule.claim_root`](/code/pallets/subtensor/src/macros/dispatches.rs#L2105-L2147) |
 
 ## Parameters
 
@@ -78,7 +78,7 @@ result = sub.execute_tool("claim_root", {...}, wallet)
 
 ## On-chain implementation
 
-`SubtensorModule.claim_root` — [`pallets/subtensor/src/macros/dispatches.rs#L2100`](/code/pallets/subtensor/src/macros/dispatches.rs#L2096-L2138):
+`SubtensorModule.claim_root` — [`pallets/subtensor/src/macros/dispatches.rs#L2109`](/code/pallets/subtensor/src/macros/dispatches.rs#L2105-L2147):
 
 ```rust
 #[pallet::call_index(121)]
