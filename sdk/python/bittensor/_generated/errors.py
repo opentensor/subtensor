@@ -215,6 +215,7 @@ ERRORS: dict[tuple[int, int], ErrorInfo] = {
     (7, 172): ErrorInfo('SubtensorModule', 'BasketSwapBatchEmpty', 'A `swap_basket_many` call contained no trade legs. Submit at least one leg; the bounded call argument enforces the maximum at decode time.'),
     (7, 173): ErrorInfo('SubtensorModule', 'CommitPayloadTooLarge', "Ciphertext exceeds the selected consensus mode's payload limit."),
     (7, 174): ErrorInfo('SubtensorModule', 'CommitQueueFull', "The subnet's shared Null timelock queue has reached its byte or count budget."),
+    (7, 175): ErrorInfo('SubtensorModule', 'ClaimBasedMinerEmissionsDisabled', 'Retired for claim access (kept for SCALE index stability): claims are allowed whenever pending alpha exists, including after an emergency disable of [`crate::ClaimBasedMinerEmissions`]. Accrual alone is gated.'),
     (11, 0): ErrorInfo('Utility', 'TooManyCalls', 'Too many calls batched.'),
     (11, 1): ErrorInfo('Utility', 'InvalidDerivedAccount', 'Bad input data for derived account ID'),
     (12, 0): ErrorInfo('Sudo', 'RequireSudo', 'Sender must be the Sudo account.'),

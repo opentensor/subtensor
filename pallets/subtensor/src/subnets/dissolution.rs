@@ -73,6 +73,11 @@ pub enum DissolveCleanupPhase {
     /// that can recycle alpha has completed. Appended so existing in-flight cleanup
     /// discriminants remain stable.
     NetworkAlphaAssetCounters,
+    /// Phase 2.0: Stake fee-free every [`PendingMinerAlpha`] row on this subnet before
+    /// AlphaInOut total/settle so unclaimed miner incentive is converted to TAO with
+    /// the rest of stake. Appended (not inserted) so in-flight discriminants stay
+    /// stable; the RootClaimed → GetTotal transition now routes through this phase.
+    PendingMinerAlphaToStake,
 }
 
 impl Default for DissolveCleanupPhase {
@@ -207,6 +212,10 @@ impl<T: Config> Pallet<T> {
             ColdkeyMinerCollateral::<T>::clear_prefix(netuid, limit, None)
         }) && clear_prefix_with_meter(weight_meter, write_weight, |limit| {
             ColdkeyCollateralHotkeys::<T>::clear_prefix(netuid, limit, None)
+        }) && clear_prefix_with_meter(weight_meter, write_weight, |limit| {
+            // Pending rows should already have been staked in PendingMinerAlphaToStake;
+            // clear any leftover zeros / in-flight upgrade gaps.
+            PendingMinerAlpha::<T>::clear_prefix(netuid, limit, None)
         });
 
         if !result {
@@ -299,7 +308,7 @@ impl<T: Config> Pallet<T> {
     pub fn remove_network_parameters(netuid: NetUid, weight_meter: &mut WeightMeter) -> bool {
         // Flat write charge for the `::remove(netuid)` list below. Bump this when
         // adding or removing entries from that list so the weight stays in step.
-        let removal_weight = T::DbWeight::get().writes(87);
+        let removal_weight = T::DbWeight::get().writes(89);
         if !weight_meter.can_consume(removal_weight) {
             return false;
         }
@@ -347,6 +356,8 @@ impl<T: Config> Pallet<T> {
         PendingServerEmission::<T>::remove(netuid);
         PendingRootAlphaDivs::<T>::remove(netuid);
         PendingOwnerCut::<T>::remove(netuid);
+        ClaimBasedMinerEmissions::<T>::remove(netuid);
+        PendingMinerAlphaTotal::<T>::remove(netuid);
         MinerBurned::<T>::remove(netuid);
         BlocksSinceLastStep::<T>::remove(netuid);
         LastMechansimStepBlock::<T>::remove(netuid);
@@ -725,8 +736,23 @@ impl<T: Config> Pallet<T> {
                     let done = Self::clean_up_root_claimed_for_subnet(netuid, weight_meter);
 
                     if done {
+                        status.set_phase(DissolveCleanupPhase::PendingMinerAlphaToStake);
+                        status.last_key = None;
+                    }
+                    done
+                }
+
+                DissolveCleanupPhase::PendingMinerAlphaToStake => {
+                    let (done, new_key) = Self::dissolve_pending_miner_alpha_to_stake(
+                        netuid,
+                        weight_meter,
+                        status.last_key.clone(),
+                    );
+                    if done {
                         status.set_phase(DissolveCleanupPhase::AlphaInOutStakesGetTotalAlphaValue);
                         status.last_key = None;
+                    } else {
+                        status.last_key = new_key;
                     }
                     done
                 }

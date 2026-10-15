@@ -160,6 +160,12 @@ DESCRIPTIONS: dict[str, str] = {
         "There is no active raise site in current code; if seen, check release notes for "
         "whether the call was re-enabled in a newer runtime version."
     ),
+    "ClaimBasedMinerEmissionsDisabled": (
+        "Retired on current runtimes: `claim_miner_emission` no longer raises this error. "
+        "Claims succeed whenever pending alpha exists, including after an emergency disable "
+        "of `ClaimBasedMinerEmissions` (the toggle only stops new epoch accrual). Seeing this "
+        "means an older runtime or a stale client error catalog."
+    ),
     "CanNotSetRootNetworkWeights": (
         "`set_weights` was called with netuid 0, the root network, where weight setting is "
         "not allowed: root validators do not set weights at all. Use a non-root `netuid` "

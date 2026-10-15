@@ -66,6 +66,7 @@ fn setup_null_pruning_benchmark<T: Config>(count: u8) -> NetUid {
     for uid in 0..frozen_n {
         Bonds::<T>::insert(NetUidStorageIndex::from(netuid), uid, &frozen_row);
     }
+    ClaimBasedMinerEmissions::<T>::insert(netuid, true);
     for uid in 0..n {
         let hotkey: T::AccountId = account("null_trim_hotkey", u32::from(uid), 0);
         let coldkey: T::AccountId = account("null_trim_coldkey", u32::from(uid), 0);
@@ -74,6 +75,7 @@ fn setup_null_pruning_benchmark<T: Config>(count: u8) -> NetUid {
         Uids::<T>::insert(netuid, &hotkey, uid);
         BlockAtRegistration::<T>::insert(netuid, uid, 0);
         IsNetworkMember::<T>::insert(&hotkey, netuid, true);
+        Pallet::<T>::accrue_pending_miner_alpha(netuid, &hotkey, AlphaBalance::from(1_000_000u64));
         Pallet::<T>::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &coldkey,
@@ -854,11 +856,18 @@ mod benchmarks {
         );
         pallet_subtensor::Pallet::<T>::set_max_allowed_uids(netuid, n);
         pallet_subtensor::Pallet::<T>::set_immunity_period(netuid, 0);
+        pallet_subtensor::ClaimBasedMinerEmissions::<T>::insert(netuid, true);
         for uid in 0..n {
             let hotkey: T::AccountId = account("trim_hotkey", u32::from(uid), 0);
             let coldkey: T::AccountId = account("trim_coldkey", u32::from(uid), 0);
             pallet_subtensor::Owner::<T>::insert(&hotkey, &coldkey);
             pallet_subtensor::Pallet::<T>::append_neuron(netuid, &hotkey, 0);
+            // Force-payout path on each deleted UID.
+            pallet_subtensor::Pallet::<T>::accrue_pending_miner_alpha(
+                netuid,
+                &hotkey,
+                subtensor_runtime_common::AlphaBalance::from(1_000_000u64),
+            );
             // Keep dense rows on the retained high-emission neurons so target
             // filtering and remapping are exercised as well as UID deletion.
             if uid >= n.saturating_sub(64) {
@@ -1257,6 +1266,30 @@ mod benchmarks {
         _(RawOrigin::Root, 100_000_000u64);
 
         assert_eq!(pallet_subtensor::BasketMinTradeTao::<T>::get(), 100_000_000);
+    }
+
+    #[benchmark]
+    fn sudo_set_claim_based_miner_emissions() {
+        let netuid = NetUid::from(1);
+        pallet_subtensor::Pallet::<T>::init_new_network(netuid, 1u16);
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, netuid, false);
+
+        assert!(!pallet_subtensor::ClaimBasedMinerEmissions::<T>::get(
+            netuid
+        ));
+    }
+
+    #[benchmark]
+    fn sudo_set_miner_claim_alpha_fee_per_weight_second() {
+        #[extrinsic_call]
+        _(RawOrigin::Root, 42u64);
+
+        assert_eq!(
+            pallet_subtensor::MinerClaimAlphaFeePerWeightSecond::<T>::get(),
+            42u64
+        );
     }
 
     #[benchmark]

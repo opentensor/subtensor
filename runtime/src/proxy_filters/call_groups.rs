@@ -317,6 +317,7 @@ call_filter_group!(
         RuntimeCall::SubtensorModule(SubtensorCall::stake_into_basket),
         RuntimeCall::SubtensorModule(SubtensorCall::add_collateral),
         RuntimeCall::SubtensorModule(SubtensorCall::set_min_collateral),
+        RuntimeCall::SubtensorModule(SubtensorCall::claim_miner_emission),
     ]
 );
 
@@ -628,6 +629,8 @@ call_filter_group!(
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_basket_liquidity_cap),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_basket_min_trade_tao),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_basket_claim_dust),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_claim_based_miner_emissions),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_miner_claim_alpha_fee_per_weight_second),
     ]
 );
 

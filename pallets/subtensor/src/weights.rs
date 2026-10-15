@@ -96,6 +96,10 @@ pub trait WeightInfo {
 	fn transfer_stake_and_hotkey() -> Weight;
 	fn add_collateral() -> Weight;
 	fn set_min_collateral() -> Weight;
+	/// Conservative envelope until reference measurement replaces it.
+	fn claim_miner_emission() -> Weight {
+		Self::add_stake()
+	}
 	fn swap_stake() -> Weight;
 	fn batch_commit_weights() -> Weight;
 	fn batch_set_weights() -> Weight;

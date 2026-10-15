@@ -496,6 +496,9 @@ impl<T: Config> Pallet<T> {
         // when a netuid is reused after pruning/dissolve.
         SubnetEmissionEnabled::<T>::insert(netuid, true);
 
+        // Claim-based miner emissions are on by default for every new subnet.
+        ClaimBasedMinerEmissions::<T>::insert(netuid, true);
+
         // Make network parameters explicit.
         if !Tempo::<T>::contains_key(netuid) {
             Tempo::<T>::insert(netuid, Tempo::<T>::get(netuid));

@@ -289,6 +289,40 @@ async def staking_hotkeys(view, coldkey_ss58: str) -> list[str]:
 
 
 @read(
+    "pending_miner_emission",
+    {"hotkey_ss58": "string", "netuid": "integer"},
+    category="Staking",
+    param_docs={
+        "hotkey_ss58": "Mining hotkey whose pending incentive to read.",
+        "netuid": "Subnet the incentive was earned on.",
+    },
+)
+async def pending_miner_emission(view, hotkey_ss58: str, netuid: int) -> Balance:
+    """Unclaimed miner incentive alpha for a hotkey on a subnet.
+
+    Accrues each epoch when ``ClaimBasedMinerEmissions`` is enabled; claim it
+    with the ``claim_miner_emission`` intent. Zero when claim mode is off or
+    nothing is pending.
+    """
+    rao = await view.runtime(
+        api.StakeInfoRuntimeApi.get_pending_miner_emission, [hotkey_ss58, netuid]
+    )
+    return Balance.from_rao(int(rao or 0), netuid=netuid)
+
+
+@read(
+    "pending_miner_emission_total",
+    {"netuid": "integer"},
+    category="Staking",
+    param_docs={"netuid": "Subnet whose pending miner incentive total to read."},
+)
+async def pending_miner_emission_total(view, netuid: int) -> Balance:
+    """Subnet-wide sum of unclaimed miner incentive alpha."""
+    rao = await view.runtime(api.StakeInfoRuntimeApi.get_pending_miner_emission_total, [netuid])
+    return Balance.from_rao(int(rao or 0), netuid=netuid)
+
+
+@read(
     "auto_stake",
     {"coldkey_ss58": "string", "netuid": "integer"},
     category="Staking",

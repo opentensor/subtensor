@@ -238,7 +238,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 478,
+    spec_version: 479,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1726,6 +1726,12 @@ type Migrations = (
     pallet_subtensor::migrations::migrate_resync_total_stake::resync_total_stake_v2::Migration<
         Runtime,
     >,
+    // Claim-based miner emissions: enable on every live non-root subnet. Storage
+    // default stays false so a later sudo off survives re-upgrades; new subnets
+    // are enabled in `init_new_network`.
+    pallet_subtensor::migrations::migrate_enable_claim_based_miner_emissions::enable_claim_based_miner_emissions::Migration<
+        Runtime,
+    >,
 );
 
 // Unchecked extrinsic type as expected by this runtime.
@@ -2580,6 +2586,14 @@ impl_runtime_apis! {
 
         fn get_most_convicted_hotkey_on_subnet(netuid: NetUid) -> Option<AccountId32> {
             SubtensorModule::subnet_king(netuid)
+        }
+
+        fn get_pending_miner_emission(hotkey: AccountId32, netuid: NetUid) -> AlphaBalance {
+            SubtensorModule::get_pending_miner_emission(&hotkey, netuid)
+        }
+
+        fn get_pending_miner_emission_total(netuid: NetUid) -> AlphaBalance {
+            SubtensorModule::get_pending_miner_emission_total(netuid)
         }
     }
 

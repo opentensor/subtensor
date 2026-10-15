@@ -91,6 +91,10 @@ impl<T: Config> Pallet<T> {
             return;
         }
 
+        // Accrued miner incentive must follow the leaving hotkey: stake it fee-free
+        // before membership drops so the new occupant cannot inherit it.
+        Self::force_payout_pending_miner_alpha(netuid, &old_hotkey);
+
         // Root churn: settle flushable pending basket credits while the hotkey is still
         // on root (earned dividends must deposit, not recycle). After membership drops,
         // a second flush recycles leftover sub-threshold dust the hotkey can no longer
@@ -349,6 +353,9 @@ impl<T: Config> Pallet<T> {
 
                     // Remove hotkey related storage items if hotkey exists
                     if let Ok(hotkey) = Keys::<T>::try_get(netuid, neuron_uid) {
+                        // Fee-free payout of accrued miner incentive before the UID is
+                        // dropped (same rule as `replace_neuron`).
+                        Self::force_payout_pending_miner_alpha(netuid, &hotkey);
                         T::CommitmentsInterface::purge_neuron(netuid, &hotkey);
 
                         // Same root-churn finalization as `replace_neuron`: deposit while

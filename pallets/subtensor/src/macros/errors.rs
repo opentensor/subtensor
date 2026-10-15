@@ -414,5 +414,9 @@ mod errors {
         CommitPayloadTooLarge,
         /// The subnet's shared Null timelock queue has reached its byte or count budget.
         CommitQueueFull,
+        /// Retired for claim access (kept for SCALE index stability): claims are
+        /// allowed whenever pending alpha exists, including after an emergency
+        /// disable of [`crate::ClaimBasedMinerEmissions`]. Accrual alone is gated.
+        ClaimBasedMinerEmissionsDisabled,
     }
 }

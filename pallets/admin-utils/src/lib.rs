@@ -187,6 +187,20 @@ pub mod pallet {
             /// Minimum TAO value through each trade leg, in rao.
             min_trade_rao: u64,
         },
+
+        /// Claim-based miner emissions toggled for a subnet.
+        ClaimBasedMinerEmissionsToggled {
+            /// Subnet identifier.
+            netuid: NetUid,
+            /// Whether miner incentive accrues for later claim.
+            enabled: bool,
+        },
+
+        /// Miner claim weight→alpha fee rate was set.
+        MinerClaimAlphaFeePerWeightSecondSet {
+            /// Alpha (rao) charged per second of claim weight.
+            fee_per_weight_second: u64,
+        },
     }
 
     // Errors inform users that something went wrong.
@@ -2144,11 +2158,7 @@ pub mod pallet {
         /// the lowest emitters while preserving temporally and owner immune UIDs. The UIDs are
         /// then compressed to the left and storage is migrated to the new compressed UIDs.
         #[pallet::call_index(78)]
-        #[pallet::weight(if pallet_subtensor::Pallet::<T>::get_epoch_consensus(*netuid) == pallet_subtensor::EpochConsensus::Null {
-            <T as pallet::Config>::WeightInfo::sudo_trim_null_uids_batch().max(<T as pallet::Config>::WeightInfo::sudo_trim_null_uids_batch_many_mechanisms())
-        } else {
-            <T as pallet::Config>::WeightInfo::sudo_trim_to_max_allowed_uids()
-        }.saturating_add(T::DbWeight::get().reads(1)))]
+        #[pallet::weight(Pallet::<T>::sudo_trim_to_max_allowed_uids_weight(*netuid, *max_n))]
         pub fn sudo_trim_to_max_allowed_uids(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -2175,7 +2185,7 @@ pub mod pallet {
         /// batch leaves the subnet usable. Only the same final target may
         /// continue the original operation without restarting its cooldown.
         #[pallet::call_index(112)]
-        #[pallet::weight(<T as pallet::Config>::WeightInfo::sudo_trim_null_uids_batch().max(<T as pallet::Config>::WeightInfo::sudo_trim_null_uids_batch_many_mechanisms()))]
+        #[pallet::weight(Pallet::<T>::sudo_trim_null_uids_batch_weight())]
         pub fn sudo_trim_null_uids_batch(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -2823,6 +2833,88 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::set_max_epochs_per_block(max_epochs_per_block);
 
             Ok(())
+        }
+
+        /// Enables or disables claim-based miner emissions on one subnet.
+        ///
+        /// When enabled, miner (server) incentive accrues in
+        /// [`pallet_subtensor::PendingMinerAlpha`] and is staked only on
+        /// `claim_miner_emission` (or forced payout). Validator dividends are
+        /// unchanged. Root-only emergency toggle — subnet owners cannot flip
+        /// this (returning to per-UID stake every epoch recreates the write
+        /// load claim-based mode removes).
+        #[pallet::call_index(114)]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::sudo_set_claim_based_miner_emissions())]
+        pub fn sudo_set_claim_based_miner_emissions(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            enabled: bool,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
+            pallet_subtensor::Pallet::<T>::set_claim_based_miner_emissions(netuid, enabled);
+            Self::deposit_event(Event::ClaimBasedMinerEmissionsToggled { netuid, enabled });
+            log::debug!(
+                "ClaimBasedMinerEmissionsToggled( netuid: {netuid:?}, enabled: {enabled:?} )"
+            );
+            Ok(())
+        }
+
+        /// Sets the alpha (rao) charged per second of `claim_miner_emission` weight.
+        /// See `pallet_subtensor::MinerClaimAlphaFeePerWeightSecond`. Root-only.
+        #[pallet::call_index(115)]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::sudo_set_miner_claim_alpha_fee_per_weight_second())]
+        pub fn sudo_set_miner_claim_alpha_fee_per_weight_second(
+            origin: OriginFor<T>,
+            fee_per_weight_second: u64,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::MinerClaimAlphaFeePerWeightSecond::<T>::put(fee_per_weight_second);
+            Self::deposit_event(Event::MinerClaimAlphaFeePerWeightSecondSet {
+                fee_per_weight_second,
+            });
+            Ok(())
+        }
+    }
+
+    impl<T: Config> Pallet<T> {
+        /// Declared weight for `sudo_trim_to_max_allowed_uids`, including a force-payout
+        /// envelope per UID that may be deleted when shrinking from a full subnet.
+        ///
+        /// Null admits at most [`NULL_PRUNING_BATCH`] deletions per call (larger
+        /// shrinks use `sudo_trim_null_uids_batch`). Yuma may delete up to
+        /// `DefaultMaxAllowedUids - max_n` in one extrinsic.
+        pub fn sudo_trim_to_max_allowed_uids_weight(netuid: NetUid, max_n: u16) -> Weight {
+            let is_null = pallet_subtensor::Pallet::<T>::get_epoch_consensus(netuid)
+                == pallet_subtensor::EpochConsensus::Null;
+            let base = if is_null {
+                <T as Config>::WeightInfo::sudo_trim_null_uids_batch()
+                    .max(<T as Config>::WeightInfo::sudo_trim_null_uids_batch_many_mechanisms())
+            } else {
+                <T as Config>::WeightInfo::sudo_trim_to_max_allowed_uids()
+            };
+            let removals = if is_null {
+                u32::from(pallet_subtensor::subnets::uids::NULL_PRUNING_BATCH)
+            } else {
+                u32::from(pallet_subtensor::DefaultMaxAllowedUids::<T>::get())
+                    .saturating_sub(u32::from(max_n))
+            };
+            base.saturating_add(T::DbWeight::get().reads(1))
+                .saturating_add(pallet_subtensor::Pallet::<T>::trim_pending_payout_weight(
+                    removals,
+                ))
+        }
+
+        /// Declared weight for one Null pruning batch, including force-payouts.
+        pub fn sudo_trim_null_uids_batch_weight() -> Weight {
+            <T as Config>::WeightInfo::sudo_trim_null_uids_batch()
+                .max(<T as Config>::WeightInfo::sudo_trim_null_uids_batch_many_mechanisms())
+                .saturating_add(pallet_subtensor::Pallet::<T>::trim_pending_payout_weight(
+                    u32::from(pallet_subtensor::subnets::uids::NULL_PRUNING_BATCH),
+                ))
         }
     }
 }

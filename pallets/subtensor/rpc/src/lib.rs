@@ -9,7 +9,7 @@ use jsonrpsee::{
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{AccountId32, traits::Block as BlockT};
 use std::sync::Arc;
-use subtensor_runtime_common::{MechId, NetUid, TaoBalance};
+use subtensor_runtime_common::{AlphaBalance, MechId, NetUid, TaoBalance};
 
 use sp_api::ProvideRuntimeApi;
 
@@ -121,6 +121,21 @@ pub trait SubtensorCustomApi<BlockHash> {
         netuid: NetUid,
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
+    /// Pending (unclaimed) miner incentive alpha for a hotkey on a subnet.
+    #[method(name = "stakeInfo_getPendingMinerEmission")]
+    fn get_pending_miner_emission(
+        &self,
+        hotkey: AccountId32,
+        netuid: NetUid,
+        at: Option<BlockHash>,
+    ) -> RpcResult<AlphaBalance>;
+    /// Subnet-wide sum of pending miner incentive alpha.
+    #[method(name = "stakeInfo_getPendingMinerEmissionTotal")]
+    fn get_pending_miner_emission_total(
+        &self,
+        netuid: NetUid,
+        at: Option<BlockHash>,
+    ) -> RpcResult<AlphaBalance>;
 
     /// Total TAO a staker (coldkey) would realize by redeeming all its root beta baskets.
     #[method(name = "betaBasket_getStakerOwed")]
@@ -634,6 +649,41 @@ where
         match api.get_coldkey_lock(at, coldkey, netuid) {
             Ok(result) => Ok(result.encode()),
             Err(e) => Err(Error::RuntimeError(format!("Unable to get coldkey lock: {e:?}")).into()),
+        }
+    }
+
+    fn get_pending_miner_emission(
+        &self,
+        hotkey: AccountId32,
+        netuid: NetUid,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<AlphaBalance> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        match api.get_pending_miner_emission(at, hotkey, netuid) {
+            Ok(result) => Ok(result),
+            Err(e) => Err(Error::RuntimeError(format!(
+                "Unable to get pending miner emission: {e:?}"
+            ))
+            .into()),
+        }
+    }
+
+    fn get_pending_miner_emission_total(
+        &self,
+        netuid: NetUid,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<AlphaBalance> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        match api.get_pending_miner_emission_total(at, netuid) {
+            Ok(result) => Ok(result),
+            Err(e) => Err(Error::RuntimeError(format!(
+                "Unable to get pending miner emission total: {e:?}"
+            ))
+            .into()),
         }
     }
 

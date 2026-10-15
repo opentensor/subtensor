@@ -4318,3 +4318,28 @@ fn test_sudo_set_basket_min_trade_tao() {
         }
     });
 }
+
+#[test]
+fn null_trim_weight_reserves_batch_force_payouts_above_default_max_uids() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1);
+        add_network(netuid, 10);
+        SubtensorModule::set_epoch_consensus(netuid, EpochConsensus::Null);
+        // Population above DefaultMaxAllowedUids (256); a single Null trim call
+        // may still only delete NULL_PRUNING_BATCH UIDs.
+        SubnetworkN::<Test>::insert(netuid, 2_500);
+        let target = 2_436u16;
+        let weight = AdminUtils::sudo_trim_to_max_allowed_uids_weight(netuid, target);
+        let batch = pallet_subtensor::subnets::uids::NULL_PRUNING_BATCH;
+        let expected_payouts = SubtensorModule::trim_pending_payout_weight(u32::from(batch));
+        assert!(
+            weight.ref_time() >= expected_payouts.ref_time(),
+            "Null trim to {target} must reserve {batch} force-payouts, got {weight:?}"
+        );
+        // Yuma path still scales with DefaultMaxAllowedUids - max_n.
+        SubtensorModule::set_epoch_consensus(netuid, EpochConsensus::Yuma);
+        let yuma = AdminUtils::sudo_trim_to_max_allowed_uids_weight(netuid, 1);
+        let yuma_payouts = SubtensorModule::trim_pending_payout_weight(255);
+        assert!(yuma.ref_time() >= yuma_payouts.ref_time());
+    });
+}

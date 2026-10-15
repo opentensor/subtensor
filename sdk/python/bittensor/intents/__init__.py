@@ -72,6 +72,7 @@ from .serving import ResetAxon, ServeAxon, ServeAxonTls, ServePrometheus
 from .staking import (
     AddStake,
     AddStakeLimit,
+    ClaimMinerEmission,
     MoveStake,
     MoveSwapStake,
     RemoveStake,
@@ -103,6 +104,7 @@ __all__ = [
     "AssociateHotkey",
     "Batch",
     "BurnedRegister",
+    "ClaimMinerEmission",
     "ClaimRoot",
     "ClaimRootWithHotkey",
     "ClearColdkeySwapAnnouncement",
