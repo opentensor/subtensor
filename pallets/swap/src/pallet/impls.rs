@@ -185,7 +185,7 @@ impl<T: Config> Pallet<T> {
             {
                 return Ok(0);
             }
-            Self::gross_input_for_net::<TaoBalance>(netuid, net)
+            Self::gross_input_for_net(netuid, net)
         };
         capacity().unwrap_or_default().into()
     }
@@ -237,36 +237,35 @@ impl<T: Config> Pallet<T> {
             {
                 return Ok(0);
             }
-            Self::gross_input_for_net::<AlphaBalance>(netuid, net)
+            Self::gross_input_for_net(netuid, net)
         };
         capacity().unwrap_or_default().into()
     }
 
-    fn gross_input_for_net<C: Token>(netuid: NetUid, net: u64) -> Result<u64, DispatchError> {
-        // net(gross) = gross - floor(gross*fee_rate) is monotone. Use the exact
-        // execution fee rounding. The reserve-input guard applies after fees.
-        let mut low = net;
-        let mut high = u64::MAX;
-        while low < high {
-            let mid = low
-                .checked_add(
-                    high.checked_sub(low)
-                        .ok_or(Error::<T>::ReservesOutOfBalance)?
-                        .div_ceil(2),
-                )
-                .ok_or(Error::<T>::ReservesOutOfBalance)?;
-            let fee = Self::calculate_fee_amount(netuid, C::from(mid), false).to_u64();
-            if mid
-                .checked_sub(fee)
-                .ok_or(Error::<T>::ReservesOutOfBalance)?
-                <= net
-            {
-                low = mid;
-            } else {
-                high = mid.checked_sub(1).ok_or(Error::<T>::ReservesOutOfBalance)?;
-            }
+    fn gross_input_for_net(netuid: NetUid, net: u64) -> Result<u64, DispatchError> {
+        if T::SubnetInfo::mechanism(netuid) != 1 {
+            return Ok(net);
         }
-        Ok(low)
+        // Read the fee once. net(gross) = ceil(gross * retained / 2^64),
+        // so net(gross) <= net iff gross <= floor(net * 2^64 / retained).
+        let scale = 1_u128 << 64;
+        let fee = U64F64::from_num(FeeRate::<T>::get(netuid))
+            .safe_div(U64F64::from_num(u16::MAX))
+            .to_bits();
+        let retained = scale
+            .checked_sub(fee)
+            .ok_or(Error::<T>::ReservesOutOfBalance)?;
+        if retained == 0 {
+            // Preserve the old helper's all-fee behavior; public capacity
+            // methods independently reject a 100% fee before calling here.
+            return Ok(u64::MAX);
+        }
+        let gross = u128::from(net)
+            .checked_mul(scale)
+            .and_then(|value| value.checked_div(retained))
+            .ok_or(Error::<T>::ReservesOutOfBalance)?;
+        u64::try_from(gross.min(u128::from(u64::MAX)))
+            .map_err(|_| Error::<T>::ReservesOutOfBalance.into())
     }
 
     /// The compute envelope callers charge for initialization or extraction.
@@ -960,5 +959,66 @@ impl<T: Config> SwapHandler for Pallet<T> {
         } else {
             SwapFailureKind::Other
         }
+    }
+}
+
+#[cfg(test)]
+mod fee_inverse_tests {
+    #![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
+    use super::*;
+    use crate::mock::{Test, new_test_ext};
+
+    #[test]
+    fn gross_fee_inverse_is_maximal_for_every_fee_rate() {
+        new_test_ext().execute_with(|| {
+            let netuid = NetUid::from(1);
+            for rate in 0_u16..=u16::MAX {
+                FeeRate::<Test>::insert(netuid, rate);
+                for net in [
+                    0,
+                    1,
+                    2,
+                    500,
+                    1_000_000_000,
+                    u64::MAX / 2,
+                    u64::MAX - 1,
+                    u64::MAX,
+                ] {
+                    let gross = Pallet::<Test>::gross_input_for_net(netuid, net).unwrap();
+                    let actual_net = |amount: u64| {
+                        amount
+                            - Pallet::<Test>::calculate_fee_amount(
+                                netuid,
+                                TaoBalance::from(amount),
+                                false,
+                            )
+                            .to_u64()
+                    };
+                    assert!(actual_net(gross) <= net, "rate={rate}, net={net}");
+                    if gross < u64::MAX {
+                        assert!(actual_net(gross + 1) > net, "rate={rate}, net={net}");
+                    }
+                    if [0, 1, 33, 1_000, 32_767, 65_534, 65_535].contains(&rate) {
+                        let mut low = net;
+                        let mut high = u64::MAX;
+                        while low < high {
+                            let mid = low + (high - low).div_ceil(2);
+                            if actual_net(mid) <= net {
+                                low = mid;
+                            } else {
+                                high = mid - 1;
+                            }
+                        }
+                        assert_eq!(gross, low);
+                    }
+                }
+            }
+            for net in [0, 1, u64::MAX] {
+                assert_eq!(
+                    Pallet::<Test>::gross_input_for_net(NetUid::from(0), net).unwrap(),
+                    net
+                );
+            }
+        });
     }
 }
