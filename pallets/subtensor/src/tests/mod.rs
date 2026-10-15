@@ -32,6 +32,7 @@ mod networks;
 mod neuron_info;
 mod null_consensus;
 mod null_epoch_capacity;
+mod null_epoch_profile;
 mod recycle_alpha;
 mod registration;
 mod remove_data_tests;
