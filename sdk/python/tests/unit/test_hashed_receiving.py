@@ -10,7 +10,7 @@ import pytest
 
 from bittensor import Balance, Client, Policy, PolicyError
 from bittensor.executor import Executor, _compose_intent_call
-from bittensor.hashed import descriptor_value
+from bittensor.hashed import descriptor_value, registration_descriptor_value
 from bittensor.intents import Batch, Transfer, TransferAll
 from bittensor.intents.coldkey import AnnounceColdkeySwap, SwapColdkeyAnnounced
 from bittensor.intents.evm import FundEvmKey
@@ -117,7 +117,9 @@ async def test_multisig_discovers_local_ss58_recipient(
         assert (guarded.module, guarded.function) == ("Utility", "batch_all")
         check, payment = guarded.params["calls"]
         assert (check.module, check.function) == ("HashedAccounts", "check_registered")
-        assert check.params["descriptor"] == descriptor_value(bytes(key.hashed_descriptor))
+        assert check.params["descriptor"] == registration_descriptor_value(
+            bytes(key.hashed_descriptor)
+        )
         assert payment.params == {"dest": key.ss58_address, "value": 10**9}
     assert not chain.submissions
 
@@ -166,7 +168,9 @@ async def test_proxied_batch_discovers_local_ss58_recipient(
         assert (batch.module, batch.function) == ("Utility", "batch_all")
         guard, payment = batch.params["calls"]
         assert (guard.module, guard.function) == ("HashedAccounts", "check_registered")
-        assert guard.params["descriptor"] == descriptor_value(bytes(key.hashed_descriptor))
+        assert guard.params["descriptor"] == registration_descriptor_value(
+            bytes(key.hashed_descriptor)
+        )
         assert payment.params == {"dest": key.ss58_address, "value": 10**9}
         assert extras["hashed_registration_guards"] == [key.ss58_address]
     assert not chain.submissions
@@ -242,7 +246,7 @@ async def test_direct_multisig_nested_receiving_payment_keeps_guards(
     assert (guarded.module, guarded.function) == ("Utility", "batch_all")
     check, payment = guarded.params["calls"]
     assert (check.module, check.function) == ("HashedAccounts", "check_registered")
-    assert check.params["descriptor"] == descriptor_value(bytes(key.hashed_descriptor))
+    assert check.params["descriptor"] == registration_descriptor_value(bytes(key.hashed_descriptor))
     assert payment.params == {"dest": key.ss58_address, "value": 10**9}
 
 
@@ -292,7 +296,7 @@ async def test_remote_payment_keeps_complete_input_and_registers_before_funding(
     assert plan.args["dest_ss58"] == address
     assert plan.call.function == "batch_all"
     guard, payment = plan.call.params["calls"]
-    assert guard.params["descriptor"] == descriptor_value(bytes(key.hashed_descriptor))
+    assert guard.params["descriptor"] == registration_descriptor_value(bytes(key.hashed_descriptor))
     assert payment.params["dest"] == key.ss58_address
     assert payment.params["value"] == 10**9
     assert plan.spend.rao == 10**9 + RESERVE
@@ -634,7 +638,7 @@ async def test_default_in_memory_hashed_hotkey_retains_setup_descriptor(setup):
     call, extras = await _compose_intent_call(chain, BurnedRegister(netuid=1), wallet)
     assert extras["hashed_registration"] == key.ss58_address
     guard, registration = call.params["calls"]
-    assert guard.params["descriptor"] == descriptor_value(bytes(key.hashed_descriptor))
+    assert guard.params["descriptor"] == registration_descriptor_value(bytes(key.hashed_descriptor))
     assert registration.params["hotkey"] == key.ss58_address
 
 
@@ -823,7 +827,7 @@ async def test_descriptor_address_uses_registration_on_selected_chain(code, regi
     plan = await Executor(chain).plan(Transfer(address, 1), dev_wallet())
     guard, transfer = plan.call.params["calls"]
     assert guard.function == ("check_registered" if registered_here else "register")
-    assert guard.params["descriptor"] == descriptor_value(bytes(key.hashed_descriptor))
+    assert guard.params["descriptor"] == registration_descriptor_value(bytes(key.hashed_descriptor))
     assert transfer.params["dest"] == key.ss58_address
 
 
@@ -889,7 +893,7 @@ async def test_nested_recipient_keeps_guard_and_dispatch_origin(setup, monkeypat
     assert (inner.module, inner.function) == ("Utility", "batch_all")
     guard, payment = inner.params["calls"]
     assert guard.function == "check_registered"
-    assert guard.params["descriptor"] == descriptor_value(bytes(key.hashed_descriptor))
+    assert guard.params["descriptor"] == registration_descriptor_value(bytes(key.hashed_descriptor))
     assert payment.params["dest"] == key.ss58_address
 
 
@@ -963,7 +967,9 @@ async def test_announced_proxy_identity_addresses_preserve_guarded_call(
     assert (inner.module, inner.function) == ("Utility", "batch_all")
     guard, payment = inner.params["calls"]
     assert guard.function == "check_registered"
-    assert guard.params["descriptor"] == descriptor_value(bytes(recipient.hashed_descriptor))
+    assert guard.params["descriptor"] == registration_descriptor_value(
+        bytes(recipient.hashed_descriptor)
+    )
     assert payment.params["dest"] == recipient.ss58_address
     finalized_hash = await chain.block_hash(await chain.finalized_block_number())
     assert extras["hashed_registration_finalized_at"] == finalized_hash

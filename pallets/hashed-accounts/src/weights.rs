@@ -13,6 +13,38 @@ pub trait WeightInfo {
     fn check_registered() -> Weight;
     fn authorize(n: u32) -> Weight;
     fn authorize_ed25519(n: u32) -> Weight;
+    // New paths remain inadmissible until approved reference measurements are
+    // generated. These are not estimates and must not be replaced by guesses.
+    fn register_mldsa65() -> Weight {
+        Weight::MAX
+    }
+    fn check_registered_mldsa65() -> Weight {
+        Weight::MAX
+    }
+    fn authorize_mldsa65(_: u32) -> Weight {
+        Weight::MAX
+    }
+    fn authorize_mldsa65_invalid(_: u32) -> Weight {
+        Weight::MAX
+    }
+    fn register_derived() -> Weight {
+        Weight::MAX
+    }
+    fn register_derived_sponsored() -> Weight {
+        Weight::MAX
+    }
+    fn check_derived() -> Weight {
+        Weight::MAX
+    }
+    fn set_mldsa_enabled() -> Weight {
+        Weight::MAX
+    }
+    fn install_capability() -> Weight {
+        Weight::MAX
+    }
+    fn revoke_capability() -> Weight {
+        Weight::MAX
+    }
 }
 
 pub struct SubstrateWeight<T>(PhantomData<T>);

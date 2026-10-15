@@ -19,7 +19,7 @@ from bittensor._transport.extrinsics import NonceCache, create_hashed_extrinsic,
 from bittensor._transport.interface import SubstrateConnection
 from bittensor.cli.main import app
 from bittensor.executor import Executor, estimate_shielded_carrier_fee
-from bittensor.hashed import descriptor_value
+from bittensor.hashed import descriptor_value, registration_descriptor_value
 from bittensor.intents import AnnounceColdkeySwap, Transfer
 from bittensor.signing import WalletSigner
 from bittensor.sp_core import CRYPTO_HASHED, CRYPTO_SR25519, Keypair
@@ -553,7 +553,7 @@ async def test_local_funding_and_migration_register_atomically_without_unlocking
     assert plan.call.module == "Utility" and plan.call.function == "batch_all"
     setup, operation = plan.call.params["calls"]
     assert (setup.module, setup.function) == ("HashedAccounts", "register")
-    assert setup.params["descriptor"] == descriptor_value(
+    assert setup.params["descriptor"] == registration_descriptor_value(
         bytes(recipient.coldkeypub.hashed_descriptor)
     )
     assert operation.function == ("announce_coldkey_swap" if swap else "transfer_keep_alive")
@@ -615,7 +615,12 @@ async def test_executor_reserves_next_generation_only_for_shield_inner(monkeypat
     )
     assert result.success
     substrate.sign_extrinsic.assert_awaited_once_with(
-        b"call", key, nonce=1, period=8, hashed_generation_offset=1
+        b"call",
+        key,
+        nonce=1,
+        period=8,
+        hashed_generation_offset=1,
+        hashed_signing_snapshot=substrate.submissions[0][2]["hashed_signing_snapshot"],
     )
     assert substrate.submissions[0][2]["nonce"] == 0
 

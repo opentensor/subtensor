@@ -239,6 +239,7 @@ class SyncClient:
         self.staking = _SyncNamespace(self._client.staking, self._call)
         self.subnets = _SyncNamespace(self._client.subnets, self._call)
         self.weights = _SyncNamespace(self._client.weights, self._call)
+        self.limit_orders = _SyncNamespace(self._client.limit_orders, self._call)
 
     # Lifecycle ----------------------------------------------------------------
 
@@ -433,6 +434,9 @@ class SyncClient:
 
     def prepare_call(self, call, *, address, **kwargs):
         return self._call(self._client.prepare_call(call, address=address, **kwargs))
+
+    def prepare_mldsa_call(self, call, *, descriptor, **kwargs):
+        return self._call(self._client.prepare_mldsa_call(call, descriptor=descriptor, **kwargs))
 
     def submit_signature(self, unsigned, signature, **kwargs):
         return self._call(self._client.submit_signature(unsigned, signature, **kwargs))

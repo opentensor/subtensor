@@ -15,7 +15,7 @@ from itertools import permutations
 import pytest
 
 import bittensor as bt
-from bittensor.hashed import descriptor_value
+from bittensor.hashed import registration_descriptor_value
 from bittensor.receiving import receiving_address
 from bittensor.sp_core import HASHED_CRYPTO_TYPES, Keypair
 from bittensor.vault.signer import VaultSigner
@@ -117,7 +117,7 @@ async def test_cli_mixed_two_of_three_all_pairs_and_orders(tmp_path, modes):
         assert "direct sponsor wallet" in rejected, rejected
         result = await client.submit_call(
             bt.calls.HashedAccounts.register(
-                descriptor=descriptor_value(bytes(recipient.hashed_descriptor)),
+                descriptor=registration_descriptor_value(bytes(recipient.hashed_descriptor)),
             ),
             dev_wallet(),
             wait_for_finalization=True,
@@ -325,7 +325,7 @@ async def test_direct_sdk_multisig_receiving_transfer(
 
         registered = await client.submit_call(
             bt.calls.HashedAccounts.register(
-                descriptor=descriptor_value(bytes(recipient.hashed_descriptor))
+                descriptor=registration_descriptor_value(bytes(recipient.hashed_descriptor))
             ),
             dev_wallet(),
             wait_for_finalization=True,

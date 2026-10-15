@@ -20,7 +20,11 @@ from bittensor.evm.addresses import (
     ss58_to_h160_truncated,
     ss58_to_pubkey,
 )
-from bittensor.hashed import descriptor_value, has_receiving_setup_inputs
+from bittensor.hashed import (
+    descriptor_value,
+    has_receiving_setup_inputs,
+    registration_descriptor_value,
+)
 from bittensor.intents import EvmWithdraw, FundEvmKey
 from bittensor.receiving import parse_recipient, receiving_address
 from bittensor.result import BittensorError
@@ -112,7 +116,9 @@ async def test_protected_funding_guards_and_credits_native_account(protected, am
     assert (built.call.module, built.call.function) == ("Utility", "batch_all")
     registration, transfer = built.call.params["calls"]
     assert (registration.module, registration.function) == ("HashedAccounts", "check_registered")
-    assert registration.params["descriptor"] == descriptor_value(bytes(key.hashed_descriptor))
+    assert registration.params["descriptor"] == registration_descriptor_value(
+        bytes(key.hashed_descriptor)
+    )
     assert transfer.function == function
     assert transfer.params["dest"] == key.ss58_address
     assert built.extras["hashed_registration_guards"] == [key.ss58_address]

@@ -36,6 +36,7 @@ use core::marker::PhantomData;
 
 /// Weight functions needed for `pallet_subtensor_utility`.
 pub trait WeightInfo {
+	fn as_protected_derivative() -> Weight { Weight::MAX }
 	fn batch(c: u32, ) -> Weight;
 	fn as_derivative() -> Weight;
 	fn batch_all(c: u32, ) -> Weight;

@@ -45,7 +45,7 @@ from ..result import (
     RpcPolicyError,
 )
 from ..settings import error_docs_url
-from ..signing import public_view
+from ..signing import public_view, resolve_signer
 from ..vault import VaultSigner
 from ..wallets import is_bittensor_address
 from . import multisig_helpers as ms_helpers
@@ -231,7 +231,7 @@ class AppContext:
 
     def wallet_address(self, public) -> str:
         """Display/share complete receiving information using public metadata only."""
-        if public.crypto_type not in wallets.HASHED_CRYPTO_TYPES:
+        if public.crypto_type not in wallets.REGISTERED_CRYPTO_TYPES:
             return public.ss58_address
         return receiving_address(public)
 
@@ -1518,6 +1518,14 @@ class AppContext:
                 )
                 use_shield = False
             signer = local_signer or await self.resolve_signing_wallet(intent.signer)
+            # Registered accounts sign only from finalized authority. Return a
+            # finalized receipt so the next ordinary CLI command can safely use
+            # the next generation, including fixed ML-DSA's replay counter.
+            finalize = wait_for_finalization or (
+                not self.uses_external_signer()
+                and resolve_signer(signer, intent.signer).crypto_type
+                in wallets.REGISTERED_CRYPTO_TYPES
+            )
             if use_shield and self.uses_external_signer():
                 # Local wallets already preflighted before confirm; external
                 # signers only know the fee payer after account pick.
@@ -1556,7 +1564,7 @@ class AppContext:
                     before_submit()
                 if use_shield:
                     shield_options = {
-                        "wait_for_finalization": wait_for_finalization,
+                        "wait_for_finalization": finalize,
                         **options,
                     }
                     if intent.op == "register_subnet":
@@ -1568,7 +1576,7 @@ class AppContext:
                     )
                 else:
                     execute_options = {
-                        "wait_for_finalization": wait_for_finalization,
+                        "wait_for_finalization": finalize,
                         **options,
                     }
                     if intent.op == "register_subnet":

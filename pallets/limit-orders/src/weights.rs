@@ -36,6 +36,11 @@ use core::marker::PhantomData;
 
 /// Weight functions needed for `pallet_limit_orders`.
 pub trait WeightInfo {
+    /// Activation remains disabled until reference measurements replace these defaults.
+    fn authorize_order() -> Weight { Weight::MAX }
+    fn execute_authenticated_orders(_n: u32, _proofs: u32) -> Weight { Weight::MAX }
+    fn execute_authenticated_batched_orders(_n: u32, _proofs: u32) -> Weight { Weight::MAX }
+    fn cancel_authenticated_order() -> Weight { Weight::MAX }
 	fn cancel_order() -> Weight;
 	fn set_pallet_status() -> Weight;
 	fn execute_orders(n: u32, ) -> Weight;

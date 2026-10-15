@@ -49,6 +49,9 @@ fn checksum(payload: &[u8]) -> [u8; CHECKSUM_LEN] {
 /// Encode a public descriptor without a network field; addresses work on every chain.
 /// This receiving address does not change the account's existing identity.
 pub fn encode_hashed_receiving_address(descriptor: &[u8]) -> Result<String, CoreError> {
+    if descriptor.first() == Some(&subtensor_hashed::v2::VERSION) {
+        return encode_mldsa_receiving_address(descriptor);
+    }
     validate_descriptor(descriptor)?;
     let mut body = Vec::with_capacity(BODY_LEN);
     body.extend_from_slice(descriptor);
@@ -58,6 +61,9 @@ pub fn encode_hashed_receiving_address(descriptor: &[u8]) -> Result<String, Core
 
 /// Decode a receiving address into its original public descriptor.
 pub fn decode_hashed_receiving_address(address: &str) -> Result<Vec<u8>, CoreError> {
+    if address.starts_with("bth2_") {
+        return decode_mldsa_receiving_address(address);
+    }
     if address.len() != ADDRESS_LEN {
         return Err(crypto_err(
             "hashed receiving address must be exactly 61 characters",
@@ -84,8 +90,54 @@ impl Keypair {
     /// Share this account's initial descriptor without disclosing
     /// its current signing key. Also works for descriptor-bearing public keys.
     pub fn hashed_receiving_address(&self) -> Result<String, CoreError> {
-        encode_hashed_receiving_address(&self.hashed_descriptor()?)
+        encode_hashed_receiving_address(&self.authorization_descriptor()?)
     }
+}
+
+fn mldsa_checksum(descriptor: &[u8]) -> [u8; CHECKSUM_LEN] {
+    let mut bytes = b"bittensor/ms/v2/receiving".to_vec();
+    bytes.extend_from_slice(descriptor);
+    let mut checksum = [0; CHECKSUM_LEN];
+    checksum.copy_from_slice(&blake2_256(&bytes)[..CHECKSUM_LEN]);
+    checksum
+}
+
+pub fn encode_mldsa_receiving_address(descriptor: &[u8]) -> Result<String, CoreError> {
+    let parsed = subtensor_hashed::v2::Descriptor::from_bytes(descriptor)
+        .map_err(|_| crypto_err("invalid ML-DSA receiving descriptor"))?;
+    if !parsed.is_supported() {
+        return Err(crypto_err("unsupported ML-DSA receiving descriptor"));
+    }
+    let mut body = descriptor.to_vec();
+    body.extend_from_slice(&mldsa_checksum(descriptor));
+    Ok(format!("bth2_{}", URL_SAFE_NO_PAD.encode(body)))
+}
+
+pub fn decode_mldsa_receiving_address(address: &str) -> Result<Vec<u8>, CoreError> {
+    if address.len() != 104 {
+        return Err(crypto_err(
+            "ML-DSA receiving address must be exactly 104 characters",
+        ));
+    }
+    let encoded = address
+        .strip_prefix("bth2_")
+        .ok_or_else(|| crypto_err("unsupported ML-DSA receiving prefix"))?;
+    let body = URL_SAFE_NO_PAD
+        .decode(encoded)
+        .map_err(|_| crypto_err("invalid ML-DSA receiving encoding"))?;
+    if body.len() != 74 || URL_SAFE_NO_PAD.encode(&body) != encoded {
+        return Err(crypto_err("noncanonical ML-DSA receiving address"));
+    }
+    let descriptor = &body[..66];
+    if body[66..] != mldsa_checksum(descriptor) {
+        return Err(crypto_err("ML-DSA receiving checksum mismatch"));
+    }
+    let parsed = subtensor_hashed::v2::Descriptor::from_bytes(descriptor)
+        .map_err(|_| crypto_err("invalid ML-DSA receiving descriptor"))?;
+    if !parsed.is_supported() {
+        return Err(crypto_err("unsupported ML-DSA receiving descriptor"));
+    }
+    Ok(descriptor.to_vec())
 }
 
 #[cfg(test)]

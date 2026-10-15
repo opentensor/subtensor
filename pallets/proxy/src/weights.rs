@@ -36,6 +36,7 @@ use core::marker::PhantomData;
 
 /// Weight functions needed for `pallet_subtensor_proxy`.
 pub trait WeightInfo {
+	fn create_protected_pure() -> Weight { Weight::MAX }
 	fn proxy(p: u32, ) -> Weight;
 	fn proxy_announced(a: u32, p: u32, ) -> Weight;
 	fn remove_announcement(a: u32, p: u32, ) -> Weight;

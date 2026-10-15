@@ -31,6 +31,7 @@ from .hashed import (
     has_receiving_setup_inputs,
     hashed_accounts_enabled,
     prepare_recipient_intent,
+    protected_account_record,
     with_recipient_registration,
 )
 from .intents import Intent, Plan, Policy, list_tools
@@ -53,7 +54,7 @@ from .signing import (
     public_view,
     resolve_signer,
 )
-from .sp_core import HASHED_CRYPTO_TYPES, Keypair, ss58_decode
+from .sp_core import REGISTERED_CRYPTO_TYPES, Keypair, ss58_decode
 
 # Transaction-pool rejections that resolve themselves within a block or so (a
 # competing extrinsic at the same nonce, or a race against pool state). Worth
@@ -64,10 +65,10 @@ _TRANSIENT_SUBSTRINGS = (
     "stale",
 )
 
-# Runtime metadata bounds MevShield.submit_encrypted ciphertexts to 8192 bytes.
+# Runtime metadata bounds MevShield.submit_encrypted ciphertexts to 32768 bytes.
 # Pricing the bound is conservative by only the length-fee delta and avoids
 # asking a signer for the inner signature merely to learn the carrier size.
-_MAX_SHIELDED_CIPHERTEXT_BYTES = 8192
+_MAX_SHIELDED_CIPHERTEXT_BYTES = 32768
 
 # Allow transient RPC/head lag while keeping both shielded-receipt polling
 # phases bounded by the inner extrinsic's mortal era.
@@ -87,16 +88,23 @@ class _FeeAddressView:
 
 async def estimate_shielded_carrier_fee(substrate: Substrate, fee_payer: str) -> Balance:
     """Conservatively estimate the outer MevShield carrier's TAO fee."""
-    outer = await substrate.compose(
-        generated_calls.MevShield.submit_encrypted(ciphertext=bytes(_MAX_SHIELDED_CIPHERTEXT_BYTES))
-    )
     public = _FeeAddressView(fee_payer)
-    if await hashed_accounts_enabled(substrate) is True:
-        record = await substrate.query("HashedAccounts", "Accounts", [fee_payer])
-        if record is not None:
+    if (
+        await hashed_accounts_enabled(substrate) is True
+        or await substrate.constant("HashedAccounts", "V2RegistrationDeposit") is not None
+    ):
+        kind, record = await protected_account_record(substrate, fee_payer)
+        if kind in ("v1", "v2"):
             public = Keypair.from_hashed_descriptor(descriptor_bytes(record["descriptor"]))
             if public.ss58_address != fee_payer:
                 raise ValueError("registered hashed descriptor does not match the fee payer")
+    outer = await substrate.compose(
+        generated_calls.Call(
+            "MevShield",
+            "submit_encrypted",
+            {"ciphertext": bytes(_MAX_SHIELDED_CIPHERTEXT_BYTES)},
+        )
+    )
     return await substrate.estimate_fee(outer, public)
 
 
@@ -1180,18 +1188,35 @@ class Executor:
             raise ChainError("MEV Shield NextKey not available; is the MevShield pallet active?")
 
         await _prepare_shielded_signer(keypair)
-        nonce = await self.substrate.account_next_index(keypair.ss58_address)
+        snapshot = (
+            await self.substrate.prepare_hashed_snapshot(keypair)
+            if keypair.crypto_type in REGISTERED_CRYPTO_TYPES
+            else None
+        )
+        nonce = (
+            snapshot.nonce
+            if snapshot is not None
+            else await self.substrate.account_next_index(keypair.ss58_address)
+        )
         inner_options = {"nonce": nonce + 1, "period": period}
-        if keypair.crypto_type in HASHED_CRYPTO_TYPES:
+        if keypair.crypto_type in REGISTERED_CRYPTO_TYPES:
             # The carrier consumes generation g and nonce n. Its encrypted
             # inner call consumes g+1 and n+1 only after the carrier is accepted.
             inner_options["hashed_generation_offset"] = 1
+            inner_options["hashed_signing_snapshot"] = snapshot
         inner_bytes, inner_hash = await self.substrate.sign_extrinsic(
             call, keypair, **inner_options
         )
         ciphertext = _core.encrypt_mlkem768(pubkey, inner_bytes, include_key_hash=True)
+        limit = _MAX_SHIELDED_CIPHERTEXT_BYTES
+        if len(ciphertext) > limit:
+            raise ValueError(f"encrypted transaction exceeds the {limit}-byte carrier limit")
         outer = await self.substrate.compose(
-            generated_calls.MevShield.submit_encrypted(ciphertext=ciphertext)
+            generated_calls.Call(
+                "MevShield",
+                "submit_encrypted",
+                {"ciphertext": ciphertext},
+            )
         )
         result = await self.substrate.submit(
             outer,
@@ -1200,6 +1225,7 @@ class Executor:
             period=period,
             wait_for_inclusion=wait_for_inclusion,
             wait_for_finalization=wait_for_finalization,
+            **({"hashed_signing_snapshot": snapshot} if snapshot is not None else {}),
         )
         if result.success:
             result = replace(

@@ -14,9 +14,9 @@ import bittensor as bt
 from bittensor._transport.errors import SubstrateRequestException
 from bittensor.evm.addresses import h160_to_ss58
 from bittensor.evm.keys import create_evm_key
-from bittensor.hashed import descriptor_value
+from bittensor.hashed import registration_descriptor_value
 from bittensor.receiving import receiving_address
-from bittensor.sp_core import HASHED_CRYPTO_TYPES
+from bittensor.sp_core import MLDSA_CRYPTO_TYPES, REGISTERED_CRYPTO_TYPES
 from tests.harness.samples import dev_wallet
 
 ENDPOINT = os.getenv("E2E_WALLET_ENDPOINT")
@@ -26,7 +26,7 @@ pytestmark = [
 ]
 
 
-@pytest.mark.parametrize("scheme", ["ed", "sr"])
+@pytest.mark.parametrize("scheme", ["ed", "sr", "ms"])
 @pytest.mark.parametrize("mode", ["standard", "hashed"])
 async def test_composable_wallet_lifecycle(tmp_path, scheme, mode):
     env = {**os.environ, "BTCLI_CONFIG": str(tmp_path / "config.json")}
@@ -42,7 +42,7 @@ async def test_composable_wallet_lifecycle(tmp_path, scheme, mode):
             "--network",
             ENDPOINT,
             "--wallet",
-            "four-types",
+            "six-types",
             "--wallet-path",
             wallet_path,
             *args,
@@ -62,10 +62,10 @@ async def test_composable_wallet_lifecycle(tmp_path, scheme, mode):
         *(["--type", "hashed"] if mode == "hashed" else []),
         "--no-password",
     )
-    wallet = bt.Wallet("four-types", path=wallet_path)
+    wallet = bt.Wallet("six-types", path=wallet_path)
     code = bt.wallets.parse_crypto_type(scheme, mode)
     assert wallet.coldkey.crypto_type == wallet.hotkey.crypto_type == code
-    hashed = code in HASHED_CRYPTO_TYPES
+    hashed = code in REGISTERED_CRYPTO_TYPES
     alice = dev_wallet()
     async with bt.Client(ENDPOINT, fallback_endpoints=[], archive_endpoints=[]) as client:
         assert await client.query(bt.storage.Sudo.Key) == alice.coldkey.ss58_address
@@ -83,7 +83,10 @@ async def test_composable_wallet_lifecycle(tmp_path, scheme, mode):
             return int(account["data"]["free"])
 
         async def record(key):
-            return await client.query(("HashedAccounts", "Accounts"), [key.ss58_address])
+            return await client.query(
+                ("HashedAccounts", "V2Records" if code in MLDSA_CRYPTO_TYPES else "Accounts"),
+                [key.ss58_address],
+            )
 
         async def fund(key, amount=10):
             address = receiving_address(key) if hashed else key.ss58_address
@@ -95,7 +98,7 @@ async def test_composable_wallet_lifecycle(tmp_path, scheme, mode):
             for key in (wallet.coldkey, wallet.hotkey):
                 await submit(
                     bt.calls.HashedAccounts.register(
-                        descriptor=descriptor_value(bytes(key.hashed_descriptor))
+                        descriptor=registration_descriptor_value(bytes(key.hashed_descriptor))
                     )
                 )
                 assert (await record(key))["generation"] == 0
@@ -156,7 +159,7 @@ async def test_composable_wallet_lifecycle(tmp_path, scheme, mode):
         # receiving descriptors must survive until finalized setup is checked.
         password = tmp_path / "evm-password"
         password.write_text("local-wallet-test")
-        evm = create_evm_key("default", "four-types", wallet_path, password=password.read_text())
+        evm = create_evm_key("default", "six-types", wallet_path, password=password.read_text())
         evm_coldkey = h160_to_ss58(evm.address)
         await submit(
             bt.calls.Balances.force_set_balance(who=evm_coldkey, new_free=50 * 10**9),
@@ -236,33 +239,73 @@ async def test_composable_wallet_lifecycle(tmp_path, scheme, mode):
         for role in ("coldkey", "hotkey"):
             key = getattr(recovered, role)
             generation = (await record(key))["generation"] if hashed else None
+            capability = None
+            if code in MLDSA_CRYPTO_TYPES:
+                from bittensor.mldsa import install_message_capability, message_capability
+
+                grant = install_message_capability(
+                    key,
+                    epoch=1,
+                    expires_at=(await client.block()) + 100_000,
+                    audience=b"wallet-e2e",
+                )
+                await submit(grant, recovered, role=role)
+                capability = await message_capability(
+                    client._substrate, key.ss58_address, b"wallet-e2e"
+                )
             signature = bt.wallets.sign_message_key(
-                "four wallet types", key, hashed_generation=generation
+                "six wallet types", key, hashed_generation=generation, message_capability=capability
             )["signature"]
             address = receiving_address(key) if hashed else key.ss58_address
             assert bt.wallets.verify_message(
-                "four wallet types", signature, address, crypto_type=code
+                "six wallet types",
+                signature,
+                address,
+                crypto_type=code,
+                message_capability=capability,
             )
-            assert not bt.wallets.verify_message("tampered", signature, address, crypto_type=code)
+            assert not bt.wallets.verify_message(
+                "tampered", signature, address, crypto_type=code, message_capability=capability
+            )
         hot = recovered.hotkey
         if hashed:
             hot = hot.at_generation((await record(hot))["generation"])
-        headers = bt.http_auth.sign(
-            hot,
-            method="POST",
-            path="/wallet-test",
-            body=b"request",
-            receiver_ss58=alice.hotkey.ss58_address,
-        )
-        caller = bt.http_auth.verify(
-            headers,
-            b"request",
-            method="POST",
-            path="/wallet-test",
-            self_hotkey_ss58=alice.hotkey.ss58_address,
-            expected_crypto_type=code,
-        )
-        assert caller.hotkey_ss58 == hot.ss58_address
+        if code in MLDSA_CRYPTO_TYPES:
+            request = bt.http_auth.sign_v2(
+                hot,
+                capability=capability,
+                method="POST",
+                path="/wallet-test",
+                body=b"request",
+                receiver_ss58=alice.hotkey.ss58_address,
+            )
+            verified = bt.http_auth.verify_v2(
+                request.headers,
+                request.body,
+                capability=capability,
+                method="POST",
+                path="/wallet-test",
+                self_hotkey_ss58=alice.hotkey.ss58_address,
+            )
+            assert verified.body == b"request"
+            assert verified.caller.hotkey_ss58 == hot.ss58_address
+        else:
+            headers = bt.http_auth.sign(
+                hot,
+                method="POST",
+                path="/wallet-test",
+                body=b"request",
+                receiver_ss58=alice.hotkey.ss58_address,
+            )
+            caller = bt.http_auth.verify(
+                headers,
+                b"request",
+                method="POST",
+                path="/wallet-test",
+                self_hotkey_ss58=alice.hotkey.ss58_address,
+                expected_crypto_type=code,
+            )
+            assert caller.hotkey_ss58 == hot.ss58_address
         if hashed:
             raw = client._substrate.raw
             call = await client.compose(bt.calls.System.remark(remark="0x06"))

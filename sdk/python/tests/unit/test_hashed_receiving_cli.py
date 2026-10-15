@@ -17,7 +17,7 @@ from bittensor.cli.output import Output
 from bittensor.cli.stake_picker import _dest_choices
 from bittensor.client import Client
 from bittensor.executor import Executor
-from bittensor.hashed import descriptor_value
+from bittensor.hashed import descriptor_value, registration_descriptor_value
 from bittensor.receiving import parse_recipient, receiving_address
 from bittensor.settings import FINNEY_GENESIS_HASH
 from bittensor.sp_core import CRYPTO_HASHED, CRYPTO_SR25519, Keypair
@@ -96,7 +96,7 @@ def test_create_contact_transfer_preserves_complete_receiving_address(wallet_pat
     plan = asyncio.run(Executor(substrate).plan(submitted[0], sponsor))
     assert (plan.call.module, plan.call.function) == ("Utility", "batch_all")
     registration, transfer = plan.call.params["calls"]
-    assert registration.params["descriptor"] == descriptor_value(recipient.descriptor)
+    assert registration.params["descriptor"] == registration_descriptor_value(recipient.descriptor)
     assert transfer.params["dest"] == recipient.account
 
 
@@ -577,7 +577,8 @@ def test_root_move_matches_identity_and_preserves_receiving_descriptors(
         children = call.params["calls"]
         guards = [child for child in children if child.function == "check_registered"]
         assert any(
-            child.params["descriptor"] == descriptor_value(bytes(destination_key.hashed_descriptor))
+            child.params["descriptor"]
+            == registration_descriptor_value(bytes(destination_key.hashed_descriptor))
             for child in guards
         )
         assert [child.function for child in children[len(guards) :]] == [

@@ -20,6 +20,8 @@ from typing import Any, AsyncIterator, Awaitable, Callable, Optional, Protocol, 
 
 from ._transport import SubstrateConnection
 from ._transport.contract import (
+    CallBytes,
+    HashedSigningSnapshot,
     InclusionReport,
     MultisigAccount,
     SignedExtrinsic,
@@ -222,8 +224,19 @@ class Substrate(Protocol):
         """The MEV Shield ML-KEM-768 public key from ``NextKey`` storage, if active."""
         ...
 
+    async def prepare_hashed_snapshot(self, keypair) -> HashedSigningSnapshot:
+        """A finalized authority snapshot for a paired Shield authorization."""
+        ...
+
     async def sign_extrinsic(
-        self, call, keypair, *, nonce: int, period: int, hashed_generation_offset: int = 0
+        self,
+        call,
+        keypair,
+        *,
+        nonce: int,
+        period: int,
+        hashed_generation_offset: int = 0,
+        hashed_signing_snapshot: Optional[HashedSigningSnapshot] = None,
     ) -> tuple[bytes, str]:
         """A signed extrinsic's (raw bytes, 0x-hex hash), without submitting."""
         ...
@@ -249,6 +262,18 @@ class Substrate(Protocol):
         """An unsigned extrinsic for out-of-process signing (no key material)."""
         ...
 
+    async def prepare_mldsa(
+        self,
+        call,
+        *,
+        descriptor: bytes,
+        period: Optional[int] = DEFAULT_ERA_PERIOD,
+        tip: int = 0,
+        metadata_hash: Optional[bytes] = None,
+    ):
+        """A versioned complete-payload request for an ML-DSA-capable offline signer."""
+        ...
+
     async def submit_signature(
         self,
         unsigned: UnsignedExtrinsic,
@@ -267,6 +292,7 @@ class Substrate(Protocol):
         *,
         nonce: Optional[int] = None,
         period: Optional[int] = DEFAULT_ERA_PERIOD,
+        hashed_signing_snapshot: Optional[HashedSigningSnapshot] = None,
         wait_for_inclusion: bool = True,
         wait_for_finalization: bool = True,
     ) -> ExtrinsicResult:
@@ -555,7 +581,15 @@ class RpcSubstrate:
         return await self._read(lambda raw: raw.get_events(block_hash))
 
     async def compose(self, call):
-        """Compose a chain call from a generated ``Call`` (module, function, params)."""
+        """Compose a generated call, preserving an already-composed call's bytes.
+
+        Helpers such as multisig protection return CallBytes. Reusing those
+        exact bytes is essential when collecting approvals for a pinned hash.
+        """
+        if isinstance(call, CallBytes):
+            if call.spec_version != await self.spec_version():
+                raise ValueError("runtime changed since call composition; compose and review again")
+            return call
         module, function, params = call
         return await self._read(
             lambda raw: raw.compose_call(
@@ -595,8 +629,18 @@ class RpcSubstrate:
             return bytes.fromhex(value.removeprefix("0x"))
         return bytes(value)
 
+    async def prepare_hashed_snapshot(self, keypair) -> HashedSigningSnapshot:
+        return await self._read(lambda raw: raw.prepare_hashed_snapshot(keypair))
+
     async def sign_extrinsic(
-        self, call, keypair, *, nonce: int, period: int, hashed_generation_offset: int = 0
+        self,
+        call,
+        keypair,
+        *,
+        nonce: int,
+        period: int,
+        hashed_generation_offset: int = 0,
+        hashed_signing_snapshot: Optional[HashedSigningSnapshot] = None,
     ) -> tuple[bytes, str]:
         """Create a signed extrinsic and return its (raw bytes, 0x-hex hash) without submitting.
 
@@ -610,6 +654,11 @@ class RpcSubstrate:
                 nonce=nonce,
                 era={"period": period},
                 hashed_generation_offset=hashed_generation_offset,
+                **(
+                    {"hashed_signing_snapshot": hashed_signing_snapshot}
+                    if hashed_signing_snapshot is not None
+                    else {}
+                ),
             )
         except SubstrateRequestException as error:
             raise _public_request_error(error) from error
@@ -639,6 +688,7 @@ class RpcSubstrate:
         *,
         nonce: Optional[int] = None,
         period: Optional[int] = DEFAULT_ERA_PERIOD,
+        hashed_signing_snapshot: Optional[HashedSigningSnapshot] = None,
         wait_for_inclusion: bool = True,
         wait_for_finalization: bool = True,
     ) -> ExtrinsicResult:
@@ -657,6 +707,11 @@ class RpcSubstrate:
                 keypair,
                 nonce=nonce,
                 era={"period": period} if period is not None else None,
+                **(
+                    {"hashed_signing_snapshot": hashed_signing_snapshot}
+                    if hashed_signing_snapshot is not None
+                    else {}
+                ),
             )
         except Exception as error:
             # Signing may already have consumed a cached nonce; see _failed_submit.
@@ -698,6 +753,23 @@ class RpcSubstrate:
             )
         except SubstrateRequestException as error:
             raise _public_request_error(error) from error
+
+    async def prepare_mldsa(
+        self,
+        call,
+        *,
+        descriptor: bytes,
+        period: Optional[int] = DEFAULT_ERA_PERIOD,
+        tip: int = 0,
+        metadata_hash: Optional[bytes] = None,
+    ):
+        return await self.raw.prepare_mldsa_unsigned(
+            call,
+            descriptor=descriptor,
+            era={"period": period} if period is not None else None,
+            tip=tip,
+            metadata_hash=metadata_hash,
+        )
 
     async def submit_signature(
         self,

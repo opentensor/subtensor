@@ -475,6 +475,8 @@ class AlphaAssets:
 
 class LimitOrders:
     Orders = Item('LimitOrders', 'Orders', 'OrderStatus')
+    ApprovedOrdersV2 = Item('LimitOrders', 'ApprovedOrdersV2', '[u8; 64]')
+    OrderNoncesV2 = Item('LimitOrders', 'OrderNoncesV2', 'H256')
     LimitOrdersEnabled = Item('LimitOrders', 'LimitOrdersEnabled', 'bool')
     LinkedOutputs = Item('LimitOrders', 'LinkedOutputs', 'LinkedOutput')
     HasMigrationRun = Item('LimitOrders', 'HasMigrationRun', 'bool')
@@ -482,3 +484,9 @@ class LimitOrders:
 class HashedAccounts:
     Accounts = Item('HashedAccounts', 'Accounts', 'AccountRecord')
     EvmAliases = Item('HashedAccounts', 'EvmAliases', 'AccountId32')
+    V2Records = Item('HashedAccounts', 'V2Records', 'AccountRecordV2')
+    DerivedAuthorities = Item('HashedAccounts', 'DerivedAuthorities', 'DerivedAuthorityRecord')
+    V2RegistrationEnabled = Item('HashedAccounts', 'V2RegistrationEnabled', 'bool')
+    V2AuthorizationEnabled = Item('HashedAccounts', 'V2AuthorizationEnabled', 'bool')
+    CapabilityEpochs = Item('HashedAccounts', 'CapabilityEpochs', 'u64')
+    ActiveCapabilities = Item('HashedAccounts', 'ActiveCapabilities', 'CapabilityRecord')

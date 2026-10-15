@@ -76,7 +76,17 @@ RAW_ONLY: dict[str, set[str]] = {
     # Ordinary funding and migration intents insert registration automatically
     # when they have the recipient descriptor. Expose standalone sponsorship
     # through the raw call surface, not a second wallet-creation workflow.
-    "HashedAccounts": {"register", "check_registered"},
+    "HashedAccounts": {
+        "register",
+        "check_registered",
+        # Composite protection is composed by MultisigGroup and derivative
+        # helpers, with the exact call approved by its actual authority.
+        "register_derived",
+        "register_derived_sponsored",
+        "check_derived",
+        # Independent root-controlled rollout switches.
+        "set_mldsa_enabled",
+    },
     "SubtensorModule": {
         # sudo/admin/root-origin operations — deliberately not agent-executable
         "sudo_set_max_childkey_take",
@@ -140,6 +150,7 @@ RAW_ONLY: dict[str, set[str]] = {
         "force_batch",
         # origin/dispatch plumbing — niche
         "as_derivative",
+        "as_protected_derivative",
         "dispatch_as",
         "dispatch_as_fallible",
         "if_else",
@@ -160,11 +171,8 @@ RAW_ONLY: dict[str, set[str]] = {
         "toggle_user_liquidity",
     },
     "LimitOrders": {
-        # signed Order payloads (constructed off-chain) and admin-gated execution;
-        # not a fit for a declarative intent. Reachable via the raw-call escape hatch.
-        "cancel_order",
-        "execute_orders",
-        "execute_batched_orders",
+        # Order execution and owner-authorized operations have intents.
+        # Administrative maintenance remains available as raw calls.
         "set_pallet_status",
         "prune_linked_output",
     },

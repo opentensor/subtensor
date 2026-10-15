@@ -36,6 +36,8 @@ use core::marker::PhantomData;
 
 /// Weight functions needed for `pallet_shield`.
 pub trait WeightInfo {
+	/// Fail closed until measured on reference hardware, including proposer crypto.
+	fn submit_encrypted_large() -> Weight { Weight::MAX }
 	fn announce_next_key() -> Weight;
 	fn submit_encrypted() -> Weight;
 	fn set_max_pending_extrinsics_number() -> Weight;

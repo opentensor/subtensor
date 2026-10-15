@@ -39,6 +39,14 @@ from .governance import (
 from .hyperparameters import OWNER_HYPERPARAMETERS, SetHyperparameter
 from .identity import SetIdentity, SetSubnetIdentity
 from .leasing import RegisterLeasedNetwork, TerminateLease
+from .limit_orders import (
+    AuthorizeOrder,
+    CancelOrder,
+    ExecuteBatchedOrders,
+    ExecuteOrders,
+    InstallOrderCapability,
+    RevokeOrderCapability,
+)
 from .lock import LockStake, MoveLock, SetPerpetualLock, SetRejectLockedAlpha
 from .multisig import (
     MultisigApprove,
@@ -102,8 +110,10 @@ __all__ = [
     "AnnounceColdkeySwap",
     "AssociateEvmKey",
     "AssociateHotkey",
+    "AuthorizeOrder",
     "Batch",
     "BurnedRegister",
+    "CancelOrder",
     "ClaimRoot",
     "ClaimRootWithHotkey",
     "ClearColdkeySwapAnnouncement",
@@ -115,10 +125,13 @@ __all__ = [
     "DisputeColdkeySwap",
     "DissolveCrowdloan",
     "EvmWithdraw",
+    "ExecuteBatchedOrders",
+    "ExecuteOrders",
     "ExecuteProxyAnnounced",
     "FinalizeCrowdloan",
     "FundEvmKey",
     "IncreaseTake",
+    "InstallOrderCapability",
     "Intent",
     "KillPureProxy",
     "LockStake",
@@ -144,6 +157,7 @@ __all__ = [
     "RemoveStakeLimit",
     "ResetAxon",
     "RevealWeights",
+    "RevokeOrderCapability",
     "RootRegister",
     "ServeAxon",
     "ServeAxonTls",

@@ -5,7 +5,11 @@ from dataclasses import replace
 import pytest
 
 from bittensor.executor import _compose_intent_call
-from bittensor.hashed import descriptor_value, prepare_recipient_intent
+from bittensor.hashed import (
+    descriptor_value,
+    prepare_recipient_intent,
+    registration_descriptor_value,
+)
 from bittensor.intents import Batch
 from bittensor.intents.children import SetChildren
 from bittensor.receiving import receiving_address
@@ -57,7 +61,9 @@ async def test_children_receiving_addresses_keep_registration_guards(setup, sche
         call, extras = await _compose_intent_call(chain, intent, wallet)
         guard, assignment = call.params["calls"]
         assert (guard.module, guard.function) == ("HashedAccounts", "check_registered")
-        assert guard.params["descriptor"] == descriptor_value(bytes(child.hashed_descriptor))
+        assert guard.params["descriptor"] == registration_descriptor_value(
+            bytes(child.hashed_descriptor)
+        )
         assert assignment.function == "set_children"
         assert assignment.params["children"] == [tuple(entry) for entry in prepared.children]
         assert extras["hashed_registration_guards"] == [child.ss58_address]

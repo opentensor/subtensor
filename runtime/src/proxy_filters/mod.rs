@@ -53,7 +53,7 @@ type SubnetLeaseAllowed = (
 /// Contracts, and Crowdloan calls that can move value indirectly, Multisig
 /// wrappers (they re-dispatch on a fresh origin that drops this filter),
 /// `MevShield::store_encrypted` (decrypt-and-dispatch drops the filter),
-/// owner-key rotation, and basket trading (which needs the explicit
+/// owner-key rotation, deferred order approvals, protected-account creation, and basket trading (which needs the explicit
 /// `BasketTrading` grant). Sudo is excluded because a sudo-key principal
 /// would otherwise hand the delegate root, including forced transfers.
 /// `SudoCalls` is inventory-only: no restricted proxy grants it.
@@ -77,7 +77,7 @@ type NonTransferAllowed = (
 
 /// `NonFungible`: nothing that moves, locks, burns or spends TAO/alpha, no key
 /// swaps, no sudo, no Multisig wrappers (fresh-origin re-dispatch), no
-/// `store_encrypted`, and no owner-key rotation.
+/// `store_encrypted`, deferred order approvals, protected-account creation, and no owner-key rotation.
 type NonFungibleAllowed = (
     InfraCommonCalls,
     AdminAll,
@@ -94,7 +94,8 @@ type NonFungibleAllowed = (
 /// `NonCritical`: day-to-day operations including value movement, but no sudo,
 /// network dissolution, root/burned registration, coldkey swaps, Crowdloan
 /// wrappers (they re-dispatch a caller-supplied call as the real coldkey),
-/// Multisig wrappers, `store_encrypted`, owner-key rotation, or basket
+/// Multisig wrappers, `store_encrypted`, owner-key rotation, deferred order approvals,
+/// protected-account creation, or basket
 /// trading (which needs the explicit `BasketTrading` grant).
 type NonCriticalAllowed = (
     InfraCommonCalls,
@@ -307,7 +308,11 @@ mod tests {
         calls
             .iter()
             .copied()
-            .chain(["HashedAccounts::check_registered", "Utility::batch_all"])
+            .chain([
+                "HashedAccounts::check_registered",
+                "HashedAccounts::check_derived",
+                "Utility::batch_all",
+            ])
             .map(str::to_string)
             .collect()
     }
@@ -348,6 +353,8 @@ mod tests {
                 MevShieldStoreEncryptedCalls,
                 OwnerKeyCalls,
                 HashedAccountsCalls,
+                LimitOrderApprovalCalls,
+                ProtectedAccountCreationCalls,
             )>();
         assert_eq!(
             allowed_calls(ProxyType::NonTransfer),
@@ -372,6 +379,8 @@ mod tests {
                 MevShieldStoreEncryptedCalls,
                 OwnerKeyCalls,
                 HashedAccountsCalls,
+                LimitOrderApprovalCalls,
+                ProtectedAccountCreationCalls,
             )>();
         assert_eq!(
             allowed_calls(ProxyType::NonFungible),
@@ -570,6 +579,8 @@ mod tests {
                 MevShieldStoreEncryptedCalls,
                 OwnerKeyCalls,
                 HashedAccountsCalls,
+                LimitOrderApprovalCalls,
+                ProtectedAccountCreationCalls,
             )>();
         assert_eq!(
             allowed_calls(ProxyType::NonCritical),
@@ -873,6 +884,9 @@ mod tests {
             assert!(!allowed.contains("Crowdloan::finalize"));
             assert!(!allowed.contains("Sudo::sudo"));
             assert!(!allowed.contains("MevShield::store_encrypted"));
+            assert!(!allowed.contains("LimitOrders::authorize_order"));
+            assert!(!allowed.contains("Utility::as_protected_derivative"));
+            assert!(!allowed.contains("Proxy::create_protected_pure"));
             assert!(!allowed.contains("AdminUtils::sudo_set_sn_owner_hotkey"));
         }
         // `root_dissolve_network` leaked into NonCritical specifically.

@@ -1371,6 +1371,39 @@ def test_child_set_submits_guarded_hashed_receiving_address(fake, scheme):
     call = fake.submissions[0][0]
     guard, assignment = call.params["calls"]
     assert guard.function == "check_registered"
-    assert guard.params["descriptor"] == descriptor
+    assert guard.params["descriptor"] == {"Classical": descriptor}
     assert assignment.function == "set_children"
     assert assignment.params["children"] == [(round(0.5 * (2**64 - 1)), child.ss58_address)]
+
+
+@pytest.mark.parametrize("crypto", [0, 1, 4, 6, 7, 8])
+@pytest.mark.parametrize("role", ["coldkey", "hotkey"])
+def test_registered_cli_submission_waits_for_finalized_authority(
+    fake, tmp_path, monkeypatch, crypto, role
+):
+    observed = []
+    original_submit = fake.submit
+
+    async def capture(call, keypair, **kwargs):
+        observed.append(kwargs["wait_for_finalization"])
+        return await original_submit(call, keypair, **kwargs)
+
+    monkeypatch.setattr(fake, "submit", capture)
+    path = str(tmp_path / "finality-wallets")
+    wallets.create(
+        name="finality",
+        path=path,
+        coldkey_crypto_type=crypto,
+        use_password=False,
+        on_mnemonic=lambda *_: None,
+    )
+    from bittensor.intents import Transfer
+
+    context = cli_context.AppContext(
+        "finney", "finality", "default", path, True, False, Output(json_mode=True)
+    )
+    intent = Transfer(BOB, 1)
+    intent.signer = role
+    result = context.submit(intent)
+    assert result.success, result.to_dict()
+    assert observed[-1] is (crypto in wallets.REGISTERED_CRYPTO_TYPES)

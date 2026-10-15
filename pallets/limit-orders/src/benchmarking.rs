@@ -8,7 +8,7 @@ use crate::{NetUid, OrderType, Orders};
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
 use sp_core::{Get, H256};
-use sp_runtime::{AccountId32, MultiSignature, Perbill, traits::AccountIdConversion};
+use sp_runtime::{AccountId32, Perbill, traits::AccountIdConversion};
 extern crate alloc;
 use crate::{Call, Config, Pallet};
 
@@ -42,7 +42,7 @@ fn sign_order<T: crate::Config>(
             .unwrap();
     crate::SignedOrder {
         order: order.clone(),
-        signature: MultiSignature::Sr25519(sig),
+        signature: crate::OrderSignature::Sr25519(sig),
         partial_fill: None,
     }
 }
@@ -109,6 +109,86 @@ fn make_benchmark_orders<T: crate::Config>(
     }
 
     orders
+}
+
+/// Exercise maximum relayer bytes and linked-provider reads/writes as well as
+/// cold verification. Input/provider records are setup outside measurement.
+fn make_benchmark_orders_v2<T: crate::Config>(
+    n: u32,
+    netuid: NetUid,
+) -> (
+    frame_support::BoundedVec<crate::SignedOrderV2, crate::MaxOrdersV2>,
+    alloc::vec::Vec<H256>,
+) {
+    use crate::OrderCapabilities;
+    use codec::Encode;
+    let mut entries = alloc::vec::Vec::new();
+    let mut ids = alloc::vec::Vec::new();
+    for (i, legacy) in make_benchmark_orders::<T>(n, netuid)
+        .into_iter()
+        .enumerate()
+    {
+        let old = legacy.order.view();
+        let provider = H256(sp_core::hashing::blake2_256(
+            &(b"v2/benchmark/provider", i as u64).encode(),
+        ));
+        crate::LinkedOutputs::<T>::insert(
+            provider,
+            crate::LinkedOutput {
+                signer: old.signer.clone(),
+                asset: crate::LinkedAsset::Tao,
+                total: BENCHMARK_ORDER_AMOUNT,
+                expires_at: u64::MAX,
+            },
+        );
+        let mut relayers = alloc::vec::Vec::new();
+        relayers.push(frame_benchmarking::account("caller", 0, 0));
+        for r in 1..10 {
+            relayers.push(frame_benchmarking::account("relayer", r, 0));
+        }
+        let order = crate::VersionedOrder::V2(crate::OrderV2 {
+            signer: old.signer,
+            hotkey: old.hotkey,
+            netuid: old.netuid,
+            order_type: old.order_type,
+            amount: crate::OrderAmount::LinkedPercentage {
+                provider,
+                pct: Perbill::one(),
+            },
+            limit_price: old.limit_price,
+            expiry: old.expiry,
+            fee_rate: old.fee_rate,
+            fee_recipient: old.fee_recipient,
+            relayer: Some(relayers.try_into().unwrap()),
+            max_slippage: Some(Perbill::one()),
+            chain_id: old.chain_id,
+            partial_fills_enabled: false,
+            has_linked_order: true,
+        });
+        let mut seed = [0u8; 32];
+        seed[..8].copy_from_slice(&(i as u64).to_le_bytes());
+        let public_key = subtensor_hashed::v2::public_key_from_seed(&seed).unwrap();
+        T::Capabilities::setup_benchmark(order.signer(), 1, &public_key, &order.view()).unwrap();
+        let id = Pallet::<T>::derive_order_id_v2(0, &order);
+        crate::Orders::<T>::remove(id);
+        crate::OrderNoncesV2::<T>::remove(order.signer(), 0);
+        let payload = Pallet::<T>::order_signing_payload(1, 0, &order);
+        let signature =
+            subtensor_hashed::v2::sign_message(&seed, &payload, crate::ORDER_CONTEXT, &[0; 32])
+                .unwrap();
+        entries.push(crate::SignedOrderV2 {
+            nonce: 0,
+            order,
+            partial_fill: None,
+            authorization: crate::OrderAuthorizationV2::MlDsa(crate::MlDsaOrderProof {
+                epoch: 1,
+                public_key,
+                signature: signature.to_vec().try_into().unwrap(),
+            }),
+        });
+        ids.push(id);
+    }
+    (entries.try_into().unwrap(), ids)
 }
 
 #[benchmarks]
@@ -235,6 +315,120 @@ mod benchmarks {
 
         #[extrinsic_call]
         _(RawOrigin::Signed(caller), netuid, bounded_orders);
+    }
+
+    #[benchmark]
+    fn authorize_order() {
+        crate::LimitOrdersEnabled::<T>::set(true);
+        let netuid = NetUid::from(1u16);
+        T::SwapInterface::set_up_netuid_for_benchmark(netuid);
+        let order = make_benchmark_orders_v2::<T>(1, netuid)
+            .0
+            .into_iter()
+            .next()
+            .unwrap()
+            .order;
+        let signer = order.signer().clone();
+        let id = Pallet::<T>::derive_order_id_v2(0, &order);
+        crate::Orders::<T>::remove(id);
+        crate::OrderNoncesV2::<T>::remove(&signer, 0);
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(signer), order.with_nonce(0).unwrap());
+
+        assert!(crate::ApprovedOrdersV2::<T>::contains_key(id));
+    }
+
+    #[benchmark]
+    fn cancel_authenticated_order() {
+        let netuid = NetUid::from(1u16);
+        T::SwapInterface::set_up_netuid_for_benchmark(netuid);
+        let order = make_benchmark_orders_v2::<T>(1, netuid)
+            .0
+            .into_iter()
+            .next()
+            .unwrap()
+            .order;
+        let signer = order.signer().clone();
+        let id = Pallet::<T>::derive_order_id_v2(0, &order);
+        crate::Orders::<T>::insert(id, crate::OrderStatus::PartiallyFilled(1));
+        crate::OrderNoncesV2::<T>::insert(&signer, 0, id);
+        crate::ApprovedOrdersV2::<T>::insert(id, Pallet::<T>::approval_commitment_v2(0, &order));
+
+        #[extrinsic_call]
+        cancel_order(RawOrigin::Signed(signer), order.with_nonce(0).unwrap());
+
+        assert_eq!(
+            crate::Orders::<T>::get(id),
+            Some(crate::OrderStatus::Cancelled)
+        );
+        assert!(!crate::ApprovedOrdersV2::<T>::contains_key(id));
+    }
+
+    /// Every proof is valid and performs portable ML-DSA verification followed
+    /// by a real swap and capability budget mutation. Includes the full bounded
+    /// proof length; no mocked signature or guessed verification weight.
+    #[benchmark]
+    fn execute_authenticated_orders(
+        n: Linear<8, { T::MaxOrdersPerBatch::get() }>,
+        p: Linear<1, 8>,
+    ) {
+        let netuid = NetUid::from(1u16);
+        crate::LimitOrdersEnabled::<T>::set(true);
+        T::SwapInterface::set_up_netuid_for_benchmark(netuid);
+        let (orders, ids) = make_benchmark_orders_v2::<T>(p, netuid);
+        let mut combined: alloc::vec::Vec<_> = orders
+            .into_iter()
+            .map(|signed| crate::SignedOrder::try_from(signed).unwrap())
+            .collect();
+        combined.extend(make_benchmark_orders::<T>(n.saturating_sub(p), netuid));
+        let orders: frame_support::BoundedVec<_, T::MaxOrdersPerBatch> =
+            combined.try_into().unwrap();
+        let caller: T::AccountId = frame_benchmarking::account("caller", 0, 0);
+        frame_system::Pallet::<T>::reset_events();
+
+        #[extrinsic_call]
+        execute_orders(RawOrigin::Signed(caller), orders, true);
+
+        for id in ids {
+            assert_eq!(
+                crate::Orders::<T>::get(id),
+                Some(crate::OrderStatus::Fulfilled)
+            );
+        }
+    }
+
+    #[benchmark]
+    fn execute_authenticated_batched_orders(
+        n: Linear<8, { T::MaxOrdersPerBatch::get() }>,
+        p: Linear<1, 8>,
+    ) {
+        let netuid = NetUid::from(1u16);
+        crate::LimitOrdersEnabled::<T>::set(true);
+        T::SwapInterface::set_up_netuid_for_benchmark(netuid);
+        let pallet_acct: T::AccountId = T::PalletId::get().into_account_truncating();
+        let pallet_hotkey = T::PalletHotkey::get();
+        T::SwapInterface::set_up_acc_for_benchmark(&pallet_hotkey, &pallet_acct);
+        let (orders, ids) = make_benchmark_orders_v2::<T>(p, netuid);
+        let mut combined: alloc::vec::Vec<_> = orders
+            .into_iter()
+            .map(|signed| crate::SignedOrder::try_from(signed).unwrap())
+            .collect();
+        combined.extend(make_benchmark_orders::<T>(n.saturating_sub(p), netuid));
+        let orders: frame_support::BoundedVec<_, T::MaxOrdersPerBatch> =
+            combined.try_into().unwrap();
+        let caller: T::AccountId = frame_benchmarking::account("caller", 0, 0);
+        frame_system::Pallet::<T>::reset_events();
+
+        #[extrinsic_call]
+        execute_batched_orders(RawOrigin::Signed(caller), netuid, orders);
+
+        for id in ids {
+            assert_eq!(
+                crate::Orders::<T>::get(id),
+                Some(crate::OrderStatus::Fulfilled)
+            );
+        }
     }
 
     impl_benchmark_test_suite!(
