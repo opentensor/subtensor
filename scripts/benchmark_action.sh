@@ -1,43 +1,37 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# CI benchmark validation: generate weights, compare with threshold, prepare patch if drifted.
-# Exit: 0 = ok, 1 = error, 2 = drift (patch in .bench_patch/)
+# CI benchmark run on the reference machine.
+#
+# Full mode (BENCHMARK_TARGETS unset): measure every benchmark, compare with the
+# committed weights, and patch the ones that drifted beyond THRESHOLD.
+#
+# Targeted mode (BENCHMARK_TARGETS set, one `pallet:bench,bench` per line, as
+# printed by scripts/benchmark_targets.py): measure only those benchmarks and
+# patch them with the new measurement unconditionally, because their committed
+# weight was written for a different benchmark or by hand.
+#
+# Exit: 0 = weights unchanged, 1 = error, 2 = patch in .bench_patch/
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-NODE_BIN="$ROOT_DIR/target/production/node-subtensor"
-RUNTIME_WASM="$ROOT_DIR/target/production/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm"
+NODE_BIN="${NODE_BIN:-$ROOT_DIR/target/production/node-subtensor}"
+RUNTIME_WASM="${RUNTIME_WASM:-$ROOT_DIR/target/production/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm}"
 TEMPLATE="$ROOT_DIR/.maintain/frame-weight-template.hbs"
-WEIGHT_CMP="$ROOT_DIR/target/production/weight-compare"
+WEIGHT_CMP="${WEIGHT_CMP:-$ROOT_DIR/target/production/weight-compare}"
 
 PATCH_DIR="$ROOT_DIR/.bench_patch"
 THRESHOLD="${THRESHOLD:-75}"
 STEPS="${STEPS:-50}"
 REPEAT="${REPEAT:-20}"
-EXTRINSICS="${EXTRINSICS:-*}"
-# Manual feature-branch reference runs may carry an explicit focus manifest.
-# Scheduled/default-branch and PR-label runs retain the full-suite behavior.
-if [[ "${GITHUB_EVENT_NAME:-}" == "workflow_dispatch" &&
-      "${GITHUB_REF_NAME:-}" != "${GITHUB_DEFAULT_BRANCH:-main}" &&
-      -f "$ROOT_DIR/.maintain/benchmark-focus.json" ]]; then
-  PALLET_DIRS="${PALLET_DIRS:-$(python3 -c 'import json,sys; print(" ".join(json.load(open(sys.argv[1]))["pallet_dirs"]))' "$ROOT_DIR/.maintain/benchmark-focus.json")}"
-  EXTRINSICS=$(python3 -c 'import json,sys; print(",".join(json.load(open(sys.argv[1]))["extrinsics"]))' "$ROOT_DIR/.maintain/benchmark-focus.json")
-  echo "Manual branch reference focus: $PALLET_DIRS / $EXTRINSICS"
-fi
 # Utility batches are low-amplitude microbenchmarks; median-slopes avoids noisy intercept drift.
 UTILITY_OUTPUT_ANALYSIS="${UTILITY_OUTPUT_ANALYSIS:-median-slopes}"
-
 
 die() { echo "ERROR: $1" >&2; exit 1; }
 
 selective_patch_weights_file() {
-    local committed="$1"
-    local generated="$2"
-    shift 2
-
-    python3 "$SCRIPT_DIR/benchmark_action.py" selective-patch "$committed" "$generated" "$@"
+  python3 "$SCRIPT_DIR/benchmark_action.py" selective-patch "$@"
 }
 
 # ── Auto-discover pallets ────────────────────────────────────────────────────
@@ -48,46 +42,39 @@ done < <("$SCRIPT_DIR/discover_pallets.sh")
 
 (( ${#OUTPUTS[@]} > 0 )) || die "no benchmarked pallets found"
 
-# PALLET_DIRS (space-separated directory names under pallets/, set by CI for
-# pallet-only diffs) restricts the run to the changed pallets. Unset/empty
-# means the full suite.
-if [[ -n "${PALLET_DIRS:-}" ]]; then
-  declare -A KEEP
-  for dir in $PALLET_DIRS; do
-    for pallet in "${!OUTPUTS[@]}"; do
-      [[ "${OUTPUTS[$pallet]}" == "pallets/$dir/"* ]] && KEEP[$pallet]="${OUTPUTS[$pallet]}"
-    done
-  done
-  if (( ${#KEEP[@]} == 0 )); then
-    echo "Changed pallets ($PALLET_DIRS) have no registered benchmarks; nothing to validate."
-    exit 0
-  fi
-  echo "Restricting to changed pallets: ${!KEEP[*]}"
-  unset OUTPUTS
-  declare -A OUTPUTS
-  for pallet in "${!KEEP[@]}"; do OUTPUTS[$pallet]="${KEEP[$pallet]}"; done
+# Pallet -> comma-separated benchmarks to measure ("*" = all).
+declare -A SELECTED
+if [[ -n "${BENCHMARK_TARGETS:-}" ]]; then
+  while IFS=: read -r pallet benchmarks; do
+    [[ -n "$pallet" ]] || continue
+    [[ -n "${OUTPUTS[$pallet]:-}" ]] || die "unknown benchmarked pallet in BENCHMARK_TARGETS: $pallet"
+    [[ "$benchmarks" =~ ^[A-Za-z0-9_]+(,[A-Za-z0-9_]+)*$ ]] || die "invalid benchmark list for $pallet: $benchmarks"
+    SELECTED[$pallet]="$benchmarks"
+  done <<< "$BENCHMARK_TARGETS"
+  (( ${#SELECTED[@]} > 0 )) || die "BENCHMARK_TARGETS has no entries"
+  echo "Targeted run:"; printf '  %s\n' $BENCHMARK_TARGETS
+else
+  for pallet in "${!OUTPUTS[@]}"; do SELECTED[$pallet]="*"; done
 fi
 
 mkdir -p "$PATCH_DIR"
 
-# Build if needed
-[[ -x "$NODE_BIN" ]] || cargo build --profile production -p node-subtensor --features runtime-benchmarks
-cargo build --profile production -p subtensor-weight-tools --bin weight-compare
-[[ -x "$NODE_BIN" ]] || die "node binary not found"
-[[ -f "$RUNTIME_WASM" ]] || die "runtime WASM not found"
-[[ -x "$WEIGHT_CMP" ]] || die "weight-compare not found"
+[[ -x "$NODE_BIN" ]] || die "node binary not found at $NODE_BIN"
+[[ -f "$RUNTIME_WASM" ]] || die "runtime WASM not found at $RUNTIME_WASM"
+[[ -x "$WEIGHT_CMP" ]] || die "weight-compare not found at $WEIGHT_CMP"
 
 PATCHED=()
 SUMMARY=()
 FAILED=0
 
-for pallet in "${!OUTPUTS[@]}"; do
+for pallet in "${!SELECTED[@]}"; do
   output="${OUTPUTS[$pallet]}"
+  extrinsics="${SELECTED[$pallet]}"
   committed="$ROOT_DIR/$output"
   tmp=$(mktemp)
 
   echo ""
-  echo "════ $pallet ════"
+  echo "════ $pallet ($extrinsics) ════"
 
   analysis_args=()
   if [[ -n "${OUTPUT_ANALYSIS:-}" ]]; then
@@ -102,7 +89,7 @@ for pallet in "${!OUTPUTS[@]}"; do
     --genesis-builder-preset=benchmark \
     --wasm-execution=compiled \
     --pallet="$pallet" \
-    --extrinsic="$EXTRINSICS" \
+    --extrinsic="$extrinsics" \
     --steps="$STEPS" \
     --repeat="$REPEAT" \
     --no-storage-info \
@@ -114,57 +101,65 @@ for pallet in "${!OUTPUTS[@]}"; do
     SUMMARY+=("$pallet: FAILED"); FAILED=1; rm -f "$tmp"; continue
   fi
 
-  # A filtered reference run measures only requested methods. Merge those
-  # methods into a temporary complete file before comparison so unrelated
-  # methods are neither reported as removed nor included in the patch.
-  if [[ "$EXTRINSICS" != "*" && -f "$committed" ]]; then
-    merged=$(mktemp)
-    cp "$committed" "$merged"
-    measured_methods=()
-    while IFS= read -r method; do measured_methods+=("$method"); done < <(
-      python3 - "$tmp" <<'PY_METHODS'
-import re
-import sys
-with open(sys.argv[1], encoding="utf-8") as source:
-    print("\n".join(dict.fromkeys(re.findall(r"(?m)^\s*fn\s+(\w+)\(", source.read()))))
-PY_METHODS
-    )
-    (( ${#measured_methods[@]} > 0 )) || die "filtered benchmark output has no methods"
-    selective_patch_weights_file "$merged" "$tmp" "${measured_methods[@]}"
-    mv "$merged" "$tmp"
-  fi
-
   if [[ ! -f "$committed" ]]; then
     cp "$tmp" "$committed"; PATCHED+=("$output"); SUMMARY+=("$pallet: NEW")
-  else
-    compare_log=$(mktemp)
-    if "$WEIGHT_CMP" --old "$committed" --new "$tmp" --threshold "$THRESHOLD" 2>&1 | tee "$compare_log"; then
-        rc=0
-    else
-        rc=${PIPESTATUS[0]}
-    fi
-
-    if (( rc == 2 )); then
-        drifted_benchmarks=()
-        while IFS= read -r benchmark_name; do
-            drifted_benchmarks+=("$benchmark_name")
-        done < <(python3 "$SCRIPT_DIR/benchmark_action.py" drifted-benchmarks "$compare_log")
-
-        if (( ${#drifted_benchmarks[@]} == 0 )); then
-            SUMMARY+=("$pallet: COMPARE FAILED"); FAILED=1
-        else
-            selective_patch_weights_file "$committed" "$tmp" "${drifted_benchmarks[@]}"
-            PATCHED+=("$output")
-            SUMMARY+=("$pallet: UPDATED ${#drifted_benchmarks[@]} benchmark(s): ${drifted_benchmarks[*]}")
-        fi
-    elif (( rc == 0 )); then
-        SUMMARY+=("$pallet: OK")
-    else
-        SUMMARY+=("$pallet: COMPARE FAILED"); FAILED=1
-    fi
-    rm -f "$compare_log"
+    rm -f "$tmp"; continue
   fi
-  rm -f "$tmp"
+
+  if [[ "$extrinsics" != "*" ]]; then
+    # The comparison is informational here: the selected weights are stale by
+    # construction, so the measurement replaces them whatever the drift.
+    IFS=, read -r -a measured <<< "$extrinsics"
+    missing=()
+    for name in "${measured[@]}"; do
+      grep -Eq "^[[:space:]]*fn ${name}\(" "$tmp" || missing+=("$name")
+    done
+    if (( ${#missing[@]} )); then
+      SUMMARY+=("$pallet: FAILED (no measurement for ${missing[*]})"); FAILED=1
+      rm -f "$tmp"; continue
+    fi
+    merged=$(mktemp)
+    cp "$committed" "$merged"
+    # Exit 1 here only means every measured function is byte-identical.
+    selective_patch_weights_file "$merged" "$tmp" "${measured[@]}" || true
+    "$WEIGHT_CMP" --old "$committed" --new "$merged" --threshold "$THRESHOLD" 2>&1 || true
+    if cmp -s "$merged" "$committed"; then
+      SUMMARY+=("$pallet: OK (measurement matches committed weights)")
+    else
+      cp "$merged" "$committed"
+      PATCHED+=("$output")
+      SUMMARY+=("$pallet: UPDATED ${measured[*]}")
+    fi
+    rm -f "$merged" "$tmp"
+    continue
+  fi
+
+  compare_log=$(mktemp)
+  if "$WEIGHT_CMP" --old "$committed" --new "$tmp" --threshold "$THRESHOLD" 2>&1 | tee "$compare_log"; then
+    rc=0
+  else
+    rc=${PIPESTATUS[0]}
+  fi
+
+  if (( rc == 2 )); then
+    drifted_benchmarks=()
+    while IFS= read -r benchmark_name; do
+      drifted_benchmarks+=("$benchmark_name")
+    done < <(python3 "$SCRIPT_DIR/benchmark_action.py" drifted-benchmarks "$compare_log")
+
+    if (( ${#drifted_benchmarks[@]} == 0 )); then
+      SUMMARY+=("$pallet: COMPARE FAILED"); FAILED=1
+    else
+      selective_patch_weights_file "$committed" "$tmp" "${drifted_benchmarks[@]}"
+      PATCHED+=("$output")
+      SUMMARY+=("$pallet: UPDATED ${#drifted_benchmarks[@]} benchmark(s): ${drifted_benchmarks[*]}")
+    fi
+  elif (( rc == 0 )); then
+    SUMMARY+=("$pallet: OK")
+  else
+    SUMMARY+=("$pallet: COMPARE FAILED"); FAILED=1
+  fi
+  rm -f "$compare_log" "$tmp"
 done
 
 echo ""; printf '%s\n' "${SUMMARY[@]}"
@@ -174,7 +169,7 @@ echo ""; printf '%s\n' "${SUMMARY[@]}"
 if (( ${#PATCHED[@]} == 0 )); then
   printf '%s\n' "${SUMMARY[@]}" > "$PATCH_DIR/summary.txt"
   (( FAILED )) && exit 1
-  echo "All weights within tolerance."
+  echo "Weights unchanged."
   exit 0
 fi
 
@@ -188,5 +183,5 @@ if (( FAILED )); then
   echo "Partial reference patch saved at $PATCH_DIR/benchmark_patch.diff; failed pallets remain unmeasured."
   exit 1
 fi
-echo "Patch ready at $PATCH_DIR/benchmark_patch.diff — add 'apply-benchmark-patch' label to apply."
+echo "Patch ready at $PATCH_DIR/benchmark_patch.diff"
 exit 2

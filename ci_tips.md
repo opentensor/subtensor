@@ -536,11 +536,10 @@ cursors, `root_register` walking every subnet).
   informational unless that check itself is required. Skeptic
   can be `SAFE` while Auditor is 👎.
 
-Do not invent `WeightInfo` numbers. CI measures on reference
-hardware (threshold cited: 40%) and uploads a `bench-patch`
-artifact. Label `apply-benchmark-patch` commits that patch, or
-download it and apply it yourself. Label `run-benchmarks` turns
-on `validate-benchmarks` (not required today).
+Do not invent `WeightInfo` numbers. `Validate-Benchmarks` measures
+every new or edited benchmark on reference hardware and commits the
+result to the PR (`chore: update benchmark weights`). Wait for that
+commit instead of hand-writing weights.
 
 ### `bittensor-core wasm32 seam`
 
@@ -643,8 +642,6 @@ own gate.
 | `fresh-try-runtime-state` | Live RPC instead of cached try-runtime snap |
 | `skip-cargo-audit` | Skip audit |
 | `skip-bittensor-e2e-tests` | Skip Rust SDK e2e |
-| `run-benchmarks` | Run `validate-benchmarks` on the PR |
-| `apply-benchmark-patch` | Apply the bot's `weights.rs` patch |
 | `check-node-compat` | Opt-in node compat harness |
 | `mainnet-clone` | Public tunneled clone (non-fork, base `main`) |
 | `auditor:run-node` | Auditor may start localnet (heavy) |

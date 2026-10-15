@@ -145,6 +145,7 @@ pub trait WeightInfo {
 	fn sudo_set_basket_min_trade_tao() -> Weight {
 		Self::sudo_set_basket_liquidity_cap()
 	}
+
 	fn sudo_set_subnet_emission_weights() -> Weight;
 }
 
@@ -1347,17 +1348,45 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(8_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
-	/// Interim envelope until CI reference benchmarking lands. Base: the mechanism
-	/// emission split setter's measured owner-or-root rate-limit check, admin-window
-	/// read and `NetworksAdded` read. On top of that this call reads
-	/// `SubnetEmissionWeights`, `SubnetCreatedViaLease`, `SubnetTaoWeight`, `TaoWeight`,
-	/// `SubnetTAO(root)`, `SubnetAlphaIn`, `SubnetAlphaOut` and the protocol alpha reservoir
-	/// (r:8, counted as 6 on top of the base's own reads) and writes
-	/// `SubnetEmissionWeights` plus `SubnetTaoWeight` instead of one item (w:+1).
+
+	/// Storage: `SubtensorModule::SubnetOwner` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetOwner` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::LastRateLimitedBlock` (r:1 w:1)
+	/// Proof: `SubtensorModule::LastRateLimitedBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::Tempo` (r:1 w:0)
+	/// Proof: `SubtensorModule::Tempo` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::PendingEpochAt` (r:1 w:0)
+	/// Proof: `SubtensorModule::PendingEpochAt` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::LastEpochBlock` (r:1 w:0)
+	/// Proof: `SubtensorModule::LastEpochBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::AdminFreezeWindow` (r:1 w:0)
+	/// Proof: `SubtensorModule::AdminFreezeWindow` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::NetworksAdded` (r:1 w:0)
+	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetEmissionWeights` (r:1 w:1)
+	/// Proof: `SubtensorModule::SubnetEmissionWeights` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetCreatedViaLease` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetCreatedViaLease` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetTAO` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetTAO` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetAlphaIn` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetAlphaIn` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetAlphaOut` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetAlphaOut` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Swap::BalancerAlphaReservoir` (r:1 w:0)
+	/// Proof: `Swap::BalancerAlphaReservoir` (`max_values`: None, `max_size`: Some(18), added: 2493, mode: `MaxEncodedLen`)
+	/// Storage: `SubtensorModule::TaoWeight` (r:1 w:0)
+	/// Proof: `SubtensorModule::TaoWeight` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetTaoWeight` (r:0 w:1)
+	/// Proof: `SubtensorModule::SubnetTaoWeight` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn sudo_set_subnet_emission_weights() -> Weight {
-		Self::sudo_set_mechanism_emission_split()
-			.saturating_add(T::DbWeight::get().reads(6_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+		// Proof Size summary in bytes:
+		//  Measured:  `1221`
+		//  Estimated: `4686`
+		// Minimum execution time: 74_098_000 picoseconds.
+		Weight::from_parts(75_231_000, 4686)
+			.saturating_add(T::DbWeight::get().reads(14_u64))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
 	/// Storage: `SubtensorModule::TaoFlowCutoff` (r:0 w:1)
 	/// Proof: `SubtensorModule::TaoFlowCutoff` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
@@ -2807,17 +2836,45 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(8_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
-	/// Interim envelope until CI reference benchmarking lands. Base: the mechanism
-	/// emission split setter's measured owner-or-root rate-limit check, admin-window
-	/// read and `NetworksAdded` read. On top of that this call reads
-	/// `SubnetEmissionWeights`, `SubnetCreatedViaLease`, `SubnetTaoWeight`, `TaoWeight`,
-	/// `SubnetTAO(root)`, `SubnetAlphaIn`, `SubnetAlphaOut` and the protocol alpha reservoir
-	/// (r:8, counted as 6 on top of the base's own reads) and writes
-	/// `SubnetEmissionWeights` plus `SubnetTaoWeight` instead of one item (w:+1).
+
+	/// Storage: `SubtensorModule::SubnetOwner` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetOwner` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::LastRateLimitedBlock` (r:1 w:1)
+	/// Proof: `SubtensorModule::LastRateLimitedBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::Tempo` (r:1 w:0)
+	/// Proof: `SubtensorModule::Tempo` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::PendingEpochAt` (r:1 w:0)
+	/// Proof: `SubtensorModule::PendingEpochAt` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::LastEpochBlock` (r:1 w:0)
+	/// Proof: `SubtensorModule::LastEpochBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::AdminFreezeWindow` (r:1 w:0)
+	/// Proof: `SubtensorModule::AdminFreezeWindow` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::NetworksAdded` (r:1 w:0)
+	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetEmissionWeights` (r:1 w:1)
+	/// Proof: `SubtensorModule::SubnetEmissionWeights` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetCreatedViaLease` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetCreatedViaLease` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetTAO` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetTAO` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetAlphaIn` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetAlphaIn` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetAlphaOut` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetAlphaOut` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Swap::BalancerAlphaReservoir` (r:1 w:0)
+	/// Proof: `Swap::BalancerAlphaReservoir` (`max_values`: None, `max_size`: Some(18), added: 2493, mode: `MaxEncodedLen`)
+	/// Storage: `SubtensorModule::TaoWeight` (r:1 w:0)
+	/// Proof: `SubtensorModule::TaoWeight` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetTaoWeight` (r:0 w:1)
+	/// Proof: `SubtensorModule::SubnetTaoWeight` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn sudo_set_subnet_emission_weights() -> Weight {
-		<() as WeightInfo>::sudo_set_mechanism_emission_split()
-			.saturating_add(RocksDbWeight::get().reads(6_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
+		// Proof Size summary in bytes:
+		//  Measured:  `1221`
+		//  Estimated: `4686`
+		// Minimum execution time: 74_098_000 picoseconds.
+		Weight::from_parts(75_231_000, 4686)
+			.saturating_add(RocksDbWeight::get().reads(14_u64))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
 	/// Storage: `SubtensorModule::TaoFlowCutoff` (r:0 w:1)
 	/// Proof: `SubtensorModule::TaoFlowCutoff` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
