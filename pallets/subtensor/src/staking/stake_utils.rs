@@ -724,6 +724,9 @@ impl<T: Config> Pallet<T> {
                 staking_hotkeys.push(hotkey.clone());
                 StakingHotkeys::<T>::insert(coldkey, staking_hotkeys.clone());
             }
+            // Once a voluntary stake establishes the association, the staking
+            // list also discovers any root-swap credit for this fund.
+            HotkeySwapBasketCredits::<T>::remove(coldkey, hotkey);
         }
 
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
@@ -807,6 +810,26 @@ impl<T: Config> Pallet<T> {
         pool_before.saturating_sub(pool_after)
     }
 
+    /// Take an entire position for a hotkey rename. A quoted balance is floored;
+    /// withdrawing just that integer can leave fractional shares behind, resurrect
+    /// the old entry on a later dividend, and turn a rename into unchecked growth.
+    /// Burn the complete share, carrying exactly the debited integer value to the
+    /// new pool. Sub-rao residue stays with the old pool's remaining holders.
+    pub(crate) fn take_stake_position_for_hotkey_swap(
+        hotkey: &T::AccountId,
+        coldkey: &T::AccountId,
+        netuid: NetUid,
+    ) -> AlphaBalance {
+        let amount = Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
+        let mut ops = HotkeyAlphaSharePoolDataOperations::<T>::new(hotkey.clone(), netuid);
+        let share = ops.get_share(coldkey);
+        let denominator = ops.get_denominator();
+        ops.set_shared_value(ops.get_shared_value().saturating_sub(amount.to_u64()));
+        ops.set_share(coldkey, SafeFloat::zero());
+        ops.set_denominator(denominator.sub(&share).unwrap_or_default());
+        amount
+    }
+
     /// Keep the index until all alpha keys have been removed, across both share formats
     /// and every subnet. Even a zero-valued share can grow with pool-wide dividends,
     /// which do not recreate the index. Exact-zero rows are removed by storage GC.
@@ -818,6 +841,7 @@ impl<T: Config> Pallet<T> {
         Alpha::<T>::contains_prefix((hotkey, coldkey))
             || AlphaV2::<T>::contains_prefix((hotkey, coldkey))
             || BasketClaimed::<T>::get(hotkey, coldkey) != 0
+            || AutoStakeDestination::<T>::iter_prefix(coldkey).any(|(_, target)| target == *hotkey)
     }
 
     /// Remove a staking-hotkey association once the pair has no alpha keys left anywhere.
@@ -1417,6 +1441,65 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    pub fn account_rejects_staking_hotkey_growth(coldkey: &T::AccountId) -> bool {
+        AccountFlags::<T>::get(coldkey) & crate::ACCOUNT_FLAGS_REJECT_STAKING_HOTKEY_GROWTH != 0
+    }
+
+    /// A subnet rename needs a second list entry only if another position survives.
+    pub(crate) fn hotkey_swap_needs_split(
+        coldkey: &T::AccountId,
+        old_hotkey: &T::AccountId,
+        netuid: NetUid,
+    ) -> bool {
+        Self::alpha_iter_prefix((old_hotkey, coldkey))
+            .any(|(other, shares)| other != netuid && !shares.is_zero())
+            || (!netuid.is_root() && BasketClaimed::<T>::get(old_hotkey, coldkey) != 0)
+            || AutoStakeDestination::<T>::iter_prefix(coldkey)
+                .any(|(other, target)| other != netuid && target == *old_hotkey)
+    }
+
+    pub(crate) fn hotkey_swap_stake_can_follow(
+        coldkey: &T::AccountId,
+        old_hotkey: &T::AccountId,
+        new_hotkey: &T::AccountId,
+        netuid: NetUid,
+        swapping_coldkey: &T::AccountId,
+    ) -> bool {
+        let hotkeys = StakingHotkeys::<T>::get(coldkey);
+        if hotkeys.contains(new_hotkey)
+            || (hotkeys.contains(old_hotkey)
+                && !Self::hotkey_swap_needs_split(coldkey, old_hotkey, netuid))
+        {
+            return true;
+        }
+        if coldkey == swapping_coldkey {
+            return hotkeys.len() < crate::MAX_STAKING_HOTKEYS as usize;
+        }
+        !Self::account_rejects_staking_hotkey_growth(coldkey)
+            && hotkeys.len() < crate::MAX_THIRD_PARTY_STAKING_HOTKEYS as usize
+    }
+
+    /// Third-party deposits obey both the recipient's opt-out and the smaller cap.
+    pub fn ensure_third_party_staking_hotkeys_can_grow(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+    ) -> Result<(), Error<T>> {
+        let hotkeys = StakingHotkeys::<T>::get(coldkey);
+        if hotkeys.contains(hotkey) {
+            return Ok(());
+        }
+        ensure!(
+            !Self::account_rejects_staking_hotkey_growth(coldkey)
+                || Self::coldkey_owns_hotkey(coldkey, hotkey),
+            Error::<T>::AccountRejectsStakingHotkeyGrowth
+        );
+        ensure!(
+            hotkeys.len() < crate::MAX_THIRD_PARTY_STAKING_HOTKEYS as usize,
+            Error::<T>::TooManyStakingHotkeys
+        );
+        Ok(())
+    }
+
     /// Weight of walking a `StakingHotkeys` list of `entries` on an unstake-side call.
     fn staking_hotkeys_walk_weight(entries: u64) -> Weight {
         T::DbWeight::get().reads(
@@ -1863,12 +1946,10 @@ impl<T: Config> Pallet<T> {
         // budget, so third parties may only grow it up to a fixed bound. The coldkey's own
         // moves are bounded by the larger overall cap.
         if origin_coldkey != destination_coldkey {
-            let staking_hotkeys = StakingHotkeys::<T>::get(destination_coldkey);
-            ensure!(
-                staking_hotkeys.contains(destination_hotkey)
-                    || staking_hotkeys.len() < crate::MAX_THIRD_PARTY_STAKING_HOTKEYS as usize,
-                Error::<T>::TooManyStakingHotkeys
-            );
+            Self::ensure_third_party_staking_hotkeys_can_grow(
+                destination_coldkey,
+                destination_hotkey,
+            )?;
         } else {
             Self::ensure_staking_hotkeys_can_grow(destination_coldkey, destination_hotkey)?;
         }

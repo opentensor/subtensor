@@ -414,5 +414,7 @@ mod errors {
         CommitPayloadTooLarge,
         /// The subnet's shared Null timelock queue has reached its byte or count budget.
         CommitQueueFull,
+        /// The recipient refuses a new staking hotkey introduced by another account.
+        AccountRejectsStakingHotkeyGrowth,
     }
 }

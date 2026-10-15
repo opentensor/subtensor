@@ -74,6 +74,7 @@
     "set-min-collateral",
     "set-perpetual-lock",
     "set-reject-locked-alpha",
+    "set-reject-staking-hotkey-growth",
     "set-root-claim-threshold",
     "set-subnet-identity",
     "set-take",

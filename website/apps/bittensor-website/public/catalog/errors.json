@@ -129,6 +129,24 @@
         }
       ]
     },
+    "AccountRejectsStakingHotkeyGrowth": {
+      "code": "policy_violation",
+      "description": "The receiving coldkey opted out of staking-list growth caused by other accounts. Transfer onto a hotkey the receiver already lists or owns, or have the receiver voluntarily establish the destination through its own staking action. Contracts can check getRejectStakingHotkeyGrowth before transferring to avoid a refused precompile call.",
+      "docs_url": "/docs/errors/chain/AccountRejectsStakingHotkeyGrowth",
+      "markdown_url": "/llms.mdx/docs/errors/chain/AccountRejectsStakingHotkeyGrowth/content.md",
+      "pallets": [
+        "SubtensorModule"
+      ],
+      "sources": [
+        {
+          "pallet": "SubtensorModule",
+          "path": "pallets/subtensor/src/macros/errors.rs",
+          "line": 418,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L418",
+          "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
+        }
+      ]
+    },
     "ActiveLockExists": {
       "code": "already_exists",
       "description": "The destination coldkey already holds a lock with nonzero locked mass on that subnet, so a new or transferred lock cannot be created there. Inspect the `Lock` storage for the (coldkey, netuid, hotkey) triple and wait for the existing lock to unlock or remove it first.",
@@ -415,6 +433,15 @@
           "url": "/code/pallets/limit-orders/src/lib.rs#L445",
           "raw_url": "/code/raw/pallets/limit-orders/src/lib.rs"
         }
+      ]
+    },
+    "AuthorizationListTooLarge": {
+      "code": "limit_exceeded",
+      "description": "The EIP-7702 authorization list exceeds the maximum of 255 entries. Split the authorizations across transactions; oversized lists are rejected before signature recovery.",
+      "docs_url": "/docs/errors/chain/AuthorizationListTooLarge",
+      "markdown_url": "/llms.mdx/docs/errors/chain/AuthorizationListTooLarge/content.md",
+      "pallets": [
+        "EVM"
       ]
     },
     "AutoEpochAlreadyImminent": {

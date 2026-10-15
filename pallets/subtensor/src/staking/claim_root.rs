@@ -8,6 +8,7 @@ use sp_core::Get;
 use sp_runtime::DispatchError;
 use sp_runtime::traits::{AccountIdConversion, Zero};
 use sp_std::collections::btree_map::BTreeMap;
+use sp_std::collections::btree_set::BTreeSet;
 use substrate_fixed::types::{I96F32, U64F64};
 use subtensor_runtime_common::clear_prefix_with_meter;
 use subtensor_swap_interface::{SwapFailureKind, SwapHandler};
@@ -667,6 +668,9 @@ impl<T: Config> Pallet<T> {
         if owed_shares == 0 {
             return Ok(()); // no-op
         }
+        // A retained root-swap credit is discoverable without a staking-list entry.
+        // Redeeming it establishes root stake, so the caller's overall cap applies.
+        Self::ensure_staking_hotkeys_can_grow(coldkey, hotkey)?;
 
         let shares_total: u64 = BasketShares::<T>::get(hotkey);
         // Nothing realizable yet (fund drained); leave the watermark untouched so the claim can
@@ -910,6 +914,9 @@ impl<T: Config> Pallet<T> {
             BasketClaimed::<T>::mutate(hotkey, coldkey, |claimed| {
                 *claimed = claimed.saturating_add(i128::from(owed_shares));
             });
+            if BasketClaimed::<T>::get(hotkey, coldkey) >= 0 {
+                HotkeySwapBasketCredits::<T>::remove(coldkey, hotkey);
+            }
             BasketRedeemedTao::<T>::mutate(hotkey, |total| {
                 *total = total.saturating_add(total_tao.into())
             });
@@ -1166,14 +1173,19 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         staking_hotkeys: Vec<T::AccountId>,
     ) -> Vec<T::AccountId> {
-        staking_hotkeys
+        let credit_limit = crate::MAX_ROOT_CLAIM_WORK
+            .saturating_sub(staking_hotkeys.len() as u32)
+            .saturating_add(1) as usize;
+        let mut hotkeys: BTreeSet<_> = staking_hotkeys
             .into_iter()
             .filter(|hotkey| {
                 !Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, NetUid::ROOT)
                     .is_zero()
                     || BasketClaimed::<T>::get(hotkey, coldkey) < 0
             })
-            .collect()
+            .collect();
+        hotkeys.extend(HotkeySwapBasketCredits::<T>::iter_key_prefix(coldkey).take(credit_limit));
+        hotkeys.into_iter().collect()
     }
 
     /// True when the hotkeys plus the basket storage rows the claim will scan fit the fixed
@@ -1415,6 +1427,9 @@ impl<T: Config> Pallet<T> {
                 *claimed = claimed.saturating_add(old_claimed);
             });
         }
+        if HotkeySwapBasketCredits::<T>::take(old_coldkey, hotkey).is_some() {
+            HotkeySwapBasketCredits::<T>::insert(new_coldkey, hotkey, ());
+        }
     }
 
     /// Migrates a validator's entire fund to a new hotkey: shares, rate, per-coldkey watermarks,
@@ -1463,6 +1478,11 @@ impl<T: Config> Pallet<T> {
             BasketClaimed::<T>::mutate(new_hotkey, &coldkey, |c| {
                 *c = c.saturating_add(claimed);
             });
+            if HotkeySwapBasketCredits::<T>::take(&coldkey, old_hotkey).is_some()
+                && !StakingHotkeys::<T>::get(&coldkey).contains(new_hotkey)
+            {
+                HotkeySwapBasketCredits::<T>::insert(&coldkey, new_hotkey, ());
+            }
         }
 
         // Queued dividend credits follow the fund. The clean-root guard doesn't inspect

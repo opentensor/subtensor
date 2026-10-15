@@ -69,6 +69,38 @@ fn assert_call_fits_normal_limit(call: RuntimeCall) {
 }
 
 #[test]
+#[allow(deprecated)]
+fn legacy_hotkey_swap_with_extensions_fits_normal_extrinsic_limit() {
+    new_test_ext().execute_with(|| {
+        for netuid in [None, Some(NetUid::ROOT), Some(NetUid::from(1))] {
+            let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_hotkey {
+                hotkey: AccountId::new([1u8; 32]),
+                new_hotkey: AccountId::new([2u8; 32]),
+                netuid,
+            });
+            assert_call_fits_normal_limit(call);
+        }
+    });
+}
+
+#[test]
+fn hotkey_swap_v2_with_extensions_fits_normal_extrinsic_limit() {
+    new_test_ext().execute_with(|| {
+        for netuid in [None, Some(NetUid::ROOT), Some(NetUid::from(1))] {
+            for keep_stake in [false, true] {
+                let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_hotkey_v2 {
+                    hotkey: AccountId::new([1u8; 32]),
+                    new_hotkey: AccountId::new([2u8; 32]),
+                    netuid,
+                    keep_stake,
+                });
+                assert_call_fits_normal_limit(call);
+            }
+        }
+    });
+}
+
+#[test]
 fn claim_root_with_extensions_fits_normal_extrinsic_limit() {
     new_test_ext().execute_with(|| {
         let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::claim_root {
