@@ -43,5 +43,5 @@ jobs:
               --extrinsic=sudo_set_subnet_emission_weights,sudo_set_tempo,sudo_set_kappa,sudo_set_rho \
               --steps=50 --repeat=20 --no-storage-info --no-min-squares --no-median-slopes \
               --output="/tmp/w$round.rs" --template=.maintain/frame-weight-template.hbs >/dev/null 2>&1
-            awk -v r="$round" '/^impl<T: frame_system::Config> WeightInfo/{s=1} /^impl WeightInfo for \(\)/{s=0} s && /fn [a-z_]+\(/{match($0,/fn [a-z_]+/); f=substr($0,RSTART+3,RLENGTH-3)} s && /Weight::from_parts/{match($0,/[0-9_]+/); print "MEASURE", r, f, substr($0,RSTART,RLENGTH)}' "/tmp/w$round.rs"
+            awk -v r="$round" '/^impl<T: frame_system::Config> WeightInfo/{s=1} /^impl WeightInfo for \(\)/{s=0} s && /fn [a-z_]+\(/{match($0,/fn [a-z_]+/); f=substr($0,RSTART+3,RLENGTH-3)} s && /Weight::from_parts/{match($0,/from_parts\([0-9_]+/); print "MEASURE", r, f, substr($0,RSTART+11,RLENGTH-11)}' "/tmp/w$round.rs"
           done
