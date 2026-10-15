@@ -22,7 +22,7 @@ use super::*;
 use frame_support::{BoundedVec, traits::ConstU32};
 use safe_math::*;
 use substrate_fixed::types::U96F32;
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{AlphaBalance, NetUid};
 
 /// Number of slots in the emission weight vector.
 pub const EMISSION_WEIGHT_SLOTS: u32 = 5;
@@ -398,9 +398,12 @@ impl<T: Config> Pallet<T> {
     // ---------------------------------------------------------------------
 
     /// Seed a freshly registered subnet with the canonical vector, base
-    /// validator share and a unit multiplier, and clear any per-subnet state a
+    /// validator share and a unit multiplier, and reset any per-subnet state a
     /// previous occupant of this netuid may have left (lease marker, accrued
-    /// owner cut). Lease registration sets the marker after this runs.
+    /// owner cut). The accrued owner cut is written as an explicit zero so that
+    /// an *absent* entry always means "pre-dates the seed migration" (see
+    /// [`Self::owner_cut_alpha_for_lock_refund`]). Lease registration sets the
+    /// marker after this runs.
     pub fn seed_subnet_emission_weights(netuid: NetUid) {
         if netuid.is_root() {
             return;
@@ -410,7 +413,34 @@ impl<T: Config> Pallet<T> {
         BaseValidatorEmissionShare::<T>::insert(netuid, Self::default_validator_emission());
         SubnetTaoWeightMultiplier::<T>::insert(netuid, U96F32::saturating_from_num(1));
         SubnetCreatedViaLease::<T>::remove(netuid);
-        SubnetOwnerCutAccrued::<T>::remove(netuid);
+        SubnetOwnerCutAccrued::<T>::insert(netuid, AlphaBalance::ZERO);
+    }
+
+    /// The owner α the pre-emission-weights lock refund deducted:
+    /// `alpha_issuance × legacy_owner_cut / u16::MAX`, floored. `legacy_owner_cut`
+    /// is the frozen global `SubnetOwnerCut` (its setter is deprecated).
+    pub fn legacy_owner_cut_accrued(netuid: NetUid, legacy_owner_cut: u16) -> AlphaBalance {
+        let issuance: u64 = Self::get_alpha_issuance(netuid).to_u64();
+        let fraction = U96F32::saturating_from_num(legacy_owner_cut)
+            .safe_div(U96F32::saturating_from_num(u16::MAX));
+        U96F32::saturating_from_num(issuance)
+            .saturating_mul(fraction)
+            .floor()
+            .saturating_to_num::<u64>()
+            .into()
+    }
+
+    /// Owner α to deduct from a legacy lock refund. The accrued history
+    /// (`SubnetOwnerCutAccrued`) when the subnet has an entry; otherwise the
+    /// pre-upgrade formula. Every subnet registered or migrated after the seed
+    /// migration has an entry (possibly zero), so the fallback only fires for a
+    /// subnet that was already dissolving when the migration ran and was not
+    /// seeded. It can never make the deduction silently zero.
+    pub fn owner_cut_alpha_for_lock_refund(netuid: NetUid) -> AlphaBalance {
+        match SubnetOwnerCutAccrued::<T>::try_get(netuid) {
+            Ok(accrued) => accrued,
+            Err(()) => Self::legacy_owner_cut_accrued(netuid, Self::get_subnet_owner_cut()),
+        }
     }
 
     /// Write a vector verbatim: no rule checks, no multiplier update, no

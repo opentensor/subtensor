@@ -2514,9 +2514,11 @@ pub mod pallet {
         StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
 
     /// MAP ( netuid ) --> cumulative alpha accrued to the owner slot since the subnet was
-    /// registered (seeded at migration from the legacy global cut). The legacy lock refund
-    /// on dissolution deducts this history, so it must not depend on the owner's current,
-    /// adjustable share.
+    /// registered (seeded at migration from the legacy global cut; written as an explicit
+    /// zero at registration). The legacy lock refund on dissolution deducts this history,
+    /// so it must not depend on the owner's current, adjustable share. An absent entry
+    /// means the subnet pre-dates the seed migration; the refund then falls back to the
+    /// legacy `issuance × SubnetOwnerCut` deduction (`owner_cut_alpha_for_lock_refund`).
     #[pallet::storage]
     pub type SubnetOwnerCutAccrued<T> =
         StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;

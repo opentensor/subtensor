@@ -600,10 +600,11 @@ impl<T: Config> Pallet<T> {
         // The owner α is the cumulative owner cut accrued over the subnet's life
         // (`SubnetOwnerCutAccrued`), not `issuance × current owner share`: the share is
         // owner-adjustable, so pricing history with it would let an owner zero the
-        // deduction right before dissolving.
+        // deduction right before dissolving. A subnet with no accrued entry at all
+        // falls back to the legacy `issuance × SubnetOwnerCut` deduction, never to zero.
         let mut owner_emission_tao = TaoBalance::ZERO;
         if should_refund_owner && !lock_cost.is_zero() {
-            let owner_alpha_u64: u64 = SubnetOwnerCutAccrued::<T>::get(netuid).to_u64();
+            let owner_alpha_u64: u64 = Self::owner_cut_alpha_for_lock_refund(netuid).to_u64();
 
             if owner_alpha_u64 > 0 {
                 let cur_price: U96F32 = U96F32::saturating_from_num(

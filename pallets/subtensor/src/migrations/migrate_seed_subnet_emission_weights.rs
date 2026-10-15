@@ -2,7 +2,6 @@ use super::*;
 use crate::subnets::emission_weights::EmissionIndex;
 use frame_support::{IterableStorageMap, traits::Get, weights::Weight};
 use log;
-use safe_math::*;
 use scale_info::prelude::string::String;
 use sp_std::vec::Vec;
 use substrate_fixed::types::U96F32;
@@ -24,6 +23,12 @@ pub const MIGRATION_NAME: &[u8] = b"seed_subnet_emission_weights_v1";
 ///   would have;
 /// * `SubnetCreatedViaLease` = true for subnets with a live lease mapping (earlier leases
 ///   that already ended cannot be recovered and are not flagged).
+///
+/// Subnets that are already dissolving (out of `NetworksAdded`, still in
+/// `DissolveCleanupQueue`) are paid their lock refund later from the cleanup queue, so the
+/// ones whose refund is still pending get their accrued owner cut seeded too; otherwise the
+/// refund would read an empty entry. Nothing else is seeded for them: the rest of the
+/// vector state would only be orphaned by cleanup.
 pub fn migrate_seed_subnet_emission_weights<T: Config>() -> Weight {
     let mig_name: Vec<u8> = MIGRATION_NAME.to_vec();
     let mig_name_str = String::from_utf8_lossy(&mig_name);
@@ -66,15 +71,53 @@ pub fn migrate_seed_subnet_emission_weights<T: Config>() -> Weight {
         seeded = seeded.saturating_add(1);
     }
 
+    let (dissolving, dissolving_weight) = seed_dissolving_subnets::<T>(legacy_owner_cut);
+    total_weight = total_weight.saturating_add(dissolving_weight);
+
     HasMigrationRun::<T>::insert(&mig_name, true);
     total_weight = total_weight.saturating_add(T::DbWeight::get().writes(1));
 
     log::info!(
         target: "runtime",
-        "Migration '{mig_name_str}' completed: seeded {seeded} subnets"
+        "Migration '{mig_name_str}' completed: seeded {seeded} subnets, {dissolving} dissolving subnets with a pending lock refund"
     );
 
     total_weight
+}
+
+/// Netuids in the dissolve cleanup queue whose owner lock refund has not been paid yet.
+/// The subnet under cleanup is still in the queue; its phase decides, every other queued
+/// subnet has not started cleanup at all.
+pub fn dissolving_with_refund_pending<T: Config>() -> Vec<NetUid> {
+    let current = CurrentDissolveCleanupStatus::<T>::get();
+    DissolveCleanupQueue::<T>::get()
+        .into_iter()
+        .filter(|netuid| !netuid.is_root())
+        .filter(|netuid| match &current {
+            Some(status) if status.netuid == *netuid => status.phase.lock_refund_pending(),
+            _ => true,
+        })
+        .collect()
+}
+
+/// Seed `SubnetOwnerCutAccrued` for dissolving subnets that still owe a lock refund and
+/// have no entry yet. Returns `(count, weight)`.
+fn seed_dissolving_subnets<T: Config>(legacy_owner_cut: u16) -> (u32, Weight) {
+    let mut weight = T::DbWeight::get().reads(2);
+    let mut count: u32 = 0;
+    for netuid in dissolving_with_refund_pending::<T>() {
+        weight = weight.saturating_add(T::DbWeight::get().reads(1));
+        if SubnetOwnerCutAccrued::<T>::contains_key(netuid) {
+            continue;
+        }
+        SubnetOwnerCutAccrued::<T>::insert(
+            netuid,
+            Pallet::<T>::legacy_owner_cut_accrued(netuid, legacy_owner_cut),
+        );
+        weight = weight.saturating_add(T::DbWeight::get().reads_writes(2, 1));
+        count = count.saturating_add(1);
+    }
+    (count, weight)
 }
 
 /// The vector and base validator share a subnet receives, given the legacy global owner cut.
@@ -92,17 +135,9 @@ pub fn seed_for<T: Config>(netuid: NetUid, legacy_owner_cut: u16) -> (EmissionWe
     (weights, validator)
 }
 
-/// The owner α the legacy lock refund would have deducted before this upgrade:
-/// `alpha_issuance × legacy_owner_cut / u16::MAX`, floored.
+/// The owner α the legacy lock refund would have deducted before this upgrade.
 pub fn legacy_owner_cut_accrued<T: Config>(netuid: NetUid, legacy_owner_cut: u16) -> AlphaBalance {
-    let issuance: u64 = Pallet::<T>::get_alpha_issuance(netuid).to_u64();
-    let fraction = U96F32::saturating_from_num(legacy_owner_cut)
-        .safe_div(U96F32::saturating_from_num(u16::MAX));
-    U96F32::saturating_from_num(issuance)
-        .saturating_mul(fraction)
-        .floor()
-        .saturating_to_num::<u64>()
-        .into()
+    Pallet::<T>::legacy_owner_cut_accrued(netuid, legacy_owner_cut)
 }
 
 /// [`OnRuntimeUpgrade`] wrapper for [`migrate_seed_subnet_emission_weights`], registered in
@@ -123,10 +158,17 @@ pub mod seed_subnet_emission_weights {
     use sp_runtime::TryRuntimeError;
 
     /// State carried from `pre_upgrade` to `post_upgrade`: whether the migration had
-    /// already run, the legacy owner cut, and `(netuid, owner_cut_enabled, leased,
-    /// legacy_accrued_owner_alpha)` per non-root subnet.
+    /// already run, the legacy owner cut, `(netuid, owner_cut_enabled, leased,
+    /// legacy_accrued_owner_alpha)` per live non-root subnet, and
+    /// `(netuid, had_accrued_entry, legacy_accrued_owner_alpha)` per dissolving subnet
+    /// whose lock refund is still pending.
     #[cfg(feature = "try-runtime")]
-    type PreUpgradeState = (bool, u16, Vec<(NetUid, bool, bool, AlphaBalance)>);
+    type PreUpgradeState = (
+        bool,
+        u16,
+        Vec<(NetUid, bool, bool, AlphaBalance)>,
+        Vec<(NetUid, bool, AlphaBalance)>,
+    );
 
     pub struct Migration<T: Config>(PhantomData<T>);
 
@@ -152,19 +194,56 @@ pub mod seed_subnet_emission_weights {
                         )
                     })
                     .collect();
-            Ok((already_run, legacy_owner_cut, subnets).encode())
+            let dissolving: Vec<(NetUid, bool, AlphaBalance)> =
+                dissolving_with_refund_pending::<T>()
+                    .into_iter()
+                    .map(|netuid| {
+                        (
+                            netuid,
+                            SubnetOwnerCutAccrued::<T>::contains_key(netuid),
+                            legacy_owner_cut_accrued::<T>(netuid, legacy_owner_cut),
+                        )
+                    })
+                    .collect();
+            log::info!(
+                target: "runtime",
+                "seed_subnet_emission_weights pre_upgrade: {} live subnets, {} dissolving subnets with a pending lock refund",
+                subnets.len(),
+                dissolving.len()
+            );
+            Ok((already_run, legacy_owner_cut, subnets, dissolving).encode())
         }
 
         #[cfg(feature = "try-runtime")]
         fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
-            let (already_run, legacy_owner_cut, subnets): PreUpgradeState =
+            let (already_run, legacy_owner_cut, subnets, dissolving): PreUpgradeState =
                 Decode::decode(&mut &state[..]).map_err(|_| "pre_upgrade state must decode")?;
             ensure!(
                 HasMigrationRun::<T>::get(MIGRATION_NAME.to_vec()),
                 "the migration must be stamped"
             );
+            // Holds whether or not the migration ran in this upgrade: no subnet that still
+            // owes a lock refund may be without an accrued owner-cut entry.
+            for netuid in dissolving_with_refund_pending::<T>() {
+                ensure!(
+                    SubnetOwnerCutAccrued::<T>::contains_key(netuid),
+                    "a dissolving subnet with a pending lock refund must have an accrued owner cut entry"
+                );
+            }
             if already_run {
                 return Ok(());
+            }
+            for (netuid, had_entry, legacy_accrued) in dissolving {
+                if !had_entry {
+                    ensure!(
+                        SubnetOwnerCutAccrued::<T>::get(netuid) == legacy_accrued,
+                        "a dissolving subnet must seed its accrued owner cut to the legacy refund deduction"
+                    );
+                }
+                ensure!(
+                    !SubnetEmissionWeights::<T>::contains_key(netuid),
+                    "dissolving subnets must not receive an emission weight vector"
+                );
             }
             for (netuid, owner_cut_enabled, leased, legacy_accrued) in subnets {
                 let weights = Pallet::<T>::get_subnet_emission_weights(netuid);

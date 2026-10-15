@@ -995,6 +995,210 @@ fn test_dissolve_refund_deducts_accrued_owner_cut_not_current_share() {
     });
 }
 
+/// A legacy (refund-eligible) subnet with a 2_000_000 τ lock, 2_000_000 α issued
+/// and a tiny 1:1 pot so α prices at ~1 τ and no pot leftover reaches the owner.
+fn refundable_legacy_subnet(owner_hot: U256, owner_cold: U256) -> (NetUid, TaoBalance) {
+    let netuid = add_dynamic_network(&owner_hot, &owner_cold);
+    remove_owner_registration_stake(netuid);
+    let reg_at = NetworkRegisteredAt::<Test>::get(netuid);
+    NetworkRegistrationStartBlock::<Test>::put(reg_at.saturating_add(1));
+    let lock = TaoBalance::from(2_000_000_u64);
+    SubtensorModule::set_subnet_locked_balance(netuid, lock);
+    SubnetTAO::<Test>::insert(netuid, TaoBalance::from(1_000_u64));
+    SubnetAlphaIn::<Test>::insert(netuid, AlphaBalance::from(1_000_u64));
+    SubnetAlphaOut::<Test>::insert(netuid, AlphaBalance::from(2_000_000_u64));
+    SubnetOwnerCut::<Test>::put(11_796u16);
+    (netuid, lock)
+}
+
+/// `issuance × 11_796 / u16::MAX`: the legacy owner-cut deduction in α.
+fn legacy_deduction_alpha(netuid: NetUid) -> u64 {
+    let issuance = SubtensorModule::get_alpha_issuance(netuid).to_u64() as u128;
+    (issuance * 11_796 / u16::MAX as u128) as u64
+}
+
+/// `owner_alpha` priced at the subnet's current α price, floored, as the refund does.
+fn priced(netuid: NetUid, owner_alpha: u64) -> u64 {
+    let price = U96F32::saturating_from_num(
+        <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into()),
+    );
+    U96F32::from_num(owner_alpha)
+        .saturating_mul(price)
+        .floor()
+        .saturating_to_num::<u64>()
+}
+
+#[test]
+fn test_owner_cut_alpha_for_lock_refund_falls_back_to_legacy_formula() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = new_subnet();
+        SubnetAlphaOut::<Test>::insert(netuid, AlphaBalance::from(2_000_000_u64));
+        SubnetOwnerCut::<Test>::put(11_796u16);
+        let legacy = SubtensorModule::legacy_owner_cut_accrued(netuid, 11_796);
+        // Same U96F32 arithmetic as the pre-upgrade refund: a few parts of
+        // fixed-point error against the exact integer at 1.8e10 α.
+        assert_abs_diff_eq!(
+            legacy.to_u64() as f64,
+            legacy_deduction_alpha(netuid) as f64,
+            epsilon = 16.0
+        );
+
+        // Registration wrote an explicit zero: a seeded zero is honoured, not replaced.
+        assert!(SubnetOwnerCutAccrued::<Test>::contains_key(netuid));
+        assert_eq!(
+            SubtensorModule::owner_cut_alpha_for_lock_refund(netuid),
+            AlphaBalance::ZERO
+        );
+        // A real history is used as is.
+        SubnetOwnerCutAccrued::<Test>::insert(netuid, AlphaBalance::from(123_u64));
+        assert_eq!(
+            SubtensorModule::owner_cut_alpha_for_lock_refund(netuid).to_u64(),
+            123
+        );
+        // No entry at all (pre-migration subnet that was missed): legacy formula, never 0.
+        SubnetOwnerCutAccrued::<Test>::remove(netuid);
+        assert_eq!(
+            SubtensorModule::owner_cut_alpha_for_lock_refund(netuid),
+            legacy
+        );
+        assert!(legacy.to_u64() > 0);
+    });
+}
+
+#[test]
+fn test_dissolve_refund_without_accrued_entry_still_deducts_legacy_owner_cut() {
+    new_test_ext(1).execute_with(|| {
+        let owner_cold = U256::from(80);
+        let owner_hot = U256::from(81);
+        let (netuid, lock) = refundable_legacy_subnet(owner_hot, owner_cold);
+        // Simulate a subnet the seed migration never touched.
+        SubnetOwnerCutAccrued::<Test>::remove(netuid);
+
+        let deduction = priced(netuid, legacy_deduction_alpha(netuid));
+        assert!(deduction > 1_000, "test needs a deduction above the pot");
+
+        let before = SubtensorModule::get_coldkey_balance(&owner_cold);
+        assert_ok!(SubtensorModule::do_dissolve_network(netuid));
+        run_block_idle();
+        let gain = SubtensorModule::get_coldkey_balance(&owner_cold).to_u64() - before.to_u64();
+
+        assert!(
+            gain < lock.to_u64(),
+            "full lock must never be refunded: {gain}"
+        );
+        assert_abs_diff_eq!(
+            gain as f64,
+            (lock.to_u64() - deduction) as f64,
+            epsilon = 2.0
+        );
+    });
+}
+
+#[test]
+fn test_migration_seeds_accrued_owner_cut_for_subnets_mid_dissolution() {
+    new_test_ext(1).execute_with(|| {
+        let live = NetUid::from(1);
+        let queued = NetUid::from(2);
+        let current = NetUid::from(3);
+        for netuid in [live, queued, current] {
+            add_network(netuid, 1, 0);
+            SubnetAlphaOut::<Test>::insert(netuid, AlphaBalance::from(1_000_000_u64));
+        }
+        add_network(NetUid::ROOT, 1, 0);
+        SubnetOwnerCut::<Test>::put(11_796u16);
+        // Pre-upgrade state: nothing seeded, two subnets already dissolving.
+        for netuid in [queued, current] {
+            NetworksAdded::<Test>::remove(netuid);
+            SubnetEmissionWeights::<Test>::remove(netuid);
+            BaseValidatorEmissionShare::<Test>::remove(netuid);
+            SubnetTaoWeightMultiplier::<Test>::remove(netuid);
+        }
+        DissolveCleanupQueue::<Test>::put(vec![current, queued]);
+        let expected = legacy_deduction_alpha(live);
+        assert_eq!(legacy_deduction_alpha(queued), expected);
+        assert_eq!(legacy_deduction_alpha(current), expected);
+
+        let pending =
+            crate::subnets::dissolution::DissolveCleanupPhase::AlphaInOutStakesSettleStakes;
+        let paid = crate::subnets::dissolution::DissolveCleanupPhase::NetworkMapParameters;
+        assert!(pending.lock_refund_pending());
+        assert!(!paid.lock_refund_pending());
+
+        for (phase, current_seeded) in [(pending, true), (paid, false)] {
+            for netuid in [live, queued, current] {
+                SubnetOwnerCutAccrued::<Test>::remove(netuid);
+            }
+            HasMigrationRun::<Test>::remove(MIGRATION_NAME.to_vec());
+            let mut status = crate::subnets::dissolution::DissolveCleanupStatus::new(current);
+            status.phase = phase.clone();
+            CurrentDissolveCleanupStatus::<Test>::put(status);
+
+            migrate_seed_subnet_emission_weights::<Test>();
+
+            assert_eq!(SubnetOwnerCutAccrued::<Test>::get(live).to_u64(), expected);
+            // Queued, cleanup not started: refund pending, seeded.
+            assert_eq!(
+                SubnetOwnerCutAccrued::<Test>::get(queued).to_u64(),
+                expected
+            );
+            assert_eq!(
+                SubnetOwnerCutAccrued::<Test>::contains_key(current),
+                current_seeded,
+                "{phase:?}"
+            );
+            if current_seeded {
+                assert_eq!(
+                    SubnetOwnerCutAccrued::<Test>::get(current).to_u64(),
+                    expected
+                );
+            }
+            // Dissolving subnets get nothing else: cleanup would only orphan it.
+            for netuid in [queued, current] {
+                assert!(!SubnetEmissionWeights::<Test>::contains_key(netuid));
+                assert!(!BaseValidatorEmissionShare::<Test>::contains_key(netuid));
+            }
+        }
+    });
+}
+
+#[test]
+fn test_subnet_dissolving_at_upgrade_gets_reduced_refund_after_migration() {
+    new_test_ext(1).execute_with(|| {
+        let owner_cold = U256::from(90);
+        let owner_hot = U256::from(91);
+        let (netuid, lock) = refundable_legacy_subnet(owner_hot, owner_cold);
+        let deduction = priced(netuid, legacy_deduction_alpha(netuid));
+        assert!(deduction > 1_000);
+
+        // Dissolve first (out of NetworksAdded, refund still owed) ...
+        let before = SubtensorModule::get_coldkey_balance(&owner_cold);
+        assert_ok!(SubtensorModule::do_dissolve_network(netuid));
+        assert!(DissolveCleanupQueue::<Test>::get().contains(&netuid));
+        assert!(!NetworksAdded::<Test>::contains_key(netuid));
+        // ... as a pre-upgrade subnet: no accrued entry, migration not yet run.
+        SubnetOwnerCutAccrued::<Test>::remove(netuid);
+        HasMigrationRun::<Test>::remove(MIGRATION_NAME.to_vec());
+
+        migrate_seed_subnet_emission_weights::<Test>();
+        assert_eq!(
+            SubnetOwnerCutAccrued::<Test>::get(netuid).to_u64(),
+            legacy_deduction_alpha(netuid)
+        );
+
+        run_block_idle();
+        let gain = SubtensorModule::get_coldkey_balance(&owner_cold).to_u64() - before.to_u64();
+        assert!(
+            gain < lock.to_u64(),
+            "full lock must never be refunded: {gain}"
+        );
+        assert_abs_diff_eq!(
+            gain as f64,
+            (lock.to_u64() - deduction) as f64,
+            epsilon = 2.0
+        );
+    });
+}
+
 #[test]
 fn test_dissolution_clears_emission_weight_state_and_reuse_starts_clean() {
     new_test_ext(1).execute_with(|| {

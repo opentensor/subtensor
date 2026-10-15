@@ -81,6 +81,42 @@ impl Default for DissolveCleanupPhase {
     }
 }
 
+impl DissolveCleanupPhase {
+    /// Whether the owner's legacy lock refund has not been paid yet. The refund
+    /// is settled at the end of [`Self::AlphaInOutStakes`] (phase 2.7), so every
+    /// phase up to and including it still needs `SubnetOwnerCutAccrued`.
+    pub fn lock_refund_pending(&self) -> bool {
+        match self {
+            Self::SubnetBasketHoldingsToRoot
+            | Self::SubnetRootDividendsRootClaimable
+            | Self::SubnetRootDividendsRootClaimed
+            | Self::AlphaInOutStakesGetTotalAlphaValue
+            | Self::AlphaInOutStakesSettleStakes
+            | Self::AlphaInOutStakesAlpha
+            | Self::AlphaInOutStakesHotkeyTotals
+            | Self::AlphaInOutStakesLocks
+            | Self::AlphaInOutStakesDecayingLocks
+            | Self::AlphaInOutStakes => true,
+            Self::ProtocolLiquidity
+            | Self::PurgeNetuid
+            | Self::NetworkIsNetworkMember
+            | Self::NetworkParameters
+            | Self::NetworkMapParameters
+            | Self::NetworkUpdateWeightsOnRoot
+            | Self::NetworkChildkeyTake
+            | Self::NetworkChildkeys
+            | Self::NetworkParentkeys
+            | Self::NetworkLastHotkeyEmissionOnNetuid
+            | Self::NetworkTotalHotkeyAlphaLastEpoch
+            | Self::NetworkTransactionKeyLastBlock
+            | Self::NetworkLock
+            | Self::NetworkDecayingLock
+            | Self::NetworkPendingBasketDeposits
+            | Self::NetworkAlphaAssetCounters => false,
+        }
+    }
+}
+
 #[crate::freeze_struct("c524ea54893ae91a")]
 #[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug, DecodeWithMemTracking)]
 pub struct DissolveCleanupStatus {
