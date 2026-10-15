@@ -10,8 +10,8 @@ exist (the root subnet has no vector).
 
 Pair with the `set_subnet_emission_weights` intent: `min_validator`
 and `created_via_lease` are the per-subnet inputs the chain uses to
-accept or reject a change (`min_validator` moves with root stake and
-alpha issuance, so it is a snapshot of this block).
+accept or reject a change (`min_validator` moves with root stake, alpha
+issuance and the global TAO weight, so it is a snapshot of this block).
 
 **Category:** Subnets
 
@@ -48,6 +48,7 @@ Async is the same surface awaited: `async with bt.Subtensor() as client:`.
 
 ## On-chain implementation
 
-- Runtime API [`SubnetInfoRuntimeApi.get_subnet_emission_weights`](/code/pallets/subtensor/src/subnets/emission_weights.rs#L242-L249)
+- Storage [`SubtensorModule.LastRateLimitedBlock`](/code/pallets/subtensor/src/lib.rs#L2351)
+- Runtime API [`SubnetInfoRuntimeApi.get_subnet_emission_weights`](/code/pallets/subtensor/src/subnets/emission_weights.rs#L260-L267)
 
 Every file is browsable under [/code](/code) exactly as built into the runtime.

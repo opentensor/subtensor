@@ -14,21 +14,25 @@ Per block, `alpha_out × validator_emission` goes to the validator bucket;
 the root proportion of it is set aside for root TAO stakers and the rest is
 distributed through Yuma Consensus dividends at the epoch.
 
-Changing this slot makes the chain re-solve the subnet's
+Every set of the vector makes the chain re-solve the subnet's
 [effective TAO weight](/docs/concepts/emission-weights#the-effective-tao-weight)
-once, at that block, so root TAO stakers keep exactly their current share of
-the subnet's emission. Lowering the slot raises the weight, raising it lowers
-the weight; the weight is then left alone until the next change.
+once, at that block, so root TAO stakers earn their **baseline** share of the
+subnet's emission: what they would earn with the default validator share
+(0.41 on mainnet) and the global `TaoWeight`. A slot below the default
+raises the weight, a slot above it lowers the weight, and exactly the
+default clears it so the subnet follows the global knob; the weight is then
+left alone until the next set. The baseline never depends on the previous
+vector, so changing the slot in steps cannot move root's share.
 
 ## Bounds
 
-`validator_emission ≤ 0.50`, and the new value must leave room to keep root
-whole with a TAO weight no greater than one. Writing `r` for root's current
-share of the subnet's emission, `A` for its alpha issuance and `T` for root
-TAO, the floor at this block is `r × (1 + A / T)`; on a mainnet subnet with
-5.4M TAO on root and 6.5M alpha issued that is about 11.8%. The floor moves
-with root stake and issuance, so `btcli subnets emission show` prints the
-current value. Errors: `ValidatorEmissionAboveMaximum`,
+`validator_emission ≤ 0.50`, and the new value must leave room to reach
+root's baseline with a TAO weight no greater than one. Writing `r` for that
+baseline share, `A` for the subnet's alpha issuance and `T` for root TAO, the
+floor at this block is `r × (1 + A / T)`; on a mainnet subnet with 5.4M TAO
+on root, 6.5M alpha issued and `TaoWeight = 0.18` that is about 11.8%. The
+floor moves with root stake, issuance and the global weight, so
+`btcli subnets emission show` prints the current value. Errors: `ValidatorEmissionAboveMaximum`,
 `ValidatorEmissionTooLowToPreserveRoot`, `EmissionWeightsDoNotSumToOne`.
 
 ## Reading and setting
