@@ -412,9 +412,9 @@ HYPERPARAMS: dict[str, Hyperparam] = {
     "validator_emission": Hyperparam(
         "u64",
         "Validator slot of the emission weight vector: the share of block alpha emission "
-        "that becomes validator dividends (root alpha is carved from it). Between the "
-        "subnet's TAO-weight floor and 0.50; lowering it scales the subnet's TAO weight by "
-        "base/new so root payouts hold. Set via `btcli subnets emission`.",
+        "that becomes validator dividends (root alpha is carved from it). At most 0.50; "
+        "changing it re-solves the subnet's effective TAO weight so root's share of emission "
+        "holds, and is rejected when no weight <= 1 can. Set via `btcli subnets emission`.",
         short="validator share of emission (slot 3)",
     ),
     "miner_emission": Hyperparam(
@@ -423,14 +423,6 @@ HYPERPARAMS: dict[str, Hyperparam] = {
         "as miner incentive (split across mechanisms). At least 0.33. Set via "
         "`btcli subnets emission`.",
         short="miner share of emission (slot 4)",
-    ),
-    "effective_tao_weight": Hyperparam(
-        "u64",
-        "The global TaoWeight multiplied by this subnet's TAO-weight multiplier "
-        "(base validator share / current validator share), saturating at 1. Weights root "
-        "TAO against alpha in both the root dividend share and consensus stake. Derived, "
-        "read-only.",
-        short="TAO weight after the subnet multiplier",
     ),
     "owner_cut_auto_lock_enabled": Hyperparam(
         "bool",
@@ -490,12 +482,11 @@ STORAGE_ITEMS: dict[str, st.Item] = {
     "transfers_enabled": st.SubtensorModule.TransferToggle,
     "owner_cut_auto_lock_enabled": st.SubtensorModule.OwnerCutAutoLockEnabled,
     # The three emission slots live in one vector; owner_cut_enabled is derived
-    # from its owner slot and effective_tao_weight from the multiplier beside it.
+    # from its owner slot.
     "owner_cut_enabled": st.SubtensorModule.SubnetEmissionWeights,
     "owner_emission": st.SubtensorModule.SubnetEmissionWeights,
     "validator_emission": st.SubtensorModule.SubnetEmissionWeights,
     "miner_emission": st.SubtensorModule.SubnetEmissionWeights,
-    "effective_tao_weight": st.SubtensorModule.SubnetTaoWeightMultiplier,
 }
 
 # Unit-bearing type identities -> the unit kind they dictate. Ratio types are

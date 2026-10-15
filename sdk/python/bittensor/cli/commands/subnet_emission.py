@@ -50,10 +50,11 @@ def _json_record(info: SubnetEmissionWeights, extra: Optional[dict[str, Any]] = 
         "netuid": info.netuid,
         "weights": info.weights,
         "shares": info.shares,
-        "base_validator": info.base_validator,
-        "min_validator": info.min_validator,
-        "tao_weight_multiplier": info.tao_weight_multiplier,
         "effective_tao_weight": info.effective_tao_weight,
+        "root_tao": info.root_tao,
+        "alpha_issuance": info.alpha_issuance,
+        "root_share": info.root_share,
+        "min_validator": info.min_validator,
         "created_via_lease": info.created_via_lease,
     }
     if extra:
@@ -121,22 +122,35 @@ def _submit(
         values=[proposed[slot] for slot in slots],
         renormalize=renormalize,
     )
-    multiplier = ew.tao_weight_multiplier(info.base_validator, proposed[ew.VALIDATOR])
     rows: list[tuple] = []
     for slot in ew.ADJUSTABLE_SLOTS:
         value = ew.format_share(proposed[slot])
         if proposed[slot] != info.weights[slot]:
             value = f"{ew.format_share(info.weights[slot])} -> {value}"
         rows.append((ew.SLOT_NAMES[slot], value))
-    rows.append(("tao weight multiplier", f"{multiplier:.4f}"))
-    rows.append(
-        (
-            "note",
-            f"multiplier = base validator share {ew.format_share(info.base_validator)} / "
-            "validator share; it scales the global TaoWeight on this subnet",
-            "dim",
+    if proposed[ew.VALIDATOR] != info.weights[ew.VALIDATOR] and info.min_validator is not None:
+        solved = ew.solve_tao_weight(
+            info.root_share,
+            ew.share_to_float(proposed[ew.VALIDATOR]),
+            info.root_tao,
+            info.alpha_issuance,
         )
-    )
+        rows.append(("root share of emission", f"{info.root_share * 100:.4f}% (kept)"))
+        rows.append(
+            (
+                "subnet tao weight",
+                f"{info.effective_tao_weight * 100:.2f}% -> "
+                + (f"{solved * 100:.2f}%" if solved is not None else "none <= 100% fits"),
+            )
+        )
+        rows.append(
+            (
+                "note",
+                "the chain re-solves this subnet's TAO weight once, now, so root holders keep "
+                "exactly their current share; it is then left alone",
+                "dim",
+            )
+        )
     app_ctx.submit(intent, card_sections=[("Emission weights", rows)])
 
 
@@ -159,19 +173,25 @@ def show(
     ]
     tao_rows: list[tuple[str, str, Optional[str]]] = [
         (
-            "base validator share",
-            ew.format_share(info.base_validator),
-            "V0: the share the multiplier is measured against",
-        ),
-        (
-            "tao weight multiplier",
-            f"{info.tao_weight_multiplier:.4f}",
-            "V0 / validator, applied to the global TaoWeight on this subnet",
-        ),
-        (
             "effective tao weight",
             f"{info.effective_tao_weight * 100:.2f}%",
-            "root TAO vs alpha in root dividends and consensus stake",
+            "root TAO vs alpha in root dividends and consensus stake on this subnet; "
+            "re-solved when the validator share changes so root's share holds",
+        ),
+        (
+            "root share of emission",
+            f"{info.root_share * 100:.4f}%",
+            f"root TAO {info.root_tao / 1e9:,.0f} TAO "
+            f"vs {info.alpha_issuance / 1e9:,.0f} alpha issued",
+        ),
+        (
+            "validator floor now",
+            (
+                ew.format_share(info.min_validator, 4)
+                if info.min_validator is not None
+                else "none (no root stake to preserve)"
+            ),
+            "lowest validator share that keeps root whole with a TAO weight <= 100%",
         ),
         ("created via lease", "yes" if info.created_via_lease else "no", None),
     ]

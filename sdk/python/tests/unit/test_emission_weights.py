@@ -101,7 +101,7 @@ def test_parse_share_lands_exactly_on_chain_bounds(raw, bound):
     ],
 )
 def test_documented_bounds_pass_validation_in_every_spelling(pinned):
-    rules = ew.Rules(min_validator=1)
+    rules = ew.Rules()
     weights = ew.renormalize(
         ew.default_weights(),
         {slot: ew.parse_share(value) for slot, value in pinned.items()},
@@ -177,9 +177,11 @@ def test_validate_accepts_default_and_names_each_rule():
         ew.renormalize(DEFAULT, {"validator": ew.parse_share("51%")})
     )
     assert errors(ew.renormalize(DEFAULT, {"validator": ew.parse_share("1%")})) == [
-        "ValidatorEmissionBelowTaoWeightFloor"
+        "ValidatorEmissionTooLowToPreserveRoot"
     ]
-    assert errors([0, 0, 0, 0, ONE], ew.Rules()) == ["ValidatorEmissionBelowTaoWeightFloor"]
+    assert errors([0, 0, 0, 0, ONE]) == ["ValidatorEmissionTooLowToPreserveRoot"]
+    # With no root stake there is nothing to preserve: even V = 0 passes.
+    assert errors([0, 0, 0, 0, ONE], ew.Rules()) == []
     assert "MinerEmissionBelowMinimum" in errors(
         [0, 0, ew.MAX_OWNER, ew.MAX_VALIDATOR, ONE - ew.MAX_OWNER - ew.MAX_VALIDATOR]
     )
@@ -195,15 +197,26 @@ def test_validate_lease_floor_only_on_lease_created_subnets():
     assert "lease" in violations[0].message
 
 
-def test_tao_weight_helpers():
-    base = DEFAULT[ew.VALIDATOR]
-    assert ew.tao_weight_multiplier(base, base) == 1.0
-    assert ew.tao_weight_multiplier(base, base // 2) == pytest.approx(2.0)
-    assert ew.tao_weight_multiplier(base, 0) == float("inf")
-    tao_weight = ew.parse_share("18%")
-    assert ew.effective_tao_weight(tao_weight, base, base) == pytest.approx(0.18)
-    assert ew.effective_tao_weight(tao_weight, base, base // 2) == pytest.approx(0.36)
-    assert ew.effective_tao_weight(tao_weight, base, base // 100) == 1.0
+def test_root_preservation_helpers_match_sn4_numbers():
+    # Mainnet SN4-like: 5.443M TAO on root, 6.457M alpha issued, TaoWeight 18%, V = 41%.
+    root_tao, issuance, tao_weight = 5_443_000e9, 6_457_000e9, 0.18
+    validator = ew.share_to_float(DEFAULT[ew.VALIDATOR])
+    root_share = ew.root_emission_share(validator, tao_weight, root_tao, issuance)
+    assert root_share == pytest.approx(0.0540, abs=1e-4)
+    floor = ew.validator_floor(validator, tao_weight, root_tao, issuance)
+    assert floor == pytest.approx(0.1181, abs=1e-4)
+    # Lowering V to 11.9% fits with a weight just under 1; 11.7% does not.
+    solved = ew.solve_tao_weight(root_share, 0.119, root_tao, issuance)
+    assert solved is not None and 0.98 < solved <= 1.0
+    assert ew.root_emission_share(0.119, solved, root_tao, issuance) == pytest.approx(root_share)
+    assert ew.solve_tao_weight(root_share, 0.117, root_tao, issuance) is None
+    # V at or below root's share can never work; raising V lowers the weight.
+    assert ew.solve_tao_weight(root_share, root_share, root_tao, issuance) is None
+    assert ew.solve_tao_weight(root_share, 0.5, root_tao, issuance) < tao_weight
+    # Nothing to preserve without root stake or issuance.
+    assert ew.validator_floor(validator, tao_weight, 0, issuance) is None
+    assert ew.validator_floor(validator, tao_weight, root_tao, 0) is None
+    assert ew.root_emission_share(validator, tao_weight, 0, 0) == 0.0
 
 
 def test_rules_table_mentions_every_slot():
@@ -222,11 +235,28 @@ def test_rules_table_mentions_every_slot():
 # --- intent -----------------------------------------------------------------
 
 
+ROOT_TAO = 5_443_000 * 10**9
+ALPHA_ISSUANCE = 6_457_000 * 10**9
+
+
 def _client() -> tuple[Client, FakeSubstrate]:
     fake = FakeSubstrate()
     fake.seed_runtime("SubnetInfoRuntimeApi", "get_subnet_emission_weights", EMISSION_WEIGHTS_INFO)
     fake.seed("SubtensorModule", "TaoWeight", [], TAO_WEIGHT)
+    fake.seed("SubtensorModule", "SubnetTAO", [0], ROOT_TAO)
+    fake.seed("SubtensorModule", "SubnetAlphaIn", [1], 0)
+    fake.seed("SubtensorModule", "SubnetAlphaOut", [1], ALPHA_ISSUANCE)
+    fake.seed("Swap", "BalancerAlphaReservoir", [1], 0)
     return Client("local", substrate=fake), fake
+
+
+def _expected_floor() -> float:
+    return ew.validator_floor(
+        ew.share_to_float(DEFAULT[ew.VALIDATOR]),
+        ew.share_to_float(TAO_WEIGHT),
+        ROOT_TAO,
+        ALPHA_ISSUANCE,
+    )
 
 
 def test_intent_normalises_slots_and_shares():
@@ -251,7 +281,7 @@ def test_intent_rejects_malformed_input(kwargs, match):
         SetSubnetEmissionWeights(netuid=1, **kwargs)
 
 
-def test_intent_plan_renormalizes_and_reports_multiplier():
+def test_intent_plan_renormalizes_and_reports_root_preservation():
     client, _ = _client()
     intent = SetSubnetEmissionWeights(
         netuid=1, slots=["validator"], values=["30%"], renormalize=True
@@ -259,12 +289,24 @@ def test_intent_plan_renormalizes_and_reports_multiplier():
     plan = asyncio.run(client.plan(intent, dev_wallet()))
     assert plan.ok, plan.violations
     assert any("validator: 41.00% -> 30.00%" in line for line in plan.effects)
-    assert any("multiplier 1.3667" in line for line in plan.effects)
-    effective = ew.effective_tao_weight(TAO_WEIGHT, DEFAULT[ew.VALIDATOR], ew.parse_share("30%"))
-    assert any(
-        f"effective TAO weight on this subnet {effective * 100:.2f}%" in line
-        for line in plan.effects
+    tao_weight = ew.share_to_float(TAO_WEIGHT)
+    root_share = ew.root_emission_share(
+        ew.share_to_float(DEFAULT[ew.VALIDATOR]), tao_weight, ROOT_TAO, ALPHA_ISSUANCE
     )
+    solved = ew.solve_tao_weight(root_share, 0.30, ROOT_TAO, ALPHA_ISSUANCE)
+    assert any(
+        f"root keeps {root_share * 100:.4f}%" in line
+        and f"{tao_weight * 100:.2f}% -> {solved * 100:.2f}%" in line
+        for line in plan.effects
+    ), plan.effects
+
+    # Below the live floor the plan is blocked before signing.
+    too_low = SetSubnetEmissionWeights(
+        netuid=1, slots=["validator"], values=["3%"], renormalize=True
+    )
+    plan = asyncio.run(client.plan(too_low, dev_wallet()))
+    assert not plan.ok
+    assert plan.violations[0].startswith("ValidatorEmissionTooLowToPreserveRoot")
 
 
 def test_intent_plan_blocks_on_chain_rules():
@@ -304,9 +346,10 @@ def test_read_decodes_runtime_payload():
     info = asyncio.run(client.read("subnet_emission_weights", netuid=1))
     assert info.weights == EMISSION_WEIGHTS_INFO["weights"]
     assert info.shares["owner"] == pytest.approx(0.18, abs=1e-4)
-    assert info.tao_weight_multiplier == 1.0
     assert info.effective_tao_weight == pytest.approx(0.0527, abs=1e-4)
-    assert info.rules().min_validator == EMISSION_WEIGHTS_INFO["min_validator"]
+    assert (info.root_tao, info.alpha_issuance) == (ROOT_TAO, ALPHA_ISSUANCE)
+    assert info.root_share == pytest.approx(0.0174, abs=1e-4)
+    assert info.rules().min_validator == int(_expected_floor() * ONE)
     assert not info.rules().created_via_lease
 
 
@@ -332,7 +375,8 @@ def test_cli_show_prints_vector_and_rules(emission_cli):
 
     human = invoke("subnets", "emission", "show", "--netuid", "1")
     assert human.exit_code == 0, human.output
-    assert "tao weight multiplier" in human.output
+    assert "validator floor now" in human.output
+    assert "root share of emission" in human.output
     assert "3 validator" in human.output
 
 
@@ -424,7 +468,7 @@ def test_cli_explains_rule_violations_before_submitting(emission_cli):
         "subnets", "emission", "set-value", "--netuid", "1", "--slot", "validator", "--value", "0"
     )
     assert too_low.exit_code == 2, too_low.output
-    assert "ValidatorEmissionBelowTaoWeightFloor" in too_low.output
+    assert "ValidatorEmissionTooLowToPreserveRoot" in too_low.output
 
     pinned = invoke(
         "subnets", "emission", "set-value", "--netuid", "1", "--slot", "burn", "--value", "1%"

@@ -271,7 +271,7 @@ NAME_TO_CODE: dict[str, ErrorCode] = {
     "OwnerEmissionAboveMaximum": _C.POLICY_VIOLATION,
     "LeasedSubnetOwnerCutBelowMinimum": _C.POLICY_VIOLATION,
     "ValidatorEmissionAboveMaximum": _C.POLICY_VIOLATION,
-    "ValidatorEmissionBelowTaoWeightFloor": _C.POLICY_VIOLATION,
+    "ValidatorEmissionTooLowToPreserveRoot": _C.POLICY_VIOLATION,
     "MinerEmissionBelowMinimum": _C.POLICY_VIOLATION,
     "EmissionWeightsNotSettableOnRoot": _C.INVALID_ARGUMENT,
     "UnlockAmountTooHigh": _C.INSUFFICIENT_BALANCE,

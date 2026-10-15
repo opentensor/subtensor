@@ -20,7 +20,7 @@ from typing import Any, Optional
 from .. import emission_weights as ew
 from .._generated import calls
 from .._generated import runtime_apis as api
-from .._generated import storage as st
+from ..reads.subnets import root_preservation_inputs
 from .base import Intent
 from .registry import register
 
@@ -32,8 +32,9 @@ SLOTS_HELP = (
 VALUES_HELP = (
     "New share for each slot, pairwise with `slots`: a 0..1 fraction (0.41), a percentage "
     '("41%"), or raw u64 parts of 2^64-1. Rules: burn = recycle = 0; owner <= 33% '
-    "(>= 18% on lease-created subnets); validator between the subnet's TAO-weight floor "
-    "and 50%; miner >= 33%; all five sum to exactly 1."
+    "(>= 18% on lease-created subnets); validator <= 50% and high enough that root's "
+    "share of emission can be preserved (see `btcli subnets emission show`); miner >= 33%; "
+    "all five sum to exactly 1."
 )
 RENORMALIZE_HELP = (
     "Keep the named slots as given and rescale the other owner/validator/miner slots "
@@ -55,10 +56,11 @@ class SetSubnetEmissionWeights(Intent):
     slots. The signer must be the subnet's owner coldkey (root may also call
     it). With ``renormalize`` the untouched owner/validator/miner slots are
     rescaled so the vector still sums to one; without it the merged vector is
-    submitted as given. Lowering the validator share raises the subnet's TAO
-    weight by ``base_share / new_share`` so root stakers keep their payout —
-    the pre-sign plan shows the resulting multiplier and effective TAO weight
-    and lists every rule the chain would reject, so a bad vector is caught
+    submitted as given. Changing the validator share makes the chain re-solve
+    the subnet's effective TAO weight so root stakers keep exactly their
+    current share of emission — the pre-sign plan shows that share and the
+    resulting weight, and lists every rule the chain would reject (including
+    a validator share too low to keep root whole), so a bad vector is caught
     before signing. Owners may change the vector once per week per subnet.
     """
 
@@ -130,27 +132,47 @@ class SetSubnetEmissionWeights(Intent):
                     f"{ew.SLOT_NAMES[slot]}: {ew.format_share(before[slot])} -> "
                     f"{ew.format_share(after[slot])}"
                 )
-        base = int(current["base_validator"])
-        multiplier = ew.tao_weight_multiplier(base, after[ew.VALIDATOR])
-        if multiplier != float("inf"):
-            global_tao_weight = int(await substrate.query(*st.SubtensorModule.TaoWeight, []) or 0)
-            effective = ew.effective_tao_weight(global_tao_weight, base, after[ew.VALIDATOR])
-            lines.append(
-                f"TAO-weight multiplier {multiplier:.4f} (base validator share "
-                f"{ew.format_share(base)}); effective TAO weight on this subnet "
-                f"{effective * 100:.2f}%"
+        if before[ew.VALIDATOR] != after[ew.VALIDATOR]:
+            tao_weight = ew.share_to_float(int(current["effective_tao_weight"]))
+            root_tao, alpha_issuance = await root_preservation_inputs(
+                lambda item, keys: substrate.query(*item, keys), self.netuid
             )
+            root_share = ew.root_emission_share(
+                ew.share_to_float(before[ew.VALIDATOR]), tao_weight, root_tao, alpha_issuance
+            )
+            solved = ew.solve_tao_weight(
+                root_share, ew.share_to_float(after[ew.VALIDATOR]), root_tao, alpha_issuance
+            )
+            if root_tao > 0 and alpha_issuance > 0 and before[ew.VALIDATOR] > 0:
+                lines.append(
+                    f"root keeps {root_share * 100:.4f}% of this subnet's emission; its TAO "
+                    f"weight here moves {tao_weight * 100:.2f}% -> "
+                    + (f"{solved * 100:.2f}%" if solved is not None else "no weight <= 100% fits")
+                )
+            else:
+                lines.append(
+                    "no root stake or alpha issuance on this subnet yet: its TAO weight stays "
+                    f"{tao_weight * 100:.2f}%"
+                )
         return lines
 
     async def blocks(self, substrate, signer_address: str) -> list[str]:
         current = await self._current(substrate)
         if current is None:
             return [f"subnet {self.netuid} does not exist (the root subnet has no emission vector)"]
+        root_tao, alpha_issuance = await root_preservation_inputs(
+            lambda item, keys: substrate.query(*item, keys), self.netuid
+        )
+        floor = ew.validator_floor(
+            ew.share_to_float(ew.normalize_weights(current["weights"])[ew.VALIDATOR]),
+            ew.share_to_float(int(current["effective_tao_weight"])),
+            root_tao,
+            alpha_issuance,
+        )
         rules = ew.Rules(
-            min_validator=int(current["min_validator"]),
+            min_validator=None if floor is None else int(floor * ew.ONE),
             min_owner=ew.DEFAULT_OWNER,
             created_via_lease=bool(current["created_via_lease"]),
-            base_validator=int(current["base_validator"]),
         )
         try:
             merged = self._merged(current)

@@ -36,9 +36,6 @@ EMISSION_WEIGHTS_INFO: dict = {
     "owner": _OWNER_18,
     "validator": _VALIDATOR_41,
     "miner": _U64_MAX - _OWNER_18 - _VALIDATOR_41,
-    "base_validator": _VALIDATOR_41,
-    "min_validator": (_VALIDATOR_41 * TAO_WEIGHT) // _U64_MAX,
-    "tao_weight_multiplier": 1_000_000_000,
     "effective_tao_weight": TAO_WEIGHT,
     "created_via_lease": False,
 }
