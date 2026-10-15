@@ -1650,26 +1650,6 @@
         "type": "uint64[]"
       },
       {
-        "internalType": "uint64",
-        "name": "baseValidator",
-        "type": "uint64"
-      },
-      {
-        "internalType": "uint64",
-        "name": "minValidator",
-        "type": "uint64"
-      },
-      {
-        "internalType": "uint64",
-        "name": "taoWeightMultiplier",
-        "type": "uint64"
-      },
-      {
-        "internalType": "uint64",
-        "name": "effectiveTaoWeight",
-        "type": "uint64"
-      },
-      {
         "internalType": "bool",
         "name": "createdViaLease",
         "type": "bool"

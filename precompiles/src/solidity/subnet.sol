@@ -301,7 +301,9 @@ interface ISubnet {
     /// emission weight vector. `uids` names the slots, `values` their new
     /// shares as `uint64 / type(uint64).max`; omitted slots keep their value.
     /// Rules: burn = 0, recycle = 0, owner <= 33% (lease-created >= 18%),
-    /// baseValidator * taoWeight <= validator <= 50%, miner >= 33%, sum = max.
+    /// validator <= 50%, miner >= 33%, sum = max. Changing the validator share
+    /// re-solves the subnet's effective TAO weight so root's share of emission
+    /// is unchanged; reverts if no weight <= 1 can do that.
     function setSubnetEmissionWeights(
         uint16 netuid,
         uint16[] calldata uids,
@@ -361,22 +363,12 @@ interface ISubnet {
     function getMechanismEmissionSplit(
         uint16 netuid
     ) external view returns (bool exists, uint16[] memory split);
-    /// The emission weight vector and the TAO-weight state derived from it.
-    /// `taoWeightMultiplier` is `baseValidator / validator` scaled by 1e9 (it
-    /// can exceed one); `effectiveTaoWeight` is scaled by `type(uint64).max`.
+    /// The emission weight vector `[burn, recycle, owner, validator, miner]`
+    /// (each a `uint64 / type(uint64).max` share) and whether the subnet was
+    /// created through a lease.
     function getSubnetEmissionWeights(
         uint16 netuid
-    )
-        external
-        view
-        returns (
-            uint64[] memory weights,
-            uint64 baseValidator,
-            uint64 minValidator,
-            uint64 taoWeightMultiplier,
-            uint64 effectiveTaoWeight,
-            bool createdViaLease
-        );
+    ) external view returns (uint64[] memory weights, bool createdViaLease);
     function getBurnConfig(
         uint16 netuid
     ) external view returns (uint16 halfLife, uint128 increaseMultiplier);

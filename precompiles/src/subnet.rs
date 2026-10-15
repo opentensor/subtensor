@@ -1316,28 +1316,18 @@ where
     }
 
     /// The subnet's `[burn, recycle, owner, validator, miner]` emission weight
-    /// vector (`u64 / u64::MAX` shares) with the TAO-weight state it drives:
-    /// the base validator share `V₀`, the lowest validator share currently
-    /// allowed, the `V₀ / V` multiplier (scaled by `1e9`), the effective TAO
-    /// weight (scaled by `u64::MAX`), and whether the subnet was created via a
-    /// lease.
+    /// vector (`u64 / u64::MAX` shares) and whether the subnet was created via
+    /// a lease.
     #[precompile::public("getSubnetEmissionWeights(uint16)")]
     #[precompile::view]
     fn get_subnet_emission_weights(
         handle: &mut impl PrecompileHandle,
         netuid: u16,
-    ) -> EvmResult<(Vec<u64>, u64, u64, u64, u64, bool)> {
+    ) -> EvmResult<(Vec<u64>, bool)> {
         handle.record_db_reads::<R>(EMISSION_WEIGHTS_VIEW_READS)?;
         let view =
             pallet_subtensor::Pallet::<R>::read_subnet_emission_weights_view(NetUid::from(netuid));
-        Ok((
-            view.weights.to_vec(),
-            view.base_validator,
-            view.min_validator(),
-            view.multiplier_scaled(),
-            view.effective_tao_weight_parts(),
-            view.created_via_lease,
-        ))
+        Ok((view.weights.to_vec(), view.created_via_lease))
     }
 
     #[precompile::public("getBurnConfig(uint16)")]
@@ -1487,7 +1477,6 @@ mod tests {
         AccountId, Runtime, addr_from_index, assert_static_call, execute_precompile,
         mapped_account, new_test_ext, precompiles, selector_u32,
     };
-    use pallet_subtensor::TAO_WEIGHT_MULTIPLIER_SCALE;
     use precompile_utils::solidity::encode_with_selector;
     use precompile_utils::testing::PrecompileTesterExt;
     use sp_core::{H160, H256, U256};
@@ -1666,16 +1655,7 @@ mod tests {
                     ),
                 )
                 .with_static_call(true)
-                .execute_returns((
-                    default.to_vec(),
-                    pallet_subtensor::Pallet::<Runtime>::get_base_validator_emission_share(netuid),
-                    pallet_subtensor::Pallet::<Runtime>::min_validator_emission_for_tao_weight(
-                        netuid,
-                    ),
-                    TAO_WEIGHT_MULTIPLIER_SCALE,
-                    pallet_subtensor::Pallet::<Runtime>::get_subnet_tao_weight_parts(netuid),
-                    false,
-                ));
+                .execute_returns((default.to_vec(), false));
 
             // Owner sets owner 10% / validator 40% / miner 50% through the mapped account.
             let owner = pallet_subtensor::emission_fraction(10, 100);
@@ -1700,12 +1680,6 @@ mod tests {
                 [0, 0, owner, validator, miner]
             );
 
-            // The multiplier doubled (0.5 -> 0.4 is 1.25x) and the view reports it.
-            let expected_multiplier =
-                pallet_subtensor::Pallet::<Runtime>::get_subnet_tao_weight_multiplier_scaled(
-                    netuid,
-                );
-            assert!(expected_multiplier > TAO_WEIGHT_MULTIPLIER_SCALE);
             precompiles
                 .prepare_test(
                     caller,
@@ -1716,16 +1690,7 @@ mod tests {
                     ),
                 )
                 .with_static_call(true)
-                .execute_returns((
-                    vec![0u64, 0, owner, validator, miner],
-                    pallet_subtensor::Pallet::<Runtime>::get_base_validator_emission_share(netuid),
-                    pallet_subtensor::Pallet::<Runtime>::min_validator_emission_for_tao_weight(
-                        netuid,
-                    ),
-                    expected_multiplier,
-                    pallet_subtensor::Pallet::<Runtime>::get_subnet_tao_weight_parts(netuid),
-                    false,
-                ));
+                .execute_returns((vec![0u64, 0, owner, validator, miner], false));
 
             // A non-owner cannot set the vector.
             let stranger = addr_from_index(0x5005);

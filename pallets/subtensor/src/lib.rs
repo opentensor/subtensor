@@ -53,8 +53,8 @@ pub use guards::*;
 pub use subnets::emission_weights::{
     EMISSION_WEIGHT_ONE, EMISSION_WEIGHT_SLOTS, EMISSION_WEIGHTS_VIEW_READS, EmissionIndex,
     EmissionWeights, EmissionWeightsVec, EmissionWeightsView, MAX_OWNER_EMISSION,
-    MAX_VALIDATOR_EMISSION, MIN_MINER_EMISSION, TAO_WEIGHT_MULTIPLIER_SCALE, emission_fraction,
-    normalize_tao_weight,
+    MAX_VALIDATOR_EMISSION, MIN_MINER_EMISSION, emission_fraction, normalize_tao_weight,
+    root_emission_share, solve_tao_weight_for_root_share, tao_weight_to_parts,
 };
 
 #[cfg(test)]
@@ -2313,29 +2313,17 @@ pub mod pallet {
         DefaultSubnetEmissionWeights<T>,
     >;
 
-    /// Canonical base validator share (41% on mainnet).
-    #[pallet::type_value]
-    pub fn DefaultBaseValidatorEmissionShare<T: Config>() -> u64 {
-        Pallet::<T>::default_validator_emission()
-    }
-
-    /// MAP ( netuid ) --> base validator share `V₀` in `u64::MAX` parts. Fixed at migration
-    /// (or registration); the TAO-weight multiplier is `V₀ / validator_share`.
+    /// MAP ( netuid ) --> effective TAO weight `w_s` in `u64::MAX` parts. Solved once each
+    /// time the validator slot of [`SubnetEmissionWeights`] changes so root's share of the
+    /// subnet's emission is preserved at that block; never recomputed per block. Consensus
+    /// side only: the pool side keeps using the global [`TaoWeight`]. No entry means the
+    /// subnet has never changed its validator share and follows the global [`TaoWeight`]
+    /// exactly as before per-subnet weights existed (see `get_subnet_tao_weight_parts`).
+    /// The fallback lives in the getter rather than in a `type_value` default because
+    /// storage defaults are evaluated while building the runtime metadata, where no
+    /// storage can be read.
     #[pallet::storage]
-    pub type BaseValidatorEmissionShare<T: Config> =
-        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultBaseValidatorEmissionShare<T>>;
-
-    /// Unit multiplier.
-    #[pallet::type_value]
-    pub fn DefaultSubnetTaoWeightMultiplier<T: Config>() -> U96F32 {
-        U96F32::saturating_from_num(1)
-    }
-
-    /// MAP ( netuid ) --> `V₀ / validator_share`, written when the emission vector is set.
-    /// Scales the global [`TaoWeight`] on this subnet for both root proportion and consensus.
-    #[pallet::storage]
-    pub type SubnetTaoWeightMultiplier<T: Config> =
-        StorageMap<_, Identity, NetUid, U96F32, ValueQuery, DefaultSubnetTaoWeightMultiplier<T>>;
+    pub type SubnetTaoWeight<T: Config> = StorageMap<_, Identity, NetUid, u64, OptionQuery>;
 
     /// MAP ( netuid ) --> true when the subnet was registered through a lease. Persists after
     /// the lease ends; such subnets may not lower their owner cut below the launch default.

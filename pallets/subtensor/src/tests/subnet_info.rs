@@ -47,7 +47,6 @@ const EXPECTED_V3_NAMES: &[&[u8]] = &[
     b"owner_emission",
     b"validator_emission",
     b"miner_emission",
-    b"effective_tao_weight",
     b"owner_cut_auto_lock_enabled",
     b"min_childkey_take",
     b"collateral_lock_share",
@@ -169,12 +168,6 @@ fn test_get_subnet_hyperparams_v3_values_reflect_storage() {
         assert_eq!(
             find(p, b"miner_emission"),
             &HyperparamValue::U64(Compact(weights[4]))
-        );
-        assert_eq!(
-            find(p, b"effective_tao_weight"),
-            &HyperparamValue::U64(Compact(SubtensorModule::get_subnet_tao_weight_parts(
-                netuid
-            )))
         );
         assert_eq!(
             find(p, b"owner_cut_auto_lock_enabled"),

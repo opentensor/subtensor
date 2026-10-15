@@ -474,8 +474,9 @@ impl<T: Config> Pallet<T> {
         // --- 3. Fill tempo memory item.
         Tempo::<T>::insert(netuid, tempo);
 
-        // --- 3.0. Seed the canonical emission weight vector, base validator share and a
-        // unit TAO-weight multiplier. Owners may change the vector once registration is done.
+        // --- 3.0. Seed the canonical emission weight vector; the subnet follows the global
+        // TaoWeight until its validator share changes. Owners may change the vector once
+        // registration is done.
         Self::seed_subnet_emission_weights(netuid);
 
         // --- 3.1. Initialise `LastEpochBlock` with a per-netuid stagger

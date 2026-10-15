@@ -1,10 +1,8 @@
 use super::*;
-use crate::subnets::emission_weights::EmissionIndex;
 use frame_support::{IterableStorageMap, traits::Get, weights::Weight};
 use log;
 use scale_info::prelude::string::String;
 use sp_std::vec::Vec;
-use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaBalance, NetUid};
 
 /// `HasMigrationRun` key for this migration.
@@ -14,10 +12,10 @@ pub const MIGRATION_NAME: &[u8] = b"seed_subnet_emission_weights_v1";
 /// first post-upgrade block pays out exactly what the last pre-upgrade block did:
 ///
 /// * owner slot = legacy `SubnetOwnerCut` scaled to u64 parts when `OwnerCutEnabled`, else 0;
-/// * validator slot = half of the remainder (the old 50/50 split), which is also stamped as
-///   the subnet's base validator share `V₀`;
+/// * validator slot = half of the remainder (the old 50/50 split);
 /// * miner slot = whatever is left, absorbing the rounding ulp;
-/// * TAO-weight multiplier = 1;
+/// * effective TAO weight = the global `TaoWeight` (no per-subnet entry, so the subnet keeps
+///   following root's knob until it changes its validator share);
 /// * accrued owner cut = `alpha_issuance × legacy SubnetOwnerCut`, the exact deduction the
 ///   legacy lock refund applied before this upgrade, so dissolution pays no more than it
 ///   would have;
@@ -52,12 +50,11 @@ pub fn migrate_seed_subnet_emission_weights<T: Config>() -> Weight {
 
     let mut seeded: u32 = 0;
     for netuid in netuids.into_iter().filter(|n| !n.is_root()) {
-        let (weights, base_validator) = seed_for::<T>(netuid, legacy_owner_cut);
+        let weights = seed_for::<T>(netuid, legacy_owner_cut);
         total_weight = total_weight.saturating_add(T::DbWeight::get().reads(2));
 
         SubnetEmissionWeights::<T>::insert(netuid, Pallet::<T>::emission_weights_to_vec(weights));
-        BaseValidatorEmissionShare::<T>::insert(netuid, base_validator);
-        SubnetTaoWeightMultiplier::<T>::insert(netuid, U96F32::saturating_from_num(1));
+        SubnetTaoWeight::<T>::remove(netuid);
         SubnetOwnerCutAccrued::<T>::insert(
             netuid,
             legacy_owner_cut_accrued::<T>(netuid, legacy_owner_cut),
@@ -120,19 +117,14 @@ fn seed_dissolving_subnets<T: Config>(legacy_owner_cut: u16) -> (u32, Weight) {
     (count, weight)
 }
 
-/// The vector and base validator share a subnet receives, given the legacy global owner cut.
-pub fn seed_for<T: Config>(netuid: NetUid, legacy_owner_cut: u16) -> (EmissionWeights, u64) {
+/// The vector a subnet receives, given the legacy global owner cut.
+pub fn seed_for<T: Config>(netuid: NetUid, legacy_owner_cut: u16) -> EmissionWeights {
     let owner = if OwnerCutEnabled::<T>::get(netuid) {
         Pallet::<T>::scale_u16_fraction_to_emission_weight(legacy_owner_cut)
     } else {
         0
     };
-    let weights = Pallet::<T>::emission_weights_with_owner(owner);
-    let validator = weights
-        .get(EmissionIndex::Validator.position())
-        .copied()
-        .unwrap_or(0);
-    (weights, validator)
+    Pallet::<T>::emission_weights_with_owner(owner)
 }
 
 /// The owner α the legacy lock refund would have deducted before this upgrade.
@@ -268,13 +260,10 @@ pub mod seed_subnet_emission_weights {
                     "validator slot must be half of the post-owner remainder"
                 );
                 ensure!(
-                    Pallet::<T>::get_base_validator_emission_share(netuid) == validator,
-                    "base validator share must equal the seeded validator slot"
-                );
-                ensure!(
-                    Pallet::<T>::get_subnet_tao_weight_multiplier(netuid)
-                        == U96F32::saturating_from_num(1),
-                    "seeded multiplier must be one"
+                    !SubnetTaoWeight::<T>::contains_key(netuid)
+                        && Pallet::<T>::get_subnet_tao_weight_parts(netuid)
+                            == TaoWeight::<T>::get(),
+                    "seeded subnets must follow the global TaoWeight"
                 );
                 ensure!(
                     Pallet::<T>::get_subnet_created_via_lease(netuid) == leased,

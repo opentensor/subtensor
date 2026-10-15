@@ -2680,13 +2680,14 @@ pub mod pallet {
         /// not named keep their current value (burn and recycle are always zero in v1).
         /// The merged vector must satisfy every rule, each of which has its own error:
         /// burn = 0, recycle = 0, `0 ≤ owner ≤ 33%` (lease-created subnets `≥ 18%`),
-        /// `V₀ · TaoWeight ≤ validator ≤ 50%`, `miner ≥ 33%`, and the five slots must
-        /// sum to exactly `u64::MAX`.
+        /// `validator ≤ 50%`, `miner ≥ 33%`, and the five slots must sum to exactly
+        /// `u64::MAX`.
         ///
-        /// Lowering the validator share scales the subnet's TAO weight by `V₀ / V` so
-        /// root emission is preserved. Callable by the subnet owner (once per week per
-        /// subnet; the first call is never rate-limited) or root (no rate limit). Both
-        /// respect the admin freeze window.
+        /// Changing the validator share re-solves the subnet's effective TAO weight once,
+        /// at this block, so root's share of the subnet's emission is unchanged; the call
+        /// fails if no weight `≤ 1` can do that. Callable by the subnet owner (once per
+        /// week per subnet; the first call is never rate-limited) or root (no rate limit).
+        /// Both respect the admin freeze window.
         #[pallet::call_index(114)]
         #[pallet::weight(<T as Config>::WeightInfo::sudo_set_subnet_emission_weights())]
         pub fn sudo_set_subnet_emission_weights(

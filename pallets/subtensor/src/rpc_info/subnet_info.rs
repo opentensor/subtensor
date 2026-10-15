@@ -172,15 +172,13 @@ impl From<(&str, HyperparamValue)> for HyperparamEntry {
 /// clients should not rely on it for semantics.
 pub type SubnetHyperparamsV3 = Vec<HyperparamEntry>;
 
-/// A subnet's emission weight vector and the TAO-weight state derived from it.
+/// A subnet's emission weight vector and its effective TAO weight.
 ///
 /// Every share is a `u64` part of `u64::MAX`. `weights` is the full
 /// `[burn, recycle, owner, validator, miner]` vector; the named fields repeat
-/// each slot for callers that want them by name. `min_validator` is the
-/// lowest validator share this subnet may currently set
-/// (`base_validator · TaoWeight`). `tao_weight_multiplier` and
-/// `effective_tao_weight` are fixed-point values scaled by `u64::MAX`.
-#[freeze_struct("9a78afd6fcbbc9d9")]
+/// each slot for callers that want them by name. `effective_tao_weight` is the
+/// subnet's consensus-side TAO weight `w_s`, also scaled by `u64::MAX`.
+#[freeze_struct("97f2ad41cae64a61")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SubnetEmissionWeightsInfo {
     pub netuid: Compact<NetUid>,
@@ -190,9 +188,6 @@ pub struct SubnetEmissionWeightsInfo {
     pub owner: Compact<u64>,
     pub validator: Compact<u64>,
     pub miner: Compact<u64>,
-    pub base_validator: Compact<u64>,
-    pub min_validator: Compact<u64>,
-    pub tao_weight_multiplier: Compact<u64>,
     pub effective_tao_weight: Compact<u64>,
     pub created_via_lease: bool,
 }
@@ -484,8 +479,8 @@ impl<T: Config> Pallet<T> {
         AutoStakeDestination::<T>::get(coldkey, netuid)
     }
 
-    /// The subnet's emission weight vector together with the TAO-weight
-    /// state derived from it, or `None` if the subnet does not exist.
+    /// The subnet's emission weight vector together with its effective TAO
+    /// weight, or `None` if the subnet does not exist.
     pub fn get_subnet_emission_weights_info(netuid: NetUid) -> Option<SubnetEmissionWeightsInfo> {
         if !Self::if_subnet_exist(netuid) {
             return None;
@@ -502,10 +497,7 @@ impl<T: Config> Pallet<T> {
             owner: slot(EmissionIndex::Owner),
             validator: slot(EmissionIndex::Validator),
             miner: slot(EmissionIndex::Miner),
-            base_validator: Compact(view.base_validator),
-            min_validator: Compact(view.min_validator()),
-            tao_weight_multiplier: Compact(view.multiplier_scaled()),
-            effective_tao_weight: Compact(view.effective_tao_weight_parts()),
+            effective_tao_weight: Compact(Self::get_subnet_tao_weight_parts(netuid)),
             created_via_lease: view.created_via_lease,
         })
     }
@@ -689,11 +681,6 @@ impl<T: Config> Pallet<T> {
             (
                 "miner_emission",
                 HyperparamValue::U64(Self::get_subnet_miner_emission_cut(netuid).into()),
-            )
-                .into(),
-            (
-                "effective_tao_weight",
-                HyperparamValue::U64(Self::get_subnet_tao_weight_parts(netuid).into()),
             )
                 .into(),
             (
