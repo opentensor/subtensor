@@ -58,6 +58,82 @@ pub const MIN_MINER_EMISSION: u64 = emission_fraction(33, 100);
 /// (`1.0` is reported as `1_000_000_000`).
 pub const TAO_WEIGHT_MULTIPLIER_SCALE: u64 = 1_000_000_000;
 
+/// Distinct storage items [`Pallet::read_subnet_emission_weights_view`] reads:
+/// `SubnetEmissionWeights`, `BaseValidatorEmissionShare`, `TaoWeight`,
+/// `SubnetTaoWeightMultiplier` and `SubnetCreatedViaLease`.
+pub const EMISSION_WEIGHTS_VIEW_READS: u64 = 5;
+
+/// Global `TaoWeight` (u64 parts) as a fraction in `[0, 1]`.
+pub fn normalize_tao_weight(parts: u64) -> U96F32 {
+    U96F32::saturating_from_num(parts).safe_div(U96F32::saturating_from_num(u64::MAX))
+}
+
+/// `V₀ · TaoWeight` in u64 parts, never below one part (see
+/// [`Pallet::min_validator_emission_for_tao_weight`]).
+pub fn min_validator_emission_from(base_validator: u64, tao_weight: u64) -> u64 {
+    let floor = (base_validator as u128)
+        .saturating_mul(tao_weight as u128)
+        .safe_div(EMISSION_WEIGHT_ONE as u128) as u64;
+    floor.max(1)
+}
+
+/// A TAO-weight multiplier scaled by [`TAO_WEIGHT_MULTIPLIER_SCALE`].
+pub fn scale_tao_weight_multiplier(multiplier: U96F32) -> u64 {
+    multiplier
+        .saturating_mul(U96F32::saturating_from_num(TAO_WEIGHT_MULTIPLIER_SCALE))
+        .saturating_to_num::<u64>()
+}
+
+/// `global · multiplier`, saturating at one.
+pub fn effective_tao_weight(global: U96F32, multiplier: U96F32) -> U96F32 {
+    let one = U96F32::saturating_from_num(1);
+    global.saturating_mul(multiplier).min(one)
+}
+
+/// A TAO weight in `[0, 1]` as u64 parts of [`EMISSION_WEIGHT_ONE`].
+pub fn tao_weight_to_parts(weight: U96F32) -> u64 {
+    weight
+        .saturating_mul(U96F32::saturating_from_num(EMISSION_WEIGHT_ONE))
+        .saturating_to_num::<u64>()
+}
+
+/// Snapshot of the five storage items behind a subnet's emission weight
+/// view. Derived fields are computed from the snapshot, so a caller that has
+/// paid for [`EMISSION_WEIGHTS_VIEW_READS`] reads owes nothing more.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct EmissionWeightsView {
+    /// `[burn, recycle, owner, validator, miner]`.
+    pub weights: EmissionWeights,
+    /// Base validator share `V₀`.
+    pub base_validator: u64,
+    /// Global `TaoWeight` in u64 parts.
+    pub tao_weight: u64,
+    /// Current multiplier `V₀ / V`.
+    pub multiplier: U96F32,
+    /// Whether the subnet was registered through a lease.
+    pub created_via_lease: bool,
+}
+
+impl EmissionWeightsView {
+    /// Lowest validator share currently allowed on this subnet.
+    pub fn min_validator(&self) -> u64 {
+        min_validator_emission_from(self.base_validator, self.tao_weight)
+    }
+
+    /// Multiplier scaled by [`TAO_WEIGHT_MULTIPLIER_SCALE`].
+    pub fn multiplier_scaled(&self) -> u64 {
+        scale_tao_weight_multiplier(self.multiplier)
+    }
+
+    /// Effective TAO weight on this subnet in u64 parts.
+    pub fn effective_tao_weight_parts(&self) -> u64 {
+        tao_weight_to_parts(effective_tao_weight(
+            normalize_tao_weight(self.tao_weight),
+            self.multiplier,
+        ))
+    }
+}
+
 /// Named slot of the emission weight vector.
 #[derive(
     Copy,
@@ -259,9 +335,7 @@ impl<T: Config> Pallet<T> {
     /// can exceed one (up to `1 / TaoWeight`), so it cannot share the
     /// `u64::MAX` scale the weights use.
     pub fn get_subnet_tao_weight_multiplier_scaled(netuid: NetUid) -> u64 {
-        Self::get_subnet_tao_weight_multiplier(netuid)
-            .saturating_mul(U96F32::saturating_from_num(TAO_WEIGHT_MULTIPLIER_SCALE))
-            .saturating_to_num::<u64>()
+        scale_tao_weight_multiplier(Self::get_subnet_tao_weight_multiplier(netuid))
     }
 
     /// `V₀ / V`; `V = 0` is unrepresentable and yields `MAX`.
@@ -276,35 +350,44 @@ impl<T: Config> Pallet<T> {
     /// `V₀ · TaoWeight` in u64 parts. Never below one part so `V = 0` is
     /// always rejected (it would imply an infinite TAO weight).
     pub fn min_validator_emission_for_tao_weight(netuid: NetUid) -> u64 {
-        let base = Self::get_base_validator_emission_share(netuid) as u128;
-        let tao_weight = TaoWeight::<T>::get() as u128;
-        let floor = base
-            .saturating_mul(tao_weight)
-            .safe_div(EMISSION_WEIGHT_ONE as u128) as u64;
-        floor.max(1)
+        min_validator_emission_from(
+            Self::get_base_validator_emission_share(netuid),
+            TaoWeight::<T>::get(),
+        )
     }
 
     /// Effective TAO weight on `netuid`: the global weight scaled by the
     /// subnet multiplier, saturating at one. Used by both the root proportion
     /// and consensus stake weighting.
     pub fn get_subnet_tao_weight(netuid: NetUid) -> U96F32 {
-        let global = Self::get_tao_weight();
-        let multiplier = Self::get_subnet_tao_weight_multiplier(netuid);
-        let one = U96F32::saturating_from_num(1);
-        global.saturating_mul(multiplier).min(one)
+        effective_tao_weight(
+            Self::get_tao_weight(),
+            Self::get_subnet_tao_weight_multiplier(netuid),
+        )
     }
 
     /// [`Self::get_subnet_tao_weight`] in u64 parts, for events and RPC.
     pub fn get_subnet_tao_weight_parts(netuid: NetUid) -> u64 {
-        Self::get_subnet_tao_weight(netuid)
-            .saturating_mul(U96F32::saturating_from_num(EMISSION_WEIGHT_ONE))
-            .saturating_to_num::<u64>()
+        tao_weight_to_parts(Self::get_subnet_tao_weight(netuid))
     }
 
     /// Whether the subnet was registered through a lease (persists after the
     /// lease ends).
     pub fn get_subnet_created_via_lease(netuid: NetUid) -> bool {
         SubnetCreatedViaLease::<T>::get(netuid)
+    }
+
+    /// Every storage item behind the emission weight view, each read exactly
+    /// once. Views that meter storage (the EVM precompile) charge
+    /// [`EMISSION_WEIGHTS_VIEW_READS`] reads and derive the rest from this.
+    pub fn read_subnet_emission_weights_view(netuid: NetUid) -> EmissionWeightsView {
+        EmissionWeightsView {
+            weights: Self::get_subnet_emission_weights(netuid),
+            base_validator: Self::get_base_validator_emission_share(netuid),
+            tao_weight: TaoWeight::<T>::get(),
+            multiplier: Self::get_subnet_tao_weight_multiplier(netuid),
+            created_via_lease: Self::get_subnet_created_via_lease(netuid),
+        }
     }
 
     // ---------------------------------------------------------------------

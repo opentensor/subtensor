@@ -15,8 +15,8 @@ use sp_std::{vec, vec::Vec};
 use subtensor_runtime_common::{NetUid, TaoBalance, Token};
 
 use crate::{PrecompileExt, PrecompileHandleExt};
-use pallet_subtensor::EMISSION_WEIGHT_SLOTS;
 use pallet_subtensor::subnets::dissolution::DissolveCleanupPhase;
+use pallet_subtensor::{EMISSION_WEIGHT_SLOTS, EMISSION_WEIGHTS_VIEW_READS};
 
 pub struct SubnetPrecompile<R>(PhantomData<R>);
 
@@ -1327,15 +1327,16 @@ where
         handle: &mut impl PrecompileHandle,
         netuid: u16,
     ) -> EvmResult<(Vec<u64>, u64, u64, u64, u64, bool)> {
-        handle.record_db_reads::<R>(5)?;
-        let netuid = NetUid::from(netuid);
+        handle.record_db_reads::<R>(EMISSION_WEIGHTS_VIEW_READS)?;
+        let view =
+            pallet_subtensor::Pallet::<R>::read_subnet_emission_weights_view(NetUid::from(netuid));
         Ok((
-            pallet_subtensor::Pallet::<R>::get_subnet_emission_weights(netuid).to_vec(),
-            pallet_subtensor::Pallet::<R>::get_base_validator_emission_share(netuid),
-            pallet_subtensor::Pallet::<R>::min_validator_emission_for_tao_weight(netuid),
-            pallet_subtensor::Pallet::<R>::get_subnet_tao_weight_multiplier_scaled(netuid),
-            pallet_subtensor::Pallet::<R>::get_subnet_tao_weight_parts(netuid),
-            pallet_subtensor::Pallet::<R>::get_subnet_created_via_lease(netuid),
+            view.weights.to_vec(),
+            view.base_validator,
+            view.min_validator(),
+            view.multiplier_scaled(),
+            view.effective_tao_weight_parts(),
+            view.created_via_lease,
         ))
     }
 

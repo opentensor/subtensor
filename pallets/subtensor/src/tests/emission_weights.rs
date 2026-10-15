@@ -482,6 +482,60 @@ fn test_emission_weights_info_reports_scaled_multiplier() {
     });
 }
 
+/// The read-once view (what the EVM getter charges `EMISSION_WEIGHTS_VIEW_READS`
+/// reads for) must agree with every per-netuid helper, including in the
+/// saturating and leased cases.
+#[test]
+fn test_emission_weights_view_matches_per_netuid_helpers() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = new_subnet();
+        let base = SubtensorModule::get_base_validator_emission_share(netuid);
+        // (global TaoWeight, validator share): unit multiplier, 3x multiplier,
+        // a multiplier that saturates the effective weight at one, and the
+        // zero-TaoWeight edge where the floor is a single part.
+        for (tao_weight, at_floor) in [
+            (pct(18), false),
+            (pct(18), true),
+            (pct(60), true),
+            (0, true),
+        ] {
+            SubtensorModule::set_tao_weight(tao_weight);
+            let floor = SubtensorModule::min_validator_emission_for_tao_weight(netuid);
+            let validator = if at_floor { floor.max(base / 3) } else { base };
+            let (uids, values) = full_vector(pct(10), validator);
+            assert_ok!(SubtensorModule::do_set_subnet_emission_weights(
+                netuid, uids, values
+            ));
+            let view = SubtensorModule::read_subnet_emission_weights_view(netuid);
+            assert_eq!(
+                view.weights,
+                SubtensorModule::get_subnet_emission_weights(netuid)
+            );
+            assert_eq!(view.base_validator, base);
+            assert_eq!(view.tao_weight, tao_weight);
+            assert_eq!(
+                view.multiplier,
+                SubtensorModule::get_subnet_tao_weight_multiplier(netuid)
+            );
+            assert!(!view.created_via_lease);
+            assert_eq!(
+                view.min_validator(),
+                SubtensorModule::min_validator_emission_for_tao_weight(netuid)
+            );
+            assert_eq!(
+                view.multiplier_scaled(),
+                SubtensorModule::get_subnet_tao_weight_multiplier_scaled(netuid)
+            );
+            assert_eq!(
+                view.effective_tao_weight_parts(),
+                SubtensorModule::get_subnet_tao_weight_parts(netuid)
+            );
+        }
+        SubnetCreatedViaLease::<Test>::insert(netuid, true);
+        assert!(SubtensorModule::read_subnet_emission_weights_view(netuid).created_via_lease);
+    });
+}
+
 #[test]
 fn test_multiplier_is_recomputed_even_when_validator_slot_is_omitted() {
     new_test_ext(1).execute_with(|| {

@@ -51,9 +51,10 @@ use macros::{config, dispatches, errors, events, genesis, hooks};
 pub use extensions::*;
 pub use guards::*;
 pub use subnets::emission_weights::{
-    EMISSION_WEIGHT_ONE, EMISSION_WEIGHT_SLOTS, EmissionIndex, EmissionWeights, EmissionWeightsVec,
-    MAX_OWNER_EMISSION, MAX_VALIDATOR_EMISSION, MIN_MINER_EMISSION, TAO_WEIGHT_MULTIPLIER_SCALE,
-    emission_fraction,
+    EMISSION_WEIGHT_ONE, EMISSION_WEIGHT_SLOTS, EMISSION_WEIGHTS_VIEW_READS, EmissionIndex,
+    EmissionWeights, EmissionWeightsVec, EmissionWeightsView, MAX_OWNER_EMISSION,
+    MAX_VALIDATOR_EMISSION, MIN_MINER_EMISSION, TAO_WEIGHT_MULTIPLIER_SCALE, emission_fraction,
+    normalize_tao_weight,
 };
 
 #[cfg(test)]

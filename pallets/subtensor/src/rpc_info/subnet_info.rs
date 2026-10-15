@@ -490,20 +490,23 @@ impl<T: Config> Pallet<T> {
         if !Self::if_subnet_exist(netuid) {
             return None;
         }
-        let weights = Self::get_subnet_emission_weights(netuid);
+        let view = Self::read_subnet_emission_weights_view(netuid);
+        let slot = |index: EmissionIndex| -> Compact<u64> {
+            Compact(view.weights.get(index.position()).copied().unwrap_or(0))
+        };
         Some(SubnetEmissionWeightsInfo {
             netuid: netuid.into(),
-            weights: weights.iter().map(|w| Compact(*w)).collect(),
-            burn: Compact(Self::get_subnet_burn_emission(netuid)),
-            recycle: Compact(Self::get_subnet_recycle_emission(netuid)),
-            owner: Compact(Self::get_subnet_owner_emission_cut(netuid)),
-            validator: Compact(Self::get_subnet_validator_emission_cut(netuid)),
-            miner: Compact(Self::get_subnet_miner_emission_cut(netuid)),
-            base_validator: Compact(Self::get_base_validator_emission_share(netuid)),
-            min_validator: Compact(Self::min_validator_emission_for_tao_weight(netuid)),
-            tao_weight_multiplier: Compact(Self::get_subnet_tao_weight_multiplier_scaled(netuid)),
-            effective_tao_weight: Compact(Self::get_subnet_tao_weight_parts(netuid)),
-            created_via_lease: Self::get_subnet_created_via_lease(netuid),
+            weights: view.weights.iter().map(|w| Compact(*w)).collect(),
+            burn: slot(EmissionIndex::Burn),
+            recycle: slot(EmissionIndex::Recycle),
+            owner: slot(EmissionIndex::Owner),
+            validator: slot(EmissionIndex::Validator),
+            miner: slot(EmissionIndex::Miner),
+            base_validator: Compact(view.base_validator),
+            min_validator: Compact(view.min_validator()),
+            tao_weight_multiplier: Compact(view.multiplier_scaled()),
+            effective_tao_weight: Compact(view.effective_tao_weight_parts()),
+            created_via_lease: view.created_via_lease,
         })
     }
 
