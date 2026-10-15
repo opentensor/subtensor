@@ -1248,7 +1248,7 @@ class AdminUtils:
 
     @staticmethod
     def sudo_set_owner_cut_enabled(netuid: 'NetUid', enabled: 'bool') -> Call:
-        'Set whether the subnet owner cut is enabled for a subnet. It is only callable by root and subnet owner.'
+        'Deprecated. Owner cut on/off is now expressed by slot 2 (owner) of the per-subnet emission weight vector: set it to zero to disable the owner cut through [`Call::sudo_set_subnet_emission_weights`]. Always returns `Error::Deprecated`.'
         return Call('AdminUtils', 'sudo_set_owner_cut_enabled', {'netuid': netuid, 'enabled': enabled})
 
     @staticmethod
@@ -1302,6 +1302,11 @@ class AdminUtils:
         return Call('AdminUtils', 'sudo_set_subnet_emission_enabled', {'netuid': netuid, 'enabled': enabled})
 
     @staticmethod
+    def sudo_set_subnet_emission_weights(netuid: 'NetUid', uids: 'Any', values: 'Any') -> Call:
+        "Sets entries of a subnet's emission weight vector `[burn, recycle, owner, validator, miner]`, each a `u64` share of `u64::MAX`.  `uids` names the slots to write and `values` their new shares; slots that are not named keep their current value (burn and recycle are always zero in v1). The merged vector must satisfy every rule, each of which has its own error: burn = 0, recycle = 0, `0 ≤ owner ≤ 33%` (lease-created subnets `≥ 18%`), `validator ≤ 50%`, `miner ≥ 33%`, and the five slots must sum to exactly `u64::MAX`.  Every accepted set re-solves the subnet's effective TAO weight once, at this block, so root's share of the subnet's emission equals its baseline (what root earns with the default validator share and the global `TaoWeight`); the call fails if no weight `≤ 1` can do that. Callable by the subnet owner (once per week per subnet; the first call is never rate-limited) or root (no rate limit). Both respect the admin freeze window."
+        return Call('AdminUtils', 'sudo_set_subnet_emission_weights', {'netuid': netuid, 'uids': uids, 'values': values})
+
+    @staticmethod
     def sudo_set_subnet_limit(max_subnets: 'u16') -> Call:
         'The extrinsic sets the subnet limit for the network. It is only callable by the root account. The extrinsic will call the Subtensor pallet to set the subnet limit.'
         return Call('AdminUtils', 'sudo_set_subnet_limit', {'max_subnets': max_subnets})
@@ -1313,7 +1318,7 @@ class AdminUtils:
 
     @staticmethod
     def sudo_set_subnet_owner_cut(subnet_owner_cut: 'u16') -> Call:
-        'The extrinsic sets the subnet owner cut for a subnet. It is only callable by the root account. The extrinsic will call the Subtensor pallet to set the subnet owner cut.'
+        'Deprecated. The global owner cut was replaced by the per-subnet emission weight vector; set slot 2 (owner) through [`Call::sudo_set_subnet_emission_weights`]. Always returns `Error::Deprecated`.'
         return Call('AdminUtils', 'sudo_set_subnet_owner_cut', {'subnet_owner_cut': subnet_owner_cut})
 
     @staticmethod

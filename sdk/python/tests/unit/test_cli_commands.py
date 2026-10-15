@@ -30,7 +30,7 @@ from bittensor.client import Client
 from bittensor.intents import REGISTRY as INTENT_REGISTRY
 from bittensor.reads import REGISTRY as READ_REGISTRY
 from tests.harness.fake_substrate import FakeSubstrate
-from tests.harness.samples import INTENT_SAMPLES, READ_SAMPLES
+from tests.harness.samples import EMISSION_WEIGHTS_INFO, INTENT_SAMPLES, READ_SAMPLES
 from tests.unit.test_reads_table import seeded_substrate
 
 runner = CliRunner()
@@ -127,6 +127,9 @@ def _seed_tx_preview(substrate: FakeSubstrate) -> None:
     )
     substrate.seed_runtime("SubnetRegistrationRuntimeApi", "get_network_registration_cost", 10**9)
     substrate.seed_runtime("StakeInfoRuntimeApi", "get_stake_info_for_coldkey", [])
+    substrate.seed_runtime(
+        "SubnetInfoRuntimeApi", "get_subnet_emission_weights", EMISSION_WEIGHTS_INFO
+    )
     substrate.seed("SubtensorModule", "SubnetLimit", [], 16)
     substrate.seed("SubtensorModule", "DissolveCleanupQueue", [], [])
     substrate.seed("SubtensorModule", "NetworkRegistrationQueue", [], [])

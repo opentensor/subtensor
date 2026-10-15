@@ -1,0 +1,53 @@
+---
+title: validator_emission
+description: Validator slot of the subnet's emission weight vector — the share of alpha emission paid as validator dividends, and the source of root's alpha.
+---
+
+Slot 3 of the [emission weight vector](/docs/concepts/emission-weights):
+the fraction of each block's `alpha_out` that becomes validator dividends.
+Root TAO stakers are paid out of this slot via the subnet's consensus-side
+root proportion. Stored as `u64` parts of `u64::MAX`.
+
+## How it works
+
+Per block, `alpha_out × validator_emission` goes to the validator bucket;
+the root proportion of it is set aside for root TAO stakers and the rest is
+distributed through Yuma Consensus dividends at the epoch.
+
+Every set of the vector makes the chain re-solve the subnet's
+[effective TAO weight](/docs/concepts/emission-weights#the-effective-tao-weight)
+once, at that block, so root TAO stakers earn their **baseline** share of the
+subnet's emission: what they would earn with the default validator share
+(0.41 on mainnet) and the global `TaoWeight`. A slot below the default
+raises the weight, a slot above it lowers the weight, and exactly the
+default clears it so the subnet follows the global knob; the weight is then
+left alone until the next set. The baseline never depends on the previous
+vector, so changing the slot in steps cannot move root's share.
+
+## Bounds
+
+`validator_emission ≤ 0.50`, and the new value must leave room to reach
+root's baseline with a TAO weight no greater than one. Writing `r` for that
+baseline share, `A` for the subnet's alpha issuance and `T` for root TAO, the
+floor at this block is `r × (1 + A / T)`; on a mainnet subnet with 5.4M TAO
+on root, 6.5M alpha issued and `TaoWeight = 0.18` that is about 11.8%. The
+floor moves with root stake, issuance and the global weight, so
+`btcli subnets emission show` prints the current value. Errors: `ValidatorEmissionAboveMaximum`,
+`ValidatorEmissionTooLowToPreserveRoot`, `EmissionWeightsDoNotSumToOne`.
+
+## Reading and setting
+
+```bash
+btcli subnets emission show --netuid 12          # prints the current floor
+btcli subnets emission decrease --netuid 12 --slot validator --by 0.05
+```
+
+Settable by the subnet owner (once per week per subnet) or root through
+[`set-subnet-emission-weights`](/docs/tx/set-subnet-emission-weights); not
+available on the root subnet.
+
+## Related
+
+- [`owner_emission`](/docs/hyperparameters/owner-emission),
+  [`miner_emission`](/docs/hyperparameters/miner-emission)
+- [Emission weights](/docs/concepts/emission-weights)

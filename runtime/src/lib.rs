@@ -53,7 +53,8 @@ use pallet_subtensor::rpc_info::{
     show_subnet::SubnetState,
     stake_info::{StakeAvailability, StakeInfo},
     subnet_info::{
-        SubnetHyperparams, SubnetHyperparamsV2, SubnetHyperparamsV3, SubnetInfo, SubnetInfov2,
+        SubnetEmissionWeightsInfo, SubnetHyperparams, SubnetHyperparamsV2, SubnetHyperparamsV3,
+        SubnetInfo, SubnetInfov2,
     },
 };
 use pallet_subtensor::{CommitmentsInterface, ProxyInterface};
@@ -1850,6 +1851,15 @@ type Migrations = (
     pallet_subtensor::migrations::migrate_resync_total_stake::resync_total_stake_v2::Migration<
         Runtime,
     >,
+    // Spec 480 (etao): seed every subnet's emission weight vector
+    // `[burn, recycle, owner, validator, miner]` and its accrued owner cut from the legacy
+    // `SubnetOwnerCut` / `OwnerCutEnabled` state, leaving `SubnetTaoWeight` unset so the
+    // subnet keeps reading the global `TaoWeight` and the first post-upgrade block pays
+    // exactly what the last pre-upgrade block did. One-shot, stamped in HasMigrationRun;
+    // try-runtime checks every seeded vector and root-proportion parity.
+    pallet_subtensor::migrations::migrate_seed_subnet_emission_weights::seed_subnet_emission_weights::Migration<
+        Runtime,
+    >,
 );
 
 // Unchecked extrinsic type as expected by this runtime.
@@ -2581,7 +2591,7 @@ impl_runtime_apis! {
         }
     }
 
-    #[api_version(2)]
+    #[api_version(3)]
     impl subtensor_custom_rpc_runtime_api::SubnetInfoRuntimeApi<Block> for Runtime {
         fn get_subnet_info(netuid: NetUid) -> Option<SubnetInfo<AccountId32>> {
             SubtensorModule::get_subnet_info(netuid)
@@ -2669,6 +2679,10 @@ impl_runtime_apis! {
                 Ok(block_emission) => block_emission.into(),
                 Err(_) => TaoBalance::ZERO,
             }
+        }
+
+        fn get_subnet_emission_weights(netuid: NetUid) -> Option<SubnetEmissionWeightsInfo> {
+            SubtensorModule::get_subnet_emission_weights_info(netuid)
         }
     }
 
