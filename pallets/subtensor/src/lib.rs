@@ -3649,7 +3649,8 @@ pub mod pallet {
     }
 
     /// ITEM (Rate limit for subnet emission weight vector updates: once a week at 12 s
-    /// blocks. Root is exempt; a subnet's first call is always allowed.)
+    /// blocks, keyed per subnet. Root is exempt; a subnet's first call is always allowed,
+    /// and dissolution clears the key so a reused netuid starts fresh.)
     #[pallet::type_value]
     pub fn SubnetEmissionWeightsRateLimit<T: Config>() -> u64 {
         prod_or_fast!(50_400, 1)

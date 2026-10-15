@@ -2698,7 +2698,7 @@ pub mod pallet {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin,
                 netuid,
-                &[TransactionType::SetSubnetEmissionWeights],
+                &[Hyperparameter::EmissionWeights.into()],
             )?;
             pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
@@ -2707,7 +2707,7 @@ pub mod pallet {
             pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
                 netuid,
-                &[TransactionType::SetSubnetEmissionWeights],
+                &[Hyperparameter::EmissionWeights.into()],
             );
             Ok(())
         }

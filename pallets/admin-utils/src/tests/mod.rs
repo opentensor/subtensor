@@ -10,7 +10,9 @@ use frame_system::Config;
 use pallet_subtensor::{
     Error as SubtensorError, Event, MaxRegistrationsPerBlock, SubnetOwner,
     TargetRegistrationsPerInterval, Tempo, WeightsVersionKeyRateLimit,
-    subnets::mechanism::MAX_MECHANISM_COUNT_PER_SUBNET, utils::rate_limiting::TransactionType, *,
+    subnets::mechanism::MAX_MECHANISM_COUNT_PER_SUBNET,
+    utils::rate_limiting::{Hyperparameter, TransactionType},
+    *,
 };
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{Get, Pair, U256, ed25519};
@@ -4374,8 +4376,9 @@ fn test_sudo_set_subnet_emission_weights_owner_and_rate_limit() {
             SubtensorModule::get_subnet_emission_weights(netuid).to_vec(),
             values
         );
+        let limit_tx = TransactionType::from(Hyperparameter::EmissionWeights);
         assert_eq!(
-            TransactionType::SetSubnetEmissionWeights.rate_limit::<Test>(),
+            limit_tx.rate_limit_on_subnet::<Test>(netuid),
             SubnetEmissionWeightsRateLimit::<Test>::get()
         );
 
@@ -4402,15 +4405,29 @@ fn test_sudo_set_subnet_emission_weights_owner_and_rate_limit() {
             values2
         );
 
+        // The limit is keyed per subnet, not per owner coldkey: a new owner is still
+        // bound by the previous owner's call.
+        let new_owner = U256::from(1325);
+        SubnetOwner::<Test>::insert(netuid, new_owner);
+        assert_noop!(
+            AdminUtils::sudo_set_subnet_emission_weights(
+                <<Test as Config>::RuntimeOrigin>::signed(new_owner),
+                netuid,
+                uids.clone(),
+                values.clone()
+            ),
+            SubtensorError::<Test>::TxRateLimitExceeded
+        );
+
         // Once the window has passed the owner may call again.
         let limit = SubnetEmissionWeightsRateLimit::<Test>::get();
-        TransactionType::SetSubnetEmissionWeights.set_last_block_on_subnet::<Test>(
-            &owner,
+        limit_tx.set_last_block_on_subnet::<Test>(
+            &new_owner,
             netuid,
             SubtensorModule::get_current_block_as_u64().saturating_sub(limit),
         );
         assert_ok!(AdminUtils::sudo_set_subnet_emission_weights(
-            <<Test as Config>::RuntimeOrigin>::signed(owner),
+            <<Test as Config>::RuntimeOrigin>::signed(new_owner),
             netuid,
             uids,
             values.clone()
@@ -4419,6 +4436,14 @@ fn test_sudo_set_subnet_emission_weights_owner_and_rate_limit() {
             SubtensorModule::get_subnet_emission_weights(netuid).to_vec(),
             values
         );
+
+        // Dissolution clears the per-subnet key, so a reused netuid starts fresh.
+        assert!(limit_tx.last_block_on_subnet::<Test>(&new_owner, netuid) > 0);
+        let mut meter = frame_support::weights::WeightMeter::new();
+        assert!(SubtensorModule::remove_network_parameters(
+            netuid, &mut meter
+        ));
+        assert_eq!(limit_tx.last_block_on_subnet::<Test>(&new_owner, netuid), 0);
     });
 }
 
