@@ -2313,12 +2313,13 @@ pub mod pallet {
         DefaultSubnetEmissionWeights<T>,
     >;
 
-    /// MAP ( netuid ) --> effective TAO weight `w_s` in `u64::MAX` parts. Solved once each
-    /// time the validator slot of [`SubnetEmissionWeights`] changes so root's share of the
-    /// subnet's emission is preserved at that block; never recomputed per block. Consensus
-    /// side only: the pool side keeps using the global [`TaoWeight`]. No entry means the
-    /// subnet has never changed its validator share and follows the global [`TaoWeight`]
-    /// exactly as before per-subnet weights existed (see `get_subnet_tao_weight_parts`).
+    /// MAP ( netuid ) --> effective TAO weight `w_s` in `u64::MAX` parts. Re-solved once on
+    /// every accepted set of [`SubnetEmissionWeights`] so root's share of the subnet's
+    /// emission equals its baseline (default validator share, global [`TaoWeight`]) at that
+    /// block; never recomputed per block. Consensus side only: the pool side keeps using the
+    /// global [`TaoWeight`]. No entry means the subnet's validator share is the default and
+    /// it follows the global [`TaoWeight`] exactly as before per-subnet weights existed (see
+    /// `get_subnet_tao_weight_parts`).
     /// The fallback lives in the getter rather than in a `type_value` default because
     /// storage defaults are evaluated while building the runtime metadata, where no
     /// storage can be read.

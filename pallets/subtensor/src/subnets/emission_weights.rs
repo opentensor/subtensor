@@ -15,12 +15,17 @@
 //! Root holders are paid out of the validator slot in proportion to their
 //! TAO-weighted stake. So that a subnet cannot cut root's income by shrinking
 //! the validator slot, every subnet carries its own effective TAO weight
-//! `w_s` ([`SubnetTaoWeight`]). It starts equal to the global `TaoWeight`.
-//! Whenever the validator share changes, `w_s` is solved **once**, at set
-//! time, so that root's share of the subnet's emission is exactly what it was
-//! the block before; afterwards it is left alone and everything scales with
-//! stake and issuance as usual. The call is rejected when no `w_s ≤ 1` can
-//! preserve root's share.
+//! `w_s` ([`SubnetTaoWeight`]). A subnet with no entry follows the global
+//! `TaoWeight`. Every accepted set re-solves `w_s` **once**, at set time, so
+//! that root's share of the subnet's emission equals a *fresh baseline*: what
+//! root would earn on this subnet at this block with the default validator
+//! share `V0` and the global `TaoWeight` (see
+//! [`Pallet::baseline_root_emission_share`]). The baseline never looks at the
+//! old vector or the old `w_s`, so an owner cannot ratchet root's share up or
+//! down by changing the validator slot in steps. Afterwards `w_s` is left
+//! alone until the next set. Setting the validator share back to `V0` clears
+//! the entry so the subnet follows the global knob again. The call is rejected
+//! when no `w_s ≤ 1` can reach the baseline.
 use super::*;
 use frame_support::{BoundedVec, traits::ConstU32};
 use safe_math::*;
@@ -109,6 +114,19 @@ pub fn solve_tao_weight_for_root_share(
         .checked_div(headroom)?;
     let tao_weight = weighted_root_tao.checked_div(root_tao)?;
     (tao_weight <= U96F32::saturating_from_num(1)).then_some(tao_weight)
+}
+
+/// What an accepted set does to a subnet's [`SubnetTaoWeight`] entry.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum SubnetTaoWeightUpdate {
+    /// Leave the stored entry (or its absence) as it is: there is nothing to
+    /// preserve (no root TAO or no alpha issuance).
+    Keep,
+    /// Remove the entry so the subnet follows the global `TaoWeight` again:
+    /// the validator share is back at the default `V0`.
+    FollowGlobal,
+    /// Freeze this weight (u64 parts) so root's share equals the baseline.
+    Freeze(u64),
 }
 
 /// Snapshot of the storage items behind a subnet's emission weight view, each
@@ -352,6 +370,22 @@ impl<T: Config> Pallet<T> {
         )
     }
 
+    /// Root's *baseline* share of `netuid`'s emission at this block: what root
+    /// would earn with the default validator share `V0`
+    /// ([`Self::default_validator_emission`]) and the global `TaoWeight`,
+    /// `V0 · x_g / (x_g + A)` with `x_g = root_tao · TaoWeight`. This is the
+    /// target every set re-solves `w_s` for. It reads neither the subnet's
+    /// current vector nor its frozen weight, so a sequence of sets cannot move
+    /// root's share away from what an untouched subnet would pay.
+    pub fn baseline_root_emission_share(netuid: NetUid) -> U96F32 {
+        root_emission_share(
+            Self::emission_weight_to_fixed(Self::default_validator_emission()),
+            Self::get_tao_weight(),
+            U96F32::saturating_from_num(Self::get_subnet_tao(NetUid::ROOT)),
+            U96F32::saturating_from_num(Self::get_alpha_issuance(netuid)),
+        )
+    }
+
     // ---------------------------------------------------------------------
     // Writes
     // ---------------------------------------------------------------------
@@ -494,47 +528,44 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// The effective TAO weight `netuid` must store so that root's share of
-    /// emission is unchanged when the validator slot moves from
-    /// `current_validator` to `new_validator`, using live chain values at this
-    /// block. `Ok(None)` means "keep the stored weight": the validator share
-    /// is unchanged, or there is nothing to preserve (no root TAO, no alpha
-    /// issuance, or a validator slot that was zero). Fails with
+    /// What `netuid`'s effective TAO weight must become so that, with the
+    /// validator slot at `new_validator`, root's share of emission equals the
+    /// fresh baseline [`Self::baseline_root_emission_share`] at this block.
+    /// Only `new_validator` and live chain values go in: the old vector and
+    /// the old weight are never consulted, so repeated sets cannot ratchet
+    /// root's share in either direction. `new_validator == V0` clears the
+    /// entry (the solve would land on the global weight anyway); no root TAO
+    /// or no alpha issuance keeps whatever is stored. Fails with
     /// [`Error::ValidatorEmissionTooLowToPreserveRoot`] when `V_new ≤ r` or the
     /// solved weight would exceed one (root TAO never counts more than 1:1).
     pub fn tao_weight_preserving_root(
         netuid: NetUid,
-        current_validator: u64,
         new_validator: u64,
-    ) -> Result<Option<u64>, Error<T>> {
-        if new_validator == current_validator {
-            return Ok(None);
-        }
+    ) -> Result<SubnetTaoWeightUpdate, Error<T>> {
         let root_tao = U96F32::saturating_from_num(Self::get_subnet_tao(NetUid::ROOT));
         let alpha_issuance = U96F32::saturating_from_num(Self::get_alpha_issuance(netuid));
         let zero = U96F32::saturating_from_num(0);
-        if root_tao == zero || alpha_issuance == zero || current_validator == 0 {
-            return Ok(None);
+        if root_tao == zero || alpha_issuance == zero {
+            return Ok(SubnetTaoWeightUpdate::Keep);
         }
-        let root_share = root_emission_share(
-            Self::emission_weight_to_fixed(current_validator),
-            Self::get_subnet_tao_weight(netuid),
-            root_tao,
-            alpha_issuance,
-        );
+        if new_validator == Self::default_validator_emission() {
+            return Ok(SubnetTaoWeightUpdate::FollowGlobal);
+        }
         let tao_weight = solve_tao_weight_for_root_share(
-            root_share,
+            Self::baseline_root_emission_share(netuid),
             Self::emission_weight_to_fixed(new_validator),
             root_tao,
             alpha_issuance,
         )
         .ok_or(Error::<T>::ValidatorEmissionTooLowToPreserveRoot)?;
-        Ok(Some(tao_weight_to_parts(tao_weight)))
+        Ok(SubnetTaoWeightUpdate::Freeze(tao_weight_to_parts(
+            tao_weight,
+        )))
     }
 
-    /// Merge, validate and store a sparse emission weight update, re-solve the
-    /// subnet's effective TAO weight when the validator slot changed, and emit
-    /// [`Event::SubnetEmissionWeightsSet`].
+    /// Merge, validate and store a sparse emission weight update, re-anchor
+    /// the subnet's effective TAO weight to the baseline for the new validator
+    /// slot, and emit [`Event::SubnetEmissionWeightsSet`].
     pub fn do_set_subnet_emission_weights(
         netuid: NetUid,
         uids: Vec<u16>,
@@ -550,21 +581,17 @@ impl<T: Config> Pallet<T> {
         let merged = Self::merge_emission_weight_updates(current, &uids, &values)?;
         Self::validate_subnet_emission_weights(netuid, &merged)?;
 
-        let validator_slot = |weights: &EmissionWeights| {
-            weights
-                .get(EmissionIndex::Validator.position())
-                .copied()
-                .unwrap_or(0)
-        };
-        let tao_weight = Self::tao_weight_preserving_root(
-            netuid,
-            validator_slot(&current),
-            validator_slot(&merged),
-        )?;
+        let new_validator = merged
+            .get(EmissionIndex::Validator.position())
+            .copied()
+            .unwrap_or(0);
+        let tao_weight = Self::tao_weight_preserving_root(netuid, new_validator)?;
 
         SubnetEmissionWeights::<T>::insert(netuid, Self::emission_weights_to_vec(merged));
-        if let Some(parts) = tao_weight {
-            SubnetTaoWeight::<T>::insert(netuid, parts);
+        match tao_weight {
+            SubnetTaoWeightUpdate::Keep => {}
+            SubnetTaoWeightUpdate::FollowGlobal => SubnetTaoWeight::<T>::remove(netuid),
+            SubnetTaoWeightUpdate::Freeze(parts) => SubnetTaoWeight::<T>::insert(netuid, parts),
         }
 
         Self::deposit_event(Event::SubnetEmissionWeightsSet {

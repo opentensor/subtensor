@@ -83,9 +83,9 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
     }
 
     /// Consensus-side root proportion: the same formula with the subnet's
-    /// effective TAO weight `w_s` (`SubnetTaoWeight`), which is re-solved each
-    /// time the validator slot changes so root's share of emission is
-    /// preserved at that block. Used only to carve root's alpha out of the
+    /// effective TAO weight `w_s` (`SubnetTaoWeight`), which is re-solved on
+    /// every accepted emission-weights set so root's share of emission equals
+    /// its baseline at that block. Used only to carve root's alpha out of the
     /// validator slot. Never used on the pool / injection side.
     pub fn consensus_root_proportion(netuid: NetUid) -> U96F32 {
         Self::root_proportion_with_tao_weight(netuid, Self::get_subnet_tao_weight(netuid))

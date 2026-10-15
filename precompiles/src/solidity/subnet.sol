@@ -301,9 +301,10 @@ interface ISubnet {
     /// emission weight vector. `uids` names the slots, `values` their new
     /// shares as `uint64 / type(uint64).max`; omitted slots keep their value.
     /// Rules: burn = 0, recycle = 0, owner <= 33% (lease-created >= 18%),
-    /// validator <= 50%, miner >= 33%, sum = max. Changing the validator share
-    /// re-solves the subnet's effective TAO weight so root's share of emission
-    /// is unchanged; reverts if no weight <= 1 can do that.
+    /// validator <= 50%, miner >= 33%, sum = max. Every set re-solves the
+    /// subnet's effective TAO weight so root's share of emission equals its
+    /// baseline (default validator share, global TaoWeight); reverts if no
+    /// weight <= 1 can do that.
     function setSubnetEmissionWeights(
         uint16 netuid,
         uint16[] calldata uids,

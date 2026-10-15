@@ -68,8 +68,8 @@ sp_api::decl_runtime_apis! {
         fn get_next_epoch_start_block(netuid: NetUid) -> Option<u64>;
         fn get_block_emission() -> TaoBalance;
         /// The subnet's `[burn, recycle, owner, validator, miner]` emission weight
-        /// vector plus the TAO-weight multiplier and effective TAO weight derived
-        /// from it. `None` when the subnet does not exist.
+        /// vector plus its effective TAO weight `w_s`. `None` when the subnet
+        /// does not exist.
         #[api_version(3)]
         fn get_subnet_emission_weights(netuid: NetUid) -> Option<SubnetEmissionWeightsInfo>;
     }

@@ -343,7 +343,8 @@ fn test_set_enforces_leased_subnet_owner_floor() {
 }
 
 // ---------------------------------------------------------------------------
-// Effective TAO weight: solved once at set time so root's share is preserved
+// Effective TAO weight: solved once at set time so root's share equals the
+// fresh baseline (default validator share, global TaoWeight)
 // ---------------------------------------------------------------------------
 
 const TAO: u64 = 1_000_000_000;
@@ -368,10 +369,23 @@ fn root_alpha_for(netuid: NetUid, alpha_out: f64) -> f64 {
 }
 
 /// `r · (1 + A / root_tao)`: the lowest validator share that still admits a
-/// TAO weight `≤ 1`, given root's current share `r`.
+/// TAO weight `≤ 1`, given root's baseline share `r` at this block.
 fn validator_floor_for(netuid: NetUid, root_tao: f64, alpha_issuance: f64) -> f64 {
-    let root_share = SubtensorModule::get_root_emission_share(netuid).to_num::<f64>();
+    let root_share = SubtensorModule::baseline_root_emission_share(netuid).to_num::<f64>();
     root_share * (1.0 + alpha_issuance / root_tao)
+}
+
+/// Root's baseline share from first principles: `V0 · x_g / (x_g + A)` with
+/// `x_g = root_tao · TaoWeight`, independent of anything the subnet stores.
+fn baseline_share(root_tao: f64, alpha_issuance: f64) -> f64 {
+    let v0 = SubtensorModule::default_validator_emission() as f64 / ONE as f64;
+    let weighted = root_tao * SubtensorModule::get_tao_weight().to_num::<f64>();
+    v0 * weighted / (weighted + alpha_issuance)
+}
+
+fn set_validator(netuid: NetUid, owner: u64, validator: u64) -> DispatchResult {
+    let (uids, values) = full_vector(owner, validator);
+    SubtensorModule::do_set_subnet_emission_weights(netuid, uids, values)
 }
 
 #[test]
@@ -395,10 +409,11 @@ fn test_set_emits_full_vector_event() {
 }
 
 #[test]
-fn test_subnet_follows_global_tao_weight_until_validator_share_changes() {
+fn test_subnet_follows_global_tao_weight_until_validator_share_leaves_default() {
     new_test_ext(1).execute_with(|| {
         let netuid = new_subnet();
         let other = add_dynamic_network(&U256::from(3), &U256::from(4));
+        let v0 = SubtensorModule::default_validator_emission();
         SubtensorModule::set_tao_weight(pct(18));
         for subnet in [netuid, other] {
             assert_eq!(
@@ -414,19 +429,13 @@ fn test_subnet_follows_global_tao_weight_until_validator_share_changes() {
             );
         }
 
-        // Touching owner/miner only never writes a per-subnet weight.
-        let (uids, values) = full_vector(pct(10), ONE / 2);
-        assert_ok!(SubtensorModule::do_set_subnet_emission_weights(
-            netuid, uids, values
-        ));
+        // Moving owner/miner while V stays at V0 never writes a per-subnet weight.
+        fund_root_and_issuance(netuid, 1_000_000 * TAO, 1_000_000 * TAO);
+        assert_ok!(set_validator(netuid, pct(10), v0));
         assert!(!SubnetTaoWeight::<Test>::contains_key(netuid));
 
-        // Changing the validator share with root stake present solves and freezes it.
-        fund_root_and_issuance(netuid, 1_000_000 * TAO, 1_000_000 * TAO);
-        let (uids, values) = full_vector(pct(10), pct(40));
-        assert_ok!(SubtensorModule::do_set_subnet_emission_weights(
-            netuid, uids, values
-        ));
+        // Lowering V with root stake present solves and freezes it.
+        assert_ok!(set_validator(netuid, pct(10), pct(40)));
         assert!(SubnetTaoWeight::<Test>::contains_key(netuid));
         let frozen = SubtensorModule::get_subnet_tao_weight_parts(netuid);
         assert!(
@@ -434,17 +443,136 @@ fn test_subnet_follows_global_tao_weight_until_validator_share_changes() {
             "lower V must raise the subnet's TAO weight"
         );
 
-        // A later global change moves the untouched subnet but not the frozen one...
+        // A later global change moves the untouched subnet but not the frozen one.
         SubtensorModule::set_tao_weight(pct(5));
         assert_eq!(SubtensorModule::get_subnet_tao_weight_parts(netuid), frozen);
         assert_eq!(SubtensorModule::get_subnet_tao_weight_parts(other), pct(5));
 
-        // ...and a set that leaves V alone keeps the frozen value too.
-        let (uids, values) = full_vector(pct(20), pct(40));
-        assert_ok!(SubtensorModule::do_set_subnet_emission_weights(
-            netuid, uids, values
-        ));
-        assert_eq!(SubtensorModule::get_subnet_tao_weight_parts(netuid), frozen);
+        // The next set re-anchors to the fresh baseline, even if V is unchanged:
+        // the solve reads only V_new and live chain state, never the old w_s.
+        assert_ok!(set_validator(netuid, pct(20), pct(40)));
+        let reanchored = SubtensorModule::get_subnet_tao_weight_parts(netuid);
+        assert!(reanchored < frozen, "{reanchored} vs {frozen}");
+        assert_abs_diff_eq!(
+            SubtensorModule::get_root_emission_share(netuid).to_num::<f64>(),
+            baseline_share(1_000_000.0 * TAO as f64, 1_000_000.0 * TAO as f64),
+            epsilon = 1e-9
+        );
+    });
+}
+
+/// Setting the validator share back to `V0` clears the frozen weight: the
+/// subnet follows the global `TaoWeight` again, and the solve would have
+/// landed there anyway.
+#[test]
+fn test_setting_default_validator_share_restores_global_tao_weight() {
+    new_test_ext(1).execute_with(|| {
+        InitialSubnetOwnerCut::set(11_796);
+        let netuid = new_subnet();
+        let owner = SubtensorModule::default_owner_emission();
+        let v0 = SubtensorModule::default_validator_emission();
+        SubtensorModule::set_tao_weight(pct(18));
+        let root_tao = 5_443_000 * TAO;
+        let alpha_issuance = fund_root_and_issuance(netuid, root_tao, 6_457_000 * TAO);
+
+        assert_ok!(set_validator(netuid, owner, pct(30)));
+        assert!(SubnetTaoWeight::<Test>::contains_key(netuid));
+        assert_ne!(
+            SubtensorModule::get_subnet_tao_weight_parts(netuid),
+            pct(18)
+        );
+
+        // One part off V0 still solves, and the solution is the global weight.
+        assert_ok!(set_validator(netuid, owner, v0 + 1));
+        assert!(SubnetTaoWeight::<Test>::contains_key(netuid));
+        assert_abs_diff_eq!(
+            SubtensorModule::get_subnet_tao_weight(netuid).to_num::<f64>(),
+            0.18,
+            epsilon = 1e-6
+        );
+
+        // Exactly V0 clears the entry.
+        assert_ok!(set_validator(netuid, owner, v0));
+        assert!(!SubnetTaoWeight::<Test>::contains_key(netuid));
+        assert_eq!(
+            SubtensorModule::get_subnet_tao_weight_parts(netuid),
+            pct(18)
+        );
+        assert_abs_diff_eq!(
+            SubtensorModule::get_root_emission_share(netuid).to_num::<f64>(),
+            baseline_share(root_tao as f64, alpha_issuance),
+            epsilon = 1e-9
+        );
+        SubtensorModule::set_tao_weight(pct(7));
+        assert_eq!(SubtensorModule::get_subnet_tao_weight_parts(netuid), pct(7));
+        InitialSubnetOwnerCut::set(0);
+    });
+}
+
+/// No ratchet in either direction: whatever path the validator share took,
+/// root's share after a set is the baseline at that block, and `w_s` is the
+/// same as on a subnet that made the final change in one step.
+#[test]
+fn test_round_trip_validator_changes_do_not_ratchet_root_share() {
+    new_test_ext(1).execute_with(|| {
+        InitialSubnetOwnerCut::set(11_796);
+        let owner = SubtensorModule::default_owner_emission();
+        SubtensorModule::set_tao_weight(pct(18));
+        let root_tao = 5_443_000 * TAO;
+        let young = 1_000_000 * TAO;
+        let grown = 6_457_000 * TAO;
+
+        // Path A: raise V while young, lower it after issuance grows.
+        // Path B: lower V while young, raise it after issuance grows.
+        // Control: make each final change directly, after issuance grows.
+        let up_then_down = new_subnet();
+        let down_then_up = add_dynamic_network(&U256::from(3), &U256::from(4));
+        let control = add_dynamic_network(&U256::from(5), &U256::from(6));
+        for subnet in [up_then_down, down_then_up, control] {
+            fund_root_and_issuance(subnet, root_tao, young);
+        }
+        assert_ok!(set_validator(up_then_down, owner, pct(45)));
+        assert_ok!(set_validator(down_then_up, owner, pct(30)));
+        for subnet in [up_then_down, down_then_up] {
+            assert_abs_diff_eq!(
+                SubtensorModule::get_root_emission_share(subnet).to_num::<f64>(),
+                baseline_share(root_tao as f64, young as f64),
+                epsilon = 1e-9
+            );
+        }
+
+        for subnet in [up_then_down, down_then_up, control] {
+            fund_root_and_issuance(subnet, root_tao, grown);
+        }
+        let baseline = baseline_share(root_tao as f64, grown as f64);
+        // Between sets the frozen weights drifted away from the baseline...
+        assert!(
+            (SubtensorModule::get_root_emission_share(up_then_down).to_num::<f64>() - baseline)
+                .abs()
+                > 1e-6
+        );
+
+        // ...and the next set snaps both back to it, whatever came before.
+        assert_ok!(set_validator(up_then_down, owner, pct(30)));
+        assert_ok!(set_validator(control, owner, pct(30)));
+        assert_eq!(
+            SubtensorModule::get_subnet_tao_weight_parts(up_then_down),
+            SubtensorModule::get_subnet_tao_weight_parts(control)
+        );
+        assert_ok!(set_validator(down_then_up, owner, pct(45)));
+        assert_ok!(set_validator(control, owner, pct(45)));
+        assert_eq!(
+            SubtensorModule::get_subnet_tao_weight_parts(down_then_up),
+            SubtensorModule::get_subnet_tao_weight_parts(control)
+        );
+        for subnet in [up_then_down, down_then_up, control] {
+            assert_abs_diff_eq!(
+                SubtensorModule::get_root_emission_share(subnet).to_num::<f64>(),
+                baseline,
+                epsilon = 1e-9
+            );
+        }
+        InitialSubnetOwnerCut::set(0);
     });
 }
 
@@ -457,33 +585,31 @@ fn test_set_without_root_stake_keeps_tao_weight_and_accepts_any_share() {
         SubnetAlphaOut::<Test>::insert(netuid, AlphaBalance::from(1_000_000 * TAO));
 
         // Nothing to preserve: even a zero validator slot is accepted and w_s is untouched.
-        let (uids, values) = full_vector(0, 0);
-        assert_ok!(SubtensorModule::do_set_subnet_emission_weights(
-            netuid, uids, values
-        ));
+        assert_ok!(set_validator(netuid, 0, 0));
         assert!(!SubnetTaoWeight::<Test>::contains_key(netuid));
         assert_eq!(
             SubtensorModule::get_subnet_tao_weight_parts(netuid),
             pct(18)
         );
 
-        // Root stake arrives later; coming back from V = 0 there is still nothing to
-        // preserve, so the subnet keeps following the global weight.
+        // Root stake arrives later: the next set anchors to the baseline like any other
+        // (the old V = 0 plays no part in the solve).
         SubnetTAO::<Test>::insert(NetUid::ROOT, TaoBalance::from(1_000_000 * TAO));
-        let (uids, values) = full_vector(0, pct(40));
-        assert_ok!(SubtensorModule::do_set_subnet_emission_weights(
-            netuid, uids, values
-        ));
-        assert!(!SubnetTaoWeight::<Test>::contains_key(netuid));
+        let issuance = SubtensorModule::get_alpha_issuance(netuid).to_u64() as f64;
+        assert_ok!(set_validator(netuid, 0, pct(40)));
+        assert!(SubnetTaoWeight::<Test>::contains_key(netuid));
+        assert_abs_diff_eq!(
+            SubtensorModule::get_root_emission_share(netuid).to_num::<f64>(),
+            baseline_share(1_000_000.0 * TAO as f64, issuance),
+            epsilon = 1e-9
+        );
 
         // No alpha issuance at all: the root proportion is weight-independent, keep w_s.
         let issuance = fund_root_and_issuance(netuid, 1_000_000 * TAO, 0);
         assert_eq!(issuance, 0.0);
-        let (uids, values) = full_vector(0, pct(30));
-        assert_ok!(SubtensorModule::do_set_subnet_emission_weights(
-            netuid, uids, values
-        ));
-        assert!(!SubnetTaoWeight::<Test>::contains_key(netuid));
+        let before = SubtensorModule::get_subnet_tao_weight_parts(netuid);
+        assert_ok!(set_validator(netuid, 0, pct(30)));
+        assert_eq!(SubtensorModule::get_subnet_tao_weight_parts(netuid), before);
     });
 }
 
