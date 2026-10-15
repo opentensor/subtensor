@@ -281,6 +281,7 @@ NAME_TO_CODE: dict[str, ErrorCode] = {
     "AutoEpochAlreadyImminent": _C.ALREADY_EXISTS,
     "DynamicTempoBlockedByCommitReveal": _C.DISABLED,
     "AccountRejectsLockedAlpha": _C.POLICY_VIOLATION,
+    "AccountRejectsStakingHotkeyGrowth": _C.POLICY_VIOLATION,
     # ── Utility ─────────────────────────────────────────────────────────
     "TooManyCalls": _C.LIMIT_EXCEEDED,
     "InvalidDerivedAccount": _C.INVALID_ARGUMENT,
@@ -367,6 +368,7 @@ NAME_TO_CODE: dict[str, ErrorCode] = {
     "GasPriceTooLow": _C.INVALID_ARGUMENT,
     "InvalidNonce": _C.INVALID_ARGUMENT,
     "GasLimitTooLow": _C.INVALID_ARGUMENT,
+    "AuthorizationListTooLarge": _C.LIMIT_EXCEEDED,
     "GasLimitTooHigh": _C.INVALID_ARGUMENT,
     "InvalidChainId": _C.INVALID_ARGUMENT,
     "Reentrancy": _C.INTERNAL,

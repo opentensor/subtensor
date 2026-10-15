@@ -1274,7 +1274,7 @@ impl pallet_evm::Config for Runtime {
     type Timestamp = Timestamp;
     type WeightInfo = pallet_evm::weights::SubstrateWeight<Self>;
     type BalanceConverter = SubtensorEvmBalanceConverter;
-    type AccountProvider = pallet_evm::FrameSystemAccountProvider<Self>;
+    type AccountProvider = pallet_evm::NoncePreservingAccountProvider<Self>;
     type GasLimitStorageGrowthRatio = ();
     type CreateOriginFilter = ();
     type CreateInnerOriginFilter = ();

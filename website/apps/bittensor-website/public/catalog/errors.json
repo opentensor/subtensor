@@ -129,6 +129,24 @@
         }
       ]
     },
+    "AccountRejectsStakingHotkeyGrowth": {
+      "code": "policy_violation",
+      "description": "The receiving coldkey opted out of staking-list growth caused by other accounts. Transfer onto a hotkey the receiver already lists or owns, or have the receiver voluntarily establish the destination through its own staking action. Contracts can check getRejectStakingHotkeyGrowth before transferring to avoid a refused precompile call.",
+      "docs_url": "/docs/errors/chain/AccountRejectsStakingHotkeyGrowth",
+      "markdown_url": "/llms.mdx/docs/errors/chain/AccountRejectsStakingHotkeyGrowth/content.md",
+      "pallets": [
+        "SubtensorModule"
+      ],
+      "sources": [
+        {
+          "pallet": "SubtensorModule",
+          "path": "pallets/subtensor/src/macros/errors.rs",
+          "line": 418,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L418",
+          "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
+        }
+      ]
+    },
     "ActiveLockExists": {
       "code": "already_exists",
       "description": "The destination coldkey already holds a lock with nonzero locked mass on that subnet, so a new or transferred lock cannot be created there. Inspect the `Lock` storage for the (coldkey, netuid, hotkey) triple and wait for the existing lock to unlock or remove it first.",
@@ -415,6 +433,15 @@
           "url": "/code/pallets/limit-orders/src/lib.rs#L445",
           "raw_url": "/code/raw/pallets/limit-orders/src/lib.rs"
         }
+      ]
+    },
+    "AuthorizationListTooLarge": {
+      "code": "limit_exceeded",
+      "description": "The EIP-7702 authorization list exceeds the maximum of 255 entries. Split the authorizations across transactions; oversized lists are rejected before signature recovery.",
+      "docs_url": "/docs/errors/chain/AuthorizationListTooLarge",
+      "markdown_url": "/llms.mdx/docs/errors/chain/AuthorizationListTooLarge/content.md",
+      "pallets": [
+        "EVM"
       ]
     },
     "AutoEpochAlreadyImminent": {
@@ -762,8 +789,8 @@
         {
           "pallet": "SubtensorModule",
           "path": "pallets/subtensor/src/macros/errors.rs",
-          "line": 430,
-          "url": "/code/pallets/subtensor/src/macros/errors.rs#L430",
+          "line": 432,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L432",
           "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
         }
       ]
@@ -1813,8 +1840,8 @@
         {
           "pallet": "SubtensorModule",
           "path": "pallets/subtensor/src/macros/errors.rs",
-          "line": 424,
-          "url": "/code/pallets/subtensor/src/macros/errors.rs#L424",
+          "line": 426,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L426",
           "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
         }
       ]
@@ -1831,8 +1858,8 @@
         {
           "pallet": "SubtensorModule",
           "path": "pallets/subtensor/src/macros/errors.rs",
-          "line": 422,
-          "url": "/code/pallets/subtensor/src/macros/errors.rs#L422",
+          "line": 424,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L424",
           "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
         }
       ]
@@ -1849,8 +1876,8 @@
         {
           "pallet": "SubtensorModule",
           "path": "pallets/subtensor/src/macros/errors.rs",
-          "line": 428,
-          "url": "/code/pallets/subtensor/src/macros/errors.rs#L428",
+          "line": 430,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L430",
           "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
         }
       ]
@@ -1867,8 +1894,8 @@
         {
           "pallet": "SubtensorModule",
           "path": "pallets/subtensor/src/macros/errors.rs",
-          "line": 419,
-          "url": "/code/pallets/subtensor/src/macros/errors.rs#L419",
+          "line": 421,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L421",
           "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
         }
       ]
@@ -1885,8 +1912,8 @@
         {
           "pallet": "SubtensorModule",
           "path": "pallets/subtensor/src/macros/errors.rs",
-          "line": 455,
-          "url": "/code/pallets/subtensor/src/macros/errors.rs#L455",
+          "line": 457,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L457",
           "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
         }
       ]
@@ -3181,8 +3208,8 @@
         {
           "pallet": "SubtensorModule",
           "path": "pallets/subtensor/src/macros/errors.rs",
-          "line": 439,
-          "url": "/code/pallets/subtensor/src/macros/errors.rs#L439",
+          "line": 441,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L441",
           "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
         }
       ]
@@ -3612,8 +3639,8 @@
         {
           "pallet": "SubtensorModule",
           "path": "pallets/subtensor/src/macros/errors.rs",
-          "line": 453,
-          "url": "/code/pallets/subtensor/src/macros/errors.rs#L453",
+          "line": 455,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L455",
           "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
         }
       ]
@@ -4531,8 +4558,8 @@
         {
           "pallet": "SubtensorModule",
           "path": "pallets/subtensor/src/macros/errors.rs",
-          "line": 435,
-          "url": "/code/pallets/subtensor/src/macros/errors.rs#L435",
+          "line": 437,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L437",
           "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
         }
       ]
@@ -4747,8 +4774,8 @@
         {
           "pallet": "SubtensorModule",
           "path": "pallets/subtensor/src/macros/errors.rs",
-          "line": 432,
-          "url": "/code/pallets/subtensor/src/macros/errors.rs#L432",
+          "line": 434,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L434",
           "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
         }
       ]
@@ -6197,8 +6224,8 @@
         {
           "pallet": "SubtensorModule",
           "path": "pallets/subtensor/src/macros/errors.rs",
-          "line": 442,
-          "url": "/code/pallets/subtensor/src/macros/errors.rs#L442",
+          "line": 444,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L444",
           "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
         }
       ]
@@ -6215,8 +6242,8 @@
         {
           "pallet": "SubtensorModule",
           "path": "pallets/subtensor/src/macros/errors.rs",
-          "line": 450,
-          "url": "/code/pallets/subtensor/src/macros/errors.rs#L450",
+          "line": 452,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L452",
           "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
         }
       ]

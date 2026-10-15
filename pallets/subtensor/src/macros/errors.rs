@@ -414,6 +414,8 @@ mod errors {
         CommitPayloadTooLarge,
         /// The subnet's shared Null timelock queue has reached its byte or count budget.
         CommitQueueFull,
+        /// The recipient refuses a new staking hotkey introduced by another account.
+        AccountRejectsStakingHotkeyGrowth,
         /// `set_subnet_emission_weights`: `uids` and `values` must have the same length;
         /// each uid names the slot the matching value sets.
         EmissionWeightsLengthMismatch,
