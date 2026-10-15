@@ -2883,17 +2883,25 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         /// Declared weight for `sudo_trim_to_max_allowed_uids`, including a force-payout
         /// envelope per UID that may be deleted when shrinking from a full subnet.
+        ///
+        /// Null admits at most [`NULL_PRUNING_BATCH`] deletions per call (larger
+        /// shrinks use `sudo_trim_null_uids_batch`). Yuma may delete up to
+        /// `DefaultMaxAllowedUids - max_n` in one extrinsic.
         pub fn sudo_trim_to_max_allowed_uids_weight(netuid: NetUid, max_n: u16) -> Weight {
-            let base = if pallet_subtensor::Pallet::<T>::get_epoch_consensus(netuid)
-                == pallet_subtensor::EpochConsensus::Null
-            {
+            let is_null = pallet_subtensor::Pallet::<T>::get_epoch_consensus(netuid)
+                == pallet_subtensor::EpochConsensus::Null;
+            let base = if is_null {
                 <T as Config>::WeightInfo::sudo_trim_null_uids_batch()
                     .max(<T as Config>::WeightInfo::sudo_trim_null_uids_batch_many_mechanisms())
             } else {
                 <T as Config>::WeightInfo::sudo_trim_to_max_allowed_uids()
             };
-            let removals = u32::from(pallet_subtensor::DefaultMaxAllowedUids::<T>::get())
-                .saturating_sub(u32::from(max_n));
+            let removals = if is_null {
+                u32::from(pallet_subtensor::subnets::uids::NULL_PRUNING_BATCH)
+            } else {
+                u32::from(pallet_subtensor::DefaultMaxAllowedUids::<T>::get())
+                    .saturating_sub(u32::from(max_n))
+            };
             base.saturating_add(T::DbWeight::get().reads(1))
                 .saturating_add(pallet_subtensor::Pallet::<T>::trim_pending_payout_weight(
                     removals,
