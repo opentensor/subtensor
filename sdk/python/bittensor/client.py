@@ -52,6 +52,7 @@ from .namespaces import (
 from .result import BittensorError, ChainError, ExtrinsicResult
 from .settings import (
     DEFAULT_NETWORK,
+    MEV_SHIELD_ERA_PERIOD,
     default_archive_endpoints,
     default_fallback_endpoints,
     explorer_block_url,
@@ -463,9 +464,11 @@ class Client:
             proxy_type=proxy_type,
         )
 
-    async def estimate_shielded_carrier_fee(self, fee_payer: str) -> Balance:
-        """Conservatively estimate the TAO fee of a MevShield carrier."""
-        return await estimate_shielded_carrier_fee(self._substrate, fee_payer)
+    async def estimate_shielded_carrier_fee(
+        self, fee_payer: str, call: Any, *, period: int = MEV_SHIELD_ERA_PERIOD
+    ) -> Balance:
+        """Quote a carrier for a composed call (for example, ``plan.call``), without signing."""
+        return await estimate_shielded_carrier_fee(self._substrate, fee_payer, call, period=period)
 
     async def plan(self, intent: Intent, wallet: WalletLike, **kwargs) -> Plan:
         """Preview an intent (fee, effects, warnings, policy) without submitting.

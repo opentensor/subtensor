@@ -482,22 +482,25 @@ fn unified_registration_preserves_scheme_policy_and_account_identity() {
         );
         assert_eq!(Balances::reserved_balance(sponsor()), 10);
 
-        // ML-DSA has its own activation policy and deposit, even through the
-        // same dispatchable. The enum tag cannot change either account ID.
+        // ML-DSA subgates cannot override the master switch. Each scheme
+        // retains its deposit and account ID through the same dispatchable.
         Enabled::set(false);
         assert_ok!(HashedAccounts::set_mldsa_enabled(
             RuntimeOrigin::root(),
             true,
             true,
         ));
+        for descriptor in [classical.into(), mldsa.into()] {
+            assert_noop!(
+                HashedAccounts::register(RuntimeOrigin::signed(sponsor()), descriptor),
+                Error::<Test>::Disabled,
+            );
+        }
+        Enabled::set(true);
         assert_ok!(HashedAccounts::register(
             RuntimeOrigin::signed(sponsor()),
             mldsa.into(),
         ));
-        assert_noop!(
-            HashedAccounts::register(RuntimeOrigin::signed(sponsor()), classical.into()),
-            Error::<Test>::Disabled,
-        );
         assert_eq!(Balances::reserved_balance(sponsor()), 30);
         assert_eq!(
             Accounts::<Test>::get(&classical_account)

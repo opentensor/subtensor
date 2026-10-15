@@ -835,6 +835,7 @@ fn setup_pq_benchmark_graph(marker: &AccountId) -> Result<AccountId, DispatchErr
         initial_commitment: subtensor_hashed::v2::commitment(&public),
     };
     let leaf = AccountId::new(subtensor_hashed::v2::account_id(&descriptor));
+    pallet_admin_utils::HashedAccountsEnabled::<Runtime>::put(true);
     pallet_hashed_accounts::V2RegistrationEnabled::<Runtime>::put(true);
     pallet_hashed_accounts::V2AuthorizationEnabled::<Runtime>::put(true);
     pallet_hashed_accounts::V2Records::<Runtime>::insert(
@@ -967,6 +968,7 @@ pub(crate) fn setup_pq_benchmark_parent(account: &AccountId) -> DispatchResult {
         algorithm: 4,
         initial_commitment: [7; 64],
     };
+    pallet_admin_utils::HashedAccountsEnabled::<Runtime>::put(true);
     pallet_hashed_accounts::V2RegistrationEnabled::<Runtime>::put(true);
     pallet_hashed_accounts::V2AuthorizationEnabled::<Runtime>::put(true);
     pallet_hashed_accounts::V2Records::<Runtime>::insert(

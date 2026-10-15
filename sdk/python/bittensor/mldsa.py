@@ -74,7 +74,9 @@ async def message_capability(substrate, owner: str, audience: bytes) -> MessageC
     if not block_hash:
         raise ValueError("finalized block hash is unavailable")
     if (
-        await substrate.query("HashedAccounts", "V2AuthorizationEnabled", block_hash=block_hash)
+        await substrate.query("AdminUtils", "HashedAccountsEnabled", block_hash=block_hash)
+        is not True
+        or await substrate.query("HashedAccounts", "V2AuthorizationEnabled", block_hash=block_hash)
         is not True
     ):
         raise ValueError("ML-DSA authorization is disabled")

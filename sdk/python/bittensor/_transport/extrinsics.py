@@ -54,6 +54,19 @@ IMMORTAL = "00"
 HASHED_PROOF_LENGTH = 136
 MLDSA_PROOF_LENGTH = 5367
 
+# Shield wire: key hash + KEM length + ML-KEM-768 ciphertext + XChaCha nonce + AEAD tag.
+SHIELD_ENCRYPTION_OVERHEAD = 16 + 2 + 1088 + 24 + 16
+MAX_SHIELDED_CIPHERTEXT_BYTES = 32768
+
+
+def shielded_ciphertext_size(extrinsic_size: int) -> int:
+    size = extrinsic_size + SHIELD_ENCRYPTION_OVERHEAD
+    if size > MAX_SHIELDED_CIPHERTEXT_BYTES:
+        raise ValueError(
+            f"encrypted transaction exceeds the {MAX_SHIELDED_CIPHERTEXT_BYTES}-byte carrier limit"
+        )
+    return size
+
 
 def hashed_proof_length(crypto_type: int) -> int:
     if crypto_type in MLDSA_CRYPTO_TYPES:

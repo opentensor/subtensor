@@ -465,3 +465,55 @@ def test_fixed_profile_rejects_absent_or_malformed_advertisements(profiles):
     from bittensor.mldsa import supports_fixed_profile
 
     assert not supports_fixed_profile(profiles)
+
+
+async def test_master_switch_blocks_ms_signing_and_receiving_despite_subgates(wallet):
+    conn, codec, _ = connection(wallet)
+    old_constant = codec.constant
+    codec.constant = lambda pallet, name: None if name == "Enabled" else old_constant(pallet, name)
+    original = conn.query.side_effect
+
+    async def query(pallet, item, params=None, *, block_hash):
+        if (pallet, item) == ("AdminUtils", "HashedAccountsEnabled"):
+            assert block_hash == "0xfinalized"
+            return False
+        return await original(pallet, item, params, block_hash=block_hash)
+
+    conn.query.side_effect = query
+    with pytest.raises(SubstrateRequestException, match="not enabled"):
+        await conn.create_signed_extrinsic(b"call", wallet)
+    assert not hasattr(codec, "proof")
+    substrate = chain()
+    substrate.seed_constant("HashedAccounts", "Enabled", None)
+    substrate.seed("AdminUtils", "HashedAccountsEnabled", [], False)
+    substrate.seed("HashedAccounts", "V2Records", [wallet.ss58_address], record(wallet))
+    with pytest.raises(ValueError, match="not supported"):
+        await prepare_recipient_intent(
+            substrate, Transfer(dest_ss58=receiving_address(wallet), amount_tao=1)
+        )
+
+
+@pytest.mark.parametrize("crypto", [4, 6, 7, 8])
+async def test_shield_quote_counts_complete_registered_envelope_without_signing(crypto):
+    from bittensor._transport.extrinsics import SHIELD_ENCRYPTION_OVERHEAD
+
+    wallet = key(crypto)
+    conn, codec, _ = connection(wallet)
+    if crypto in (4, 6):
+        conn.get_chain_head = AsyncMock(return_value="0xfinalized")
+    call = b"private shield call"
+    public = Keypair.from_hashed_descriptor(bytes(wallet.hashed_descriptor))
+    conn.compose_call = AsyncMock(return_value=b"carrier")
+    conn.get_payment_info = AsyncMock(return_value={"partial_fee": 17})
+    await conn.get_shielded_payment_info(call, public, period=8)
+    quoted_proof = codec.proof
+    # The fixture codec emits call bytes plus the entire proof. Compare to the
+    # real native signature/proof, not a hand-picked maximum transaction size.
+    assert len(quoted_proof) == hashed_proof_length(crypto)
+    assert bytes(wallet.at_generation(7).hashed_public_key) not in quoted_proof
+    actual = await conn.create_signed_extrinsic(
+        call, wallet, nonce=14, era={"period": 8}, hashed_generation_offset=1
+    )
+    ciphertext = conn.compose_call.call_args.args[2]["ciphertext"]
+    assert len(ciphertext) == len(actual.data) + SHIELD_ENCRYPTION_OVERHEAD
+    assert conn.get_payment_info.call_args.kwargs == {"nonce": 13, "era": {"period": 8}}

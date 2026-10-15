@@ -1292,6 +1292,17 @@ mod composable_accounts {
                 Signature::Ed25519(signature),
                 extra,
             );
+            let before = HashedAccounts::accounts(&account);
+            frame_support::assert_ok!(AdminUtils::sudo_set_hashed_accounts_enabled(
+                RuntimeOrigin::root(),
+                false
+            ));
+            assert!(Executive::apply_extrinsic(xt.clone()).is_err());
+            assert_eq!(HashedAccounts::accounts(&account), before);
+            frame_support::assert_ok!(AdminUtils::sudo_set_hashed_accounts_enabled(
+                RuntimeOrigin::root(),
+                true
+            ));
             frame_support::assert_ok!(Executive::apply_extrinsic(xt.clone()).unwrap());
             let record = HashedAccounts::accounts(&account).unwrap();
             assert_eq!(record.generation, 1);

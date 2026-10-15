@@ -198,6 +198,7 @@ impl<T: Config> Pallet<T> {
         sponsor: &AccountId32,
         descriptor: subtensor_hashed::v2::Descriptor,
     ) -> DispatchResult {
+        ensure!(T::Enabled::get(), Error::<T>::Disabled);
         ensure!(descriptor.is_supported(), Error::<T>::UnsupportedDescriptor);
         let account = AccountId32::new(subtensor_hashed::v2::account_id(&descriptor));
         if let Some(record) = V2Records::<T>::get(&account) {
@@ -367,6 +368,7 @@ impl<T: Config> Pallet<T> {
         deposit_payer: &AccountId32,
         descriptor: DerivedDescriptor,
     ) -> DispatchResult {
+        ensure!(T::Enabled::get(), Error::<T>::Disabled);
         let account = descriptor.account_id();
         if let Some(record) = DerivedAuthorities::<T>::get(&account) {
             ensure!(
@@ -411,6 +413,7 @@ impl<T: Config> Pallet<T> {
         generation: u64,
         next_commitment: [u8; 64],
     ) -> Result<ValidatedProofV2, DispatchError> {
+        ensure!(T::Enabled::get(), Error::<T>::Disabled);
         ensure!(V2AuthorizationEnabled::<T>::get(), Error::<T>::Disabled);
         let record = V2Records::<T>::get(account).ok_or(Error::<T>::NotRegistered)?;
         ensure!(
@@ -443,6 +446,7 @@ impl<T: Config> Pallet<T> {
 
     /// Consume in transaction-extension preparation, outside inner-call rollback.
     pub fn advance_v2(validated: &ValidatedProofV2) -> DispatchResult {
+        ensure!(T::Enabled::get(), Error::<T>::Disabled);
         ensure!(V2AuthorizationEnabled::<T>::get(), Error::<T>::Disabled);
         let generation = validated
             .generation

@@ -22,7 +22,13 @@ fn profile(identity: u8) -> u8 {
 pub(super) fn with_profiles(test: impl Fn()) {
     for profiles in [(4, 4), (5, 5), (4, 5)] {
         TestAccountProfiles::set(profiles);
-        ext().execute_with(&test);
+        ext().execute_with(|| {
+            assert_ok!(AdminUtils::sudo_set_hashed_accounts_enabled(
+                RuntimeOrigin::root(),
+                true
+            ));
+            test();
+        });
     }
     TestAccountProfiles::set((4, 4));
 }
@@ -48,6 +54,10 @@ pub(super) fn descriptor(identity: u8) -> v2::Descriptor {
 
 pub(super) fn register(identity: u8) -> AccountId {
     System::set_block_number(1);
+    assert_ok!(AdminUtils::sudo_set_hashed_accounts_enabled(
+        RuntimeOrigin::root(),
+        true
+    ));
     hashed_auth::TestVerificationWeight::set(Weight::from_parts(10_000_000, 0));
     assert_ok!(HashedAccounts::set_mldsa_enabled(
         RuntimeOrigin::root(),
@@ -197,6 +207,63 @@ fn included_dispatch_error_rotates_but_disabled_and_overweight_do_not() {
         hashed_auth::TestVerificationWeight::set(Weight::from_parts(10_000_000, 0));
         assert!(Executive::apply_extrinsic(tx).unwrap().is_err());
         assert_eq!(V2Records::<Runtime>::get(account).unwrap().generation, 1);
+    });
+}
+
+#[test]
+fn admin_master_switch_pauses_ms_but_ordinary_sr_ed_transfers_still_execute() {
+    with_profiles(|| {
+        let account = register(44);
+        let tx = sign(44, call());
+        let before = V2Records::<Runtime>::get(&account);
+        let nonce = System::account_nonce(&account);
+        let balance = Balances::free_balance(&account);
+        assert_ok!(AdminUtils::sudo_set_hashed_accounts_enabled(
+            RuntimeOrigin::root(),
+            false
+        ));
+        // The two subordinate switches remain on and cannot override AdminUtils.
+        assert!(HashedAccounts::v2_registration_enabled());
+        assert!(HashedAccounts::v2_authorization_enabled());
+        assert!(Executive::apply_extrinsic(tx.clone()).is_err());
+        assert_eq!(V2Records::<Runtime>::get(&account), before);
+        assert_eq!(System::account_nonce(&account), nonce);
+        assert_eq!(Balances::free_balance(&account), balance);
+        let recipient = AccountId::new([98; 32]);
+        let transfer = RuntimeCall::Balances(BalancesCall::transfer_keep_alive {
+            dest: recipient.clone().into(),
+            value: TaoBalance::new(1_000_000_000),
+        });
+        let sr = pair(90);
+        let _ = Balances::make_free_balance_be(
+            &AccountId::from(sr.public()),
+            TaoBalance::new(1_000_000_000_000),
+        );
+        assert_ok!(Executive::apply_extrinsic(legacy(&sr, transfer.clone())).unwrap());
+        let ed = sp_core::ed25519::Pair::from_seed(&[91; 32]);
+        let who = AccountId::from(ed.public());
+        let _ = Balances::make_free_balance_be(&who, TaoBalance::new(1_000_000_000_000));
+        let extra = extra(System::account_nonce(&who));
+        let signature = SignedPayload::new(transfer.clone(), extra.clone())
+            .unwrap()
+            .using_encoded(|m| ed.sign(m));
+        let ordinary = UncheckedExtrinsic::new_signed(
+            transfer,
+            who.into(),
+            Signature::Ed25519(signature),
+            extra,
+        );
+        assert_ok!(Executive::apply_extrinsic(ordinary).unwrap());
+        assert_eq!(
+            Balances::free_balance(recipient),
+            TaoBalance::new(2_000_000_000)
+        );
+        assert_ok!(AdminUtils::sudo_set_hashed_accounts_enabled(
+            RuntimeOrigin::root(),
+            true
+        ));
+        assert_ok!(Executive::apply_extrinsic(tx).unwrap());
+        assert_eq!(V2Records::<Runtime>::get(&account).unwrap().generation, 1);
     });
 }
 

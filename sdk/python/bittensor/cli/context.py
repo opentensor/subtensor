@@ -1123,7 +1123,14 @@ class AppContext:
             if fee_payer is not None:
 
                 async def _shield_fee_preflight(client):
-                    return await self._shield_outer_fee_shortfall(client, fee_payer)
+                    return await self._shield_outer_fee_shortfall(
+                        client,
+                        fee_payer,
+                        intent=intent,
+                        wallet=wallet,
+                        proxy_for=proxy_for,
+                        proxy_type=force_proxy_type,
+                    )
 
                 shortfall = self.run(_shield_fee_preflight)
                 if shortfall is not None:
@@ -1257,7 +1264,9 @@ class AppContext:
                 )
 
                 async def _shield_fee_warning(client):
-                    return await self._shield_outer_fee_shortfall(client, plan.signer_address)
+                    return await self._shield_outer_fee_shortfall(
+                        client, plan.signer_address, call=plan.call
+                    )
 
                 shortfall = self.run(_shield_fee_warning)
                 if shortfall is not None:
@@ -1534,7 +1543,9 @@ class AppContext:
                 except Exception:
                     fee_payer = None
                 shortfall = (
-                    await self._shield_outer_fee_shortfall(client, fee_payer)
+                    await self._shield_outer_fee_shortfall(
+                        client, fee_payer, intent=intent, wallet=signer, **options
+                    )
                     if fee_payer is not None
                     else None
                 )
@@ -1942,7 +1953,15 @@ class AppContext:
         return result
 
     async def _shield_outer_fee_shortfall(
-        self, client: Client, fee_payer_ss58: str
+        self,
+        client: Client,
+        fee_payer_ss58: str,
+        *,
+        call=None,
+        intent=None,
+        wallet=None,
+        proxy_for=None,
+        proxy_type=None,
     ) -> Optional[str]:
         """Warning text when free TAO cannot cover a MevShield carrier fee.
 
@@ -1952,7 +1971,10 @@ class AppContext:
         """
         try:
             free = await client.balances.get(fee_payer_ss58)
-            fee = await client.estimate_shielded_carrier_fee(fee_payer_ss58)
+            if call is None:
+                plan = await client.plan(intent, wallet, proxy_for=proxy_for, proxy_type=proxy_type)
+                call = plan.call
+            fee = await client.estimate_shielded_carrier_fee(fee_payer_ss58, call)
         except Exception:
             # Best-effort: if we only know free is zero, that is enough to warn.
             try:

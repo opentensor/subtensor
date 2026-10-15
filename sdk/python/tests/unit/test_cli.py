@@ -463,6 +463,43 @@ class TestRoot:
 
 
 class TestTransactions:
+    @pytest.mark.parametrize("mode", ["default", "forced", "required"])
+    def test_affordable_small_carrier_keeps_default_and_forced_shield(
+        self, fake, monkeypatch, mode
+    ):
+        # Free TAO covers the measured small tier, but not the Weight::MAX tier.
+        # No hashed/ML-DSA activation is needed for this ordinary wallet.
+        fake.seed_default("System", "Account", {"data": {"free": 1000}})
+        fake.seed("AdminUtils", "HashedAccountsEnabled", [], False)
+        fake.seed("HashedAccounts", "V2AuthorizationEnabled", [], False)
+        fake.mev_key = bytes(1184)
+        fake.seed("MevShield", "NextKey", [], fake.mev_key)
+        sizes = []
+
+        async def estimate(call, keypair):
+            if call.module == "MevShield":
+                size = len(call.params["ciphertext"])
+                sizes.append(size)
+                return Balance.from_rao(17 if size <= 8192 else 10**18)
+            return Balance.from_rao(17)
+
+        monkeypatch.setattr(fake, "estimate_fee", estimate)
+        if mode == "required":
+            monkeypatch.setattr(REGISTRY["unstake_all"], "mev_shield_required", True)
+        result = invoke(
+            "--json",
+            "--yes",
+            *(["--mev-shield"] if mode == "forced" else []),
+            "stake",
+            "unstake-all",
+            "--hotkey",
+            BOB,
+        )
+        assert result.exit_code == 0, result.output
+        assert sizes and all(size <= 8192 for size in sizes)
+        assert (fake.last_call.module, fake.last_call.function) == ("MevShield", "submit_encrypted")
+        assert len(fake.last_call.params["ciphertext"]) == sizes[-1]
+
     @pytest.mark.parametrize("flag", ["--signer", "--key"])
     @pytest.mark.parametrize("role", ["coldkey", "hotkey"])
     def test_raw_call_selects_key_role(self, fake, wallet_dir, flag, role):

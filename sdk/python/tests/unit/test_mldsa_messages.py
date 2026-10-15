@@ -161,6 +161,7 @@ async def test_finalized_capability_rejects_revocation_expiry_and_wrong_audience
         epoch = 1
         expiry = 1000
         enabled = True
+        master_enabled = True
 
         async def finalized_block_number(self):
             return 900
@@ -170,6 +171,8 @@ async def test_finalized_capability_rejects_revocation_expiry_and_wrong_audience
 
         async def query(self, module, name, params=None, block_hash=None):
             assert block_hash == "0x" + (bytes([4]) * 32).hex()
+            if name == "HashedAccountsEnabled":
+                return self.master_enabled
             if name == "V2AuthorizationEnabled":
                 return self.enabled
             if name == "CapabilityEpochs":
@@ -183,6 +186,10 @@ async def test_finalized_capability_rejects_revocation_expiry_and_wrong_audience
             }
 
     chain = Chain()
+    chain.master_enabled = False
+    with pytest.raises(ValueError, match="authorization is disabled"):
+        await message_capability(chain, key.ss58_address, b"test-server")
+    chain.master_enabled = True
     assert await message_capability(chain, key.ss58_address, b"test-server") == capability
     with pytest.raises(ValueError, match="audience"):
         await message_capability(chain, key.ss58_address, b"wrong")

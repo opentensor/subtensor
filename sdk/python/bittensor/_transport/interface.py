@@ -36,6 +36,7 @@ from .extrinsics import (
     NonceCache,
     hashed_proof_length,
     resolve_outcome,
+    shielded_ciphertext_size,
     watch_status_block,
 )
 from .extrinsics import attach_signature as _attach_signature
@@ -605,6 +606,7 @@ class SubstrateConnection:
         if not block_hash:
             raise SubstrateRequestException("could not resolve hashed authority block")
         mldsa = keypair.crypto_type in MLDSA_CRYPTO_TYPES
+        enabled = True
         codec = await self._runtimes.codec_at(block_hash)
         if mldsa:
             if codec.constant("HashedAccounts", "V2RegistrationDeposit") is None:
@@ -618,13 +620,12 @@ class SubstrateConnection:
             enabled = await self.query(
                 "HashedAccounts", "V2AuthorizationEnabled", block_hash=block_hash
             )
-        else:
-            enabled = codec.constant("HashedAccounts", "Enabled")
-            if not isinstance(enabled, bool):
-                enabled = await self.query(
-                    "AdminUtils", "HashedAccountsEnabled", block_hash=block_hash
-                )
-        if enabled is not True:
+        master_enabled = codec.constant("HashedAccounts", "Enabled")
+        if not isinstance(master_enabled, bool):
+            master_enabled = await self.query(
+                "AdminUtils", "HashedAccountsEnabled", block_hash=block_hash
+            )
+        if master_enabled is not True or (mldsa and enabled is not True):
             raise SubstrateRequestException("hashed accounts are not enabled on this chain")
         state, account = await asyncio.gather(
             self.query(
@@ -977,11 +978,37 @@ class SubstrateConnection:
             error_message=outcome["error_message"],
         )
 
-    async def get_payment_info(self, call: Any, keypair: Keypair) -> dict:
-        """Fee/weight estimation for a call (no valid signature required)."""
+    async def get_shielded_payment_info(self, call: Any, keypair: Keypair, *, period: int) -> dict:
+        """Quote the real carrier tier without signing or disclosing the inner call.
+
+        Dummy proofs have the complete signing envelope's size for every scheme.
+        Shield uses the next nonce for the inner transaction and a mortal era for
+        both envelopes. Only a zero-filled carrier is sent to the fee RPC.
+        """
         nonce = await self._nonces.next_for(keypair.ss58_address, use_cache=False)
+        era = {"period": period}
+        inner = await self.sign_without_nonce_tracking(
+            call, keypair, nonce=nonce + 1, era=era, signature=bytes(64)
+        )
+        size = shielded_ciphertext_size(len(inner.data))
+        outer = await self.compose_call(
+            "MevShield", "submit_encrypted", {"ciphertext": bytes(size)}
+        )
+        return await self.get_payment_info(outer, keypair, nonce=nonce, era=era)
+
+    async def get_payment_info(
+        self,
+        call: Any,
+        keypair: Keypair,
+        *,
+        nonce: Optional[int] = None,
+        era: Optional[dict | str] = None,
+    ) -> dict:
+        """Fee/weight estimation for a call (no valid signature required)."""
+        if nonce is None:
+            nonce = await self._nonces.next_for(keypair.ss58_address, use_cache=False)
         extrinsic = await self.sign_without_nonce_tracking(
-            call, keypair, nonce=nonce, signature=b"\x00" * 64
+            call, keypair, nonce=nonce, era=era, signature=b"\x00" * 64
         )
         codec = await self._runtimes.codec_at(None)
         length = len(extrinsic.data)

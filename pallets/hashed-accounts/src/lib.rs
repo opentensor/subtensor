@@ -161,7 +161,8 @@ pub mod pallet {
         type V2RegistrationDeposit: Get<BalanceOf<Self>>;
         #[pallet::constant]
         type DerivedRegistrationDeposit: Get<BalanceOf<Self>>;
-        /// Current registration and authorization switch, read from runtime storage.
+        /// Master registration and authorization switch for all hashed and ML-DSA accounts.
+        /// Permanent identity and authority protections survive disabling it.
         type Enabled: Get<bool>;
         type OnRegister: OnRegister;
         type WeightInfo: WeightInfo;
@@ -190,10 +191,12 @@ pub mod pallet {
     pub type DerivedAuthorities<T: Config> =
         StorageMap<_, Blake2_128Concat, AccountId32, DerivedAuthorityRecord>;
 
+    /// Additional ML-DSA registration gate, subordinate to `Config::Enabled`.
     #[pallet::storage]
     #[pallet::getter(fn v2_registration_enabled)]
     pub type V2RegistrationEnabled<T: Config> = StorageValue<_, bool, ValueQuery>;
 
+    /// Additional ML-DSA authorization gate, subordinate to `Config::Enabled`.
     #[pallet::storage]
     #[pallet::getter(fn v2_authorization_enabled)]
     pub type V2AuthorizationEnabled<T: Config> = StorageValue<_, bool, ValueQuery>;
@@ -420,6 +423,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
             let account = descriptor.account_id();
+            ensure!(T::Enabled::get(), Error::<T>::Disabled);
             let record = DerivedAuthorities::<T>::get(account).ok_or(Error::<T>::NotRegistered)?;
             ensure!(
                 record.descriptor == descriptor,
@@ -511,6 +515,7 @@ pub mod pallet {
         fn do_check_registered_mldsa65(
             descriptor: subtensor_hashed::v2::Descriptor,
         ) -> DispatchResult {
+            ensure!(T::Enabled::get(), Error::<T>::Disabled);
             ensure!(descriptor.is_supported(), Error::<T>::UnsupportedDescriptor);
             let account = AccountId32::new(subtensor_hashed::v2::account_id(&descriptor));
             let record = V2Records::<T>::get(account).ok_or(Error::<T>::NotRegistered)?;

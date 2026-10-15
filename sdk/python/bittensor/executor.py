@@ -23,6 +23,7 @@ from ._generated import calls as generated_calls
 from ._pinned import pinned_inputs
 from ._substrate import Substrate
 from ._transport.contract import UnsignedExtrinsic
+from ._transport.extrinsics import MAX_SHIELDED_CIPHERTEXT_BYTES
 from ._transport.utils.receipt import nested_dispatch_error
 from .balance import Balance
 from .fee_filters import COLDKEY_FEE_WARNING, charges_coldkey_fee
@@ -65,11 +66,6 @@ _TRANSIENT_SUBSTRINGS = (
     "stale",
 )
 
-# Runtime metadata bounds MevShield.submit_encrypted ciphertexts to 32768 bytes.
-# Pricing the bound is conservative by only the length-fee delta and avoids
-# asking a signer for the inner signature merely to learn the carrier size.
-_MAX_SHIELDED_CIPHERTEXT_BYTES = 32768
-
 # Allow transient RPC/head lag while keeping both shielded-receipt polling
 # phases bounded by the inner extrinsic's mortal era.
 _SHIELDED_POLL_ATTEMPTS_PER_BLOCK = 4
@@ -86,8 +82,10 @@ class _FeeAddressView:
         self.public_key = bytes(ss58_decode(address))
 
 
-async def estimate_shielded_carrier_fee(substrate: Substrate, fee_payer: str) -> Balance:
-    """Conservatively estimate the outer MevShield carrier's TAO fee."""
+async def estimate_shielded_carrier_fee(
+    substrate: Substrate, fee_payer: str, call: Any, *, period: int = MEV_SHIELD_ERA_PERIOD
+) -> Balance:
+    """Estimate the outer fee from the actual inner call, without private-key access."""
     public = _FeeAddressView(fee_payer)
     if (
         await hashed_accounts_enabled(substrate) is True
@@ -98,14 +96,8 @@ async def estimate_shielded_carrier_fee(substrate: Substrate, fee_payer: str) ->
             public = Keypair.from_hashed_descriptor(descriptor_bytes(record["descriptor"]))
             if public.ss58_address != fee_payer:
                 raise ValueError("registered hashed descriptor does not match the fee payer")
-    outer = await substrate.compose(
-        generated_calls.Call(
-            "MevShield",
-            "submit_encrypted",
-            {"ciphertext": bytes(_MAX_SHIELDED_CIPHERTEXT_BYTES)},
-        )
-    )
-    return await substrate.estimate_fee(outer, public)
+    call = await substrate.compose(call)
+    return await substrate.estimate_shielded_carrier_fee(call, public, period=period)
 
 
 def _is_transient(result: ExtrinsicResult) -> bool:
@@ -1116,6 +1108,8 @@ class Executor:
                 carrier_fee = await estimate_shielded_carrier_fee(
                     self.substrate,
                     fee_payer,
+                    call,
+                    period=period,
                 )
             except Exception as error:
                 blocks.append(
@@ -1209,7 +1203,7 @@ class Executor:
             call, keypair, **inner_options
         )
         ciphertext = _core.encrypt_mlkem768(pubkey, inner_bytes, include_key_hash=True)
-        limit = _MAX_SHIELDED_CIPHERTEXT_BYTES
+        limit = MAX_SHIELDED_CIPHERTEXT_BYTES
         if len(ciphertext) > limit:
             raise ValueError(f"encrypted transaction exceeds the {limit}-byte carrier limit")
         outer = await self.substrate.compose(

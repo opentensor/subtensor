@@ -210,6 +210,10 @@ class Substrate(Protocol):
         """Estimate the fee for a call without submitting it (no signature needed)."""
         ...
 
+    async def estimate_shielded_carrier_fee(self, call, keypair, *, period: int) -> Balance:
+        """Quote a carrier sized from the inner call and complete signing envelope."""
+        ...
+
     async def estimate_weight(self, call, keypair) -> dict:
         """The dispatch weight ``{ref_time, proof_size}`` of a call."""
         ...
@@ -600,6 +604,13 @@ class RpcSubstrate:
     async def estimate_fee(self, call, keypair) -> Balance:
         """Estimate the fee for a call without submitting it (no signature needed)."""
         info = await self._read(lambda raw: raw.get_payment_info(call, keypair))
+        fee = info.get("partial_fee", info.get("partialFee", 0))
+        return Balance.from_rao(int(fee))
+
+    async def estimate_shielded_carrier_fee(self, call, keypair, *, period: int) -> Balance:
+        info = await self._read(
+            lambda raw: raw.get_shielded_payment_info(call, keypair, period=period)
+        )
         fee = info.get("partial_fee", info.get("partialFee", 0))
         return Balance.from_rao(int(fee))
 

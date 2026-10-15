@@ -631,7 +631,9 @@ async def test_shield_fee_estimate_uses_complete_hashed_authorization():
     substrate.seed_constant("HashedAccounts", "Enabled", True)
     substrate.seed("HashedAccounts", "Accounts", [key.ss58_address], _record(key, 7))
     substrate.estimate_fee = AsyncMock(return_value=substrate.fee)
-    await estimate_shielded_carrier_fee(substrate, key.ss58_address)
+    await estimate_shielded_carrier_fee(
+        substrate, key.ss58_address, ("System", "remark", {"remark": b"test"})
+    )
     signer = substrate.estimate_fee.call_args.args[1]
     assert signer.crypto_type == CRYPTO_HASHED
     assert signer.ss58_address == key.ss58_address

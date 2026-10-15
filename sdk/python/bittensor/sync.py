@@ -23,7 +23,7 @@ from ._substrate import Substrate
 from .client import BlockHeader, Client
 from .intents import Policy
 from .namespaces import NAMESPACES
-from .settings import DEFAULT_NETWORK
+from .settings import DEFAULT_NETWORK, MEV_SHIELD_ERA_PERIOD
 from .snapshot import Snapshot
 
 _NAMESPACES = tuple(NAMESPACES)
@@ -461,8 +461,10 @@ class SyncClient:
             )
         )
 
-    def estimate_shielded_carrier_fee(self, fee_payer):
-        return self._call(self._client.estimate_shielded_carrier_fee(fee_payer))
+    def estimate_shielded_carrier_fee(self, fee_payer, call, *, period=MEV_SHIELD_ERA_PERIOD):
+        return self._call(
+            self._client.estimate_shielded_carrier_fee(fee_payer, call, period=period)
+        )
 
     def plan(self, intent, wallet, **kwargs):
         return self._call(self._client.plan(intent, wallet, **kwargs))

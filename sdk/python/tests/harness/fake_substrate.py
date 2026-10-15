@@ -329,6 +329,18 @@ class FakeSubstrate:
     async def estimate_fee(self, call, keypair) -> Balance:
         return self.fee
 
+    async def estimate_shielded_carrier_fee(self, call, keypair, *, period: int) -> Balance:
+        from bittensor._transport.extrinsics import shielded_ciphertext_size
+
+        # Mirror this fake's sign_extrinsic representation without asking a signer.
+        inner = repr((call, keypair.ss58_address, self._nonces[keypair.ss58_address] + 1)).encode()
+        carrier = ComposedCall(
+            "MevShield",
+            "submit_encrypted",
+            {"ciphertext": bytes(shielded_ciphertext_size(len(inner)))},
+        )
+        return await self.estimate_fee(carrier, keypair)
+
     async def estimate_weight(self, call, keypair) -> dict:
         return dict(self.weight)
 

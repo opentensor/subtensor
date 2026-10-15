@@ -58,6 +58,9 @@ fn setup(
         SubtensorModule::create_account_if_non_existent(&intermediary, &hotkey).unwrap();
         let _ = Balances::make_free_balance_be(&intermediary, TaoBalance::new(1_000_000_000));
         pallet_limit_orders::LimitOrdersEnabled::<Runtime>::put(true);
+        node_subtensor_runtime::AdminUtils::sudo_set_hashed_accounts_enabled(
+            node_subtensor_runtime::RuntimeOrigin::root(), true,
+        ).unwrap();
         pallet_hashed_accounts::V2AuthorizationEnabled::<Runtime>::put(true);
         ActiveCapabilities::<Runtime>::insert(
             owner,

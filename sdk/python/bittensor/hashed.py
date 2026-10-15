@@ -137,6 +137,8 @@ async def multisig_protection_call(
 
     if await substrate.constant("HashedAccounts", "V2RegistrationDeposit") is None:
         raise ValueError("quantum-resistant derived accounts are not supported on this chain")
+    if await hashed_accounts_enabled(substrate) is not True:
+        raise ValueError("hashed accounts are not enabled on this chain")
     members = sorted({bytes(ss58_decode(parse_recipient(s).account)) for s in signatories})
     if not 2 <= len(members) <= 100 or not 1 <= threshold <= len(members):
         raise ValueError("invalid protected multisig threshold or signatory count")
@@ -180,13 +182,16 @@ async def descriptor_registration_enabled(substrate, descriptor: bytes, *, block
         profiles = await substrate.constant("HashedAccounts", "MldsaAccountProfiles")
         if not supports_fixed_profile(profiles):
             return None
+    master = await hashed_accounts_enabled(substrate, block_hash=block_hash)
+    if master is not True:
+        return master
     return await substrate.query("HashedAccounts", "V2RegistrationEnabled", block_hash=block_hash)
 
 
 async def _require_receiving_support(substrate, descriptor: bytes):
     enabled = await descriptor_registration_enabled(substrate, descriptor)
-    # V2's setup switch cannot disable payments to permanent registrations.
-    if enabled is None or (descriptor[0] == 1 and enabled is not True):
+    # The registration subgate permits existing records; the master gate does not.
+    if enabled is None or await hashed_accounts_enabled(substrate) is not True:
         raise ValueError("hashed receiving addresses are not supported on this chain")
 
 

@@ -163,6 +163,22 @@ fn aggregate_capability_failure_reverts_real_assets_fees_reserves_and_order_stat
 
         let mut mixed = unified_orders(batch);
         mixed.try_insert(0, classical.clone()).unwrap();
+        assert_ok!(AdminUtils::sudo_set_hashed_accounts_enabled(
+            RuntimeOrigin::root(),
+            false
+        ));
+        assert_noop!(
+            LimitOrders::execute_batched_orders(
+                RuntimeOrigin::signed(relayer.clone()),
+                netuid,
+                mixed.clone()
+            ),
+            pallet_hashed_accounts::Error::<Runtime>::Disabled
+        );
+        assert_ok!(AdminUtils::sudo_set_hashed_accounts_enabled(
+            RuntimeOrigin::root(),
+            true
+        ));
         // Each order fits individually; only the post-fill aggregate counter
         // fails. assert_noop also checks the entire storage root, covering real
         // balances, issuance, reserves, share pools, events and linked state.

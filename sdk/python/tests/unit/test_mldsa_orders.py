@@ -64,6 +64,7 @@ class OrderSubstrate(FakeSubstrate):
 
 def chain(key):
     substrate = OrderSubstrate()
+    substrate.seed("AdminUtils", "HashedAccountsEnabled", [], True)
     substrate.seed("HashedAccounts", "V2AuthorizationEnabled", [], True)
     substrate.seed("HashedAccounts", "CapabilityEpochs", [key.ss58_address, "Order"], 3)
     record = {
@@ -473,3 +474,10 @@ async def test_order_fee_registration_fails_closed_without_finalized_hash():
     with pytest.raises(ValueError, match="could not verify finalized"):
         await prepare_order(chain, 1, value)
     chain.query.assert_not_called()
+
+
+async def test_master_switch_blocks_order_capabilities_despite_ms_subgate(wallet):
+    substrate, _ = chain(wallet)
+    substrate.seed("AdminUtils", "HashedAccountsEnabled", [], False)
+    with pytest.raises(ValueError, match="authorization is disabled"):
+        await order_capability(substrate, wallet.ss58_address)

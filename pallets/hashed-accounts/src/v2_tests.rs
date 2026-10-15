@@ -26,6 +26,114 @@ fn activate() {
     ));
 }
 
+#[test]
+fn master_switch_gates_every_ms_profile_and_preserves_state_for_resume() {
+    for algorithm in [
+        subtensor_hashed::v2::ALGORITHM,
+        subtensor_hashed::v2::FIXED_ALGORITHM,
+    ] {
+        new_test_ext().execute_with(|| {
+            activate();
+            let (mut descriptor, _, public) = fixture(2);
+            descriptor.algorithm = algorithm;
+            let account = AccountId32::new(subtensor_hashed::v2::account_id(&descriptor));
+            let next = if algorithm == subtensor_hashed::v2::FIXED_ALGORITHM {
+                descriptor.initial_commitment
+            } else {
+                [9; 64]
+            };
+            let register =
+                || HashedAccounts::register(RuntimeOrigin::signed(sponsor()), descriptor.into());
+            crate::tests::Enabled::set(false);
+            assert_noop!(register(), Error::<Test>::Disabled);
+            assert!(!V2Records::<Test>::contains_key(&account));
+            crate::tests::Enabled::set(true);
+            assert_ok!(register());
+            let derived = DerivedDescriptor::Derivative {
+                parent: account.clone(),
+                index: 1,
+            };
+            assert_ok!(HashedAccounts::register_derived_with_sponsor(
+                &sponsor(),
+                derived.clone()
+            ));
+            let authorize =
+                || HashedAccounts::check_authorization_v2(&account, algorithm, &public, 0, next);
+            let ticket = authorize().unwrap();
+            assert_ok!(HashedAccounts::do_install_capability(
+                &account,
+                1,
+                descriptor.initial_commitment,
+                10,
+                trading_scope()
+            ));
+            let before = V2Records::<Test>::get(&account);
+            let derived_before = DerivedAuthorities::<Test>::get(derived.account_id());
+            crate::tests::Enabled::set(false);
+            // Even Root's ML-DSA subgates cannot override the master switch.
+            activate();
+            assert_noop!(register(), Error::<Test>::Disabled);
+            assert_noop!(authorize(), Error::<Test>::Disabled);
+            // A ticket validated before a toggle must fail during preparation.
+            assert_noop!(HashedAccounts::advance_v2(&ticket), Error::<Test>::Disabled);
+            assert_noop!(
+                HashedAccounts::check_registered(
+                    RuntimeOrigin::signed(sponsor()),
+                    descriptor.into()
+                ),
+                Error::<Test>::Disabled
+            );
+            assert_noop!(
+                HashedAccounts::register_derived_with_sponsor(&sponsor(), derived.clone()),
+                Error::<Test>::Disabled
+            );
+            assert_noop!(
+                HashedAccounts::register_derived_with_sponsor(
+                    &sponsor(),
+                    DerivedDescriptor::Derivative {
+                        parent: account.clone(),
+                        index: 2
+                    }
+                ),
+                Error::<Test>::Disabled
+            );
+            assert_noop!(
+                HashedAccounts::check_derived(RuntimeOrigin::signed(sponsor()), derived.clone()),
+                Error::<Test>::Disabled
+            );
+            assert_noop!(
+                HashedAccounts::do_install_capability(&account, 2, [5; 64], 10, trading_scope()),
+                Error::<Test>::Disabled
+            );
+            assert_noop!(
+                HashedAccounts::checked_capability(&account, CapabilityRole::Order, 1, &public),
+                Error::<Test>::Disabled
+            );
+            assert_eq!(V2Records::<Test>::get(&account), before);
+            assert_eq!(
+                DerivedAuthorities::<Test>::get(derived.account_id()),
+                derived_before
+            );
+            for protected in [&account, &derived.account_id()] {
+                assert!(HashedAccounts::is_protected(protected));
+                assert_eq!(
+                    EvmAliases::<Test>::get(HashedAccounts::evm_alias(protected)),
+                    Some(protected.clone())
+                );
+            }
+            // Revocation only removes authority and remains available during a pause.
+            assert_ok!(HashedAccounts::do_revoke_capability(
+                &account,
+                CapabilityRole::Order
+            ));
+            crate::tests::Enabled::set(true);
+            assert_ok!(authorize());
+            assert_ok!(HashedAccounts::advance_v2(&ticket));
+            assert_eq!(V2Records::<Test>::get(&account).unwrap().generation, 1);
+        });
+    }
+}
+
 fn register(byte: u8) -> AccountId32 {
     let (descriptor, account, _) = fixture(byte);
     assert_ok!(HashedAccounts::register(
@@ -397,8 +505,7 @@ fn capabilities_require_protected_owner_and_have_independent_monotonic_epochs() 
             ),
             Error::<Test>::NotRegistered
         );
-        // V1's independent switch does not pause v2 account capabilities.
-        crate::tests::Enabled::set(false);
+
         assert_ok!(HashedAccounts::install_capability(
             RuntimeOrigin::signed(owner.clone()),
             1,

@@ -1,7 +1,11 @@
 //! Owner-issued purpose keys. Epoch tombstones survive revocation and reaping.
 
 use crate::*;
-use frame_support::{BoundedVec, ensure, traits::ConstU32, transactional};
+use frame_support::{
+    BoundedVec, ensure,
+    traits::{ConstU32, Get},
+    transactional,
+};
 use sp_runtime::traits::SaturatedConversion;
 
 #[derive(
@@ -100,6 +104,7 @@ impl<T: Config> Pallet<T> {
         expires_at: u64,
         scope: CapabilityScope,
     ) -> DispatchResult {
+        ensure!(T::Enabled::get(), Error::<T>::Disabled);
         ensure!(V2AuthorizationEnabled::<T>::get(), Error::<T>::Disabled);
         ensure!(
             Self::authority_meets(owner, SecurityFloor::PqRequired),
@@ -162,6 +167,7 @@ impl<T: Config> Pallet<T> {
         epoch: u64,
         public_key: &subtensor_hashed::v2::PublicKeyBytes,
     ) -> Result<CapabilityRecord, sp_runtime::DispatchError> {
+        ensure!(T::Enabled::get(), Error::<T>::Disabled);
         ensure!(V2AuthorizationEnabled::<T>::get(), Error::<T>::Disabled);
         let record =
             ActiveCapabilities::<T>::get(owner, role).ok_or(Error::<T>::CapabilityMissing)?;
