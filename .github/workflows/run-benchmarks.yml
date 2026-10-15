@@ -121,7 +121,7 @@ jobs:
       # LTO link; a mismatched host function would fail instantiation loudly.
       - name: Restore benchmark node
         id: node
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: .bench-node
           key: benchmark-node-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', 'node/**') }}
@@ -141,6 +141,14 @@ jobs:
             cp target/production/node-subtensor .bench-node/node-subtensor
           fi
           cargo build --locked --profile production -p subtensor-weight-tools --bin weight-compare
+
+      # Saved before measuring so a failed measurement does not discard the build.
+      - name: Save benchmark node
+        if: steps.node.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: .bench-node
+          key: ${{ steps.node.outputs.cache-primary-key }}
 
       - name: Measure
         id: run
@@ -166,6 +174,7 @@ jobs:
           name: bench-patch
           path: .bench_patch/
           if-no-files-found: error
+          include-hidden-files: true
 
   apply:
     name: commit measured weights
