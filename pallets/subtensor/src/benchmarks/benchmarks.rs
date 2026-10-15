@@ -3275,16 +3275,46 @@ mod pallet_benchmarks {
             );
         }
 
+        // A single-subnet split visits full delegator lists without allowing them
+        // to refuse the validator's rename. Exercise retained and moving positions,
+        // including opt-outs, with the same incident position count as swap_hotkey.
+        for i in 0..1_273 {
+            let staker: T::AccountId = account("split_staker", i, 9);
+            for netuid in [NetUid::from(1), NetUid::from(2)] {
+                Subtensor::<T>::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                    &old_hotkey,
+                    &staker,
+                    netuid,
+                    1_000_000u64.into(),
+                );
+            }
+            let length = if i % 3 == 0 {
+                crate::MAX_THIRD_PARTY_STAKING_HOTKEYS.saturating_sub(1)
+            } else {
+                crate::MAX_THIRD_PARTY_STAKING_HOTKEYS
+            };
+            let mut hotkeys = vec![old_hotkey.clone()];
+            hotkeys.extend((0..length.saturating_sub(1)).map(|j| account("split_list", j, 10)));
+            StakingHotkeys::<T>::insert(&staker, hotkeys);
+            if i % 3 == 2 {
+                AccountFlags::<T>::insert(
+                    &staker,
+                    crate::ACCOUNT_FLAGS_REJECT_STAKING_HOTKEY_GROWTH,
+                );
+            }
+        }
+
         Owner::<T>::insert(&old_hotkey, &coldkey);
-        let cost = Subtensor::<T>::get_key_swap_cost();
-        add_balance_to_coldkey_account::<T>(&coldkey, cost.into());
+        let cost = T::KeySwapOnSubnetCost::get();
+        let ed = <T as pallet_balances::Config>::ExistentialDeposit::get();
+        add_balance_to_coldkey_account::<T>(&coldkey, cost + ed);
 
         #[extrinsic_call]
         _(
             RawOrigin::Signed(coldkey.clone()),
             old_hotkey,
             new_hotkey,
-            None,
+            Some(NetUid::from(1)),
             false,
         );
     }
@@ -3465,6 +3495,17 @@ mod pallet_benchmarks {
 
         #[extrinsic_call]
         _(RawOrigin::Signed(coldkey.clone()), true);
+    }
+
+    #[benchmark]
+    fn set_reject_staking_hotkey_growth() {
+        let coldkey: T::AccountId = whitelisted_caller();
+        AccountFlags::<T>::insert(&coldkey, crate::ACCOUNT_FLAGS_ACCEPT_LOCKED_ALPHA);
+        #[extrinsic_call]
+        _(RawOrigin::Signed(coldkey.clone()), true);
+        assert!(Subtensor::<T>::account_rejects_staking_hotkey_growth(
+            &coldkey
+        ));
     }
 
     impl_benchmark_test_suite!(

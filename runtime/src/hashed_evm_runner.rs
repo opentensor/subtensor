@@ -66,7 +66,9 @@ mod tests {
         // alias lookup would panic. Oversized lists must fail before that scan.
         let item = authorization();
         for count in [256, 4096] {
-            assert_guarded(check_authorizations(&alloc::vec![item.clone(); count]));
+            let error = check_authorizations(&alloc::vec![item.clone(); count]).unwrap_err();
+            assert!(matches!(error.error, Error::AuthorizationListTooLarge));
+            assert_eq!(error.weight, Weight::zero());
         }
         assert!(check_authorization_list_size(255).is_ok());
     }

@@ -10,7 +10,9 @@ use node_subtensor_runtime::{
     Balances, BuildStorage, EVM, Runtime, RuntimeCall, RuntimeGenesisConfig, RuntimeOrigin, System,
     evm_origin,
 };
-use pallet_evm::{AddressMapping, EnsureAddressOrigin, FeeCalculator, runner::Runner};
+use pallet_evm::{
+    AccountProvider, AddressMapping, EnsureAddressOrigin, FeeCalculator, runner::Runner,
+};
 use sp_core::{H160, H256, Pair, U256, ecdsa};
 use sp_runtime::{
     AccountId32, DispatchError, traits::BlakeTwo256, transaction_validity::InvalidTransaction,
@@ -19,6 +21,19 @@ use subtensor_runtime_common::TaoBalance;
 
 type EvmRunner = <Runtime as pallet_evm::Config>::Runner;
 type Mapping = <Runtime as pallet_evm::Config>::AddressMapping;
+
+// Extra persistent-nonce reads in account checks, plus the transaction's
+// nonce increment. Keep these separate from hashed address-mapping charges.
+fn nonce_access_weight(account_checks: u64) -> u64 {
+    type Provider = <Runtime as pallet_evm::Config>::AccountProvider;
+    let (reads, writes) = Provider::extra_nonce_write_counts();
+    <Runtime as frame_system::Config>::DbWeight::get()
+        .reads_writes(
+            reads.saturating_add(account_checks.saturating_mul(Provider::extra_nonce_reads())),
+            writes,
+        )
+        .ref_time()
+}
 
 fn ext() -> sp_io::TestExternalities {
     let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig::default()
@@ -316,7 +331,7 @@ fn ethereum_authorization_limit_is_checked_before_authority_recovery() {
                     .unwrap()
                     .unwrap_err()
                     .error,
-                pallet_evm::Error::<Runtime>::Undefined.into()
+                pallet_evm::Error::<Runtime>::AuthorizationListTooLarge.into()
             );
         }
         assert_eq!(System::account(&owner), before);
@@ -326,6 +341,7 @@ fn ethereum_authorization_limit_is_checked_before_authority_recovery() {
         list.push(item);
         let call = delegated_ethereum_call(list);
         let signer = call.check_self_contained().unwrap().unwrap();
+        fund(&Mapping::into_account_id(signer));
         assert_eq!(
             call.validate_self_contained(&signer, &call.get_dispatch_info(), call.encoded_size())
                 .unwrap(),
@@ -462,7 +478,7 @@ fn third_party_7702_authorities_are_blocked_at_validation_and_all_execution_entr
                 Vec::new(),
                 U256::zero(),
                 200_000,
-                None,
+                Some(<Runtime as pallet_evm::Config>::FeeCalculator::min_gas_price().0),
                 None,
                 None,
                 Vec::new(),
@@ -481,7 +497,7 @@ fn third_party_7702_authorities_are_blocked_at_validation_and_all_execution_entr
                 H256::zero(),
                 U256::zero(),
                 200_000,
-                None,
+                Some(<Runtime as pallet_evm::Config>::FeeCalculator::min_gas_price().0),
                 None,
                 None,
                 Vec::new(),
@@ -597,7 +613,7 @@ fn mapping_charges_preserve_the_recipient_call_stipend() {
                 // the charge must neither omit it nor charge it twice.
                 assert_eq!(
                     result.weight_info.unwrap().ref_time_usage.unwrap(),
-                    12 * Mapping::extra_read_weight().ref_time()
+                    12 * Mapping::extra_read_weight().ref_time() + nonce_access_weight(6)
                 );
             });
         }
@@ -809,7 +825,7 @@ fn unchanged_mapping_precompile_returns_registered_owner_and_charges_its_lookup(
         // Nine prepaid reads (including transfer), one precompile mapping.
         assert_eq!(
             result.weight_info.unwrap().ref_time_usage.unwrap(),
-            10 * Mapping::extra_read_weight().ref_time()
+            10 * Mapping::extra_read_weight().ref_time() + nonce_access_weight(3)
         );
     });
 }

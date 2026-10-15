@@ -5,6 +5,7 @@ use pallet_alpha_assets::AlphaAssetsInterface;
 use safe_math::FixedExt;
 use scale_info::TypeInfo;
 use sp_std::collections::btree_map::BTreeMap;
+use sp_std::collections::btree_set::BTreeSet;
 use sp_std::ops::Neg;
 use substrate_fixed::transcendental::exp;
 use substrate_fixed::types::{I64F64, U64F64};
@@ -1551,7 +1552,12 @@ impl<T: Config> Pallet<T> {
     /// Conviction is not reset because the hotkey ownership does not change, it's still
     /// the same hotkey owner who will own the new hotkey.
     pub fn swap_hotkey_locks(old_hotkey: &T::AccountId, new_hotkey: &T::AccountId) -> (u64, u64) {
-        Self::swap_hotkey_locks_for_netuids(old_hotkey, new_hotkey, Self::get_all_subnet_netuids())
+        Self::swap_hotkey_locks_for_netuids(
+            old_hotkey,
+            new_hotkey,
+            Self::get_all_subnet_netuids(),
+            &BTreeSet::new(),
+        )
     }
 
     /// Swap locks made to the old_hotkey to new_hotkey on one netuid.
@@ -1560,13 +1566,23 @@ impl<T: Config> Pallet<T> {
         new_hotkey: &T::AccountId,
         netuid: NetUid,
     ) -> (u64, u64) {
-        Self::swap_hotkey_locks_for_netuids(old_hotkey, new_hotkey, vec![netuid])
+        Self::swap_hotkey_locks_on_subnet_except(old_hotkey, new_hotkey, netuid, &BTreeSet::new())
+    }
+
+    pub(crate) fn swap_hotkey_locks_on_subnet_except(
+        old_hotkey: &T::AccountId,
+        new_hotkey: &T::AccountId,
+        netuid: NetUid,
+        retained: &BTreeSet<T::AccountId>,
+    ) -> (u64, u64) {
+        Self::swap_hotkey_locks_for_netuids(old_hotkey, new_hotkey, vec![netuid], retained)
     }
 
     fn swap_hotkey_locks_for_netuids(
         old_hotkey: &T::AccountId,
         new_hotkey: &T::AccountId,
         netuids: Vec<NetUid>,
+        retained: &BTreeSet<T::AccountId>,
     ) -> (u64, u64) {
         let mut locks_to_transfer: Vec<(T::AccountId, NetUid, LockState)> = Vec::new();
         let mut netuids_to_transfer: Vec<(NetUid, bool, bool)> = Vec::new();
@@ -1614,6 +1630,7 @@ impl<T: Config> Pallet<T> {
             }
         }
 
+        let mut retained_locks = Vec::new();
         for (coldkey, netuid, lock) in locks_to_transfer {
             let now = Self::get_current_block_as_u64();
             let unlock_rate = UnlockRate::<T>::get();
@@ -1634,6 +1651,20 @@ impl<T: Config> Pallet<T> {
                 perpetual_lock,
             )
             .0;
+            if retained.contains(&coldkey) {
+                Self::reduce_aggregate_lock(
+                    &coldkey,
+                    old_hotkey,
+                    netuid,
+                    rolled.locked_mass,
+                    rolled.conviction,
+                );
+                Self::insert_lock_state(&coldkey, netuid, old_hotkey, rolled.clone());
+                retained_locks.push((netuid, perpetual_lock, rolled));
+                reads = reads.saturating_add(8);
+                writes = writes.saturating_add(3);
+                continue;
+            }
             let moved = ConvictionModel::roll_forward_lock(
                 rolled,
                 now,
@@ -1765,6 +1796,23 @@ impl<T: Config> Pallet<T> {
                 }
             }
             writes = writes.saturating_add(6);
+        }
+        // Aggregate identity follows the validator; only the withheld individual
+        // positions contribute to the old hotkey after the swap.
+        for (netuid, perpetual, lock) in retained_locks {
+            if perpetual {
+                let merged = HotkeyLock::<T>::get(netuid, old_hotkey)
+                    .map(|current| ConvictionModel::merge_lock(&current, &lock))
+                    .unwrap_or(lock);
+                Self::insert_hotkey_lock_state(netuid, old_hotkey, merged);
+            } else {
+                let merged = DecayingHotkeyLock::<T>::get(netuid, old_hotkey)
+                    .map(|current| ConvictionModel::merge_lock(&current, &lock))
+                    .unwrap_or(lock);
+                Self::insert_decaying_hotkey_lock_state(netuid, old_hotkey, merged);
+            }
+            reads = reads.saturating_add(1);
+            writes = writes.saturating_add(1);
         }
         (reads, writes)
     }

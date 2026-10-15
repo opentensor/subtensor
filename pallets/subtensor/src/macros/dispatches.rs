@@ -1985,10 +1985,12 @@ mod dispatches {
                 Error::<T>::HotKeyNotRegisteredInSubNet
             );
 
+            Self::ensure_staking_hotkeys_can_grow(&coldkey, &hotkey)?;
+
             let current_hotkey = AutoStakeDestination::<T>::get(coldkey.clone(), netuid);
-            if let Some(current_hotkey) = current_hotkey {
+            if let Some(current_hotkey) = &current_hotkey {
                 ensure!(
-                    current_hotkey != hotkey,
+                    *current_hotkey != hotkey,
                     Error::<T>::SameAutoStakeHotkeyAlreadySet
                 );
 
@@ -1999,12 +2001,20 @@ mod dispatches {
             }
 
             // Add the coldkey to the new hotkey (if not already present)
+            StakingHotkeys::<T>::mutate(&coldkey, |hotkeys| {
+                if !hotkeys.contains(&hotkey) {
+                    hotkeys.push(hotkey.clone());
+                }
+            });
             AutoStakeDestination::<T>::insert(coldkey.clone(), netuid, hotkey.clone());
             AutoStakeDestinationColdkeys::<T>::mutate(hotkey.clone(), netuid, |v| {
                 if !v.contains(&coldkey) {
                     v.push(coldkey.clone());
                 }
             });
+            if let Some(old_hotkey) = current_hotkey {
+                Self::maybe_remove_staking_hotkey(&old_hotkey, &coldkey);
+            }
 
             Self::deposit_event(Event::AutoStakeDestinationSet {
                 coldkey,
@@ -2105,7 +2115,15 @@ mod dispatches {
             let _ = subnets; // ignored: basket claims are fund-level, not per-subnet
 
             let staking_hotkeys = StakingHotkeys::<T>::get(&coldkey);
-            let selection_scanned = u32::try_from(staking_hotkeys.len()).unwrap_or(u32::MAX);
+            let staking_count = u32::try_from(staking_hotkeys.len()).unwrap_or(u32::MAX);
+            let credit_count = HotkeySwapBasketCredits::<T>::iter_key_prefix(&coldkey)
+                .take(
+                    Self::root_claim_declared_work()
+                        .saturating_sub(staking_count)
+                        .saturating_add(1) as usize,
+                )
+                .count() as u32;
+            let selection_scanned = staking_count.saturating_add(credit_count);
             // Admission failures keep the declared envelope: the admission scan's cost is
             // not precisely metered, so refunding it could under-charge. Only a claim that
             // was admitted and then failed is billed for the work it actually did.
@@ -2767,6 +2785,28 @@ mod dispatches {
             let coldkey = ensure_signed(origin)?;
             Self::set_accept_locked_alpha(&coldkey, !enabled);
             Self::deposit_event(Event::RejectLockedAlphaUpdated { coldkey, enabled });
+            Ok(())
+        }
+
+        /// Opt out of staking-hotkey list growth caused by other accounts. Existing
+        /// destinations and hotkeys owned by the recipient can still receive transfers.
+        #[pallet::call_index(153)]
+        #[pallet::weight((<T as Config>::WeightInfo::set_reject_staking_hotkey_growth(), DispatchClass::Normal, Pays::Yes))]
+        pub fn set_reject_staking_hotkey_growth(
+            origin: OriginFor<T>,
+            enabled: bool,
+        ) -> DispatchResult {
+            let coldkey = ensure_signed(origin)?;
+            AccountFlags::<T>::mutate_exists(&coldkey, |stored| {
+                let flags = stored.unwrap_or_default();
+                let flags = if enabled {
+                    flags | crate::ACCOUNT_FLAGS_REJECT_STAKING_HOTKEY_GROWTH
+                } else {
+                    flags & !crate::ACCOUNT_FLAGS_REJECT_STAKING_HOTKEY_GROWTH
+                };
+                *stored = if flags == 0 { None } else { Some(flags) };
+            });
+            Self::deposit_event(Event::RejectStakingHotkeyGrowthUpdated { coldkey, enabled });
             Ok(())
         }
 

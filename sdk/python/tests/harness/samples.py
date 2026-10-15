@@ -141,6 +141,7 @@ INTENT_SAMPLES: dict[str, dict] = {
     "move_lock": {"netuid": 1, "destination_hotkey_ss58": BOB_HOT},
     "set_perpetual_lock": {"netuid": 1, "enabled": True},
     "set_reject_locked_alpha": {"enabled": True},
+    "set_reject_staking_hotkey_growth": {"enabled": True},
     "stake_into_basket": {"hotkey_ss58": BOB_HOT, "amount_tao": 1.0},
     "swap_basket": {"hotkey_ss58": BOB_HOT, "origin_netuid": 1, "dest_netuid": 0, "amount": 1.0},
     "swap_basket_many": {

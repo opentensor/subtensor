@@ -23,6 +23,42 @@ from .registry import register
 # fraction from the price observed at build time before the call stops filling.
 DEFAULT_RATE_TOLERANCE = 0.05
 
+
+@register
+@dataclass
+class SetRejectStakingHotkeyGrowth(Intent):
+    """Refuse new staking hotkeys introduced by other accounts.
+
+    Off by default. Incoming transfers can still use hotkeys already listed or
+    owned by the receiver. A subnet hotkey swap renames an existing entry when
+    possible; otherwise the receiver's stake stays on the old hotkey. The flag
+    follows a coldkey swap and does not move funds. The coldkey's own staking
+    actions remain subject to the overall 256-entry cap.
+    """
+
+    op = "set_reject_staking_hotkey_growth"
+    signer = "coldkey"
+    wraps = (("SubtensorModule", "set_reject_staking_hotkey_growth"),)
+
+    enabled: bool = field(
+        metadata={
+            "help": (
+                "True to refuse third-party staking-list growth; false to allow it "
+                "up to the third-party cap."
+            )
+        }
+    )
+
+    async def build(self, substrate, wallet: Any):
+        return await substrate.compose(
+            calls.SubtensorModule.set_reject_staking_hotkey_growth(enabled=self.enabled)
+        )
+
+    def summary(self) -> str:
+        action = "reject" if self.enabled else "allow"
+        return f"{action} staking-hotkey list growth caused by other accounts"
+
+
 # ``remove_stake`` always caps its u64 input to the live position.
 # ``move_stake`` / ``move_stake_limit`` do the same when the input is the type
 # maximum. Using that sentinel after a root claim is the only atomic way to

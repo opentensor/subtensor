@@ -117,16 +117,8 @@ where
 
 	pub fn check_self_contained(&self) -> Option<Result<H160, TransactionValidityError>> {
 		if let Call::transact { transaction } = self {
-			if let Transaction::EIP7702(tx) = transaction {
-				if tx.authorization_list.len() > 255 {
-					return Some(Err(InvalidTransaction::Custom(
-						TransactionValidationError::AuthorizationListTooLarge as u8,
-					)
-					.into()));
-				}
-			}
-
 			let check = || {
+				Pallet::<T>::check_authorization_list(transaction)?;
 				let origin = Pallet::<T>::recover_signer(transaction).ok_or(
 					InvalidTransaction::Custom(TransactionValidationError::InvalidSignature as u8),
 				)?;
@@ -545,14 +537,7 @@ impl<T: Config> Pallet<T> {
 		origin: H160,
 		transaction: &Transaction,
 	) -> TransactionValidity {
-		if let Transaction::EIP7702(tx) = transaction {
-			if tx.authorization_list.len() > 255 {
-				return Err(InvalidTransaction::Custom(
-					TransactionValidationError::AuthorizationListTooLarge as u8,
-				)
-				.into());
-			}
-		}
+		Self::check_authorization_list(transaction)?;
 		if !T::AddressMapping::is_ethereum_authority_allowed(origin) {
 			return Err(InvalidTransaction::BadSigner.into());
 		}
@@ -576,11 +561,6 @@ impl<T: Config> Pallet<T> {
 		)
 		.map_err(|e| InvalidTransaction::Custom(e as u8))?;
 		let input: fp_evm::CheckEvmTransactionInput = transaction_data.clone().into();
-		for authority in input.authorization_list.iter().filter_map(|item| item.3) {
-			if !T::AddressMapping::is_ethereum_authority_allowed(authority) {
-				return Err(InvalidTransaction::BadSigner.into());
-			}
-		}
 		let evm_config = pallet_evm::account_cost::config::<T>(T::config());
 
 		let _ = CheckEvmTransaction::<InvalidTransactionWrapper>::new(
@@ -601,6 +581,7 @@ impl<T: Config> Pallet<T> {
 		.and_then(|v| v.with_balance_for(&who))
 		.and_then(|v| v.with_eip7702_authorization_list(is_eip7702))
 		.map_err(|e| e.0)?;
+		Self::check_authorization_authorities(transaction)?;
 
 		// EIP-3607: https://eips.ethereum.org/EIPS/eip-3607
 		// Do not allow transactions for which `tx.sender` has any code deployed.
@@ -986,14 +967,7 @@ impl<T: Config> Pallet<T> {
 		origin: H160,
 		transaction: &Transaction,
 	) -> Result<(), TransactionValidityError> {
-		if let Transaction::EIP7702(tx) = transaction {
-			if tx.authorization_list.len() > 255 {
-				return Err(InvalidTransaction::Custom(
-					TransactionValidationError::AuthorizationListTooLarge as u8,
-				)
-				.into());
-			}
-		}
+		Self::check_authorization_list(transaction)?;
 		if !T::AddressMapping::is_ethereum_authority_allowed(origin) {
 			return Err(InvalidTransaction::BadSigner.into());
 		}
@@ -1016,11 +990,6 @@ impl<T: Config> Pallet<T> {
 		)
 		.map_err(|e| InvalidTransaction::Custom(e as u8))?;
 		let input: fp_evm::CheckEvmTransactionInput = transaction_data.clone().into();
-		for authority in input.authorization_list.iter().filter_map(|item| item.3) {
-			if !T::AddressMapping::is_ethereum_authority_allowed(authority) {
-				return Err(InvalidTransaction::BadSigner.into());
-			}
-		}
 		let evm_config = pallet_evm::account_cost::config::<T>(T::config());
 
 		let _ = CheckEvmTransaction::<InvalidTransactionWrapper>::new(
@@ -1041,7 +1010,38 @@ impl<T: Config> Pallet<T> {
 		.and_then(|v| v.with_balance_for(&who))
 		.and_then(|v| v.with_eip7702_authorization_list(is_eip7702))
 		.map_err(|e| TransactionValidityError::Invalid(e.0))?;
+		Self::check_authorization_authorities(transaction)?;
 
+		Ok(())
+	}
+
+	/// Recover only after bounds, intrinsic gas, fees and nonce validation. The
+	/// transaction-input conversion deliberately leaves authorities unrecovered.
+	fn check_authorization_authorities(
+		transaction: &Transaction,
+	) -> Result<(), TransactionValidityError> {
+		if let Transaction::EIP7702(transaction) = transaction {
+			for item in &transaction.authorization_list {
+				if let Ok(authority) = item.authorizing_address() {
+					if !T::AddressMapping::is_ethereum_authority_allowed(authority) {
+						return Err(InvalidTransaction::BadSigner.into());
+					}
+				}
+			}
+		}
+		Ok(())
+	}
+
+	/// Reject oversized lists before cloning transaction data or recovering any signatures.
+	fn check_authorization_list(transaction: &Transaction) -> Result<(), TransactionValidityError> {
+		if let Transaction::EIP7702(transaction) = transaction {
+			if transaction.authorization_list.len() > fp_evm::MAX_AUTHORIZATION_LIST_SIZE {
+				return Err(InvalidTransaction::Custom(
+					TransactionValidationError::AuthorizationListTooLarge as u8,
+				)
+				.into());
+			}
+		}
 		Ok(())
 	}
 
