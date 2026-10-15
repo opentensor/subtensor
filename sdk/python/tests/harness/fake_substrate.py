@@ -76,8 +76,17 @@ DEFAULT_RUNTIME: dict[tuple[str, str], Any] = {
 GENESIS_HASH = "0x" + "00" * 32
 
 
+def _freeze(value: Any) -> Any:
+    """Hashable stand-in for a storage key part; enum keys arrive as dicts."""
+    if isinstance(value, dict):
+        return tuple((k, _freeze(v)) for k, v in value.items())
+    if isinstance(value, list):
+        return tuple(_freeze(v) for v in value)
+    return value
+
+
 def _key(params: Optional[list]) -> tuple:
-    return tuple(params or [])
+    return tuple(_freeze(p) for p in (params or []))
 
 
 class ComposedCall:

@@ -988,8 +988,17 @@ mod benchmarks {
 
     #[benchmark]
     fn sudo_set_subnet_owner_cut() {
-        #[extrinsic_call]
-        _(RawOrigin::Root, u16::MAX);
+        let call = Call::<T>::sudo_set_subnet_owner_cut {
+            subnet_owner_cut: u16::MAX,
+        };
+
+        #[block]
+        {
+            assert_noop!(
+                call.dispatch_bypass_filter(RawOrigin::Root.into()),
+                Error::<T>::Deprecated
+            );
+        }
     }
 
     #[benchmark]
@@ -1199,11 +1208,18 @@ mod benchmarks {
 
     #[benchmark]
     fn sudo_set_owner_cut_enabled() {
-        let netuid = NetUid::from(1);
-        let owner = setup_worst_case_admin_subnet::<T>(netuid);
+        let call = Call::<T>::sudo_set_owner_cut_enabled {
+            netuid: NetUid::from(1),
+            enabled: true,
+        };
 
-        #[extrinsic_call]
-        _(RawOrigin::Signed(owner), netuid, true);
+        #[block]
+        {
+            assert_noop!(
+                call.dispatch_bypass_filter(RawOrigin::Root.into()),
+                Error::<T>::Deprecated
+            );
+        }
     }
 
     #[benchmark]
@@ -1265,6 +1281,37 @@ mod benchmarks {
         _(RawOrigin::Root, 100_000_000u64);
 
         assert_eq!(pallet_subtensor::BasketMinTradeTao::<T>::get(), 100_000_000);
+    }
+
+    #[benchmark]
+    fn sudo_set_subnet_emission_weights() {
+        let netuid = NetUid::from(1);
+        let owner = setup_worst_case_admin_subnet::<T>(netuid);
+        // Move one percent of emission from validators to miners on top of the
+        // seeded vector. Valid under any `InitialSubnetOwnerCut` (0 in the mock,
+        // 18% in production): the validator slot stays far above the TAO-weight
+        // floor and the miner slot only grows, so every rule check runs and passes.
+        let current = pallet_subtensor::Pallet::<T>::get_subnet_emission_weights(netuid);
+        let slot = |index: pallet_subtensor::EmissionIndex| -> u64 {
+            current.get(index.position()).copied().unwrap_or(0)
+        };
+        let one_percent = pallet_subtensor::emission_fraction(1, 100);
+        let owner_share = slot(pallet_subtensor::EmissionIndex::Owner);
+        let validator =
+            slot(pallet_subtensor::EmissionIndex::Validator).saturating_sub(one_percent);
+        let miner = pallet_subtensor::EMISSION_WEIGHT_ONE
+            .saturating_sub(owner_share)
+            .saturating_sub(validator);
+        let uids = vec![0u16, 1, 2, 3, 4];
+        let values = vec![0u64, 0, owner_share, validator, miner];
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(owner), netuid, uids, values);
+
+        assert_eq!(
+            pallet_subtensor::Pallet::<T>::get_subnet_emission_weights(netuid),
+            [0, 0, owner_share, validator, miner]
+        );
     }
 
     #[benchmark]

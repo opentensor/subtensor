@@ -6,6 +6,7 @@
     "set-hyperparameter",
     "set-mechanism-count",
     "set-subnet-emission-enabled",
+    "set-subnet-emission-weights",
     "trim-null-subnet-batch",
     "trim-subnet",
     "---Balances---",

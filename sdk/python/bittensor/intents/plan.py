@@ -115,6 +115,10 @@ class Plan:
     spend: Spend = None
     # The intent's own parameters, JSON-native (money as exact decimal strings).
     args: Optional[dict[str, Any]] = None
+    # Structured, JSON-native counterpart of ``effects`` for intents whose
+    # preview has a fixed shape (e.g. a before/after vector). Empty when the
+    # intent only produces prose.
+    preview: dict[str, Any] = field(default_factory=dict)
 
     @property
     def ok(self) -> bool:
@@ -135,5 +139,6 @@ class Plan:
             "warnings": self.warnings,
             "violations": self.violations,
             "ok": self.ok,
+            "preview": self.preview,
             "docs_url": tx_docs_url(self.op),
         }

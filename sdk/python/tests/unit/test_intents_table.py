@@ -21,13 +21,22 @@ from bittensor.intents._money import UNBOUNDED, _Unbounded
 from bittensor.intents.base import BuiltCall
 from bittensor.result import BittensorError, ChainError
 from tests.harness.fake_substrate import FakeSubstrate
-from tests.harness.samples import ALICE, ALICE_HOT, BOB, BOB_HOT, INTENT_SAMPLES, dev_wallet
+from tests.harness.samples import (
+    ALICE,
+    ALICE_HOT,
+    BOB,
+    BOB_HOT,
+    EMISSION_WEIGHTS_INFO,
+    INTENT_SAMPLES,
+    dev_wallet,
+)
 
 
 @pytest.fixture()
 def substrate() -> FakeSubstrate:
     fake = FakeSubstrate()
     fake.seed_runtime("StakeInfoRuntimeApi", "get_stake_info_for_coldkey", [])
+    fake.seed_runtime("SubnetInfoRuntimeApi", "get_subnet_emission_weights", EMISSION_WEIGHTS_INFO)
     return fake
 
 

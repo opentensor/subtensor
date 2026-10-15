@@ -117,8 +117,12 @@ with their TAO — so a subnet's income is set by market demand for its token,
 not by governance. See [emissions](/docs/concepts/emissions) for the full
 mechanics.
 
-Each tempo the subnet's alpha emission splits three ways: 18% to the owner,
-~41% to miners (incentive), ~41% to validators and their stakers (dividends).
+Each tempo the subnet's alpha emission splits three ways — by default 18% to
+the owner, ~41% to miners (incentive), ~41% to validators and their stakers
+(dividends). Since [Etao](/docs/guides/etao) the owner sets that split with
+`btcli subnets emission` (owner ≤ 33%, validator ≤ 50%, miner ≥ 33%, once a
+week); root TAO stakers keep their baseline payout whatever is chosen — see
+[emission weights](/docs/concepts/emission-weights).
 The owner cut can be auto-locked into a conviction position via the
 `owner_cut_auto_lock_enabled` hyperparameter instead of arriving as free
 stake; conviction locking and its unlock schedule are covered in the

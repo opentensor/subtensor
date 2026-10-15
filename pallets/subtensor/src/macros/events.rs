@@ -926,5 +926,13 @@ mod events {
             /// Subnet whose stake was retained.
             netuid: NetUid,
         },
+        /// The subnet owner or root set the subnet's emission weight vector.
+        SubnetEmissionWeightsSet {
+            /// Subnet whose vector changed.
+            netuid: NetUid,
+            /// Full post-merge vector `[burn, recycle, owner, validator, miner]` in
+            /// `u64::MAX` parts.
+            weights: Vec<u64>,
+        },
     }
 }

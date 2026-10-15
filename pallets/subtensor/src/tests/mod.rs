@@ -13,6 +13,7 @@ mod delegate_info;
 mod destroy_alpha_tests;
 mod dissolution;
 mod emission;
+mod emission_weights;
 mod ensure;
 mod epoch;
 mod epoch_logs;
