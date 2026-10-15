@@ -10,7 +10,9 @@ the coldkey, then let the delegate submit day-to-day calls with
 `proxy_for=<this account>`. The chain reserves a small deposit from the
 signer per delegation (returned on removal). The delegate can act within
 `proxy_type` immediately (or after announcing, if `delay` > 0) — grant
-only to keys you control or fully trust.
+only to keys you control or fully trust. `Validate` and `Weights` cover
+hotkey-signed calls, so the wallet's hotkey signs those grants and must hold
+the deposit and fee.
 
 | Signer | Origin | Pallet | Wraps |
 | --- | --- | --- | --- |
