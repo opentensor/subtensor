@@ -48,6 +48,7 @@ mod helpers;
 mod pallet_benchmarks {
     use super::helpers::*;
     use super::*;
+    use crate::weights::WeightInfo;
 
     #[benchmark]
     fn register() {
@@ -1514,20 +1515,47 @@ mod pallet_benchmarks {
         let coldkey: T::AccountId = whitelisted_caller();
         let hot: T::AccountId = account("claim_miner_hot", 0, 1);
         let netuid = NetUid::from(1);
+        // Pending must exceed the weight-proportional fee so both recycle and
+        // stake paths run; fee rate is the production default (0.01 alpha / s).
+        let pending = AlphaBalance::from(1_000_000_000u64);
 
         SubtokenEnabled::<T>::insert(netuid, true);
         Subtensor::<T>::init_new_network(netuid, 1);
         ClaimBasedMinerEmissions::<T>::insert(netuid, true);
-        MinerClaimAlphaFeePerWeightSecond::<T>::put(0);
+        MinerClaimAlphaFeePerWeightSecond::<T>::put(10_000_000);
         let _ = Subtensor::<T>::create_account_if_non_existent(&coldkey, &hot);
-        Subtensor::<T>::accrue_pending_miner_alpha(
-            netuid,
-            &hot,
-            AlphaBalance::from(1_000_000_000u64),
+        // Accrue does not mint; seed outstanding alpha so recycle_subnet_alpha
+        // can decrease SubnetAlphaOut and call AlphaAssets::recycle_alpha.
+        SubnetAlphaOut::<T>::insert(netuid, pending.saturating_mul(2u64.into()));
+        Subtensor::<T>::accrue_pending_miner_alpha(netuid, &hot, pending);
+        let alpha_out_before = SubnetAlphaOut::<T>::get(netuid);
+        let expected_fee = Subtensor::<T>::miner_claim_alpha_fee(
+            <T as Config>::WeightInfo::claim_miner_emission(),
+        );
+        assert!(
+            !expected_fee.is_zero(),
+            "benchmark needs a non-zero claim fee"
+        );
+        assert!(
+            pending > expected_fee,
+            "pending must exceed fee so stake runs"
         );
 
         #[extrinsic_call]
         _(RawOrigin::Signed(coldkey.clone()), hot.clone(), netuid);
+
+        assert_eq!(
+            Subtensor::<T>::get_pending_miner_emission(&hot, netuid),
+            AlphaBalance::ZERO
+        );
+        assert_eq!(
+            SubnetAlphaOut::<T>::get(netuid),
+            alpha_out_before.saturating_sub(expected_fee)
+        );
+        assert_eq!(
+            Subtensor::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(&hot, &coldkey, netuid),
+            pending.saturating_sub(expected_fee)
+        );
     }
 
     #[benchmark]
