@@ -1279,6 +1279,16 @@ mod benchmarks {
     fn sudo_set_subnet_emission_weights() {
         let netuid = NetUid::from(1);
         let owner = setup_worst_case_admin_subnet::<T>(netuid);
+        // Root stake and alpha issuance make the call solve and store a new effective
+        // TAO weight; without them `tao_weight_preserving_root` returns early.
+        pallet_subtensor::SubnetTAO::<T>::insert(
+            NetUid::ROOT,
+            TaoBalance::from(1_000_000_000_000_000_u64),
+        );
+        pallet_subtensor::SubnetAlphaOut::<T>::insert(
+            netuid,
+            subtensor_runtime_common::AlphaBalance::from(1_000_000_000_000_000_u64),
+        );
         // Move one percent of emission from validators to miners on top of the
         // seeded vector. Valid under any `InitialSubnetOwnerCut` (0 in the mock,
         // 18% in production): the validator slot stays far above the TAO-weight
@@ -1304,6 +1314,7 @@ mod benchmarks {
             pallet_subtensor::Pallet::<T>::get_subnet_emission_weights(netuid),
             [0, 0, owner_share, validator, miner]
         );
+        assert!(pallet_subtensor::SubnetTaoWeight::<T>::contains_key(netuid));
     }
 
     #[benchmark]
