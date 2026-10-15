@@ -416,5 +416,44 @@ mod errors {
         CommitQueueFull,
         /// The recipient refuses a new staking hotkey introduced by another account.
         AccountRejectsStakingHotkeyGrowth,
+        /// `set_subnet_emission_weights`: `uids` and `values` must have the same length;
+        /// each uid names the slot the matching value sets.
+        EmissionWeightsLengthMismatch,
+        /// `set_subnet_emission_weights`: valid slots are 0 burn, 1 recycle, 2 owner,
+        /// 3 validator, 4 miner. Higher (gamma) slots are reserved and not yet settable.
+        EmissionWeightIndexOutOfRange,
+        /// `set_subnet_emission_weights`: each slot may appear at most once per call.
+        EmissionWeightIndexDuplicated,
+        /// `set_subnet_emission_weights`: after merging with the current vector the five
+        /// slots must sum to exactly one (`u64::MAX` parts). Renormalize before resubmitting;
+        /// `btcli subnets emission set-value` does this automatically.
+        EmissionWeightsDoNotSumToOne,
+        /// `set_subnet_emission_weights`: burn (slot 0) is not yet enabled and must be 0.
+        BurnEmissionMustBeZero,
+        /// `set_subnet_emission_weights`: recycle (slot 1) is not yet enabled and must be 0.
+        RecycleEmissionMustBeZero,
+        /// `set_subnet_emission_weights`: the owner cut (slot 2) may be at most 33% of
+        /// emission.
+        OwnerEmissionAboveMaximum,
+        /// `set_subnet_emission_weights`: this subnet was created through a lease, so its
+        /// owner cut (slot 2) may not drop below the launch default (18%) and squeeze lease
+        /// dividends. Root is bound by this rule too.
+        LeasedSubnetOwnerCutBelowMinimum,
+        /// `set_subnet_emission_weights`: the validator share (slot 3) may be at most 50% of
+        /// emission.
+        ValidatorEmissionAboveMaximum,
+        /// `set_subnet_emission_weights`: every set re-solves this subnet's effective TAO
+        /// weight so root's share of emission equals its baseline (what root earns here with
+        /// the default validator share and the global `TaoWeight`), and that weight is
+        /// capped at one (root TAO never counts more than 1:1). The requested validator
+        /// share (slot 3) is too low to reach the baseline under the cap: it must stay above
+        /// root's baseline share, by enough margin that the solved weight fits. Raise the
+        /// validator share and resubmit.
+        ValidatorEmissionTooLowToPreserveRoot,
+        /// `set_subnet_emission_weights`: the miner share (slot 4) must be at least 33% of
+        /// emission.
+        MinerEmissionBelowMinimum,
+        /// `set_subnet_emission_weights`: the root subnet has no emission vector.
+        EmissionWeightsNotSettableOnRoot,
     }
 }

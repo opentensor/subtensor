@@ -50,6 +50,12 @@ use macros::{config, dispatches, errors, events, genesis, hooks};
 
 pub use extensions::*;
 pub use guards::*;
+pub use subnets::emission_weights::{
+    EMISSION_WEIGHT_ONE, EMISSION_WEIGHT_SLOTS, EMISSION_WEIGHTS_VIEW_READS, EmissionIndex,
+    EmissionWeights, EmissionWeightsVec, EmissionWeightsView, MAX_OWNER_EMISSION,
+    MAX_VALIDATOR_EMISSION, MIN_MINER_EMISSION, emission_fraction, normalize_tao_weight,
+    root_emission_share, solve_tao_weight_for_root_share, tao_weight_to_parts,
+};
 
 #[cfg(test)]
 pub(crate) mod tests;
@@ -236,6 +242,7 @@ pub mod pallet {
     use crate::migrations;
     use crate::staking::lock::LockState;
     use crate::subnets::dissolution::DissolveCleanupStatus;
+    use crate::subnets::emission_weights::EmissionWeightsVec;
     use crate::subnets::leasing::{LeaseId, SubnetLeaseOf};
     use crate::subnets::subnet::NetworkRegistrationInfo;
     use crate::weights::WeightInfo;
@@ -2283,6 +2290,10 @@ pub mod pallet {
         StorageValue<_, u64, ValueQuery, DefaultNetworkLockReductionInterval<T>>;
 
     /// ITEM( subnet_owner_cut )
+    ///
+    /// Deprecated: superseded by the owner slot of [`SubnetEmissionWeights`]. Kept as the
+    /// seed for `migrate_seed_subnet_emission_weights` and for legacy global views; no
+    /// emission path reads it.
     #[pallet::storage]
     pub type SubnetOwnerCut<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetOwnerCut<T>>;
 
@@ -2293,9 +2304,49 @@ pub mod pallet {
     }
 
     /// MAP ( netuid ) --> owner_cut_enabled
+    ///
+    /// Deprecated: an owner slot of zero in [`SubnetEmissionWeights`] now means "disabled".
+    /// Kept only as the seed for `migrate_seed_subnet_emission_weights`.
     #[pallet::storage]
     pub type OwnerCutEnabled<T> =
         StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultOwnerCutEnabled<T>>;
+
+    /// Canonical emission vector for subnets that have never set one.
+    #[pallet::type_value]
+    pub fn DefaultSubnetEmissionWeights<T: Config>() -> EmissionWeightsVec {
+        Pallet::<T>::emission_weights_to_vec(Pallet::<T>::default_emission_weights())
+    }
+
+    /// MAP ( netuid ) --> `[burn, recycle, owner, validator, miner]` in `u64::MAX` parts,
+    /// summing to exactly one. See `subnets::emission_weights`.
+    #[pallet::storage]
+    pub type SubnetEmissionWeights<T: Config> = StorageMap<
+        _,
+        Identity,
+        NetUid,
+        EmissionWeightsVec,
+        ValueQuery,
+        DefaultSubnetEmissionWeights<T>,
+    >;
+
+    /// MAP ( netuid ) --> effective TAO weight `w_s` in `u64::MAX` parts. Re-solved once on
+    /// every accepted set of [`SubnetEmissionWeights`] so root's share of the subnet's
+    /// emission equals its baseline (default validator share, global [`TaoWeight`]) at that
+    /// block; never recomputed per block. Consensus side only: the pool side keeps using the
+    /// global [`TaoWeight`]. No entry means the subnet's validator share is the default and
+    /// it follows the global [`TaoWeight`] exactly as before per-subnet weights existed (see
+    /// `get_subnet_tao_weight_parts`).
+    /// The fallback lives in the getter rather than in a `type_value` default because
+    /// storage defaults are evaluated while building the runtime metadata, where no
+    /// storage can be read.
+    #[pallet::storage]
+    pub type SubnetTaoWeight<T: Config> = StorageMap<_, Identity, NetUid, u64, OptionQuery>;
+
+    /// MAP ( netuid ) --> true when the subnet was registered through a lease. Persists after
+    /// the lease ends; such subnets may not lower their owner cut below the launch default.
+    #[pallet::storage]
+    pub type SubnetCreatedViaLease<T: Config> =
+        StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultFalse<T>>;
 
     /// ITEM( network_rate_limit )
     #[pallet::storage]
@@ -2465,6 +2516,16 @@ pub mod pallet {
     /// MAP ( netuid ) --> pending_owner_cut
     #[pallet::storage]
     pub type PendingOwnerCut<T> =
+        StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
+
+    /// MAP ( netuid ) --> cumulative alpha accrued to the owner slot since the subnet was
+    /// registered (seeded at migration from the legacy global cut; written as an explicit
+    /// zero at registration). The legacy lock refund on dissolution deducts this history,
+    /// so it must not depend on the owner's current, adjustable share. An absent entry
+    /// means the subnet pre-dates the seed migration; the refund then falls back to the
+    /// legacy `issuance × SubnetOwnerCut` deduction (`owner_cut_alpha_for_lock_refund`).
+    #[pallet::storage]
+    pub type SubnetOwnerCutAccrued<T> =
         StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
 
     /// Default miner-burned proportion.
@@ -3590,6 +3651,14 @@ pub mod pallet {
     #[pallet::type_value]
     pub fn MechanismEmissionRateLimit<T: Config>() -> u64 {
         prod_or_fast!(7_200, 1)
+    }
+
+    /// ITEM (Rate limit for subnet emission weight vector updates: once a week at 12 s
+    /// blocks, keyed per subnet. Root is exempt; a subnet's first call is always allowed,
+    /// and dissolution clears the key so a reused netuid starts fresh.)
+    #[pallet::type_value]
+    pub fn SubnetEmissionWeightsRateLimit<T: Config>() -> u64 {
+        prod_or_fast!(50_400, 1)
     }
 
     /// MAP ( netuid ) --> Current number of subnet mechanisms

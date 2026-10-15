@@ -3045,7 +3045,7 @@ fn test_childkey_take_drain() {
             SubtensorModule::set_weights_set_rate_limit(netuid, 0);
             SubtensorModule::set_max_allowed_validators(netuid, 2);
             step_block(subnet_tempo);
-            SubnetOwnerCut::<Test>::set(0);
+            set_subnet_owner_cut_for_test(netuid, 0);
 
             // Set children
             mock_set_children_no_epochs(netuid, &parent_hotkey, &[(proportion, child_hotkey)]);
@@ -3158,7 +3158,7 @@ fn test_parent_child_chain_emission() {
         SubnetAlphaIn::<Test>::insert(netuid, AlphaBalance::from(1_000_000_000_000_000_u64));
 
         // Set owner cut to 0
-        SubtensorModule::set_subnet_owner_cut(0_u16);
+        set_subnet_owner_cut_for_test(netuid, 0);
 
         // Define hotkeys and coldkeys
         let hotkey_a: U256 = U256::from(1);
@@ -3366,7 +3366,7 @@ fn test_parent_child_chain_epoch() {
         add_network(netuid, 1, 0);
         SubtensorModule::set_ck_burn(0);
         // Set owner cut to 0
-        SubtensorModule::set_subnet_owner_cut(0_u16);
+        set_subnet_owner_cut_for_test(netuid, 0);
 
         // Define hotkeys and coldkeys
         let hotkey_a: U256 = U256::from(1);
@@ -3520,7 +3520,7 @@ fn test_dividend_distribution_with_children() {
             1_000_000_000_000_000_u64.into(),
         );
         // Set owner cut to 0
-        SubtensorModule::set_subnet_owner_cut(0_u16);
+        set_subnet_owner_cut_for_test(netuid, 0);
 
         // Define hotkeys and coldkeys
         let hotkey_a: U256 = U256::from(1);
@@ -4039,7 +4039,7 @@ fn test_dividend_distribution_with_children_same_coldkey_owner() {
         let netuid = NetUid::from(1);
         add_network(netuid, 1, 0);
         // Set SN owner cut to 0
-        SubtensorModule::set_subnet_owner_cut(0_u16);
+        set_subnet_owner_cut_for_test(netuid, 0);
         mock::setup_reserves(
             netuid,
             1_000_000_000_000_u64.into(),

@@ -847,10 +847,10 @@ fn test_owner_cut_base() {
             1_000_000_000_000_u64.into(),
         );
         SubtensorModule::set_tempo_unchecked(netuid, 10000); // Large number (dont drain)
-        SubtensorModule::set_subnet_owner_cut(0);
+        set_subnet_owner_cut_for_test(netuid, 0);
         SubtensorModule::run_coinbase(SubtensorModule::mint_tao(0.into()));
         assert_eq!(PendingOwnerCut::<Test>::get(netuid), 0.into()); // No cut
-        SubtensorModule::set_subnet_owner_cut(u16::MAX);
+        set_subnet_owner_cut_for_test(netuid, u16::MAX);
         SubtensorModule::run_coinbase(SubtensorModule::mint_tao(0.into()));
         assert_eq!(PendingOwnerCut::<Test>::get(netuid), 1_000_000_000.into()); // Full cut.
     });
@@ -3259,7 +3259,7 @@ fn test_mining_emission_distribution_with_no_root_sell() {
         );
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         step_block(subnet_tempo);
-        SubnetOwnerCut::<Test>::set(u16::MAX / 10);
+        set_subnet_owner_cut_for_test(netuid, u16::MAX / 10);
         // There are two validators and three neurons
         MaxAllowedUids::<Test>::set(netuid, 3);
         SubtensorModule::set_max_allowed_validators(netuid, 2);
@@ -3457,7 +3457,7 @@ fn test_mining_emission_distribution_with_root_sell() {
         );
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         step_block(subnet_tempo);
-        SubnetOwnerCut::<Test>::set(u16::MAX / 10);
+        set_subnet_owner_cut_for_test(netuid, u16::MAX / 10);
         // There are two validators and three neurons
         MaxAllowedUids::<Test>::set(netuid, 3);
         SubtensorModule::set_max_allowed_validators(netuid, 2);
@@ -4133,7 +4133,7 @@ fn test_coinbase_emit_to_subnets_with_no_root_sell() {
         let zero = U96F32::saturating_from_num(0);
         let netuid0 = add_dynamic_network(&U256::from(1), &U256::from(2));
         // Set owner cut to ~10%
-        SubnetOwnerCut::<Test>::set(u16::MAX / 10);
+        set_subnet_owner_cut_for_test(netuid0, u16::MAX / 10);
         mock::setup_reserves(
             netuid0,
             TaoBalance::from(1_000_000_000_000_000_u64),
@@ -4165,7 +4165,7 @@ fn test_coinbase_emit_to_subnets_with_no_root_sell() {
         SubtensorModule::emit_to_subnets(&[netuid0], &subnet_emissions, credit, root_sell_flag);
 
         // Find the owner cut expected
-        let owner_cut: U96F32 = SubtensorModule::get_float_subnet_owner_cut();
+        let owner_cut: U96F32 = SubtensorModule::get_float_subnet_owner_emission_cut(netuid0);
         let owner_cut_expected: U96F32 = owner_cut.saturating_mul(alpha_emission);
         log::info!("owner_cut_expected: {owner_cut_expected:?}");
         log::info!("alpha_emission: {alpha_emission:?}");
@@ -4225,7 +4225,7 @@ fn test_coinbase_emit_to_subnets_with_root_sell() {
         let zero = U96F32::saturating_from_num(0);
         let netuid0 = add_dynamic_network(&U256::from(1), &U256::from(2));
         // Set owner cut to ~10%
-        SubnetOwnerCut::<Test>::set(u16::MAX / 10);
+        set_subnet_owner_cut_for_test(netuid0, u16::MAX / 10);
         mock::setup_reserves(
             netuid0,
             TaoBalance::from(1_000_000_000_000_000_u64),
@@ -4257,7 +4257,7 @@ fn test_coinbase_emit_to_subnets_with_root_sell() {
         SubtensorModule::emit_to_subnets(&[netuid0], &subnet_emissions, credit, root_sell_flag);
 
         // Find the owner cut expected
-        let owner_cut: U96F32 = SubtensorModule::get_float_subnet_owner_cut();
+        let owner_cut: U96F32 = SubtensorModule::get_float_subnet_owner_emission_cut(netuid0);
         let owner_cut_expected: U96F32 = owner_cut.saturating_mul(alpha_emission);
         log::info!("owner_cut_expected: {owner_cut_expected:?}");
         log::info!("alpha_emission: {alpha_emission:?}");
@@ -4349,8 +4349,8 @@ fn test_disabling_owner_cut_sends_subnet_emission_to_miners_and_validators() {
         SubtensorModule::set_max_allowed_validators(netuid, 1);
         step_block(subnet_tempo);
 
-        SubnetOwnerCut::<Test>::set(u16::MAX / 10);
-        SubtensorModule::set_owner_cut_enabled_flag(netuid, false);
+        // Owner slot zero: the owner cut is disabled.
+        set_subnet_owner_cut_for_test(netuid, 0);
 
         let owner_uid =
             SubtensorModule::get_uid_for_net_and_hotkey(netuid, &subnet_owner_hotkey).unwrap();
@@ -4460,7 +4460,7 @@ fn test_pending_emission_start_call_not_done() {
         );
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         step_block(subnet_tempo);
-        SubnetOwnerCut::<Test>::set(u16::MAX / 10);
+        set_subnet_owner_cut_for_test(netuid, u16::MAX / 10);
         // There are two validators and three neurons
         MaxAllowedUids::<Test>::set(netuid, 3);
         SubtensorModule::set_max_allowed_validators(netuid, 2);

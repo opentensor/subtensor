@@ -597,33 +597,24 @@ impl<T: Config> Pallet<T> {
         let pot_u128: u128 = pot_tao.into();
 
         // Compute owner's received emission in TAO at current price (ONLY if we may refund).
-        // We:
-        //      - get the current alpha issuance,
-        //      - apply owner fraction to get owner α,
-        //      - price that α using a *simulated* AMM swap.
+        // The owner α is the cumulative owner cut accrued over the subnet's life
+        // (`SubnetOwnerCutAccrued`), not `issuance × current owner share`: the share is
+        // owner-adjustable, so pricing history with it would let an owner zero the
+        // deduction right before dissolving. A subnet with no accrued entry at all
+        // falls back to the legacy `issuance × SubnetOwnerCut` deduction, never to zero.
         let mut owner_emission_tao = TaoBalance::ZERO;
         if should_refund_owner && !lock_cost.is_zero() {
-            let total_emitted_alpha_u128: u128 = Self::get_alpha_issuance(netuid).to_u64() as u128;
+            let owner_alpha_u64: u64 = Self::owner_cut_alpha_for_lock_refund(netuid).to_u64();
 
-            if total_emitted_alpha_u128 > 0 {
-                let owner_fraction: U96F32 = Self::get_float_subnet_owner_cut();
-                let owner_alpha_u64 = U96F32::from_num(total_emitted_alpha_u128)
-                    .saturating_mul(owner_fraction)
+            if owner_alpha_u64 > 0 {
+                let cur_price: U96F32 = U96F32::saturating_from_num(
+                    T::SwapInterface::current_alpha_price(netuid.into()),
+                );
+                let val_u64 = U96F32::from_num(owner_alpha_u64)
+                    .saturating_mul(cur_price)
                     .floor()
                     .saturating_to_num::<u64>();
-
-                owner_emission_tao = if owner_alpha_u64 > 0 {
-                    let cur_price: U96F32 = U96F32::saturating_from_num(
-                        T::SwapInterface::current_alpha_price(netuid.into()),
-                    );
-                    let val_u64 = U96F32::from_num(owner_alpha_u64)
-                        .saturating_mul(cur_price)
-                        .floor()
-                        .saturating_to_num::<u64>();
-                    val_u64.into()
-                } else {
-                    TaoBalance::ZERO
-                };
+                owner_emission_tao = val_u64.into();
             }
         }
 

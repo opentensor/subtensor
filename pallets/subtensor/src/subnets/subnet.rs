@@ -474,6 +474,11 @@ impl<T: Config> Pallet<T> {
         // --- 3. Fill tempo memory item.
         Tempo::<T>::insert(netuid, tempo);
 
+        // --- 3.0. Seed the canonical emission weight vector; the subnet follows the global
+        // TaoWeight until its validator share changes. Owners may change the vector once
+        // registration is done.
+        Self::seed_subnet_emission_weights(netuid);
+
         // --- 3.1. Initialise `LastEpochBlock` with a per-netuid stagger
         let now = Self::get_current_block_as_u64();
         let period = (tempo as u64).max(1);
@@ -658,22 +663,6 @@ impl<T: Config> Pallet<T> {
             Some((decoded_pallet_id, netuid)) if decoded_pallet_id == pallet_id => Some(netuid),
             _ => None,
         }
-    }
-
-    /// Returns whether the owner cut is enabled for the given subnet.
-    ///
-    /// Returns `true` if the owner cut is enabled for the subnet, otherwise `false`.
-    pub fn get_owner_cut_enabled(netuid: NetUid) -> bool {
-        OwnerCutEnabled::<T>::get(netuid)
-    }
-
-    /// Sets whether the owner cut is enabled for the given subnet.
-    ///
-    /// # Arguments
-    /// * `netuid`: The identifier of the subnet to update.
-    /// * `value`: `true` to enable the owner cut for the subnet, `false` to disable it.
-    pub fn set_owner_cut_enabled_flag(netuid: NetUid, value: bool) {
-        OwnerCutEnabled::<T>::insert(netuid, value);
     }
 
     /// Returns whether owner cut auto-locking is enabled for the given subnet.

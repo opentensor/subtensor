@@ -1147,19 +1147,16 @@ pub mod pallet {
             Ok(())
         }
 
-        /// The extrinsic sets the subnet owner cut for a subnet.
-        /// It is only callable by the root account.
-        /// The extrinsic will call the Subtensor pallet to set the subnet owner cut.
+        /// Deprecated. The global owner cut was replaced by the per-subnet emission
+        /// weight vector; set slot 2 (owner) through
+        /// [`Call::sudo_set_subnet_emission_weights`]. Always returns `Error::Deprecated`.
         #[pallet::call_index(28)]
         #[pallet::weight(<T as Config>::WeightInfo::sudo_set_subnet_owner_cut())]
         pub fn sudo_set_subnet_owner_cut(
-            origin: OriginFor<T>,
-            subnet_owner_cut: u16,
+            _origin: OriginFor<T>,
+            _subnet_owner_cut: u16,
         ) -> DispatchResult {
-            ensure_root(origin)?;
-            pallet_subtensor::Pallet::<T>::set_subnet_owner_cut(subnet_owner_cut);
-            log::debug!("SubnetOwnerCut( subnet_owner_cut: {subnet_owner_cut:?} ) ");
-            Ok(())
+            Err(Error::<T>::Deprecated.into())
         }
 
         /// The extrinsic sets the network rate limit for the network.
@@ -2504,28 +2501,18 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Set whether the subnet owner cut is enabled for a subnet.
-        /// It is only callable by root and subnet owner.
+        /// Deprecated. Owner cut on/off is now expressed by slot 2 (owner) of the
+        /// per-subnet emission weight vector: set it to zero to disable the owner cut
+        /// through [`Call::sudo_set_subnet_emission_weights`]. Always returns
+        /// `Error::Deprecated`.
         #[pallet::call_index(92)]
         #[pallet::weight((<T as Config>::WeightInfo::sudo_set_owner_cut_enabled(), DispatchClass::Operational, Pays::Yes))]
         pub fn sudo_set_owner_cut_enabled(
-            origin: OriginFor<T>,
-            netuid: NetUid,
-            enabled: bool,
+            _origin: OriginFor<T>,
+            _netuid: NetUid,
+            _enabled: bool,
         ) -> DispatchResult {
-            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
-            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
-
-            ensure!(
-                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
-                Error::<T>::SubnetDoesNotExist
-            );
-            ensure!(!netuid.is_root(), Error::<T>::NotPermittedOnRootSubnet);
-
-            pallet_subtensor::Pallet::<T>::set_owner_cut_enabled_flag(netuid, enabled);
-            log::debug!("OwnerCutEnabledSet( netuid: {netuid:?}, enabled: {enabled:?} ) ");
-
-            Ok(())
+            Err(Error::<T>::Deprecated.into())
         }
 
         /// Set whether subnet owner cut is auto-locked for a subnet.
@@ -2683,6 +2670,47 @@ pub mod pallet {
             ensure_root(origin)?;
             pallet_subtensor::BasketMinTradeTao::<T>::put(min_trade_rao);
             Self::deposit_event(Event::BasketMinTradeTaoSet { min_trade_rao });
+            Ok(())
+        }
+
+        /// Sets entries of a subnet's emission weight vector
+        /// `[burn, recycle, owner, validator, miner]`, each a `u64` share of `u64::MAX`.
+        ///
+        /// `uids` names the slots to write and `values` their new shares; slots that are
+        /// not named keep their current value (burn and recycle are always zero in v1).
+        /// The merged vector must satisfy every rule, each of which has its own error:
+        /// burn = 0, recycle = 0, `0 ≤ owner ≤ 33%` (lease-created subnets `≥ 18%`),
+        /// `validator ≤ 50%`, `miner ≥ 33%`, and the five slots must sum to exactly
+        /// `u64::MAX`.
+        ///
+        /// Every accepted set re-solves the subnet's effective TAO weight once, at this
+        /// block, so root's share of the subnet's emission equals its baseline (what root
+        /// earns with the default validator share and the global `TaoWeight`); the call
+        /// fails if no weight `≤ 1` can do that. Callable by the subnet owner (once per
+        /// week per subnet; the first call is never rate-limited) or root (no rate limit).
+        /// Both respect the admin freeze window.
+        #[pallet::call_index(114)]
+        #[pallet::weight(<T as Config>::WeightInfo::sudo_set_subnet_emission_weights())]
+        pub fn sudo_set_subnet_emission_weights(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            uids: Vec<u16>,
+            values: Vec<u64>,
+        ) -> DispatchResult {
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[Hyperparameter::EmissionWeights.into()],
+            )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
+
+            pallet_subtensor::Pallet::<T>::do_set_subnet_emission_weights(netuid, uids, values)?;
+
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[Hyperparameter::EmissionWeights.into()],
+            );
             Ok(())
         }
 

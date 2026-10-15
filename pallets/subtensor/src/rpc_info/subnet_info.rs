@@ -172,6 +172,26 @@ impl From<(&str, HyperparamValue)> for HyperparamEntry {
 /// clients should not rely on it for semantics.
 pub type SubnetHyperparamsV3 = Vec<HyperparamEntry>;
 
+/// A subnet's emission weight vector and its effective TAO weight.
+///
+/// Every share is a `u64` part of `u64::MAX`. `weights` is the full
+/// `[burn, recycle, owner, validator, miner]` vector; the named fields repeat
+/// each slot for callers that want them by name. `effective_tao_weight` is the
+/// subnet's consensus-side TAO weight `w_s`, also scaled by `u64::MAX`.
+#[freeze_struct("97f2ad41cae64a61")]
+#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
+pub struct SubnetEmissionWeightsInfo {
+    pub netuid: Compact<NetUid>,
+    pub weights: Vec<Compact<u64>>,
+    pub burn: Compact<u64>,
+    pub recycle: Compact<u64>,
+    pub owner: Compact<u64>,
+    pub validator: Compact<u64>,
+    pub miner: Compact<u64>,
+    pub effective_tao_weight: Compact<u64>,
+    pub created_via_lease: bool,
+}
+
 impl<T: Config> Pallet<T> {
     pub fn get_subnet_info(netuid: NetUid) -> Option<SubnetInfo<T::AccountId>> {
         if !Self::if_subnet_exist(netuid) {
@@ -459,6 +479,29 @@ impl<T: Config> Pallet<T> {
         AutoStakeDestination::<T>::get(coldkey, netuid)
     }
 
+    /// The subnet's emission weight vector together with its effective TAO
+    /// weight, or `None` if the subnet does not exist.
+    pub fn get_subnet_emission_weights_info(netuid: NetUid) -> Option<SubnetEmissionWeightsInfo> {
+        if !Self::if_subnet_exist(netuid) {
+            return None;
+        }
+        let view = Self::read_subnet_emission_weights_view(netuid);
+        let slot = |index: EmissionIndex| -> Compact<u64> {
+            Compact(view.weights.get(index.position()).copied().unwrap_or(0))
+        };
+        Some(SubnetEmissionWeightsInfo {
+            netuid: netuid.into(),
+            weights: view.weights.iter().map(|w| Compact(*w)).collect(),
+            burn: slot(EmissionIndex::Burn),
+            recycle: slot(EmissionIndex::Recycle),
+            owner: slot(EmissionIndex::Owner),
+            validator: slot(EmissionIndex::Validator),
+            miner: slot(EmissionIndex::Miner),
+            effective_tao_weight: Compact(Self::get_subnet_tao_weight_parts(netuid)),
+            created_via_lease: view.created_via_lease,
+        })
+    }
+
     /// Returns every hyperparameter for `netuid` as a flat
     /// [`SubnetHyperparamsV3`] list, or `None` if the subnet does not exist.
     ///
@@ -623,6 +666,21 @@ impl<T: Config> Pallet<T> {
             (
                 "owner_cut_enabled",
                 HyperparamValue::Bool(Self::get_owner_cut_enabled(netuid)),
+            )
+                .into(),
+            (
+                "owner_emission",
+                HyperparamValue::U64(Self::get_subnet_owner_emission_cut(netuid).into()),
+            )
+                .into(),
+            (
+                "validator_emission",
+                HyperparamValue::U64(Self::get_subnet_validator_emission_cut(netuid).into()),
+            )
+                .into(),
+            (
+                "miner_emission",
+                HyperparamValue::U64(Self::get_subnet_miner_emission_cut(netuid).into()),
             )
                 .into(),
             (
