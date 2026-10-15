@@ -925,7 +925,7 @@ mod tests {
         );
     }
 
-    /// Per-type deny proof for the two spec-470 hotkey-operations grants. Every
+    /// Per-type deny proof for the `Validate` / `Weights` hotkey-operations grants. Every
     /// inventory group that moves, locks, burns or spends value, rotates a key,
     /// changes take or child keys, or re-dispatches on a fresh / inherited origin
     /// (`Utility`, `Proxy`, `Multisig`, `Sudo`, `MevShield::store_encrypted`,

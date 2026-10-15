@@ -258,7 +258,7 @@ mod tests {
     }
 
     #[test]
-    fn spec_470_proxy_types_have_stable_indices() {
+    fn validate_and_weights_have_stable_indices() {
         assert_eq!(u8::from(ProxyType::BasketTrading), 18);
         assert_eq!(u8::from(ProxyType::Validate), 19);
         assert_eq!(u8::from(ProxyType::Weights), 20);
