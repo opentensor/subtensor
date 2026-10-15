@@ -1269,6 +1269,30 @@ mod benchmarks {
     }
 
     #[benchmark]
+    fn sudo_set_claim_based_miner_emissions() {
+        let netuid = NetUid::from(1);
+        pallet_subtensor::Pallet::<T>::init_new_network(netuid, 1u16);
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, netuid, false);
+
+        assert!(!pallet_subtensor::ClaimBasedMinerEmissions::<T>::get(
+            netuid
+        ));
+    }
+
+    #[benchmark]
+    fn sudo_set_miner_claim_alpha_fee_per_weight_second() {
+        #[extrinsic_call]
+        _(RawOrigin::Root, 42u64);
+
+        assert_eq!(
+            pallet_subtensor::MinerClaimAlphaFeePerWeightSecond::<T>::get(),
+            42u64
+        );
+    }
+
+    #[benchmark]
     fn sudo_set_basket_claim_dust() {
         #[extrinsic_call]
         _(
