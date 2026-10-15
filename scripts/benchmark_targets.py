@@ -28,9 +28,10 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 from benchmark_action import find_matching_brace, find_section  # noqa: E402
 
-# Commits made by the Validate-Benchmarks workflow (run-benchmarks.yml).
-BOT_AUTHOR = "subtensor-benchmark-bot@users.noreply.github.com"
+# Commits made by the Validate-Benchmarks workflow (run-benchmarks.yml) carry
+# this subject and a body line linking the measuring run.
 BOT_SUBJECT = "chore: update benchmark weights"
+BOT_MARKER = "Measured on the Benchmarking runner:"
 BENCHMARK_FN = re.compile(
     r"#\[benchmark(?:\([^)]*\))?\]\s*(?:#\[[^\]]*\]\s*)*(?:pub\s+)?fn\s+(\w+)\s*\("
 )
@@ -106,9 +107,10 @@ def latest_bot_commit(base: str, head: str) -> Optional[str]:
     commits = git(
         "log",
         "--format=%H",
-        f"--author={BOT_AUTHOR}",
         "--fixed-strings",
+        "--all-match",
         f"--grep={BOT_SUBJECT}",
+        f"--grep={BOT_MARKER}",
         f"{base}..{head}",
     ).split()
     return commits[0] if commits else None

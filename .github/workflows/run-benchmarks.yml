@@ -252,7 +252,7 @@ jobs:
           git_auth fetch --quiet --depth=1 "$remote" "$EXPECTED_SHA"
           git checkout --quiet FETCH_HEAD
           git apply --index ../bench-patch/benchmark_patch.diff
-          # The subject is how scripts/benchmark_targets.py recognises measured weights.
+          # scripts/benchmark_targets.py recognises measured weights by the subject plus this marker line.
           git -c user.name='subtensor-benchmark-bot' \
               -c user.email='subtensor-benchmark-bot@users.noreply.github.com' \
               -c core.hooksPath=/dev/null \
