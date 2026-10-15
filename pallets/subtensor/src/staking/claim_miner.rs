@@ -236,42 +236,40 @@ impl<T: Config> Pallet<T> {
 
     /// Resumable dissolve helper: stake every pending row on `netuid` (fee-free)
     /// so later AlphaInOut settlement can convert it to TAO with the rest of stake.
+    ///
+    /// Always resumes from the front of the remaining prefix. Paid rows are
+    /// removed via `PendingMinerAlpha::take`, so progress does not need a hashed
+    /// cursor — and a mid-cleanup hotkey swap that rekeys an unpaid row cannot
+    /// hide it behind a previous `iter_prefix_from` cursor.
     pub fn dissolve_pending_miner_alpha_to_stake(
         netuid: NetUid,
         weight_meter: &mut WeightMeter,
-        last_key: Option<Vec<u8>>,
+        _last_key: Option<Vec<u8>>,
     ) -> (bool, Option<Vec<u8>>) {
         let row_weight = Self::dissolve_pending_miner_alpha_row_weight();
         // Final total-map removal after the last row.
         let finish_weight = T::DbWeight::get().writes(1);
         let mut done = true;
-        let mut cursor = last_key.clone();
 
-        let iter = match last_key {
-            Some(key) => PendingMinerAlpha::<T>::iter_prefix_from(netuid, key),
-            None => PendingMinerAlpha::<T>::iter_prefix(netuid),
-        };
-
-        for (hotkey, _amount) in iter {
+        for (hotkey, _amount) in PendingMinerAlpha::<T>::iter_prefix(netuid) {
             if !weight_meter.can_consume(row_weight) {
                 done = false;
                 break;
             }
             weight_meter.consume(row_weight);
-            cursor = Some(PendingMinerAlpha::<T>::hashed_key_for(netuid, &hotkey));
             Self::force_payout_pending_miner_alpha(netuid, &hotkey);
         }
 
         if done {
             if !weight_meter.can_consume(finish_weight) {
                 // Rows are drained but the total removal must wait for a later
-                // block; keep the cursor so the phase resumes and finishes.
-                return (false, cursor);
+                // block; resume with no cursor (prefix restart).
+                return (false, None);
             }
             weight_meter.consume(finish_weight);
             PendingMinerAlphaTotal::<T>::remove(netuid);
-            cursor = None;
+            return (true, None);
         }
-        (done, cursor)
+        (false, None)
     }
 }

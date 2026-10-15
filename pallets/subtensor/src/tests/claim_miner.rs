@@ -367,3 +367,72 @@ fn dissolve_pending_row_weight_covers_claim_envelope() {
     assert!(row.ref_time() >= claim.ref_time());
     assert!(row.proof_size() >= claim.proof_size());
 }
+
+#[test]
+fn dissolve_resume_after_hotkey_swap_does_not_skip_rows() {
+    new_test_ext(0).execute_with(|| {
+        use frame_support::weights::WeightMeter;
+
+        let (cold, hot_a, netuid) = setup_claim_subnet();
+        let hot_b = U256::from(3);
+        let hot_c = U256::from(4);
+        let new_hot = U256::from(33);
+        register_ok_neuron(netuid, hot_b, cold, 0);
+        register_ok_neuron(netuid, hot_c, cold, 0);
+        SubtensorModule::create_account_if_non_existent(&cold, &new_hot).unwrap();
+
+        let amount: AlphaBalance = 10_000u64.into();
+        SubtensorModule::accrue_pending_miner_alpha(netuid, &hot_a, amount);
+        SubtensorModule::accrue_pending_miner_alpha(netuid, &hot_b, amount);
+        SubtensorModule::accrue_pending_miner_alpha(netuid, &hot_c, amount);
+
+        assert_ok!(SubtensorModule::do_dissolve_network(netuid));
+
+        // Pay exactly one row with a tight meter, leaving two unpaid.
+        let row_w = SubtensorModule::dissolve_pending_miner_alpha_row_weight();
+        let mut meter = WeightMeter::with_limit(row_w);
+        let (done, _) =
+            SubtensorModule::dissolve_pending_miner_alpha_to_stake(netuid, &mut meter, None);
+        assert!(!done);
+        assert_eq!(
+            SubtensorModule::get_pending_miner_emission_total(netuid),
+            amount.saturating_mul(2u64.into())
+        );
+
+        // Pick an unpaid hotkey and rekey it. Prefix restart (not a hashed
+        // cursor) must still visit the new key on resume.
+        let unpaid = [hot_a, hot_b, hot_c]
+            .into_iter()
+            .find(|h| !SubtensorModule::get_pending_miner_emission(h, netuid).is_zero())
+            .expect("expected an unpaid pending row");
+        let mut weight = Weight::from_parts(u64::MAX / 4, u64::MAX / 4);
+        assert_ok!(SubtensorModule::perform_hotkey_swap_on_all_subnets(
+            &unpaid,
+            &new_hot,
+            &cold,
+            &mut weight,
+            false,
+        ));
+        assert_eq!(
+            SubtensorModule::get_pending_miner_emission(&new_hot, netuid),
+            amount
+        );
+
+        let mut meter = WeightMeter::with_limit(Weight::from_parts(u64::MAX / 4, u64::MAX / 4));
+        let (done, _) =
+            SubtensorModule::dissolve_pending_miner_alpha_to_stake(netuid, &mut meter, None);
+        assert!(done);
+        assert_eq!(
+            SubtensorModule::get_pending_miner_emission_total(netuid),
+            AlphaBalance::ZERO
+        );
+        assert_eq!(
+            SubtensorModule::get_pending_miner_emission(&new_hot, netuid),
+            AlphaBalance::ZERO
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&new_hot, &cold, netuid),
+            amount
+        );
+    });
+}
