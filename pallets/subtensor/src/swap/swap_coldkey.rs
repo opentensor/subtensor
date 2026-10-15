@@ -70,7 +70,7 @@ impl<T: Config> Pallet<T> {
     /// refuse an oversized swap and price the work it admits.
     pub fn coldkey_swap_work(old_coldkey: &T::AccountId) -> ColdkeySwapWork {
         let mut work = ColdkeySwapWork::default();
-        for hotkey in StakingHotkeys::<T>::get(old_coldkey) {
+        for hotkey in Self::coldkey_swap_hotkeys(old_coldkey) {
             work.hotkeys = work.hotkeys.saturating_add(1);
             let netuids: BTreeSet<NetUid> = Self::alpha_iter_prefix((&hotkey, old_coldkey))
                 .map(|(netuid, _)| netuid)
@@ -78,6 +78,16 @@ impl<T: Config> Pallet<T> {
             work.positions = work.positions.saturating_add(netuids.len() as u32);
         }
         work
+    }
+
+    /// Include claim-only root-swap credits without appending them to the staking list.
+    fn coldkey_swap_hotkeys(coldkey: &T::AccountId) -> BTreeSet<T::AccountId> {
+        let mut hotkeys: BTreeSet<_> = StakingHotkeys::<T>::get(coldkey).into_iter().collect();
+        let limit = crate::MAX_COLDKEY_SWAP_HOTKEYS
+            .saturating_sub(hotkeys.len() as u32)
+            .saturating_add(1) as usize;
+        hotkeys.extend(HotkeySwapBasketCredits::<T>::iter_key_prefix(coldkey).take(limit));
+        hotkeys
     }
 
     /// Transfer all assets, stakes, subnet ownerships, and hotkey associations from `old_coldkey` to
@@ -121,7 +131,11 @@ impl<T: Config> Pallet<T> {
         // rows and mid-hotkey `BasketClaimed` writes. Moving root stake + only the new
         // watermark would leave legacy claims on the dead coldkey.
         Self::ensure_beta_basket_seed_idle().map_err(refused)?;
-        if !StakingHotkeys::<T>::get(new_coldkey).is_empty() {
+        if !StakingHotkeys::<T>::get(new_coldkey).is_empty()
+            || HotkeySwapBasketCredits::<T>::iter_key_prefix(new_coldkey)
+                .next()
+                .is_some()
+        {
             return Err(refused(Error::<T>::ColdKeyAlreadyAssociated));
         }
         if Self::hotkey_account_exists(new_coldkey) {
@@ -287,7 +301,7 @@ impl<T: Config> Pallet<T> {
     /// the signed watermark can be negative with zero stake (claim-then-unstake) and must
     /// follow the coldkey rather than be orphaned on the dead key.
     fn transfer_coldkey_positions(old_coldkey: &T::AccountId, new_coldkey: &T::AccountId) {
-        for hotkey in StakingHotkeys::<T>::get(old_coldkey) {
+        for hotkey in Self::coldkey_swap_hotkeys(old_coldkey) {
             let netuids: BTreeSet<NetUid> = Self::alpha_iter_prefix((&hotkey, old_coldkey))
                 .map(|(netuid, _)| netuid)
                 .collect();

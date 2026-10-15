@@ -129,6 +129,24 @@
         }
       ]
     },
+    "AccountRejectsStakingHotkeyGrowth": {
+      "code": "policy_violation",
+      "description": "The receiving coldkey opted out of staking-list growth caused by other accounts. Transfer onto a hotkey the receiver already lists or owns, or have the receiver voluntarily establish the destination through its own staking action. Contracts can check getRejectStakingHotkeyGrowth before transferring to avoid a refused precompile call.",
+      "docs_url": "/docs/errors/chain/AccountRejectsStakingHotkeyGrowth",
+      "markdown_url": "/llms.mdx/docs/errors/chain/AccountRejectsStakingHotkeyGrowth/content.md",
+      "pallets": [
+        "SubtensorModule"
+      ],
+      "sources": [
+        {
+          "pallet": "SubtensorModule",
+          "path": "pallets/subtensor/src/macros/errors.rs",
+          "line": 418,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L418",
+          "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
+        }
+      ]
+    },
     "ActiveLockExists": {
       "code": "already_exists",
       "description": "The destination coldkey already holds a lock with nonzero locked mass on that subnet, so a new or transferred lock cannot be created there. Inspect the `Lock` storage for the (coldkey, netuid, hotkey) triple and wait for the existing lock to unlock or remove it first.",
@@ -417,6 +435,15 @@
         }
       ]
     },
+    "AuthorizationListTooLarge": {
+      "code": "limit_exceeded",
+      "description": "The EIP-7702 authorization list exceeds the maximum of 255 entries. Split the authorizations across transactions; oversized lists are rejected before signature recovery.",
+      "docs_url": "/docs/errors/chain/AuthorizationListTooLarge",
+      "markdown_url": "/llms.mdx/docs/errors/chain/AuthorizationListTooLarge/content.md",
+      "pallets": [
+        "EVM"
+      ]
+    },
     "AutoEpochAlreadyImminent": {
       "code": "already_exists",
       "description": "`trigger_epoch` was called when the next automatic epoch is closer than the `AdminFreezeWindow`, so a manual trigger would have no effect. Check the subnet's tempo and blocks until the next epoch, and simply wait for it to fire.",
@@ -588,6 +615,24 @@
         }
       ]
     },
+    "BasketSwapBatchEmpty": {
+      "code": "invalid_argument",
+      "description": "`swap_basket_many` was submitted without any trade legs. Include at least one origin/destination/amount leg; one call accepts at most 128 legs.",
+      "docs_url": "/docs/errors/chain/BasketSwapBatchEmpty",
+      "markdown_url": "/llms.mdx/docs/errors/chain/BasketSwapBatchEmpty/content.md",
+      "pallets": [
+        "SubtensorModule"
+      ],
+      "sources": [
+        {
+          "pallet": "SubtensorModule",
+          "path": "pallets/subtensor/src/macros/errors.rs",
+          "line": 412,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L412",
+          "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
+        }
+      ]
+    },
     "BasketTradingDisabled": {
       "code": "disabled",
       "description": "`swap_basket` is switched off network-wide (`BasketTradingEnabled` is false). Governance opens it with `AdminUtils.sudo_set_basket_trading_enabled`. Deposits, claims, and dividend deployment are unaffected.",
@@ -726,8 +771,8 @@
         {
           "pallet": "AdminUtils",
           "path": "pallets/admin-utils/src/lib.rs",
-          "line": 197,
-          "url": "/code/pallets/admin-utils/src/lib.rs#L197",
+          "line": 202,
+          "url": "/code/pallets/admin-utils/src/lib.rs#L202",
           "raw_url": "/code/raw/pallets/admin-utils/src/lib.rs"
         }
       ]
@@ -1239,8 +1284,8 @@
         {
           "pallet": "AdminUtils",
           "path": "pallets/admin-utils/src/lib.rs",
-          "line": 221,
-          "url": "/code/pallets/admin-utils/src/lib.rs#L221",
+          "line": 226,
+          "url": "/code/pallets/admin-utils/src/lib.rs#L226",
           "raw_url": "/code/raw/pallets/admin-utils/src/lib.rs"
         }
       ]
@@ -1257,9 +1302,45 @@
         {
           "pallet": "AdminUtils",
           "path": "pallets/admin-utils/src/lib.rs",
-          "line": 219,
-          "url": "/code/pallets/admin-utils/src/lib.rs#L219",
+          "line": 224,
+          "url": "/code/pallets/admin-utils/src/lib.rs#L224",
           "raw_url": "/code/raw/pallets/admin-utils/src/lib.rs"
+        }
+      ]
+    },
+    "CommitPayloadTooLarge": {
+      "code": "limit_exceeded",
+      "description": "The encrypted weight commit exceeds the subnet's consensus payload limit. Yuma accepts at most 5,000 bytes; Null accepts at most floor(32 KiB / mechanism_count). Reduce the submitted weight row or check the subnet's epoch_consensus setting.",
+      "docs_url": "/docs/errors/chain/CommitPayloadTooLarge",
+      "markdown_url": "/llms.mdx/docs/errors/chain/CommitPayloadTooLarge/content.md",
+      "pallets": [
+        "SubtensorModule"
+      ],
+      "sources": [
+        {
+          "pallet": "SubtensorModule",
+          "path": "pallets/subtensor/src/macros/errors.rs",
+          "line": 414,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L414",
+          "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
+        }
+      ]
+    },
+    "CommitQueueFull": {
+      "code": "limit_exceeded",
+      "description": "The subnet's Null timelock queue has reached its shared per-epoch limit of 64 KiB or 64 commits across emission mechanisms. Wait for the next epoch before submitting another commit; the leading eligible validator can preempt lower-priority rows.",
+      "docs_url": "/docs/errors/chain/CommitQueueFull",
+      "markdown_url": "/llms.mdx/docs/errors/chain/CommitQueueFull/content.md",
+      "pallets": [
+        "SubtensorModule"
+      ],
+      "sources": [
+        {
+          "pallet": "SubtensorModule",
+          "path": "pallets/subtensor/src/macros/errors.rs",
+          "line": 416,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L416",
+          "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
         }
       ]
     },
@@ -1572,8 +1653,8 @@
         {
           "pallet": "AdminUtils",
           "path": "pallets/admin-utils/src/lib.rs",
-          "line": 217,
-          "url": "/code/pallets/admin-utils/src/lib.rs#L217",
+          "line": 222,
+          "url": "/code/pallets/admin-utils/src/lib.rs#L222",
           "raw_url": "/code/raw/pallets/admin-utils/src/lib.rs"
         },
         {
@@ -2002,8 +2083,8 @@
         {
           "pallet": "AdminUtils",
           "path": "pallets/admin-utils/src/lib.rs",
-          "line": 223,
-          "url": "/code/pallets/admin-utils/src/lib.rs#L223",
+          "line": 228,
+          "url": "/code/pallets/admin-utils/src/lib.rs#L228",
           "raw_url": "/code/raw/pallets/admin-utils/src/lib.rs"
         }
       ]
@@ -2848,8 +2929,8 @@
         {
           "pallet": "AdminUtils",
           "path": "pallets/admin-utils/src/lib.rs",
-          "line": 211,
-          "url": "/code/pallets/admin-utils/src/lib.rs#L211",
+          "line": 216,
+          "url": "/code/pallets/admin-utils/src/lib.rs#L216",
           "raw_url": "/code/raw/pallets/admin-utils/src/lib.rs"
         }
       ]
@@ -3190,8 +3271,8 @@
         {
           "pallet": "AdminUtils",
           "path": "pallets/admin-utils/src/lib.rs",
-          "line": 195,
-          "url": "/code/pallets/admin-utils/src/lib.rs#L195",
+          "line": 200,
+          "url": "/code/pallets/admin-utils/src/lib.rs#L200",
           "raw_url": "/code/raw/pallets/admin-utils/src/lib.rs"
         }
       ]
@@ -3208,8 +3289,8 @@
         {
           "pallet": "AdminUtils",
           "path": "pallets/admin-utils/src/lib.rs",
-          "line": 209,
-          "url": "/code/pallets/admin-utils/src/lib.rs#L209",
+          "line": 214,
+          "url": "/code/pallets/admin-utils/src/lib.rs#L214",
           "raw_url": "/code/raw/pallets/admin-utils/src/lib.rs"
         }
       ]
@@ -3226,8 +3307,8 @@
         {
           "pallet": "AdminUtils",
           "path": "pallets/admin-utils/src/lib.rs",
-          "line": 207,
-          "url": "/code/pallets/admin-utils/src/lib.rs#L207",
+          "line": 212,
+          "url": "/code/pallets/admin-utils/src/lib.rs#L212",
           "raw_url": "/code/raw/pallets/admin-utils/src/lib.rs"
         }
       ]
@@ -3298,8 +3379,8 @@
         {
           "pallet": "AdminUtils",
           "path": "pallets/admin-utils/src/lib.rs",
-          "line": 193,
-          "url": "/code/pallets/admin-utils/src/lib.rs#L193",
+          "line": 198,
+          "url": "/code/pallets/admin-utils/src/lib.rs#L198",
           "raw_url": "/code/raw/pallets/admin-utils/src/lib.rs"
         }
       ]
@@ -3396,8 +3477,8 @@
         {
           "pallet": "AdminUtils",
           "path": "pallets/admin-utils/src/lib.rs",
-          "line": 203,
-          "url": "/code/pallets/admin-utils/src/lib.rs#L203",
+          "line": 208,
+          "url": "/code/pallets/admin-utils/src/lib.rs#L208",
           "raw_url": "/code/raw/pallets/admin-utils/src/lib.rs"
         }
       ]
@@ -3414,8 +3495,8 @@
         {
           "pallet": "AdminUtils",
           "path": "pallets/admin-utils/src/lib.rs",
-          "line": 205,
-          "url": "/code/pallets/admin-utils/src/lib.rs#L205",
+          "line": 210,
+          "url": "/code/pallets/admin-utils/src/lib.rs#L210",
           "raw_url": "/code/raw/pallets/admin-utils/src/lib.rs"
         }
       ]
@@ -3513,8 +3594,8 @@
         {
           "pallet": "AdminUtils",
           "path": "pallets/admin-utils/src/lib.rs",
-          "line": 199,
-          "url": "/code/pallets/admin-utils/src/lib.rs#L199",
+          "line": 204,
+          "url": "/code/pallets/admin-utils/src/lib.rs#L204",
           "raw_url": "/code/raw/pallets/admin-utils/src/lib.rs"
         }
       ]
@@ -4073,8 +4154,8 @@
         {
           "pallet": "AdminUtils",
           "path": "pallets/admin-utils/src/lib.rs",
-          "line": 213,
-          "url": "/code/pallets/admin-utils/src/lib.rs#L213",
+          "line": 218,
+          "url": "/code/pallets/admin-utils/src/lib.rs#L218",
           "raw_url": "/code/raw/pallets/admin-utils/src/lib.rs"
         }
       ]
@@ -4323,7 +4404,7 @@
     },
     "POWRegistrationDisabled": {
       "code": "disabled",
-      "description": "`sudo_set_network_pow_registration_allowed` unconditionally fails because proof-of-work registration is deprecated and its toggle can no longer be changed. Nothing to check; the call is permanently disabled.",
+      "description": "This legacy error is retained for older runtimes that disabled PoW registration. Upgraded runtimes let the subnet owner enable network_pow_registration_allowed; general registration must also be enabled. Root does not accept PoW registration.",
       "docs_url": "/docs/errors/chain/POWRegistrationDisabled",
       "markdown_url": "/llms.mdx/docs/errors/chain/POWRegistrationDisabled/content.md",
       "pallets": [
@@ -4333,8 +4414,8 @@
         {
           "pallet": "AdminUtils",
           "path": "pallets/admin-utils/src/lib.rs",
-          "line": 215,
-          "url": "/code/pallets/admin-utils/src/lib.rs#L215",
+          "line": 220,
+          "url": "/code/pallets/admin-utils/src/lib.rs#L220",
           "raw_url": "/code/raw/pallets/admin-utils/src/lib.rs"
         }
       ]
@@ -5097,7 +5178,7 @@
     },
     "SubNetRegistrationDisabled": {
       "code": "disabled",
-      "description": "Neuron registration is switched off: either the subnet's `NetworkRegistrationAllowed` flag is false, or network creation has not opened yet (`NetworkRegistrationStartBlock` is in the future). Check the network_registration_allowed hyperparameter for the netuid.",
+      "description": "Neuron registration is switched off: either the subnet's `NetworkRegistrationAllowed` flag is false, the PoW-specific toggle is off for a pow_register call, or network creation has not opened yet (`NetworkRegistrationStartBlock` is in the future). Check the network_registration_allowed hyperparameter for the netuid.",
       "docs_url": "/docs/errors/chain/SubNetRegistrationDisabled",
       "markdown_url": "/llms.mdx/docs/errors/chain/SubNetRegistrationDisabled/content.md",
       "pallets": [
@@ -5143,8 +5224,8 @@
         {
           "pallet": "AdminUtils",
           "path": "pallets/admin-utils/src/lib.rs",
-          "line": 191,
-          "url": "/code/pallets/admin-utils/src/lib.rs#L191",
+          "line": 196,
+          "url": "/code/pallets/admin-utils/src/lib.rs#L196",
           "raw_url": "/code/raw/pallets/admin-utils/src/lib.rs"
         }
       ]
@@ -5963,8 +6044,8 @@
         {
           "pallet": "AdminUtils",
           "path": "pallets/admin-utils/src/lib.rs",
-          "line": 201,
-          "url": "/code/pallets/admin-utils/src/lib.rs#L201",
+          "line": 206,
+          "url": "/code/pallets/admin-utils/src/lib.rs#L206",
           "raw_url": "/code/raw/pallets/admin-utils/src/lib.rs"
         }
       ]

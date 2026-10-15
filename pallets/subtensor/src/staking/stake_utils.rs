@@ -1,7 +1,9 @@
 use super::*;
+use crate::migrations::migrate_alpha_v2::retired::{Alpha, TotalHotkeyShares};
 use frame_support::dispatch::{
     DispatchErrorWithPostInfo, DispatchResultWithPostInfo, PostDispatchInfo,
 };
+use frame_support::storage::StorageNMap as _;
 use frame_support::weights::Weight;
 use safe_math::*;
 use share_pool::{SafeFloat, SharePool, SharePoolDataOperations};
@@ -317,6 +319,101 @@ impl<T: Config> Pallet<T> {
         (total_stake, alpha_stake, tao_stake)
     }
 
+    /// Null stake election uses the same inherited-stake arithmetic as Yuma,
+    /// but loads registered balances once and shares delegation inputs between
+    /// alpha and root stake. The cache is bounded by the registered population;
+    /// external parents are read directly rather than retained in the cache.
+    pub(crate) fn get_null_stake_weights_for_network(
+        netuid: NetUid,
+    ) -> (Vec<I64F64>, Vec<I64F64>, Vec<I64F64>) {
+        let n = Self::get_subnetwork_n(netuid);
+        let tao_weight = I64F64::saturating_from_num(Self::get_tao_weight());
+        let hotkeys: Vec<Option<T::AccountId>> = (0..n)
+            .map(|uid| Keys::<T>::try_get(netuid, uid).ok())
+            .collect();
+        let balances: BTreeMap<T::AccountId, (U96F32, U96F32)> = hotkeys
+            .iter()
+            .flatten()
+            .map(|hotkey| {
+                (
+                    hotkey.clone(),
+                    (
+                        U96F32::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(
+                            hotkey, netuid,
+                        )),
+                        U96F32::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(
+                            hotkey,
+                            NetUid::ROOT,
+                        )),
+                    ),
+                )
+            })
+            .collect();
+        let mut alpha_stake = Vec::with_capacity(n as usize);
+        let mut tao_stake = Vec::with_capacity(n as usize);
+        for maybe_hotkey in &hotkeys {
+            let Some(hotkey) = maybe_hotkey else {
+                alpha_stake.push(I64F64::saturating_from_num(0));
+                tao_stake.push(I64F64::saturating_from_num(0));
+                continue;
+            };
+            let (initial_alpha, initial_tao) = balances.get(hotkey).copied().unwrap_or_default();
+            let mut alpha_to_children = U96F32::saturating_from_num(0);
+            let mut tao_to_children = U96F32::saturating_from_num(0);
+            for (proportion, _) in Self::get_children(hotkey, netuid) {
+                let fraction = U96F32::saturating_from_num(proportion)
+                    .safe_div(U96F32::saturating_from_num(u64::MAX));
+                alpha_to_children =
+                    alpha_to_children.saturating_add(initial_alpha.saturating_mul(fraction));
+                tao_to_children =
+                    tao_to_children.saturating_add(initial_tao.saturating_mul(fraction));
+            }
+            let mut alpha_from_parents = U96F32::saturating_from_num(0);
+            let mut tao_from_parents = U96F32::saturating_from_num(0);
+            for (proportion, parent) in Self::get_parents(hotkey, netuid) {
+                let (parent_alpha, parent_tao) =
+                    balances.get(&parent).copied().unwrap_or_else(|| {
+                        (
+                            U96F32::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(
+                                &parent, netuid,
+                            )),
+                            U96F32::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(
+                                &parent,
+                                NetUid::ROOT,
+                            )),
+                        )
+                    });
+                let fraction = U96F32::saturating_from_num(proportion)
+                    .safe_div(U96F32::saturating_from_num(u64::MAX));
+                alpha_from_parents =
+                    alpha_from_parents.saturating_add(parent_alpha.saturating_mul(fraction));
+                tao_from_parents =
+                    tao_from_parents.saturating_add(parent_tao.saturating_mul(fraction));
+            }
+            // Preserve the original per-asset truncation before combining stake.
+            let alpha = if netuid.is_root() {
+                initial_alpha
+            } else {
+                initial_alpha
+                    .saturating_sub(alpha_to_children)
+                    .saturating_add(alpha_from_parents)
+            };
+            let tao = initial_tao
+                .saturating_sub(tao_to_children)
+                .saturating_add(tao_from_parents);
+            alpha_stake.push(I64F64::saturating_from_num(
+                alpha.saturating_to_num::<u64>(),
+            ));
+            tao_stake.push(I64F64::saturating_from_num(tao.saturating_to_num::<u64>()));
+        }
+        let total_stake = alpha_stake
+            .iter()
+            .zip(&tao_stake)
+            .map(|(alpha, tao)| alpha.saturating_add(tao.saturating_mul(tao_weight)))
+            .collect();
+        (total_stake, alpha_stake, tao_stake)
+    }
+
     /// Calculates the total inherited stake (alpha) held by a hotkey on a network, considering child/parent relationships.
     ///
     /// This function performs the following steps:
@@ -627,12 +724,40 @@ impl<T: Config> Pallet<T> {
                 staking_hotkeys.push(hotkey.clone());
                 StakingHotkeys::<T>::insert(coldkey, staking_hotkeys.clone());
             }
+            // Once a voluntary stake establishes the association, the staking
+            // list also discovers any root-swap credit for this fund.
+            HotkeySwapBasketCredits::<T>::remove(coldkey, hotkey);
         }
 
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
         // We expect to add a positive amount here.
         let amount = amount.to_u64() as i64;
         alpha_share_pool.update_value_for_one(coldkey, amount);
+    }
+
+    /// Credit a Null owner reward using an existing sole-owner pool when possible.
+    /// Shared pools, first deposits, legacy rows and missing staking associations
+    /// retain the general deposit path. Yuma accounting is unchanged.
+    pub(crate) fn credit_epoch_owner_emission(
+        hotkey: &T::AccountId,
+        coldkey: &T::AccountId,
+        netuid: NetUid,
+        amount: AlphaBalance,
+    ) {
+        if amount.is_zero() {
+            return;
+        }
+        if Self::get_epoch_consensus(netuid) == EpochConsensus::Null
+            && !TotalHotkeyShares::<T>::contains_key(hotkey, netuid)
+            && !Alpha::<T>::contains_key((hotkey, coldkey, netuid))
+            && StakingHotkeys::<T>::get(coldkey).contains(hotkey)
+        {
+            let mut pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
+            if pool.try_credit_sole_member(coldkey, amount.to_u64()) {
+                return;
+            }
+        }
+        Self::increase_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, amount);
     }
 
     pub fn try_increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -685,14 +810,47 @@ impl<T: Config> Pallet<T> {
         pool_before.saturating_sub(pool_after)
     }
 
-    /// Remove a staking-hotkey association once the pair has no stake left anywhere.
+    /// Take an entire position for a hotkey rename. A quoted balance is floored;
+    /// withdrawing just that integer can leave fractional shares behind, resurrect
+    /// the old entry on a later dividend, and turn a rename into unchecked growth.
+    /// Burn the complete share, carrying exactly the debited integer value to the
+    /// new pool. Sub-rao residue stays with the old pool's remaining holders.
+    pub(crate) fn take_stake_position_for_hotkey_swap(
+        hotkey: &T::AccountId,
+        coldkey: &T::AccountId,
+        netuid: NetUid,
+    ) -> AlphaBalance {
+        let amount = Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
+        let mut ops = HotkeyAlphaSharePoolDataOperations::<T>::new(hotkey.clone(), netuid);
+        let share = ops.get_share(coldkey);
+        let denominator = ops.get_denominator();
+        ops.set_shared_value(ops.get_shared_value().saturating_sub(amount.to_u64()));
+        ops.set_share(coldkey, SafeFloat::zero());
+        ops.set_denominator(denominator.sub(&share).unwrap_or_default());
+        amount
+    }
+
+    /// Keep the index until all alpha keys have been removed, across both share formats
+    /// and every subnet. Even a zero-valued share can grow with pool-wide dividends,
+    /// which do not recreate the index. Exact-zero rows are removed by storage GC.
+    /// Each prefix probe visits at most one key; no relationship-wide scan is needed.
+    pub(crate) fn staking_hotkey_must_remain(
+        hotkey: &T::AccountId,
+        coldkey: &T::AccountId,
+    ) -> bool {
+        Alpha::<T>::contains_prefix((hotkey, coldkey))
+            || AlphaV2::<T>::contains_prefix((hotkey, coldkey))
+            || BasketClaimed::<T>::get(hotkey, coldkey) != 0
+            || AutoStakeDestination::<T>::iter_prefix(coldkey).any(|(_, target)| target == *hotkey)
+    }
+
+    /// Remove a staking-hotkey association once the pair has no alpha keys left anywhere.
     ///
     /// A non-zero basket watermark also keeps the association alive. In particular, an
     /// unstaked root claimant can have a negative watermark representing basket shares that
     /// still need to be claimed or moved during a coldkey swap.
     pub(crate) fn maybe_remove_staking_hotkey(hotkey: &T::AccountId, coldkey: &T::AccountId) {
-        let has_stake = Self::alpha_iter_prefix((hotkey, coldkey)).next().is_some();
-        if has_stake || BasketClaimed::<T>::get(hotkey, coldkey) != 0 {
+        if Self::staking_hotkey_must_remain(hotkey, coldkey) {
             return;
         }
 
@@ -918,6 +1076,32 @@ impl<T: Config> Pallet<T> {
         drop_fees: bool,
         enforce_root_hold: bool,
     ) -> Result<TaoBalance, DispatchError> {
+        Self::unstake_from_subnet_with_flush_work(
+            hotkey,
+            coldkey,
+            beneficiary,
+            netuid,
+            alpha,
+            price_limit,
+            drop_fees,
+            enforce_root_hold,
+        )
+        .map(|(tao, _)| tao)
+    }
+
+    /// Internal withdrawal result includes basket work so bounded callers can return
+    /// unused flush weight after reserving the same allowance as normal extrinsics.
+    pub(crate) fn unstake_from_subnet_with_flush_work(
+        hotkey: &T::AccountId,
+        coldkey: &T::AccountId,
+        beneficiary: &T::AccountId,
+        netuid: NetUid,
+        alpha: AlphaBalance,
+        price_limit: TaoBalance,
+        drop_fees: bool,
+        enforce_root_hold: bool,
+    ) -> Result<(TaoBalance, crate::staking::basket_flush::BasketFlushWork), DispatchError> {
+        let mut flush_work = crate::staking::basket_flush::BasketFlushWork::default();
         // Root stake is the claimant base for queued basket deposits: flush the hotkey's
         // pending dividend credits before the stake leaves, so a staker doesn't forfeit
         // flushable dividends earned while they were staked. (Sub-threshold credits
@@ -926,7 +1110,7 @@ impl<T: Config> Pallet<T> {
             if enforce_root_hold {
                 Self::ensure_root_stake_unlocked(coldkey, hotkey)?;
             }
-            Self::flush_basket_deposits_for_hotkey(hotkey);
+            (flush_work, _, _) = Self::flush_basket_deposits_for_hotkey(hotkey);
         }
 
         // Refuse to strip conviction-locked or collateral-bonded alpha even when
@@ -1010,7 +1194,7 @@ impl<T: Config> Pallet<T> {
             swap_result.fee_paid
         );
 
-        Ok(swap_result.amount_paid_out.into())
+        Ok((swap_result.amount_paid_out.into(), flush_work))
     }
 
     /// Stakes TAO into a subnet for a given hotkey and coldkey pair.
@@ -1257,6 +1441,65 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    pub fn account_rejects_staking_hotkey_growth(coldkey: &T::AccountId) -> bool {
+        AccountFlags::<T>::get(coldkey) & crate::ACCOUNT_FLAGS_REJECT_STAKING_HOTKEY_GROWTH != 0
+    }
+
+    /// A subnet rename needs a second list entry only if another position survives.
+    pub(crate) fn hotkey_swap_needs_split(
+        coldkey: &T::AccountId,
+        old_hotkey: &T::AccountId,
+        netuid: NetUid,
+    ) -> bool {
+        Self::alpha_iter_prefix((old_hotkey, coldkey))
+            .any(|(other, shares)| other != netuid && !shares.is_zero())
+            || (!netuid.is_root() && BasketClaimed::<T>::get(old_hotkey, coldkey) != 0)
+            || AutoStakeDestination::<T>::iter_prefix(coldkey)
+                .any(|(other, target)| other != netuid && target == *old_hotkey)
+    }
+
+    pub(crate) fn hotkey_swap_stake_can_follow(
+        coldkey: &T::AccountId,
+        old_hotkey: &T::AccountId,
+        new_hotkey: &T::AccountId,
+        netuid: NetUid,
+        swapping_coldkey: &T::AccountId,
+    ) -> bool {
+        let hotkeys = StakingHotkeys::<T>::get(coldkey);
+        if hotkeys.contains(new_hotkey)
+            || (hotkeys.contains(old_hotkey)
+                && !Self::hotkey_swap_needs_split(coldkey, old_hotkey, netuid))
+        {
+            return true;
+        }
+        if coldkey == swapping_coldkey {
+            return hotkeys.len() < crate::MAX_STAKING_HOTKEYS as usize;
+        }
+        !Self::account_rejects_staking_hotkey_growth(coldkey)
+            && hotkeys.len() < crate::MAX_THIRD_PARTY_STAKING_HOTKEYS as usize
+    }
+
+    /// Third-party deposits obey both the recipient's opt-out and the smaller cap.
+    pub fn ensure_third_party_staking_hotkeys_can_grow(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+    ) -> Result<(), Error<T>> {
+        let hotkeys = StakingHotkeys::<T>::get(coldkey);
+        if hotkeys.contains(hotkey) {
+            return Ok(());
+        }
+        ensure!(
+            !Self::account_rejects_staking_hotkey_growth(coldkey)
+                || Self::coldkey_owns_hotkey(coldkey, hotkey),
+            Error::<T>::AccountRejectsStakingHotkeyGrowth
+        );
+        ensure!(
+            hotkeys.len() < crate::MAX_THIRD_PARTY_STAKING_HOTKEYS as usize,
+            Error::<T>::TooManyStakingHotkeys
+        );
+        Ok(())
+    }
+
     /// Weight of walking a `StakingHotkeys` list of `entries` on an unstake-side call.
     fn staking_hotkeys_walk_weight(entries: u64) -> Weight {
         T::DbWeight::get().reads(
@@ -1277,6 +1520,57 @@ impl<T: Config> Pallet<T> {
     pub fn staking_hotkeys_walk_actual(coldkey: &T::AccountId) -> Weight {
         let entries = StakingHotkeys::<T>::decode_len(coldkey).unwrap_or(0) as u64;
         Self::staking_hotkeys_walk_weight(entries)
+    }
+
+    /// Walk allowance for a stake exit signed by `coldkey` that is dispatched immediately,
+    /// against the current state, with nothing executing in between.
+    ///
+    /// Transaction weights must keep [`Self::staking_hotkeys_walk_bound`]: they are fixed
+    /// before earlier extrinsics in the block can grow the list. A caller that reads the list
+    /// and dispatches synchronously (an EVM precompile or a contract chain extension) can
+    /// size the walk to the list as it stands. The call adds at most one hotkey to its
+    /// signer's list (a move to a new hotkey), so the walk it performs and the
+    /// [`Self::staking_hotkeys_walk_actual`] it reports never exceed the current length plus
+    /// one. Never above the declared bound. The caller pays the length read.
+    pub fn staking_hotkeys_walk_immediate_bound(coldkey: &T::AccountId) -> Weight {
+        let entries =
+            (StakingHotkeys::<T>::decode_len(coldkey).unwrap_or(0) as u64).saturating_add(1);
+        Self::staking_hotkeys_walk_weight(entries).min(Self::staking_hotkeys_walk_bound())
+    }
+
+    /// How many [`Self::staking_hotkeys_walk_bound`] walks `call`'s declared weight
+    /// includes; each reports the signer's [`Self::staking_hotkeys_walk_actual`]
+    /// post-dispatch. Zero for calls that declare no walk.
+    ///
+    /// The EVM staking precompile and the contracts chain extension drop the unused part
+    /// of every declared walk (see [`Self::staking_hotkeys_walk_unused`]). Keep this in
+    /// sync with the weight declarations in `dispatches.rs`: a count above what a call
+    /// declares would under-reserve the call's own benchmarked weight instead.
+    pub fn declared_staking_hotkeys_walks(call: &Call<T>) -> u64 {
+        match call {
+            Call::remove_stake { .. }
+            | Call::remove_stake_limit { .. }
+            | Call::remove_stake_full_limit { .. }
+            | Call::move_stake { .. }
+            | Call::move_stake_limit { .. }
+            | Call::transfer_stake { .. }
+            | Call::transfer_stake_and_hotkey { .. }
+            | Call::swap_stake { .. }
+            | Call::swap_stake_limit { .. } => 1,
+            Call::unstake_all { .. } | Call::unstake_all_alpha { .. } => {
+                Self::unstake_all_declared_walks()
+            }
+            _ => 0,
+        }
+    }
+
+    /// Declared walk weight a stake exit signed by `coldkey`, dispatched immediately, can
+    /// never use: `walks` times the gap between [`Self::staking_hotkeys_walk_bound`] and
+    /// [`Self::staking_hotkeys_walk_immediate_bound`]. Zero for a list at the cap.
+    pub fn staking_hotkeys_walk_unused(coldkey: &T::AccountId, walks: u64) -> Weight {
+        Self::staking_hotkeys_walk_bound()
+            .saturating_sub(Self::staking_hotkeys_walk_immediate_bound(coldkey))
+            .saturating_mul(walks)
     }
 
     /// Attach `weight` as the actual weight of `result`, on success and on failure alike.
@@ -1652,12 +1946,10 @@ impl<T: Config> Pallet<T> {
         // budget, so third parties may only grow it up to a fixed bound. The coldkey's own
         // moves are bounded by the larger overall cap.
         if origin_coldkey != destination_coldkey {
-            let staking_hotkeys = StakingHotkeys::<T>::get(destination_coldkey);
-            ensure!(
-                staking_hotkeys.contains(destination_hotkey)
-                    || staking_hotkeys.len() < crate::MAX_THIRD_PARTY_STAKING_HOTKEYS as usize,
-                Error::<T>::TooManyStakingHotkeys
-            );
+            Self::ensure_third_party_staking_hotkeys_can_grow(
+                destination_coldkey,
+                destination_hotkey,
+            )?;
         } else {
             Self::ensure_staking_hotkeys_can_grow(destination_coldkey, destination_hotkey)?;
         }
@@ -1829,7 +2121,9 @@ impl<T: Config> SharePoolDataOperations<AlphaShareKey<T>>
             // Stamp the row with the pool's epoch so it stays readable until the pool is
             // next closed. Epoch 0 is the default: a never-closed pool has no stamped rows,
             // so nothing needs writing.
-            if pool_epoch != 0 {
+            if pool_epoch != 0
+                && AlphaShareEpoch::<T>::get((&self.hotkey, key, self.netuid)) != pool_epoch
+            {
                 AlphaShareEpoch::<T>::insert((&self.hotkey, key, self.netuid), pool_epoch);
             }
         } else {

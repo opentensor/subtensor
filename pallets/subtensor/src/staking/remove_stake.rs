@@ -1,4 +1,5 @@
 use super::*;
+use crate::migrations::migrate_alpha_v2::retired::{Alpha, TotalHotkeyShares};
 use crate::subnets::dissolution::DissolveCleanupStatus;
 use crate::weights::WeightInfo;
 use frame_support::weights::{Weight, WeightMeter};
@@ -257,6 +258,13 @@ impl<T: Config> Pallet<T> {
             legs: cap,
             validated: cap,
         }
+    }
+
+    /// `StakingHotkeys` walks the declared weight of `unstake_all` and `unstake_all_alpha`
+    /// reserves: one per validated envelope slot ([`Self::unstake_all_weight`] charges a
+    /// walk for every unstaked leg and every validated skip).
+    pub fn unstake_all_declared_walks() -> u64 {
+        u64::from(Self::unstake_all_worst_case_work().validated)
     }
 
     /// Pre-dispatch weight of `unstake_all`: the benchmarked fixed part plus, per

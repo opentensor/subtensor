@@ -77,6 +77,10 @@ pub trait WeightInfo {
 	fn sudo_set_liquid_alpha_enabled() -> Weight;
 	fn sudo_set_alpha_values() -> Weight;
 	fn sudo_set_liquid_alpha_consensus_mode() -> Weight;
+	/// Reuses the existing admin setter weight until reference benchmarks regenerate it.
+	fn sudo_set_epoch_consensus() -> Weight {
+		Self::sudo_set_alpha_values()
+	}
 	fn sudo_set_coldkey_swap_announcement_delay() -> Weight;
 	fn sudo_set_coldkey_swap_reannouncement_delay() -> Weight;
 	fn sudo_set_dissolve_network_schedule_duration() -> Weight;
@@ -94,6 +98,13 @@ pub trait WeightInfo {
 	fn sudo_set_owner_hparam_rate_limit() -> Weight;
 	fn sudo_set_owner_immune_neuron_limit() -> Weight;
 	fn sudo_trim_to_max_allowed_uids() -> Weight;
+    // Dedicated reference benchmark replaces this pre-release fallback before promotion.
+    fn sudo_trim_null_uids_batch() -> Weight {
+        Self::sudo_trim_to_max_allowed_uids()
+    }
+    fn sudo_trim_null_uids_batch_many_mechanisms() -> Weight {
+        Self::sudo_trim_to_max_allowed_uids()
+    }
 	fn sudo_set_min_non_immune_uids() -> Weight;
 	fn sudo_set_max_epochs_per_block() -> Weight;
 	fn sudo_set_adjustment_alpha() -> Weight;
@@ -129,6 +140,11 @@ pub trait WeightInfo {
 	fn sudo_set_basket_trading_frozen() -> Weight;
 	fn sudo_set_basket_daily_turnover_cap() -> Weight;
 	fn sudo_set_basket_liquidity_cap() -> Weight;
+	/// Same root check, single storage write and event as the liquidity cap setter.
+	/// CI reference benchmarking replaces this shared envelope with measured weights.
+	fn sudo_set_basket_min_trade_tao() -> Weight {
+		Self::sudo_set_basket_liquidity_cap()
+	}
 }
 
 /// Weights for `pallet_admin_utils` using the Substrate node and recommended hardware.

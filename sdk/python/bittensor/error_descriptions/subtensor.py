@@ -3,6 +3,13 @@
 from __future__ import annotations
 
 DESCRIPTIONS: dict[str, str] = {
+    "AccountRejectsStakingHotkeyGrowth": (
+        "The receiving coldkey opted out of staking-list growth caused by other accounts. "
+        "Transfer onto a hotkey the receiver already lists or owns, or have the receiver "
+        "voluntarily establish the destination through its own staking action. Contracts "
+        "can check getRejectStakingHotkeyGrowth before transferring to avoid a refused "
+        "precompile call."
+    ),
     "AccountRejectsLockedAlpha": (
         "Locked alpha was being transferred to a coldkey whose `AccountFlags` do not have the "
         "accept-locked-alpha bit set, e.g. during a lock transfer or coldkey swap of locks. "
@@ -120,6 +127,10 @@ DESCRIPTIONS: dict[str, str] = {
         "widen `--max-slippage` (btcli) / lower `min_amount_out` (SDK). A floor of 0 "
         "disables this check; the 2% protocol band still applies."
     ),
+    "BasketSwapBatchEmpty": (
+        "`swap_basket_many` was submitted without any trade legs. Include at least one "
+        "origin/destination/amount leg; one call accepts at most 128 legs."
+    ),
     "BasketSameSubnet": (
         "`swap_basket` was called with the same origin and destination netuid. A basket "
         "trade sells one holding to buy another; pick two different subnets (netuid 0 is "
@@ -234,6 +245,17 @@ DESCRIPTIONS: dict[str, str] = {
         "`swap_coldkey_announced` (`btcli wallet swap-coldkey`) was executed before the "
         "announcement delay had elapsed since `announce_coldkey_swap`. Check remaining "
         "blocks with `btcli wallet swap-check` and wait until then."
+    ),
+    "CommitPayloadTooLarge": (
+        "The encrypted weight commit exceeds the subnet's consensus payload limit. "
+        "Yuma accepts at most 5,000 bytes; Null accepts at most floor(32 KiB / mechanism_count). "
+        "Reduce the submitted weight row or check the subnet's epoch_consensus setting."
+    ),
+    "CommitQueueFull": (
+        "The subnet's Null timelock queue has reached its shared per-epoch limit of "
+        "64 KiB or 64 commits across emission mechanisms. Wait for the next epoch "
+        "before submitting another commit; the leading eligible validator can preempt "
+        "lower-priority rows."
     ),
     "CommitRevealDisabled": (
         "A weight commit or reveal was submitted on a subnet where commit-reveal is turned off. "
@@ -766,7 +788,8 @@ DESCRIPTIONS: dict[str, str] = {
     ),
     "SubNetRegistrationDisabled": (
         "Neuron registration is switched off: either the subnet's `NetworkRegistrationAllowed` "
-        "flag is false, or network creation has not opened yet (`NetworkRegistrationStartBlock` "
+        "flag is false, the PoW-specific toggle is off for a pow_register call, or network "
+        "creation has not opened yet (`NetworkRegistrationStartBlock` "
         "is in the future). Check the network_registration_allowed hyperparameter for the "
         "netuid."
     ),

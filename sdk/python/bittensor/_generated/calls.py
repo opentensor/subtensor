@@ -1,7 +1,6 @@
 """Generated from runtime metadata by codegen. DO NOT EDIT BY HAND.
 
 Regenerate with: python -m codegen <ws-endpoint>
-Spec version: 470
 """
 from typing import Any, NamedTuple
 
@@ -26,6 +25,7 @@ BoundedVec = Any
 CommitmentInfo = Any
 ConsensusMode = Any
 Determinism = Any
+EpochConsensus = Any
 EquivocationProof = Any
 FixedI128 = Any
 FixedU128 = Any
@@ -346,6 +346,11 @@ class SubtensorModule:
         return Call('SubtensorModule', 'move_stake_limit', {'origin_hotkey': origin_hotkey, 'destination_hotkey': destination_hotkey, 'origin_netuid': origin_netuid, 'destination_netuid': destination_netuid, 'alpha_amount': alpha_amount, 'limit_price': limit_price, 'allow_partial': allow_partial})
 
     @staticmethod
+    def pow_register(netuid: 'NetUid', work_block: 'u64', nonce: 'u64', work: 'Any', hotkey: 'AccountId32') -> Call:
+        'Register by owner-enabled PoW, without TAO burn, collateral purchase, or transaction fee. The signing coldkey is bound into the proof. Transaction validation verifies the proof before pool admission.'
+        return Call('SubtensorModule', 'pow_register', {'netuid': netuid, 'work_block': work_block, 'nonce': nonce, 'work': work, 'hotkey': hotkey})
+
+    @staticmethod
     def recycle_alpha(hotkey: 'AccountId32', amount: 'AlphaBalance', netuid: 'NetUid') -> Call:
         'Recycles alpha from a cold/hot key pair, reducing AlphaOut on a subnet  # Arguments * `origin`: The origin of the call (must be signed by the coldkey) * `hotkey`: The hotkey account * `amount`: The amount of alpha to recycle * `netuid`: The subnet ID  # Events Emits a `TokensRecycled` event on success.'
         return Call('SubtensorModule', 'recycle_alpha', {'hotkey': hotkey, 'amount': amount, 'netuid': netuid})
@@ -491,6 +496,11 @@ class SubtensorModule:
         return Call('SubtensorModule', 'set_reject_locked_alpha', {'enabled': enabled})
 
     @staticmethod
+    def set_reject_staking_hotkey_growth(enabled: 'bool') -> Call:
+        'Opt out of staking-hotkey list growth caused by other accounts. Existing destinations and hotkeys owned by the recipient can still receive transfers.'
+        return Call('SubtensorModule', 'set_reject_staking_hotkey_growth', {'enabled': enabled})
+
+    @staticmethod
     def set_subnet_identity(netuid: 'NetUid', subnet_name: 'Any', github_repo: 'Any', subnet_contact: 'Any', subnet_url: 'Any', discord: 'Any', description: 'Any', logo_url: 'Any', additional: 'Any') -> Call:
         'Set the identity information for a subnet. # Arguments * `origin`: The signature of the calling coldkey, which must be the owner of the subnet.  * `netuid`: The unique network identifier of the subnet.  * `subnet_name`: The name of the subnet.  * `github_repo`: The GitHub repository associated with the subnet identity.  * `subnet_contact`: The contact information for the subnet.'
         return Call('SubtensorModule', 'set_subnet_identity', {'netuid': netuid, 'subnet_name': subnet_name, 'github_repo': github_repo, 'subnet_contact': subnet_contact, 'subnet_url': subnet_url, 'discord': discord, 'description': description, 'logo_url': logo_url, 'additional': additional})
@@ -544,6 +554,11 @@ class SubtensorModule:
     def swap_basket(hotkey: 'AccountId32', origin_netuid: 'NetUid', destination_netuid: 'NetUid', amount: 'AlphaBalance', min_amount_out: 'u64') -> Call:
         "--- Rebalances a root validator's beta basket: sells `amount` of the fund's `origin_netuid` holding for TAO and buys `destination_netuid` with it. Either side may be root (netuid 0), the fund's TAO cash slot. Fund shares and staker entitlements are unchanged; only the fund's composition moves.  Guardrails: each AMM leg must fill fully within 2% of the subnet's moving price; the TAO through the middle is taken from the fund's turnover bucket (`BasketDailyTurnoverCap` of NAV, refilling over 7200 blocks); the destination holding may not end above `BasketLiquidityCap` of the destination pool's alpha reserve, nor above `BasketConcentrationCap` of NAV. Trading must be enabled network-wide and not frozen for the hotkey by governance. On top of the protocol band the caller may set its own floor: the buy leg must credit at least `min_amount_out` or the trade rolls back.  # Arguments * `origin`: Signed by the coldkey that owns `hotkey` (or its `BasketTrading` proxy). * `hotkey`: The root-registered validator whose basket to rebalance. * `origin_netuid`: Subnet to sell out of (root = the TAO slot). * `destination_netuid`: Subnet to buy into (root = the TAO slot). * `amount`: Alpha of `origin_netuid` to sell (TAO at 1:1 when origin is root). * `min_amount_out`: Least amount the buy leg must credit to the destination holding, in `destination_netuid` alpha (rao of TAO when the destination is root), after fees. `0` sets no floor; the 2% protocol band still applies.  # Events * `BasketSwapped`: On success, with the amounts on both legs.  # Errors * `BasketTradingDisabled`, `BasketTradingFrozen`: Gated off. * `BasketSameSubnet`: Origin equals destination. * `NonAssociatedColdKey`: Caller does not own `hotkey`. * `HotKeyNotRegisteredInSubNet`: `hotkey` is not on root. * `NotEnoughStakeToWithdraw`: The fund holds less than `amount` on origin. * `SlippageTooHigh`: A leg could not fill within 2% of the moving price. * `BasketMinOutNotMet`: The buy leg credited less than `min_amount_out`. * `BasketTurnoverBudgetExceeded`: The trade exceeds what the fund's turnover bucket holds. * `BasketLiquidityCapExceeded`: The destination holding would exceed the liquidity cap. * `BasketConcentrationCapExceeded`: The destination would exceed the concentration cap."
         return Call('SubtensorModule', 'swap_basket', {'hotkey': hotkey, 'origin_netuid': origin_netuid, 'destination_netuid': destination_netuid, 'amount': amount, 'min_amount_out': min_amount_out})
+
+    @staticmethod
+    def swap_basket_many(hotkey: 'AccountId32', legs: 'BoundedVec') -> Call:
+        'Rebalance several legs of one validator basket atomically.  Pending dividend deposits are flushed once and the basket is valued once. Each leg then applies the same ownership, availability, slippage, turnover, liquidity, concentration, and caller-floor checks as [`Pallet::swap_basket`]. A failed leg rolls back every trade leg in this call; the preceding dividend flush remains settled, matching the failure behavior of the single-leg call.  Each tuple is `(origin_netuid, destination_netuid, amount, min_amount_out)`.'
+        return Call('SubtensorModule', 'swap_basket_many', {'hotkey': hotkey, 'legs': legs})
 
     @staticmethod
     def swap_coldkey(old_coldkey: 'AccountId32', new_coldkey: 'AccountId32', swap_cost: 'TaoBalance') -> Call:
@@ -943,6 +958,11 @@ class AdminUtils:
         return Call('AdminUtils', 'sudo_set_basket_liquidity_cap', {'cap': cap})
 
     @staticmethod
+    def sudo_set_basket_min_trade_tao(min_trade_rao: 'u64') -> Call:
+        'Sets the minimum TAO value through each basket trade leg, in rao. Root-only. Zero disables this additional floor; the general staking minimum still applies.'
+        return Call('AdminUtils', 'sudo_set_basket_min_trade_tao', {'min_trade_rao': min_trade_rao})
+
+    @staticmethod
     def sudo_set_basket_trading_enabled(enabled: 'bool') -> Call:
         'Enables or disables validator basket trading (`swap_basket`) network-wide. Defaults OFF. Gates only the trade path: deposits, claims, dividend accrual, and reads are unaffected. Root-only.'
         return Call('AdminUtils', 'sudo_set_basket_trading_enabled', {'enabled': enabled})
@@ -1051,6 +1071,11 @@ class AdminUtils:
     def sudo_set_emission_gate_exponent(exponent: 'FixedU128') -> Call:
         'Sets the emission gate Hill exponent (h): cliff sharpness at the bar.'
         return Call('AdminUtils', 'sudo_set_emission_gate_exponent', {'exponent': exponent})
+
+    @staticmethod
+    def sudo_set_epoch_consensus(netuid: 'NetUid', mode: 'EpochConsensus') -> Call:
+        'Selects Yuma or Null reward calculation while preserving epoch scheduling.'
+        return Call('AdminUtils', 'sudo_set_epoch_consensus', {'netuid': netuid, 'mode': mode})
 
     @staticmethod
     def sudo_set_evm_chain_id(chain_id: 'u64') -> Call:
@@ -1189,7 +1214,7 @@ class AdminUtils:
 
     @staticmethod
     def sudo_set_network_registration_allowed(netuid: 'NetUid', registration_allowed: 'bool') -> Call:
-        'The extrinsic sets the network registration allowed for a subnet. It is only callable by the root account or subnet owner. The extrinsic will call the Subtensor pallet to set the network registration allowed.'
+        'Enable or disable burned registration independently of PoW. It is only callable by the root account or subnet owner. The extrinsic will call the Subtensor pallet to set the network registration allowed.'
         return Call('AdminUtils', 'sudo_set_network_registration_allowed', {'netuid': netuid, 'registration_allowed': registration_allowed})
 
     @staticmethod
@@ -1341,6 +1366,11 @@ class AdminUtils:
     def sudo_toggle_evm_precompile(precompile_id: 'PrecompileEnum', enabled: 'bool') -> Call:
         'Toggles the enablement of an EVM precompile.  # Arguments * `origin`: The origin of the call, which must be the root account. * `precompile_id`: The identifier of the EVM precompile to toggle. * `enabled`: The new enablement state of the precompile.  # Errors * `BadOrigin`: If the caller is not the root account.  # Weight Weight is handled by the `#[pallet::weight]` attribute.'
         return Call('AdminUtils', 'sudo_toggle_evm_precompile', {'precompile_id': precompile_id, 'enabled': enabled})
+
+    @staticmethod
+    def sudo_trim_null_uids_batch(netuid: 'NetUid', target: 'u16') -> Call:
+        'Continue explicit Null pruning by at most 64 UID deletions. Every batch leaves the subnet usable. Only the same final target may continue the original operation without restarting its cooldown.'
+        return Call('AdminUtils', 'sudo_trim_null_uids_batch', {'netuid': netuid, 'target': target})
 
     @staticmethod
     def sudo_trim_to_max_allowed_uids(netuid: 'NetUid', max_n: 'u16') -> Call:

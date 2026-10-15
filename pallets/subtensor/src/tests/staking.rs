@@ -1,6 +1,7 @@
 #![allow(clippy::unwrap_used)]
 #![allow(clippy::arithmetic_side_effects)]
 
+use crate::migrations::migrate_alpha_v2::retired::{Alpha, TotalHotkeyShares};
 use approx::assert_abs_diff_eq;
 use frame_support::dispatch::{DispatchClass, GetDispatchInfo, Pays};
 use frame_support::sp_runtime::DispatchError;
@@ -2453,6 +2454,34 @@ fn test_clear_small_nominations() {
     });
 }
 
+#[test]
+fn test_clear_small_nomination_removes_staking_hotkey_after_failed_unstake() {
+    new_test_ext(1).execute_with(|| {
+        let owner = U256::from(1);
+        let hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let netuid = add_dynamic_network(&hotkey, &owner);
+        // Keep a nonzero price but force the dust swap to fail with ReservesTooLow.
+        mock::setup_reserves(netuid, 1.into(), 1.into());
+        SubtensorModule::set_nominator_min_required_stake(10);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            netuid,
+            1.into(),
+        );
+        assert!(StakingHotkeys::<Test>::get(coldkey).contains(&hotkey));
+
+        SubtensorModule::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
+
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid),
+            AlphaBalance::ZERO
+        );
+        assert!(!StakingHotkeys::<Test>::contains_key(coldkey));
+    });
+}
+
 // Verify delegate take can be decreased
 #[test]
 fn test_delegate_take_can_be_decreased() {
@@ -4798,7 +4827,11 @@ fn test_add_stake_specific_stake_into_subnet_fail() {
         hotkey_pool.update_value_for_one(&hotkey_owner_account_id, 1234); // Doesn't matter, will be overridden
 
         // Adjust the total hotkey stake and shares to match the existing values
-        TotalHotkeyShares::<Test>::insert(hotkey_account_id, netuid, existing_shares);
+        TotalHotkeySharesV2::<Test>::insert(
+            hotkey_account_id,
+            netuid,
+            SafeFloat::from(existing_shares),
+        );
         TotalHotkeyAlpha::<Test>::insert(hotkey_account_id, netuid, existing_stake);
 
         // Make the hotkey a delegate
@@ -6633,6 +6666,7 @@ fn test_lazy_sharepool_migration_get_stake_reads_from_deprecated_alpha_map() {
         Alpha::<Test>::insert((hotkey, coldkey, netuid), U64F64::from(1_u64));
         TotalHotkeyShares::<Test>::insert(hotkey, netuid, U64F64::from(1_u64));
         TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, AlphaBalance::from(stake));
+        crate::migrations::migrate_alpha_v2::convert_for_test::<Test>();
 
         assert_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid),
@@ -6676,6 +6710,7 @@ fn test_lazy_sharepool_migration_get_stake_reads_from_cross_alpha_maps() {
         // but total shares are in TotalHotkeySharesV2 map (already migrated)
         TotalHotkeySharesV2::<Test>::insert(hotkey, netuid, SafeFloat::from(1_u64));
         TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, AlphaBalance::from(stake));
+        crate::migrations::migrate_alpha_v2::convert_for_test::<Test>();
 
         assert_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid),
@@ -6697,6 +6732,7 @@ fn test_lazy_sharepool_migration_staking_causes_migration() {
         Alpha::<Test>::insert((hotkey, coldkey, netuid), U64F64::from(1_u64));
         TotalHotkeyShares::<Test>::insert(hotkey, netuid, U64F64::from(1_u64));
         TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, AlphaBalance::from(stake));
+        crate::migrations::migrate_alpha_v2::convert_for_test::<Test>();
 
         // Stake more via stake_into_subnet
         increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake.into(), netuid);
@@ -6730,6 +6766,7 @@ fn test_sharepool_dataops_get_value_v1() {
         Alpha::<Test>::insert((hotkey, coldkey, netuid), U64F64::from(1_u64));
         TotalHotkeyShares::<Test>::insert(hotkey, netuid, U64F64::from(1_u64));
         TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, AlphaBalance::from(stake));
+        crate::migrations::migrate_alpha_v2::convert_for_test::<Test>();
 
         // Get real share pool and read get_value
         let share_pool = SubtensorModule::get_alpha_share_pool(hotkey, netuid);
@@ -6776,6 +6813,7 @@ fn test_sharepool_dataops_get_value_mixed_v1_v2() {
         Alpha::<Test>::insert((hotkey, coldkey, netuid), U64F64::from(1_u64));
         TotalHotkeySharesV2::<Test>::insert(hotkey, netuid, share);
         TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, AlphaBalance::from(stake));
+        crate::migrations::migrate_alpha_v2::convert_for_test::<Test>();
 
         // Get real share pool and read get_value
         let share_pool = SubtensorModule::get_alpha_share_pool(hotkey, netuid);
@@ -6799,6 +6837,7 @@ fn test_sharepool_dataops_get_value_mixed_v2_v1() {
         AlphaV2::<Test>::insert((hotkey, coldkey, netuid), share);
         TotalHotkeyShares::<Test>::insert(hotkey, netuid, U64F64::from(1_u64));
         TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, AlphaBalance::from(stake));
+        crate::migrations::migrate_alpha_v2::convert_for_test::<Test>();
 
         // Get real share pool and read get_value
         let share_pool = SubtensorModule::get_alpha_share_pool(hotkey, netuid);
@@ -6820,6 +6859,7 @@ fn test_sharepool_dataops_get_value_from_shares_v1() {
         // add stake to deprecated THS map
         TotalHotkeyShares::<Test>::insert(hotkey, netuid, U64F64::from(1_u64));
         TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, AlphaBalance::from(stake));
+        crate::migrations::migrate_alpha_v2::convert_for_test::<Test>();
 
         // Get real share pool and read get_value_from_shares
         let share_pool = SubtensorModule::get_alpha_share_pool(hotkey, netuid);
@@ -6893,6 +6933,7 @@ fn test_sharepool_dataops_update_value_for_one_v1_with_migration() {
         Alpha::<Test>::insert((hotkey, coldkey, netuid), U64F64::from(1_u64));
         TotalHotkeyShares::<Test>::insert(hotkey, netuid, U64F64::from(1_u64));
         TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, AlphaBalance::from(stake));
+        crate::migrations::migrate_alpha_v2::convert_for_test::<Test>();
 
         // Get real share pool and call update_value_for_one
         let mut share_pool = SubtensorModule::get_alpha_share_pool(hotkey, netuid);
@@ -6943,6 +6984,7 @@ fn test_sharepool_dataops_update_value_for_one_mixed_v1_v2() {
         Alpha::<Test>::insert((hotkey, coldkey, netuid), U64F64::from(1_u64));
         TotalHotkeySharesV2::<Test>::insert(hotkey, netuid, share);
         TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, AlphaBalance::from(stake));
+        crate::migrations::migrate_alpha_v2::convert_for_test::<Test>();
 
         // Get real share pool and call update_value_for_one
         let mut share_pool = SubtensorModule::get_alpha_share_pool(hotkey, netuid);
@@ -6969,6 +7011,7 @@ fn test_sharepool_dataops_update_value_for_one_mixed_v2_v1() {
         AlphaV2::<Test>::insert((hotkey, coldkey, netuid), share);
         TotalHotkeyShares::<Test>::insert(hotkey, netuid, U64F64::from(1_u64));
         TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, AlphaBalance::from(stake));
+        crate::migrations::migrate_alpha_v2::convert_for_test::<Test>();
 
         // Get real share pool and call update_value_for_one
         let mut share_pool = SubtensorModule::get_alpha_share_pool(hotkey, netuid);
@@ -6994,6 +7037,7 @@ fn test_sharepool_dataops_get_value_returns_zero_on_non_existing_v1() {
         // add to deprecated THS map, but no value in Alpha map
         TotalHotkeyShares::<Test>::insert(hotkey, netuid, U64F64::from(1_u64));
         TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, AlphaBalance::from(stake));
+        crate::migrations::migrate_alpha_v2::convert_for_test::<Test>();
 
         // Get real share pool and read get_value
         let share_pool = SubtensorModule::get_alpha_share_pool(hotkey, netuid);
@@ -7037,6 +7081,7 @@ fn test_sharepool_dataops_try_get_value_returns_err_on_non_existing_v1() {
         // add to deprecated THS map, but no value in Alpha map
         TotalHotkeyShares::<Test>::insert(hotkey, netuid, U64F64::from(1_u64));
         TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, AlphaBalance::from(stake));
+        crate::migrations::migrate_alpha_v2::convert_for_test::<Test>();
 
         // Get real share pool and read get_value
         let share_pool = SubtensorModule::get_alpha_share_pool(hotkey, netuid);
@@ -7064,5 +7109,299 @@ fn test_sharepool_dataops_try_get_value_returns_err_on_non_existing_v2() {
         let share_pool = SubtensorModule::get_alpha_share_pool(hotkey, netuid);
         let maybe_actual_value = share_pool.try_get_value(&coldkey);
         assert!(maybe_actual_value.is_err());
+    });
+}
+
+#[test]
+fn null_miner_credit_keeps_sole_owner_shares_and_total_stake_in_sync() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        add_network(netuid, u16::MAX - 1, 0);
+        SubtensorModule::set_epoch_consensus(netuid, EpochConsensus::Null);
+        let hotkey = U256::from(80_001);
+        let owner = U256::from(80_002);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner,
+            netuid,
+            1_000_000u64.into(),
+        );
+        let shares = AlphaV2::<Test>::get((hotkey, owner, netuid));
+        let denominator = TotalHotkeySharesV2::<Test>::get(hotkey, netuid);
+        let stamp = AlphaShareEpoch::<Test>::get((hotkey, owner, netuid));
+        let subnet_total = TotalAlphaStaked::<Test>::get(netuid);
+        SubtensorModule::credit_epoch_owner_emission(&hotkey, &owner, netuid, 137u64.into());
+        assert_eq!(AlphaV2::<Test>::get((hotkey, owner, netuid)), shares);
+        assert_eq!(
+            TotalHotkeySharesV2::<Test>::get(hotkey, netuid),
+            denominator
+        );
+        assert_eq!(AlphaShareEpoch::<Test>::get((hotkey, owner, netuid)), stamp);
+        assert_eq!(
+            TotalAlphaStaked::<Test>::get(netuid),
+            subnet_total.saturating_add(137u64.into())
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &owner, netuid),
+            1_000_137u64.into()
+        );
+        assert_eq!(
+            SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &owner,
+                netuid,
+                1_000_137u64.into()
+            ),
+            1_000_137u64.into()
+        );
+        assert!(TotalHotkeySharesV2::<Test>::get(hotkey, netuid).is_zero());
+        let newcomer = U256::from(80_003);
+        SubtensorModule::credit_epoch_owner_emission(&hotkey, &newcomer, netuid, 17u64.into());
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &owner, netuid),
+            0u64.into()
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &newcomer, netuid),
+            17u64.into()
+        );
+        assert!(StakingHotkeys::<Test>::get(newcomer).contains(&hotkey));
+    });
+}
+
+#[test]
+fn null_miner_credit_shared_pool_does_not_pay_nominators() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        add_network(netuid, u16::MAX - 1, 0);
+        SubtensorModule::set_epoch_consensus(netuid, EpochConsensus::Null);
+        let hotkey = U256::from(81_001);
+        let owner = U256::from(81_002);
+        let nominator = U256::from(81_003);
+        for coldkey in [owner, nominator] {
+            SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &coldkey,
+                netuid,
+                1_000_000u64.into(),
+            );
+        }
+        let previous_denominator = TotalHotkeySharesV2::<Test>::get(hotkey, netuid);
+        SubtensorModule::credit_epoch_owner_emission(&hotkey, &owner, netuid, 137u64.into());
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey, &nominator, netuid
+            ),
+            1_000_000u64.into()
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &owner, netuid),
+            1_000_137u64.into()
+        );
+        assert_ne!(
+            TotalHotkeySharesV2::<Test>::get(hotkey, netuid),
+            previous_denominator
+        );
+    });
+}
+
+#[test]
+fn null_miner_credit_preserves_collateral_capture_and_release() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        add_network(netuid, u16::MAX - 1, 0);
+        SubtensorModule::set_epoch_consensus(netuid, EpochConsensus::Null);
+        let hotkey = U256::from(82_001);
+        let owner = U256::from(82_002);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner,
+            netuid,
+            1_000_000u64.into(),
+        );
+        let denominator = TotalHotkeySharesV2::<Test>::get(hotkey, netuid);
+        MinerCollateral::<Test>::insert(
+            (netuid, hotkey, owner),
+            MinerCollateralState {
+                locked: 100u64.into(),
+                min_locked: 200u64.into(),
+                drain_ratio: U64F64::from_num(1),
+                earned: 0u64.into(),
+            },
+        );
+        ColdkeyMinerCollateral::<Test>::insert(netuid, owner, AlphaBalance::from(100u64));
+        let captured = SubtensorModule::settle_miner_collateral(
+            netuid,
+            &hotkey,
+            &owner,
+            50u64.into(),
+            50u64.into(),
+        );
+        assert_eq!(captured, 50u64.into());
+        assert_eq!(
+            TotalHotkeySharesV2::<Test>::get(hotkey, netuid),
+            denominator
+        );
+        let state = MinerCollateral::<Test>::get((netuid, hotkey, owner)).unwrap();
+        assert_eq!(state.locked, 150u64.into());
+        assert_eq!(state.earned, 50u64.into());
+        assert_eq!(
+            ColdkeyMinerCollateral::<Test>::get(netuid, owner),
+            150u64.into()
+        );
+        assert!(ColdkeyCollateralHotkeys::<Test>::get(netuid, owner).contains(&hotkey));
+        MinerCollateral::<Test>::mutate((netuid, hotkey, owner), |state| {
+            state.as_mut().unwrap().min_locked = 100u64.into()
+        });
+        assert_eq!(
+            SubtensorModule::settle_miner_collateral(
+                netuid,
+                &hotkey,
+                &owner,
+                17u64.into(),
+                17u64.into()
+            ),
+            0u64.into()
+        );
+        let state = MinerCollateral::<Test>::get((netuid, hotkey, owner)).unwrap();
+        assert_eq!(state.locked, 133u64.into());
+        assert_eq!(state.earned, 67u64.into());
+        assert_eq!(
+            ColdkeyMinerCollateral::<Test>::get(netuid, owner),
+            133u64.into()
+        );
+    });
+}
+
+#[test]
+fn null_miner_credit_legacy_positions_still_migrate_on_deposit() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        add_network(netuid, u16::MAX - 1, 0);
+        SubtensorModule::set_epoch_consensus(netuid, EpochConsensus::Null);
+        let hotkey = U256::from(83_001);
+        let owner = U256::from(83_002);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner,
+            netuid,
+            1_000_000u64.into(),
+        );
+        AlphaV2::<Test>::remove((hotkey, owner, netuid));
+        TotalHotkeySharesV2::<Test>::remove(hotkey, netuid);
+        Alpha::<Test>::insert((hotkey, owner, netuid), U64F64::from_num(1_000_000));
+        TotalHotkeyShares::<Test>::insert(hotkey, netuid, U64F64::from_num(1_000_000));
+        SubtensorModule::credit_epoch_owner_emission(&hotkey, &owner, netuid, 137u64.into());
+        assert!(!Alpha::<Test>::contains_key((hotkey, owner, netuid)));
+        assert!(!TotalHotkeyShares::<Test>::contains_key(hotkey, netuid));
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &owner, netuid),
+            1_000_137u64.into()
+        );
+        assert_eq!(
+            TotalHotkeySharesV2::<Test>::get(hotkey, netuid),
+            AlphaV2::<Test>::get((hotkey, owner, netuid))
+        );
+    });
+}
+
+#[test]
+fn null_miner_credit_with_dividends_retains_shares_and_full_budget() {
+    use std::collections::BTreeMap;
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        add_network(netuid, u16::MAX - 1, 0);
+        SubtensorModule::set_epoch_consensus(netuid, EpochConsensus::Null);
+        let hotkey = U256::from(84_001);
+        let owner = U256::from(84_002);
+        Owner::<Test>::insert(hotkey, owner);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner,
+            netuid,
+            1_000_000u64.into(),
+        );
+        let shares = AlphaV2::<Test>::get((hotkey, owner, netuid));
+        let denominator = TotalHotkeySharesV2::<Test>::get(hotkey, netuid);
+        let stamp = AlphaShareEpoch::<Test>::get((hotkey, owner, netuid));
+        let subnet_total = TotalAlphaStaked::<Test>::get(netuid);
+        // Both the owner take and the remaining pool-wide dividends belong to
+        // this sole member, while their ordinary reporting remains intact.
+        Delegates::<Test>::insert(hotkey, PerU16::from_parts(u16::MAX));
+        SubtensorModule::distribute_dividends_and_incentives(
+            netuid,
+            0u64.into(),
+            BTreeMap::from([(hotkey, 101u64.into())]),
+            BTreeMap::from([(hotkey, U96F32::from_num(137u64))]),
+            BTreeMap::new(),
+        );
+        assert_eq!(AlphaV2::<Test>::get((hotkey, owner, netuid)), shares);
+        assert_eq!(
+            TotalHotkeySharesV2::<Test>::get(hotkey, netuid),
+            denominator
+        );
+        assert_eq!(AlphaShareEpoch::<Test>::get((hotkey, owner, netuid)), stamp);
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &owner, netuid),
+            1_000_238u64.into()
+        );
+        assert_eq!(
+            TotalAlphaStaked::<Test>::get(netuid),
+            subnet_total.saturating_add(238u64.into())
+        );
+        assert_eq!(
+            TotalHotkeyAlphaLastEpoch::<Test>::get(hotkey, netuid),
+            1_000_238u64.into()
+        );
+    });
+}
+
+#[test]
+fn null_miner_credit_without_collateral_repairs_only_stale_index_membership() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        add_network(netuid, u16::MAX - 1, 0);
+        SubtensorModule::set_epoch_consensus(netuid, EpochConsensus::Null);
+        let hotkey = U256::from(85_001);
+        let other_hotkey = U256::from(85_003);
+        let owner = U256::from(85_002);
+        ColdkeyCollateralHotkeys::<Test>::mutate(netuid, owner, |hotkeys| {
+            hotkeys.try_push(hotkey).unwrap();
+            hotkeys.try_push(other_hotkey).unwrap();
+        });
+        assert_eq!(
+            SubtensorModule::settle_miner_collateral(
+                netuid,
+                &hotkey,
+                &owner,
+                17u64.into(),
+                17u64.into()
+            ),
+            0u64.into()
+        );
+        assert!(!MinerCollateral::<Test>::contains_key((
+            netuid, hotkey, owner
+        )));
+        assert_eq!(
+            ColdkeyCollateralHotkeys::<Test>::get(netuid, owner).as_slice(),
+            &[other_hotkey]
+        );
+        assert_eq!(
+            ColdkeyMinerCollateral::<Test>::get(netuid, owner),
+            0u64.into()
+        );
+        assert_eq!(
+            SubtensorModule::settle_miner_collateral(
+                netuid,
+                &other_hotkey,
+                &owner,
+                17u64.into(),
+                17u64.into()
+            ),
+            0u64.into()
+        );
+        assert!(!ColdkeyCollateralHotkeys::<Test>::contains_key(
+            netuid, owner
+        ));
     });
 }

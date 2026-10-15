@@ -162,6 +162,8 @@ NAME_TO_CODE: dict[str, ErrorCode] = {
     "StakeUnavailable": _C.INSUFFICIENT_BALANCE,
     "SubnetNotExists": _C.SUBNET_NOT_EXISTS,
     "TooManyUnrevealedCommits": _C.LIMIT_EXCEEDED,
+    "CommitPayloadTooLarge": _C.LIMIT_EXCEEDED,
+    "CommitQueueFull": _C.LIMIT_EXCEEDED,
     "ExpiredWeightCommit": _C.EXPIRED,
     "RevealTooEarly": _C.TOO_EARLY,
     "InputLengthsUnequal": _C.INVALID_ARGUMENT,
@@ -230,6 +232,7 @@ NAME_TO_CODE: dict[str, ErrorCode] = {
     "BasketTurnoverBudgetExceeded": _C.RATE_LIMITED,
     "BasketSameSubnet": _C.INVALID_ARGUMENT,
     "BasketLiquidityCapExceeded": _C.LIMIT_EXCEEDED,
+    "BasketSwapBatchEmpty": _C.INVALID_ARGUMENT,
     "BasketMinOutNotMet": _C.INSUFFICIENT_LIQUIDITY,  # user floor, same family as SlippageTooHigh
     "RootStakeLocked": _C.TOO_EARLY,
     "TooManyUIDsPerMechanism": _C.LIMIT_EXCEEDED,
@@ -264,6 +267,7 @@ NAME_TO_CODE: dict[str, ErrorCode] = {
     "AutoEpochAlreadyImminent": _C.ALREADY_EXISTS,
     "DynamicTempoBlockedByCommitReveal": _C.DISABLED,
     "AccountRejectsLockedAlpha": _C.POLICY_VIOLATION,
+    "AccountRejectsStakingHotkeyGrowth": _C.POLICY_VIOLATION,
     # ── Utility ─────────────────────────────────────────────────────────
     "TooManyCalls": _C.LIMIT_EXCEEDED,
     "InvalidDerivedAccount": _C.INVALID_ARGUMENT,
@@ -350,6 +354,7 @@ NAME_TO_CODE: dict[str, ErrorCode] = {
     "GasPriceTooLow": _C.INVALID_ARGUMENT,
     "InvalidNonce": _C.INVALID_ARGUMENT,
     "GasLimitTooLow": _C.INVALID_ARGUMENT,
+    "AuthorizationListTooLarge": _C.LIMIT_EXCEEDED,
     "GasLimitTooHigh": _C.INVALID_ARGUMENT,
     "InvalidChainId": _C.INVALID_ARGUMENT,
     "Reentrancy": _C.INTERNAL,

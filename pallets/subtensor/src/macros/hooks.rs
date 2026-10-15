@@ -22,18 +22,28 @@ mod hooks {
             // Advance the paged beta-index sweep right after the block step (deposit
             // queue drained), charging its bounded page into the hook weight.
             let beta_index_sweep_weight = Self::advance_beta_index_sweep_weight();
+            // Reserve the larger measured hook envelope once per block. The
+            // existing MaxEpochsPerBlock scheduler bounds both consensus modes.
+            let null_weight =
+                <<T as Config>::WeightInfo as crate::weights::WeightInfo>::block_step();
+            let yuma_weight =
+                <<T as Config>::WeightInfo as crate::weights::WeightInfo>::block_step_yuma();
+            let block_step_weight = Weight::from_parts(
+                null_weight.ref_time().max(yuma_weight.ref_time()),
+                null_weight.proof_size().max(yuma_weight.proof_size()),
+            );
             match block_step_result {
                 Ok(_) => {
                     // --- If the block step was successful, return the weight.
                     log::debug!("Successfully ran block step.");
-                    <<T as Config>::WeightInfo as crate::weights::WeightInfo>::block_step()
+                    block_step_weight
                         .saturating_add(hotkey_swap_clean_up_weight)
                         .saturating_add(beta_index_sweep_weight)
                 }
                 Err(e) => {
                     // --- If the block step was unsuccessful, return the weight anyway.
                     log::error!("Error while stepping block: {:?}", e);
-                    <<T as Config>::WeightInfo as crate::weights::WeightInfo>::block_step()
+                    block_step_weight
                         .saturating_add(hotkey_swap_clean_up_weight)
                         .saturating_add(beta_index_sweep_weight)
                 }
@@ -236,16 +246,20 @@ mod hooks {
         }
 
         fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
+            let status_weight = T::DbWeight::get().reads(2);
+            let alpha_in_progress = migrations::migrate_alpha_v2::in_progress::<T>();
             let seed_in_progress =
                 migrations::migrate_seed_beta_basket::seed_beta_basket_v2_in_progress::<T>();
 
             // Dissolution removes RootClaimable/RootClaimed state that the seed still needs.
             // Give the migration exclusive ownership of those legacy maps until it completes;
-            // queued dissolutions resume on the first subsequent idle block.
-            let mut weight = if seed_in_progress {
-                Weight::zero()
+            // queued dissolutions resume on the first subsequent idle block. Alpha conversion
+            // also retains ownership of positions until its accounting sweep finishes.
+            let mut weight = if seed_in_progress || alpha_in_progress {
+                status_weight
             } else {
-                Self::remove_data_for_dissolved_networks(limit)
+                Self::remove_data_for_dissolved_networks(limit.saturating_sub(status_weight))
+                    .saturating_add(status_weight)
             };
 
             if weight.all_lt(limit) {
@@ -283,7 +297,13 @@ mod hooks {
                 );
             }
 
-            if !seed_in_progress && weight.all_lt(limit) {
+            if !seed_in_progress && alpha_in_progress && weight.all_lt(limit) {
+                weight.saturating_accrue(migrations::migrate_alpha_v2::continue_migration::<T>(
+                    limit.saturating_sub(weight),
+                ));
+            }
+
+            if !seed_in_progress && !alpha_in_progress && weight.all_lt(limit) {
                 weight.saturating_accrue(
                     migrations::migrate_storage_bloat_v2::continue_storage_bloat_cleanup::<T>(
                         limit.saturating_sub(weight),
@@ -296,6 +316,7 @@ mod hooks {
             // unexpectedly removed cursor cannot start the dependent cleanup early.
             let storage_bloat_completion_read = T::DbWeight::get().reads(1);
             let storage_bloat_complete = if !seed_in_progress
+                && !alpha_in_progress
                 && weight
                     .saturating_add(storage_bloat_completion_read)
                     .all_lt(limit)
@@ -311,6 +332,27 @@ mod hooks {
                         T,
                     >(limit.saturating_sub(weight)),
                 );
+            }
+
+            // Repair historical omissions only after conversion and destructive
+            // index cleanup finish. Normal deposits maintain their own associations.
+            let repair_status = T::DbWeight::get().reads(1);
+            if !seed_in_progress
+                && !alpha_in_progress
+                && storage_bloat_complete
+                && weight.saturating_add(repair_status).all_lte(limit)
+            {
+                let cleanup_done = HasMigrationRun::<T>::get(
+                    migrations::migrate_cleanup_staking_hotkeys::MIGRATION_NAME,
+                );
+                weight.saturating_accrue(repair_status);
+                if cleanup_done {
+                    weight.saturating_accrue(
+                        migrations::migrate_restore_staking_hotkeys::continue_restore::<T>(
+                            limit.saturating_sub(weight),
+                        ),
+                    );
+                }
             }
 
             weight
@@ -346,6 +388,14 @@ mod hooks {
                             < block_number
                         {
                             LastHotkeySwapOnNetuid::<T>::remove(netuid, coldkey);
+                            weight.saturating_accrue(T::DbWeight::get().writes(1_u64));
+                        }
+                        weight.saturating_accrue(T::DbWeight::get().reads(1_u64));
+                    }
+                    for (hotkey, cooldown_until) in StakeMoveCooldownUntil::<T>::iter_prefix(netuid)
+                    {
+                        if cooldown_until <= block_number {
+                            StakeMoveCooldownUntil::<T>::remove(netuid, hotkey);
                             weight.saturating_accrue(T::DbWeight::get().writes(1_u64));
                         }
                         weight.saturating_accrue(T::DbWeight::get().reads(1_u64));

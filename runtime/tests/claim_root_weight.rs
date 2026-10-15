@@ -6,6 +6,7 @@ use node_subtensor_runtime::{
     check_mortality, check_nonce, check_nonzero_sender, sudo_wrapper,
     transaction_payment_wrapper::ChargeTransactionPaymentWrapper,
 };
+use pallet_subtensor::weights::WeightInfo;
 use sp_runtime::{generic::Era, traits::TransactionExtension};
 use sp_std::collections::btree_set::BTreeSet;
 use subtensor_runtime_common::{AccountId, NetUid, TaoBalance};
@@ -20,8 +21,6 @@ fn new_test_ext() -> sp_io::TestExternalities {
 }
 
 fn expected_root_claim_weight(limit: u32) -> frame_support::weights::Weight {
-    use pallet_subtensor::weights::WeightInfo;
-
     pallet_subtensor::weights::SubstrateWeight::<Runtime>::claim_root(limit)
         .saturating_add(
             pallet_subtensor::weights::SubstrateWeight::<Runtime>::claim_root_scan(limit),
@@ -70,6 +69,38 @@ fn assert_call_fits_normal_limit(call: RuntimeCall) {
 }
 
 #[test]
+#[allow(deprecated)]
+fn legacy_hotkey_swap_with_extensions_fits_normal_extrinsic_limit() {
+    new_test_ext().execute_with(|| {
+        for netuid in [None, Some(NetUid::ROOT), Some(NetUid::from(1))] {
+            let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_hotkey {
+                hotkey: AccountId::new([1u8; 32]),
+                new_hotkey: AccountId::new([2u8; 32]),
+                netuid,
+            });
+            assert_call_fits_normal_limit(call);
+        }
+    });
+}
+
+#[test]
+fn hotkey_swap_v2_with_extensions_fits_normal_extrinsic_limit() {
+    new_test_ext().execute_with(|| {
+        for netuid in [None, Some(NetUid::ROOT), Some(NetUid::from(1))] {
+            for keep_stake in [false, true] {
+                let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_hotkey_v2 {
+                    hotkey: AccountId::new([1u8; 32]),
+                    new_hotkey: AccountId::new([2u8; 32]),
+                    netuid,
+                    keep_stake,
+                });
+                assert_call_fits_normal_limit(call);
+            }
+        }
+    });
+}
+
+#[test]
 fn claim_root_with_extensions_fits_normal_extrinsic_limit() {
     new_test_ext().execute_with(|| {
         let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::claim_root {
@@ -92,6 +123,60 @@ fn claim_root_with_hotkey_with_extensions_fits_normal_extrinsic_limit() {
         assert_eq!(
             call.get_dispatch_info().call_weight,
             expected_root_claim_weight(pallet_subtensor::MAX_ROOT_CLAIM_HOTKEY_WORK)
+        );
+        assert_call_fits_normal_limit(call);
+    });
+}
+
+#[test]
+fn testnet_claim_root_with_hotkey_with_extensions_fits_normal_extrinsic_limit() {
+    new_test_ext().execute_with(|| {
+        frame_system::BlockHash::<Runtime>::insert(
+            0_u32,
+            "8f9cf856bf558a14440e75569c9e58594757048d7b3a84b5d25f6bd978263105"
+                .parse::<sp_core::H256>()
+                .expect("valid testnet genesis hash"),
+        );
+        // The old testnet-only reservation failed even for an empty basket.
+        let oversized = expected_root_claim_weight(1_025);
+        let max = BlockWeights::get()
+            .get(DispatchClass::Normal)
+            .max_extrinsic
+            .expect("normal extrinsic limit exists");
+        assert!(!oversized.all_lte(max));
+
+        let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::claim_root_with_hotkey {
+            hotkey: AccountId::new([1u8; 32]),
+        });
+        assert_call_fits_normal_limit(call);
+    });
+}
+
+#[test]
+fn swap_basket_many_at_leg_cap_fits_normal_extrinsic_limit() {
+    new_test_ext().execute_with(|| {
+        let hotkey = AccountId::new([1u8; 32]);
+        let leg = (
+            NetUid::from(1),
+            NetUid::from(2),
+            subtensor_runtime_common::AlphaBalance::from(1),
+            0,
+        );
+        let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_basket_many {
+            hotkey,
+            legs: vec![leg; pallet_subtensor::MAX_BASKET_SWAP_LEGS as usize]
+                .try_into()
+                .expect("leg cap is bounded"),
+        });
+        assert_eq!(
+            call.get_dispatch_info().call_weight,
+            pallet_subtensor::Pallet::<Runtime>::swap_basket_many_declared_weight(
+                pallet_subtensor::MAX_BASKET_SWAP_LEGS
+            )
+            .saturating_add(
+                pallet_subtensor::weights::SubstrateWeight::<Runtime>::check_coldkey_swap_extension(
+                )
+            )
         );
         assert_call_fits_normal_limit(call);
     });

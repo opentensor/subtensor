@@ -1,7 +1,6 @@
 """Generated from runtime metadata by codegen. DO NOT EDIT BY HAND.
 
 Regenerate with: python -m codegen <ws-endpoint>
-Spec version: 470
 """
 from dataclasses import dataclass
 
@@ -213,6 +212,10 @@ ERRORS: dict[tuple[int, int], ErrorInfo] = {
     (7, 169): ErrorInfo('SubtensorModule', 'BasketSameSubnet', '`swap_basket` origin and destination are the same subnet.'),
     (7, 170): ErrorInfo('SubtensorModule', 'BasketLiquidityCapExceeded', "The trade would leave the fund holding more of the destination subnet than [`crate::BasketLiquidityCap`] allows as a share of that subnet's alpha reserve. Trade a smaller amount or pick a deeper pool."),
     (7, 171): ErrorInfo('SubtensorModule', 'BasketMinOutNotMet', "The `swap_basket` buy leg credited less than the caller's `min_amount_out` (destination alpha, or TAO when the destination is root). The trade rolled back. Re-quote and retry, or lower the floor."),
+    (7, 172): ErrorInfo('SubtensorModule', 'BasketSwapBatchEmpty', 'A `swap_basket_many` call contained no trade legs. Submit at least one leg; the bounded call argument enforces the maximum at decode time.'),
+    (7, 173): ErrorInfo('SubtensorModule', 'CommitPayloadTooLarge', "Ciphertext exceeds the selected consensus mode's payload limit."),
+    (7, 174): ErrorInfo('SubtensorModule', 'CommitQueueFull', "The subnet's shared Null timelock queue has reached its byte or count budget."),
+    (7, 175): ErrorInfo('SubtensorModule', 'AccountRejectsStakingHotkeyGrowth', 'The recipient refuses a new staking hotkey introduced by another account.'),
     (11, 0): ErrorInfo('Utility', 'TooManyCalls', 'Too many calls batched.'),
     (11, 1): ErrorInfo('Utility', 'InvalidDerivedAccount', 'Bad input data for derived account ID'),
     (12, 0): ErrorInfo('Sudo', 'RequireSudo', 'Sender must be the Sudo account.'),
@@ -299,6 +302,7 @@ ERRORS: dict[tuple[int, int], ErrorInfo] = {
     (22, 12): ErrorInfo('EVM', 'Undefined', 'Undefined error.'),
     (22, 13): ErrorInfo('EVM', 'NotAllowed', 'Origin is not allowed to perform the operation.'),
     (22, 14): ErrorInfo('EVM', 'CreateOriginNotAllowed', 'Address not allowed to deploy contracts either via CREATE or CALL(CREATE).'),
+    (22, 15): ErrorInfo('EVM', 'AuthorizationListTooLarge', 'The authorization list exceeds the limit enforced before signature recovery.'),
     (26, 0): ErrorInfo('Drand', 'NoneValue', 'The value retrieved was `None` as no value was previously set.'),
     (26, 1): ErrorInfo('Drand', 'StorageOverflow', 'There was an attempt to increment the value in storage over `u32::MAX`.'),
     (26, 2): ErrorInfo('Drand', 'DrandConnectionFailure', 'failed to connect to the'),

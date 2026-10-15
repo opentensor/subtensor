@@ -1,7 +1,6 @@
 """Generated from runtime metadata by codegen. DO NOT EDIT BY HAND.
 
 Regenerate with: python -m codegen <ws-endpoint>
-Spec version: 470
 
 Storage item descriptors: unpack into substrate.query/query_map. Each carries its VALUE's type identity (value_type_ident) so normalization can key on the runtime's own type names without a node round-trip.
 """
@@ -81,6 +80,7 @@ class SubtensorModule:
     OwnerHyperparamRateLimit = Item('SubtensorModule', 'OwnerHyperparamRateLimit', 'u16')
     DissolveNetworkScheduleDuration = Item('SubtensorModule', 'DissolveNetworkScheduleDuration', 'u32')
     LastHotkeySwapOnNetuid = Item('SubtensorModule', 'LastHotkeySwapOnNetuid', 'u64')
+    StakeMoveCooldownUntil = Item('SubtensorModule', 'StakeMoveCooldownUntil', 'u64')
     HotkeySuccessor = Item('SubtensorModule', 'HotkeySuccessor', 'AccountId32')
     HotkeyRoot = Item('SubtensorModule', 'HotkeyRoot', 'AccountId32')
     ColdkeySuccessor = Item('SubtensorModule', 'ColdkeySuccessor', 'AccountId32')
@@ -95,6 +95,7 @@ class SubtensorModule:
     MinChildkeyTakePerSubnet = Item('SubtensorModule', 'MinChildkeyTakePerSubnet', 'PerU16')
     Owner = Item('SubtensorModule', 'Owner', 'AccountId32')
     AccountFlags = Item('SubtensorModule', 'AccountFlags', 'u128')
+    HotkeySwapBasketCredits = Item('SubtensorModule', 'HotkeySwapBasketCredits', '()')
     Delegates = Item('SubtensorModule', 'Delegates', 'PerU16')
     ChildkeyTake = Item('SubtensorModule', 'ChildkeyTake', 'PerU16')
     ChildkeyThresholdChecks = Item('SubtensorModule', 'ChildkeyThresholdChecks', '()')
@@ -137,8 +138,6 @@ class SubtensorModule:
     TotalHotkeyAlpha = Item('SubtensorModule', 'TotalHotkeyAlpha', 'AlphaBalance')
     TotalAlphaStaked = Item('SubtensorModule', 'TotalAlphaStaked', 'AlphaBalance')
     TotalHotkeyAlphaLastEpoch = Item('SubtensorModule', 'TotalHotkeyAlphaLastEpoch', 'AlphaBalance')
-    TotalHotkeyShares = Item('SubtensorModule', 'TotalHotkeyShares', 'FixedU128')
-    Alpha = Item('SubtensorModule', 'Alpha', 'FixedU128')
     TotalHotkeySharesV2 = Item('SubtensorModule', 'TotalHotkeySharesV2', 'SafeFloat')
     AlphaV2 = Item('SubtensorModule', 'AlphaV2', 'SafeFloat')
     AlphaSharePoolEpoch = Item('SubtensorModule', 'AlphaSharePoolEpoch', 'u64')
@@ -153,7 +152,6 @@ class SubtensorModule:
     OwnerCutAutoLockEnabled = Item('SubtensorModule', 'OwnerCutAutoLockEnabled', 'bool')
     MaturityRate = Item('SubtensorModule', 'MaturityRate', 'u64')
     UnlockRate = Item('SubtensorModule', 'UnlockRate', 'u64')
-    AlphaMapLastKey = Item('SubtensorModule', 'AlphaMapLastKey', 'Option<Vec<u8>>')
     AlphaV2MapLastKey = Item('SubtensorModule', 'AlphaV2MapLastKey', 'Option<Vec<u8>>')
     TokenSymbol = Item('SubtensorModule', 'TokenSymbol', 'Vec<u8>')
     SubnetTaoFlow = Item('SubtensorModule', 'SubnetTaoFlow', 'i64')
@@ -197,6 +195,7 @@ class SubtensorModule:
     IsNetworkMember = Item('SubtensorModule', 'IsNetworkMember', 'bool')
     NetworkRegistrationAllowed = Item('SubtensorModule', 'NetworkRegistrationAllowed', 'bool')
     NetworkPowRegistrationAllowed = Item('SubtensorModule', 'NetworkPowRegistrationAllowed', 'bool')
+    LastPowRegistrationBlock = Item('SubtensorModule', 'LastPowRegistrationBlock', 'u64')
     NetworkRegisteredAt = Item('SubtensorModule', 'NetworkRegisteredAt', 'u64')
     RegisteredSubnetCounter = Item('SubtensorModule', 'RegisteredSubnetCounter', 'u64')
     PendingServerEmission = Item('SubtensorModule', 'PendingServerEmission', 'AlphaBalance')
@@ -206,6 +205,9 @@ class SubtensorModule:
     MinerBurned = Item('SubtensorModule', 'MinerBurned', 'FixedU128')
     BlocksSinceLastStep = Item('SubtensorModule', 'BlocksSinceLastStep', 'u64')
     LastMechansimStepBlock = Item('SubtensorModule', 'LastMechansimStepBlock', 'u64')
+    LastYumaStepBlock = Item('SubtensorModule', 'LastYumaStepBlock', 'u64')
+    NullPruningTarget = Item('SubtensorModule', 'NullPruningTarget', 'u16')
+    SavedYumaMaxAllowedValidators = Item('SubtensorModule', 'SavedYumaMaxAllowedValidators', 'u16')
     SubnetOwner = Item('SubtensorModule', 'SubnetOwner', 'AccountId32')
     SubnetOwnerHotkey = Item('SubtensorModule', 'SubnetOwnerHotkey', 'AccountId32')
     RecycleOrBurn = Item('SubtensorModule', 'RecycleOrBurn', 'RecycleOrBurnEnum')
@@ -252,11 +254,13 @@ class SubtensorModule:
     Yuma3On = Item('SubtensorModule', 'Yuma3On', 'bool')
     AlphaValues = Item('SubtensorModule', 'AlphaValues', '(u16, u16)')
     LiquidAlphaConsensusMode = Item('SubtensorModule', 'LiquidAlphaConsensusMode', 'ConsensusMode')
+    SubnetEpochConsensus = Item('SubtensorModule', 'SubnetEpochConsensus', 'EpochConsensus')
     SubtokenEnabled = Item('SubtensorModule', 'SubtokenEnabled', 'bool')
     DissolveCleanupQueue = Item('SubtensorModule', 'DissolveCleanupQueue', 'Vec<NetUid>')
     CurrentDissolveCleanupStatus = Item('SubtensorModule', 'CurrentDissolveCleanupStatus', 'DissolveCleanupStatus')
     NetworkRegistrationQueue = Item('SubtensorModule', 'NetworkRegistrationQueue', 'Vec<NetworkRegistrationInfo>')
     NetworkRegistrationLockId = Item('SubtensorModule', 'NetworkRegistrationLockId', 'u32')
+    NetworkRegistrationEscrow = Item('SubtensorModule', 'NetworkRegistrationEscrow', '(AccountId32, TaoBalance)')
     VotingPower = Item('SubtensorModule', 'VotingPower', 'u64')
     TotalVotingPower = Item('SubtensorModule', 'TotalVotingPower', 'u64')
     VotingPowerTrackingEnabled = Item('SubtensorModule', 'VotingPowerTrackingEnabled', 'bool')
@@ -299,6 +303,7 @@ class SubtensorModule:
     BasketTradingEnabled = Item('SubtensorModule', 'BasketTradingEnabled', 'bool')
     BasketTradingFrozen = Item('SubtensorModule', 'BasketTradingFrozen', '()')
     BasketDailyTurnoverCap = Item('SubtensorModule', 'BasketDailyTurnoverCap', 'u16')
+    BasketMinTradeTao = Item('SubtensorModule', 'BasketMinTradeTao', 'u64')
     BasketLiquidityCap = Item('SubtensorModule', 'BasketLiquidityCap', 'u16')
     BasketClaimRowDustCapTao = Item('SubtensorModule', 'BasketClaimRowDustCapTao', 'u64')
     BasketClaimRowDustBps = Item('SubtensorModule', 'BasketClaimRowDustBps', 'u16')
@@ -403,6 +408,7 @@ class EVM:
     AccountStorages = Item('EVM', 'AccountStorages', 'H256')
     WhitelistedCreators = Item('EVM', 'WhitelistedCreators', 'Vec<H160>')
     DisableWhitelistCheck = Item('EVM', 'DisableWhitelistCheck', 'bool')
+    AccountNonces = Item('EVM', 'AccountNonces', 'u32')
 
 class EVMChainId:
     ChainId = Item('EVMChainId', 'ChainId', 'u64')

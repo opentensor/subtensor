@@ -11,6 +11,7 @@ mod dispatches {
     use sp_core::ecdsa::Signature;
     use sp_runtime::{Percent, Saturating, traits::Hash};
 
+    use crate::MAX_BASKET_SWAP_LEGS;
     use crate::MAX_CRV3_COMMIT_SIZE_BYTES;
     use crate::MAX_ROOT_CLAIM_THRESHOLD;
     /// Dispatchable functions allow users to interact with the pallet and invoke state changes.
@@ -63,7 +64,7 @@ mod dispatches {
         ///
         /// * `MaxWeightExceeded`: Attempting to set weights with max value exceeding limit.
         #[pallet::call_index(0)]
-        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::set_weights(), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((Pallet::<T>::set_weights_weight(*netuid, dests.len() as u32), DispatchClass::Normal, Pays::No))]
         pub fn set_weights(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -123,7 +124,7 @@ mod dispatches {
         ///
         /// * `MaxWeightExceeded`: Attempting to set weights with max value exceeding limit.
         #[pallet::call_index(119)]
-        #[pallet::weight((<T as Config>::WeightInfo::set_mechanism_weights(dests.len() as u32), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((Pallet::<T>::set_mechanism_weights_weight(*netuid, dests.len() as u32), DispatchClass::Normal, Pays::No))]
         pub fn set_mechanism_weights(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -157,7 +158,7 @@ mod dispatches {
         /// * `BatchWeightItemFailed`: On failure for each failed item in the batch.
         ///
         #[pallet::call_index(80)]
-        #[pallet::weight((Pallet::<T>::batch_set_weights_weight(weights), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((Pallet::<T>::batch_set_weights_weight(netuids, weights), DispatchClass::Normal, Pays::No))]
         pub fn batch_set_weights(
             origin: OriginFor<T>,
             netuids: Vec<Compact<NetUid>>,
@@ -270,7 +271,7 @@ mod dispatches {
         /// * `InvalidRevealCommitHashNotMatch`: The revealed hash does not match any committed hash.
         ///
         #[pallet::call_index(97)]
-        #[pallet::weight((Pallet::<T>::reveal_weights_weight(uids.len() as u32), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((Pallet::<T>::reveal_weights_weight(*netuid, uids.len() as u32), DispatchClass::Normal, Pays::No))]
         pub fn reveal_weights(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -311,7 +312,7 @@ mod dispatches {
         /// * `InvalidRevealCommitHashNotMatch`: The revealed hash does not match any committed hash.
         ///
         #[pallet::call_index(116)]
-        #[pallet::weight((<T as Config>::WeightInfo::reveal_mechanism_weights(uids.len() as u32), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((Pallet::<T>::reveal_mechanism_weights_weight(*netuid, uids.len() as u32), DispatchClass::Normal, Pays::No))]
         pub fn reveal_mechanism_weights(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -394,7 +395,7 @@ mod dispatches {
         /// * `TooManyUnrevealedCommits`: Attempting to commit when the user has more than the allowed limit of unrevealed commits.
         ///
         #[pallet::call_index(117)]
-        #[pallet::weight((<T as Config>::WeightInfo::commit_crv3_mechanism_weights(), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((Pallet::<T>::timelock_weight_for_mode(*netuid, <T as Config>::WeightInfo::commit_crv3_mechanism_weights(), <T as Config>::WeightInfo::commit_crv3_mechanism_weights_null()), DispatchClass::Normal, Pays::No))]
         pub fn commit_crv3_mechanism_weights(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -440,7 +441,7 @@ mod dispatches {
         ///
         /// * `InvalidInputLengths`: The input vectors are of mismatched lengths.
         #[pallet::call_index(98)]
-        #[pallet::weight((Pallet::<T>::batch_reveal_weights_weight(uids_list), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((Pallet::<T>::batch_reveal_weights_weight(*netuid, uids_list), DispatchClass::Normal, Pays::No))]
         pub fn batch_reveal_weights(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -843,6 +844,22 @@ mod dispatches {
             hotkey: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             Self::do_register_with_post_info(origin, netuid, hotkey)
+        }
+
+        /// Register by owner-enabled PoW, without TAO burn, collateral purchase,
+        /// or transaction fee. The signing coldkey is bound into the proof.
+        /// Transaction validation verifies the proof before pool admission.
+        #[pallet::call_index(152)]
+        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::pow_register(), Pays::No))]
+        pub fn pow_register(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            work_block: u64,
+            nonce: u64,
+            work: [u8; 32],
+            hotkey: T::AccountId,
+        ) -> DispatchResult {
+            Self::do_pow_register(origin, netuid, work_block, nonce, work, hotkey)
         }
 
         /// The extrinsic for user to change its hotkey in subnet or all subnets.
@@ -1928,7 +1945,7 @@ mod dispatches {
         ///
         /// * `commit_reveal_version`: The client (bittensor-drand) version.
         #[pallet::call_index(113)]
-        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::commit_timelocked_weights(), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((Pallet::<T>::timelock_weight_for_mode(*netuid, <T as crate::pallet::Config>::WeightInfo::commit_timelocked_weights(), <T as crate::pallet::Config>::WeightInfo::commit_timelocked_weights_null()), DispatchClass::Normal, Pays::No))]
         pub fn commit_timelocked_weights(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -1968,10 +1985,12 @@ mod dispatches {
                 Error::<T>::HotKeyNotRegisteredInSubNet
             );
 
+            Self::ensure_staking_hotkeys_can_grow(&coldkey, &hotkey)?;
+
             let current_hotkey = AutoStakeDestination::<T>::get(coldkey.clone(), netuid);
-            if let Some(current_hotkey) = current_hotkey {
+            if let Some(current_hotkey) = &current_hotkey {
                 ensure!(
-                    current_hotkey != hotkey,
+                    *current_hotkey != hotkey,
                     Error::<T>::SameAutoStakeHotkeyAlreadySet
                 );
 
@@ -1982,12 +2001,20 @@ mod dispatches {
             }
 
             // Add the coldkey to the new hotkey (if not already present)
+            StakingHotkeys::<T>::mutate(&coldkey, |hotkeys| {
+                if !hotkeys.contains(&hotkey) {
+                    hotkeys.push(hotkey.clone());
+                }
+            });
             AutoStakeDestination::<T>::insert(coldkey.clone(), netuid, hotkey.clone());
             AutoStakeDestinationColdkeys::<T>::mutate(hotkey.clone(), netuid, |v| {
                 if !v.contains(&coldkey) {
                     v.push(coldkey.clone());
                 }
             });
+            if let Some(old_hotkey) = current_hotkey {
+                Self::maybe_remove_staking_hotkey(&old_hotkey, &coldkey);
+            }
 
             Self::deposit_event(Event::AutoStakeDestinationSet {
                 coldkey,
@@ -2021,7 +2048,7 @@ mod dispatches {
         ///
         /// * `commit_reveal_version`: The client (bittensor-drand) version.
         #[pallet::call_index(118)]
-        #[pallet::weight((<T as Config>::WeightInfo::commit_timelocked_mechanism_weights(), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((Pallet::<T>::timelock_weight_for_mode(*netuid, <T as Config>::WeightInfo::commit_timelocked_mechanism_weights(), <T as Config>::WeightInfo::commit_timelocked_mechanism_weights_null()), DispatchClass::Normal, Pays::No))]
         pub fn commit_timelocked_mechanism_weights(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -2088,7 +2115,15 @@ mod dispatches {
             let _ = subnets; // ignored: basket claims are fund-level, not per-subnet
 
             let staking_hotkeys = StakingHotkeys::<T>::get(&coldkey);
-            let selection_scanned = u32::try_from(staking_hotkeys.len()).unwrap_or(u32::MAX);
+            let staking_count = u32::try_from(staking_hotkeys.len()).unwrap_or(u32::MAX);
+            let credit_count = HotkeySwapBasketCredits::<T>::iter_key_prefix(&coldkey)
+                .take(
+                    Self::root_claim_declared_work()
+                        .saturating_sub(staking_count)
+                        .saturating_add(1) as usize,
+                )
+                .count() as u32;
+            let selection_scanned = staking_count.saturating_add(credit_count);
             // Admission failures keep the declared envelope: the admission scan's cost is
             // not precisely metered, so refunding it could under-charge. Only a claim that
             // was admitted and then failed is billed for the work it actually did.
@@ -2294,6 +2329,28 @@ mod dispatches {
                 min_amount_out,
             )
             .map_err(|(done, error)| Self::fail_with_weight(error, done))?;
+            Ok((Some(weight), Pays::Yes).into())
+        }
+
+        /// Rebalance several legs of one validator basket atomically.
+        ///
+        /// Pending dividend deposits are flushed once and the basket is valued once. Each
+        /// leg then applies the same ownership, availability, slippage, turnover, liquidity,
+        /// concentration, and caller-floor checks as [`Pallet::swap_basket`]. A failed leg
+        /// rolls back every trade leg in this call; the preceding dividend flush remains
+        /// settled, matching the failure behavior of the single-leg call.
+        ///
+        /// Each tuple is `(origin_netuid, destination_netuid, amount, min_amount_out)`.
+        #[pallet::call_index(151)]
+        #[pallet::weight((Pallet::<T>::swap_basket_many_declared_weight(legs.len() as u32), DispatchClass::Normal, Pays::Yes))]
+        pub fn swap_basket_many(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            legs: BoundedVec<(NetUid, NetUid, AlphaBalance, u64), ConstU32<MAX_BASKET_SWAP_LEGS>>,
+        ) -> DispatchResultWithPostInfo {
+            let coldkey: T::AccountId = ensure_signed(origin)?;
+            let weight = Self::do_swap_basket_many_tracked(coldkey, hotkey, legs.as_slice())
+                .map_err(|(done, error)| Self::fail_with_weight(error, done))?;
             Ok((Some(weight), Pays::Yes).into())
         }
 
@@ -2728,6 +2785,28 @@ mod dispatches {
             let coldkey = ensure_signed(origin)?;
             Self::set_accept_locked_alpha(&coldkey, !enabled);
             Self::deposit_event(Event::RejectLockedAlphaUpdated { coldkey, enabled });
+            Ok(())
+        }
+
+        /// Opt out of staking-hotkey list growth caused by other accounts. Existing
+        /// destinations and hotkeys owned by the recipient can still receive transfers.
+        #[pallet::call_index(153)]
+        #[pallet::weight((<T as Config>::WeightInfo::set_reject_staking_hotkey_growth(), DispatchClass::Normal, Pays::Yes))]
+        pub fn set_reject_staking_hotkey_growth(
+            origin: OriginFor<T>,
+            enabled: bool,
+        ) -> DispatchResult {
+            let coldkey = ensure_signed(origin)?;
+            AccountFlags::<T>::mutate_exists(&coldkey, |stored| {
+                let flags = stored.unwrap_or_default();
+                let flags = if enabled {
+                    flags | crate::ACCOUNT_FLAGS_REJECT_STAKING_HOTKEY_GROWTH
+                } else {
+                    flags & !crate::ACCOUNT_FLAGS_REJECT_STAKING_HOTKEY_GROWTH
+                };
+                *stored = if flags == 0 { None } else { Some(flags) };
+            });
+            Self::deposit_event(Event::RejectStakingHotkeyGrowthUpdated { coldkey, enabled });
             Ok(())
         }
 

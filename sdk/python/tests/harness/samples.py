@@ -79,6 +79,7 @@ INTENT_SAMPLES: dict[str, dict] = {
     "stake_burn": {"netuid": 1, "amount_tao": 1.0, "limit_price": 10**9},
     "transfer": {"dest_ss58": BOB, "amount_tao": 1.0},
     "transfer_all": {"dest_ss58": BOB},
+    "pow_register": {"netuid": 1, "work_block": 1, "nonce": 0, "work_hex": "ab" * 32},
     "burned_register": {"netuid": 1},
     "root_register": {},
     "register_subnet": {},
@@ -128,6 +129,7 @@ INTENT_SAMPLES: dict[str, dict] = {
     "set_identity": {"name": "verify"},
     "set_subnet_identity": {"netuid": 1, "subnet_name": "verify"},
     "trim_subnet": {"netuid": 1, "max_n": 64},
+    "trim_null_subnet_batch": {"netuid": 1, "target": 64},
     "update_symbol": {"netuid": 1, "symbol": "β"},
     "set_mechanism_count": {"netuid": 1, "mechanism_count": 2},
     "register_leased_network": {"emissions_share": 20, "end_block": 10**9},
@@ -139,8 +141,16 @@ INTENT_SAMPLES: dict[str, dict] = {
     "move_lock": {"netuid": 1, "destination_hotkey_ss58": BOB_HOT},
     "set_perpetual_lock": {"netuid": 1, "enabled": True},
     "set_reject_locked_alpha": {"enabled": True},
+    "set_reject_staking_hotkey_growth": {"enabled": True},
     "stake_into_basket": {"hotkey_ss58": BOB_HOT, "amount_tao": 1.0},
     "swap_basket": {"hotkey_ss58": BOB_HOT, "origin_netuid": 1, "dest_netuid": 0, "amount": 1.0},
+    "swap_basket_many": {
+        "hotkey_ss58": BOB_HOT,
+        "legs": [
+            {"origin_netuid": 1, "dest_netuid": 0, "amount": 1.0},
+            {"origin_netuid": 0, "dest_netuid": 2, "amount": 0.5, "min_amount_out": 0.4},
+        ],
+    },
     "add_collateral": {"netuid": 1, "amount_alpha": 1.0},
     "set_min_collateral": {"netuid": 1, "min_alpha": 1.0},
     "create_crowdloan": {

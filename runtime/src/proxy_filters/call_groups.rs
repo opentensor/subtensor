@@ -338,16 +338,18 @@ call_filter_group!(
 // Permissionless proof-of-work registration (costs no TAO).
 call_filter_group!(
     PowRegistrationCalls,
-    [
-        RuntimeCall::SubtensorModule(SubtensorCall::register),
-        RuntimeCall::SubtensorModule(SubtensorCall::register_limit),
-    ]
+    [RuntimeCall::SubtensorModule(SubtensorCall::pow_register),]
 );
 
 // Registration paid by burning TAO (spends value, unlike POW registration).
 call_filter_group!(
     BurnedRegistrationCalls,
-    [RuntimeCall::SubtensorModule(SubtensorCall::burned_register),]
+    [
+        // These legacy calls now use burn registration despite their old names.
+        RuntimeCall::SubtensorModule(SubtensorCall::register),
+        RuntimeCall::SubtensorModule(SubtensorCall::register_limit),
+        RuntimeCall::SubtensorModule(SubtensorCall::burned_register),
+    ]
 );
 
 // Registration into the root subnet.
@@ -435,7 +437,10 @@ call_filter_group!(
 // so a trader multisig can be granted this alone via `ProxyType::BasketTrading`.
 call_filter_group!(
     BasketTradingCalls,
-    [RuntimeCall::SubtensorModule(SubtensorCall::swap_basket)]
+    [
+        RuntimeCall::SubtensorModule(SubtensorCall::swap_basket),
+        RuntimeCall::SubtensorModule(SubtensorCall::swap_basket_many),
+    ]
 );
 
 // A subnet's public identity and token symbol.
@@ -515,6 +520,7 @@ call_filter_group!(
     SubtensorCommonCalls,
     [
         RuntimeCall::SubtensorModule(SubtensorCall::set_reject_locked_alpha),
+        RuntimeCall::SubtensorModule(SubtensorCall::set_reject_staking_hotkey_growth),
         RuntimeCall::SubtensorModule(SubtensorCall::decrease_take),
         RuntimeCall::SubtensorModule(SubtensorCall::increase_take),
         RuntimeCall::SubtensorModule(SubtensorCall::set_identity),
@@ -544,6 +550,9 @@ call_filter_group!(
         RuntimeCall::SubtensorModule(SubtensorCall::set_activity_cutoff_factor),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_serving_rate_limit),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_max_difficulty),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_network_pow_registration_allowed),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_difficulty),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_min_difficulty),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_weights_version_key),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_adjustment_alpha),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_immunity_period),
@@ -569,8 +578,10 @@ call_filter_group!(
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_bonds_reset_enabled),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_owner_immune_neuron_limit),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_mechanism_count),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_epoch_consensus),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_mechanism_emission_split),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_trim_to_max_allowed_uids),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_trim_null_uids_batch),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_max_allowed_uids),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_burn_half_life),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_burn_increase_mult),
@@ -592,14 +603,11 @@ call_filter_group!(
         RuntimeCall::AdminUtils(AdminUtilsCall::schedule_grandpa_change),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_default_take),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_tx_rate_limit),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_min_difficulty),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_weights_set_rate_limit),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_adjustment_interval),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_kappa),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_network_registration_allowed),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_network_pow_registration_allowed),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_target_registrations_per_interval),
-        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_difficulty),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_max_allowed_validators),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_max_registrations_per_block),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_subnet_owner_cut),
@@ -644,6 +652,7 @@ call_filter_group!(
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_basket_trading_frozen),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_basket_daily_turnover_cap),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_basket_liquidity_cap),
+        RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_basket_min_trade_tao),
         RuntimeCall::AdminUtils(AdminUtilsCall::sudo_set_basket_claim_dust),
     ]
 );
