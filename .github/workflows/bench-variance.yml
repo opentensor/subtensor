@@ -1,0 +1,47 @@
+# Temporary experiment for PR #3257: measurement stability per runner. Remove before merge.
+name: bench-variance
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    if: github.event.pull_request.number == 3257
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [github-benchmarking, fireactions-benchmarking]
+    runs-on: ${{ matrix.runner == 'github-benchmarking' && 'Benchmarking' || fromJSON('["self-hosted","fireactions-benchmarking"]') }}
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Install system dependencies
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends \
+            -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" \
+            build-essential clang curl libssl-dev llvm libudev-dev protobuf-compiler pkg-config
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
+      - uses: ./.github/actions/sccache-setup
+      - name: Build
+        run: cargo build --locked --profile production -p node-subtensor --features runtime-benchmarks
+      - name: Measure three rounds
+        run: |
+          lscpu | grep -E 'Model name|^CPU\(s\)|MHz'
+          nproc
+          for round in 1 2 3; do
+            ./target/production/node-subtensor benchmark pallet \
+              --runtime=target/production/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm \
+              --genesis-builder=runtime --genesis-builder-preset=benchmark --wasm-execution=compiled \
+              --pallet=pallet_admin_utils \
+              --extrinsic=sudo_set_subnet_emission_weights,sudo_set_tempo,sudo_set_kappa,sudo_set_rho \
+              --steps=50 --repeat=20 --no-storage-info --no-min-squares --no-median-slopes \
+              --output="/tmp/w$round.rs" --template=.maintain/frame-weight-template.hbs >/dev/null 2>&1
+            awk -v r="$round" '/^impl<T: frame_system::Config> WeightInfo/{s=1} /^impl WeightInfo for \(\)/{s=0} s && /fn [a-z_]+\(/{match($0,/fn [a-z_]+/); f=substr($0,RSTART+3,RLENGTH-3)} s && /Weight::from_parts/{match($0,/[0-9_]+/); print "MEASURE", r, f, substr($0,RSTART,RLENGTH)}' "/tmp/w$round.rs"
+          done
