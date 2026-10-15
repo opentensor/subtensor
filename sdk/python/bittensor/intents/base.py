@@ -132,6 +132,9 @@ class IntentPreflight:
     # Stage heading for ``facts`` in the review card: "Fees" for cost
     # breakdowns, "Quote" for simulated swap outcomes (what you receive).
     facts_title: str = "Fees"
+    # Structured, JSON-native counterpart of ``effects`` (``Plan.preview``)
+    # for intents whose preview has a fixed shape. Optional.
+    preview: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass

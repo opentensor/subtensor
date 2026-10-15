@@ -846,14 +846,14 @@ DESCRIPTIONS: dict[str, str] = {
         "dividends may draw at most 0.50 of block emission; lower the validator share."
     ),
     "ValidatorEmissionTooLowToPreserveRoot": (
-        "Slot 3 (validator) of the emission weight vector is too low to keep root whole. "
-        "Changing the validator share makes the chain re-solve this subnet's effective TAO "
-        "weight once, at this block, so root holders keep exactly their current share of the "
-        "subnet's emission; that weight is capped at 1 (root TAO never counts more than 1:1). "
-        "The requested share is at or below root's current share, or would need a weight above "
-        "1. The floor is `r * (1 + alpha_issuance / root_tao)` where `r` is root's current "
-        "share; `btcli subnets emission show --netuid <n>` prints it for this block. Raise the "
-        "validator share and resubmit."
+        "Slot 3 (validator) of the emission weight vector is too low to reach root's baseline "
+        "share. Every set makes the chain re-solve this subnet's effective TAO weight once, at "
+        "this block, so root holders earn what they would with the default validator share "
+        "and the global TaoWeight; that weight is capped at 1 (root TAO never counts more than "
+        "1:1). The requested share is at or below root's baseline share, or would need a "
+        "weight above 1. The floor is `r * (1 + alpha_issuance / root_tao)` where `r` is "
+        "root's baseline share; `btcli subnets emission show --netuid <n>` prints it for this "
+        "block. Raise the validator share and resubmit."
     ),
     "MinerEmissionBelowMinimum": (
         "Slot 4 (miner) of the emission weight vector is below the 33% floor. Miner incentive "

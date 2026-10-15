@@ -11,12 +11,16 @@ recycle are treated as zero. The chain then checks the v1 rules:
 * burn (0) and recycle (1) must be zero — reserved for a later runtime;
 * ``0 <= owner <= 0.33``; lease-created subnets may not drop below the launch
   default (18% on mainnet);
-* ``validator <= 0.50``, and changing it must keep root's share of emission:
-  the chain re-solves the subnet's effective TAO weight ``w_s`` once, at that
-  block, so root holders get exactly the alpha they got before, and rejects
-  the change when no ``w_s <= 1`` can do that (root TAO never counts more
-  than 1:1). That floor depends on live chain state — root TAO, the subnet's
-  alpha issuance and its current weight — see :func:`validator_floor`;
+* ``validator <= 0.50``, and it must leave room for root's baseline share:
+  every accepted set re-solves the subnet's effective TAO weight ``w_s`` once,
+  at that block, so root's share of this subnet's emission equals what root
+  would earn with the default validator share (``V0``, 41% on mainnet) and
+  the global ``TaoWeight`` — the *baseline*. The chain rejects the change
+  when no ``w_s <= 1`` can reach it (root TAO never counts more than 1:1).
+  The baseline never looks at the old vector or the old ``w_s``, so a series
+  of changes cannot ratchet root's share. The resulting floor depends on live
+  chain state — root TAO, the subnet's alpha issuance and the global
+  ``TaoWeight`` — see :func:`validator_floor`;
 * ``miner >= 0.33``;
 * the five slots sum to exactly one.
 
@@ -58,6 +62,18 @@ MIN_MINER = fraction(33, 100)
 #: floor for lease-created subnets and the base from which the default vector
 #: ``[0, 0, 0.18, 0.41, 0.41]`` is derived.
 DEFAULT_OWNER = (11796 * ONE) // 65535
+
+#: Validator share of the default vector (``V0``, ~41% on mainnet): half of what
+#: is left after the default owner cut. Root's baseline share is anchored to
+#: it, and setting the validator slot to exactly ``V0`` makes the subnet follow
+#: the global ``TaoWeight`` again.
+DEFAULT_VALIDATOR = (ONE - DEFAULT_OWNER) // 2
+
+#: How often a subnet owner may change the vector (blocks; ~7 days at 12 s).
+#: Root is exempt and a subnet's first change is always allowed. Mirrors the
+#: chain's ``SubnetEmissionWeightsRateLimit``.
+OWNER_RATE_LIMIT_BLOCKS = 50_400
+BLOCK_SECONDS = 12
 
 ShareLike = Union[int, float, str]
 
@@ -149,41 +165,71 @@ class Rules:
     """The per-subnet inputs the chain rules depend on.
 
     ``min_validator`` is the lowest validator share that still lets the chain
-    preserve root's share of emission with a TAO weight ``<= 1`` (see
+    reach root's baseline share of emission with a TAO weight ``<= 1`` (see
     :func:`validator_floor`); ``None`` when it is unknown or there is nothing
-    to preserve (no root stake). ``min_owner`` is the lease floor, zero for
-    subnets not created through a lease.
+    to preserve (no root stake or no alpha issued). ``min_owner`` is the lease
+    floor, zero for subnets not created through a lease.
     """
 
     min_validator: Optional[int] = None
     min_owner: int = 0
     created_via_lease: bool = False
 
-    def table(self) -> list[tuple[str, str, str]]:
-        """``(slot, rule, why)`` rows for help output."""
-        owner_low = format_share(self.min_owner) if self.created_via_lease else "0%"
-        owner_why = (
-            "lease-created subnet: contributors are paid from the owner cut"
-            if self.created_via_lease
-            else "0 disables the owner cut"
-        )
-        return [
-            ("0 burn", "= 0", "reserved for a future runtime"),
-            ("1 recycle", "= 0", "reserved for a future runtime"),
-            ("2 owner", f"{owner_low} <= owner <= {format_share(MAX_OWNER)}", owner_why),
-            (
-                "3 validator",
-                (
-                    f"{format_share(self.min_validator, 4)} <= validator <= "
-                    if self.min_validator is not None
-                    else "validator <= "
-                )
-                + format_share(MAX_VALIDATOR),
-                "changing V re-solves the subnet TAO weight (<= 1) so root's share holds",
+    def limits(self) -> dict[str, dict[str, object]]:
+        """Allowed range per slot, by slot name, as the machine-readable shape.
+
+        Each entry carries ``min`` / ``max`` as 0..1 floats and ``min_parts`` /
+        ``max_parts`` as exact u64 parts, plus ``why``. ``validator.min`` is the
+        live root-preserving floor, ``None`` when there is nothing to preserve.
+        """
+        owner_min = self.min_owner if self.created_via_lease else 0
+        return {
+            "burn": _limit(0, 0, "reserved for a future runtime; must stay 0"),
+            "recycle": _limit(0, 0, "reserved for a future runtime; must stay 0"),
+            "owner": _limit(
+                owner_min,
+                MAX_OWNER,
+                "lease-created subnet: contributors are paid from the owner cut"
+                if self.created_via_lease
+                else "0 turns the owner cut off",
             ),
-            ("4 miner", f"miner >= {format_share(MIN_MINER)}", "miner incentive floor"),
-            ("sum", "= 100%", f"exactly {ONE} parts"),
-        ]
+            "validator": _limit(
+                self.min_validator,
+                MAX_VALIDATOR,
+                "the floor is where root's baseline share needs a TAO weight of 100%"
+                if self.min_validator is not None
+                else "no root stake or alpha issued yet, so any share is accepted",
+            ),
+            "miner": _limit(MIN_MINER, ONE, "miner incentive floor"),
+        }
+
+    def table(self) -> list[tuple[str, str, str]]:
+        """``(slot, allowed range, why)`` rows for human output, from :meth:`limits`."""
+        rows: list[tuple[str, str, str]] = []
+        for name, limit in self.limits().items():
+            low, high = limit["min_parts"], limit["max_parts"]
+            places = 4 if name == "validator" else 2
+            if low == high:
+                rule = f"= {format_share(int(high), 0)}"
+            elif low is None:
+                rule = f"<= {format_share(int(high), places)}"
+            elif high == ONE:
+                rule = f">= {format_share(int(low), places)}"
+            else:
+                rule = f"{format_share(int(low), places)} to {format_share(int(high), places)}"
+            rows.append((name, rule, str(limit["why"])))
+        rows.append(("sum", "= 100%", f"all five slots add up to exactly {ONE} parts"))
+        return rows
+
+
+def _limit(low: Optional[int], high: int, why: str) -> dict[str, object]:
+    return {
+        "min": None if low is None else share_to_float(low),
+        "max": share_to_float(high),
+        "min_parts": low,
+        "max_parts": high,
+        "why": why,
+    }
 
 
 @dataclass(frozen=True)
@@ -323,10 +369,10 @@ def validate(weights: Iterable[int], rules: Optional[Rules] = None) -> list[Viol
         found.append(
             Violation(
                 "ValidatorEmissionTooLowToPreserveRoot",
-                f"validator (slot 3) is {format_share(w[VALIDATOR], 4)}; changing it re-solves "
-                "this subnet's TAO weight so root's share of emission holds, and that weight is "
-                f"capped at 1, so right now the validator share must be at least about "
-                f"{format_share(rules.min_validator, 4)}",
+                f"validator (slot 3) is {format_share(w[VALIDATOR], 4)}; every change re-solves "
+                "this subnet's TAO weight so root earns its baseline share of emission, and "
+                "that weight is capped at 100%, so right now the validator share must be at "
+                f"least about {format_share(rules.min_validator, 4)}",
             )
         )
     if w[MINER] < MIN_MINER:
@@ -375,21 +421,144 @@ def solve_tao_weight(
     return weight if weight <= 1 else None
 
 
+def baseline_root_share(global_tao_weight: float, root_tao: float, alpha_issuance: float) -> float:
+    """Root's *baseline* share of a subnet's emission: what root earns there
+    with the default validator share ``V0`` and the global ``TaoWeight``,
+    ``V0 * x_g / (x_g + A)`` with ``x_g = root_tao * global_tao_weight``.
+    Every accepted set re-solves the subnet's TAO weight to hit this value; it
+    reads nothing the subnet stores, so repeated changes cannot ratchet root's
+    share."""
+    return root_emission_share(
+        share_to_float(DEFAULT_VALIDATOR), global_tao_weight, root_tao, alpha_issuance
+    )
+
+
 def validator_floor(
-    current_validator: float, tao_weight: float, root_tao: float, alpha_issuance: float
+    global_tao_weight: float, root_tao: float, alpha_issuance: float
 ) -> Optional[float]:
     """Lowest validator share (0..1) the chain accepts right now:
-    ``r * (1 + A / root_tao)`` where ``r`` is root's current share. None when
-    there is no root stake or no alpha issuance (then any share is accepted
-    and the subnet's TAO weight is left alone)."""
-    if root_tao <= 0 or alpha_issuance <= 0 or current_validator <= 0:
+    ``r * (1 + A / root_tao)`` where ``r`` is root's baseline share — the
+    point where reaching the baseline needs a TAO weight of exactly 1. None
+    when there is no root stake or no alpha issuance (then any share is
+    accepted and the subnet's TAO weight is left alone)."""
+    if root_tao <= 0 or alpha_issuance <= 0:
         return None
-    root_share = root_emission_share(current_validator, tao_weight, root_tao, alpha_issuance)
+    root_share = baseline_root_share(global_tao_weight, root_tao, alpha_issuance)
     return root_share * (1 + alpha_issuance / root_tao)
+
+
+def tao_weight_after_set(
+    new_validator: int,
+    *,
+    tao_weight: float,
+    global_tao_weight: float,
+    root_tao: float,
+    alpha_issuance: float,
+) -> Optional[float]:
+    """The subnet's effective TAO weight once a set lands with the validator
+    slot at ``new_validator`` (parts), mirroring the chain: unchanged when
+    there is nothing to preserve, the global weight when ``new_validator`` is
+    exactly ``V0`` (the entry is cleared), otherwise the solve against the
+    baseline — ``None`` when no weight <= 1 fits and the chain rejects."""
+    if root_tao <= 0 or alpha_issuance <= 0:
+        return tao_weight
+    if new_validator == DEFAULT_VALIDATOR:
+        return global_tao_weight
+    return solve_tao_weight(
+        baseline_root_share(global_tao_weight, root_tao, alpha_issuance),
+        share_to_float(new_validator),
+        root_tao,
+        alpha_issuance,
+    )
 
 
 def describe(weights: Iterable[int]) -> dict[str, str]:
     """``{slot name: "41.00%"}`` for display."""
     return {
         name: format_share(value) for name, value in zip(SLOT_NAMES, normalize_weights(weights))
+    }
+
+
+def shares(weights: Iterable[int]) -> dict[str, float]:
+    """``{slot name: 0.41}`` — the vector as 0..1 floats keyed by slot name."""
+    return {
+        name: share_to_float(value) for name, value in zip(SLOT_NAMES, normalize_weights(weights))
+    }
+
+
+def preview(
+    before: Iterable[int],
+    after: Iterable[int],
+    *,
+    tao_weight: float,
+    global_tao_weight: float,
+    root_tao: int,
+    alpha_issuance: int,
+) -> dict[str, object]:
+    """The machine-readable preview of a vector change.
+
+    ``before`` / ``after`` carry the full vectors in parts and as shares and
+    ``changed`` lists the slots that move. ``root`` says what root TAO stakers
+    earn on this subnet before (``share_before``, under the stored weight) and
+    after (``share_after``: the baseline the chain re-anchors to), and how the
+    subnet's effective TAO weight moves to make that true. ``tao_weight_after``
+    is ``None`` when no weight <= 1 can reach the baseline, which the chain
+    rejects with ``ValidatorEmissionTooLowToPreserveRoot``.
+    """
+    old = normalize_weights(before)
+    new = normalize_weights(after)
+    preservable = root_tao > 0 and alpha_issuance > 0
+    share_before = root_emission_share(
+        share_to_float(old[VALIDATOR]), tao_weight, root_tao, alpha_issuance
+    )
+    baseline = baseline_root_share(global_tao_weight, root_tao, alpha_issuance)
+    tao_weight_after = tao_weight_after_set(
+        new[VALIDATOR],
+        tao_weight=tao_weight,
+        global_tao_weight=global_tao_weight,
+        root_tao=root_tao,
+        alpha_issuance=alpha_issuance,
+    )
+    if not preservable:
+        share_after = root_emission_share(
+            share_to_float(new[VALIDATOR]), tao_weight, root_tao, alpha_issuance
+        )
+    elif tao_weight_after is None:
+        share_after = None
+    else:
+        share_after = baseline
+    return {
+        "before": {"weights": old, "shares": shares(old)},
+        "after": {"weights": new, "shares": shares(new)},
+        "changed": [SLOT_NAMES[slot] for slot in range(len(SLOT_NAMES)) if old[slot] != new[slot]],
+        "root": {
+            "share_before": share_before,
+            "share_after": share_after,
+            "baseline_share": baseline,
+            "tao_weight_before": tao_weight,
+            "tao_weight_after": tao_weight_after,
+            "global_tao_weight": global_tao_weight,
+            "root_tao": root_tao,
+            "alpha_issuance": alpha_issuance,
+        },
+    }
+
+
+def rate_limit_status(
+    last_change_block: int, current_block: int, limit: int = OWNER_RATE_LIMIT_BLOCKS
+) -> dict[str, object]:
+    """When the subnet owner may next change the vector.
+
+    ``last_change_block`` is the chain's ``LastRateLimitedBlock`` entry for the
+    subnet (0 when it has never been changed, which the chain treats as "first
+    change is free"). Root is never limited.
+    """
+    next_block = current_block if last_change_block <= 0 else last_change_block + limit
+    blocks_left = max(0, next_block - current_block)
+    return {
+        "limit_blocks": limit,
+        "last_change_block": last_change_block,
+        "next_allowed_block": next_block,
+        "blocks_until_allowed": blocks_left,
+        "owner_can_change_now": blocks_left == 0,
     }

@@ -14,14 +14,16 @@ read.
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from .. import emission_weights as ew
 from .._generated import calls
 from .._generated import runtime_apis as api
-from ..reads.subnets import root_preservation_inputs
-from .base import Intent
+from .._generated import storage as st
+from ..reads.subnets import emission_weights_rate_limit_key, root_preservation_inputs
+from .base import Intent, IntentPreflight
 from .registry import register
 
 SLOTS_HELP = (
@@ -33,8 +35,8 @@ VALUES_HELP = (
     "New share for each slot, pairwise with `slots`: a 0..1 fraction (0.41), a percentage "
     '("41%"), or raw u64 parts of 2^64-1. Rules: burn = recycle = 0; owner <= 33% '
     "(>= 18% on lease-created subnets); validator <= 50% and high enough that root's "
-    "share of emission can be preserved (see `btcli subnets emission show`); miner >= 33%; "
-    "all five sum to exactly 1."
+    "baseline share of emission is reachable (see `btcli subnets emission show`); "
+    "miner >= 33%; all five sum to exactly 1."
 )
 RENORMALIZE_HELP = (
     "Keep the named slots as given and rescale the other owner/validator/miner slots "
@@ -47,6 +49,49 @@ def _slot_label(slot: int) -> str:
     return f"{ew.SLOT_NAMES[slot]} (slot {slot})"
 
 
+def _vector_text(weights: list[int]) -> str:
+    """``owner 18.00% / validator 41.00% / miner 41.00%`` (reserved slots only if set)."""
+    parts = [
+        f"{ew.SLOT_NAMES[slot]} {ew.format_share(weights[slot])}" for slot in ew.ADJUSTABLE_SLOTS
+    ]
+    parts += [
+        f"{ew.SLOT_NAMES[slot]} {ew.format_share(weights[slot])}"
+        for slot in (ew.BURN, ew.RECYCLE)
+        if weights[slot]
+    ]
+    return " / ".join(parts)
+
+
+def _pct(value: float, places: int = 2) -> str:
+    return f"{value * 100:.{places}f}%"
+
+
+def _root_line(root: dict[str, Any]) -> str:
+    """One sentence on what root earns here after the set and how the subnet's
+    TAO weight moves to make it so."""
+    before, after = root["tao_weight_before"], root["tao_weight_after"]
+    if root["root_tao"] <= 0 or root["alpha_issuance"] <= 0:
+        return (
+            "no root stake or alpha issuance on this subnet yet: its TAO weight stays "
+            f"{_pct(before)}"
+        )
+    if after is None:
+        return (
+            f"root's baseline share here is {_pct(root['baseline_share'], 4)} of emission; no "
+            "TAO weight <= 100% reaches it with this validator share (the chain rejects)"
+        )
+    weight = (
+        f"stays {_pct(before)}" if after == before else f"moves {_pct(before)} -> {_pct(after)}"
+    )
+    if after == root["global_tao_weight"] and after != before:
+        weight += " (the global TaoWeight; the subnet follows it again)"
+    return (
+        f"root earns {_pct(root['share_before'], 4)} of this subnet's emission now and "
+        f"{_pct(root['share_after'], 4)} after (its baseline: default validator share, global "
+        f"TaoWeight); the subnet's TAO weight {weight}"
+    )
+
+
 @register
 @dataclass
 class SetSubnetEmissionWeights(Intent):
@@ -56,12 +101,13 @@ class SetSubnetEmissionWeights(Intent):
     slots. The signer must be the subnet's owner coldkey (root may also call
     it). With ``renormalize`` the untouched owner/validator/miner slots are
     rescaled so the vector still sums to one; without it the merged vector is
-    submitted as given. Changing the validator share makes the chain re-solve
-    the subnet's effective TAO weight so root stakers keep exactly their
-    current share of emission — the pre-sign plan shows that share and the
-    resulting weight, and lists every rule the chain would reject (including
-    a validator share too low to keep root whole), so a bad vector is caught
-    before signing. Owners may change the vector once per week per subnet.
+    submitted as given. Every accepted set makes the chain re-solve the
+    subnet's effective TAO weight so root stakers earn their baseline share of
+    emission (what they would earn with the default validator share and the
+    global TaoWeight) — the pre-sign plan shows that share and the resulting
+    weight, and lists every rule the chain would reject (including a validator
+    share too low to reach the baseline), so a bad vector is caught before
+    signing. Owners may change the vector once per week per subnet.
     """
 
     op = "set_subnet_emission_weights"
@@ -119,66 +165,121 @@ class SetSubnetEmissionWeights(Intent):
             calls.AdminUtils.sudo_set_subnet_emission_weights(self.netuid, uids, values)
         )
 
-    async def effects(self, substrate, signer_address: str) -> list[str]:
+    async def _inputs(self, substrate) -> Optional[dict]:
+        """Everything the preview needs, read once: the current vector, the
+        subnet's TAO weight, root TAO, alpha issuance and the owner's last
+        change block."""
         current = await self._current(substrate)
         if current is None:
-            return [self.summary()]
-        before = ew.normalize_weights(current["weights"])
-        after = self._merged(current)
-        lines = [self.summary()]
-        for slot in ew.ADJUSTABLE_SLOTS:
-            if before[slot] != after[slot]:
-                lines.append(
-                    f"{ew.SLOT_NAMES[slot]}: {ew.format_share(before[slot])} -> "
-                    f"{ew.format_share(after[slot])}"
-                )
-        if before[ew.VALIDATOR] != after[ew.VALIDATOR]:
-            tao_weight = ew.share_to_float(int(current["effective_tao_weight"]))
-            root_tao, alpha_issuance = await root_preservation_inputs(
-                lambda item, keys: substrate.query(*item, keys), self.netuid
-            )
-            root_share = ew.root_emission_share(
-                ew.share_to_float(before[ew.VALIDATOR]), tao_weight, root_tao, alpha_issuance
-            )
-            solved = ew.solve_tao_weight(
-                root_share, ew.share_to_float(after[ew.VALIDATOR]), root_tao, alpha_issuance
-            )
-            if root_tao > 0 and alpha_issuance > 0 and before[ew.VALIDATOR] > 0:
-                lines.append(
-                    f"root keeps {root_share * 100:.4f}% of this subnet's emission; its TAO "
-                    f"weight here moves {tao_weight * 100:.2f}% -> "
-                    + (f"{solved * 100:.2f}%" if solved is not None else "no weight <= 100% fits")
-                )
-            else:
-                lines.append(
-                    "no root stake or alpha issuance on this subnet yet: its TAO weight stays "
-                    f"{tao_weight * 100:.2f}%"
-                )
-        return lines
+            return None
+        query = lambda item, keys: substrate.query(*item, keys)  # noqa: E731
+        (
+            (root_tao, alpha_issuance, global_tao_weight),
+            last_change,
+            block,
+            owner,
+        ) = await asyncio.gather(
+            root_preservation_inputs(query, self.netuid),
+            substrate.query(
+                *st.SubtensorModule.LastRateLimitedBlock,
+                [emission_weights_rate_limit_key(self.netuid)],
+            ),
+            substrate.block_number(),
+            substrate.query(*st.SubtensorModule.SubnetOwner, [self.netuid]),
+        )
+        return {
+            "current": current,
+            "before": ew.normalize_weights(current["weights"]),
+            "tao_weight": ew.share_to_float(int(current["effective_tao_weight"])),
+            "global_tao_weight": global_tao_weight,
+            "root_tao": root_tao,
+            "alpha_issuance": alpha_issuance,
+            "last_change_block": int(last_change or 0),
+            "block": int(block),
+            "owner": None if owner is None else str(owner),
+        }
 
-    async def blocks(self, substrate, signer_address: str) -> list[str]:
-        current = await self._current(substrate)
-        if current is None:
-            return [f"subnet {self.netuid} does not exist (the root subnet has no emission vector)"]
-        root_tao, alpha_issuance = await root_preservation_inputs(
-            lambda item, keys: substrate.query(*item, keys), self.netuid
+    def _preview(self, inputs: dict, after: list[int]) -> dict[str, Any]:
+        return ew.preview(
+            inputs["before"],
+            after,
+            tao_weight=inputs["tao_weight"],
+            global_tao_weight=inputs["global_tao_weight"],
+            root_tao=inputs["root_tao"],
+            alpha_issuance=inputs["alpha_issuance"],
         )
+
+    def _rules(self, inputs: dict) -> ew.Rules:
         floor = ew.validator_floor(
-            ew.share_to_float(ew.normalize_weights(current["weights"])[ew.VALIDATOR]),
-            ew.share_to_float(int(current["effective_tao_weight"])),
-            root_tao,
-            alpha_issuance,
+            inputs["global_tao_weight"],
+            inputs["root_tao"],
+            inputs["alpha_issuance"],
         )
-        rules = ew.Rules(
+        return ew.Rules(
             min_validator=None if floor is None else int(floor * ew.ONE),
             min_owner=ew.DEFAULT_OWNER,
-            created_via_lease=bool(current["created_via_lease"]),
+            created_via_lease=bool(inputs["current"]["created_via_lease"]),
         )
+
+    async def preflight(self, substrate, dispatch_origin: str, fee_payer: str, *, call=None):
+        del fee_payer, call
+        inputs = await self._inputs(substrate)
+        if inputs is None:
+            return IntentPreflight(
+                effects=[self.summary()],
+                warnings=[],
+                blocks=[
+                    f"subnet {self.netuid} does not exist (the root subnet has no emission vector)"
+                ],
+            )
         try:
-            merged = self._merged(current)
+            after = self._merged(inputs["current"])
         except ValueError as error:
-            return [str(error)]
-        return [str(violation) for violation in ew.validate(merged, rules)]
+            return IntentPreflight(effects=[self.summary()], warnings=[], blocks=[str(error)])
+        preview = self._preview(inputs, after)
+        rules = self._rules(inputs)
+        blocks = [str(violation) for violation in ew.validate(after, rules)]
+        owner = inputs["owner"]
+        if owner is not None and dispatch_origin != owner:
+            blocks.append(
+                f"{dispatch_origin} is not the owner of subnet {self.netuid} (the owner is "
+                f"{owner}); only the owner coldkey, or root through sudo, can change its "
+                "emission weights"
+            )
+        rate = ew.rate_limit_status(inputs["last_change_block"], inputs["block"])
+        if not rate["owner_can_change_now"]:
+            hours = int(rate["blocks_until_allowed"]) * ew.BLOCK_SECONDS / 3600
+            blocks.append(
+                f"the owner changed this vector at block {rate['last_change_block']:,}; the "
+                f"chain allows the next owner change at block {rate['next_allowed_block']:,} "
+                f"(in {rate['blocks_until_allowed']:,} blocks, about {hours:.1f} h); root is "
+                "exempt"
+            )
+        preview["rate_limit"] = rate
+        preview["limits"] = rules.limits()
+        return IntentPreflight(
+            effects=self._effect_lines(preview),
+            warnings=[],
+            blocks=blocks,
+            preview=preview,
+        )
+
+    def _effect_lines(self, preview: dict[str, Any]) -> list[str]:
+        before, after = preview["before"]["weights"], preview["after"]["weights"]
+        lines = [self.summary()]
+        lines.append(
+            "vector: " + _vector_text(before) + " -> " + _vector_text(after)
+            if preview["changed"]
+            else "vector: " + _vector_text(before) + " (unchanged)"
+        )
+        lines.append(_root_line(preview["root"]))
+        return lines
+
+    async def effects(self, substrate, signer_address: str) -> list[str]:
+        return list((await self.preflight(substrate, signer_address, signer_address)).effects)
+
+    async def blocks(self, substrate, signer_address: str) -> list[str]:
+        return list((await self.preflight(substrate, signer_address, signer_address)).blocks)
 
     def summary(self) -> str:
         parts = ", ".join(
