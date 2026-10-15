@@ -491,6 +491,7 @@ call_filter_group!(
         RuntimeCall::SubtensorModule(SubtensorCall::reveal_mechanism_weights),
         RuntimeCall::SubtensorModule(SubtensorCall::batch_reveal_weights),
         RuntimeCall::SubtensorModule(SubtensorCall::set_reject_locked_alpha),
+        RuntimeCall::SubtensorModule(SubtensorCall::set_reject_staking_hotkey_growth),
         RuntimeCall::SubtensorModule(SubtensorCall::decrease_take),
         RuntimeCall::SubtensorModule(SubtensorCall::increase_take),
         RuntimeCall::SubtensorModule(SubtensorCall::serve_axon),

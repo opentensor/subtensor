@@ -163,6 +163,11 @@ pub trait WeightInfo {
 	fn set_tempo() -> Weight;
 	fn set_activity_cutoff_factor() -> Weight;
 	fn set_reject_locked_alpha() -> Weight;
+	/// The same AccountFlags read/modify/write as set_reject_locked_alpha.
+	/// Reference CI benchmarks replace this shared implementation when measured.
+	fn set_reject_staking_hotkey_growth() -> Weight {
+		Self::set_reject_locked_alpha()
+	}
 }
 
 /// Weights for `pallet_subtensor` using the Substrate node and recommended hardware.

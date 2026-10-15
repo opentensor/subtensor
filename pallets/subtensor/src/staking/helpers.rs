@@ -136,6 +136,7 @@ impl<T: Config> Pallet<T> {
         );
 
         if !Self::hotkey_account_exists(hotkey) {
+            Self::ensure_staking_hotkeys_can_grow(coldkey, hotkey)?;
             Owner::<T>::insert(hotkey, coldkey);
 
             // Update OwnedHotkeys map

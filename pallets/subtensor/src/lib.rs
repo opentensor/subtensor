@@ -219,6 +219,8 @@ pub const MAX_COLDKEY_COLLATERAL_HOTKEYS: u32 = 32;
 
 /// Account flag bit that opts into receiving locked alpha transfers.
 pub const ACCOUNT_FLAGS_ACCEPT_LOCKED_ALPHA: u128 = 1u128 << 0;
+/// Refuse staking-list growth initiated by another coldkey.
+pub const ACCOUNT_FLAGS_REJECT_STAKING_HOTKEY_GROWTH: u128 = 1u128 << 1;
 
 #[allow(deprecated)]
 #[deny(missing_docs)]
@@ -1615,6 +1617,20 @@ pub mod pallet {
     #[pallet::storage]
     pub type AccountFlags<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, u128, ValueQuery>;
+
+    /// Claim-only fund associations created when a root swap leaves a staker's stake
+    /// behind. These never grow StakingHotkeys or the work of a stake exit. Claims and
+    /// coldkey swaps bound their selection before admitting work.
+    #[pallet::storage]
+    pub type HotkeySwapBasketCredits<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Blake2_128Concat,
+        T::AccountId,
+        (),
+        OptionQuery,
+    >;
 
     /// MAP ( hot ) --> take | Returns the hotkey delegation take. And signals that this key is open for delegation
     #[pallet::storage]
@@ -3884,6 +3900,7 @@ impl<T: Config + pallet_balances::Config<Balance = TaoBalance>>
         );
 
         // Increse alpha out counter
+        Self::ensure_staking_hotkeys_can_grow(coldkey, hotkey)?;
         SubnetAlphaOut::<T>::mutate(netuid, |total| {
             *total = total.saturating_add(alpha);
         });

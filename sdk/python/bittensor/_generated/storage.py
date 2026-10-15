@@ -95,6 +95,7 @@ class SubtensorModule:
     MinChildkeyTakePerSubnet = Item('SubtensorModule', 'MinChildkeyTakePerSubnet', 'PerU16')
     Owner = Item('SubtensorModule', 'Owner', 'AccountId32')
     AccountFlags = Item('SubtensorModule', 'AccountFlags', 'u128')
+    HotkeySwapBasketCredits = Item('SubtensorModule', 'HotkeySwapBasketCredits', '()')
     Delegates = Item('SubtensorModule', 'Delegates', 'PerU16')
     ChildkeyTake = Item('SubtensorModule', 'ChildkeyTake', 'PerU16')
     ChildkeyThresholdChecks = Item('SubtensorModule', 'ChildkeyThresholdChecks', '()')
@@ -407,6 +408,7 @@ class EVM:
     AccountStorages = Item('EVM', 'AccountStorages', 'H256')
     WhitelistedCreators = Item('EVM', 'WhitelistedCreators', 'Vec<H160>')
     DisableWhitelistCheck = Item('EVM', 'DisableWhitelistCheck', 'bool')
+    AccountNonces = Item('EVM', 'AccountNonces', 'u32')
 
 class EVMChainId:
     ChainId = Item('EVMChainId', 'ChainId', 'u64')

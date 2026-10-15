@@ -405,8 +405,12 @@ fn test_swap_staking_hotkeys() {
         add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_u64.into());
 
         StakingHotkeys::<Test>::insert(coldkey, vec![old_hotkey]);
-        Alpha::<Test>::insert((old_hotkey, coldkey, netuid), U64F64::from_num(100));
-        crate::migrations::migrate_alpha_v2::convert_for_test::<Test>();
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &old_hotkey,
+            &coldkey,
+            netuid,
+            100.into(),
+        );
 
         System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_ok!(SubtensorModule::do_swap_hotkey(
@@ -418,7 +422,7 @@ fn test_swap_staking_hotkeys() {
         ));
 
         let staking_hotkeys = StakingHotkeys::<Test>::get(coldkey);
-        assert!(staking_hotkeys.contains(&old_hotkey));
+        assert!(!staking_hotkeys.contains(&old_hotkey));
         assert!(staking_hotkeys.contains(&new_hotkey));
     });
 }
@@ -581,11 +585,11 @@ fn test_swap_staking_hotkeys_multiple_coldkeys() {
 
         // Check if new_hotkey replaced old_hotkey in StakingHotkeys
         assert!(StakingHotkeys::<Test>::get(coldkey1).contains(&new_hotkey));
-        assert!(StakingHotkeys::<Test>::get(coldkey1).contains(&old_hotkey));
+        assert!(!StakingHotkeys::<Test>::get(coldkey1).contains(&old_hotkey));
 
         // Check if new_hotkey replaced old_hotkey for coldkey2 as well
         assert!(StakingHotkeys::<Test>::get(coldkey2).contains(&new_hotkey));
-        assert!(StakingHotkeys::<Test>::get(coldkey2).contains(&old_hotkey));
+        assert!(!StakingHotkeys::<Test>::get(coldkey2).contains(&old_hotkey));
         assert!(StakingHotkeys::<Test>::get(coldkey2).contains(&staker5));
         // Other hotkeys should remain
     });
