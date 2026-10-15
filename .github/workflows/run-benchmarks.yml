@@ -149,9 +149,9 @@ jobs:
           BENCHMARK_TARGETS: ${{ needs.select.outputs.targets }}
           NODE_BIN: ${{ github.workspace }}/.bench-node/node-subtensor
         run: |
-          set -uo pipefail
-          scripts/benchmark_action.sh
-          rc=$?
+          set -euo pipefail
+          rc=0
+          scripts/benchmark_action.sh || rc=$?
           { echo '```'; cat .bench_patch/summary.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY" || true
           case "$rc" in
             0) echo "patch=false" >> "$GITHUB_OUTPUT" ;;
