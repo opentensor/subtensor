@@ -131,6 +131,15 @@ impl<T: Config> LendingPoolInterface<T::AccountId> for Pallet<T> {
                 == subtensor_swap_interface::SwapFailureKind::TerminalLiquidity
     }
 
+    fn quote_buy_input(netuid: NetUid, alpha: AlphaBalance) -> Result<TaoBalance, DispatchError> {
+        let input = T::SwapInterface::quote_buy_input(netuid, alpha)?;
+        // Verify execution limits and reserve floors with one full quote.
+        ensure!(
+            Self::quote_buy(netuid, input)? >= alpha,
+            Error::<T>::SlippageTooHigh
+        );
+        Ok(input)
+    }
     fn quote_buy(netuid: NetUid, tao: TaoBalance) -> Result<AlphaBalance, DispatchError> {
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
         let quote = T::SwapInterface::swap(
@@ -231,6 +240,20 @@ impl<T: Config> LendingPoolInterface<T::AccountId> for Pallet<T> {
         amount: TaoBalance,
     ) -> Result<TaoBalance, DispatchError> {
         Self::transfer_lending_tao_or_recycle_dust(from, vault, amount)
+    }
+
+    fn remaining_tao_collateral(escrow: &T::AccountId, collateral: u64) -> u64 {
+        // Allow-death coupon transfers can reap the final TAO dust. This narrow
+        // reconciliation also repairs positions left by earlier collections.
+        // Do not treat a larger missing balance as dust.
+        if collateral > 0
+            && TaoBalance::from(collateral) < <T as Config>::Currency::minimum_balance()
+            && <T as Config>::Currency::total_balance(escrow).is_zero()
+        {
+            0
+        } else {
+            collateral
+        }
     }
 
     #[transactional]

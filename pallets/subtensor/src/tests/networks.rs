@@ -971,7 +971,7 @@ fn dissolve_materializes_nonzero_protocol_reservoirs_after_basket_cleanup() {
         TaoInRefundDeploymentBlock::<Test>::put(0);
         NetworkRegisteredAt::<Test>::insert(net, 1);
 
-        let reservoir_tao = TaoBalance::from(100_u64);
+        let reservoir_tao = TaoBalance::from(1_000_u64);
         let reservoir_alpha = AlphaBalance::from(100_u64);
         let staker_hot = U256::from(789);
         let staker_cold = U256::from(987);
@@ -1011,7 +1011,7 @@ fn dissolve_materializes_nonzero_protocol_reservoirs_after_basket_cleanup() {
         // TAO pot; the protocol share is recycled.
         assert_eq!(
             SubtensorModule::get_coldkey_balance(&staker_cold),
-            staker_before + TaoBalance::from(50_u64)
+            staker_before + TaoBalance::from(500_u64)
         );
         assert!(TotalIssuance::<Test>::get() < issuance_before);
         assert!(!NetworksAdded::<Test>::contains_key(net));
@@ -1088,7 +1088,7 @@ fn dissolve_rounding_remainder_distribution() {
         AlphaV2::<Test>::insert((s1h, s1c, net), sf_from_u64(3u64));
         AlphaV2::<Test>::insert((s2h, s2c, net), sf_from_u64(2u64));
 
-        SubnetTAO::<Test>::insert(net, TaoBalance::from(1)); // TAO pot = 1
+        SubnetTAO::<Test>::insert(net, TaoBalance::from(2_001)); // Both base payouts exceed 500 rao.
         SubtensorModule::set_subnet_locked_balance(net, TaoBalance::from(0));
 
         TotalHotkeyAlpha::<Test>::insert(s1h, net, AlphaBalance::from(3u64));
@@ -1102,12 +1102,12 @@ fn dissolve_rounding_remainder_distribution() {
         assert_ok!(SubtensorModule::do_dissolve_network(net));
         run_block_idle();
 
-        // 4. s1 (larger remainder) should get +1 τ on cold-key
+        // 4. s1 (larger remainder) receives the one-rao bonus.
         let c1_after = SubtensorModule::get_coldkey_balance(&s1c);
         let c2_after = SubtensorModule::get_coldkey_balance(&s2c);
 
-        assert_eq!(c1_after, c1_before + 1.into());
-        assert_eq!(c2_after, c2_before);
+        assert_eq!(c1_after, c1_before + 1_201.into());
+        assert_eq!(c2_after, c2_before + 800.into());
 
         // α records for subnet gone; TAO key gone
         assert!(AlphaV2::<Test>::iter().all(|((_h, _c, n), _)| n != net));
@@ -1140,7 +1140,7 @@ fn dissolve_protocol_alpha_share_is_not_paid_to_users() {
         AlphaV2::<Test>::insert((staker_hot, staker_cold, net), sf_from_u64(50u64));
         TotalHotkeyAlpha::<Test>::insert(staker_hot, net, AlphaBalance::from(50u64));
 
-        let pot: u64 = 200;
+        let pot: u64 = 2_000;
         SubnetTAO::<Test>::insert(net, TaoBalance::from(pot));
 
         let staker_before = SubtensorModule::get_coldkey_balance(&staker_cold);
@@ -1153,13 +1153,13 @@ fn dissolve_protocol_alpha_share_is_not_paid_to_users() {
         // User gets 50 / (100 alpha-in + 50 cached protocol alpha + 50 user alpha)
         // of the TAO pot. The protocol share is withheld from user/owner payout.
         // Settlement denominator = 50 cached protocol alpha + 50 user alpha = 100
-        // (alpha-in is excluded). The user therefore gets 50/100 of the 200 TAO pot,
-        // i.e. 100 TAO. The chain-bought alpha's 100 TAO share is withheld from the
+        // (alpha-in is excluded). The user therefore gets 50/100 of the 2,000-rao TAO pot,
+        // i.e. 1,000 rao TAO. The chain-bought alpha's 1,000 rao TAO share is withheld from the
         // user/owner payout (it is recycled back to the chain, see the dedicated
         // recycling test below).
         assert_eq!(
             SubtensorModule::get_coldkey_balance(&staker_cold),
-            staker_before + 100.into()
+            staker_before + 1_000.into()
         );
         // The owner is not paid the protocol share either (locked balance is zero, so
         // there is no refund path that could leak it).
@@ -1195,7 +1195,7 @@ fn dissolve_protocol_alpha_post_deploy_includes_alpha_in() {
         AlphaV2::<Test>::insert((staker_hot, staker_cold, net), sf_from_u64(50u64));
         TotalHotkeyAlpha::<Test>::insert(staker_hot, net, AlphaBalance::from(50u64));
 
-        let pot: u64 = 200;
+        let pot: u64 = 2_000;
         SubnetTAO::<Test>::insert(net, TaoBalance::from(pot));
 
         let staker_before = SubtensorModule::get_coldkey_balance(&staker_cold);
@@ -1205,10 +1205,10 @@ fn dissolve_protocol_alpha_post_deploy_includes_alpha_in() {
         run_block_idle();
 
         // Post-deploy denominator = 100 alpha-in + 50 cached protocol alpha
-        // + 50 user alpha = 200. The user gets 50/200 of the 200 TAO pot.
+        // + 50 user alpha = 200. The user gets 50/200 of the 2,000-rao TAO pot.
         assert_eq!(
             SubtensorModule::get_coldkey_balance(&staker_cold),
-            staker_before + 50.into()
+            staker_before + 500.into()
         );
 
         assert_eq!(

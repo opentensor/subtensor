@@ -411,7 +411,7 @@ class Prices(_ReadNamespace):
         TAO collateral after interest. Borrowed alpha need not have been sold.
         """
 
-    async def lending_open_quote(self, netuid: int, side: str, collateral: str, coldkey_ss58: Optional[str] = None, hotkey_ss58: Optional[str] = None, *, block: Optional[int] = None) -> dict:
+    async def lending_open_quote(self, netuid: int, side: str, collateral: str, coldkey_ss58: Optional[str] = None, hotkey_ss58: Optional[str] = None, amount: Optional[str] = None, *, block: Optional[int] = None) -> dict:
         """Quote additional fixed debt, opening value and collateral coupon.
 
         Supply the owner and hotkey together to quote a new position or increase
@@ -425,7 +425,9 @@ class Prices(_ReadNamespace):
         buy limits alpha principal but opening makes no AMM swap and pays no sale
         proceeds. Omitting both addresses quotes a fresh loan only.
         A refusal is an error; it never becomes a zero-protection quote. The result
-        is indicative until the transaction executes.
+        is indicative until the transaction executes. Supply `amount` with both
+        addresses to quote exactly that additional principal instead of the
+        maximum supported by the collateral.
         """
 
     async def lending_position(self, coldkey_ss58: str, netuid: int, *, block: Optional[int] = None) -> Optional[dict]:
@@ -434,20 +436,35 @@ class Prices(_ReadNamespace):
         Principal increases when more is borrowed and never falls when interest is
         collected. This record reports the combined position. Amounts retain their
         currency: short collateral is TAO and short debt is alpha; long collateral
-        is alpha and long debt is TAO. The retained `proceeds` compatibility field
-        is zero for newly opened shorts; it is not a borrowed-alpha sale balance.
-        Interest and
-        remaining runway are estimates at the selected block, not a close quote.
+        is alpha and long debt is TAO. Funded dissolution receipts are tracked
+        separately from the position. Interest and remaining runway are estimates
+        at the selected block, not a close quote.
         """
 
     async def lending_positions(self, netuid: int, *, block: Optional[int] = None) -> list[dict]:
         """All open loans on a subnet, pinned to one block and sorted by owner."""
 
+    async def lending_required_collateral(self, netuid: int, side: str, amount: str, coldkey_ss58: str, hotkey_ss58: str, *, block: Optional[int] = None) -> dict:
+        """Minimum additional collateral for exactly the requested borrowed amount.
+
+        The search uses exact-principal runtime quotes at one block. It includes
+        existing principal, accrued interest, market depth and funded-redemption
+        guards. Only the owner's `InsufficientCollateral` response means to
+        search higher; unavailable references, inventory, borrowing caps and
+        other positions' uncovered debt remain hard refusals. The requested
+        opening value must meet the runtime's minimum, currently 0.1 TAO.
+
+        Returns collateral and its opening quote. This read does not promise
+        that the wallet owns the collateral or can pay transaction fees. Wallet
+        affordability is checked before review and signing. The exact-principal
+        transaction rechecks admission without borrowing extra if state changes.
+        """
+
     async def lending_reserves(self, netuid: int, *, block: Optional[int] = None) -> dict:
         """Available, borrowed, lost and pending balances of the lending vault.
 
         The 10% cap uses available inventory plus outstanding principal in each
-        asset. AMM reserves, borrower collateral, legacy escrow proceeds and pending
+        asset. AMM reserves, borrower collateral, dissolution receipts and pending
         conversions are excluded. This reports inventory, not a promise that
         loans will be repaid.
         """

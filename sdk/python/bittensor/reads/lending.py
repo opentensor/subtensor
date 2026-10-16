@@ -67,7 +67,6 @@ def _position_record(
         "hotkey": str(raw["hotkey"]),
         "principal": view.balance(int(raw["principal"]), principal_unit),
         "collateral": view.balance(collateral, collateral_unit),
-        "proceeds": Balance.from_rao(int(raw["proceeds"])),
         "annual_interest": view.balance(annual, collateral_unit),
         "interest_due": view.balance(interest_due, collateral_unit),
         "last_accrued": int(raw["last_accrued"]),
@@ -88,10 +87,9 @@ async def lending_position(view, coldkey_ss58: str, netuid: int) -> Optional[dic
     Principal increases when more is borrowed and never falls when interest is
     collected. This record reports the combined position. Amounts retain their
     currency: short collateral is TAO and short debt is alpha; long collateral
-    is alpha and long debt is TAO. The retained ``proceeds`` compatibility field
-    is zero for newly opened shorts; it is not a borrowed-alpha sale balance.
-    Interest and
-    remaining runway are estimates at the selected block, not a close quote.
+    is alpha and long debt is TAO. Funded dissolution receipts are tracked
+    separately from the position. Interest and remaining runway are estimates
+    at the selected block, not a close quote.
     """
     view = await view.at()
     raw = await view.query(POSITIONS, [coldkey_ss58, netuid])
@@ -133,7 +131,7 @@ async def lending_reserves(view, netuid: int) -> dict:
     """Available, borrowed, lost and pending balances of the lending vault.
 
     The 10% cap uses available inventory plus outstanding principal in each
-    asset. AMM reserves, borrower collateral, legacy escrow proceeds and pending
+    asset. AMM reserves, borrower collateral, dissolution receipts and pending
     conversions are excluded. This reports inventory, not a promise that
     loans will be repaid.
     """

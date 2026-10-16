@@ -217,7 +217,6 @@ fn exact_open_transfers_requested_principal_and_collects_its_fixed_coupon() {
             assert_eq!(loan.principal, requested);
             assert_eq!(loan.annual_interest, expected_annual);
             assert_eq!(loan.collateral, COLLATERAL);
-            assert_eq!(loan.proceeds, 0);
             let after = Vaults::<Test>::get(netuid).unwrap();
             if side == Side::Short {
                 assert_eq!(stake(&owner, &hotkey, netuid), source_alpha + requested);
@@ -243,7 +242,6 @@ fn exact_open_transfers_requested_principal_and_collects_its_fixed_coupon() {
                     side,
                     principal: requested,
                     collateral: COLLATERAL,
-                    proceeds: 0,
                     annual_interest: expected_annual,
                 })));
             assert_single_position(owner, hotkey, netuid);
@@ -381,7 +379,6 @@ fn exact_increase_preserves_old_coupon_accrual_and_due_for_both_assets() {
                     side,
                     principal: UNIT,
                     collateral: COLLATERAL,
-                    proceeds: 0,
                     annual_interest: expected_added_annual,
                 })));
             assert_single_position(owner, hotkey, netuid);
@@ -762,7 +759,6 @@ fn growing_alpha_loan_preserves_coupon_and_one_position_then_closes_combined_deb
             combined.collateral,
             first.collateral - paid + added_collateral
         );
-        assert_eq!(combined.proceeds, 0);
         assert_eq!(stake(&owner, &hotkey, netuid), combined.principal);
         assert_eq!(
             combined.annual_interest,
@@ -779,14 +775,10 @@ fn growing_alpha_loan_preserves_coupon_and_one_position_then_closes_combined_deb
                 side: Side::Short,
                 principal: added.principal,
                 collateral: added_collateral,
-                proceeds: 0,
                 annual_interest: added.annual_interest,
             })));
         let escrow = Lending::position_account(&owner, netuid);
-        assert_eq!(
-            Balances::free_balance(escrow).to_u64(),
-            combined.collateral + combined.proceeds
-        );
+        assert_eq!(Balances::free_balance(escrow).to_u64(), combined.collateral);
         assert_single_position(owner, hotkey, netuid);
         Lending::on_idle(System::block_number(), meter().remaining());
         assert_eq!(
@@ -840,7 +832,6 @@ fn real_long_loop_grows_one_loan_under_combined_funded_ltv_and_burns_interest() 
             combined.annual_interest,
             first.annual_interest + added.annual_interest
         );
-        assert_eq!(combined.proceeds, 0);
         assert_eq!(combined.due, first.due);
         assert_eq!(
             vault.available_tao,
@@ -1054,7 +1045,7 @@ fn grown_long_deregisters_as_one_merged_debt_against_ordinary_funded_redemption(
         assert_ok!(SubtensorModule::do_dissolve_network(netuid));
         assert!(Lending::settle_shorts(netuid, &mut meter()));
         run_destroy_alpha_get_total_and_settle(netuid);
-        let funded = Positions::<Test>::get(owner, netuid).unwrap().proceeds;
+        let funded = pallet_lending::DissolutionReceipts::<Test>::get(netuid, owner);
         assert!(funded > combined.principal);
         let wallet_after_ordinary_payout = Balances::free_balance(owner);
         assert!(Lending::settle_remaining_longs(netuid, &mut meter()));
@@ -1295,8 +1286,8 @@ fn funded_alpha_grants_and_growth_reserve_a_quarter_of_collateral_for_redemption
             let vault = Vaults::<Test>::get(netuid).unwrap();
             let (pool_pot, n) = alpha_redemption_basis(netuid, vault.available_alpha);
             let pot = pool_pot.to_u64().saturating_add(vault.available_tao);
-            let funded = (u128::from(loan.principal) * u128::from(pot)).div_ceil(n)
-                + u128::from(loan.principal);
+            let base = (u128::from(loan.principal) * u128::from(pot)).div_ceil(n);
+            let funded = base + base.div_ceil(u128::from(pallet_lending::MIN_DISSOLUTION_PAYOUT));
             assert!(funded <= u128::from(loan.collateral / 4));
             assert_eq!(stake(&owner, &hotkey, netuid), loan.principal);
             assert_single_position(owner, hotkey, netuid);
@@ -1642,7 +1633,6 @@ fn alpha_loan_quote_rejects_stale_value_after_a_real_purchase_changes_depth() {
             current.principal,
             current.opening_value,
         ));
-        assert_eq!(Positions::<Test>::get(owner, netuid).unwrap().proceeds, 0);
         assert_total_alpha_staked_invariant(netuid);
         assert_live_stake_total();
     });
@@ -2012,7 +2002,7 @@ fn price_impact_adapter_rejects_subnet_lifecycle_locks() {
 fn capacity_deferred_pool_stays_intact_and_is_admitted_after_a_slot_frees() {
     use crate::migrations::migrate_pool_lending::{MIGRATION_NAME, Migration};
     use frame_support::traits::OnRuntimeUpgrade;
-    use pallet_lending::{LendingInterface, Vault, VaultCount};
+    use pallet_lending::{LendingInterface, Vault};
 
     new_test_ext(1).execute_with(|| {
         let netuid = market(true);
@@ -2021,7 +2011,7 @@ fn capacity_deferred_pool_stays_intact_and_is_admitted_after_a_slot_frees() {
         for id in 2_u16..=257 {
             Vaults::<Test>::insert(NetUid::from(id), Vault::default());
         }
-        VaultCount::<Test>::put(256);
+        assert_eq!(Vaults::<Test>::count(), 256);
         assert!(!<Lending as LendingInterface<U256>>::has_funding_capacity());
         let before = sp_io::storage::root(sp_runtime::StateVersion::V1);
         assert_ok!(SubtensorModule::fund_unreachable_reserves(netuid, true));
@@ -2052,7 +2042,7 @@ fn capacity_deferred_pool_stays_intact_and_is_admitted_after_a_slot_frees() {
         SubtensorModule::fund_one_new_lending_vault();
         let vault = Vaults::<Test>::get(netuid).unwrap();
         assert!(vault.available_alpha > 0 && vault.available_tao > 0);
-        assert_eq!(VaultCount::<Test>::get(), 256);
+        assert_eq!(Vaults::<Test>::count(), 256);
         assert_eq!(Balances::total_issuance(), issuance);
         assert_eq!(
             SubnetAlphaIn::<Test>::get(netuid).to_u64() + vault.available_alpha,
@@ -2134,7 +2124,6 @@ fn alpha_loan_is_delivered_without_a_swap_and_can_move_before_fixed_token_repaym
         let custody = Lending::custody_hotkey().unwrap();
         assert_eq!(stake(&owner, &hotkey, netuid), position.principal);
         assert_eq!(stake(&escrow, &custody, netuid), 0);
-        assert_eq!(position.proceeds, 0);
         assert_eq!(
             (
                 SubnetTAO::<Test>::get(netuid),
@@ -2321,7 +2310,7 @@ fn free_alpha_redemption_and_terminal_recovery_use_the_original_pot_for_both_sub
 }
 
 #[test]
-fn split_alpha_holder_rounding_cannot_exceed_the_terminal_funded_allowance() {
+fn split_alpha_dust_holders_cannot_win_terminal_rounding() {
     new_test_ext(1).execute_with(|| {
         let netuid = funded_market();
         TaoInRefundDeploymentBlock::<Test>::put(1);
@@ -2365,8 +2354,8 @@ fn split_alpha_holder_rounding_cannot_exceed_the_terminal_funded_allowance() {
             );
             loan_holders.push(recipient);
         }
-        // All rows share one hotkey/page. Each borrowed row has a strictly larger
-        // remainder than the seven other rows, so all three win a rounding atom.
+        // All rows share one hotkey/page. Borrowed rows have larger remainders,
+        // but their base payouts are dust and cannot win a rounding atom.
         for i in 0..7 {
             let (holder, _) = borrower(310 + i);
             let alpha = AlphaBalance::from(piece - 1);
@@ -2402,12 +2391,12 @@ fn split_alpha_holder_rounding_cannot_exceed_the_terminal_funded_allowance() {
             .map(|(holder, balance)| Balances::free_balance(holder).to_u64() - balance)
             .sum();
         assert_eq!(
-            paid, 3,
-            "a position-sized ceil alone misses split-row rounding"
+            paid, 0,
+            "sub-threshold base payouts must not become eligible through rounding"
         );
         assert_eq!(DissolutionEligibleAlphaRows::<Test>::get(netuid), 10);
         assert!(Lending::settle_remaining_longs(netuid, &mut meter()));
-        assert_eq!(Vaults::<Test>::get(netuid).unwrap().available_tao, 4);
+        assert_eq!(Vaults::<Test>::get(netuid).unwrap().available_tao, 2);
         assert_eq!(Vaults::<Test>::get(netuid).unwrap().lost_alpha, 0);
     });
 }
@@ -2435,7 +2424,6 @@ fn alpha_borrower_can_sell_and_repledge_the_real_sale_cash_into_the_same_loan() 
         let merged = Positions::<Test>::get(owner, netuid).unwrap();
         assert_eq!(merged.principal, first.principal + added.principal);
         assert_eq!(merged.collateral, first.collateral + cash);
-        assert_eq!(merged.proceeds, 0);
         assert_eq!(stake(&owner, &hotkey, netuid), added.principal);
         assert_eq!(
             Balances::free_balance(Lending::position_account(&owner, netuid)).to_u64(),
@@ -2591,12 +2579,11 @@ fn a_public_alpha_donation_to_a_short_escrow_is_refunded_after_terminal_debt() {
             donation,
         ));
         assert!(stake(&escrow, &donated_hotkey, netuid) > 0);
-        assert_eq!(Positions::<Test>::get(owner, netuid).unwrap().proceeds, 0);
         SubnetFastMovingPrice::<Test>::insert(netuid, substrate_fixed::types::U64F64::from_num(2));
         assert_ok!(SubtensorModule::do_dissolve_network(netuid));
         assert!(Lending::settle_shorts(netuid, &mut meter()));
         let mut status = run_destroy_alpha_get_total_and_settle(netuid);
-        let funded = Positions::<Test>::get(owner, netuid).unwrap().proceeds;
+        let funded = pallet_lending::DissolutionReceipts::<Test>::get(netuid, owner);
         assert_eq!(
             Balances::free_balance(escrow).to_u64(),
             loan.collateral + funded
@@ -2759,7 +2746,7 @@ fn wallet_alpha_repayment_below_spot_minimum_preserves_unrelated_stake_locks() {
         assert!(current_value < DefaultMinStake::<Test>::get().to_u64());
         let quote = Lending::quote_close(&owner, netuid, true).unwrap();
         assert_eq!(quote.payment, position.principal);
-        assert_eq!(quote.refund, position.collateral + position.proceeds);
+        assert_eq!(quote.refund, position.collateral);
         assert_noop!(
             <SubtensorModule as OrderSwapInterface<U256>>::transfer_staked_alpha(
                 &owner,
@@ -3010,7 +2997,6 @@ fn weekly_short_coupon_burns_tao_without_trading_or_replenishing_inventory() {
             / u128::from(LendingBlocksPerYear::get())) as u64;
         assert_eq!(after.principal, before.principal);
         assert_eq!(after.collateral, before.collateral - paid);
-        assert_eq!(after.proceeds, before.proceeds);
         let vault = Vaults::<Test>::get(netuid).unwrap();
         assert_eq!(vault, before_vault);
         assert_eq!(
@@ -3163,6 +3149,166 @@ fn failed_long_coupon_burn_rolls_back_swap_and_retries_backed_pending_alpha() {
         assert_eq!(Balances::total_issuance(), currency_issuance);
         assert_live_stake_total();
         assert_total_alpha_staked_invariant(netuid);
+    });
+}
+
+#[test]
+fn reaped_short_collateral_is_cleaned_up_and_does_not_block_dissolution() {
+    for already_reaped in [false, true] {
+        for dissolving in [false, true] {
+            new_test_ext(1).execute_with(|| {
+                ExistentialDeposit::set(500.into());
+                let netuid = funded_market();
+                let (owner, hotkey) = borrower(16_171);
+                // Per-block interest is below the production 500-rao ED.
+                assert_ok!(Lending::open_exact(
+                    RuntimeOrigin::signed(owner),
+                    netuid,
+                    Side::Short,
+                    COLLATERAL,
+                    hotkey,
+                    UNIT,
+                    0,
+                ));
+                let before = Positions::<Test>::get(owner, netuid).unwrap();
+                let escrow = Lending::position_account(&owner, netuid);
+                let elapsed = ((u128::from(before.collateral) - 1)
+                    * u128::from(LendingBlocksPerYear::get())
+                    / u128::from(before.annual_interest)) as u64;
+                let numerator = u128::from(before.annual_interest) * u128::from(elapsed);
+                let paid = (numerator / u128::from(LendingBlocksPerYear::get())) as u64;
+                let nominal_remaining = before.collateral - paid;
+                assert!(nominal_remaining > 0 && nominal_remaining < 500);
+                let collected_at = before.last_accrued + elapsed;
+                System::set_block_number(collected_at);
+
+                if already_reaped {
+                    // Reproduce the previous runtime's successful collection and
+                    // stale accounting, using a real allow-death currency transfer.
+                    assert_ok!(
+                        <SubtensorModule as LendingPoolInterface<U256>>::collect_interest_tao(
+                            &escrow,
+                            &Lending::reserve_account(netuid),
+                            paid.into(),
+                        )
+                    );
+                    assert_eq!(Balances::free_balance(escrow), TaoBalance::ZERO);
+                    Positions::<Test>::mutate(owner, netuid, |position| {
+                        let position = position.as_mut().unwrap();
+                        position.collateral = nominal_remaining;
+                        position.last_accrued = collected_at;
+                        position.interest_remainder =
+                            (numerator % u128::from(LendingBlocksPerYear::get())) as u64;
+                    });
+                    Vaults::<Test>::mutate(netuid, |vault| {
+                        vault.as_mut().unwrap().pending_tao += paid;
+                    });
+                    // Neither quoting nor dispatch may revive phantom collateral,
+                    // even in the same block and with ample additional collateral.
+                    assert_eq!(
+                        Lending::quote_open_exact_for(
+                            &owner,
+                            netuid,
+                            Side::Short,
+                            COLLATERAL,
+                            &hotkey,
+                            UNIT,
+                        )
+                        .unwrap_err(),
+                        pallet_lending::Error::<Test>::InsufficientEscrow.into(),
+                    );
+                    assert_noop!(
+                        Lending::open_exact(
+                            RuntimeOrigin::signed(owner),
+                            netuid,
+                            Side::Short,
+                            COLLATERAL,
+                            hotkey,
+                            UNIT,
+                            0,
+                        ),
+                        pallet_lending::Error::<Test>::InsufficientEscrow
+                    );
+                    // Exercise recovery well after more interest has accrued too.
+                    System::set_block_number(collected_at + LendingInterestPeriod::get());
+                }
+
+                // A failed close must roll back the coupon and dust reconciliation;
+                // background collection or dissolution will finalize the position.
+                assert_noop!(
+                    Lending::close(RuntimeOrigin::signed(owner), netuid, true, u64::MAX, 0),
+                    pallet_lending::Error::<Test>::InsufficientEscrow
+                );
+                assert_noop!(
+                    Lending::open_exact(
+                        RuntimeOrigin::signed(owner),
+                        netuid,
+                        Side::Short,
+                        COLLATERAL,
+                        hotkey,
+                        UNIT,
+                        0,
+                    ),
+                    pallet_lending::Error::<Test>::InsufficientEscrow
+                );
+                if dissolving {
+                    assert_ok!(SubtensorModule::do_dissolve_network(netuid));
+                    assert!(Lending::settle_shorts(netuid, &mut meter()));
+                    assert_eq!(Positions::<Test>::get(owner, netuid).unwrap().collateral, 0);
+                    assert!(
+                        pallet_lending::Dissolutions::<Test>::get(netuid)
+                            .unwrap()
+                            .reserves_returned
+                    );
+                    let _status = run_destroy_alpha_get_total_and_settle(netuid);
+                    assert!(Lending::settle_remaining_longs(netuid, &mut meter()));
+                } else {
+                    // Budget one collection rather than scanning the empty blocks
+                    // skipped by the deliberately large time jump.
+                    let budget = <Test as frame_system::Config>::DbWeight::get()
+                        .reads_writes(3, 2)
+                        .saturating_add(
+                            <<Test as pallet_lending::Config>::WeightInfo as
+                                pallet_lending::weights::WeightInfo>::collect(),
+                        );
+                    Lending::on_idle(System::block_number(), budget);
+                }
+                assert!(!Positions::<Test>::contains_key(owner, netuid));
+                assert!(!pallet_lending::OpenByNetuid::<Test>::contains_key(
+                    netuid, owner
+                ));
+                assert!(!pallet_lending::EscrowOwner::<Test>::contains_key(
+                    netuid, escrow
+                ));
+                assert_eq!(pallet_lending::PositionCount::<Test>::get(netuid), 0);
+                assert_eq!(pallet_lending::TotalPositions::<Test>::get(), 0);
+                assert_eq!(pallet_lending::LoanHotkeys::<Test>::get(hotkey), 0);
+                assert_eq!(pallet_lending::Due::<Test>::iter().count(), 0);
+                let vault = Vaults::<Test>::get(netuid).unwrap();
+                assert_eq!(vault.outstanding_alpha, 0);
+                assert_eq!(vault.lost_alpha, before.principal);
+                assert_eq!(Balances::free_balance(escrow), TaoBalance::ZERO);
+                assert_eq!(TotalIssuance::<Test>::get(), Balances::total_issuance());
+            });
+        }
+    }
+}
+
+#[test]
+fn short_collateral_reconciliation_only_discards_missing_dust() {
+    new_test_ext(1).execute_with(|| {
+        ExistentialDeposit::set(500.into());
+        let escrow = U256::from(16_172);
+        let remaining = |collateral| {
+            <SubtensorModule as LendingPoolInterface<U256>>::remaining_tao_collateral(
+                &escrow, collateral,
+            )
+        };
+        assert_eq!(remaining(499), 0);
+        assert_eq!(remaining(500), 500);
+        assert_eq!(remaining(1_000), 1_000);
+        add_balance_to_coldkey_account(&escrow, 1_000.into());
+        assert_eq!(remaining(499), 499);
     });
 }
 
@@ -3332,7 +3478,7 @@ fn deregistration_burns_only_funded_fees_and_preserves_principal_recovery() {
             TaoBalance::ZERO
         );
         assert_eq!(Vaults::<Test>::get(netuid).unwrap().pending_alpha, long_fee);
-        let funded = Positions::<Test>::get(long_owner, netuid).unwrap().proceeds;
+        let funded = pallet_lending::DissolutionReceipts::<Test>::get(netuid, long_owner);
         assert!(funded > long.principal);
         let owner_before = SubtensorModule::get_coldkey_balance(&long_owner);
         assert!(Lending::settle_remaining_longs(netuid, &mut meter()));
@@ -3514,7 +3660,6 @@ fn terminal_alpha_fee_burn_failure_rolls_back_the_whole_funded_payout_page() {
         assert_eq!(status, before_status);
         assert_eq!(sp_io::storage::root(sp_runtime::StateVersion::V1), before);
         assert_eq!(SubtensorModule::get_coldkey_balance(&reserve), 1.into());
-        assert_eq!(Positions::<Test>::get(owner, netuid).unwrap().proceeds, 0);
         assert_eq!(Vaults::<Test>::get(netuid).unwrap().pending_alpha, pending);
 
         ExistentialDeposit::set(1.into());
@@ -3530,7 +3675,7 @@ fn terminal_alpha_fee_burn_failure_rolls_back_the_whole_funded_payout_page() {
         );
         assert!(SubtensorModule::get_coldkey_balance(&burn_account()).to_u64() > 500);
         assert_eq!(SubtensorModule::get_coldkey_balance(&reserve), 1.into());
-        assert!(Positions::<Test>::get(owner, netuid).unwrap().proceeds > 0);
+        assert!(pallet_lending::DissolutionReceipts::<Test>::get(netuid, owner) > 0);
         assert_eq!(Vaults::<Test>::get(netuid).unwrap().available_tao, 0);
         assert_eq!(Vaults::<Test>::get(netuid).unwrap().pending_alpha, pending);
         assert_eq!(TotalIssuance::<Test>::get(), Balances::total_issuance());
@@ -3733,7 +3878,10 @@ fn deregistration_accumulates_donated_secondary_hotkey_payouts_before_retiring_a
                 assert!(funded - before < position.principal);
             }
             let pending = Positions::<Test>::get(owner, netuid).unwrap();
-            assert_eq!(pending.proceeds, funded);
+            assert_eq!(
+                pallet_lending::DissolutionReceipts::<Test>::get(netuid, owner),
+                funded
+            );
             assert_eq!(pending.principal, position.principal);
             assert_eq!(
                 pallet_lending::EscrowOwner::<Test>::get(netuid, escrow),
@@ -4341,12 +4489,12 @@ fn tiny_first_tao_coupon_into_an_alpha_only_vault_is_explicitly_recycled() {
             TaoBalance::ZERO
         );
         let (owner, hotkey) = borrower(122);
-        let quote = Lending::quote_open(netuid, Side::Short, 10 * UNIT).unwrap();
+        let quote = Lending::quote_open(netuid, Side::Short, 5 * UNIT).unwrap();
         assert_ok!(Lending::open(
             RuntimeOrigin::signed(owner),
             netuid,
             Side::Short,
-            10 * UNIT,
+            5 * UNIT,
             hotkey,
             quote.principal,
             0,
@@ -4393,4 +4541,756 @@ fn tiny_first_tao_coupon_into_an_alpha_only_vault_is_explicitly_recycled() {
         assert_total_alpha_staked_invariant(netuid);
         assert_live_stake_total();
     });
+}
+
+/// Compare borrowing to pump an owned-alpha sale with selling directly from
+/// exactly the same funded market. Liquidate the borrowed-money purchase too,
+/// so marking that extra alpha at a manipulated spot price cannot hide a loss.
+#[test]
+fn borrowed_tao_price_pump_cannot_improve_an_owned_alpha_sale_after_repayment() {
+    for initial_purchase in [100 * UNIT, 1_000 * UNIT, 10_000 * UNIT] {
+        for collateral_bps in [2_500_u64, 7_500] {
+            for sale_bps in [2_500_u64, 10_000] {
+                for fee_rate in [0_u16, 1_000] {
+                    for elapsed in [0_u64, 50_400] {
+                        for loan_divisor in [1_u64, 4] {
+                            new_test_ext(1).execute_with(|| {
+                                let netuid = funded_market();
+                                let (owner, hotkey) = borrower(991);
+                                add_balance_to_coldkey_account(&owner, (100_000 * UNIT).into());
+                                buy(&owner, &hotkey, netuid, initial_purchase);
+                                pallet_subtensor_swap::FeeRate::<Test>::insert(netuid, fee_rate);
+                                let owned = stake(&owner, &hotkey, netuid);
+                                let collateral = owned * collateral_bps / 10_000;
+                                let sold = (owned - collateral) * sale_bps / 10_000;
+                                let sell = |amount: u64| {
+                                    <SubtensorModule as OrderSwapInterface<U256>>::sell_alpha(
+                                        &owner, &hotkey, netuid, amount.into(), TaoBalance::ZERO, false,
+                                    ).unwrap().to_u64()
+                                };
+                                let initial_cash = Balances::free_balance(owner).to_u64();
+                                // Actual execution on an identical state, rolled back before
+                                // running the loan strategy. Quotes alone are not the oracle.
+                                sp_io::storage::start_transaction();
+                                let direct_payout = sell(sold);
+                                let direct_cash = Balances::free_balance(owner).to_u64();
+                                let direct_alpha = stake(&owner, &hotkey, netuid);
+                                sp_io::storage::rollback_transaction();
+
+                                let quote = Lending::quote_open_for(
+                                    &owner, netuid, Side::Long, collateral, &hotkey,
+                                ).unwrap();
+                                let loan = quote.principal / loan_divisor;
+                                assert_ok!(Lending::open_exact(
+                                    RuntimeOrigin::signed(owner), netuid, Side::Long,
+                                    collateral, hotkey, loan, 0,
+                                ));
+                                let purchased = <SubtensorModule as OrderSwapInterface<U256>>::buy_alpha(
+                                    &owner, &hotkey, netuid, loan.into(), u64::MAX.into(), false,
+                                ).unwrap().to_u64();
+                                let pumped_payout = sell(sold);
+                                assert!(pumped_payout >= direct_payout);
+                                // A larger sale receipt does not cover the cost of the pump.
+                                assert!(pumped_payout.saturating_sub(loan) <= direct_payout);
+                                System::set_block_number(System::block_number() + elapsed);
+                                let closing = Lending::quote_close(&owner, netuid, true).unwrap();
+                                assert_eq!(closing.payment, loan);
+                                assert_ok!(Lending::close(
+                                    RuntimeOrigin::signed(owner), netuid, true, loan, 0,
+                                ));
+                                assert!(!Positions::<Test>::contains_key(owner, netuid));
+                                // Sell only the alpha purchased using the loan. The returned
+                                // original collateral is retained in both strategies.
+                                let extra_payout = sell(purchased);
+                                let final_cash = Balances::free_balance(owner).to_u64();
+                                let final_alpha = stake(&owner, &hotkey, netuid);
+                                assert!(final_cash <= direct_cash,
+                                    "pump improved cash: initial={initial_purchase}, collateral_bps={collateral_bps}, sale_bps={sale_bps}, fee={fee_rate}, elapsed={elapsed}, divisor={loan_divisor}");
+                                assert!(final_alpha <= direct_alpha);
+                                if elapsed == 0 {
+                                    assert_eq!(final_alpha, direct_alpha);
+                                }
+                                if initial_purchase == 1_000 * UNIT && collateral_bps == 7_500
+                                    && sale_bps == 10_000 && elapsed == 0 && loan_divisor == 1 {
+                                    println!("fee={fee_rate}: loan={loan}, direct_sale={direct_payout}, pumped_sale={pumped_payout}, extra_sale={extra_payout}, direct_net={}, pump_net={}, remaining_alpha={final_alpha}", direct_cash - initial_cash, final_cash - initial_cash);
+                                }
+                                assert_total_alpha_staked_invariant(netuid);
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Saturate the actual finite branch, rather than selling the same fixed alpha
+/// amount in both strategies. Repayment must be deducted from the larger gross
+/// pool payout, and even returned collateral cannot unlock another profitable sale.
+#[test]
+fn borrowed_tao_pump_cannot_increase_the_superellipse_terminal_sale_payout() {
+    for quote_weight in [10_u64, 25, 50, 75, 90] {
+        for (protocol_tao, prior_stakers) in [
+            (0_u64, false),
+            (0, true),
+            (50_000 * UNIT, false),
+            (50_000 * UNIT, true),
+        ] {
+            for fee_rate in [0_u16, 1_000, 5_000] {
+                for price_floor in [0_u64, 1_000] {
+                    for loan in [UNIT, 100 * UNIT, 1_000 * UNIT] {
+                        new_test_ext(1).execute_with(|| {
+                    let netuid = market(true);
+                    // Recover each archived Balancer weight through the production
+                    // initialization/funding path, rather than changing a live curve.
+                    let weight = sp_runtime::Perquintill::from_percent(quote_weight);
+                    pallet_subtensor_swap::SwapBalancer::<Test>::mutate(netuid, |balancer| {
+                        balancer.set_quote_weight(weight).unwrap();
+                    });
+                    pallet_subtensor_swap::PalSwapInitialized::<Test>::insert(netuid, true);
+                    SubnetMovingPrice::<Test>::insert(netuid,
+                        I96F32::from_num(100 - quote_weight) / I96F32::from_num(quote_weight));
+                    assert_ok!(SubtensorModule::fund_unreachable_reserves(netuid, true));
+                    assert_ok!(Lending::set_enabled(RuntimeOrigin::root(), true));
+                    let (owner, hotkey) = borrower(992);
+                    pallet_subtensor_swap::FeeRate::<Test>::insert(netuid, fee_rate);
+                    if protocol_tao > 0 {
+                        // Materialize protocol emissions as run_coinbase does:
+                        // custody and reserve rise, while translating the center
+                        // preserves the existing curve and its reachable domain.
+                        let subnet = SubtensorModule::get_subnet_account_id(netuid).unwrap();
+                        let price = <Test as Config>::SwapInterface::current_alpha_price(netuid);
+                        add_balance_to_coldkey_account(&subnet, protocol_tao.into());
+                        let (accepted, alpha) = <Test as Config>::SwapInterface::adjust_protocol_liquidity(
+                            netuid, protocol_tao.into(), AlphaBalance::ZERO,
+                        ).unwrap();
+                        assert_eq!(accepted.to_u64(), protocol_tao);
+                        assert!(alpha.is_zero());
+                        SubnetTAO::<Test>::mutate(netuid, |reserve| *reserve += accepted);
+                        TotalStake::<Test>::mutate(|total| *total += accepted);
+                        assert_eq!(<Test as Config>::SwapInterface::current_alpha_price(netuid), price);
+                    }
+                    let mut other_holders = Vec::new();
+                    if prior_stakers {
+                        for id in [993, 994, 995] {
+                            let (other, other_hotkey) = borrower(id);
+                            buy(&other, &other_hotkey, netuid, 1_000 * UNIT);
+                            other_holders.push((other, other_hotkey, stake(&other, &other_hotkey, netuid)));
+                        }
+                    }
+                    let starting_reserve = SubnetTAO::<Test>::get(netuid).to_u64();
+                    let geometric_capacity = || {
+                        let curve = pallet_subtensor_swap::SwapSuperellipse::<Test>::get(netuid).unwrap();
+                        let alpha = SubnetAlphaIn::<Test>::get(netuid).to_u64();
+                        let tao = SubnetTAO::<Test>::get(netuid).to_u64();
+                        let mut net = curve.max_sell_input_with_reserve_floor(alpha, tao, 1).unwrap();
+                        if price_floor > 0 {
+                            let limit = U64F64::from_num(price_floor) / U64F64::from_num(UNIT);
+                            net = net.min(curve.base_delta_to_price(alpha, tao, limit).unwrap());
+                        }
+                        let scale = 1_u128 << 64;
+                        let fee_bits = (U64F64::from_num(fee_rate) / U64F64::from_num(u16::MAX)).to_bits();
+                        (u128::from(net) * scale / (scale - fee_bits)) as u64
+                    };
+                    let sell = |amount: u64| {
+                        <SubtensorModule as OrderSwapInterface<U256>>::sell_alpha(
+                            &owner, &hotkey, netuid, amount.into(), price_floor.into(), false,
+                        ).unwrap().to_u64()
+                    };
+                    let upper = geometric_capacity();
+                    let owned = 16 * upper;
+                    let collateral = 4 * upper;
+                    let alpha = AlphaBalance::from(owned);
+                    SubtensorModule::resolve_to_alpha_out(SubtensorModule::mint_alpha(netuid, alpha));
+                    SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                        &hotkey, &owner, netuid, alpha,
+                    );
+                    // Include the complete production path, including the author's
+                    // fee conversion. A geometric quote alone can overstate the
+                    // executable endpoint when that conversion reaches its price floor.
+                    let maximum = || {
+                        let mut low = 0;
+                        let mut high = geometric_capacity();
+                        while low < high {
+                            let mid = low + (high - low).div_ceil(2);
+                            sp_io::storage::start_transaction();
+                            let result = <SubtensorModule as OrderSwapInterface<U256>>::sell_alpha(
+                                &owner, &hotkey, netuid, mid.into(), price_floor.into(), false,
+                            );
+                            sp_io::storage::rollback_transaction();
+                            if result.is_ok_and(|out| !out.is_zero()) { low = mid; }
+                            else { high = mid - 1; }
+                        }
+                        low
+                    };
+                    let original_capacity = maximum();
+                    assert!(original_capacity > 0);
+                    let initial_cash = Balances::free_balance(owner).to_u64();
+                    sp_io::storage::start_transaction();
+                    let direct = sell(original_capacity);
+                    let direct_cash = Balances::free_balance(owner).to_u64();
+                    let direct_tao_reserve = SubnetTAO::<Test>::get(netuid).to_u64();
+                    sp_io::storage::rollback_transaction();
+                    open_exact(owner, hotkey, netuid, Side::Long, collateral, loan);
+                    let bought = <SubtensorModule as OrderSwapInterface<U256>>::buy_alpha(
+                        &owner, &hotkey, netuid, loan.into(), u64::MAX.into(), false,
+                    ).unwrap().to_u64();
+                    let pumped_capacity = maximum();
+                    assert!(pumped_capacity > original_capacity);
+                    assert!(stake(&owner, &hotkey, netuid) >= pumped_capacity);
+                    let pumped = sell(pumped_capacity);
+                    assert_ok!(Lending::close(RuntimeOrigin::signed(owner), netuid, true, loan, 0));
+                    assert!(Balances::free_balance(owner).to_u64() <= direct_cash,
+                        "weight={quote_weight}, fee={fee_rate}, floor={price_floor}, loan={loan}, direct={direct}, pumped={pumped}");
+                    // A rounding-sized residual trade may remain. Count it as
+                    // part of the strategy instead of assuming one swap exhausted it.
+                    for _ in 0..4 {
+                        let extra = maximum();
+                        if extra == 0 { break; }
+                        let quote = <Test as Config>::SwapInterface::swap(
+                            netuid, GetTaoForAlpha::<Test>::with_amount(extra), price_floor.into(), false, true,
+                        );
+                        if quote.is_err() || quote.unwrap().amount_paid_out.is_zero() { break; }
+                        sell(extra);
+                    }
+                    let final_cash = Balances::free_balance(owner).to_u64();
+                    assert!(final_cash <= direct_cash);
+                    assert!(!Positions::<Test>::contains_key(owner, netuid));
+                    let remaining = SubnetTAO::<Test>::get(netuid).to_u64();
+                    assert!(remaining >= protocol_tao);
+                    assert!(direct_tao_reserve >= protocol_tao);
+                    for (other, other_hotkey, held) in other_holders {
+                        assert_eq!(stake(&other, &other_hotkey, netuid), held);
+                    }
+                    assert_total_alpha_staked_invariant(netuid);
+                    println!("boundary weight={quote_weight}, protocol_tao={protocol_tao}, prior_stakers={prior_stakers}, starting_reserve={starting_reserve}, fee={fee_rate}, floor={price_floor}, loan={loan}, bought={bought}, direct_alpha={original_capacity}, pumped_alpha={pumped_capacity}, direct_tao={direct}, pumped_tao={pumped}, net_tao={}, baseline_reserve={direct_tao_reserve}, final_reserve={}", final_cash - initial_cash, SubnetTAO::<Test>::get(netuid).to_u64());
+                });
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Fund the repurchase with both the short-sale receipt and the user's stated
+/// TAO budget. Compare only alpha left after returning the fixed alpha debt;
+/// otherwise both the borrowed inventory and sale cash would be counted as profit.
+#[test]
+fn borrowed_alpha_dump_cannot_improve_a_direct_buy_with_the_same_net_tao_spend() {
+    let mut completed = 0;
+    let mut insufficient_repayment = 0;
+    for quote_weight in [10_u64, 25, 50, 75, 90] {
+        for protocol_tao in [0_u64, 50_000 * UNIT] {
+            for fee_rate in [0_u16, 1_000, 5_000] {
+                for loan_divisor in [1_u64, 10, 100] {
+                    for budget_case in 0..4 {
+                        new_test_ext(1).execute_with(|| {
+                            let netuid = market(true);
+                            let weight = sp_runtime::Perquintill::from_percent(quote_weight);
+                            pallet_subtensor_swap::SwapBalancer::<Test>::mutate(netuid, |balancer| {
+                                balancer.set_quote_weight(weight).unwrap();
+                            });
+                            pallet_subtensor_swap::PalSwapInitialized::<Test>::insert(netuid, true);
+                            SubnetMovingPrice::<Test>::insert(netuid,
+                                I96F32::from_num(100 - quote_weight) / I96F32::from_num(quote_weight));
+                            assert_ok!(SubtensorModule::fund_unreachable_reserves(netuid, true));
+                            assert_ok!(Lending::set_enabled(RuntimeOrigin::root(), true));
+                            pallet_subtensor_swap::FeeRate::<Test>::insert(netuid, fee_rate);
+                            let (owner, hotkey) = borrower(996);
+                            add_balance_to_coldkey_account(&owner, (3_000_000 * UNIT).into());
+                            if protocol_tao > 0 {
+                                let subnet = SubtensorModule::get_subnet_account_id(netuid).unwrap();
+                                add_balance_to_coldkey_account(&subnet, protocol_tao.into());
+                                let (accepted, _) = <Test as Config>::SwapInterface::adjust_protocol_liquidity(
+                                    netuid, protocol_tao.into(), AlphaBalance::ZERO,
+                                ).unwrap();
+                                SubnetTAO::<Test>::mutate(netuid, |reserve| *reserve += accepted);
+                                TotalStake::<Test>::mutate(|total| *total += accepted);
+                            }
+                            let buy = |amount: u64| {
+                                <SubtensorModule as OrderSwapInterface<U256>>::buy_alpha(
+                                    &owner, &hotkey, netuid, amount.into(), u64::MAX.into(), false,
+                                ).unwrap().to_u64()
+                            };
+                            let original_vault = Vaults::<Test>::get(netuid).unwrap();
+                            let capacity = <SubtensorModule as LendingPoolInterface<U256>>::max_buy_input(netuid);
+                            let max_alpha = <SubtensorModule as LendingPoolInterface<U256>>::quote_buy(netuid, capacity).unwrap().to_u64();
+                            let budget = match budget_case {
+                                0 => UNIT,
+                                1 => 100 * UNIT,
+                                2 => 10_000 * UNIT,
+                                _ => capacity.to_u64() * 99 / 100,
+                            };
+                            // Include the largest loan allowed by both inventory's
+                            // ten-percent cap and the actual opening buy capacity.
+                            let principal = (original_vault.available_alpha / 10).min(max_alpha) / loan_divisor;
+                            let initial_cash = Balances::free_balance(owner).to_u64();
+                            sp_io::storage::start_transaction();
+                            let direct_alpha = buy(budget);
+                            let direct_cash = Balances::free_balance(owner).to_u64();
+                            sp_io::storage::rollback_transaction();
+                            let collateral = 1_000_000 * UNIT;
+                            open_exact(owner, hotkey, netuid, Side::Short, collateral, principal);
+                            let price_before = <Test as Config>::SwapInterface::current_alpha_price(netuid);
+                            let sale = <SubtensorModule as OrderSwapInterface<U256>>::sell_alpha(
+                                &owner, &hotkey, netuid, principal.into(), TaoBalance::ZERO, false,
+                            ).unwrap().to_u64();
+                            let dumped_price = <Test as Config>::SwapInterface::current_alpha_price(netuid);
+                            assert!(dumped_price < price_before);
+                            let purchased = buy(sale + budget);
+                            if purchased < principal {
+                                // This budget cannot even return the alpha principal.
+                                // A cheaper spot price is not enough to pay both swap fees.
+                                let before = sp_io::storage::root(sp_runtime::StateVersion::V1);
+                                assert!(Lending::close(RuntimeOrigin::signed(owner), netuid, true, principal, 0).is_err());
+                                assert_eq!(sp_io::storage::root(sp_runtime::StateVersion::V1), before);
+                                insufficient_repayment += 1;
+                                return;
+                            }
+                            assert_ok!(Lending::close(
+                                RuntimeOrigin::signed(owner), netuid, true, principal, collateral,
+                            ));
+                            let final_alpha = stake(&owner, &hotkey, netuid);
+                            assert_eq!(Balances::free_balance(owner).to_u64(), direct_cash);
+                            assert_eq!(initial_cash - direct_cash, budget);
+                            assert_eq!(final_alpha, purchased - principal);
+                            assert!(final_alpha <= direct_alpha,
+                                "weight={quote_weight}, fee={fee_rate}, divisor={loan_divisor}, budget={budget}, direct={direct_alpha}, short={final_alpha}");
+                            assert!(!Positions::<Test>::contains_key(owner, netuid));
+                            assert_eq!(Vaults::<Test>::get(netuid).unwrap(), original_vault);
+                            assert_total_alpha_staked_invariant(netuid);
+                            completed += 1;
+                            if quote_weight == 50 && protocol_tao == 0 && loan_divisor == 1 {
+                                println!("short fee={fee_rate}, budget={budget}, loan_alpha={principal}, sale_tao={sale}, purchased_alpha={purchased}, direct_alpha={direct_alpha}, net_alpha={final_alpha}, price_before={}, dumped_price={}", price_before.to_num::<f64>(), dumped_price.to_num::<f64>());
+                            }
+                        });
+                    }
+                }
+            }
+        }
+    }
+    assert!(completed > 0);
+    assert!(insufficient_repayment > 0);
+    println!(
+        "short scenarios: {completed} repaid, {insufficient_repayment} unable to repay within budget"
+    );
+}
+
+/// Closing a TAO loan before selling must not return its principal to the AMM
+/// or change swap depth. Compare equal final alpha holdings, not gross proceeds
+/// that still include the TAO used for the preliminary purchase.
+#[test]
+fn repay_tao_before_selling_alpha_does_not_change_depth_or_improve_direct_sale() {
+    for quote_weight in [10_u64, 25, 50, 75, 90] {
+        for protocol_tao in [0_u64, 50_000 * UNIT] {
+            for fee_rate in [0_u16, 33, 1_000] {
+                for loan_divisor in [1_u64, 10] {
+                    for sell_bps in [0_u64, 2_500, 5_000, 9_000] {
+                        new_test_ext(1).execute_with(|| {
+                            let netuid = market(true);
+                            let weight = sp_runtime::Perquintill::from_percent(quote_weight);
+                            pallet_subtensor_swap::SwapBalancer::<Test>::mutate(netuid, |balancer| {
+                                balancer.set_quote_weight(weight).unwrap();
+                            });
+                            pallet_subtensor_swap::PalSwapInitialized::<Test>::insert(netuid, true);
+                            SubnetMovingPrice::<Test>::insert(netuid,
+                                I96F32::from_num(100 - quote_weight) / I96F32::from_num(quote_weight));
+                            assert_ok!(SubtensorModule::fund_unreachable_reserves(netuid, true));
+                            assert_ok!(Lending::set_enabled(RuntimeOrigin::root(), true));
+                            pallet_subtensor_swap::FeeRate::<Test>::insert(netuid, fee_rate);
+                            if protocol_tao > 0 {
+                                let subnet = SubtensorModule::get_subnet_account_id(netuid).unwrap();
+                                add_balance_to_coldkey_account(&subnet, protocol_tao.into());
+                                let (accepted, _) = <Test as Config>::SwapInterface::adjust_protocol_liquidity(
+                                    netuid, protocol_tao.into(), AlphaBalance::ZERO,
+                                ).unwrap();
+                                SubnetTAO::<Test>::mutate(netuid, |reserve| *reserve += accepted);
+                                TotalStake::<Test>::mutate(|total| *total += accepted);
+                            }
+                            let (owner, hotkey) = borrower(997);
+                            // Repayment occurs before sale, so the owner must have
+                            // separate free TAO after spending the entire loan.
+                            add_balance_to_coldkey_account(&owner, (3_000_000 * UNIT).into());
+                            let collateral = 1_000_000 * UNIT;
+                            let alpha = AlphaBalance::from(collateral);
+                            SubtensorModule::resolve_to_alpha_out(SubtensorModule::mint_alpha(netuid, alpha));
+                            SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                                &hotkey, &owner, netuid, alpha,
+                            );
+                            let amm = || (
+                                SubnetTAO::<Test>::get(netuid),
+                                SubnetAlphaIn::<Test>::get(netuid),
+                                pallet_subtensor_swap::SwapSuperellipse::<Test>::get(netuid),
+                            );
+                            let sell = |amount: u64| {
+                                if amount == 0 { return 0; }
+                                <SubtensorModule as OrderSwapInterface<U256>>::sell_alpha(
+                                    &owner, &hotkey, netuid, amount.into(), TaoBalance::ZERO, false,
+                                ).unwrap().to_u64()
+                            };
+                            let capacity = <SubtensorModule as LendingPoolInterface<U256>>::max_sell_input(netuid).to_u64();
+                            let sold = capacity * sell_bps / 10_000;
+                            assert!(sold < collateral);
+                            let initial_cash = Balances::free_balance(owner).to_u64();
+                            sp_io::storage::start_transaction();
+                            let direct_sale = sell(sold);
+                            let direct_cash = Balances::free_balance(owner).to_u64();
+                            let direct_alpha = stake(&owner, &hotkey, netuid);
+                            sp_io::storage::rollback_transaction();
+                            let vault_before = Vaults::<Test>::get(netuid).unwrap();
+                            let market_tao = <SubtensorModule as LendingPoolInterface<U256>>::quote_sell(netuid, capacity.into()).unwrap().to_u64();
+                            let loan = (vault_before.available_tao / 10).min(market_tao) / loan_divisor;
+                            let before_open = amm();
+                            open_exact(owner, hotkey, netuid, Side::Long, collateral, loan);
+                            assert_eq!(amm(), before_open);
+                            let bought = <SubtensorModule as OrderSwapInterface<U256>>::buy_alpha(
+                                &owner, &hotkey, netuid, loan.into(), u64::MAX.into(), false,
+                            ).unwrap().to_u64();
+                            let before_close = amm();
+                            assert_eq!(Balances::free_balance(owner).to_u64(), initial_cash);
+                            assert_ok!(Lending::close(
+                                RuntimeOrigin::signed(owner), netuid, true, loan, collateral,
+                            ));
+                            assert_eq!(amm(), before_close, "repaying lending must not change AMM depth");
+                            assert_eq!(Vaults::<Test>::get(netuid).unwrap(), vault_before);
+                            let sale = sell(sold + bought);
+                            let final_cash = Balances::free_balance(owner).to_u64();
+                            assert_eq!(stake(&owner, &hotkey, netuid), direct_alpha);
+                            assert!(final_cash <= direct_cash,
+                                "weight={quote_weight}, fee={fee_rate}, divisor={loan_divisor}, sold={sold}, loan={loan}, direct={direct_sale}, strategy={sale}");
+                            assert!(!Positions::<Test>::contains_key(owner, netuid));
+                            assert_total_alpha_staked_invariant(netuid);
+                            if quote_weight == 50 && protocol_tao == 0 && loan_divisor == 1 {
+                                println!("early-repay fee={fee_rate}, sell_bps={sell_bps}, sold_alpha={sold}, loan={loan}, bought_alpha={bought}, direct_sale={direct_sale}, strategy_sale={sale}, strategy_net={}", i128::from(final_cash) - i128::from(initial_cash));
+                            }
+                        });
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Replace the synthetic two-rao curve example with a funded subnet and actual
+/// wallet/stake transfers. Deliberately disable the caller's price ceiling to
+/// measure the executable endpoint; a normal ceiling must reject the same buy.
+#[test]
+fn funded_subnet_buy_near_ellipse_boundary_has_extreme_but_finite_spot_price() {
+    for quote_weight in [10_u64, 50, 90] {
+        new_test_ext(1).execute_with(|| {
+            let netuid = market(true);
+            let reserve = 1_000 * UNIT;
+            // Initial spot = (1 - w) * TAO / (w * alpha) = 0.01 TAO/alpha.
+            // Adjust alpha liquidity for each shape while retaining 1,000 TAO.
+            let alpha_reserve = reserve * 100 * (100 - quote_weight) / quote_weight;
+            // Artificial liquidity, backed by real balances in the subnet account.
+            setup_reserves(netuid, reserve.into(), alpha_reserve.into());
+            SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(0.01));
+            let subnet = SubtensorModule::get_subnet_account_id(netuid).unwrap();
+            assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), subnet, reserve.into()));
+            TotalStake::<Test>::put(TaoBalance::from(reserve));
+            pallet_subtensor_swap::SwapBalancer::<Test>::mutate(netuid, |balancer| {
+                balancer.set_quote_weight(sp_runtime::Perquintill::from_percent(quote_weight)).unwrap();
+            });
+            pallet_subtensor_swap::PalSwapInitialized::<Test>::insert(netuid, true);
+            assert_ok!(pallet_subtensor_swap::Pallet::<Test>::maybe_initialize_palswap(netuid, None));
+            // Keep the ordinary nonzero swap fee, account validation and custody path.
+            let fee = pallet_subtensor_swap::FeeRate::<Test>::get(netuid);
+            assert!(fee > 0);
+            let (owner, hotkey) = borrower(1_100);
+            let before_price = <Test as Config>::SwapInterface::current_alpha_price(netuid);
+            let expected_price = U64F64::from_num(1) / U64F64::from_num(100);
+            assert!(before_price.abs_diff(expected_price) < U64F64::from_num(0.000000000001));
+            let before_balance = SubtensorModule::get_coldkey_balance(&owner).to_u64();
+            // Leave a small atomic margin below the largest fee-inclusive full fill.
+            let input = <Test as Config>::SwapInterface::max_buy_input(netuid).to_u64() - 1_000;
+            assert!(input > 100 * UNIT);
+            let ceiling = (before_price * U64F64::from_num(1.05) * U64F64::from_num(UNIT)).to_num::<u64>();
+            assert_noop!(
+                <SubtensorModule as OrderSwapInterface<U256>>::buy_alpha(
+                    &owner, &hotkey, netuid, input.into(), ceiling.into(), true,
+                ),
+                Error::<Test>::SlippageTooHigh
+            );
+            let output = buy(&owner, &hotkey, netuid, input).to_u64();
+            let after_price = <Test as Config>::SwapInterface::current_alpha_price(netuid);
+            let alpha_left = SubnetAlphaIn::<Test>::get(netuid).to_u64();
+            let tao_left = SubnetTAO::<Test>::get(netuid).to_u64();
+            assert_eq!(stake(&owner, &hotkey, netuid), output);
+            assert_eq!(before_balance - SubtensorModule::get_coldkey_balance(&owner).to_u64(), input);
+            assert_eq!(Balances::free_balance(subnet).to_u64(), tao_left);
+            assert!(alpha_left > 100 * UNIT);
+            assert!(tao_left > 100 * UNIT);
+            assert!(after_price > before_price * U64F64::from_num(1_000_000));
+            assert!(after_price.to_num::<f64>().is_finite());
+            println!(
+                "funded subnet weight={quote_weight}%, fee={fee}/65535, reserves_before=1000 TAO/{} alpha, input={} TAO, output={} alpha, reserves_after={} TAO/{} alpha, initial_price={}, final_price={}, average_price={}",
+                alpha_reserve as f64 / UNIT as f64,
+                input as f64 / UNIT as f64, output as f64 / UNIT as f64,
+                tao_left as f64 / UNIT as f64, alpha_left as f64 / UNIT as f64,
+                before_price.to_num::<f64>(), after_price.to_num::<f64>(),
+                input as f64 / output as f64,
+            );
+        });
+    }
+}
+
+/// Explore the requested absolute price range, 0.000001..1000 TAO/alpha.
+/// The band is fixed across calls and lending extraction. It removes exact
+/// singularities but does not keep the curve far from its singular endpoints.
+/// These are experimental caller limits, not a production guard.
+#[test]
+fn absolute_price_band_survives_lending_reserve_extraction() {
+    for quote_weight in [10_u64, 50, 90] {
+        for funded in [false, true] {
+            for short_sell in [false, true] {
+                new_test_ext(1).execute_with(|| {
+                    let netuid = market(true);
+                    let tao = 10_000 * UNIT;
+                    let alpha = tao * 100 * (100 - quote_weight) / quote_weight;
+                    setup_reserves(netuid, tao.into(), alpha.into());
+                    let subnet = SubtensorModule::get_subnet_account_id(netuid).unwrap();
+                    assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), subnet, tao.into()));
+                    TotalStake::<Test>::put(TaoBalance::from(tao));
+                    SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(0.01));
+                    pallet_subtensor_swap::SwapBalancer::<Test>::mutate(netuid, |balancer| {
+                        balancer.set_quote_weight(sp_runtime::Perquintill::from_percent(quote_weight)).unwrap();
+                    });
+                    pallet_subtensor_swap::PalSwapInitialized::<Test>::insert(netuid, true);
+                    assert_ok!(pallet_subtensor_swap::Pallet::<Test>::maybe_initialize_palswap(netuid, None));
+                    let initial_price = <Test as Config>::SwapInterface::current_alpha_price(netuid);
+                    let lower = U64F64::from_num(1) / U64F64::from_num(1_000_000);
+                    let upper = U64F64::from_num(1_000);
+                    let lower_encoded = 1_000_u64;
+                    let upper_encoded = 1_000 * UNIT;
+                    let capacity = || {
+                        let curve = pallet_subtensor_swap::SwapSuperellipse::<Test>::get(netuid).unwrap();
+                        let a = SubnetAlphaIn::<Test>::get(netuid).to_u64();
+                        let t = SubnetTAO::<Test>::get(netuid).to_u64();
+                        if short_sell {
+                            curve.base_delta_to_price(a, t, U64F64::from_num(lower_encoded) / U64F64::from_num(UNIT)).unwrap()
+                        } else {
+                            curve.quote_delta_to_price(a, t, U64F64::from_num(upper_encoded) / U64F64::from_num(UNIT)).unwrap()
+                        }
+                    };
+                    let original_capacity = capacity();
+                    if funded {
+                        assert_ok!(SubtensorModule::fund_unreachable_reserves(netuid, true));
+                        assert_ok!(Lending::set_enabled(RuntimeOrigin::root(), true));
+                        let vault = Vaults::<Test>::get(netuid).unwrap();
+                        assert!(vault.available_tao > 0 && vault.available_alpha > 0);
+                        // Exact reserve/center translations leave the available
+                        // geometric trade size unchanged, including integer rounding.
+                        assert_eq!(capacity(), original_capacity);
+                        assert_eq!(<Test as Config>::SwapInterface::current_alpha_price(netuid), initial_price);
+                    }
+                    let (owner, hotkey) = borrower(1_101);
+                    add_balance_to_coldkey_account(&owner, (20_000 * UNIT).into());
+                    let fee = pallet_subtensor_swap::FeeRate::<Test>::get(netuid);
+                    let scale = 1_u128 << 64;
+                    let fee_bits = (U64F64::from_num(fee) / U64F64::from_num(u16::MAX)).to_bits();
+                    // A sell's alpha fee is also sold to pay the author: bound the
+                    // entire gross input, not only the primary swap's net input.
+                    // TAO buy fees do not cause a second pool trade.
+                    let net = capacity() - 1_000_000;
+                    let input = if short_sell { net } else {
+                        (u128::from(net) * scale / (scale - fee_bits)) as u64
+                    };
+                    let next_input = capacity() / 50;
+                    let sell = |amount: u64| {
+                        <SubtensorModule as OrderSwapInterface<U256>>::sell_alpha(
+                            &owner, &hotkey, netuid, amount.into(),
+                            lower_encoded.into(), true,
+                        )
+                    };
+                    let purchase = |amount: u64| {
+                        <SubtensorModule as OrderSwapInterface<U256>>::buy_alpha(
+                            &owner, &hotkey, netuid, amount.into(),
+                            upper_encoded.into(), true,
+                        )
+                    };
+                    let received = if short_sell {
+                        let owned = AlphaBalance::from(alpha * 2);
+                        SubtensorModule::resolve_to_alpha_out(SubtensorModule::mint_alpha(netuid, owned));
+                        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                            &hotkey, &owner, netuid, owned,
+                        );
+                        assert_noop!(sell(alpha * 2), Error::<Test>::SlippageTooHigh);
+                        sell(input).unwrap().to_u64()
+                    } else {
+                        assert_noop!(purchase(19_000 * UNIT), Error::<Test>::SlippageTooHigh);
+                        purchase(input).unwrap().to_u64()
+                    };
+                    let price = <Test as Config>::SwapInterface::current_alpha_price(netuid);
+                    assert!(price >= lower && price <= upper);
+                    assert!(SubnetTAO::<Test>::get(netuid).to_u64() > 0);
+                    assert!(SubnetAlphaIn::<Test>::get(netuid).to_u64() > 0);
+                    if short_sell {
+                        assert!(price < lower * U64F64::from_num(1.01));
+                    } else {
+                        assert!(price > upper * U64F64::from_num(0.9));
+                    }
+                    // The same fixed bound survives a second call: splitting
+                    // the order cannot move the guard along with the spot.
+                    if short_sell {
+                        // At the low endpoint the user minimum-value check can
+                        // reject this small order first. Bypass only that precheck
+                        // to exercise the AMM's unchanged absolute price floor.
+                        assert_noop!(
+                            <SubtensorModule as OrderSwapInterface<U256>>::sell_alpha(
+                                &owner, &hotkey, netuid, next_input.into(), lower_encoded.into(), false,
+                            ),
+                            Error::<Test>::SlippageTooHigh
+                        );
+                    } else {
+                        assert_noop!(purchase(next_input), Error::<Test>::SlippageTooHigh);
+                    }
+                    println!(
+                        "absolute band weight={quote_weight}%, funded={funded}, sell={short_sell}, input={}, output={}, final_price={}, tao_left={}, alpha_left={}",
+                        input as f64 / UNIT as f64, received as f64 / UNIT as f64,
+                        price.to_num::<f64>(), SubnetTAO::<Test>::get(netuid).to_u64() as f64 / UNIT as f64,
+                        SubnetAlphaIn::<Test>::get(netuid).to_u64() as f64 / UNIT as f64,
+                    );
+                });
+            }
+        }
+    }
+}
+
+/// Replay the original 1,000 TAO / 100,000 alpha pool with the widened ellipse.
+/// Prototype the proposed price-bound extraction with actual custody transfers;
+/// production initialization is deliberately unchanged. Unfunded pools use the
+/// same explicit price ceiling since a global AMM guard is not implemented yet.
+#[test]
+fn original_pool_buy_with_ninety_percent_ellipse_and_narrower_bounds() {
+    for funded in [false, true] {
+        for terminal_buy in [false, true] {
+            new_test_ext(1).execute_with(|| {
+                let netuid = market(true);
+                let (tao, alpha) = (1_000 * UNIT, 100_000 * UNIT);
+                let floor = SwapMinimumReserve::get().get();
+                let initial = U64F64::from_num(1) / U64F64::from_num(100);
+                let lower = U64F64::from_num(1) / U64F64::from_num(100_000);
+                let upper = U64F64::from_num(100);
+                setup_reserves(netuid, tao.into(), alpha.into());
+                let subnet = SubtensorModule::get_subnet_account_id(netuid).unwrap();
+                assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), subnet, tao.into()));
+                TotalStake::<Test>::put(TaoBalance::from(tao));
+                SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(0.01));
+                // Construct scales enlarged by 0.9/(sqrt(2)-1), then translate
+                // the purely mathematical seed to the real funded reserves.
+                let virtual_tao = 2_172_792_207_217_u64;
+                let virtual_alpha = virtual_tao * 100;
+                let mut curve = pallet_subtensor_swap::Superellipse::from_weights(
+                    virtual_alpha, virtual_tao, sp_runtime::Perquintill::from_percent(50),
+                ).unwrap();
+                curve.withdraw_liquidity(virtual_alpha - alpha, virtual_tao - tao).unwrap();
+                let net_buy = curve.quote_delta_to_price(alpha, tao, upper).unwrap();
+                let net_sell = curve.base_delta_to_price(alpha, tao, lower).unwrap();
+                let keep_alpha = curve.buy_output(alpha, tao, net_buy).unwrap() - 1 + floor;
+                let keep_tao = curve.sell_output(alpha, tao, net_sell).unwrap() - 1 + floor;
+                let (take_alpha, take_tao) = if funded {
+                    (alpha - keep_alpha, tao - keep_tao)
+                } else { (0, 0) };
+                if funded {
+                    curve.withdraw_liquidity(take_alpha, take_tao).unwrap();
+                    let (vault, custody) = <Lending as pallet_lending::LendingInterface<U256>>::custody_accounts(netuid).unwrap();
+                    assert_ok!(<SubtensorModule as OrderSwapInterface<U256>>::transfer_tao(
+                        &subnet, &vault, take_tao.into(),
+                    ));
+                    assert!(SubtensorModule::try_increase_stake_for_hotkey_and_coldkey_on_subnet(
+                        &custody, netuid, take_alpha.into(),
+                    ));
+                    SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                        &custody, &vault, netuid, take_alpha.into(),
+                    );
+                    SubnetAlphaOut::<Test>::mutate(netuid, |out| *out += take_alpha.into());
+                    TotalStake::<Test>::mutate(|total| *total -= take_tao.into());
+                    pallet_subtensor_swap::ExtractedReserves::<Test>::insert(netuid, (AlphaBalance::from(take_alpha), TaoBalance::from(take_tao)));
+                    assert_ok!(Lending::fund_reserves(netuid, take_tao.into(), take_alpha.into(), initial, true));
+                    assert_ok!(Lending::set_enabled(RuntimeOrigin::root(), true));
+                    assert!((keep_tao as f64 / tao as f64 - 0.9).abs() < 0.0001);
+                    assert!((keep_alpha as f64 / alpha as f64 - 0.9).abs() < 0.0001);
+                    assert_eq!(Balances::free_balance(vault).to_u64(), take_tao);
+                    assert_eq!(stake(&vault, &custody, netuid), take_alpha);
+                }
+                SubnetTAO::<Test>::insert(netuid, TaoBalance::from(tao - take_tao));
+                SubnetAlphaIn::<Test>::insert(netuid, AlphaBalance::from(alpha - take_alpha));
+                pallet_subtensor_swap::SwapSuperellipse::<Test>::insert(netuid, curve);
+                pallet_subtensor_swap::PalSwapInitialized::<Test>::insert(netuid, true);
+                let before_price = <Test as Config>::SwapInterface::current_alpha_price(netuid);
+                assert!(before_price.abs_diff(initial) < U64F64::from_num(0.000000000001));
+                let (owner, hotkey) = borrower(1_102);
+                add_balance_to_coldkey_account(&owner, (2_000 * UNIT).into());
+                let before_balance = SubtensorModule::get_coldkey_balance(&owner).to_u64();
+                let purchase = |amount: u64| {
+                    <SubtensorModule as OrderSwapInterface<U256>>::buy_alpha(
+                        &owner, &hotkey, netuid, amount.into(), (100 * UNIT).into(), true,
+                    )
+                };
+                let old_input = 1_000_503_800_409_u64;
+                let input = if terminal_buy {
+                    // Find the largest *actual full execution*, including fee
+                    // rounding, reserve floors and the caller's price ceiling.
+                    // Roll back every probe: the pool and wallet must remain
+                    // identical to the starting state throughout the search.
+                    use frame_support::storage::{TransactionOutcome, with_transaction};
+                    let full_fill = |amount: u64| {
+                        let result: Result<bool, sp_runtime::DispatchError> = with_transaction(|| {
+                            TransactionOutcome::Rollback(Ok(purchase(amount).is_ok()))
+                        });
+                        result.unwrap()
+                    };
+                    assert!(full_fill(old_input));
+                    assert!(!full_fill(3_000 * UNIT));
+                    let mut low = old_input;
+                    let mut high = 3_000 * UNIT;
+                    while low < high {
+                        let mid = low + (high - low).div_ceil(2);
+                        if full_fill(mid) { low = mid; } else { high = mid - 1; }
+                    }
+                    // No arbitrary safety margin: the next atomic TAO input
+                    // must already fail and leave all balances/storage intact.
+                    assert_noop!(purchase(low + 1), Error::<Test>::SlippageTooHigh);
+                    low
+                } else {
+                    old_input
+                };
+                assert_noop!(
+                    <SubtensorModule as OrderSwapInterface<U256>>::buy_alpha(
+                        &owner, &hotkey, netuid, input.into(), 10_500_000_u64.into(), true,
+                    ), Error::<Test>::SlippageTooHigh,
+                );
+                let output = purchase(input).unwrap().to_u64();
+                let price = <Test as Config>::SwapInterface::current_alpha_price(netuid);
+                let tao_left = SubnetTAO::<Test>::get(netuid).to_u64();
+                let alpha_left = SubnetAlphaIn::<Test>::get(netuid).to_u64();
+                assert_eq!(stake(&owner, &hotkey, netuid), output);
+                assert_eq!(before_balance - SubtensorModule::get_coldkey_balance(&owner).to_u64(), input);
+                assert_eq!(Balances::free_balance(subnet).to_u64(), tao_left);
+                assert_eq!(alpha_left + output + take_alpha, alpha);
+                assert!(alpha_left >= floor);
+                assert!(price > before_price && price <= upper);
+                if terminal_buy {
+                    assert!(upper - price < U64F64::from_num(0.01));
+                    frame_support::assert_storage_noop!({
+                        assert!(purchase(UNIT).is_err());
+                    });
+                } else {
+                    assert!(price < U64F64::from_num(0.03));
+                }
+                if funded {
+                    let vault = Vaults::<Test>::get(netuid).unwrap();
+                    assert_eq!((vault.available_tao, vault.available_alpha), (take_tao, take_alpha));
+                }
+                println!(
+                    "original pool/new ellipse funded={funded}, terminal={terminal_buy}: input={} TAO, output={} alpha, spot={}, average={}, AMM={} TAO/{} alpha, vault={} TAO/{} alpha",
+                    input as f64 / UNIT as f64, output as f64 / UNIT as f64,
+                    price.to_num::<f64>(), input as f64 / output as f64,
+                    tao_left as f64 / UNIT as f64, alpha_left as f64 / UNIT as f64,
+                    take_tao as f64 / UNIT as f64, take_alpha as f64 / UNIT as f64,
+                );
+            });
+        }
+    }
 }

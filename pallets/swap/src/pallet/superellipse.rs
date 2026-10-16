@@ -55,6 +55,30 @@ fn div(a: U512, b: U512) -> MathResult<U512> {
     a.checked_div(b).ok_or(EllipseError::InvalidParameters)
 }
 
+/// Ceiling division without adding the denominator to the numerator.
+fn ceil_div(numerator: U512, denominator: U512) -> MathResult<U512> {
+    add(
+        div(numerator, denominator)?,
+        U512::from(u8::from(
+            !numerator
+                .checked_rem(denominator)
+                .ok_or(EllipseError::InvalidParameters)?
+                .is_zero(),
+        )),
+    )
+}
+
+fn sqrt_ceil_ratio(numerator: U512, denominator: U512) -> MathResult<U512> {
+    let square = div(numerator, denominator)?;
+    let root = sqrt_floor(square);
+    let exact = mul(root, root)? == square
+        && numerator
+            .checked_rem(denominator)
+            .ok_or(EllipseError::InvalidParameters)?
+            .is_zero();
+    add(root, U512::from(u8::from(!exact)))
+}
+
 fn narrow(value: U512) -> MathResult<u128> {
     if value > U512::from(u128::MAX) {
         return Err(EllipseError::Overflow);
@@ -69,7 +93,7 @@ fn narrow_amount(value: u128) -> MathResult<u64> {
 /// Floor square root using bounded-precision Newton refinement.
 /// The initial estimate is strictly above the root, so all iterates decrease.
 /// The initial shift is at most 256 bits. For value > 1, every root is positive
-/// and at least sqrt(value); root + value/root is at most 2^257, fitting U512.
+/// and at least floor(sqrt(value)); root + value/root fits within U512.
 #[allow(clippy::arithmetic_side_effects)]
 fn sqrt_floor(value: U512) -> U512 {
     if value <= U512::one() {
@@ -320,11 +344,15 @@ impl Superellipse {
             let scaled_y = div(mul(y, U512::from(factor))?, U512::from(SCALE))?;
             Ok(mul(self.invariant(scaled_x, scaled_y)?, left_scale)? <= right)
         };
-        // Find the largest allowed contraction in at most 33 integer steps.
-        // Coordinates which round to zero are allowed only in the predicate;
-        // the final construction below rejects a degenerate positive branch.
-        let mut low = if meets_bound(SCALE)? { SCALE } else { 0 };
-        let mut high = SCALE;
+        // The continuous solution is a safe lower bound. Flooring each
+        // coordinate adds at most ceil(SCALE/min(X,Y)) factor quanta of room.
+        // Normal pools therefore need at most one refinement, rather than 33.
+        let (mut low, mut high) = if meets_bound(SCALE)? {
+            (SCALE, SCALE)
+        } else {
+            self.contraction_factor_bounds(x, y, left_scale, right)
+                .unwrap_or((0, SCALE))
+        };
         while low < high {
             let middle = low
                 .checked_add(
@@ -570,11 +598,29 @@ impl Superellipse {
         Ok(amount.min(u128::from(capacity)) as u64)
     }
 
-    fn last_true<F>(&self, upper: u64, mut predicate: F) -> MathResult<u64>
+    /// A conservative interval containing the largest integer contraction.
+    fn contraction_factor_bounds(
+        &self,
+        x: U512,
+        y: U512,
+        left: U512,
+        right: U512,
+    ) -> MathResult<(u128, u128)> {
+        let limit = div(right, left)?;
+        let ideal = sqrt_floor(div(
+            mul(limit, U512::from(SCALE * SCALE))?,
+            self.invariant(x, y)?,
+        )?);
+        let lower = narrow(ideal)?.min(SCALE);
+        let slack = ceil_div(U512::from(SCALE), x.min(y))?;
+        let upper = narrow(add(U512::from(lower), slack)?.min(U512::from(SCALE)))?;
+        Ok((lower, upper))
+    }
+
+    fn last_true<F>(&self, mut low: u64, upper: u64, mut predicate: F) -> MathResult<u64>
     where
         F: FnMut(u64) -> MathResult<bool>,
     {
-        let mut low = 0;
         let mut high = upper;
         while low < high {
             let mid = low
@@ -593,14 +639,100 @@ impl Superellipse {
         Ok(low)
     }
 
-    /// Largest buy input whose actual post-trade spot price stays at or below
-    /// the limit. A bounded integer search also accounts for payout rounding.
+    /// Bounds on the continuous coordinate at a given spot price. Normalize
+    /// K by the corresponding scale squared, and bracket the other coordinate's
+    /// ratio in Q64 before squaring; this avoids a K*scale^2 intermediate.
+    fn continuous_price_coordinate_bound(
+        &self,
+        k: U512,
+        price_bits: U512,
+        buy: bool,
+        upper: bool,
+    ) -> MathResult<U512> {
+        let (a2, b2) = self.squares()?;
+        let q = U512::from(1_u128 << 64);
+        let q2 = mul(q, q)?;
+        let (scale2, numerator, denominator) = if buy {
+            (
+                a2,
+                mul(price_bits, U512::from(self.alpha_scale))?,
+                U512::from(self.tao_scale),
+            )
+        } else {
+            (
+                b2,
+                mul(q2, U512::from(self.tao_scale))?,
+                mul(price_bits, U512::from(self.alpha_scale))?,
+            )
+        };
+        let (radius, ratio) = if upper {
+            (ceil_div(k, scale2)?, div(numerator, denominator)?)
+        } else {
+            (div(k, scale2)?, ceil_div(numerator, denominator)?)
+        };
+        let numerator = mul(radius, q2)?;
+        let denominator = add(q2, mul(ratio, ratio)?)?;
+        if upper {
+            sqrt_ceil_ratio(numerator, denominator)
+        } else {
+            Ok(sqrt_floor(div(numerator, denominator)?))
+        }
+    }
+
+    /// Bracket the integer price-limit solution analytically, allowing for
+    /// both payout rounding (< SCALE+1 coordinate quanta) and Q64 price flooring.
+    /// Wide/ill-conditioned inputs can fall back to the original search domain.
+    fn price_input_bounds(
+        &self,
+        alpha: u64,
+        tao: u64,
+        target: U64F64,
+        buy: bool,
+        max: u64,
+    ) -> MathResult<(u64, u64)> {
+        let (x, y) = self.coordinates(alpha, tao)?;
+        let (a2, b2) = self.squares()?;
+        let k = self.invariant(x, y)?;
+        let bits = U512::from(target.to_bits());
+        let coordinate = if buy { y } else { x };
+        let inside = self.continuous_price_coordinate_bound(k, bits, buy, true)?;
+        let outside_bits = if buy { add(bits, U512::one())? } else { bits };
+        let outside = self.continuous_price_coordinate_bound(k, outside_bits, buy, false)?;
+        // True output-coordinate growth exceeds its rounded payout by <E.
+        // Moving X=c*Y by E shifts the buy intersection's Y by at most E/c;
+        // the sell bound is symmetric. Buy prices also allow one Q64 quantum
+        // because floor(price_bits) <= target iff price_bits < target+1.
+        let error = U512::from(SCALE + 1);
+        let q = U512::from(1_u128 << 64);
+        let rounding_room = if buy {
+            ceil_div(mul(mul(error, b2)?, q)?, mul(outside_bits, a2)?)?
+        } else {
+            ceil_div(mul(mul(error, a2)?, bits)?, mul(b2, q)?)?
+        };
+        let outside = outside.saturating_sub(rounding_room);
+        let lower = div(coordinate.saturating_sub(inside), U512::from(SCALE))?
+            .min(U512::from(max))
+            .low_u64();
+        let upper = div(coordinate.saturating_sub(outside), U512::from(SCALE))?
+            .min(U512::from(max))
+            .low_u64();
+        if lower > upper {
+            return Err(EllipseError::InvalidParameters);
+        }
+        Ok((lower, upper))
+    }
+
+    /// Largest buy input whose rounded post-trade price respects the ceiling.
+    /// Solve the continuous ellipse first; search only its rounding interval.
     pub fn quote_delta_to_price(&self, alpha: u64, tao: u64, target: U64F64) -> MathResult<u64> {
         if target <= self.calculate_price(alpha, tao)? {
             return Ok(0);
         }
         let max = self.max_buy_input(alpha, tao)?;
-        self.last_true(max, |input| {
+        let (low, high) = self
+            .price_input_bounds(alpha, tao, target, true, max)
+            .unwrap_or((0, max));
+        self.last_true(low, high, |input| {
             let output = self.buy_output(alpha, tao, input)?;
             match self.calculate_price(
                 alpha.checked_sub(output).ok_or(EllipseError::Overflow)?,
@@ -613,14 +745,19 @@ impl Superellipse {
         })
     }
 
-    /// Largest sell input whose actual post-trade spot price stays at or above
-    /// the limit. The valid domain includes no zero-price endpoint.
+    /// Largest sell input whose rounded post-trade price respects the floor.
     pub fn base_delta_to_price(&self, alpha: u64, tao: u64, target: U64F64) -> MathResult<u64> {
         if target >= self.calculate_price(alpha, tao)? {
             return Ok(0);
         }
         let max = self.max_sell_input(alpha, tao)?;
-        self.last_true(max, |input| {
+        if target.to_bits() == 0 {
+            return Ok(max);
+        }
+        let (low, high) = self
+            .price_input_bounds(alpha, tao, target, false, max)
+            .unwrap_or((0, max));
+        self.last_true(low, high, |input| {
             let output = self.sell_output(alpha, tao, input)?;
             Ok(self.calculate_price(
                 alpha.checked_add(input).ok_or(EllipseError::Overflow)?,
@@ -630,7 +767,6 @@ impl Superellipse {
     }
 
     /// Minimum alpha input which produces at least the requested TAO payout.
-    /// Unlike ordinary exact-input quotes, inverse quotes round input upward.
     pub fn base_needed_for_quote(&self, alpha: u64, tao: u64, output: u64) -> MathResult<u64> {
         self.coordinates(alpha, tao)?;
         if output == 0 {
@@ -639,50 +775,56 @@ impl Superellipse {
         if output > tao {
             return Err(EllipseError::InsufficientReserves);
         }
-        let mut high = self.max_sell_input(alpha, tao)?;
-        if self.sell_output(alpha, tao, high)? < output {
+        let max = self.max_sell_input(alpha, tao)?;
+        if self.sell_output(alpha, tao, max)? < output {
             return Err(EllipseError::OutsideDomain);
         }
-        let mut low = 0;
-        while low < high {
-            let mid = low
-                .checked_add(high.checked_sub(low).ok_or(EllipseError::Overflow)? >> 1)
-                .ok_or(EllipseError::Overflow)?;
-            if self.sell_output(alpha, tao, mid)? >= output {
-                high = mid;
-            } else {
-                low = mid.checked_add(1).ok_or(EllipseError::Overflow)?;
-            }
-        }
-        Ok(low)
+        self.input_needed_for_output(alpha, tao, output, false)
     }
 
     /// Minimum net TAO input which buys at least the requested alpha payout.
     /// Input rounds upward, while ordinary exact-input payouts round downward.
     pub fn quote_needed_for_base(&self, alpha: u64, tao: u64, output: u64) -> MathResult<u64> {
-        self.coordinates(alpha, tao)?;
+        self.input_needed_for_output(alpha, tao, output, true)
+    }
+
+    /// Invert both floored payout directions with the same integer quadratic.
+    fn input_needed_for_output(
+        &self,
+        alpha: u64,
+        tao: u64,
+        output: u64,
+        buy: bool,
+    ) -> MathResult<u64> {
+        let (x, y) = self.coordinates(alpha, tao)?;
         if output == 0 {
             return Ok(0);
         }
-        if output > alpha {
+        if output > if buy { alpha } else { tao } {
             return Err(EllipseError::InsufficientReserves);
         }
-        let mut high = self.max_buy_input(alpha, tao)?;
-        if self.buy_output(alpha, tao, high)? < output {
+        let (a2, b2) = self.squares()?;
+        let (coordinate, other, input_scale2, output_scale2) =
+            if buy { (y, x, b2, a2) } else { (x, y, a2, b2) };
+        let delta = mul(U512::from(output), U512::from(SCALE))?;
+        let required = mul(delta, add(mul(other, U512::from(2))?, delta)?)?;
+        let gain = ceil_div(mul(required, input_scale2)?, output_scale2)?;
+        let remaining = coordinate
+            .checked_mul(coordinate)
+            .and_then(|square| square.checked_sub(gain))
+            .filter(|value| !value.is_zero())
+            .ok_or(EllipseError::OutsideDomain)?;
+        let room = sub(coordinate, sqrt_floor(remaining))?;
+        let input = narrow_amount(narrow(ceil_div(room, U512::from(SCALE))?)?)?;
+        let max = if buy {
+            self.max_buy_input(alpha, tao)?
+        } else {
+            self.max_sell_input(alpha, tao)?
+        };
+        if input > max {
             return Err(EllipseError::OutsideDomain);
         }
-        let mut low = 0;
-        while low < high {
-            let mid = low
-                .checked_add(high.checked_sub(low).ok_or(EllipseError::Overflow)? >> 1)
-                .ok_or(EllipseError::Overflow)?;
-            if self.buy_output(alpha, tao, mid)? >= output {
-                high = mid;
-            } else {
-                low = mid.checked_add(1).ok_or(EllipseError::Overflow)?;
-            }
-        }
-        Ok(low)
+        Ok(input)
     }
 
     /// Translate both centers by the injected reserves. The existing price,
@@ -727,6 +869,581 @@ mod tests {
         }
         let root = sqrt_floor(U512::MAX);
         assert_eq!(root, (U512::one() << 256) - U512::one());
+    }
+
+    #[test]
+    fn singular_endpoints_are_rejected_and_nearby_prices_remain_finite() {
+        let reserve = 100_000_000_000_000_u64;
+        for percent in [10_u64, 50, 90] {
+            let curve =
+                Superellipse::from_weights(reserve, reserve, Perquintill::from_percent(percent))
+                    .unwrap();
+            let initial = curve.calculate_price(reserve, reserve).unwrap();
+            let y = narrow(curve.coordinates(reserve, reserve).unwrap().1).unwrap();
+            let endpoint = (y / SCALE) as u64;
+            // All these fixtures have integral Q32 coordinates. The actual
+            // boundary Y=0 is forbidden, even when physical reserves remain.
+            assert_eq!(
+                curve.buy_output(reserve, reserve, endpoint),
+                Err(EllipseError::OutsideDomain)
+            );
+            let input = endpoint - 1;
+            let output = curve.buy_output(reserve, reserve, input).unwrap();
+            let final_price = curve
+                .calculate_price(reserve - output, reserve + input)
+                .unwrap();
+            assert!(final_price > initial);
+            assert!(final_price.to_num::<f64>().is_finite());
+            assert!(final_price.to_num::<f64>() / initial.to_num::<f64>() > 1_000_000_000.0);
+            println!(
+                "near-boundary weight={percent}, input={input}, output={output}, initial_price={}, final_price={}, average_price={}",
+                initial.to_num::<f64>(),
+                final_price.to_num::<f64>(),
+                input as f64 / output as f64
+            );
+            let x = narrow(curve.coordinates(reserve, reserve).unwrap().0).unwrap();
+            assert_eq!(
+                curve.sell_output(reserve, reserve, (x / SCALE) as u64),
+                Err(EllipseError::OutsideDomain)
+            );
+        }
+    }
+
+    /// Finalized mainnet block 9,290,394 (2026-10-15): verify the offline
+    /// projection against the actual Q32 quote and reserve-extraction methods.
+    /// The proposed funding rule is experimental; production is unchanged.
+    #[test]
+    fn mainnet_snapshot_absolute_price_bound_funding_projection() {
+        let floor = 1_000_000;
+        let lower = U64F64::from_num(1) / U64F64::from_num(1_000_000);
+        let upper = U64F64::from_num(1_000);
+        for (alpha, tao, weight, expected_alpha, expected_tao) in [
+            (
+                1638087970165551_u64,
+                177877584390628_u64,
+                499999991771026275_u64,
+                959569740387884_u64,
+                104198274291923_u64,
+            ), // SN51
+            (
+                2948057510130640_u64,
+                200261222175329_u64,
+                499999996141344346_u64,
+                1726932124821762_u64,
+                117310306323427_u64,
+            ), // SN64
+            (
+                1944516892526038_u64,
+                33813655846256_u64,
+                499999992083009130_u64,
+                1139071635547348_u64,
+                19807579858621_u64,
+            ), // SN75
+            (
+                2595687835605005_u64,
+                133693433602241_u64,
+                499999995277845955_u64,
+                1520518744433922_u64,
+                78315798716599_u64,
+            ), // SN4
+            (
+                2803718892658875_u64,
+                82220803328634_u64,
+                499999996328842434_u64,
+                1642380511469766_u64,
+                48163830298251_u64,
+            ), // SN8
+            (
+                2932406461183144_u64,
+                35510299520194_u64,
+                499999995042186036_u64,
+                1717763945918605_u64,
+                20801450880383_u64,
+            ), // SN34
+            (
+                92893606670047_u64,
+                465813095272_u64,
+                499999992008694815_u64,
+                54415814546190_u64,
+                272866003696_u64,
+            ), // SN76
+            (
+                337362982331915_u64,
+                335805230742_u64,
+                499999908379072179_u64,
+                197622684213915_u64,
+                196709364024_u64,
+            ), // SN16
+            (
+                177739104021406_u64,
+                269694684095_u64,
+                499999999841116729_u64,
+                104117155595383_u64,
+                157982571037_u64,
+            ), // SN36
+        ] {
+            let curve =
+                Superellipse::from_weights(alpha, tao, Perquintill::from_parts(weight)).unwrap();
+            let buy = curve.quote_delta_to_price(alpha, tao, upper).unwrap();
+            let sell = curve.base_delta_to_price(alpha, tao, lower).unwrap();
+            let alpha_limit = curve.buy_output(alpha, tao, buy).unwrap() - 1;
+            let tao_limit = curve.sell_output(alpha, tao, sell).unwrap() - 1;
+            let take_alpha = alpha - alpha_limit - floor;
+            let take_tao = tao - tao_limit - floor;
+            assert_eq!((take_alpha, take_tao), (expected_alpha, expected_tao));
+            let old = curve.extractable_reserves(alpha, tao, floor).unwrap();
+            assert!(take_alpha >= old.0 && take_tao >= old.1);
+            let initial_price = curve.calculate_price(alpha, tao).unwrap();
+            let mut shifted = curve;
+            shifted.withdraw_liquidity(take_alpha, take_tao).unwrap();
+            let (a, t) = (alpha - take_alpha, tao - take_tao);
+            assert_eq!(shifted.calculate_price(a, t).unwrap(), initial_price);
+            let buy = shifted
+                .max_buy_input_with_reserve_floor(a, t, floor)
+                .unwrap();
+            let out = shifted.buy_output(a, t, buy).unwrap();
+            assert!(a - out >= floor);
+            assert!(shifted.calculate_price(a - out, t + buy).unwrap() <= upper);
+            let sell = shifted
+                .max_sell_input_with_reserve_floor(a, t, floor)
+                .unwrap();
+            let out = shifted.sell_output(a, t, sell).unwrap();
+            assert!(t - out >= floor);
+            assert!(shifted.calculate_price(a + sell, t - out).unwrap() >= lower);
+        }
+    }
+
+    /// Widening the ellipse retains about 90% for trading, but does not
+    /// establish low edge sensitivity across nine orders of magnitude in price.
+    /// Include actual mainnet reserves as well as a readable synthetic pool.
+    #[test]
+    fn ninety_percent_amm_depth_still_has_high_sensitivity_at_wide_price_bounds() {
+        use safe_math::FixedExt;
+        let unit = 1_000_000_000_u64;
+        let floor = 1_000_000_u64;
+        // lambda = 0.9 / (sqrt(2) - 1), in Q32. The original 50/50
+        // ellipse offers (sqrt(2)-1) of each initial reserve to swaps.
+        let sqrt_two_q32 = narrow(sqrt_floor(U512::from(2 * SCALE * SCALE))).unwrap();
+        let factor = 9 * SCALE * SCALE / (10 * (sqrt_two_q32 - SCALE));
+        for (name, alpha, tao, weight) in [
+            (
+                "synthetic",
+                100_000 * unit,
+                1_000 * unit,
+                500_000_000_000_000_000,
+            ),
+            (
+                "SN51 Lium",
+                1_638_087_970_165_551,
+                177_877_584_390_628,
+                499_999_991_771_026_275,
+            ),
+            (
+                "SN64 Chutes",
+                2_948_057_510_130_640,
+                200_261_222_175_329,
+                499_999_996_141_344_346,
+            ),
+            (
+                "SN75 Hippius",
+                1_944_516_892_526_038,
+                33_813_655_846_256,
+                499_999_992_083_009_130,
+            ),
+            (
+                "SN36 Epago",
+                177_739_104_021_406,
+                269_694_684_095,
+                499_999_999_841_116_729,
+            ),
+        ] {
+            let mut previous = None;
+            for (denominator, ceiling) in [(1_000_000_u64, 1_000_u64), (100_000, 100)] {
+                let lower = U64F64::from_num(1) / U64F64::from_num(denominator);
+                let upper = U64F64::from_num(ceiling);
+                let original =
+                    Superellipse::from_weights(alpha, tao, Perquintill::from_parts(weight))
+                        .unwrap();
+                let initial = original.calculate_price(alpha, tao).unwrap();
+                let mut curve = Superellipse::at_scales(
+                    alpha,
+                    tao,
+                    original.alpha_scale * factor / SCALE,
+                    original.tao_scale * factor / SCALE,
+                )
+                .unwrap();
+                assert!(
+                    curve.calculate_price(alpha, tao).unwrap().abs_diff(initial)
+                        < U64F64::from_num(0.000000000001)
+                );
+                let buy = curve.quote_delta_to_price(alpha, tao, upper).unwrap();
+                let sell = curve.base_delta_to_price(alpha, tao, lower).unwrap();
+                // Stop on the safe side of the integer payout plateau.
+                let amm_alpha = curve.buy_output(alpha, tao, buy).unwrap() - 1 + floor;
+                let amm_tao = curve.sell_output(alpha, tao, sell).unwrap() - 1 + floor;
+                let vault_alpha = alpha - amm_alpha;
+                let vault_tao = tao - amm_tao;
+                for (amm, total) in [(amm_alpha, alpha), (amm_tao, tao)] {
+                    let ratio = U64F64::from_num(amm) / U64F64::from_num(total);
+                    assert!(ratio >= U64F64::from_num(0.8999));
+                    assert!(ratio <= U64F64::from_num(0.9001));
+                }
+                curve.withdraw_liquidity(vault_alpha, vault_tao).unwrap();
+                assert!(
+                    curve
+                        .calculate_price(amm_alpha, amm_tao)
+                        .unwrap()
+                        .abs_diff(initial)
+                        < U64F64::from_num(0.000000000001)
+                );
+
+                // The central region is deeper: a one-TAO purchase moves spot
+                // less than on the baseline ellipse and less than 1% in these pools.
+                let central_out = curve.buy_output(amm_alpha, amm_tao, unit).unwrap();
+                let central_after = curve
+                    .calculate_price(amm_alpha - central_out, amm_tao + unit)
+                    .unwrap();
+                let baseline_out = original.buy_output(alpha, tao, unit).unwrap();
+                let baseline_after = original
+                    .calculate_price(alpha - baseline_out, tao + unit)
+                    .unwrap();
+                assert!(central_after < baseline_after);
+                assert!(central_after < initial * U64F64::from_num(1.01));
+
+                let buy = curve
+                    .max_buy_input_with_reserve_floor(amm_alpha, amm_tao, floor)
+                    .unwrap();
+                let bought = curve.buy_output(amm_alpha, amm_tao, buy).unwrap();
+                let high_a = amm_alpha - bought;
+                let high_t = amm_tao + buy;
+                let high_price = curve.calculate_price(high_a, high_t).unwrap();
+                assert!(high_a >= floor);
+                assert!(high_price <= upper && high_price > upper * U64F64::from_num(0.9));
+                // Measure a real finite move, in the executable reverse direction:
+                // how far does selling enough alpha for 1 TAO move the spot?
+                let alpha_for_one_tao = curve.base_needed_for_quote(high_a, high_t, unit).unwrap();
+                let tao_out = curve
+                    .sell_output(high_a, high_t, alpha_for_one_tao)
+                    .unwrap();
+                assert!(tao_out >= unit);
+                let high_after = curve
+                    .calculate_price(high_a + alpha_for_one_tao, high_t - tao_out)
+                    .unwrap();
+
+                let sell = curve
+                    .max_sell_input_with_reserve_floor(amm_alpha, amm_tao, floor)
+                    .unwrap();
+                let sold = curve.sell_output(amm_alpha, amm_tao, sell).unwrap();
+                let low_a = amm_alpha + sell;
+                let low_t = amm_tao - sold;
+                let low_price = curve.calculate_price(low_a, low_t).unwrap();
+                assert!(low_t >= floor);
+                assert!(low_price >= lower && low_price < lower * U64F64::from_num(1.001));
+                let alpha_out = curve.buy_output(low_a, low_t, unit).unwrap();
+                let low_after = curve
+                    .calculate_price(low_a - alpha_out, low_t + unit)
+                    .unwrap();
+
+                // Narrowing the allowed range improves both edge measurements,
+                // but even the narrower lower edge still moves by more than 2x.
+                assert!(high_after < high_price);
+                if ceiling == 1_000 {
+                    assert!(high_after < high_price * U64F64::from_num(0.99));
+                }
+                assert!(low_after > low_price * U64F64::from_num(2));
+                let high_retained = high_after / high_price;
+                let low_multiple = low_after / low_price;
+                if let Some((previous_high, previous_low)) = previous {
+                    assert!(high_retained > previous_high);
+                    assert!(low_multiple < previous_low);
+                }
+                previous = Some((high_retained, low_multiple));
+                println!(
+                    "90pct {name}, range=1/{denominator}..{ceiling}: factor={}, initial_price={}, AMM={} TAO/{} alpha, vault={} TAO/{} alpha; high_price={} -> {} after selling {} alpha for {} TAO; low_price={} -> {} after buying for 1 TAO",
+                    factor as f64 / SCALE as f64,
+                    initial.to_num::<f64>(),
+                    amm_tao as f64 / unit as f64,
+                    amm_alpha as f64 / unit as f64,
+                    vault_tao as f64 / unit as f64,
+                    vault_alpha as f64 / unit as f64,
+                    high_price.to_num::<f64>(),
+                    high_after.to_num::<f64>(),
+                    alpha_for_one_tao as f64 / unit as f64,
+                    tao_out as f64 / unit as f64,
+                    low_price.to_num::<f64>(),
+                    low_after.to_num::<f64>(),
+                );
+            }
+        }
+    }
+
+    fn old_price_search(
+        curve: &Superellipse,
+        alpha: u64,
+        tao: u64,
+        target: U64F64,
+        buy: bool,
+    ) -> MathResult<u64> {
+        let current = curve.calculate_price(alpha, tao)?;
+        if (buy && target <= current) || (!buy && target >= current) {
+            return Ok(0);
+        }
+        let max = if buy {
+            curve.max_buy_input(alpha, tao)?
+        } else {
+            curve.max_sell_input(alpha, tao)?
+        };
+        curve.last_true(0, max, |input| {
+            let price = if buy {
+                let out = curve.buy_output(alpha, tao, input)?;
+                curve.calculate_price(alpha - out, tao + input)
+            } else {
+                let out = curve.sell_output(alpha, tao, input)?;
+                curve.calculate_price(alpha + input, tao - out)
+            };
+            match price {
+                Ok(price) => Ok(if buy {
+                    price <= target
+                } else {
+                    price >= target
+                }),
+                Err(EllipseError::Overflow) if buy => Ok(false),
+                Err(err) => Err(err),
+            }
+        })
+    }
+
+    fn check_search_oracles(curve: &Superellipse, alpha: u64, tao: u64) {
+        let Ok(current) = curve.calculate_price(alpha, tao) else {
+            return;
+        };
+        let bits = current.to_bits();
+        let mut targets = vec![
+            0,
+            1,
+            bits.saturating_sub(1),
+            bits,
+            bits.saturating_add(1),
+            bits / 2,
+            bits.saturating_mul(2),
+            u128::MAX,
+        ];
+        for buy in [false, true] {
+            let max = if buy {
+                curve.max_buy_input(alpha, tao)
+            } else {
+                curve.max_sell_input(alpha, tao)
+            }
+            .unwrap();
+            for input in [0, max / 3, max / 2, max.saturating_sub(1), max] {
+                let out = if buy {
+                    curve.buy_output(alpha, tao, input)
+                } else {
+                    curve.sell_output(alpha, tao, input)
+                }
+                .unwrap();
+                let price = if buy {
+                    curve.calculate_price(alpha - out, tao + input)
+                } else {
+                    curve.calculate_price(alpha + input, tao - out)
+                };
+                if let Ok(p) = price {
+                    targets.extend([
+                        p.to_bits().saturating_sub(1),
+                        p.to_bits(),
+                        p.to_bits().saturating_add(1),
+                    ]);
+                }
+            }
+        }
+        for target in targets {
+            let target = U64F64::from_bits(target);
+            for buy in [false, true] {
+                let actual = if buy {
+                    curve.quote_delta_to_price(alpha, tao, target)
+                } else {
+                    curve.base_delta_to_price(alpha, tao, target)
+                };
+                assert_eq!(
+                    actual,
+                    old_price_search(curve, alpha, tao, target, buy),
+                    "alpha={alpha}, tao={tao}, buy={buy}, target={target:?}, curve={curve:?}"
+                );
+            }
+        }
+        let maximum = curve.max_sell_input(alpha, tao).unwrap();
+        let max_out = curve.sell_output(alpha, tao, maximum).unwrap();
+        for output in [
+            0,
+            1,
+            max_out / 2,
+            max_out,
+            max_out.saturating_add(1),
+            tao,
+            tao.saturating_add(1),
+        ] {
+            let expected = if output > tao {
+                Err(EllipseError::InsufficientReserves)
+            } else if output > max_out {
+                Err(EllipseError::OutsideDomain)
+            } else {
+                let mut low = 0;
+                let mut high = maximum;
+                while low < high {
+                    let mid = low + (high - low) / 2;
+                    if curve.sell_output(alpha, tao, mid).unwrap() >= output {
+                        high = mid;
+                    } else {
+                        low = mid + 1;
+                    }
+                }
+                Ok(low)
+            };
+            assert_eq!(
+                curve.base_needed_for_quote(alpha, tao, output),
+                expected,
+                "inverse alpha={alpha}, tao={tao}, output={output}"
+            );
+        }
+    }
+
+    #[test]
+    fn analytical_price_intervals_and_inverse_sell_match_old_searches() {
+        for alpha in 1..=12 {
+            for tao in 1..=12 {
+                for weight in [1, 50, 99] {
+                    let curve =
+                        Superellipse::from_weights(alpha, tao, Perquintill::from_percent(weight))
+                            .unwrap();
+                    check_search_oracles(&curve, alpha, tao);
+                }
+            }
+        }
+        let mut seed = 0x42f0_e1eb_a9ea_3693_u64;
+        for index in 0..180_u64 {
+            seed = seed.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
+            let alpha = match index % 4 {
+                0 => seed % 100 + 1,
+                1 => seed % 1_000_000 + 1,
+                _ => seed / 8 + 1,
+            };
+            seed = seed.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
+            let tao = match index % 4 {
+                0 => seed % 100 + 1,
+                1 => seed % 1_000_000 + 1,
+                _ => seed / 8 + 1,
+            };
+            let weight =
+                Perquintill::from_parts(10_000_000_000_000_000 + seed % 980_000_000_000_000_001);
+            let curve = Superellipse::from_weights(alpha, tao, weight).unwrap();
+            check_search_oracles(&curve, alpha, tao);
+            let input = curve.max_buy_input(alpha, tao).unwrap() / 2;
+            let out = curve.buy_output(alpha, tao, input).unwrap();
+            check_search_oracles(&curve, alpha - out, tao + input);
+            let input = curve.max_sell_input(alpha, tao).unwrap() / 2;
+            let out = curve.sell_output(alpha, tao, input).unwrap();
+            check_search_oracles(&curve, alpha + input, tao - out);
+            let (take_a, take_t) = curve.extractable_reserves(alpha, tao, 0).unwrap();
+            let mut shifted = curve.clone();
+            shifted.withdraw_liquidity(take_a, take_t).unwrap();
+            check_search_oracles(&shifted, alpha - take_a, tao - take_t);
+        }
+        // Fractional Q32 coordinates and highly unequal scales exercise wide
+        // rounding intervals and the overflow fallback, not only 45-degree seeds.
+        for (a, b, x, y) in [
+            (SCALE, SCALE, 1, SCALE * SCALE),
+            (SCALE * SCALE, 1, SCALE * 100, SCALE * 100),
+            (1, SCALE * SCALE, SCALE * 100, SCALE * 100),
+            (
+                u128::MAX / 4,
+                u128::MAX / 5,
+                SCALE * 100 + 1,
+                SCALE * 100 - 1,
+            ),
+        ] {
+            let (alpha, tao) = (1_000_000, 1_000_000);
+            let curve = Superellipse {
+                alpha_scale: a,
+                tao_scale: b,
+                center_alpha: (i128::from(alpha) << 32) + x as i128,
+                center_tao: (i128::from(tao) << 32) + y as i128,
+            };
+            check_search_oracles(&curve, alpha, tao);
+        }
+    }
+
+    #[test]
+    fn analytical_contraction_interval_contains_exact_integer_optimum() {
+        for (alpha, tao) in [
+            (2_u64, 1_000_u64),
+            (10_000, 1_000),
+            (10_000_000_000_000, 500_000_000_000),
+            (u64::MAX / 2, u64::MAX / 2),
+        ] {
+            for weight in [1, 10, 50, 90, 99] {
+                let curve =
+                    Superellipse::from_weights(alpha, tao, Perquintill::from_percent(weight))
+                        .unwrap();
+                let (x, y) = curve.coordinates(alpha, tao).unwrap();
+                let (a2, _) = curve.squares().unwrap();
+                for bps in [1_u128, 100, 5_000] {
+                    let reference = U512::from(500_000_000_000_u64) * U512::from(SCALE);
+                    let left = U512::from(4 * bps * bps);
+                    let right = U512::from(27 * (10_000 - bps) * (10_000 - bps))
+                        * a2
+                        * reference
+                        * reference;
+                    let meets = |factor: u128| {
+                        let sx = x * U512::from(factor) / U512::from(SCALE);
+                        let sy = y * U512::from(factor) / U512::from(SCALE);
+                        curve.invariant(sx, sy).unwrap() * left <= right
+                    };
+                    let mut low = 0;
+                    let mut high = SCALE;
+                    while low < high {
+                        let mid = low + (high - low).div_ceil(2);
+                        if meets(mid) {
+                            low = mid;
+                        } else {
+                            high = mid - 1;
+                        }
+                    }
+                    let (lo, hi) = curve
+                        .contraction_factor_bounds(x, y, left, right)
+                        .unwrap_or((0, SCALE));
+                    assert!(lo <= low && low <= hi);
+                    assert!(meets(lo));
+                    if x.min(y) >= U512::from(SCALE) {
+                        assert!(hi - lo <= 1);
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn ordinary_price_search_intervals_are_only_rounding_sized() {
+        let curve = equal(100_000_000_000_000, 1_000_000_000_000);
+        for (target, buy) in [
+            (U64F64::from_num(100), true),
+            (U64F64::from_num(0.02), true),
+            (U64F64::from_num(0.005), false),
+        ] {
+            let max = if buy {
+                curve.max_buy_input(100_000_000_000_000, 1_000_000_000_000)
+            } else {
+                curve.max_sell_input(100_000_000_000_000, 1_000_000_000_000)
+            }
+            .unwrap();
+            let (lo, hi) = curve
+                .price_input_bounds(100_000_000_000_000, 1_000_000_000_000, target, buy, max)
+                .unwrap();
+            assert!(hi - lo <= 100);
+            println!(
+                "price interval buy={buy}, target={target}, old_upper={max}, new_width={}",
+                hi - lo
+            );
+        }
     }
 
     #[test]
@@ -1359,6 +2076,35 @@ mod tests {
             curve.quote_needed_for_base(alpha, tao, alpha),
             Err(EllipseError::OutsideDomain)
         );
+    }
+
+    #[test]
+    fn inverse_buy_matches_forward_quote_across_weights_and_endpoints() {
+        for (alpha, tao) in [
+            (10_000, 500),
+            (1_000_000_000, 4_000_000_000),
+            (u64::MAX / 4, u64::MAX / 8),
+        ] {
+            for weight in [
+                100_000_000_000_000_000,
+                500_000_000_000_000_000,
+                900_000_000_000_000_000,
+            ] {
+                let curve = Superellipse::from_weights(alpha, tao, Perquintill::from_parts(weight))
+                    .unwrap();
+                let max = curve.max_buy_input(alpha, tao).unwrap();
+                for input in [1, max / 100, max / 2, max.saturating_sub(1), max] {
+                    let output = curve.buy_output(alpha, tao, input).unwrap();
+                    if output == 0 {
+                        continue;
+                    }
+                    let required = curve.quote_needed_for_base(alpha, tao, output).unwrap();
+                    assert!(required <= input);
+                    assert!(curve.buy_output(alpha, tao, required).unwrap() >= output);
+                    assert!(curve.buy_output(alpha, tao, required - 1).unwrap() < output);
+                }
+            }
+        }
     }
 
     #[test]

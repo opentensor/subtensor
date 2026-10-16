@@ -482,7 +482,7 @@ class LimitOrders:
 class Lending:
     Enabled = Item('Lending', 'Enabled', 'bool')
     Vaults = Item('Lending', 'Vaults', 'Vault')
-    VaultCount = Item('Lending', 'VaultCount', 'u32')
+    CounterForVaults = Item('Lending', 'CounterForVaults', 'u32')
     MinPriceImpactBps = Item('Lending', 'MinPriceImpactBps', 'u16')
     Positions = Item('Lending', 'Positions', 'Position')
     OpenByNetuid = Item('Lending', 'OpenByNetuid', '()')
@@ -494,6 +494,7 @@ class Lending:
     Dissolutions = Item('Lending', 'Dissolutions', 'Dissolution')
     RedemptionBases = Item('Lending', 'RedemptionBases', '(u64, u128, u64)')
     DissolutionCursor = Item('Lending', 'DissolutionCursor', 'AccountId32')
+    DissolutionReceipts = Item('Lending', 'DissolutionReceipts', 'u64')
     Due = Item('Lending', 'Due', '()')
     NextDue = Item('Lending', 'NextDue', 'u32')
     ConversionCursor = Item('Lending', 'ConversionCursor', 'NetUid')

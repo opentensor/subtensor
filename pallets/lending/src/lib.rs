@@ -14,6 +14,10 @@ mod benchmarking;
 mod tests;
 pub mod weights;
 
+/// Base dissolution payouts below this many TAO rao receive no rounding bonus.
+/// Shared with ordinary payouts so admission and settlement use one rule.
+pub const MIN_DISSOLUTION_PAYOUT: u64 = 500;
+
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{PalletId, pallet_prelude::*, transactional, weights::WeightMeter};
 use frame_system::pallet_prelude::*;
@@ -44,6 +48,8 @@ pub trait LendingPoolInterface<AccountId>: OrderSwapInterface<AccountId> {
         true
     }
     fn quote_sell(netuid: NetUid, alpha: AlphaBalance) -> Result<TaoBalance, DispatchError>;
+    /// Minimum gross TAO purchase input, including execution fees.
+    fn quote_buy_input(netuid: NetUid, alpha: AlphaBalance) -> Result<TaoBalance, DispatchError>;
     fn quote_buy(netuid: NetUid, tao: TaoBalance) -> Result<AlphaBalance, DispatchError>;
     /// A mature short-horizon price EMA, when one exists. Terminal marks use the
     /// higher of this reference and lending's long-horizon EMA, never spot price.
@@ -116,6 +122,11 @@ pub trait LendingPoolInterface<AccountId>: OrderSwapInterface<AccountId> {
     ) -> Result<TaoBalance, DispatchError> {
         Self::transfer_tao(from, vault, amount)?;
         Ok(amount)
+    }
+    /// Reconcile only a sub-ED TAO collateral remainder lost when its escrow
+    /// was reaped. Do not forgive other custody deficits.
+    fn remaining_tao_collateral(_escrow: &AccountId, collateral: u64) -> u64 {
+        collateral
     }
     /// Burn exactly the collected fee using the chain's canonical TAO burn account.
     /// Failure must preserve both balances, including unrelated custody principal.
@@ -311,7 +322,7 @@ pub struct Vault {
     pub pending_alpha: u64,
 }
 
-#[freeze_struct("9482783dc052c44b")]
+#[freeze_struct("7d15007ee7e9fc0c")]
 #[derive(
     Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen, Clone, Debug, PartialEq, Eq,
 )]
@@ -322,9 +333,6 @@ pub struct Position<AccountId, BlockNumber> {
     pub principal: u64,
     /// Remaining collateral in TAO for Short, alpha for Long.
     pub collateral: u64,
-    /// Actual funded TAO receipts during dissolution or legacy short sale proceeds.
-    /// Freely delivered alpha loans create no opening proceeds.
-    pub proceeds: u64,
     /// 100% nominal annual interest, fixed in opening collateral units.
     pub annual_interest: u64,
     pub last_accrued: BlockNumber,
@@ -414,9 +422,7 @@ pub mod pallet {
     #[pallet::storage]
     pub type Enabled<T> = StorageValue<_, bool, ValueQuery>;
     #[pallet::storage]
-    pub type Vaults<T> = StorageMap<_, Identity, NetUid, Vault, OptionQuery>;
-    #[pallet::storage]
-    pub type VaultCount<T> = StorageValue<_, u32, ValueQuery>;
+    pub type Vaults<T> = CountedStorageMap<_, Identity, NetUid, Vault, OptionQuery>;
     /// Governance's requested geometric minimum for both reference directions.
     /// Zero is disabled. Relaxing this policy never returns vault assets or widens
     /// existing curves. No recurring recalibration is needed on the fixed ellipse.
@@ -465,6 +471,11 @@ pub mod pallet {
     #[pallet::storage]
     pub type DissolutionCursor<T: Config> =
         StorageMap<_, Identity, NetUid, T::AccountId, OptionQuery>;
+    /// Actual funded TAO receipts from an escrow's alpha during dissolution.
+    /// Accumulate all hotkeys/pages before settling debt and refunding the owner.
+    #[pallet::storage]
+    pub type DissolutionReceipts<T: Config> =
+        StorageDoubleMap<_, Identity, NetUid, Blake2_128Concat, T::AccountId, u64, ValueQuery>;
     #[pallet::storage]
     pub type Due<T: Config> = StorageDoubleMap<
         _,
@@ -491,7 +502,6 @@ pub mod pallet {
             side: Side,
             principal: u64,
             collateral: u64,
-            proceeds: u64,
             annual_interest: u64,
         },
         Closed {
@@ -549,14 +559,13 @@ pub mod pallet {
             side: Side,
             tao: u64,
         },
-        /// Additional collateral, debt, proceeds and coupon on an existing position.
+        /// Additional collateral, debt and coupon on an existing position.
         Increased {
             owner: T::AccountId,
             netuid: NetUid,
             side: Side,
             principal: u64,
             collateral: u64,
-            proceeds: u64,
             annual_interest: u64,
         },
         MinPriceImpactSet {
@@ -609,7 +618,7 @@ pub mod pallet {
         fn on_initialize(_: BlockNumberFor<T>) -> Weight {
             // Reserve finalize work in advance; the migration enforces MaxFundedSubnets.
             T::WeightInfo::update_reference()
-                .saturating_mul(u64::from(VaultCount::<T>::get()))
+                .saturating_mul(u64::from(Vaults::<T>::count()))
                 .saturating_add(T::DbWeight::get().reads(2))
         }
 
@@ -722,7 +731,7 @@ pub mod pallet {
             let custody = Self::custody_hotkey()?;
             let refund = match position.side {
                 Side::Short => {
-                    let pot = Self::add(position.collateral, position.proceeds)?;
+                    let pot = position.collateral;
                     if repay_from_wallet {
                         ensure!(
                             position.principal <= max_payment,
@@ -929,6 +938,9 @@ impl<T: Config> Pallet<T> {
             // Settle only whole atoms and retain fractional interest. Increasing
             // a loan cannot erase accrued fees or postpone its scheduled collection.
             Self::charge_interest(&owner, netuid, &mut position, now, false)?;
+            // The coupon may reap its last sub-ED TAO even when the pre-charge
+            // quote still saw a positive nominal remainder. Do not revive it.
+            ensure!(position.collateral > 0, Error::<T>::InsufficientEscrow);
             position
         } else {
             Position {
@@ -936,7 +948,6 @@ impl<T: Config> Pallet<T> {
                 hotkey: hotkey.clone(),
                 principal: 0,
                 collateral: 0,
-                proceeds: 0,
                 annual_interest: 0,
                 last_accrued: now,
                 interest_remainder: 0,
@@ -946,7 +957,7 @@ impl<T: Config> Pallet<T> {
         let vault = Self::reserve_account(netuid);
         let escrow = Self::position_account(&owner, netuid);
         let custody = Self::custody_hotkey()?;
-        let proceeds = match side {
+        match side {
             Side::Short => {
                 T::Pool::transfer_tao(&owner, &escrow, collateral.into())?;
                 T::Pool::transfer_staked_alpha(
@@ -959,7 +970,6 @@ impl<T: Config> Pallet<T> {
                     false,
                     true,
                 )?;
-                0
             }
             Side::Long => {
                 T::Pool::lock_alpha_collateral(
@@ -971,9 +981,8 @@ impl<T: Config> Pallet<T> {
                     collateral.into(),
                 )?;
                 T::Pool::transfer_tao(&vault, &owner, quote.principal.into())?;
-                0
             }
-        };
+        }
         Vaults::<T>::try_mutate(netuid, |vault| -> DispatchResult {
             let vault = vault.as_mut().ok_or(Error::<T>::InsufficientReserves)?;
             match side {
@@ -990,7 +999,6 @@ impl<T: Config> Pallet<T> {
         })?;
         position.principal = Self::add(position.principal, quote.principal)?;
         position.collateral = Self::add(position.collateral, collateral)?;
-        position.proceeds = Self::add(position.proceeds, proceeds)?;
         position.annual_interest = Self::add(position.annual_interest, quote.annual_interest)?;
         if !increasing {
             let due = position.due;
@@ -1014,7 +1022,6 @@ impl<T: Config> Pallet<T> {
                 side,
                 principal: quote.principal,
                 collateral,
-                proceeds,
                 annual_interest: quote.annual_interest,
             }
         } else {
@@ -1024,7 +1031,6 @@ impl<T: Config> Pallet<T> {
                 side,
                 principal: quote.principal,
                 collateral,
-                proceeds,
                 annual_interest: quote.annual_interest,
             }
         });
@@ -1082,10 +1088,9 @@ impl<T: Config> Pallet<T> {
         Self::initialize_custody()?;
         if !Vaults::<T>::contains_key(netuid) {
             ensure!(
-                VaultCount::<T>::get() < T::MaxFundedSubnets::get(),
+                Vaults::<T>::count() < T::MaxFundedSubnets::get(),
                 Error::<T>::TooManySubnets
             );
-            VaultCount::<T>::mutate(|count| *count = count.saturating_add(1));
             let now = frame_system::Pallet::<T>::block_number();
             let valid_after = if has_history {
                 now
@@ -1211,20 +1216,26 @@ impl<T: Config> Pallet<T> {
         if let Some(quote) = &requested_quote {
             Self::ensure_borrow_capacity(&vault, side, quote.principal)?;
         }
-        let (combined_collateral, old_principal) = if let Some((_, position)) = existing {
+        let (combined_collateral, old_principal) = if let Some((owner, position)) = existing {
             let now = frame_system::Pallet::<T>::block_number();
             let (interest, remainder) = Self::interest_due(position, now, false)?;
             // Reserve a whole atom for the preserved fractional coupon. A loan
             // whose old collateral is exhausted cannot be revived by discarding fees.
             let accrued = Self::add(interest, u64::from(remainder > 0))?;
-            let remaining = position
-                .collateral
+            let backed_collateral = match side {
+                Side::Short => T::Pool::remaining_tao_collateral(
+                    &Self::position_account(owner, netuid),
+                    position.collateral,
+                ),
+                Side::Long => position.collateral,
+            };
+            let remaining = backed_collateral
                 .checked_sub(accrued)
                 .filter(|remaining| *remaining > 0)
                 .ok_or(Error::<T>::InsufficientEscrow)?;
             // Actual custody retains the fractional atom until it is charged;
             // validate that addition too, even though valuation reserves the atom.
-            Self::add(Self::sub(position.collateral, interest)?, collateral)?;
+            Self::add(Self::sub(backed_collateral, interest)?, collateral)?;
             (Self::add(remaining, collateral)?, position.principal)
         } else {
             (collateral, 0)
@@ -1494,29 +1505,24 @@ impl<T: Config> Pallet<T> {
                 .collateral
                 .checked_sub(accrued)
                 .ok_or(Error::<T>::InsufficientRedemptionBacking)?;
-            let principal = u128::from(position.principal);
-            let owed = Self::ceil_ratio(
-                principal
-                    .checked_mul(u128::from(pot))
-                    .ok_or(Error::<T>::Arithmetic)?,
-                supply,
-            )?
-            .checked_add(principal)
-            .ok_or(Error::<T>::Arithmetic)?;
+            let owed = Self::funded_alpha_value(position.principal, (pot, supply, u64::MAX))?;
             ensure!(
                 owed <= u128::from(remaining),
                 Error::<T>::InsufficientRedemptionBacking
             );
         }
         let target = collateral.checked_div(4).ok_or(Error::<T>::Arithmetic)?;
-        // ceil(q*P/N)+q <= target iff q*(P+N) <= target*N.
-        // The q-atom allowance bounds every possible split-row payout rounding.
-        let denominator = u128::from(pot)
-            .checked_add(supply)
+        // A paid row has >=500 rao of base payout and at most one bonus.
+        // Its cash per alpha is therefore <= (P/N)*501/500, including rows
+        // mixing borrowed and other alpha. For b=ceil(q*P/N), protect
+        // b+ceil(b/500). The largest b fitting target is floor(target*500/501).
+        let base_budget = u128::from(target)
+            .checked_mul(u128::from(MIN_DISSOLUTION_PAYOUT))
+            .and_then(|n| n.checked_div(u128::from(MIN_DISSOLUTION_PAYOUT).saturating_add(1)))
             .ok_or(Error::<T>::Arithmetic)?;
-        let combined_limit = u128::from(target)
+        let combined_limit = base_budget
             .checked_mul(supply)
-            .and_then(|value| value.checked_div(denominator))
+            .and_then(|value| value.checked_div(u128::from(pot)))
             .ok_or(Error::<T>::Arithmetic)?;
         let incremental = combined_limit
             .checked_sub(u128::from(old_principal))
@@ -1526,12 +1532,16 @@ impl<T: Config> Pallet<T> {
             } else {
                 Error::<T>::InsufficientRedemptionBacking
             })?;
-        let incremental = u64::try_from(incremental).map_err(|_| Error::<T>::Arithmetic)?;
-
         if exact {
-            ensure!(candidate <= incremental, Error::<T>::InsufficientCollateral);
+            ensure!(
+                u128::from(candidate) <= incremental,
+                Error::<T>::InsufficientCollateral
+            );
         }
-        Ok(candidate.min(incremental))
+        // Excess collateral may make the funded limit exceed the principal's
+        // u64 domain. Only the requested candidate needs to be representable.
+        u64::try_from(u128::from(candidate).min(incremental))
+            .map_err(|_| Error::<T>::Arithmetic.into())
     }
 
     /// Protect ordinary pro-rata redemption even if all active AMM TAO is sold out.
@@ -1657,7 +1667,7 @@ impl<T: Config> Pallet<T> {
         let remaining = position.collateral.saturating_sub(interest);
         match position.side {
             Side::Short => {
-                let pot = Self::add(remaining, position.proceeds)?;
+                let pot = remaining;
                 let payment = if repay_from_wallet {
                     position.principal
                 } else {
@@ -1694,26 +1704,9 @@ impl<T: Config> Pallet<T> {
 
     fn buyback_input(netuid: NetUid, principal: u64, budget: u64) -> Result<u64, DispatchError> {
         ensure!(budget > 0, Error::<T>::InsufficientEscrow);
-        // Capacity is supplied independently of quote dust errors. Positive-input
-        // quotes whose rounded output is zero are lower-bound failures, never evidence
-        // that larger inputs cross the finite buy endpoint.
-        let mut high = budget.min(T::Pool::max_buy_input(netuid).to_u64());
-        ensure!(high > 0, Error::<T>::InsufficientEscrow);
-        ensure!(
-            T::Pool::quote_buy(netuid, high.into())?.to_u64() >= principal,
-            Error::<T>::InsufficientEscrow
-        );
-        let mut low = 1_u64;
-        while low < high {
-            let mid =
-                low.saturating_add(high.saturating_sub(low).checked_div(2).unwrap_or_default());
-            if T::Pool::quote_buy(netuid, mid.into()).is_ok_and(|out| out.to_u64() >= principal) {
-                high = mid;
-            } else {
-                low = mid.saturating_add(1);
-            }
-        }
-        Ok(low)
+        let input = T::Pool::quote_buy_input(netuid, principal.into())?.to_u64();
+        ensure!(input <= budget, Error::<T>::InsufficientEscrow);
+        Ok(input)
     }
 
     fn execute_buyback(
@@ -1834,6 +1827,29 @@ impl<T: Config> Pallet<T> {
         ))
     }
 
+    fn reconcile_collateral(
+        owner: &T::AccountId,
+        netuid: NetUid,
+        position: &mut Position<T::AccountId, BlockNumberFor<T>>,
+    ) -> DispatchResult {
+        if position.side == Side::Short {
+            let remaining = T::Pool::remaining_tao_collateral(
+                &Self::position_account(owner, netuid),
+                position.collateral,
+            );
+            let dust = Self::sub(position.collateral, remaining)?;
+            if dust > 0 {
+                position.collateral = remaining;
+                Self::deposit_event(Event::DustForfeited {
+                    netuid,
+                    recipient: owner.clone(),
+                    tao: dust,
+                });
+            }
+        }
+        Ok(())
+    }
+
     fn charge_interest(
         owner: &T::AccountId,
         netuid: NetUid,
@@ -1841,6 +1857,7 @@ impl<T: Config> Pallet<T> {
         until: BlockNumberFor<T>,
         final_charge: bool,
     ) -> DispatchResult {
+        Self::reconcile_collateral(owner, netuid, position)?;
         let (due, remainder) = Self::interest_due(position, until, final_charge)?;
         let paid = due.min(position.collateral);
         if paid > 0 {
@@ -1899,6 +1916,7 @@ impl<T: Config> Pallet<T> {
                 collateral_paid: paid,
             });
         }
+        Self::reconcile_collateral(owner, netuid, position)?;
         position.last_accrued = until;
         position.interest_remainder = remainder;
         Ok(())
@@ -2045,13 +2063,6 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         position: &Position<T::AccountId, BlockNumberFor<T>>,
     ) -> DispatchResult {
-        if position.proceeds > 0 {
-            T::Pool::transfer_tao(
-                &Self::position_account(owner, netuid),
-                &Self::reserve_account(netuid),
-                position.proceeds.into(),
-            )?;
-        }
         Vaults::<T>::try_mutate(netuid, |vault| -> DispatchResult {
             let vault = vault.as_mut().ok_or(Error::<T>::InsufficientReserves)?;
             match position.side {
@@ -2059,7 +2070,6 @@ impl<T: Config> Pallet<T> {
                     vault.outstanding_alpha =
                         Self::sub(vault.outstanding_alpha, position.principal)?;
                     vault.lost_alpha = Self::add(vault.lost_alpha, position.principal)?;
-                    vault.available_tao = Self::add(vault.available_tao, position.proceeds)?;
                 }
                 Side::Long => {
                     vault.outstanding_tao = Self::sub(vault.outstanding_tao, position.principal)?;
@@ -2392,10 +2402,11 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         let basis = RedemptionBases::<T>::get(netuid).ok_or(Error::<T>::RedemptionUnavailable)?;
         let owed = Self::terminal_alpha_value(position.principal, dissolution.price, basis)?;
-        // A free-alpha loan has only its TAO collateral to recover. Legacy cash
-        // proceeds remain refundable, but cannot back new principal or coupons.
+        // A free-alpha loan has only its TAO collateral to recover. Separate
+        // redemption receipts remain refundable and cannot cover this alpha debt.
         let paid = u128::from(position.collateral).min(owed) as u64;
-        let refund = Self::add(position.collateral.saturating_sub(paid), position.proceeds)?;
+        let receipts = DissolutionReceipts::<T>::take(netuid, owner);
+        let refund = Self::add(position.collateral.saturating_sub(paid), receipts)?;
         let escrow = Self::position_account(owner, netuid);
         let (paid, refund) = Self::disburse_terminal(netuid, &escrow, owner, paid, refund)?;
         let recovered = if u128::from(paid) >= owed {
@@ -2471,9 +2482,11 @@ impl<T: Config> Pallet<T> {
             .checked_mul(u128::from(pot))
             .ok_or(Error::<T>::Arithmetic)?;
         let base = Self::ceil_ratio(numerator, supply)?;
-        // Largest-remainder payouts can award one atom per eligible holder row.
-        // Reserve that bounded dust without lowering debt when base exceeds P.
-        let allowance = u128::from(alpha.min(rows));
+        // Payout per alpha in any paid row is <= the ideal rate *501/500.
+        // Round the surcharge up, including when a tiny borrowed share is
+        // mixed into a larger holding. Retain the original atom/row caps.
+        let allowance = Self::ceil_ratio(base, u128::from(MIN_DISSOLUTION_PAYOUT))?
+            .min(u128::from(alpha.min(rows)));
         let with_dust = base.checked_add(allowance).ok_or(Error::<T>::Arithmetic)?;
         Ok(base.max(with_dust.min(u128::from(pot))))
     }
@@ -2564,14 +2577,18 @@ impl<T: Config> Pallet<T> {
         let Some(owner) = EscrowOwner::<T>::get(netuid, coldkey) else {
             return Ok(());
         };
-        let mut position =
-            Positions::<T>::get(&owner, netuid).ok_or(Error::<T>::PositionMissing)?;
+        ensure!(
+            Positions::<T>::contains_key(&owner, netuid),
+            Error::<T>::PositionMissing
+        );
         ensure!(
             Dissolutions::<T>::contains_key(netuid),
             Error::<T>::InvalidQuote
         );
-        position.proceeds = Self::add(position.proceeds, tao_paid.to_u64())?;
-        Positions::<T>::insert(owner, netuid, position);
+        DissolutionReceipts::<T>::try_mutate(netuid, owner, |receipts| -> DispatchResult {
+            *receipts = Self::add(*receipts, tao_paid.to_u64())?;
+            Ok(())
+        })?;
         Ok(())
     }
 
@@ -2582,8 +2599,9 @@ impl<T: Config> Pallet<T> {
             position.side == Side::Long && Dissolutions::<T>::contains_key(netuid),
             Error::<T>::InvalidQuote
         );
-        let recovered = position.proceeds.min(position.principal);
-        let refund = position.proceeds.saturating_sub(recovered);
+        let receipts = DissolutionReceipts::<T>::take(netuid, owner);
+        let recovered = receipts.min(position.principal);
+        let refund = receipts.saturating_sub(recovered);
         let coldkey = Self::position_account(owner, netuid);
         let (recovered, refund) =
             Self::disburse_terminal(netuid, &coldkey, owner, recovered, refund)?;
@@ -2673,6 +2691,12 @@ impl<T: Config> Pallet<T> {
             PositionCount::<T>::get(netuid) == 0,
             Error::<T>::TooManyPositions
         );
+        ensure!(
+            DissolutionReceipts::<T>::iter_prefix(netuid)
+                .next()
+                .is_none(),
+            Error::<T>::InvalidQuote
+        );
         if let Some(vault) = Vaults::<T>::get(netuid) {
             ensure!(
                 vault.available_alpha == 0 && vault.pending_alpha == 0 && vault.pending_tao == 0,
@@ -2687,7 +2711,6 @@ impl<T: Config> Pallet<T> {
                 )?;
             }
             Vaults::<T>::remove(netuid);
-            VaultCount::<T>::mutate(|count| *count = count.saturating_sub(1));
         }
         References::<T>::remove(netuid);
         MinPriceImpactBps::<T>::remove(netuid);
@@ -2708,7 +2731,7 @@ impl<T: Config> LendingInterface<T::AccountId> for Pallet<T> {
         Vaults::<T>::contains_key(netuid)
     }
     fn has_funding_capacity() -> bool {
-        VaultCount::<T>::get() < T::MaxFundedSubnets::get()
+        Vaults::<T>::count() < T::MaxFundedSubnets::get()
     }
     fn has_positions(owner: &T::AccountId) -> bool {
         use frame_support::StorageDoubleMap as _;

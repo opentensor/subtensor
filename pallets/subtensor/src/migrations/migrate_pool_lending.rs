@@ -89,7 +89,7 @@ impl<T: Config + pallet_lending::Config> OnRuntimeUpgrade for Migration<T> {
             HasMigrationRun::<T>::get(MIGRATION_NAME.to_vec()),
             "every admitted reserve funding candidate must succeed"
         );
-        let count = pallet_lending::VaultCount::<T>::get();
+        let count = pallet_lending::Vaults::<T>::count();
         ensure!(
             count <= <T as pallet_lending::Config>::MaxFundedSubnets::get(),
             "funded vault count must stay within the processing bound"

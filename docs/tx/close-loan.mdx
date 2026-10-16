@@ -20,7 +20,7 @@ Closing remains available when new borrowing is disabled.
 
 | Signer | Origin | Pallet | Wraps |
 | --- | --- | --- | --- |
-| `coldkey` | signed account (pallet role may apply) | Lending | [`Lending.close`](/code/pallets/lending/src/lib.rs#L700-L811) |
+| `coldkey` | signed account (pallet role may apply) | Lending | [`Lending.close`](/code/pallets/lending/src/lib.rs#L709-L820) |
 
 ## Parameters
 
@@ -74,7 +74,7 @@ result = sub.execute_tool("close_loan", {...}, wallet)
 
 ## On-chain implementation
 
-`Lending.close` — [`pallets/lending/src/lib.rs#L703`](/code/pallets/lending/src/lib.rs#L700-L811):
+`Lending.close` — [`pallets/lending/src/lib.rs#L712`](/code/pallets/lending/src/lib.rs#L709-L820):
 
 ```rust
 #[pallet::call_index(1)]
@@ -102,7 +102,7 @@ pub fn close(
     let custody = Self::custody_hotkey()?;
     let refund = match position.side {
         Side::Short => {
-            let pot = Self::add(position.collateral, position.proceeds)?;
+            let pot = position.collateral;
             if repay_from_wallet {
                 ensure!(
                     position.principal <= max_payment,
@@ -191,6 +191,6 @@ pub fn close(
 }
 ```
 
-Delegates to [`position_account`](/code/pallets/lending/src/lib.rs#L1041), [`reserve_account`](/code/pallets/lending/src/lib.rs#L1037), [`custody_hotkey`](/code/pallets/lending/src/lib.rs#L1064).
+Delegates to [`position_account`](/code/pallets/lending/src/lib.rs#L1047), [`reserve_account`](/code/pallets/lending/src/lib.rs#L1043), [`custody_hotkey`](/code/pallets/lending/src/lib.rs#L1070).
 
 Every file is browsable under [/code](/code) exactly as built into the runtime, or as plain text under `/code/raw/<path>` (index: [`/code/index.json`](/code/index.json)).
