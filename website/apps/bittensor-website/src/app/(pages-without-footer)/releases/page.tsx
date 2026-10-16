@@ -23,16 +23,16 @@ type Release = {
 // Newest first. Add new releases to the top.
 const releases: Release[] = [
   {
-    tag: 'v480',
+    tag: 'v481',
     date: 'October 2026',
     title: 'Etao',
     summary:
       'Subnets choose their emission split. A per-subnet five-slot vector sets how much of each ' +
       'block goes to the owner (0–33%), validators (≤50%) and miners (≥33%), changeable by the ' +
       'owner once a week. Root TAO stakers keep their baseline payout whatever the owner picks: ' +
-      "every change re-solves the subnet's effective TAO weight once, at set time, against a " +
-      'fresh baseline, so changes cannot ratchet root in either direction. Payouts are identical ' +
-      'at upgrade; sudo_set_subnet_owner_cut is deprecated.',
+      'every block the chain pays root its baseline share off the top of the validator slot, ' +
+      'recomputed from live state, so neither owners nor drifting stake can move it. Payouts ' +
+      'are identical at upgrade; sudo_set_subnet_owner_cut is deprecated.',
     href: '/releases/etao',
   },
   {
