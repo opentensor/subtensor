@@ -583,7 +583,14 @@ fn test_set_rejects_validator_share_at_or_below_root_baseline() {
             SubtensorModule::get_subnet_emission_weights(netuid),
             SubtensorModule::default_emission_weights()
         );
-        // Just above the baseline is accepted; root still earns the baseline.
+        // One part above the baseline is the smallest accepted value: the check
+        // is made in u64 parts, exactly as the runtime API reports the baseline.
+        assert_ok!(set_validator(netuid, 0, baseline_parts + 1));
+        assert_eq!(
+            SubtensorModule::get_subnet_emission_weights(netuid)[VALIDATOR as usize],
+            baseline_parts + 1
+        );
+        // Further above the baseline is accepted too; root still earns the baseline.
         let validator = share(baseline * 1.001);
         assert_ok!(set_validator(netuid, 0, validator));
         assert_abs_diff_eq!(
@@ -613,6 +620,8 @@ fn test_set_without_root_stake_accepts_any_positive_share() {
             set_validator(netuid, 0, 0),
             Error::<Test>::ValidatorEmissionTooLowToPreserveRoot
         );
+        // A single part is enough: the floor is `baseline_parts + 1 = 1`.
+        assert_ok!(set_validator(netuid, 0, 1));
         assert_ok!(set_validator(netuid, 0, pct(1)));
         assert_eq!(
             SubtensorModule::get_root_emission_share(netuid),

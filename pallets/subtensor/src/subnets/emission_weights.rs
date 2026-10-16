@@ -492,13 +492,17 @@ impl<T: Config> Pallet<T> {
     /// [`Self::baseline_root_emission_share`]. Only `new_validator` and live
     /// chain values go in; the old vector plays no part. Fails with
     /// [`Error::ValidatorEmissionTooLowToPreserveRoot`] when `V_new ≤ r`.
+    ///
+    /// The comparison is made in u64 parts of [`EMISSION_WEIGHT_ONE`], the
+    /// same unit the runtime API reports as `root_baseline_share`, so the
+    /// smallest accepted value is exactly `root_baseline_share + 1` and
+    /// clients can compute the floor without reproducing fixed-point rounding.
     pub fn ensure_validator_share_above_root_baseline(
         netuid: NetUid,
         new_validator: u64,
     ) -> Result<(), Error<T>> {
         ensure!(
-            Self::emission_weight_to_fixed(new_validator)
-                > Self::baseline_root_emission_share(netuid),
+            new_validator > emission_share_to_parts(Self::baseline_root_emission_share(netuid)),
             Error::<T>::ValidatorEmissionTooLowToPreserveRoot
         );
         Ok(())
