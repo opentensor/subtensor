@@ -1350,10 +1350,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Interim envelope until CI reference benchmarking lands. Base: the mechanism
 	/// emission split setter's measured owner-or-root rate-limit check, admin-window
 	/// read and `NetworksAdded` read. On top of that this call reads
-	/// `SubnetEmissionWeights`, `SubnetCreatedViaLease`, `SubnetTaoWeight`, `TaoWeight`,
-	/// `SubnetTAO(root)`, `SubnetAlphaIn`, `SubnetAlphaOut` and the protocol alpha reservoir
-	/// (r:8, counted as 6 on top of the base's own reads) and writes
-	/// `SubnetEmissionWeights` plus `SubnetTaoWeight` instead of one item (w:+1).
+	/// `SubnetEmissionWeights`, `SubnetCreatedViaLease`, `TaoWeight`, `SubnetTAO(root)`,
+	/// `SubnetAlphaIn`, `SubnetAlphaOut` and the protocol alpha reservoir (r:7, counted as
+	/// 6 on top of the base's own reads) and writes `SubnetEmissionWeights`; the extra
+	/// write keeps the envelope generous.
 	fn sudo_set_subnet_emission_weights() -> Weight {
 		Self::sudo_set_mechanism_emission_split()
 			.saturating_add(T::DbWeight::get().reads(6_u64))
@@ -2810,10 +2810,10 @@ impl WeightInfo for () {
 	/// Interim envelope until CI reference benchmarking lands. Base: the mechanism
 	/// emission split setter's measured owner-or-root rate-limit check, admin-window
 	/// read and `NetworksAdded` read. On top of that this call reads
-	/// `SubnetEmissionWeights`, `SubnetCreatedViaLease`, `SubnetTaoWeight`, `TaoWeight`,
-	/// `SubnetTAO(root)`, `SubnetAlphaIn`, `SubnetAlphaOut` and the protocol alpha reservoir
-	/// (r:8, counted as 6 on top of the base's own reads) and writes
-	/// `SubnetEmissionWeights` plus `SubnetTaoWeight` instead of one item (w:+1).
+	/// `SubnetEmissionWeights`, `SubnetCreatedViaLease`, `TaoWeight`, `SubnetTAO(root)`,
+	/// `SubnetAlphaIn`, `SubnetAlphaOut` and the protocol alpha reservoir (r:7, counted as
+	/// 6 on top of the base's own reads) and writes `SubnetEmissionWeights`; the extra
+	/// write keeps the envelope generous.
 	fn sudo_set_subnet_emission_weights() -> Weight {
 		<() as WeightInfo>::sudo_set_mechanism_emission_split()
 			.saturating_add(RocksDbWeight::get().reads(6_u64))
