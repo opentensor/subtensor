@@ -226,9 +226,8 @@ are not repriced, fractional interest is carried forward, and the weekly
 collection schedule is not restarted. An increase uses the existing position
 slot. Its quote and caller bounds refer to **additional principal, opening value
 and annual interest**; position reads and `list` report the combined totals.
-The `Increased` event likewise reports the added collateral, principal, proceeds
-and annual coupon rather than the resulting totals. New shorts report zero
-proceeds in that compatibility event field.
+The `Increased` event likewise reports the added collateral, principal
+and annual coupon rather than the resulting totals.
 
 ## Interest and forfeiture
 
@@ -274,7 +273,7 @@ deposit, that missing collateral is also recorded as `DustForfeited` and removed
 from the position's accounting. Collection then finalizes the exhausted position.
 The same check repairs an already-reaped sub-deposit remainder before collection
 or dissolution, and prevents it from backing a position increase. It does not
-forgive larger custody deficits or missing sale proceeds.
+forgive larger custody deficits.
 
 There are no price-triggered liquidations. When collateral is exhausted, the
 chain forfeits and finalizes the position, retains assets still held in custody,
@@ -376,6 +375,10 @@ burn; a spot or EMA valuation is not a funded receipt.
 
 Longs accumulate **actual funded TAO redemptions** across all of the position
 escrow's alpha holdings, then settle once after every redemption is complete.
+These receipts live in `Lending.DissolutionReceipts`, separately from the active
+position. Successful terminal settlement removes the receipt entry; a failed
+payout preserves it for retry. Ordinary opening, interest collection and closing
+do not use dissolution receipts.
 They do not promise to pay an EMA or spot valuation. A long
 owing 50 TAO whose collateral redeems for 70 TAO repays 50 and refunds 20. If it
 redeems for 20 TAO, the chain recovers 20 and records a 30-TAO loss. Freely

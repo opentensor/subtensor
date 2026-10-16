@@ -142,7 +142,7 @@ async def test_close_derives_units_from_owned_position(side, wallet, payment_uni
 @pytest.mark.asyncio
 async def test_short_close_defaults_to_wallet_alpha_repayment_without_sale_proceeds():
     fake = FakeSubstrate()
-    _seed_position(fake, principal=700_000_001, proceeds=0)
+    _seed_position(fake, principal=700_000_001)
     intent = CloseLoan(
         netuid=1,
         max_payment=Balance.from_rao(700_000_001, 1),
@@ -166,7 +166,7 @@ async def test_default_short_close_rejects_tao_tagged_as_wallet_alpha_payment():
 @pytest.mark.asyncio
 async def test_plain_close_amount_gets_currency_before_tao_spend_policy(side, tao_spend):
     fake = FakeSubstrate()
-    _seed_position(fake, side, principal=700_000_000_001, proceeds=0)
+    _seed_position(fake, side, principal=700_000_000_001)
     async with Client("local", substrate=fake) as client:
         plan = await client.plan(
             CloseLoan(netuid=1, max_payment="700.000000001"),
@@ -257,7 +257,7 @@ async def test_quote_preserves_alpha_delivery_and_reference_value_without_sale_p
 @pytest.mark.asyncio
 async def test_short_close_quote_selects_wallet_or_collateral_payment(wallet, payment_unit):
     fake = FakeSubstrate()
-    _seed_position(fake, principal=700, proceeds=0)
+    _seed_position(fake, principal=700)
     seen = []
 
     def quote(params):
@@ -276,7 +276,7 @@ async def test_short_close_quote_selects_wallet_or_collateral_payment(wallet, pa
 @pytest.mark.asyncio
 async def test_collateral_buyback_quote_refusal_never_becomes_wallet_repayment():
     fake = FakeSubstrate()
-    _seed_position(fake, proceeds=0)
+    _seed_position(fake)
     fake.seed_runtime("LendingRuntimeApi", "quote_close", {"Err": "InsufficientEscrow"})
     async with Client("local", substrate=fake) as client:
         with pytest.raises(BittensorError, match="InsufficientEscrow"):
@@ -437,7 +437,7 @@ def test_cli_close_sets_payment_and_refund_bounds(cli_fake):
 def test_cli_short_close_keeps_repayment_choice_in_quote_and_call(
     cli_fake, flags, wallet, payment, protected_payment
 ):
-    _seed_position(cli_fake, principal=700_000_000, proceeds=0)
+    _seed_position(cli_fake, principal=700_000_000)
     seen = []
 
     def quote(params):
@@ -571,7 +571,7 @@ def test_cli_lists_a_subnet_without_wallet_unlock(cli_fake):
     positions = json.loads(result.output)
     assert len(positions) == 1
     assert positions[0]["coldkey"] == ALICE
-    assert positions[0]["proceeds"] == str(Balance.from_rao(0))
+    assert "proceeds" not in positions[0]
     assert cli_fake.submissions == []
 
 

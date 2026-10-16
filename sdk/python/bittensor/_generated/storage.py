@@ -494,6 +494,7 @@ class Lending:
     Dissolutions = Item('Lending', 'Dissolutions', 'Dissolution')
     RedemptionBases = Item('Lending', 'RedemptionBases', '(u64, u128, u64)')
     DissolutionCursor = Item('Lending', 'DissolutionCursor', 'AccountId32')
+    DissolutionReceipts = Item('Lending', 'DissolutionReceipts', 'u64')
     Due = Item('Lending', 'Due', '()')
     NextDue = Item('Lending', 'NextDue', 'u32')
     ConversionCursor = Item('Lending', 'ConversionCursor', 'NetUid')

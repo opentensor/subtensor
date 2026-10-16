@@ -242,13 +242,12 @@ impl<T: Config> LendingPoolInterface<T::AccountId> for Pallet<T> {
         Self::transfer_lending_tao_or_recycle_dust(from, vault, amount)
     }
 
-    fn remaining_tao_collateral(escrow: &T::AccountId, collateral: u64, proceeds: u64) -> u64 {
+    fn remaining_tao_collateral(escrow: &T::AccountId, collateral: u64) -> u64 {
         // Allow-death coupon transfers can reap the final TAO dust. This narrow
         // reconciliation also repairs positions left by earlier collections.
-        // Do not treat a larger missing balance or missing sale proceeds as dust.
+        // Do not treat a larger missing balance as dust.
         if collateral > 0
             && TaoBalance::from(collateral) < <T as Config>::Currency::minimum_balance()
-            && proceeds == 0
             && <T as Config>::Currency::total_balance(escrow).is_zero()
         {
             0

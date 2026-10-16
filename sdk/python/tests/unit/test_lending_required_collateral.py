@@ -148,7 +148,6 @@ def position(collateral):
         "hotkey": ALICE_HOT,
         "principal": 1_000_000_000,
         "collateral": collateral,
-        "proceeds": 0,
         "annual_interest": 1,
         "last_accrued": 101,
         "interest_remainder": 0,

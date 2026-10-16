@@ -1185,7 +1185,7 @@
   {
     "name": "lending_position",
     "summary": "A coldkey's fixed-principal loan on one subnet, or None.",
-    "description": "A coldkey's fixed-principal loan on one subnet, or None.\n\nPrincipal increases when more is borrowed and never falls when interest is\ncollected. This record reports the combined position. Amounts retain their\ncurrency: short collateral is TAO and short debt is alpha; long collateral\nis alpha and long debt is TAO. The retained `proceeds` compatibility field\nis zero for newly opened shorts; it is not a borrowed-alpha sale balance.\nInterest and\nremaining runway are estimates at the selected block, not a close quote.",
+    "description": "A coldkey's fixed-principal loan on one subnet, or None.\n\nPrincipal increases when more is borrowed and never falls when interest is\ncollected. This record reports the combined position. Amounts retain their\ncurrency: short collateral is TAO and short debt is alpha; long collateral\nis alpha and long debt is TAO. Funded dissolution receipts are tracked\nseparately from the position. Interest and remaining runway are estimates\nat the selected block, not a close quote.",
     "params": {
       "coldkey_ss58": "string",
       "netuid": "integer"
@@ -1240,7 +1240,7 @@
   {
     "name": "lending_reserves",
     "summary": "Available, borrowed, lost and pending balances of the lending vault.",
-    "description": "Available, borrowed, lost and pending balances of the lending vault.\n\nThe 10% cap uses available inventory plus outstanding principal in each\nasset. AMM reserves, borrower collateral, legacy escrow proceeds and pending\nconversions are excluded. This reports inventory, not a promise that\nloans will be repaid.",
+    "description": "Available, borrowed, lost and pending balances of the lending vault.\n\nThe 10% cap uses available inventory plus outstanding principal in each\nasset. AMM reserves, borrower collateral, dissolution receipts and pending\nconversions are excluded. This reports inventory, not a promise that\nloans will be repaid.",
     "params": {
       "netuid": "integer"
     },

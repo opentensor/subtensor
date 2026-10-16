@@ -217,7 +217,6 @@ fn exact_open_transfers_requested_principal_and_collects_its_fixed_coupon() {
             assert_eq!(loan.principal, requested);
             assert_eq!(loan.annual_interest, expected_annual);
             assert_eq!(loan.collateral, COLLATERAL);
-            assert_eq!(loan.proceeds, 0);
             let after = Vaults::<Test>::get(netuid).unwrap();
             if side == Side::Short {
                 assert_eq!(stake(&owner, &hotkey, netuid), source_alpha + requested);
@@ -243,7 +242,6 @@ fn exact_open_transfers_requested_principal_and_collects_its_fixed_coupon() {
                     side,
                     principal: requested,
                     collateral: COLLATERAL,
-                    proceeds: 0,
                     annual_interest: expected_annual,
                 })));
             assert_single_position(owner, hotkey, netuid);
@@ -381,7 +379,6 @@ fn exact_increase_preserves_old_coupon_accrual_and_due_for_both_assets() {
                     side,
                     principal: UNIT,
                     collateral: COLLATERAL,
-                    proceeds: 0,
                     annual_interest: expected_added_annual,
                 })));
             assert_single_position(owner, hotkey, netuid);
@@ -762,7 +759,6 @@ fn growing_alpha_loan_preserves_coupon_and_one_position_then_closes_combined_deb
             combined.collateral,
             first.collateral - paid + added_collateral
         );
-        assert_eq!(combined.proceeds, 0);
         assert_eq!(stake(&owner, &hotkey, netuid), combined.principal);
         assert_eq!(
             combined.annual_interest,
@@ -779,14 +775,10 @@ fn growing_alpha_loan_preserves_coupon_and_one_position_then_closes_combined_deb
                 side: Side::Short,
                 principal: added.principal,
                 collateral: added_collateral,
-                proceeds: 0,
                 annual_interest: added.annual_interest,
             })));
         let escrow = Lending::position_account(&owner, netuid);
-        assert_eq!(
-            Balances::free_balance(escrow).to_u64(),
-            combined.collateral + combined.proceeds
-        );
+        assert_eq!(Balances::free_balance(escrow).to_u64(), combined.collateral);
         assert_single_position(owner, hotkey, netuid);
         Lending::on_idle(System::block_number(), meter().remaining());
         assert_eq!(
@@ -840,7 +832,6 @@ fn real_long_loop_grows_one_loan_under_combined_funded_ltv_and_burns_interest() 
             combined.annual_interest,
             first.annual_interest + added.annual_interest
         );
-        assert_eq!(combined.proceeds, 0);
         assert_eq!(combined.due, first.due);
         assert_eq!(
             vault.available_tao,
@@ -1054,7 +1045,7 @@ fn grown_long_deregisters_as_one_merged_debt_against_ordinary_funded_redemption(
         assert_ok!(SubtensorModule::do_dissolve_network(netuid));
         assert!(Lending::settle_shorts(netuid, &mut meter()));
         run_destroy_alpha_get_total_and_settle(netuid);
-        let funded = Positions::<Test>::get(owner, netuid).unwrap().proceeds;
+        let funded = pallet_lending::DissolutionReceipts::<Test>::get(netuid, owner);
         assert!(funded > combined.principal);
         let wallet_after_ordinary_payout = Balances::free_balance(owner);
         assert!(Lending::settle_remaining_longs(netuid, &mut meter()));
@@ -1642,7 +1633,6 @@ fn alpha_loan_quote_rejects_stale_value_after_a_real_purchase_changes_depth() {
             current.principal,
             current.opening_value,
         ));
-        assert_eq!(Positions::<Test>::get(owner, netuid).unwrap().proceeds, 0);
         assert_total_alpha_staked_invariant(netuid);
         assert_live_stake_total();
     });
@@ -2134,7 +2124,6 @@ fn alpha_loan_is_delivered_without_a_swap_and_can_move_before_fixed_token_repaym
         let custody = Lending::custody_hotkey().unwrap();
         assert_eq!(stake(&owner, &hotkey, netuid), position.principal);
         assert_eq!(stake(&escrow, &custody, netuid), 0);
-        assert_eq!(position.proceeds, 0);
         assert_eq!(
             (
                 SubnetTAO::<Test>::get(netuid),
@@ -2435,7 +2424,6 @@ fn alpha_borrower_can_sell_and_repledge_the_real_sale_cash_into_the_same_loan() 
         let merged = Positions::<Test>::get(owner, netuid).unwrap();
         assert_eq!(merged.principal, first.principal + added.principal);
         assert_eq!(merged.collateral, first.collateral + cash);
-        assert_eq!(merged.proceeds, 0);
         assert_eq!(stake(&owner, &hotkey, netuid), added.principal);
         assert_eq!(
             Balances::free_balance(Lending::position_account(&owner, netuid)).to_u64(),
@@ -2591,12 +2579,11 @@ fn a_public_alpha_donation_to_a_short_escrow_is_refunded_after_terminal_debt() {
             donation,
         ));
         assert!(stake(&escrow, &donated_hotkey, netuid) > 0);
-        assert_eq!(Positions::<Test>::get(owner, netuid).unwrap().proceeds, 0);
         SubnetFastMovingPrice::<Test>::insert(netuid, substrate_fixed::types::U64F64::from_num(2));
         assert_ok!(SubtensorModule::do_dissolve_network(netuid));
         assert!(Lending::settle_shorts(netuid, &mut meter()));
         let mut status = run_destroy_alpha_get_total_and_settle(netuid);
-        let funded = Positions::<Test>::get(owner, netuid).unwrap().proceeds;
+        let funded = pallet_lending::DissolutionReceipts::<Test>::get(netuid, owner);
         assert_eq!(
             Balances::free_balance(escrow).to_u64(),
             loan.collateral + funded
@@ -2759,7 +2746,7 @@ fn wallet_alpha_repayment_below_spot_minimum_preserves_unrelated_stake_locks() {
         assert!(current_value < DefaultMinStake::<Test>::get().to_u64());
         let quote = Lending::quote_close(&owner, netuid, true).unwrap();
         assert_eq!(quote.payment, position.principal);
-        assert_eq!(quote.refund, position.collateral + position.proceeds);
+        assert_eq!(quote.refund, position.collateral);
         assert_noop!(
             <SubtensorModule as OrderSwapInterface<U256>>::transfer_staked_alpha(
                 &owner,
@@ -3010,7 +2997,6 @@ fn weekly_short_coupon_burns_tao_without_trading_or_replenishing_inventory() {
             / u128::from(LendingBlocksPerYear::get())) as u64;
         assert_eq!(after.principal, before.principal);
         assert_eq!(after.collateral, before.collateral - paid);
-        assert_eq!(after.proceeds, before.proceeds);
         let vault = Vaults::<Test>::get(netuid).unwrap();
         assert_eq!(vault, before_vault);
         assert_eq!(
@@ -3186,7 +3172,6 @@ fn reaped_short_collateral_is_cleaned_up_and_does_not_block_dissolution() {
                 ));
                 let before = Positions::<Test>::get(owner, netuid).unwrap();
                 let escrow = Lending::position_account(&owner, netuid);
-                assert_eq!(before.proceeds, 0);
                 let elapsed = ((u128::from(before.collateral) - 1)
                     * u128::from(LendingBlocksPerYear::get())
                     / u128::from(before.annual_interest)) as u64;
@@ -3314,17 +3299,16 @@ fn short_collateral_reconciliation_only_discards_missing_dust() {
     new_test_ext(1).execute_with(|| {
         ExistentialDeposit::set(500.into());
         let escrow = U256::from(16_172);
-        let remaining = |collateral, proceeds| {
+        let remaining = |collateral| {
             <SubtensorModule as LendingPoolInterface<U256>>::remaining_tao_collateral(
-                &escrow, collateral, proceeds,
+                &escrow, collateral,
             )
         };
-        assert_eq!(remaining(499, 0), 0);
-        assert_eq!(remaining(500, 0), 500);
-        assert_eq!(remaining(1_000, 0), 1_000);
-        assert_eq!(remaining(499, 1), 499);
+        assert_eq!(remaining(499), 0);
+        assert_eq!(remaining(500), 500);
+        assert_eq!(remaining(1_000), 1_000);
         add_balance_to_coldkey_account(&escrow, 1_000.into());
-        assert_eq!(remaining(499, 0), 499);
+        assert_eq!(remaining(499), 499);
     });
 }
 
@@ -3494,7 +3478,7 @@ fn deregistration_burns_only_funded_fees_and_preserves_principal_recovery() {
             TaoBalance::ZERO
         );
         assert_eq!(Vaults::<Test>::get(netuid).unwrap().pending_alpha, long_fee);
-        let funded = Positions::<Test>::get(long_owner, netuid).unwrap().proceeds;
+        let funded = pallet_lending::DissolutionReceipts::<Test>::get(netuid, long_owner);
         assert!(funded > long.principal);
         let owner_before = SubtensorModule::get_coldkey_balance(&long_owner);
         assert!(Lending::settle_remaining_longs(netuid, &mut meter()));
@@ -3676,7 +3660,6 @@ fn terminal_alpha_fee_burn_failure_rolls_back_the_whole_funded_payout_page() {
         assert_eq!(status, before_status);
         assert_eq!(sp_io::storage::root(sp_runtime::StateVersion::V1), before);
         assert_eq!(SubtensorModule::get_coldkey_balance(&reserve), 1.into());
-        assert_eq!(Positions::<Test>::get(owner, netuid).unwrap().proceeds, 0);
         assert_eq!(Vaults::<Test>::get(netuid).unwrap().pending_alpha, pending);
 
         ExistentialDeposit::set(1.into());
@@ -3692,7 +3675,7 @@ fn terminal_alpha_fee_burn_failure_rolls_back_the_whole_funded_payout_page() {
         );
         assert!(SubtensorModule::get_coldkey_balance(&burn_account()).to_u64() > 500);
         assert_eq!(SubtensorModule::get_coldkey_balance(&reserve), 1.into());
-        assert!(Positions::<Test>::get(owner, netuid).unwrap().proceeds > 0);
+        assert!(pallet_lending::DissolutionReceipts::<Test>::get(netuid, owner) > 0);
         assert_eq!(Vaults::<Test>::get(netuid).unwrap().available_tao, 0);
         assert_eq!(Vaults::<Test>::get(netuid).unwrap().pending_alpha, pending);
         assert_eq!(TotalIssuance::<Test>::get(), Balances::total_issuance());
@@ -3895,7 +3878,10 @@ fn deregistration_accumulates_donated_secondary_hotkey_payouts_before_retiring_a
                 assert!(funded - before < position.principal);
             }
             let pending = Positions::<Test>::get(owner, netuid).unwrap();
-            assert_eq!(pending.proceeds, funded);
+            assert_eq!(
+                pallet_lending::DissolutionReceipts::<Test>::get(netuid, owner),
+                funded
+            );
             assert_eq!(pending.principal, position.principal);
             assert_eq!(
                 pallet_lending::EscrowOwner::<Test>::get(netuid, escrow),

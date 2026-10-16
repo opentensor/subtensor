@@ -879,7 +879,6 @@ fn indexed_long(owner: u8, principal: u64, collateral: u64) {
             hotkey: owner.clone(),
             principal,
             collateral,
-            proceeds: 0,
             annual_interest: 0,
             last_accrued: 1,
             interest_remainder: 0,
@@ -944,7 +943,6 @@ fn alpha_funded_cap_covers_quarter_collateral_even_under_maximum_split_row_dust(
         );
         open(Side::Short, 1000);
         assert_eq!(position().annual_interest, 124);
-        assert_eq!(position().proceeds, 0);
         assert_eq!(swap_count(), 0);
         assert_ok!(Lending::start_dissolution(netuid()));
         assert!(Lending::settle_shorts(netuid(), &mut meter()));
@@ -1218,7 +1216,6 @@ fn alpha_funded_scan_is_bounded_and_does_not_pool_collateral_or_expected_recover
         Positions::<Test>::mutate(account(2), netuid(), |state| {
             let state = state.as_mut().unwrap();
             state.side = Side::Short;
-            state.proceeds = 500_000;
         });
         indexed_long(3, 1, 1_000_000);
         Positions::<Test>::mutate(account(3), netuid(), |state| {
@@ -1416,9 +1413,7 @@ fn coupons_outstanding_debt_and_anticipated_recoveries_do_not_fund_new_loans() {
         write(b"test/redemption_supply", Some(200_001_u128));
         let quote = Lending::quote_open(netuid(), Side::Long, 1_000).unwrap();
         indexed_long(2, 9_000, 100_000);
-        Positions::<Test>::mutate(account(2), netuid(), |p| {
-            p.as_mut().unwrap().proceeds = 500_000;
-        });
+        mint_tao(&Lending::position_account(&account(2), netuid()), 500_000);
         Vaults::<Test>::mutate(netuid(), |vault| {
             let vault = vault.as_mut().unwrap();
             vault.outstanding_tao = 9_000;
@@ -1526,7 +1521,6 @@ fn short_alpha_is_delivered_freely_and_wallet_repayment_restores_fixed_debt() {
         let escrow = Lending::position_account(&account(1), netuid());
         assert_eq!(p.principal, MockPool::buy_quote(netuid(), 250).unwrap());
         assert_eq!(p.annual_interest, p.principal);
-        assert_eq!(p.proceeds, 0);
         assert_eq!(tao(&account(1)), before - 1000);
         assert_eq!(
             alpha(&account(1), &account(1), netuid()),
@@ -1595,7 +1589,6 @@ fn borrowed_alpha_can_move_and_fixed_debt_can_be_repaid_from_other_alpha() {
         ));
         assert_eq!(alpha(&account(2), &account(3), netuid()), debt);
         assert_eq!(position().principal, debt);
-        assert_eq!(position().proceeds, 0);
         // The fixed debt does not follow the recipient: the original borrower
         // can repay it from any alpha now available on their saved hotkey.
         assert_ok!(Lending::close(
@@ -1638,7 +1631,6 @@ fn borrower_can_sell_free_alpha_and_pledge_the_free_proceeds_to_grow() {
         assert_eq!(tao(&account(1)), before - proceeds);
         assert_eq!(position().principal, original.principal + quote.principal);
         assert_eq!(position().collateral, 1000 + proceeds);
-        assert_eq!(position().proceeds, 0);
         assert_eq!(position().due, original.due);
         assert_eq!(TotalPositions::<Test>::get(), 1);
         assert_eq!(swap_count(), 1);
@@ -1677,7 +1669,6 @@ fn short_opening_uses_both_purchase_depth_and_reference_value_without_a_swap() {
             open(Side::Short, 1000);
             assert_eq!(position().principal, quote.principal);
             assert_eq!(position().annual_interest, quote.opening_value);
-            assert_eq!(position().proceeds, 0);
             assert_eq!(market(netuid()), (alpha_reserve, tao_reserve));
             assert_eq!(swap_count(), 0);
         });
@@ -1721,12 +1712,10 @@ fn optional_short_buyback_cannot_spend_cash_outside_remaining_collateral() {
         open(Side::Short, 1000);
         let debt = position().principal;
         let escrow = Lending::position_account(&account(1), netuid());
-        // Legacy cash proceeds are still refundable, but buyback has only the
-        // remaining collateral budget. New free-alpha loans create no proceeds.
+        // Unsolicited cash does not become collateral or enlarge buyback capacity.
         Positions::<Test>::mutate(account(1), netuid(), |state| {
             let state = state.as_mut().unwrap();
             state.collateral = 100;
-            state.proceeds = 1000;
         });
         write(&key(b"test/tao", &escrow), 1100_u64);
         let before = position();
@@ -1749,9 +1738,9 @@ fn optional_short_buyback_cannot_spend_cash_outside_remaining_collateral() {
             netuid(),
             true,
             debt,
-            1100
+            100
         ));
-        assert_eq!(tao(&escrow), 0);
+        assert_eq!(tao(&escrow), 1000);
         assert_eq!(
             Vaults::<Test>::get(netuid()).unwrap().available_alpha,
             100_000
@@ -1903,7 +1892,7 @@ fn annual_interest_exhaustion_forfeits_without_forced_swap() {
         assert_eq!(vault.outstanding_alpha, 0);
         assert_eq!(vault.lost_alpha, p.principal);
         assert_eq!(vault.pending_tao, 1000);
-        assert_eq!(vault.available_tao, 100_000 + p.proceeds);
+        assert_eq!(vault.available_tao, 100_000);
         assert_eq!(burned_tao(), 0);
         assert_eq!(swap_count(), swaps);
         assert_noop!(
@@ -2245,7 +2234,7 @@ fn deregistration_uses_common_interest_cutoff_and_no_swaps() {
         ));
         assert!(Lending::settle_remaining_longs(netuid(), &mut meter()));
         assert!(Positions::<Test>::get(account(1), netuid()).is_none());
-        let expected_refund = 1000 - charged + p.proceeds - p.principal;
+        let expected_refund = 1000 - charged - p.principal;
         assert_eq!(tao(&account(1)), 999_000 + expected_refund);
         assert_eq!(Vaults::<Test>::get(netuid()).unwrap().pending_tao, 0);
         assert!(
@@ -2440,7 +2429,7 @@ fn donated_alpha_redemption_in_short_escrow_is_refunded_without_backing_debt() {
                 receipt.into()
             ));
         }
-        assert_eq!(position().proceeds, 30);
+        assert_eq!(DissolutionReceipts::<Test>::get(netuid(), account(1)), 30);
         assert_eq!(position().collateral, 1000);
         assert_eq!(position().principal, debt);
         assert!(Lending::settle_remaining_longs(netuid(), &mut meter()));
@@ -3186,20 +3175,42 @@ fn multiple_terminal_receipts_retire_the_long_only_after_all_redemptions() {
         let escrow = Lending::position_account(&account(1), netuid());
         assert_ok!(Lending::start_dissolution(netuid()));
         assert!(Lending::settle_shorts(netuid(), &mut meter()));
+        let frozen_position = position();
         for paid in [1, debt + 100] {
             mint_tao(&escrow, paid);
             assert_ok!(Lending::on_alpha_redemption(netuid(), &escrow, paid.into()));
             assert!(Positions::<Test>::contains_key(account(1), netuid()));
             assert_eq!(Vaults::<Test>::get(netuid()).unwrap().outstanding_tao, debt);
             assert_eq!(tao(&account(1)), owner_before);
+            assert_eq!(position(), frozen_position);
         }
-        assert_eq!(position().proceeds, debt + 101);
+        assert_eq!(
+            DissolutionReceipts::<Test>::get(netuid(), account(1)),
+            debt + 101
+        );
+        // Taking the receipt ledger must roll back if a payout fails, so retries
+        // recover the same debt and refund rather than silently losing receipts.
+        write(b"test/fail_transfer", true);
+        assert!(!Lending::settle_remaining_longs(netuid(), &mut meter()));
+        assert_eq!(
+            DissolutionReceipts::<Test>::get(netuid(), account(1)),
+            debt + 101
+        );
+        assert_eq!(position(), frozen_position);
+        assert_eq!(tao(&escrow), debt + 101);
+        write(b"test/fail_transfer", false);
         assert!(Lending::settle_remaining_longs(netuid(), &mut meter()));
         assert_eq!(tao(&account(1)), owner_before + 101);
         assert_eq!(tao(&escrow), 0);
         assert_eq!(Vaults::<Test>::get(netuid()).unwrap().available_tao, debt);
         assert_eq!(Vaults::<Test>::get(netuid()).unwrap().lost_tao, 0);
         assert!(!EscrowOwner::<Test>::contains_key(netuid(), &escrow));
+        assert!(!DissolutionReceipts::<Test>::contains_key(
+            netuid(),
+            account(1)
+        ));
+        assert!(Lending::settle_remaining_longs(netuid(), &mut meter()));
+        assert_eq!(tao(&account(1)), owner_before + 101);
     });
 }
 
