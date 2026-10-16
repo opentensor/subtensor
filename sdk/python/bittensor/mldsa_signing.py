@@ -37,7 +37,7 @@ class PreparedMldsaExtrinsic:
 
     @property
     def payload(self):
-        """Complete native payload; the signer adds its canonical v2 header."""
+        """Complete native payload; the signer adds its canonical ML-DSA header."""
         return self.unsigned.payload
 
     @property

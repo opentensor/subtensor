@@ -174,6 +174,109 @@ fn all_metadata_versions_respect_legacy_client_fixed_array_limit() {
 }
 
 #[test]
+fn account_metadata_uses_scheme_names_and_preserves_event_and_call_indices() {
+    for version in [14, 15, 16] {
+        let encoded = hashed_extrinsic::metadata_at_version(version).unwrap();
+        let metadata = frame_metadata::RuntimeMetadataPrefixed::decode(&mut &encoded[..]).unwrap();
+        macro_rules! check {
+            ($data:expr) => {{
+                let data = $data;
+                let pallet = data
+                    .pallets
+                    .iter()
+                    .find(|p| p.name == "HashedAccounts")
+                    .unwrap();
+                let storage = &pallet.storage.as_ref().unwrap().entries;
+                for name in [
+                    "MlDsaAccounts",
+                    "MlDsaRegistrationEnabled",
+                    "MlDsaAuthorizationEnabled",
+                ] {
+                    assert!(storage.iter().any(|entry| entry.name == name));
+                }
+                assert!(storage.iter().all(|entry| !entry.name.contains("V2")));
+                assert!(
+                    pallet
+                        .constants
+                        .iter()
+                        .any(|c| c.name == "MlDsaRegistrationDeposit")
+                );
+                assert!(pallet.constants.iter().all(|c| !c.name.contains("V2")));
+                let scale_info::TypeDef::Variant(events) = &data
+                    .types
+                    .resolve(pallet.event.as_ref().unwrap().ty.id)
+                    .unwrap()
+                    .type_def
+                else {
+                    panic!("event enum")
+                };
+                assert_eq!(
+                    events
+                        .variants
+                        .iter()
+                        .map(|v| (v.index, v.name.as_str()))
+                        .collect::<Vec<_>>(),
+                    vec![
+                        (0, "Registered"),
+                        (1, "Rotated"),
+                        (2, "RegisteredMlDsa"),
+                        (3, "RotatedMlDsa"),
+                        (4, "DerivedProtected"),
+                        (5, "CapabilityInstalled"),
+                        (6, "CapabilityRevoked"),
+                        (7, "MlDsaEnabled"),
+                        (8, "AuthorizedFixed"),
+                    ]
+                );
+                let scale_info::TypeDef::Variant(calls) = &data
+                    .types
+                    .resolve(pallet.calls.as_ref().unwrap().ty.id)
+                    .unwrap()
+                    .type_def
+                else {
+                    panic!("call enum")
+                };
+                assert!(calls.variants.iter().all(|v| !v.name.contains("v2")));
+                for (index, name) in [
+                    (0, "register"),
+                    (1, "check_registered"),
+                    (6, "set_mldsa_enabled"),
+                ] {
+                    assert!(
+                        calls
+                            .variants
+                            .iter()
+                            .any(|v| v.index == index && v.name == name)
+                    );
+                }
+                let orders = data
+                    .pallets
+                    .iter()
+                    .find(|p| p.name == "LimitOrders")
+                    .unwrap();
+                for name in ["ApprovedOrders", "OrderNonces"] {
+                    assert!(
+                        orders
+                            .storage
+                            .as_ref()
+                            .unwrap()
+                            .entries
+                            .iter()
+                            .any(|e| e.name == name)
+                    );
+                }
+            }};
+        }
+        match metadata.1 {
+            frame_metadata::RuntimeMetadata::V14(data) => check!(data),
+            frame_metadata::RuntimeMetadata::V15(data) => check!(data),
+            frame_metadata::RuntimeMetadata::V16(data) => check!(data),
+            _ => panic!("unexpected metadata version"),
+        }
+    }
+}
+
+#[test]
 fn python_sdk_v4_vectors_execute_rotate_and_preserve_account_identity() {
     let fixture: serde_json::Value =
         serde_json::from_str(include_str!("../tests/fixtures/hashed-python-v4.json")).unwrap();

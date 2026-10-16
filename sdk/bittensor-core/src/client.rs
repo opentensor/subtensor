@@ -541,7 +541,7 @@ impl Client {
             if mldsa
                 && self.query(
                     "HashedAccounts",
-                    "V2AuthorizationEnabled",
+                    "MlDsaAuthorizationEnabled",
                     &[],
                     Some(&state_hash),
                 )? != Value::Bool(true)
@@ -552,7 +552,7 @@ impl Client {
             }
             let record = self.query(
                 "HashedAccounts",
-                if mldsa { "V2Records" } else { "Accounts" },
+                if mldsa { "MlDsaAccounts" } else { "Accounts" },
                 &[Value::str(signer.ss58_address())],
                 Some(&state_hash),
             )?;
@@ -650,18 +650,18 @@ impl Client {
             64
         };
         let proof = if is_mldsa_crypto(signer.crypto_type()) {
-            subtensor_hashed::v2::SignerAddress {
+            subtensor_hashed::mldsa::SignerAddress {
                 account: signer.public_key_bytes(),
-                version: subtensor_hashed::v2::VERSION,
+                version: subtensor_hashed::mldsa::VERSION,
                 algorithm: if signer.crypto_type() == crate::keys::CRYPTO_MLDSA65 {
-                    subtensor_hashed::v2::ALGORITHM
+                    subtensor_hashed::mldsa::ALGORITHM
                 } else {
-                    subtensor_hashed::v2::FIXED_ALGORITHM
+                    subtensor_hashed::mldsa::FIXED_ALGORITHM
                 },
                 generation: 0,
-                public_key: [0; subtensor_hashed::v2::PUBLIC_KEY_LEN],
+                public_key: [0; subtensor_hashed::mldsa::PUBLIC_KEY_LEN],
                 next_commitment: [1; 64],
-                signature: [0; subtensor_hashed::v2::SIGNATURE_LEN],
+                signature: [0; subtensor_hashed::mldsa::SIGNATURE_LEN],
             }
             .encode()
         } else {
@@ -1908,7 +1908,7 @@ mod fee_quote_tests {
     use std::net::TcpListener;
 
     fn runtime() -> Runtime {
-        crate::codec::extrinsic::hashed_tests::runtime_v2()
+        crate::codec::extrinsic::hashed_tests::runtime_mldsa()
     }
 
     #[test]
@@ -2051,7 +2051,7 @@ mod fee_quote_tests {
                 assert_eq!(&body[..2], &[0x84, 2]);
                 let mut raw = &body[2..];
                 assert_eq!(codec::Compact::<u32>::decode(&mut raw).unwrap().0, 5367);
-                let address = subtensor_hashed::v2::SignerAddress::decode(&mut raw).unwrap();
+                let address = subtensor_hashed::mldsa::SignerAddress::decode(&mut raw).unwrap();
                 assert_eq!(address.account, full.public_key_bytes());
                 assert_eq!(address.public_key, [0; 1952]);
                 assert_eq!(address.signature, [0; 3309]);

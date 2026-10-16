@@ -66,10 +66,10 @@ impl OnRegister for RegistrationGuard {
         }
     }
 
-    fn on_register_v2(
+    fn on_register_mldsa(
         _: &AccountId32,
         _: &AccountId32,
-        _: &subtensor_hashed::v2::Descriptor,
+        _: &subtensor_hashed::mldsa::Descriptor,
     ) -> DispatchResult {
         if RejectRegistration::get() {
             Err(DispatchError::Other("incompatible authority"))
@@ -91,10 +91,10 @@ impl OnRegister for RegistrationGuard {
     }
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn setup_benchmark_v2(
+    fn setup_benchmark_mldsa(
         _: &AccountId32,
         _: &AccountId32,
-        _: &subtensor_hashed::v2::Descriptor,
+        _: &subtensor_hashed::mldsa::Descriptor,
     ) -> DispatchResult {
         Ok(())
     }
@@ -112,7 +112,7 @@ impl OnRegister for RegistrationGuard {
 impl Config for Test {
     type Currency = Balances;
     type RegistrationDeposit = ConstU64<10>;
-    type V2RegistrationDeposit = ConstU64<20>;
+    type MlDsaRegistrationDeposit = ConstU64<20>;
     type DerivedRegistrationDeposit = ConstU64<30>;
     type Enabled = Enabled;
     type OnRegister = RegistrationGuard;
@@ -464,12 +464,12 @@ fn zero_balance_does_not_erase_authorization_or_reset_generation() {
 fn unified_registration_preserves_scheme_policy_and_account_identity() {
     new_test_ext().execute_with(|| {
         let (_, classical, classical_account) = fixture();
-        let mldsa = subtensor_hashed::v2::Descriptor {
+        let mldsa = subtensor_hashed::mldsa::Descriptor {
             version: 2,
             algorithm: 4,
             initial_commitment: [7; 64],
         };
-        let mldsa_account = AccountId32::new(subtensor_hashed::v2::account_id(&mldsa));
+        let mldsa_account = AccountId32::new(subtensor_hashed::mldsa::account_id(&mldsa));
 
         // Classical registration remains usable with ML-DSA activation disabled.
         assert_ok!(HashedAccounts::register(
@@ -509,11 +509,13 @@ fn unified_registration_preserves_scheme_policy_and_account_identity() {
             classical
         );
         assert_eq!(
-            V2Records::<Test>::get(&mldsa_account).unwrap().descriptor,
+            MlDsaAccounts::<Test>::get(&mldsa_account)
+                .unwrap()
+                .descriptor,
             mldsa
         );
         assert!(!Accounts::<Test>::contains_key(&mldsa_account));
-        assert!(!V2Records::<Test>::contains_key(&classical_account));
+        assert!(!MlDsaAccounts::<Test>::contains_key(&classical_account));
         assert_eq!(System::account_nonce(&classical_account), 1);
         assert_eq!(System::account_nonce(&mldsa_account), 1);
 
@@ -534,7 +536,7 @@ fn unified_registration_uses_original_call_indices_and_scheme_weights() {
     use frame_support::dispatch::GetDispatchInfo;
 
     let (_, classical, _) = fixture();
-    let mldsa = subtensor_hashed::v2::Descriptor {
+    let mldsa = subtensor_hashed::mldsa::Descriptor {
         version: 2,
         algorithm: 4,
         initial_commitment: [7; 64],

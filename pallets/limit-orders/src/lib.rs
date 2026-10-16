@@ -384,14 +384,14 @@ pub mod pallet {
     #[pallet::storage]
     pub type Orders<T: Config> = StorageMap<_, Blake2_128Concat, H256, OrderStatus, OptionQuery>;
 
-    /// Owner-approved complete v2 order commitments.
+    /// Owner-approved complete nonce-bound order commitments.
     #[pallet::storage]
-    pub type ApprovedOrdersV2<T: Config> =
+    pub type ApprovedOrders<T: Config> =
         StorageMap<_, Blake2_128Concat, H256, [u8; 64], OptionQuery>;
 
     /// A nonce can name only one canonical order, including after cancellation.
     #[pallet::storage]
-    pub type OrderNoncesV2<T: Config> =
+    pub type OrderNonces<T: Config> =
         StorageDoubleMap<_, Blake2_128Concat, AccountId32, Twox64Concat, u64, H256, OptionQuery>;
 
     /// Switch to enable/disable the pallet.
@@ -471,7 +471,7 @@ pub mod pallet {
         },
         /// A provider record was removed without being drawn.
         LinkedOutputPruned { order_id: H256, total: u64 },
-        OrderApprovedV2 {
+        OrderApproved {
             order_id: H256,
             signer: T::AccountId,
             nonce: u64,
@@ -547,7 +547,7 @@ pub mod pallet {
         OrderNonceUsed,
         /// This full order has not been approved by its authenticated owner.
         OrderNotApproved,
-        /// The runtime batch capacity is smaller than the submitted v2 batch.
+        /// The runtime batch capacity is smaller than the submitted authorized batch.
         OrderBatchTooLarge,
         /// Nonce-bearing terms and proof authorization must use the same mode.
         InvalidAuthorizationMode,
@@ -783,15 +783,15 @@ pub mod pallet {
                 T::AuthenticatedOrderSignerFilter::contains(&who),
                 Error::<T>::OrderSignerFrozen
             );
-            let id = Self::derive_order_id_v2(nonce, &terms);
+            let id = Self::derive_authorized_order_id(nonce, &terms);
             Self::check_order_nonce(&who, nonce, id)?;
             ensure!(
                 !Orders::<T>::contains_key(id),
                 Error::<T>::OrderAlreadyProcessed
             );
-            OrderNoncesV2::<T>::insert(&who, nonce, id);
-            ApprovedOrdersV2::<T>::insert(id, Self::approval_commitment_v2(nonce, &terms));
-            Self::deposit_event(Event::OrderApprovedV2 {
+            OrderNonces::<T>::insert(&who, nonce, id);
+            ApprovedOrders::<T>::insert(id, Self::order_approval_commitment(nonce, &terms));
+            Self::deposit_event(Event::OrderApproved {
                 order_id: id,
                 signer: who,
                 nonce,
@@ -837,7 +837,7 @@ pub mod pallet {
         /// Derive the on-chain `OrderId` as blake2_256 over the SCALE-encoded order.
         pub fn derive_order_id(order: &VersionedOrder<T::AccountId>) -> H256 {
             if let Some((nonce, terms)) = order.authorized_terms() {
-                return Self::derive_order_id_v2(nonce, &terms);
+                return Self::derive_authorized_order_id(nonce, &terms);
             }
             H256(sp_core::hashing::blake2_256(&order.encode()))
         }
@@ -1034,7 +1034,7 @@ partial fills {partial}, signer {signer}{tail}",
             relayer: &T::AccountId,
         ) -> Result<(u64, Option<H256>), DispatchError> {
             if let Some(signed) = Self::authenticated_order(signed_order)? {
-                return Self::validate_order_v2(
+                return Self::validate_authorized_order(
                     &signed,
                     &signed.order.view(),
                     order_id,
@@ -1289,7 +1289,7 @@ partial fills {partial}, signer {signer}{tail}",
             relayer: &T::AccountId,
         ) -> DispatchResult {
             if let Some(signed) = Self::authenticated_order(&signed_order)? {
-                return Self::try_execute_order_v2(signed, order_id, relayer);
+                return Self::try_execute_authorized_order(signed, order_id, relayer);
             }
             let order = signed_order.order.view();
             let now_ms = T::TimeProvider::now().as_millis() as u64;

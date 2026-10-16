@@ -9,7 +9,7 @@ description: "Revoke the active order key and permanently advance its epoch tomb
 
 | Signer | Origin | Pallet | Wraps |
 | --- | --- | --- | --- |
-| `coldkey` | signed account (pallet role may apply) | HashedAccounts | [`HashedAccounts.revoke_capability`](/code/pallets/hashed-accounts/src/lib.rs#L332-L338) |
+| `coldkey` | signed account (pallet role may apply) | HashedAccounts | [`HashedAccounts.revoke_capability`](/code/pallets/hashed-accounts/src/lib.rs#L338-L344) |
 
 ## Parameters
 
@@ -54,7 +54,7 @@ result = sub.execute_tool("revoke_order_capability", {...}, wallet)
 
 ## On-chain implementation
 
-`HashedAccounts.revoke_capability` — [`pallets/hashed-accounts/src/lib.rs#L335`](/code/pallets/hashed-accounts/src/lib.rs#L332-L338):
+`HashedAccounts.revoke_capability` — [`pallets/hashed-accounts/src/lib.rs#L341`](/code/pallets/hashed-accounts/src/lib.rs#L338-L344):
 
 ```rust
 #[pallet::call_index(8)]
@@ -66,6 +66,6 @@ pub fn revoke_capability(origin: OriginFor<T>, role: CapabilityRole) -> Dispatch
 }
 ```
 
-Delegates to [`do_revoke_capability`](/code/pallets/hashed-accounts/src/capabilities.rs#L143).
+Delegates to [`do_revoke_capability`](/code/pallets/hashed-accounts/src/capabilities.rs#L148).
 
 Every file is browsable under [/code](/code) exactly as built into the runtime, or as plain text under `/code/raw/<path>` (index: [`/code/index.json`](/code/index.json)).

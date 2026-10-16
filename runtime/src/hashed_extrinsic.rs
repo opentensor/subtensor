@@ -87,7 +87,7 @@ fn decode_address<I: Input>(input: &mut I) -> Result<Address, codec::Error> {
         2 => {
             let len = Compact::<u32>::decode(input)?.0;
             if len != SignerAddress::ENCODED_LEN as u32
-                && len != subtensor_hashed::v2::SignerAddress::ENCODED_LEN as u32
+                && len != subtensor_hashed::mldsa::SignerAddress::ENCODED_LEN as u32
             {
                 return Err("Invalid hashed signer address length".into());
             }
@@ -252,10 +252,10 @@ impl Checkable<ChainContext> for UncheckedExtrinsic {
                             return Err(InvalidTransaction::BadProof.into());
                         }
                     }
-                    AccountAuthorization::V2(header) => {
+                    AccountAuthorization::MlDsa(header) => {
                         use pallet_hashed_accounts::weights::WeightInfo;
                         if !matches!(signature, Signature::Ed25519(marker)
-                            if marker.0 == subtensor_hashed::v2::CARRIER_SIGNATURE)
+                            if marker.0 == subtensor_hashed::mldsa::CARRIER_SIGNATURE)
                         {
                             return Err(InvalidTransaction::BadProof.into());
                         }
@@ -270,7 +270,7 @@ impl Checkable<ChainContext> for UncheckedExtrinsic {
                         ) {
                             return Err(InvalidTransaction::ExhaustsResources.into());
                         }
-                        crate::HashedAccounts::check_authorization_v2(
+                        crate::HashedAccounts::check_mldsa_authorization(
                             &account,
                             header.algorithm,
                             &header.public_key,
@@ -278,7 +278,7 @@ impl Checkable<ChainContext> for UncheckedExtrinsic {
                             header.next_commitment,
                         )
                         .map_err(|_| InvalidTransaction::BadProof)?;
-                        let address = subtensor_hashed::v2::SignerAddress::from_bytes(bytes)
+                        let address = subtensor_hashed::mldsa::SignerAddress::from_bytes(bytes)
                             .map_err(|_| InvalidTransaction::BadProof)?;
                         let payload = (&xt.0.function, &extension.0, extension.0.implicit()?);
                         if !address.verify_encoded(&payload) {

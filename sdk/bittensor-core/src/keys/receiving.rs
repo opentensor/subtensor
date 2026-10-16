@@ -49,7 +49,7 @@ fn checksum(payload: &[u8]) -> [u8; CHECKSUM_LEN] {
 /// Encode a public descriptor without a network field; addresses work on every chain.
 /// This receiving address does not change the account's existing identity.
 pub fn encode_hashed_receiving_address(descriptor: &[u8]) -> Result<String, CoreError> {
-    if descriptor.first() == Some(&subtensor_hashed::v2::VERSION) {
+    if descriptor.first() == Some(&subtensor_hashed::mldsa::VERSION) {
         return encode_mldsa_receiving_address(descriptor);
     }
     validate_descriptor(descriptor)?;
@@ -103,7 +103,7 @@ fn mldsa_checksum(descriptor: &[u8]) -> [u8; CHECKSUM_LEN] {
 }
 
 pub fn encode_mldsa_receiving_address(descriptor: &[u8]) -> Result<String, CoreError> {
-    let parsed = subtensor_hashed::v2::Descriptor::from_bytes(descriptor)
+    let parsed = subtensor_hashed::mldsa::Descriptor::from_bytes(descriptor)
         .map_err(|_| crypto_err("invalid ML-DSA receiving descriptor"))?;
     if !parsed.is_supported() {
         return Err(crypto_err("unsupported ML-DSA receiving descriptor"));
@@ -132,7 +132,7 @@ pub fn decode_mldsa_receiving_address(address: &str) -> Result<Vec<u8>, CoreErro
     if body[66..] != mldsa_checksum(descriptor) {
         return Err(crypto_err("ML-DSA receiving checksum mismatch"));
     }
-    let parsed = subtensor_hashed::v2::Descriptor::from_bytes(descriptor)
+    let parsed = subtensor_hashed::mldsa::Descriptor::from_bytes(descriptor)
         .map_err(|_| crypto_err("invalid ML-DSA receiving descriptor"))?;
     if !parsed.is_supported() {
         return Err(crypto_err("unsupported ML-DSA receiving descriptor"));

@@ -63,7 +63,7 @@ def test_message_signing_uses_owner_grant_and_never_transaction_key(key, capabil
 
 def test_http_binary_proof_roundtrip_is_bounded_and_replay_safe(key, capability):
     nonce = 1_800_000_000_000_000_000
-    request = http_auth.sign_v2(
+    request = http_auth.sign_mldsa(
         key,
         capability=capability,
         method="POST",
@@ -84,14 +84,14 @@ def test_http_binary_proof_roundtrip_is_bounded_and_replay_safe(key, capability)
     )
     # A failed proof must not poison the nonce store.
     with pytest.raises(http_auth.BadSignature):
-        http_auth.verify_v2(request.headers, request.body + b"changed", **args)
-    authenticated = http_auth.verify_v2(request.headers, request.body, **args)
+        http_auth.verify_mldsa(request.headers, request.body + b"changed", **args)
+    authenticated = http_auth.verify_mldsa(request.headers, request.body, **args)
     assert authenticated.body == b'{"input":42}'
     assert authenticated.caller.hotkey_ss58 == key.ss58_address
     with pytest.raises(http_auth.ReplayedRequest):
-        http_auth.verify_v2(request.headers, request.body, **args)
+        http_auth.verify_mldsa(request.headers, request.body, **args)
     with pytest.raises(http_auth.MalformedAuth):
-        http_auth.verify_v2(request.headers, request.body, **{**args, "max_body_bytes": 1})
+        http_auth.verify_mldsa(request.headers, request.body, **{**args, "max_body_bytes": 1})
 
 
 @pytest.mark.parametrize(
@@ -99,7 +99,7 @@ def test_http_binary_proof_roundtrip_is_bounded_and_replay_safe(key, capability)
 )
 def test_http_changed_request_or_expired_nonce_rejected(key, capability, field, value):
     nonce = 1_800_000_000_000_000_000
-    request = http_auth.sign_v2(
+    request = http_auth.sign_mldsa(
         key,
         capability=capability,
         method="POST",
@@ -117,7 +117,7 @@ def test_http_changed_request_or_expired_nonce_rejected(key, capability, field, 
     )
     args[field] = value
     with pytest.raises(http_auth.AuthError):
-        http_auth.verify_v2(request.headers, request.body, **args)
+        http_auth.verify_mldsa(request.headers, request.body, **args)
 
 
 def test_grant_builder_commits_only_message_role_and_validates_bounds(key):
@@ -173,7 +173,7 @@ async def test_finalized_capability_rejects_revocation_expiry_and_wrong_audience
             assert block_hash == "0x" + (bytes([4]) * 32).hex()
             if name == "HashedAccountsEnabled":
                 return self.master_enabled
-            if name == "V2AuthorizationEnabled":
+            if name == "MlDsaAuthorizationEnabled":
                 return self.enabled
             if name == "CapabilityEpochs":
                 return self.epoch

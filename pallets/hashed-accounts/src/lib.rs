@@ -12,13 +12,13 @@ pub use pallet::*;
 pub use subtensor_hashed::{Descriptor, Proof, RegistrationDescriptor, Scheme};
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+mod mldsa;
+#[cfg(test)]
+mod mldsa_tests;
 #[cfg(test)]
 mod tests;
-mod v2;
-#[cfg(test)]
-mod v2_tests;
 pub mod weights;
-pub use v2::*;
+pub use mldsa::*;
 pub mod capabilities;
 pub use capabilities::*;
 
@@ -45,14 +45,14 @@ pub trait OnRegister {
     ) -> DispatchResult;
 
     /// Validate registration context, preexisting authorities, and prepare the
-    /// permanent EVM alias. A runtime must implement this before enabling v2.
-    fn on_register_v2(
+    /// permanent EVM alias. A runtime must implement this before enabling ML-DSA.
+    fn on_register_mldsa(
         _: &AccountId32,
         _: &AccountId32,
-        _: &subtensor_hashed::v2::Descriptor,
+        _: &subtensor_hashed::mldsa::Descriptor,
     ) -> DispatchResult {
         Err(sp_runtime::DispatchError::Other(
-            "V2RegistrationUnsupported",
+            "MlDsaRegistrationUnsupported",
         ))
     }
 
@@ -87,12 +87,14 @@ pub trait OnRegister {
     }
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn setup_benchmark_v2(
+    fn setup_benchmark_mldsa(
         _: &AccountId32,
         _: &AccountId32,
-        _: &subtensor_hashed::v2::Descriptor,
+        _: &subtensor_hashed::mldsa::Descriptor,
     ) -> DispatchResult {
-        Err(sp_runtime::DispatchError::Other("V2BenchmarkUnsupported"))
+        Err(sp_runtime::DispatchError::Other(
+            "MlDsaBenchmarkUnsupported",
+        ))
     }
 
     #[cfg(feature = "runtime-benchmarks")]
@@ -158,7 +160,7 @@ pub mod pallet {
         #[pallet::constant]
         type RegistrationDeposit: Get<BalanceOf<Self>>;
         #[pallet::constant]
-        type V2RegistrationDeposit: Get<BalanceOf<Self>>;
+        type MlDsaRegistrationDeposit: Get<BalanceOf<Self>>;
         #[pallet::constant]
         type DerivedRegistrationDeposit: Get<BalanceOf<Self>>;
         /// Master registration and authorization switch for all hashed and ML-DSA accounts.
@@ -182,8 +184,9 @@ pub mod pallet {
 
     /// Separate storage preserves every v1 record's encoded representation.
     #[pallet::storage]
-    #[pallet::getter(fn v2_records)]
-    pub type V2Records<T: Config> = StorageMap<_, Blake2_128Concat, AccountId32, AccountRecordV2>;
+    #[pallet::getter(fn mldsa_accounts)]
+    pub type MlDsaAccounts<T: Config> =
+        StorageMap<_, Blake2_128Concat, AccountId32, MlDsaAccountRecord>;
 
     /// Immutable protection, including after a pure proxy is killed.
     #[pallet::storage]
@@ -193,13 +196,13 @@ pub mod pallet {
 
     /// Additional ML-DSA registration gate, subordinate to `Config::Enabled`.
     #[pallet::storage]
-    #[pallet::getter(fn v2_registration_enabled)]
-    pub type V2RegistrationEnabled<T: Config> = StorageValue<_, bool, ValueQuery>;
+    #[pallet::getter(fn mldsa_registration_enabled)]
+    pub type MlDsaRegistrationEnabled<T: Config> = StorageValue<_, bool, ValueQuery>;
 
     /// Additional ML-DSA authorization gate, subordinate to `Config::Enabled`.
     #[pallet::storage]
-    #[pallet::getter(fn v2_authorization_enabled)]
-    pub type V2AuthorizationEnabled<T: Config> = StorageValue<_, bool, ValueQuery>;
+    #[pallet::getter(fn mldsa_authorization_enabled)]
+    pub type MlDsaAuthorizationEnabled<T: Config> = StorageValue<_, bool, ValueQuery>;
 
     #[pallet::storage]
     pub type CapabilityEpochs<T: Config> = StorageDoubleMap<
@@ -234,12 +237,12 @@ pub mod pallet {
             account: AccountId32,
             generation: u64,
         },
-        RegisteredV2 {
+        RegisteredMlDsa {
             account: AccountId32,
             sponsor: AccountId32,
             deposit: BalanceOf<T>,
         },
-        RotatedV2 {
+        RotatedMlDsa {
             account: AccountId32,
             generation: u64,
         },
@@ -258,12 +261,12 @@ pub mod pallet {
             role: CapabilityRole,
             epoch: u64,
         },
-        V2Enabled {
+        MlDsaEnabled {
             registration: bool,
             authorization: bool,
         },
         /// A fixed-key ML-DSA authorization consumed its replay counter.
-        AuthorizedFixedV2 {
+        AuthorizedFixed {
             account: AccountId32,
             generation: u64,
         },
@@ -275,8 +278,8 @@ pub mod pallet {
         #[pallet::constant_name(MldsaAccountProfiles)]
         pub fn mldsa_account_profiles() -> [u8; 2] {
             [
-                subtensor_hashed::v2::ALGORITHM,
-                subtensor_hashed::v2::FIXED_ALGORITHM,
+                subtensor_hashed::mldsa::ALGORITHM,
+                subtensor_hashed::mldsa::FIXED_ALGORITHM,
             ]
         }
     }
@@ -359,7 +362,7 @@ pub mod pallet {
                     Self::do_register_classical(&sponsor, descriptor)
                 }
                 RegistrationDescriptor::MlDsa65(descriptor) => {
-                    Self::do_register_v2(&sponsor, descriptor)
+                    Self::do_register_mldsa(&sponsor, descriptor)
                 }
             }
         }
@@ -442,9 +445,9 @@ pub mod pallet {
             authorization: bool,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            V2RegistrationEnabled::<T>::put(registration);
-            V2AuthorizationEnabled::<T>::put(authorization);
-            Self::deposit_event(Event::V2Enabled {
+            MlDsaRegistrationEnabled::<T>::put(registration);
+            MlDsaAuthorizationEnabled::<T>::put(authorization);
+            Self::deposit_event(Event::MlDsaEnabled {
                 registration,
                 authorization,
             });
@@ -465,7 +468,7 @@ pub mod pallet {
                 return Ok(());
             }
             ensure!(
-                !V2Records::<T>::contains_key(&account)
+                !MlDsaAccounts::<T>::contains_key(&account)
                     && !DerivedAuthorities::<T>::contains_key(&account),
                 Error::<T>::AuthenticationKindConflict
             );
@@ -513,12 +516,12 @@ pub mod pallet {
         }
 
         fn do_check_registered_mldsa65(
-            descriptor: subtensor_hashed::v2::Descriptor,
+            descriptor: subtensor_hashed::mldsa::Descriptor,
         ) -> DispatchResult {
             ensure!(T::Enabled::get(), Error::<T>::Disabled);
             ensure!(descriptor.is_supported(), Error::<T>::UnsupportedDescriptor);
-            let account = AccountId32::new(subtensor_hashed::v2::account_id(&descriptor));
-            let record = V2Records::<T>::get(account).ok_or(Error::<T>::NotRegistered)?;
+            let account = AccountId32::new(subtensor_hashed::mldsa::account_id(&descriptor));
+            let record = MlDsaAccounts::<T>::get(account).ok_or(Error::<T>::NotRegistered)?;
             ensure!(
                 record.descriptor == descriptor,
                 Error::<T>::DescriptorMismatch

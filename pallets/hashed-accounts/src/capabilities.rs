@@ -105,7 +105,7 @@ impl<T: Config> Pallet<T> {
         scope: CapabilityScope,
     ) -> DispatchResult {
         ensure!(T::Enabled::get(), Error::<T>::Disabled);
-        ensure!(V2AuthorizationEnabled::<T>::get(), Error::<T>::Disabled);
+        ensure!(MlDsaAuthorizationEnabled::<T>::get(), Error::<T>::Disabled);
         ensure!(
             Self::authority_meets(owner, SecurityFloor::PqRequired),
             Error::<T>::NotRegistered
@@ -165,10 +165,10 @@ impl<T: Config> Pallet<T> {
         owner: &AccountId32,
         role: CapabilityRole,
         epoch: u64,
-        public_key: &subtensor_hashed::v2::PublicKeyBytes,
+        public_key: &subtensor_hashed::mldsa::PublicKeyBytes,
     ) -> Result<CapabilityRecord, sp_runtime::DispatchError> {
         ensure!(T::Enabled::get(), Error::<T>::Disabled);
-        ensure!(V2AuthorizationEnabled::<T>::get(), Error::<T>::Disabled);
+        ensure!(MlDsaAuthorizationEnabled::<T>::get(), Error::<T>::Disabled);
         let record =
             ActiveCapabilities::<T>::get(owner, role).ok_or(Error::<T>::CapabilityMissing)?;
         ensure!(
@@ -178,7 +178,7 @@ impl<T: Config> Pallet<T> {
         let now: u64 = frame_system::Pallet::<T>::block_number().saturated_into();
         ensure!(now <= record.expires_at, Error::<T>::CapabilityExpired);
         ensure!(
-            subtensor_hashed::v2::commitment(public_key) == record.key_commitment,
+            subtensor_hashed::mldsa::commitment(public_key) == record.key_commitment,
             Error::<T>::WrongCommitment
         );
         Ok(record)
@@ -188,7 +188,7 @@ impl<T: Config> Pallet<T> {
     pub fn check_order_capability(
         owner: &AccountId32,
         epoch: u64,
-        public_key: &subtensor_hashed::v2::PublicKeyBytes,
+        public_key: &subtensor_hashed::mldsa::PublicKeyBytes,
         netuid: u16,
         hotkey: &AccountId32,
         fee_recipient: &AccountId32,

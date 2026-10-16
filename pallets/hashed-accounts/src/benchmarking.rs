@@ -31,33 +31,33 @@ fn setup<T: Config>() -> Result<
     Ok((sponsor, descriptor, account, key))
 }
 
-fn setup_v2<T: Config>() -> Result<
+fn setup_mldsa<T: Config>() -> Result<
     (
         AccountId32,
-        subtensor_hashed::v2::Descriptor,
+        subtensor_hashed::mldsa::Descriptor,
         AccountId32,
         [u8; 32],
     ),
     BenchmarkError,
 > {
-    V2RegistrationEnabled::<T>::put(true);
-    V2AuthorizationEnabled::<T>::put(true);
+    MlDsaRegistrationEnabled::<T>::put(true);
+    MlDsaAuthorizationEnabled::<T>::put(true);
     let sponsor: AccountId32 = whitelisted_caller();
     let _ = T::Currency::make_free_balance_be(&sponsor, BalanceOf::<T>::max_value());
     let seed = [57; 32];
-    let key = subtensor_hashed::v2::public_key_from_seed(&seed).map_err(BenchmarkError::Stop)?;
-    let descriptor = subtensor_hashed::v2::Descriptor {
+    let key = subtensor_hashed::mldsa::public_key_from_seed(&seed).map_err(BenchmarkError::Stop)?;
+    let descriptor = subtensor_hashed::mldsa::Descriptor {
         version: 2,
         algorithm: 4,
-        initial_commitment: subtensor_hashed::v2::key_commitment(&key),
+        initial_commitment: subtensor_hashed::mldsa::key_commitment(&key),
     };
-    let account = AccountId32::new(subtensor_hashed::v2::account_id(&descriptor));
-    T::OnRegister::setup_benchmark_v2(&account, &sponsor, &descriptor)?;
+    let account = AccountId32::new(subtensor_hashed::mldsa::account_id(&descriptor));
+    T::OnRegister::setup_benchmark_mldsa(&account, &sponsor, &descriptor)?;
     Ok((sponsor, descriptor, account, seed))
 }
 
 fn setup_derived<T: Config>() -> Result<(AccountId32, DerivedDescriptor), BenchmarkError> {
-    let (sponsor, descriptor, leaf, _) = setup_v2::<T>()?;
+    let (sponsor, descriptor, leaf, _) = setup_mldsa::<T>()?;
     Pallet::<T>::register(RawOrigin::Signed(sponsor.clone()).into(), descriptor.into())?;
     // Largest membership with a valid near-limit expanded dependency graph.
     // Each cached dependency is constructed from a real immutable parent.
@@ -111,7 +111,7 @@ mod benchmarks {
 
     #[benchmark]
     fn install_capability() -> Result<(), BenchmarkError> {
-        let (sponsor, descriptor, account, _) = setup_v2::<T>()?;
+        let (sponsor, descriptor, account, _) = setup_mldsa::<T>()?;
         Pallet::<T>::register(RawOrigin::Signed(sponsor).into(), descriptor.into())?;
         let scope = CapabilityScope::Message {
             audience: alloc::vec![42; 128]
@@ -135,7 +135,7 @@ mod benchmarks {
 
     #[benchmark]
     fn revoke_capability() -> Result<(), BenchmarkError> {
-        let (sponsor, descriptor, account, _) = setup_v2::<T>()?;
+        let (sponsor, descriptor, account, _) = setup_mldsa::<T>()?;
         Pallet::<T>::register(RawOrigin::Signed(sponsor).into(), descriptor.into())?;
         Pallet::<T>::install_capability(
             RawOrigin::Signed(account.clone()).into(),
@@ -160,26 +160,26 @@ mod benchmarks {
 
     #[benchmark]
     fn register_mldsa65() -> Result<(), BenchmarkError> {
-        let (sponsor, descriptor, account, _) = setup_v2::<T>()?;
+        let (sponsor, descriptor, account, _) = setup_mldsa::<T>()?;
         #[extrinsic_call]
         register(
             RawOrigin::Signed(sponsor),
             RegistrationDescriptor::MlDsa65(descriptor),
         );
-        assert!(V2Records::<T>::contains_key(account));
+        assert!(MlDsaAccounts::<T>::contains_key(account));
         Ok(())
     }
 
     #[benchmark]
     fn check_registered_mldsa65() -> Result<(), BenchmarkError> {
-        let (sponsor, descriptor, account, _) = setup_v2::<T>()?;
+        let (sponsor, descriptor, account, _) = setup_mldsa::<T>()?;
         Pallet::<T>::register(RawOrigin::Signed(sponsor.clone()).into(), descriptor.into())?;
         #[extrinsic_call]
         check_registered(
             RawOrigin::Signed(sponsor),
             RegistrationDescriptor::MlDsa65(descriptor),
         );
-        assert_eq!(V2Records::<T>::get(account).unwrap().generation, 0);
+        assert_eq!(MlDsaAccounts::<T>::get(account).unwrap().generation, 0);
         Ok(())
     }
 
@@ -224,21 +224,21 @@ mod benchmarks {
     fn set_mldsa_enabled() {
         #[extrinsic_call]
         _(RawOrigin::Root, true, true);
-        assert!(V2RegistrationEnabled::<T>::get());
-        assert!(V2AuthorizationEnabled::<T>::get());
+        assert!(MlDsaRegistrationEnabled::<T>::get());
+        assert!(MlDsaAuthorizationEnabled::<T>::get());
     }
 
     #[benchmark]
     fn authorize_mldsa65(n: Linear<0, 10485760>) -> Result<(), BenchmarkError> {
-        let (sponsor, descriptor, account, seed) = setup_v2::<T>()?;
+        let (sponsor, descriptor, account, seed) = setup_mldsa::<T>()?;
         Pallet::<T>::register(RawOrigin::Signed(sponsor).into(), descriptor.into())?;
         let implication = alloc::vec![0u8; n.saturating_add(4096) as usize];
-        let header = subtensor_hashed::v2::Header {
+        let header = subtensor_hashed::mldsa::Header {
             account: *account.as_ref(),
             version: 2,
             algorithm: 4,
             generation: 0,
-            public_key: subtensor_hashed::v2::public_key_from_seed(&seed)
+            public_key: subtensor_hashed::mldsa::public_key_from_seed(&seed)
                 .map_err(BenchmarkError::Stop)?,
             next_commitment: [9; 64],
         };
@@ -251,7 +251,7 @@ mod benchmarks {
             // verification, current-state reads and the preparation state write.
             let payload = implication.clone();
             assert!(proof.verify(&payload));
-            let ticket = Pallet::<T>::check_authorization_v2(
+            let ticket = Pallet::<T>::check_mldsa_authorization(
                 &account,
                 proof.algorithm,
                 &proof.public_key,
@@ -259,23 +259,23 @@ mod benchmarks {
                 proof.next_commitment,
             )
             .unwrap();
-            Pallet::<T>::advance_v2(&ticket).unwrap();
+            Pallet::<T>::advance_mldsa(&ticket).unwrap();
         }
-        assert_eq!(V2Records::<T>::get(account).unwrap().generation, 1);
+        assert_eq!(MlDsaAccounts::<T>::get(account).unwrap().generation, 1);
         Ok(())
     }
 
     #[benchmark]
     fn authorize_mldsa65_invalid(n: Linear<0, 10485760>) -> Result<(), BenchmarkError> {
-        let (sponsor, descriptor, account, seed) = setup_v2::<T>()?;
+        let (sponsor, descriptor, account, seed) = setup_mldsa::<T>()?;
         Pallet::<T>::register(RawOrigin::Signed(sponsor).into(), descriptor.into())?;
         let implication = alloc::vec![0u8; n.saturating_add(4096) as usize];
-        let header = subtensor_hashed::v2::Header {
+        let header = subtensor_hashed::mldsa::Header {
             account: *account.as_ref(),
             version: 2,
             algorithm: 4,
             generation: 0,
-            public_key: subtensor_hashed::v2::public_key_from_seed(&seed)
+            public_key: subtensor_hashed::mldsa::public_key_from_seed(&seed)
                 .map_err(BenchmarkError::Stop)?,
             next_commitment: [9; 64],
         };
@@ -289,7 +289,7 @@ mod benchmarks {
         {
             let payload = implication.clone();
             assert!(
-                Pallet::<T>::check_authorization_v2(
+                Pallet::<T>::check_mldsa_authorization(
                     &account,
                     proof.algorithm,
                     &proof.public_key,
@@ -300,7 +300,7 @@ mod benchmarks {
             );
             assert!(!proof.verify(&payload));
         }
-        assert_eq!(V2Records::<T>::get(account).unwrap().generation, 0);
+        assert_eq!(MlDsaAccounts::<T>::get(account).unwrap().generation, 0);
         Ok(())
     }
 

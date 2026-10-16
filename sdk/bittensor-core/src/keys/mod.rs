@@ -42,7 +42,7 @@ pub const CRYPTO_SR25519: u8 = 1;
 /// Versioned rotating commitment wrapper; initially wraps sr25519.
 pub const CRYPTO_HASHED: u8 = 4;
 pub const CRYPTO_HASHED_ED25519: u8 = 6;
-/// SDK identifier; distinct from the v2 wire algorithm value 4.
+/// SDK identifier; distinct from the ML-DSA wire algorithm value 4.
 pub const CRYPTO_MLDSA65: u8 = 7;
 /// Fixed-key ML-DSA-65. Preserve code 7 and all original rotating identities.
 pub const CRYPTO_MLDSA65_FIXED: u8 = 8;

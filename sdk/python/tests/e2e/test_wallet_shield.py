@@ -78,7 +78,10 @@ async def test_cross_validator_shield_and_external_nonce_advancement(code, spons
             assert account["nonce"] == initial["nonce"] + 8
             if code in REGISTERED_CRYPTO_TYPES:
                 record = await client.query(
-                    ("HashedAccounts", "V2Records" if code in MLDSA_CRYPTO_TYPES else "Accounts"),
+                    (
+                        "HashedAccounts",
+                        "MlDsaAccounts" if code in MLDSA_CRYPTO_TYPES else "Accounts",
+                    ),
                     [key.ss58_address],
                 )
                 assert record["generation"] == 8

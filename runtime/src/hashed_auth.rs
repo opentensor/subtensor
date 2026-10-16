@@ -76,7 +76,7 @@ impl WeightInfo for TestWeights {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum AccountAuthorization {
     V1(subtensor_hashed::SignerAddress),
-    V2(Box<subtensor_hashed::v2::Header>),
+    MlDsa(Box<subtensor_hashed::mldsa::Header>),
 }
 
 impl AccountAuthorization {
@@ -85,9 +85,9 @@ impl AccountAuthorization {
             subtensor_hashed::SignerAddress::ENCODED_LEN => {
                 subtensor_hashed::SignerAddress::from_bytes(bytes).map(Self::V1)
             }
-            subtensor_hashed::v2::SignerAddress::ENCODED_LEN => {
-                let address = subtensor_hashed::v2::SignerAddress::from_bytes(bytes)?;
-                Ok(Self::V2(Box::new(address.header())))
+            subtensor_hashed::mldsa::SignerAddress::ENCODED_LEN => {
+                let address = subtensor_hashed::mldsa::SignerAddress::from_bytes(bytes)?;
+                Ok(Self::MlDsa(Box::new(address.header())))
             }
             _ => Err("Invalid hashed signer address length".into()),
         }
@@ -96,21 +96,21 @@ impl AccountAuthorization {
     pub(crate) fn account(&self) -> AccountId {
         AccountId::new(match self {
             Self::V1(address) => address.account,
-            Self::V2(address) => address.account,
+            Self::MlDsa(address) => address.account,
         })
     }
 
     fn generation(&self) -> u64 {
         match self {
             Self::V1(address) => address.generation,
-            Self::V2(address) => address.generation,
+            Self::MlDsa(address) => address.generation,
         }
     }
 }
 
 pub enum ValidatedAuthorization {
     V1(pallet_hashed_accounts::ValidatedProof),
-    V2(pallet_hashed_accounts::ValidatedProofV2),
+    MlDsa(pallet_hashed_accounts::ValidatedMlDsaProof),
 }
 
 /// SCALE-transparent: the signed extension fields and metadata are unchanged.
@@ -174,7 +174,7 @@ impl TransactionExtension<RuntimeCall> for AccountTxExtension {
                 }) => {
                     <Runtime as pallet_hashed_accounts::Config>::WeightInfo::authorize_ed25519(len)
                 }
-                AccountAuthorization::V2(_) => {
+                AccountAuthorization::MlDsa(_) => {
                     <Runtime as pallet_hashed_accounts::Config>::WeightInfo::authorize_mldsa65(len)
                         .max(<Runtime as pallet_hashed_accounts::Config>::WeightInfo::authorize_mldsa65_invalid(len))
                 }
@@ -210,14 +210,16 @@ impl TransactionExtension<RuntimeCall> for AccountTxExtension {
                     address.next_commitment,
                 )
                 .map(ValidatedAuthorization::V1),
-                AccountAuthorization::V2(address) => crate::HashedAccounts::check_authorization_v2(
-                    &account,
-                    address.algorithm,
-                    &address.public_key,
-                    address.generation,
-                    address.next_commitment,
-                )
-                .map(ValidatedAuthorization::V2),
+                AccountAuthorization::MlDsa(address) => {
+                    crate::HashedAccounts::check_mldsa_authorization(
+                        &account,
+                        address.algorithm,
+                        &address.public_key,
+                        address.generation,
+                        address.next_commitment,
+                    )
+                    .map(ValidatedAuthorization::MlDsa)
+                }
             }
             .map_err(|_| InvalidTransaction::BadProof)?;
             let (mut valid, val, origin) = authorized_extension(self.0.clone()).validate(
@@ -260,7 +262,9 @@ impl TransactionExtension<RuntimeCall> for AccountTxExtension {
         if let Some(ticket) = ticket {
             match ticket {
                 ValidatedAuthorization::V1(ticket) => crate::HashedAccounts::advance(&ticket),
-                ValidatedAuthorization::V2(ticket) => crate::HashedAccounts::advance_v2(&ticket),
+                ValidatedAuthorization::MlDsa(ticket) => {
+                    crate::HashedAccounts::advance_mldsa(&ticket)
+                }
             }
             .map_err(|_| InvalidTransaction::Stale)?;
             authorized_extension(self.0).prepare(val, origin, call, info, len)
@@ -458,10 +462,10 @@ impl pallet_hashed_accounts::OnRegister for OnHashedRegistered {
         crate::System::note_extrinsic(outer.encode());
         Ok(())
     }
-    fn on_register_v2(
+    fn on_register_mldsa(
         account: &AccountId,
         sponsor: &AccountId,
-        _: &subtensor_hashed::v2::Descriptor,
+        _: &subtensor_hashed::mldsa::Descriptor,
     ) -> DispatchResult {
         ensure!(
             account != sponsor,
@@ -525,10 +529,10 @@ impl pallet_hashed_accounts::OnRegister for OnHashedRegistered {
     }
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn setup_benchmark_v2(
+    fn setup_benchmark_mldsa(
         account: &AccountId,
         _: &AccountId,
-        _: &subtensor_hashed::v2::Descriptor,
+        _: &subtensor_hashed::mldsa::Descriptor,
     ) -> DispatchResult {
         setup_pq_registration_benchmark(account)
     }
@@ -706,7 +710,7 @@ pub(crate) fn compatible_authority(account: &AccountId, authority: &AccountId) -
     let floor = match crate::HashedAccounts::authentication_kind(account) {
         AuthenticationKind::Ordinary => SecurityFloor::Unrestricted,
         AuthenticationKind::HashedV1 => SecurityFloor::Committed,
-        AuthenticationKind::MlDsaV2 | AuthenticationKind::DerivedPq => SecurityFloor::PqRequired,
+        AuthenticationKind::MlDsa | AuthenticationKind::DerivedPq => SecurityFloor::PqRequired,
     };
     crate::HashedAccounts::authority_meets(authority, floor)
 }
@@ -828,19 +832,20 @@ fn setup_pq_benchmark_graph(marker: &AccountId) -> Result<AccountId, DispatchErr
     use frame_support::traits::Currency;
     use pallet_hashed_accounts::{DerivedAuthorities, DerivedAuthorityRecord, DerivedDescriptor};
     let seed = sp_io::hashing::blake2_256(&(b"pq/benchmark/leaf", marker).encode());
-    let public = subtensor_hashed::v2::public_key_from_seed(&seed).map_err(DispatchError::Other)?;
-    let descriptor = subtensor_hashed::v2::Descriptor {
+    let public =
+        subtensor_hashed::mldsa::public_key_from_seed(&seed).map_err(DispatchError::Other)?;
+    let descriptor = subtensor_hashed::mldsa::Descriptor {
         version: 2,
         algorithm: 4,
-        initial_commitment: subtensor_hashed::v2::commitment(&public),
+        initial_commitment: subtensor_hashed::mldsa::commitment(&public),
     };
-    let leaf = AccountId::new(subtensor_hashed::v2::account_id(&descriptor));
+    let leaf = AccountId::new(subtensor_hashed::mldsa::account_id(&descriptor));
     pallet_admin_utils::HashedAccountsEnabled::<Runtime>::put(true);
-    pallet_hashed_accounts::V2RegistrationEnabled::<Runtime>::put(true);
-    pallet_hashed_accounts::V2AuthorizationEnabled::<Runtime>::put(true);
-    pallet_hashed_accounts::V2Records::<Runtime>::insert(
+    pallet_hashed_accounts::MlDsaRegistrationEnabled::<Runtime>::put(true);
+    pallet_hashed_accounts::MlDsaAuthorizationEnabled::<Runtime>::put(true);
+    pallet_hashed_accounts::MlDsaAccounts::<Runtime>::insert(
         &leaf,
-        pallet_hashed_accounts::AccountRecordV2 {
+        pallet_hashed_accounts::MlDsaAccountRecord {
             descriptor,
             generation: 0,
             commitment: descriptor.initial_commitment,
@@ -963,17 +968,17 @@ pub(crate) fn setup_pq_benchmark_parent(account: &AccountId) -> DispatchResult {
         account,
         crate::TaoBalance::new(1_000_000_000_000_000),
     );
-    let descriptor = subtensor_hashed::v2::Descriptor {
+    let descriptor = subtensor_hashed::mldsa::Descriptor {
         version: 2,
         algorithm: 4,
         initial_commitment: [7; 64],
     };
     pallet_admin_utils::HashedAccountsEnabled::<Runtime>::put(true);
-    pallet_hashed_accounts::V2RegistrationEnabled::<Runtime>::put(true);
-    pallet_hashed_accounts::V2AuthorizationEnabled::<Runtime>::put(true);
-    pallet_hashed_accounts::V2Records::<Runtime>::insert(
+    pallet_hashed_accounts::MlDsaRegistrationEnabled::<Runtime>::put(true);
+    pallet_hashed_accounts::MlDsaAuthorizationEnabled::<Runtime>::put(true);
+    pallet_hashed_accounts::MlDsaAccounts::<Runtime>::insert(
         account,
-        pallet_hashed_accounts::AccountRecordV2 {
+        pallet_hashed_accounts::MlDsaAccountRecord {
             descriptor,
             generation: 0,
             commitment: descriptor.initial_commitment,

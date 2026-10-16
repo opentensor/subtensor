@@ -84,7 +84,7 @@ async def test_composable_wallet_lifecycle(tmp_path, scheme, mode):
 
         async def record(key):
             return await client.query(
-                ("HashedAccounts", "V2Records" if code in MLDSA_CRYPTO_TYPES else "Accounts"),
+                ("HashedAccounts", "MlDsaAccounts" if code in MLDSA_CRYPTO_TYPES else "Accounts"),
                 [key.ss58_address],
             )
 
@@ -271,7 +271,7 @@ async def test_composable_wallet_lifecycle(tmp_path, scheme, mode):
         if hashed:
             hot = hot.at_generation((await record(hot))["generation"])
         if code in MLDSA_CRYPTO_TYPES:
-            request = bt.http_auth.sign_v2(
+            request = bt.http_auth.sign_mldsa(
                 hot,
                 capability=capability,
                 method="POST",
@@ -279,7 +279,7 @@ async def test_composable_wallet_lifecycle(tmp_path, scheme, mode):
                 body=b"request",
                 receiver_ss58=alice.hotkey.ss58_address,
             )
-            verified = bt.http_auth.verify_v2(
+            verified = bt.http_auth.verify_mldsa(
                 request.headers,
                 request.body,
                 capability=capability,

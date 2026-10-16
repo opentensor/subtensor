@@ -5,7 +5,7 @@ use codec::{Decode, Encode};
 use hkdf::Hkdf;
 use rand_core::{OsRng, RngCore};
 use sha2::Sha512;
-use subtensor_hashed::v2;
+use subtensor_hashed::mldsa;
 use zeroize::Zeroizing;
 
 use super::{
@@ -20,7 +20,7 @@ pub const ROLE_ORDER: u8 = 1;
 pub const ROLE_MESSAGE: u8 = 2;
 
 pub struct MldsaKeypair {
-    pub(super) descriptor: v2::Descriptor,
+    pub(super) descriptor: mldsa::Descriptor,
     master_seed: Option<Zeroizing<[u8; 32]>>,
     pub(super) generation: u64,
 }
@@ -32,17 +32,17 @@ impl MldsaKeypair {
                 .map_err(|_| crypto_err("ML-DSA master seed must be exactly 32 bytes"))?,
         );
         let profile = match crypto_type {
-            CRYPTO_MLDSA65 => v2::ALGORITHM,
-            CRYPTO_MLDSA65_FIXED => v2::FIXED_ALGORITHM,
+            CRYPTO_MLDSA65 => mldsa::ALGORITHM,
+            CRYPTO_MLDSA65_FIXED => mldsa::FIXED_ALGORITHM,
             _ => return Err(crypto_err("unsupported ML-DSA account profile")),
         };
         let initial = Self::derive_seed_for_profile(&master, profile, ROLE_TRANSACTION, 0)?;
-        let public = v2::public_key_from_seed(&initial).map_err(crypto_err)?;
+        let public = mldsa::public_key_from_seed(&initial).map_err(crypto_err)?;
         Ok(Self {
-            descriptor: v2::Descriptor {
-                version: v2::VERSION,
+            descriptor: mldsa::Descriptor {
+                version: mldsa::VERSION,
                 algorithm: profile,
-                initial_commitment: v2::commitment(&public),
+                initial_commitment: mldsa::commitment(&public),
             },
             master_seed: Some(master),
             generation: 0,
@@ -55,7 +55,7 @@ impl MldsaKeypair {
         role: u8,
         index: u64,
     ) -> Result<Zeroizing<[u8; 32]>, CoreError> {
-        Self::derive_seed_for_profile(master, v2::ALGORITHM, role, index)
+        Self::derive_seed_for_profile(master, mldsa::ALGORITHM, role, index)
     }
 
     fn derive_seed_for_profile(
@@ -69,8 +69,11 @@ impl MldsaKeypair {
         }
         let kdf = Hkdf::<Sha512>::new(Some(DERIVATION_SALT), master);
         let mut seed = Zeroizing::new([0; 32]);
-        kdf.expand(&(v2::VERSION, profile, role, index).encode(), seed.as_mut())
-            .map_err(|_| crypto_err("ML-DSA signing-key derivation failed"))?;
+        kdf.expand(
+            &(mldsa::VERSION, profile, role, index).encode(),
+            seed.as_mut(),
+        )
+        .map_err(|_| crypto_err("ML-DSA signing-key derivation failed"))?;
         Ok(seed)
     }
 
@@ -92,7 +95,7 @@ impl MldsaKeypair {
         self.master_seed.as_deref()
     }
     pub(super) fn account_id(&self) -> [u8; 32] {
-        v2::account_id(&self.descriptor)
+        mldsa::account_id(&self.descriptor)
     }
 }
 
@@ -124,8 +127,8 @@ pub struct MldsaCapabilityProof {
     pub owner: [u8; 32],
     pub genesis_hash: [u8; 32],
     pub epoch: u64,
-    pub public_key: v2::PublicKeyBytes,
-    pub signature: v2::SignatureBytes,
+    pub public_key: mldsa::PublicKeyBytes,
+    pub signature: mldsa::SignatureBytes,
 }
 
 impl MldsaCapabilityProof {
@@ -157,16 +160,16 @@ pub fn verify_mldsa_authorization(
     generation: u64,
     expected_commitment: &[u8; 64],
 ) -> Result<bool, CoreError> {
-    let descriptor = v2::Descriptor::from_bytes(descriptor)
+    let descriptor = mldsa::Descriptor::from_bytes(descriptor)
         .map_err(|_| crypto_err("invalid ML-DSA descriptor"))?;
-    let Ok(proof) = v2::SignerAddress::from_bytes(encoded) else {
+    let Ok(proof) = mldsa::SignerAddress::from_bytes(encoded) else {
         return Ok(false);
     };
     Ok(generation != u64::MAX
-        && proof.account == v2::account_id(&descriptor)
+        && proof.account == mldsa::account_id(&descriptor)
         && proof.algorithm == descriptor.algorithm
         && proof.generation == generation
-        && v2::commitment(&proof.public_key) == *expected_commitment
+        && mldsa::commitment(&proof.public_key) == *expected_commitment
         && descriptor.accepts_next_commitment(expected_commitment, &proof.next_commitment)
         && proof.verify(payload))
 }
@@ -188,18 +191,18 @@ pub fn verify_mldsa_capability(
     let proof = MldsaCapabilityProof::decode(&mut input)
         .map_err(|_| crypto_err("invalid ML-DSA capability proof"))?;
     if !input.is_empty()
-        || proof.version != v2::VERSION
-        || proof.algorithm != v2::ALGORITHM
+        || proof.version != mldsa::VERSION
+        || proof.algorithm != mldsa::ALGORITHM
         || proof.role != role
         || &proof.owner != owner
         || &proof.genesis_hash != genesis_hash
         || proof.epoch != epoch
         || expected_commitment == &[0; 64]
-        || v2::commitment(&proof.public_key) != *expected_commitment
+        || mldsa::commitment(&proof.public_key) != *expected_commitment
     {
         return Ok(false);
     }
-    Ok(v2::verify_message(
+    Ok(mldsa::verify_message(
         &proof.public_key,
         &proof.transcript(payload),
         context,
@@ -218,7 +221,7 @@ impl Keypair {
     }
 
     pub fn from_mldsa_descriptor(encoded: &[u8], ss58_format: u16) -> Result<Self, CoreError> {
-        let descriptor = v2::Descriptor::from_bytes(encoded)
+        let descriptor = mldsa::Descriptor::from_bytes(encoded)
             .map_err(|_| crypto_err("invalid ML-DSA account descriptor"))?;
         if !descriptor.is_supported() {
             return Err(crypto_err("unsupported ML-DSA account descriptor"));
@@ -274,9 +277,9 @@ impl Keypair {
     pub fn mldsa_generation(&self) -> Result<u64, CoreError> {
         Ok(self.mldsa()?.generation)
     }
-    pub fn mldsa_public_key(&self) -> Result<v2::PublicKeyBytes, CoreError> {
+    pub fn mldsa_public_key(&self) -> Result<mldsa::PublicKeyBytes, CoreError> {
         let key = self.mldsa()?;
-        v2::public_key_from_seed(&*key.seed_at(ROLE_TRANSACTION, key.generation)?)
+        mldsa::public_key_from_seed(&*key.seed_at(ROLE_TRANSACTION, key.generation)?)
             .map_err(crypto_err)
     }
     pub fn mldsa_commitment(&self, generation: u64) -> Result<[u8; 64], CoreError> {
@@ -284,8 +287,8 @@ impl Keypair {
         if generation == 0 || !key.descriptor.is_rotating() {
             return Ok(key.descriptor.initial_commitment);
         }
-        Ok(v2::commitment(
-            &v2::public_key_from_seed(&*key.seed_at(ROLE_TRANSACTION, generation)?)
+        Ok(mldsa::commitment(
+            &mldsa::public_key_from_seed(&*key.seed_at(ROLE_TRANSACTION, generation)?)
                 .map_err(crypto_err)?,
         ))
     }
@@ -300,7 +303,7 @@ impl Keypair {
         )
     }
 
-    /// Returns the entire canonical RawSignerV2, not a MultiSignature payload.
+    /// Returns the entire canonical MlDsaSignerAddress, not a MultiSignature payload.
     /// `payload` is the full unshortened native call + extra + implicit data.
     pub fn sign_mldsa(&self, payload: &[u8]) -> Result<Vec<u8>, CoreError> {
         self.sign_mldsa_with_randomness(payload, &*randomness()?)
@@ -314,12 +317,12 @@ impl Keypair {
     ) -> Result<Vec<u8>, CoreError> {
         let key = self.mldsa()?;
         let seed = key.seed_at(ROLE_TRANSACTION, key.generation)?;
-        let header = v2::Header {
+        let header = mldsa::Header {
             account: key.account_id(),
-            version: v2::VERSION,
+            version: mldsa::VERSION,
             algorithm: key.descriptor.algorithm,
             generation: key.generation,
-            public_key: v2::public_key_from_seed(&seed).map_err(crypto_err)?,
+            public_key: mldsa::public_key_from_seed(&seed).map_err(crypto_err)?,
             next_commitment: self.mldsa_next_commitment()?,
         };
         Ok(header
@@ -332,12 +335,12 @@ impl Keypair {
         &self,
         role: u8,
         epoch: u64,
-    ) -> Result<v2::PublicKeyBytes, CoreError> {
+    ) -> Result<mldsa::PublicKeyBytes, CoreError> {
         capability_context(role)?;
-        v2::public_key_from_seed(&*self.mldsa()?.seed_at(role, epoch)?).map_err(crypto_err)
+        mldsa::public_key_from_seed(&*self.mldsa()?.seed_at(role, epoch)?).map_err(crypto_err)
     }
     pub fn mldsa_capability_commitment(&self, role: u8, epoch: u64) -> Result<[u8; 64], CoreError> {
-        Ok(v2::commitment(
+        Ok(mldsa::commitment(
             &self.mldsa_capability_public_key(role, epoch)?,
         ))
     }
@@ -369,17 +372,17 @@ impl Keypair {
         let context = capability_context(role)?;
         let seed = self.mldsa()?.seed_at(role, epoch)?;
         let mut proof = MldsaCapabilityProof {
-            version: v2::VERSION,
-            algorithm: v2::ALGORITHM,
+            version: mldsa::VERSION,
+            algorithm: mldsa::ALGORITHM,
             role,
             owner,
             genesis_hash,
             epoch,
-            public_key: v2::public_key_from_seed(&seed).map_err(crypto_err)?,
-            signature: [0; v2::SIGNATURE_LEN],
+            public_key: mldsa::public_key_from_seed(&seed).map_err(crypto_err)?,
+            signature: [0; mldsa::SIGNATURE_LEN],
         };
         proof.signature =
-            v2::sign_message(&seed, &proof.transcript(payload), context, &*randomness()?)
+            mldsa::sign_message(&seed, &proof.transcript(payload), context, &*randomness()?)
                 .map_err(crypto_err)?;
         Ok(proof.encode())
     }
@@ -393,7 +396,7 @@ impl Keypair {
         nonce: u64,
         genesis_hash: [u8; 32],
         order: &[u8],
-    ) -> Result<v2::SignatureBytes, CoreError> {
+    ) -> Result<mldsa::SignatureBytes, CoreError> {
         self.sign_mldsa_order_for(self.public_key_bytes(), epoch, nonce, genesis_hash, order)
     }
 
@@ -406,16 +409,16 @@ impl Keypair {
         nonce: u64,
         genesis_hash: [u8; 32],
         order: &[u8],
-    ) -> Result<v2::SignatureBytes, CoreError> {
+    ) -> Result<mldsa::SignatureBytes, CoreError> {
         let seed = self.mldsa()?.seed_at(ROLE_ORDER, epoch)?;
         let context = capability_context(ROLE_ORDER)?;
         let mut transcript = context.to_vec();
         (genesis_hash, owner, epoch, nonce).encode_to(&mut transcript);
         transcript.extend_from_slice(order);
-        v2::sign_message(&seed, &transcript, context, &*randomness()?).map_err(crypto_err)
+        mldsa::sign_message(&seed, &transcript, context, &*randomness()?).map_err(crypto_err)
     }
 
-    /// Variable-width authorization APIs support v1 and v2 without changing
+    /// Variable-width authorization APIs support v1 and ML-DSA without changing
     /// the historical fixed-width Rust v1 APIs.
     pub fn authorization_descriptor(&self) -> Result<Vec<u8>, CoreError> {
         if is_mldsa_crypto(self.crypto_type()) {
@@ -525,7 +528,7 @@ mod tests {
                 hex::encode(
                     *MldsaKeypair::derive_seed_for_profile(
                         &[7; 32],
-                        v2::FIXED_ALGORITHM,
+                        mldsa::FIXED_ALGORITHM,
                         role,
                         index
                     )
@@ -582,7 +585,7 @@ mod tests {
             .sign_mldsa_with_randomness(&payload, &[0; 32])
             .unwrap();
         assert_eq!(encoded.len(), 5367);
-        let proof = v2::SignerAddress::from_bytes(&encoded).unwrap();
+        let proof = mldsa::SignerAddress::from_bytes(&encoded).unwrap();
         assert!(proof.verify(&payload));
         let descriptor = wallet.mldsa_descriptor().unwrap();
         let commitment = active.mldsa_current_commitment().unwrap();
@@ -654,10 +657,10 @@ mod tests {
             // Model an external signer that does not enforce our wallet's
             // rotation policy. Every malformed header is correctly re-signed;
             // rejection must come from authorization guards, not bad crypto.
-            let proof = v2::Header {
+            let proof = mldsa::Header {
                 account: wallet.public_key_bytes(),
-                version: v2::VERSION,
-                algorithm: v2::ALGORITHM,
+                version: mldsa::VERSION,
+                algorithm: mldsa::ALGORITHM,
                 generation,
                 public_key: active.mldsa_public_key().unwrap(),
                 next_commitment,
@@ -724,8 +727,8 @@ mod tests {
     }
 
     #[test]
-    fn receiving_v2_vector_checksum_and_canonical_spelling() {
-        let descriptor = v2::Descriptor {
+    fn receiving_mldsa_vector_checksum_and_canonical_spelling() {
+        let descriptor = mldsa::Descriptor {
             version: 2,
             algorithm: 4,
             initial_commitment: [7; 64],
@@ -821,26 +824,26 @@ mod tests {
         let mut transcript = b"bittensor/ms/v2/order".to_vec();
         ([9_u8; 32], wallet.public_key_bytes(), 3_u64, 11_u64).encode_to(&mut transcript);
         transcript.extend_from_slice(order);
-        assert!(v2::verify_message(
+        assert!(mldsa::verify_message(
             &public,
             &transcript,
             b"bittensor/ms/v2/order",
             &signature
         ));
-        assert!(!v2::verify_message(
+        assert!(!mldsa::verify_message(
             &wallet.mldsa_public_key().unwrap(),
             &transcript,
             b"bittensor/ms/v2/order",
             &signature
         ));
-        assert!(!v2::verify_message(
+        assert!(!mldsa::verify_message(
             &public,
             &transcript,
             b"bittensor/ms/v2/message",
             &signature
         ));
         transcript[21 + 32 + 32 + 8] ^= 1;
-        assert!(!v2::verify_message(
+        assert!(!mldsa::verify_message(
             &public,
             &transcript,
             b"bittensor/ms/v2/order",
@@ -885,14 +888,14 @@ mod tests {
         let mut transcript = b"bittensor/ms/v2/order".to_vec();
         ([9_u8; 32], composite, 3_u64, 11_u64).encode_to(&mut transcript);
         transcript.extend_from_slice(b"order");
-        assert!(v2::verify_message(
+        assert!(mldsa::verify_message(
             &wallet.mldsa_capability_public_key(ROLE_ORDER, 3).unwrap(),
             &transcript,
             b"bittensor/ms/v2/order",
             &signature
         ));
         transcript[21] ^= 1;
-        assert!(!v2::verify_message(
+        assert!(!mldsa::verify_message(
             &wallet.mldsa_capability_public_key(ROLE_ORDER, 3).unwrap(),
             &transcript,
             b"bittensor/ms/v2/order",
@@ -903,15 +906,16 @@ mod tests {
     #[test]
     fn order_signature_matches_independent_runtime_wire_fixture() {
         let wallet = Keypair::from_seed(&[7; 32], CRYPTO_MLDSA65).unwrap();
-        let order =
-            include_bytes!("../../../../pallets/limit-orders/tests/fixtures/order-v2.scale");
+        let order = include_bytes!(
+            "../../../../pallets/limit-orders/tests/fixtures/authorized-order.scale"
+        );
         let transcript = include_bytes!(
-            "../../../../pallets/limit-orders/tests/fixtures/order-v2-transcript.bin"
+            "../../../../pallets/limit-orders/tests/fixtures/authorized-order-transcript.bin"
         );
         let signature = wallet
             .sign_mldsa_order_for([0x11; 32], 3, 42, [0x44; 32], order)
             .unwrap();
-        assert!(v2::verify_message(
+        assert!(mldsa::verify_message(
             &wallet.mldsa_capability_public_key(ROLE_ORDER, 3).unwrap(),
             transcript,
             b"bittensor/ms/v2/order",
@@ -921,7 +925,7 @@ mod tests {
 
     #[cfg(feature = "host")]
     #[test]
-    fn versioned_private_and_public_keyfiles_preserve_v2() {
+    fn versioned_private_and_public_keyfiles_preserve_mldsa() {
         use crate::keyfiles::{
             deserialize_keypair_from_keyfile_data, serialized_keypair_to_keyfile_data,
         };
@@ -1009,10 +1013,10 @@ mod tests {
         );
         let private = fixed.mldsa().unwrap().seed_at(ROLE_TRANSACTION, 0).unwrap();
         for next_commitment in [[0; 64], [9; 64]] {
-            let header = v2::Header {
+            let header = mldsa::Header {
                 account: fixed.public_key_bytes(),
                 version: 2,
-                algorithm: v2::FIXED_ALGORITHM,
+                algorithm: mldsa::FIXED_ALGORITHM,
                 generation: 0,
                 public_key: public,
                 next_commitment,

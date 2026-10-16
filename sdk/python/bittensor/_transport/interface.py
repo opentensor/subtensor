@@ -609,8 +609,8 @@ class SubstrateConnection:
         enabled = True
         codec = await self._runtimes.codec_at(block_hash)
         if mldsa:
-            if codec.constant("HashedAccounts", "V2RegistrationDeposit") is None:
-                raise SubstrateRequestException("runtime does not support ML-DSA v2 accounts")
+            if codec.constant("HashedAccounts", "MlDsaRegistrationDeposit") is None:
+                raise SubstrateRequestException("runtime does not support ML-DSA ML-DSA accounts")
             if bytes(keypair.hashed_descriptor)[1] == 5:
                 profiles = codec.constant("HashedAccounts", "MldsaAccountProfiles")
                 if not supports_fixed_profile(profiles):
@@ -618,7 +618,7 @@ class SubstrateConnection:
                         "runtime does not support fixed-key ML-DSA accounts"
                     )
             enabled = await self.query(
-                "HashedAccounts", "V2AuthorizationEnabled", block_hash=block_hash
+                "HashedAccounts", "MlDsaAuthorizationEnabled", block_hash=block_hash
             )
         master_enabled = codec.constant("HashedAccounts", "Enabled")
         if not isinstance(master_enabled, bool):
@@ -630,7 +630,7 @@ class SubstrateConnection:
         state, account = await asyncio.gather(
             self.query(
                 "HashedAccounts",
-                "V2Records" if mldsa else "Accounts",
+                "MlDsaAccounts" if mldsa else "Accounts",
                 [keypair.ss58_address],
                 block_hash=block_hash,
             ),
@@ -788,7 +788,7 @@ class SubstrateConnection:
 
         public = Keypair.from_hashed_descriptor(bytes(descriptor))
         if public.crypto_type not in MLDSA_CRYPTO_TYPES:
-            raise ValueError("offline ML-DSA preparation requires a v2 descriptor")
+            raise ValueError("offline ML-DSA preparation requires a ML-DSA descriptor")
         snapshot = await self.prepare_hashed_snapshot(public)
         codec = await self._runtimes.codec_at(snapshot.block_hash)
         era, era_block_hash = await self._normalize_era(era)

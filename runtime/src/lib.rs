@@ -193,7 +193,7 @@ impl pallet_hashed_accounts::Config for Runtime {
     type Enabled = HashedEnabled;
     type Currency = Balances;
     type RegistrationDeposit = HashedRegistrationDeposit;
-    type V2RegistrationDeposit = MlDsaRegistrationDeposit;
+    type MlDsaRegistrationDeposit = MlDsaRegistrationDeposit;
     type DerivedRegistrationDeposit = DerivedRegistrationDeposit;
     #[cfg(not(test))]
     type WeightInfo = pallet_hashed_accounts::weights::SubstrateWeight<Runtime>;
@@ -1521,7 +1521,7 @@ impl pallet_limit_orders::OrderCapabilities for MlDsaOrderCapabilities {
     fn check(
         owner: &AccountId,
         epoch: u64,
-        public_key: &subtensor_hashed::v2::PublicKeyBytes,
+        public_key: &subtensor_hashed::mldsa::PublicKeyBytes,
         order: &pallet_limit_orders::OrderView<AccountId>,
         full_amount: u64,
         fill_amount: u64,
@@ -1546,7 +1546,7 @@ impl pallet_limit_orders::OrderCapabilities for MlDsaOrderCapabilities {
     fn setup_benchmark(
         owner: &AccountId,
         epoch: u64,
-        public_key: &subtensor_hashed::v2::PublicKeyBytes,
+        public_key: &subtensor_hashed::mldsa::PublicKeyBytes,
         order: &pallet_limit_orders::OrderView<AccountId>,
     ) -> DispatchResult {
         hashed_auth::setup_pq_benchmark_parent(owner)?;
@@ -1558,7 +1558,7 @@ impl pallet_limit_orders::OrderCapabilities for MlDsaOrderCapabilities {
         HashedAccounts::do_install_capability(
             owner,
             epoch,
-            subtensor_hashed::v2::commitment(public_key),
+            subtensor_hashed::mldsa::commitment(public_key),
             u64::MAX,
             pallet_hashed_accounts::CapabilityScope::Trading(
                 pallet_hashed_accounts::TradingScope {

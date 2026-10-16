@@ -1,4 +1,4 @@
-//! Separate v2 and derived records; no v1 storage representation is changed.
+//! Separate ML-DSA and derived records; no v1 storage representation is changed.
 use super::*;
 use alloc::vec::Vec;
 use frame_support::{
@@ -17,8 +17,8 @@ pub type EncodedProxyType = BoundedVec<u8, ConstU32<32>>;
 #[derive(
     Clone, Debug, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen,
 )]
-pub struct AccountRecordV2 {
-    pub descriptor: subtensor_hashed::v2::Descriptor,
+pub struct MlDsaAccountRecord {
+    pub descriptor: subtensor_hashed::mldsa::Descriptor,
     pub generation: u64,
     pub commitment: [u8; 64],
 }
@@ -26,7 +26,7 @@ pub struct AccountRecordV2 {
 /// The runtime verifier authenticates the complete transcript before passing
 /// this ticket through normal transaction validation and preparation.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ValidatedProofV2 {
+pub struct ValidatedMlDsaProof {
     account: AccountId32,
     profile: u8,
     generation: u64,
@@ -49,7 +49,7 @@ pub struct ValidatedProofV2 {
 pub enum AuthenticationKind {
     Ordinary,
     HashedV1,
-    MlDsaV2,
+    MlDsa,
     DerivedPq,
 }
 
@@ -143,8 +143,8 @@ impl<T: Config> Pallet<T> {
     pub fn authentication_kind(account: &AccountId32) -> AuthenticationKind {
         if Accounts::<T>::contains_key(account) {
             AuthenticationKind::HashedV1
-        } else if V2Records::<T>::contains_key(account) {
-            AuthenticationKind::MlDsaV2
+        } else if MlDsaAccounts::<T>::contains_key(account) {
+            AuthenticationKind::MlDsa
         } else if DerivedAuthorities::<T>::contains_key(account) {
             AuthenticationKind::DerivedPq
         } else {
@@ -162,7 +162,7 @@ impl<T: Config> Pallet<T> {
             SecurityFloor::Committed => Self::is_protected(account),
             SecurityFloor::PqRequired => matches!(
                 Self::authentication_kind(account),
-                AuthenticationKind::MlDsaV2 | AuthenticationKind::DerivedPq
+                AuthenticationKind::MlDsa | AuthenticationKind::DerivedPq
             ),
         }
     }
@@ -194,35 +194,35 @@ impl<T: Config> Pallet<T> {
         EvmAliases::<T>::insert(Self::evm_alias(account), account);
     }
 
-    pub(crate) fn do_register_v2(
+    pub(crate) fn do_register_mldsa(
         sponsor: &AccountId32,
-        descriptor: subtensor_hashed::v2::Descriptor,
+        descriptor: subtensor_hashed::mldsa::Descriptor,
     ) -> DispatchResult {
         ensure!(T::Enabled::get(), Error::<T>::Disabled);
         ensure!(descriptor.is_supported(), Error::<T>::UnsupportedDescriptor);
-        let account = AccountId32::new(subtensor_hashed::v2::account_id(&descriptor));
-        if let Some(record) = V2Records::<T>::get(&account) {
+        let account = AccountId32::new(subtensor_hashed::mldsa::account_id(&descriptor));
+        if let Some(record) = MlDsaAccounts::<T>::get(&account) {
             ensure!(
                 record.descriptor == descriptor,
                 Error::<T>::DescriptorMismatch
             );
             return Ok(());
         }
-        ensure!(V2RegistrationEnabled::<T>::get(), Error::<T>::Disabled);
+        ensure!(MlDsaRegistrationEnabled::<T>::get(), Error::<T>::Disabled);
         Self::check_new_kind(&account)?;
-        T::OnRegister::on_register_v2(&account, sponsor, &descriptor)?;
-        let deposit = T::V2RegistrationDeposit::get();
+        T::OnRegister::on_register_mldsa(&account, sponsor, &descriptor)?;
+        let deposit = T::MlDsaRegistrationDeposit::get();
         T::Currency::reserve(sponsor, deposit)?;
         Self::retain_account_and_alias(&account);
-        V2Records::<T>::insert(
+        MlDsaAccounts::<T>::insert(
             &account,
-            AccountRecordV2 {
+            MlDsaAccountRecord {
                 descriptor,
                 generation: 0,
                 commitment: descriptor.initial_commitment,
             },
         );
-        Self::deposit_event(Event::RegisteredV2 {
+        Self::deposit_event(Event::RegisteredMlDsa {
             account,
             sponsor: sponsor.clone(),
             deposit,
@@ -230,10 +230,10 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// A dependency's cached policy cannot change: direct v2 records may only
+    /// A dependency's cached policy cannot change: direct ML-DSA records may only
     /// rotate their ML-DSA commitment and protected derived records are immutable.
     fn dependency(account: &AccountId32) -> Result<Option<(u8, u32)>, DispatchError> {
-        if V2Records::<T>::contains_key(account) {
+        if MlDsaAccounts::<T>::contains_key(account) {
             return Ok(Some((0, 1)));
         }
         if let Some(record) = DerivedAuthorities::<T>::get(account) {
@@ -377,7 +377,7 @@ impl<T: Config> Pallet<T> {
             );
             return Ok(());
         }
-        ensure!(V2RegistrationEnabled::<T>::get(), Error::<T>::Disabled);
+        ensure!(MlDsaRegistrationEnabled::<T>::get(), Error::<T>::Disabled);
         Self::check_new_kind(&account)?;
         let (depth, nodes, pq_dependencies) = Self::derived_shape(&descriptor)?;
         Self::ensure_acyclic(&account, &pq_dependencies)?;
@@ -405,17 +405,17 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Check already authenticated v2 identity against current chain state.
-    pub fn check_authorization_v2(
+    /// Check already authenticated ML-DSA identity against current chain state.
+    pub fn check_mldsa_authorization(
         account: &AccountId32,
         profile: u8,
         public_key: &[u8; 1952],
         generation: u64,
         next_commitment: [u8; 64],
-    ) -> Result<ValidatedProofV2, DispatchError> {
+    ) -> Result<ValidatedMlDsaProof, DispatchError> {
         ensure!(T::Enabled::get(), Error::<T>::Disabled);
-        ensure!(V2AuthorizationEnabled::<T>::get(), Error::<T>::Disabled);
-        let record = V2Records::<T>::get(account).ok_or(Error::<T>::NotRegistered)?;
+        ensure!(MlDsaAuthorizationEnabled::<T>::get(), Error::<T>::Disabled);
+        let record = MlDsaAccounts::<T>::get(account).ok_or(Error::<T>::NotRegistered)?;
         ensure!(
             record.descriptor.is_supported() && record.descriptor.algorithm == profile,
             Error::<T>::UnsupportedDescriptor
@@ -426,7 +426,7 @@ impl<T: Config> Pallet<T> {
         );
         ensure!(record.generation == generation, Error::<T>::WrongGeneration);
         ensure!(
-            record.commitment == subtensor_hashed::v2::key_commitment(public_key),
+            record.commitment == subtensor_hashed::mldsa::key_commitment(public_key),
             Error::<T>::WrongCommitment
         );
         ensure!(
@@ -435,7 +435,7 @@ impl<T: Config> Pallet<T> {
                 .accepts_next_commitment(&record.commitment, &next_commitment),
             Error::<T>::InvalidNextCommitment
         );
-        Ok(ValidatedProofV2 {
+        Ok(ValidatedMlDsaProof {
             account: account.clone(),
             profile,
             generation,
@@ -445,14 +445,14 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Consume in transaction-extension preparation, outside inner-call rollback.
-    pub fn advance_v2(validated: &ValidatedProofV2) -> DispatchResult {
+    pub fn advance_mldsa(validated: &ValidatedMlDsaProof) -> DispatchResult {
         ensure!(T::Enabled::get(), Error::<T>::Disabled);
-        ensure!(V2AuthorizationEnabled::<T>::get(), Error::<T>::Disabled);
+        ensure!(MlDsaAuthorizationEnabled::<T>::get(), Error::<T>::Disabled);
         let generation = validated
             .generation
             .checked_add(1)
             .ok_or(Error::<T>::GenerationExhausted)?;
-        V2Records::<T>::try_mutate(&validated.account, |entry| -> DispatchResult {
+        MlDsaAccounts::<T>::try_mutate(&validated.account, |entry| -> DispatchResult {
             let record = entry.as_mut().ok_or(Error::<T>::NotRegistered)?;
             ensure!(
                 record.generation == validated.generation,
@@ -473,13 +473,13 @@ impl<T: Config> Pallet<T> {
             record.commitment = validated.next_commitment;
             Ok(())
         })?;
-        Self::deposit_event(if validated.profile == subtensor_hashed::v2::ALGORITHM {
-            Event::RotatedV2 {
+        Self::deposit_event(if validated.profile == subtensor_hashed::mldsa::ALGORITHM {
+            Event::RotatedMlDsa {
                 account: validated.account.clone(),
                 generation,
             }
         } else {
-            Event::AuthorizedFixedV2 {
+            Event::AuthorizedFixed {
                 account: validated.account.clone(),
                 generation,
             }

@@ -913,7 +913,7 @@ mod audience_tests {
 
     #[test]
     fn capability_audiences_keep_binary_identity_and_legacy_vectors_keep_their_shape() {
-        let mut runtime = crate::codec::extrinsic::hashed_tests::runtime_v2();
+        let mut runtime = crate::codec::extrinsic::hashed_tests::runtime_mldsa();
         let sequence = runtime.types.types.iter().find(|ty| {
             matches!(&ty.ty.type_def, TypeDef::Sequence(sequence) if runtime.is_u8(sequence.type_param.id))
         }).unwrap().id;

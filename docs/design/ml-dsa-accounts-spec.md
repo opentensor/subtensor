@@ -13,6 +13,8 @@ Multisig, proxies, staking, hotkey and coldkey operations, MEV Shield, limit ord
 
 # Compatibility contract
 
+Public events, storage, constants, and SDK APIs use descriptive scheme names, not revision suffixes. The descriptor tag `2`, `bth2_` receiving format, and literal `/v2/` cryptographic domain bytes are frozen protocol inputs: renaming them would change wallet identities, derivation, or signatures. Existing economic order V1/V2 variants are independent of account authentication and remain unchanged. Historical evidence files retain the names captured at their recorded commits; they are not current metadata.
+
 | Surface | Required behavior |
 | --- | --- |
 | Existing ordinary wallets | Existing keys, addresses, signatures, transaction bytes, and account behavior remain valid. No migration or signing update is required. |
@@ -32,16 +34,16 @@ Use **ML-DSA-65 in pure mode** from FIPS 204. Its public key is 1,952 bytes and 
 
 The account uses ML-DSA alone for authorization. Neither the carrier field nor an Sr25519, Ed25519, or ECDSA signature is an alternative authority. A future hybrid algorithm must use a separate identifier and explicitly require both proofs.
 
-Use 64-byte SHAKE256 commitments for v2 keys. Keep the 32-byte account identifier for chain compatibility. Consequently, the complete account system must not be advertised as having category 3 security in every component: identifier hashing, Ethereum aliases, existing multisig call hashes, consensus, and application contracts retain their existing assumptions. In particular, targeted search against a uniformly distributed 256-bit identifier has a generic quantum preimage bound around 128 bits; collision security is a different property. The promise is quantum-resistant account authorization under these documented surrounding assumptions.
+Use 64-byte SHAKE256 commitments for ML-DSA keys. Keep the 32-byte account identifier for chain compatibility. Consequently, the complete account system must not be advertised as having category 3 security in every component: identifier hashing, Ethereum aliases, existing multisig call hashes, consensus, and application contracts retain their existing assumptions. In particular, targeted search against a uniformly distributed 256-bit identifier has a generic quantum preimage bound around 128 bits; collision security is a different property. The promise is quantum-resistant account authorization under these documented surrounding assumptions.
 
 ML-DSA is cryptographically stateless. Per-transaction key rotation is an operational policy inherited from hashed accounts, not a stateful-signature usage limit. Revealing an ML-DSA public key in the mempool does not create the classical key-disclosure vulnerability that motivated v1 concealment.
 
 # Identifiers and permanent state
 
-Allocate a distinct v2 descriptor and record. Do not change the size or interpretation of v1 `Descriptor`, `AccountRecord`, or their storage values. Algorithm value `4` is defined in the separate v2 namespace; it does not append a variant to a legacy signature or scheme enum.
+Allocate a distinct ML-DSA descriptor and record. Do not change the size or interpretation of v1 `Descriptor`, `AccountRecord`, or their storage values. Algorithm value `4` is defined in the separate ML-DSA namespace; it does not append a variant to a legacy signature or scheme enum.
 
 ```text
-DescriptorV2 = SCALE(
+MlDsaDescriptor = SCALE(
     version: u8 = 2,
     algorithm: u8 = 4 or 5,            // ML-DSA-65: rotating (4) or fixed (5)
     initial_commitment: [u8; 64]
@@ -53,11 +55,11 @@ commitment(pk) = SHAKE256(
 )
 
 account = Blake2_256(
-    ASCII("bittensor/ms/v2/account") || DescriptorV2
+    ASCII("bittensor/ms/v2/account") || MlDsaDescriptor
 )
 
-V2Records[account] = {
-    descriptor: DescriptorV2,
+MlDsaAccounts[account] = {
+    descriptor: MlDsaDescriptor,
     generation: u64,
     commitment: [u8; 64]
 }
@@ -67,15 +69,15 @@ ASCII domain strings above have no trailing NUL or SCALE length prefix. Fixed by
 
 The wallet sets `initial_commitment = commitment(pk(role=0, generation=0))`. New registration initializes `generation=0` and the current commitment to that initial commitment. The first accepted authorization advances to generation 1. Registration is permanent and idempotent only for the identical descriptor; idempotence never resets either field. Reaping balances, account death, disabling new registrations, and runtime upgrades must not erase authority protection or reset generations. A disabled verifier must fail closed, never expose the same AccountId to ordinary classical signature verification.
 
-Preserve v1 `Accounts` and its getter. Add `V2Records` and explicit queries for `authentication_kind(account)`, `is_protected(account)`, and `authority_meets(account, security_floor)`. Direct signing records and derived authorities must remain distinct. Replace security-relevant checks that currently consult only v1 registration with the appropriate unified query.
+Preserve v1 `Accounts` and its getter. Add `MlDsaAccounts` and explicit queries for `authentication_kind(account)`, `is_protected(account)`, and `authority_meets(account, security_floor)`. Direct signing records and derived authorities must remain distinct. Replace security-relevant checks that currently consult only v1 registration with the appropriate unified query.
 
-Use the original `register` and `check_registered` calls at indices 0 and 1 with `RegistrationDescriptor::{Classical(Descriptor), MlDsa65(DescriptorV2)}` (tags 0 and 1). HashedAccounts has not been deployed; this selector is part of its first published API. Inner descriptor encodings and account IDs remain unchanged. There are no duplicate registration dispatchables. Registration includes EVM alias collision checks, provider references, nonce initialization, ownership checks, storage deposits, and alternate-authority exclusion. The candidate uses the existing storage-price function with `deposit(6, 1024)` for direct v2 and `deposit(6, 8192)` for protected derived accounts, including bounded capability records and permanent epoch tombstones. These storage prices are separate from verifier weights; reference measurements and storage-proof accounting remain release gates.
+Use the original `register` and `check_registered` calls at indices 0 and 1 with `RegistrationDescriptor::{Classical(Descriptor), MlDsa65(MlDsaDescriptor)}` (tags 0 and 1). HashedAccounts has not been deployed; this selector is part of its first published API. Inner descriptor encodings and account IDs remain unchanged. There are no duplicate registration dispatchables. Registration includes EVM alias collision checks, provider references, nonce initialization, ownership checks, storage deposits, and alternate-authority exclusion. The candidate uses the existing storage-price function with `deposit(6, 1024)` for direct ML-DSA and `deposit(6, 8192)` for protected derived accounts, including bounded capability records and permanent epoch tombstones. These storage prices are separate from verifier weights; reference measurements and storage-proof accounting remain release gates.
 
-Anyone may pay to register a direct v2 descriptor without gaining authority. A sponsor must not use registration to erase another account's existing privileges or reinterpret a conflicting identity. Reject conflicting preexisting ownership, EVM associations, or unsafe control paths; require an explicit authorized migration where needed. New accounts must register before receiving assets or privileged roles. SDK funding and role-assignment flows must preserve the descriptor and use atomic registration/registration guards, including after reorgs.
+Anyone may pay to register a direct ML-DSA descriptor without gaining authority. A sponsor must not use registration to erase another account's existing privileges or reinterpret a conflicting identity. Reject conflicting preexisting ownership, EVM associations, or unsafe control paths; require an explicit authorized migration where needed. New accounts must register before receiving assets or privileged roles. SDK funding and role-assignment flows must preserve the descriptor and use atomic registration/registration guards, including after reorgs.
 
-Keep SS58 as the representation of the permanent AccountId. Define the receiving address as `"bth2_" + base64url_no_pad(DescriptorV2 || checksum8)`, where `checksum8` is the first eight bytes of `Blake2_256(ASCII("bittensor/ms/v2/receiving") || DescriptorV2)`. The descriptor is 66 bytes, decoded body 74 bytes, and complete string 104 characters. Require canonical base64 re-encoding, exact case/length, a valid checksum, and a supported descriptor. There is no network field; registration remains chain-specific. Preserve all v1 parsing. Publish exact roundtrip vectors. Older wallets may reject the new receiving descriptor clearly. Existing clients can use its SS58 identity after registration. SDK identity-only fields normalize to AccountId; payment and setup fields retain the full descriptor.
+Keep SS58 as the representation of the permanent AccountId. Define the receiving address as `"bth2_" + base64url_no_pad(MlDsaDescriptor || checksum8)`, where `checksum8` is the first eight bytes of `Blake2_256(ASCII("bittensor/ms/v2/receiving") || MlDsaDescriptor)`. The descriptor is 66 bytes, decoded body 74 bytes, and complete string 104 characters. Require canonical base64 re-encoding, exact case/length, a valid checksum, and a supported descriptor. There is no network field; registration remains chain-specific. Preserve all v1 parsing. Publish exact roundtrip vectors. Older wallets may reject the new receiving descriptor clearly. Existing clients can use its SS58 identity after registration. SDK identity-only fields normalize to AccountId; payment and setup fields retain the full descriptor.
 
-Protection begins with finalized registration. The wallet must complete registration before publishing its new identity or receiving assets/roles; initial registration and hostile preexisting state need explicit race tests. Existing ordinary or v1 accounts are not silently reinterpreted as v2. Migration creates a new v2 identity, registers it, and transfers balances, stake, and ownership through existing authorized transfer/coldkey-swap workflows.
+Protection begins with finalized registration. The wallet must complete registration before publishing its new identity or receiving assets/roles; initial registration and hostile preexisting state need explicit race tests. Existing ordinary or v1 accounts are not silently reinterpreted as ML-DSA. Migration creates a new ML-DSA identity, registers it, and transfers balances, stake, and ownership through existing authorized transfer/coldkey-swap workflows.
 
 # Exact signed-v4 wire format
 
@@ -84,14 +86,14 @@ Compact<u32>(body_length)
 0x84                                      // signed extrinsic v4
 0x02                                      // MultiAddress::Raw
 Compact<u32>(5367)                         // bytes dd 53
-RawSignerV2[5367]
+MlDsaSignerAddress[5367]
 0x00                                      // MultiSignature::Ed25519
 0x4d repeated 64 times                     // canonical nonzero carrier
 existing encoded TxExtension fields
 existing encoded RuntimeCall
 ```
 
-`RawSignerV2` has exactly this layout:
+`MlDsaSignerAddress` has exactly this layout:
 
 | Offset | Bytes | Field |
 | --- | --- | --- |
@@ -106,24 +108,24 @@ existing encoded RuntimeCall
 
 The permanent AccountId stays first, matching v1's explorer-display convention. The fixed signed body overhead is 5,436 bytes before extensions and call bytes, plus the outer compact length prefix. This is 5,337 bytes more than an ordinary Ed25519/Sr25519 `Id` signer, or 5,261 more than the v1 Raw signer, before any outer length-prefix changes.
 
-The carrier is a **format marker, not an Ed25519 authorization**. It is public, constant, and must match exactly. It requires no classical private key. The runtime accepts it only in the validated v2 Raw route and still requires a valid ML-DSA proof. Its value must never activate an exception for an ordinary `Id`, v1 address, bare extrinsic, general extrinsic, or Ethereum transaction.
+The carrier is a **format marker, not an Ed25519 authorization**. It is public, constant, and must match exactly. It requires no classical private key. The runtime accepts it only in the validated ML-DSA Raw route and still requires a valid ML-DSA proof. Its value must never activate an exception for an ordinary `Id`, v1 address, bare extrinsic, general extrinsic, or Ethereum transaction.
 
 An all-zero carrier is forbidden. Polkadot.js derives its signed flag and encoded signature length from whether the signature bytes are empty; zero bytes can therefore move the decoded call offset and break the block. A nonzero value retains the standard layout. [Polkadot.js ExtrinsicSignatureV4](https://github.com/polkadot-js/api/blob/master/packages/types/src/extrinsic/v4/ExtrinsicSignature.ts)
 
-Do not add an ML-DSA variant to `sp_runtime::MultiSignature`, replace its metadata with a custom enum, change `MultiAddress`, add hidden serialized extension fields, or place the proof before the existing extrinsic header. Preserve decoding of the other extrinsic formats currently supported by the runtime, without allowing v2 proofs to bypass their authentication rules.
+Do not add an ML-DSA variant to `sp_runtime::MultiSignature`, replace its metadata with a custom enum, change `MultiAddress`, add hidden serialized extension fields, or place the proof before the existing extrinsic header. Preserve decoding of the other extrinsic formats currently supported by the runtime, without allowing ML-DSA proofs to bypass their authentication rules.
 
-The Raw decoder must admit only exact supported tuples: v1's existing length/version/scheme combinations and v2 `(5367, 2, 4)` and `(5367, 2, 5)`. Read and bound the compact length before allocation. Enforce canonical encodings, exact consumption, enclosing memory tracking, call depth limits, and block/extrinsic length limits. Metadata must describe the actual standard outer bytes. Preserve the flattened signed-extension metadata identifiers, order, field types, and additional-signed types, continuing the current metadata-forwarding behavior. Internal authentication context is skipped by SCALE and must be reconstructed from the decoded address, never supplied by a caller.
+The Raw decoder must admit only exact supported tuples: v1's existing length/version/scheme combinations and ML-DSA `(5367, 2, 4)` and `(5367, 2, 5)`. Read and bound the compact length before allocation. Enforce canonical encodings, exact consumption, enclosing memory tracking, call depth limits, and block/extrinsic length limits. Metadata must describe the actual standard outer bytes. Preserve the flattened signed-extension metadata identifiers, order, field types, and additional-signed types, continuing the current metadata-forwarding behavior. Internal authentication context is skipped by SCALE and must be reconstructed from the decoded address, never supplied by a caller.
 
 # Signature transcript
 
-Let `HeaderV2` be the first 2,058 bytes of `RawSignerV2`, excluding its signature. Define:
+Let `MlDsaHeader` be the first 2,058 bytes of `MlDsaSignerAddress`, excluding its signature. Define:
 
 ```text
 context = ASCII("bittensor/ms/v2/tx")
 
 transcript =
     ASCII("bittensor/ms/v2/transaction") ||
-    HeaderV2 ||
+    MlDsaHeader ||
     SCALE((RuntimeCall, TxExtension, TxExtension.implicit()))
 
 proof = ML-DSA-65.Sign(secret_key, transcript, context)
@@ -144,12 +146,12 @@ It must produce exactly the same decision as pure external verification. Never a
 
 # Validation and state transition
 
-1. Decode the standard envelope under strict byte, memory, and depth bounds. Check the v2 tuple and exact carrier. Reject self-contained Ethereum calls on this signed route.
+1. Decode the standard envelope under strict byte, memory, and depth bounds. Check the ML-DSA tuple and exact carrier. Reject self-contained Ethereum calls on this signed route.
 2. Perform cheap feature, account, generation, commitment, nonzero next-commitment, and resource checks. Require the proof profile to equal the immutable registered descriptor profile and the current public key's commitment to equal the registered commitment. For rotating profile 4 require a different nonzero next commitment. For fixed profile 5 require current and next commitments both to equal the descriptor's initial commitment. Reject generation overflow. Account for reads and hashing before doing expensive work.
 3. Verify the ML-DSA proof over the complete transcript. A decoded carrier alone never constructs a trusted origin. Verification errors, malformed keys/signatures, and deterministic resource exhaustion fail closed.
 4. Construct the permanent `Signed(AccountId32)` and run all normal transaction extensions with that signer: nonce, mortality, versions, fees, filters, and account-specific policy. Carry a private validated ticket containing account, profile, generation, old commitment, and next commitment.
 5. Pool validation is read-only. Use the existing nonce dependencies and an exclusive `(account, generation)` provides tag; competing transactions at one generation cannot both execute. Do not promise future-generation pipeline validation against uncommitted state.
-6. Immediately before dispatch, recheck the ticket against current state and atomically advance the authorization generation in extension preparation. Profile 4 advances the key commitment; profile 5 retains its initial commitment and emits `AuthorizedFixedV2` instead of `RotatedV2`. Preserve normal fee/nonce handling. Any invalid-extrinsic application must roll back preparation changes; an included valid extrinsic whose call returns a dispatch error still consumes the authorization exactly once.
+6. Immediately before dispatch, recheck the ticket against current state and atomically advance the authorization generation in extension preparation. Profile 4 advances the key commitment; profile 5 retains its initial commitment and emits `AuthorizedFixed` instead of `RotatedMlDsa`. Preserve normal fee/nonce handling. Any invalid-extrinsic application must roll back preparation changes; an included valid extrinsic whose call returns a dispatch error still consumes the authorization exactly once.
 7. Dispatch the original call under the original filter stack. Do not dispatch it through an unrestricted wrapper or change the account to the revealed key. Normal events, post-dispatch refunds, and nested-call semantics apply.
 
 Signing, broadcasting, a dropped transaction, pool eviction, simulation, and fee quotation do not rotate state. For profile 4, a successful on-chain `System.remark` is sufficient for an explicit rotation transaction. Profile 5 keeps its signing key; every included authorization still consumes its generation counter, including dispatch failures and both Shield transactions. Reorg recovery reads canonical state again; inclusion alone is not finality. Wallets coordinate a single outstanding generation per account unless they implement a tested sequential inclusion workflow.
@@ -174,7 +176,7 @@ Ordinary multisig functionality and quantum protection are separate properties. 
 
 Restricted proxy grants must not reach native EVM execution: an EVM contract or dispatch precompile can reconstruct an unrestricted native origin from the caller's protected alias. `NonCritical` therefore excludes the EVM call group, just like other restricted grants; direct owners and `Any` proxies retain EVM access. This restriction applies to direct, batched, and announced proxy dispatch and does not depend on current ML-DSA activation flags.
 
-Direct classical signature verification and legacy embedded-signature paths must reject registered protected composites. They may be controlled only through their verified runtime dispatch path. Registration must also atomically establish the permanent EVM alias, correct backing-account/nonce mapping, and exclusion of ECDSA authority, with collision and conflicting-state checks equivalent to direct v2 registration. These protections survive reaping and pure-proxy removal. Registration does not mint `Signed` origins, replace the threshold check, or bypass inherited filters. Test every route that can manufacture a signed derived origin against the recorded derivation.
+Direct classical signature verification and legacy embedded-signature paths must reject registered protected composites. They may be controlled only through their verified runtime dispatch path. Registration must also atomically establish the permanent EVM alias, correct backing-account/nonce mapping, and exclusion of ECDSA authority, with collision and conflicting-state checks equivalent to direct ML-DSA registration. These protections survive reaping and pure-proxy removal. Registration does not mint `Signed` origins, replace the threshold check, or bypass inherited filters. Test every route that can manufacture a signed derived origin against the recorded derivation.
 
 A threshold group is resistant to a quantum attacker forging all non-PQ members only when:
 
@@ -200,7 +202,7 @@ Protected pure proxies must be registered atomically at creation, constrain ever
 
 PR #3220's baseline `compatible_authority` test checks whether both accounts are registered hashed accounts. That is insufficient for ML-DSA because a registered Sr25519 or Ed25519 delegate remains classical. [Pinned policy implementation](https://github.com/RaoFoundation/subtensor/blob/f867191868d29c5b28d3afdf13f967a12f0af128/runtime/src/hashed_auth.rs#L331-L344)
 
-Set a permanent `PqRequired` floor for direct v2 accounts and opted-in protected derived accounts. Enforce it when granting authority and when using existing authority, across immediate/delayed proxies, pure-proxy creation, hotkey ownership, coldkey swaps/recovery, EVM associations, and any newly discovered origin or signature bypass. V1 and ordinary accounts retain their established policy.
+Set a permanent `PqRequired` floor for direct ML-DSA accounts and opted-in protected derived accounts. Enforce it when granting authority and when using existing authority, across immediate/delayed proxies, pure-proxy creation, hotkey ownership, coldkey swaps/recovery, EVM associations, and any newly discovered origin or signature bypass. V1 and ordinary accounts retain their established policy.
 
 A protected ML-DSA account may use a qualifying protected multisig or another protected ML-DSA account as its authority. It may also act as a proxy or signer for an ordinary account. It must not grant control to a classical or v1-only delegate under a claim of PQ protection. Provide an explicit SDK policy error rather than silently falling back to a classical signer.
 
@@ -266,7 +268,7 @@ order_transcript = ASCII("bittensor/ms/v2/order") ||
 order_context = ASCII("bittensor/ms/v2/order")
 ```
 
-The 32-byte ID is bookkeeping, not the authorization commitment: execution must compare the complete 64-byte approval value. A detached proof signs the entire order transcript using pure ML-DSA-65. Both bindings include the order version tag and every economic term. The relayer chooses `partial_fill` only within the already signed order's partial-fill policy; it cannot alter the signed amount or enable partial fills. `OrderNoncesV2[(owner, nonce)]` permanently binds a nonce to one ID. Status is retained in the existing order-status map; a fulfilled or cancelled order cannot execute again. Rotation of the owner's transaction key does not change these bindings.
+The 32-byte ID is bookkeeping, not the authorization commitment: execution must compare the complete 64-byte approval value. A detached proof signs the entire order transcript using pure ML-DSA-65. Both bindings include the order version tag and every economic term. The relayer chooses `partial_fill` only within the already signed order's partial-fill policy; it cannot alter the signed amount or enable partial fills. `OrderNonces[(owner, nonce)]` permanently binds a nonce to one ID. Status is retained in the existing order-status map; a fulfilled or cancelled order cannot execute again. Rotation of the owner's transaction key does not change these bindings.
 
 SDK order preparation, authorization and both execution routes retain descriptor-bearing fee recipients until a matching immutable registration is verified at a finalized block. Only then may the descriptor be reduced to its AccountId for signing or dispatch. Missing, unfinalized or mismatched registrations fail before composition, including for classical orders and when ML-DSA registration is disabled. Existing finalized registrations remain usable while new registration is paused. Serialized intents must retain descriptors until this check; scoped capability grants apply the same rule to their fee recipient.
 
@@ -276,7 +278,7 @@ Every authorize/register/revoke call derives its owner from the authenticated `S
 
 Do not tie long-lived orders solely to the current rotating transaction generation: ordinary transactions would invalidate outstanding orders. `CapabilityEpochs[(owner, role)]` is a permanent checked `u64` tombstone and `ActiveCapabilities` stores the current grant. Roles are explicitly `1=Order` and `2=Message`. Installation requires `expected_epoch = tombstone + 1`, a nonzero commitment, a valid scope, an already protected PQ owner, and an expiry strictly after the current block. Replacement and revocation advance the epoch; revocation at `u64::MAX` still removes the grant while issuance remains permanently exhausted. No deletion, reaping, or re-registration may reuse an epoch.
 
-Grant expiry is an inclusive `u64` **block number**; existing order expiry remains milliseconds. A restricted trading scope names one netuid, hotkey, fee recipient, maximum fee per billion, per-order TAO/alpha limits, and lifetime TAO/alpha allowances. Buy spending counts gross TAO input including order fees; sell spending counts alpha input. Separate `u128` spent counters prevent mixing denominations or wrapping. A zero allowance disables that direction. `UnrestrictedTrading` requires an explicit owner grant. Message scope contains 1–128 audience bytes. Authorization requires the v2 authorization flag; revocation remains callable while it is disabled. Check the current grant, scope, expiry, epoch, and fill/cancellation state at execution. An outer matcher's key scheme never substitutes for the owner's authorization.
+Grant expiry is an inclusive `u64` **block number**; existing order expiry remains milliseconds. A restricted trading scope names one netuid, hotkey, fee recipient, maximum fee per billion, per-order TAO/alpha limits, and lifetime TAO/alpha allowances. Buy spending counts gross TAO input including order fees; sell spending counts alpha input. Separate `u128` spent counters prevent mixing denominations or wrapping. A zero allowance disables that direction. `UnrestrictedTrading` requires an explicit owner grant. Message scope contains 1–128 audience bytes. Authorization requires the ML-DSA authorization flag; revocation remains callable while it is disabled. Check the current grant, scope, expiry, epoch, and fill/cancellation state at execution. An outer matcher's key scheme never substitutes for the owner's authorization.
 
 Use the same explicit capability principle for durable message/HTTP signing when independence from transaction rotation is needed. Derive separate keys for transaction, order, and message roles. Bind distinct signing contexts and structured domain data; HTTP proofs include audience, method, path, body digest, challenge/nonce, expiry, and authorization epoch. Define current-authority verification separately from historical proof-at-finalized-block verification. Never accept the extrinsic carrier as a message signature or infer authority from the public key alone. Offline verification of historical identity needs a trusted state anchor/proof, not an untrusted wallet companion file.
 
@@ -292,7 +294,7 @@ Resolve the active message capability and its expiry at a consistent finalized b
 
 Generate new wallets from fresh 256-bit entropy encoded as an English 24-word BIP39 mnemonic. The exact mnemonic import is `master = BIP39.to_seed(passphrase)[0..32]`, where `to_seed` is the standard 64-byte BIP39 seed derivation, including its normalization and optional passphrase; an omitted passphrase is the empty string. It is **not** the mnemonic's raw entropy bytes or Substrate's `Pair::from_phrase` seed. Reject shorter mnemonic imports for this wallet type. A direct 32-byte seed import is interpreted as the master itself. Cross-language vectors must cover both forms and a nonempty passphrase. Do not reuse a classical direct-key seed as the master, and do not claim that expanding a shorter mnemonic creates more entropy.
 
-Define the v2 wallet derivation as:
+Define the ML-DSA wallet derivation as:
 
 ```text
 PRK = HKDF-Extract-SHA512(
@@ -333,7 +335,7 @@ Fixed ML-DSA uses SDK crypto identifier `8` and descriptor/header profile `5`; r
 
 Fixed ML-DSA also requires descriptor registration and a `bth2_` receiving address for first funding. It uses the same permanent AccountId32, protected-origin checks, PQ security floor, capability handling, original extrinsics, and full-payload v4 proof route. It must never fall back to a classical signature route. The immutable profile forbids downgrading an existing rotating account to fixed or rotating a fixed identity in place. Changing mode requires a separately created identity and explicitly authorized asset/ownership migration. Signing checks the finalized authorization generation even though a fixed wallet's transaction key is constant. Detached capability proofs retain cryptographic algorithm 4 and owner/role/epoch binding; their private derivation uses the owning wallet's profile.
 
-Runtime metadata advertises `HashedAccounts.MldsaAccountProfiles = [4, 5]`. New fixed-profile clients require profile 5 support before registration/signing; older profile-4 runtimes fail closed. The Raw proof remains 5,367 bytes, descriptor 66 bytes, and outer `MultiAddress`, `MultiSignature`, signed-extension layout and call indices remain unchanged. Preserve old wallet-file versions and APIs. The versioned signer capability returns the complete v2 authorization rather than forcing it through a 64/65-byte signature result.
+Runtime metadata advertises `HashedAccounts.MldsaAccountProfiles = [4, 5]`. New fixed-profile clients require profile 5 support before registration/signing; older profile-4 runtimes fail closed. The Raw proof remains 5,367 bytes, descriptor 66 bytes, and outer `MultiAddress`, `MultiSignature`, signed-extension layout and call indices remain unchanged. Preserve old wallet-file versions and APIs. The versioned signer capability returns the complete ML-DSA authorization rather than forcing it through a 64/65-byte signature result.
 
 Required SDK/CLI coverage includes creation/import/export/watch-only/restore; receiving descriptors and contacts; finalized-state generation recovery; fee estimation using the correct proof size; offline and hardware signing payloads; multisig/pinned-call tools; proxy and shield composition; native EVM flows; messages/HTTP; and clear unsupported-wallet errors. New wallets must verify chain support and activation before registration or signing. Publish compatible native-core and Python releases together, and provide TypeScript integration vectors and helpers.
 
@@ -351,7 +353,7 @@ Specify deterministic rejection-sampling ceilings and identical failure behavior
 
 On-chain weight does not itself prevent unpaid invalid proofs from exhausting transaction-pool RPC validation. Apply bounded validation concurrency, byte quotas, peer/RPC rate limits, and measured worst-case verification budgets before expensive checks. Any verification cache must be bounded and must never replace current-state/generation validation. Native acceleration is permitted only with identical acceptance semantics and safe deployment to every validating executor; unresolved WASM imports are not a usable fallback.
 
-The node candidate wraps RPC, network, and local/offchain pool admission. Requests containing signed-v4 Raw addresses of the v2 length share limits of 64 pending submissions, 64 MiB pending bytes, 10 MiB per extrinsic, and two outstanding v2 authorizations. Mixed batches count every contained extrinsic against the count and byte limits; legacy-only requests retain the existing pool behavior and bypass the new pool admission budgets and detached tasks. At most one admitted attempt per v2 owner may be outstanding. A global v2 attempt bucket starts at 16 and replenishes one attempt per 125 ms; invalid proofs and caller cancellation do not refund attempts. Classification reads only a bounded prefix and charges any matching Raw length even for malformed profiles/carriers. Cancelled RPC requests retain their permits until the actual validation task completes.
+The node candidate wraps RPC, network, and local/offchain pool admission. Requests containing signed-v4 Raw addresses of the ML-DSA length share limits of 64 pending submissions, 64 MiB pending bytes, 10 MiB per extrinsic, and two outstanding ML-DSA authorizations. Mixed batches count every contained extrinsic against the count and byte limits; legacy-only requests retain the existing pool behavior and bypass the new pool admission budgets and detached tasks. At most one admitted attempt per ML-DSA owner may be outstanding. A global ML-DSA attempt bucket starts at 16 and replenishes one attempt per 125 ms; invalid proofs and caller cancellation do not refund attempts. Classification reads only a bounded prefix and charges any matching Raw length even for malformed profiles/carriers. Cancelled RPC requests retain their permits until the actual validation task completes.
 
 A second shared guard at the Wasm executor boundary covers offchain runtime execution reached through raw `state_call`, chain-head/archive calls, dry-run, simulations, pool validation, and pool revalidation. It partitions ML-DSA transaction validation, EVM simulations, contracts simulations, and other execution (including unknown exports) into four independent budgets shared by executor clones. Each permits two simultaneous calls, at most 16 MiB input per call and 16 MiB active input per service, with a burst of 16 calls replenished at one per 125 ms. Quota is not borrowed between services: invalid requests to one service cannot consume another service's slots, byte budget or refill. Across four services the concurrency/input limits imply at most eight active executions and 64 MiB input. Calls within one service still share its quota; this is service isolation, not authenticated per-caller fairness. Synchronous execution holds its permit until Wasm returns, even after caller cancellation. Invalid calls consume rate credit. Explicitly reviewed read/conversion APIs, inherent construction/checking, and legacy transaction validation retain their existing behavior; unknown exports are guarded. Execution-capable exports such as `BlockBuilder_apply_extrinsic`, `Core_execute_block`, pending-block/EVM/contracts simulation, benchmarks, and try-runtime are guarded regardless of the outer signer, because a legacy relayer can dispatch detached ML-DSA order proofs. One execution call may contain multiple proofs; these limits do not imply two signatures globally or eight verifications per second. Executor failures propagate as local runtime failures, not consensus-invalid transactions or peer offences. Ethereum gas estimation and calls retry only the exact host-capacity error, asynchronously at 125 ms intervals, with a five-second retry deadline. An estimate shares that deadline across all binary-search probes; every attempt still passes executor admission. Reverts and other failures return immediately, and cancelling a waiting request prevents further retries.
 
@@ -380,16 +382,16 @@ The original APIs support every account profile. Finalized mainnet metadata at b
 | LimitOrders | 0 / 1 / 2 | Original `execute_orders`, `execute_batched_orders`, `cancel_order` |
 | LimitOrders | 5 | `authorize_order(order)`, a new owner-approval capability |
 
-The protected-child operations remain distinct because they require explicit consent to permanent authority/deposit policies. Cryptographic format versions, storage namespaces, commitment domains, and existing V1/V2 order payload tags remain unchanged. They are not duplicate dispatchable APIs.
+The protected-child operations remain distinct because they require explicit consent to permanent authority/deposit policies. Cryptographic format versions, commitment domains, and existing V1/V2 order payload tags remain unchanged. The undeployed ML-DSA storage items use scheme-specific names. They are not duplicate dispatchable APIs.
 
-Production new-call and ML-DSA verification weights deliberately return `Weight::MAX` until replaced by approved reference-generated values. The runtime rejects ML-DSA authorization whose worst valid/invalid verifier weight cannot fit the block, before expanding the key matrix. New call weights also flow through normal nested dispatch accounting. Unit tests alone use explicit test weights; those values are not production estimates. The AdminUtils `HashedAccountsEnabled` switch is the master gate for registration and authentication of hashed SR/ED, fixed MS, and hashed MS accounts, including ML-DSA capability installation and use. Ordinary SR/ED signing is unaffected. Both `V2RegistrationEnabled` and `V2AuthorizationEnabled` default to false and are additional subordinate ML-DSA gates: neither overrides the master switch. Setting a flag does not bypass the weight gate. Disabling flags never removes account protection, alias binding, the direct-signature ban, or epoch/generation tombstones. Registration guards continue to check existing records when the ML-DSA registration subgate is paused, but reject while the master switch is off. Capability revocation remains available without granting new authority.
+Production new-call and ML-DSA verification weights deliberately return `Weight::MAX` until replaced by approved reference-generated values. The runtime rejects ML-DSA authorization whose worst valid/invalid verifier weight cannot fit the block, before expanding the key matrix. New call weights also flow through normal nested dispatch accounting. Unit tests alone use explicit test weights; those values are not production estimates. The AdminUtils `HashedAccountsEnabled` switch is the master gate for registration and authentication of hashed SR/ED, fixed MS, and hashed MS accounts, including ML-DSA capability installation and use. Ordinary SR/ED signing is unaffected. Both `MlDsaRegistrationEnabled` and `MlDsaAuthorizationEnabled` default to false and are additional subordinate ML-DSA gates: neither overrides the master switch. Setting a flag does not bypass the weight gate. Disabling flags never removes account protection, alias binding, the direct-signature ban, or epoch/generation tombstones. Registration guards continue to check existing records when the ML-DSA registration subgate is paused, but reject while the master switch is off. Capability revocation remains available without granting new authority.
 
 | Area | Work |
 | --- | --- |
-| `primitives/hashed` | Separate v2 descriptor/header/proof types, domains, exact codec, commitment functions, and vectors. Preserve v1 types. |
-| `runtime/src/hashed_extrinsic.rs` | Bounded dual-version Raw decoding, canonical carrier, v2 transcript and verifier, protected-account fallback rejection. |
+| `primitives/hashed` | Separate ML-DSA descriptor/header/proof types, domains, exact codec, commitment functions, and vectors. Preserve v1 types. |
+| `runtime/src/hashed_extrinsic.rs` | Bounded dual-version Raw decoding, canonical carrier, ML-DSA transcript and verifier, protected-account fallback rejection. |
 | `runtime/src/hashed_auth.rs` | Wire-transparent authentication context, weights, permanent signer, validated tickets, rotation, unified security policies. |
-| `pallets/hashed-accounts` | V2 storage/registration/guards, permanent derived-authority records, activation controls, bounded policy queries. |
+| `pallets/hashed-accounts` | ML-DSA storage/registration/guards, permanent derived-authority records, activation controls, bounded policy queries. |
 | `pallets/proxy`, `pallets/utility`, multisig integration | Protected derived origins, grant/use checks, pure lifecycle, unchanged ordinary derivation and filtering. |
 | Subtensor ownership and coldkey paths | Security-floor checks for registration, owners, swaps, delegation, and recovery. |
 | EVM/runtime/Frontier paths | Unified alias/protection queries, native origin and fee/refund integration, metering of added reads. |
@@ -490,10 +492,10 @@ do not establish those activation properties or production throughput.
 # Rollout and completion criteria
 
 1. Freeze this protocol's byte layout, domains, KDF, storage separation, authority rules, and positive/negative vectors after cryptographic and client review. Reconcile with the actual merge of PR #3220.
-2. Implement runtime support with v2 registration and use disabled by default. Preserve all v1 behavior. Keep separate subordinate switches for allowing new registrations and pausing v2 authorization beneath the AdminUtils master gate; neither switch removes protection. Pausing existing users is an emergency action with an explicit operational recovery plan.
-3. Complete wallet releases, operation parity, protected multisig/derived authority support, order integration, Shield capacity work, and client fixtures before advertising full support. Deploy verifier support before accepting v2 transactions.
+2. Implement runtime support with ML-DSA registration and use disabled by default. Preserve all v1 behavior. Keep separate subordinate switches for allowing new registrations and pausing ML-DSA authorization beneath the AdminUtils master gate; neither switch removes protection. Pausing existing users is an emergency action with an explicit operational recovery plan.
+3. Complete wallet releases, operation parity, protected multisig/derived authority support, order integration, Shield capacity work, and client fixtures before advertising full support. Deploy verifier support before accepting ML-DSA transactions.
 4. Complete independent crypto/security review and reference benchmarks. Run exact-release native/WASM, migration, mixed-block, historical decoding, and live localnet/testnet workflows. Published evidence identifies runtime/WASM hashes, SDK/client versions, vectors, operation inventory, measurements, and outstanding restrictions.
 5. Run the mandatory repository preflight before every push, install/use the pre-push hook, and resolve required CI checks. The runtime spec-version change or exemption requires the owner's explicit instruction; benchmark labels and measurements follow the repository's hardware policy.
-6. Activate only after the full acceptance gates pass. Never enable with placeholder weights. Preserve v1 and ordinary account support throughout. Once funded v2 accounts exist, rollback must retain their state and fail-closed authorization protections; reverting to a runtime that treats them as ordinary classical keys is forbidden.
+6. Activate only after the full acceptance gates pass. Never enable with placeholder weights. Preserve v1 and ordinary account support throughout. Once funded ML-DSA accounts exist, rollback must retain their state and fail-closed authorization protections; reverting to a runtime that treats them as ordinary classical keys is forbidden.
 
 Completion means a valid ML-DSA transaction authenticates an ordinary permanent account, every supported account operation has proven behavior including multisig, no weaker authority bypass remains, and the declared unmodified client matrix decodes mixed blocks. Passing the initial codec experiment alone does not meet that definition.

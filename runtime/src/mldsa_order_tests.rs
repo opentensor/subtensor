@@ -3,16 +3,16 @@ use super::*;
 use frame_support::{assert_noop, assert_ok, traits::Get};
 use pallet_hashed_accounts::{ActiveCapabilities, CapabilityRole, CapabilityScope, TradingScope};
 use pallet_limit_orders::{
-    MlDsaOrderProof, Order, OrderAuthorizationV2, OrderStatus, OrderType, SignedOrderV2,
+    AuthorizedOrder, MlDsaOrderProof, Order, OrderAuthorization, OrderStatus, OrderType,
     VersionedOrder,
 };
 use sp_runtime::{Perbill, traits::AccountIdConversion};
-use subtensor_hashed::v2;
+use subtensor_hashed::mldsa as mldsa_crypto;
 use subtensor_runtime_common::AlphaBalance;
 
 fn grant(
     owner: &AccountId,
-    public: &v2::PublicKeyBytes,
+    public: &mldsa_crypto::PublicKeyBytes,
     recipient: &AccountId,
     netuid: NetUid,
     epoch: u64,
@@ -23,7 +23,7 @@ fn grant(
             81,
             RuntimeCall::HashedAccounts(pallet_hashed_accounts::Call::install_capability {
                 expected_epoch: epoch,
-                key_commitment: v2::commitment(public),
+                key_commitment: mldsa_crypto::commitment(public),
                 expires_at: 100,
                 scope: CapabilityScope::Trading(TradingScope {
                     netuid: <u16 as From<NetUid>>::from(netuid),
@@ -47,7 +47,7 @@ fn orders(
     netuid: NetUid,
     epoch: u64,
     seed: &[u8; 32],
-) -> frame_support::BoundedVec<SignedOrderV2, pallet_limit_orders::MaxOrdersV2> {
+) -> frame_support::BoundedVec<AuthorizedOrder, pallet_limit_orders::MaxAuthorizedOrders> {
     (0..2)
         .map(|nonce| {
             let order = VersionedOrder::V1(Order {
@@ -66,14 +66,14 @@ fn orders(
                 partial_fills_enabled: false,
             });
             let payload = LimitOrders::order_signing_payload(epoch, nonce, &order);
-            SignedOrderV2 {
+            AuthorizedOrder {
                 nonce,
                 order,
                 partial_fill: None,
-                authorization: OrderAuthorizationV2::MlDsa(MlDsaOrderProof {
+                authorization: OrderAuthorization::MlDsa(MlDsaOrderProof {
                     epoch,
-                    public_key: v2::public_key_from_seed(seed).unwrap(),
-                    signature: v2::sign_message(
+                    public_key: mldsa_crypto::public_key_from_seed(seed).unwrap(),
+                    signature: mldsa_crypto::sign_message(
                         seed,
                         &payload,
                         pallet_limit_orders::ORDER_CONTEXT,
@@ -120,7 +120,7 @@ fn aggregate_capability_failure_reverts_real_assets_fees_reserves_and_order_stat
         }
         pallet_limit_orders::LimitOrdersEnabled::<Runtime>::put(true);
         let seed = [84; 32];
-        let public = v2::public_key_from_seed(&seed).unwrap();
+        let public = mldsa_crypto::public_key_from_seed(&seed).unwrap();
         grant(&owner, &public, &recipient, netuid, 1, 1_500_000_000);
         let batch = orders(&owner, &recipient, netuid, 1, &seed);
         // A classical owner shares the same netted transaction. Its real funds
@@ -150,7 +150,7 @@ fn aggregate_capability_failure_reverts_real_assets_fees_reserves_and_order_stat
         let classical_before = Balances::free_balance(&classical_owner);
         let ids: Vec<_> = batch
             .iter()
-            .map(|signed| LimitOrders::derive_order_id_v2(signed.nonce, &signed.order))
+            .map(|signed| LimitOrders::derive_authorized_order_id(signed.nonce, &signed.order))
             .collect();
         let balances = [&owner, &recipient, &intermediary].map(Balances::free_balance);
         let reserve = pallet_subtensor::SubnetTAO::<Runtime>::get(netuid);
@@ -228,9 +228,10 @@ fn aggregate_capability_failure_reverts_real_assets_fees_reserves_and_order_stat
             AlphaBalance::ZERO
         );
         for (nonce, id) in ids.iter().enumerate() {
-            assert!(
-                !pallet_limit_orders::OrderNoncesV2::<Runtime>::contains_key(&owner, nonce as u64)
-            );
+            assert!(!pallet_limit_orders::OrderNonces::<Runtime>::contains_key(
+                &owner,
+                nonce as u64
+            ));
             assert!(!pallet_limit_orders::Orders::<Runtime>::contains_key(id));
         }
 
@@ -350,8 +351,8 @@ fn restricted_proxy_cannot_create_deferred_order_spending_authority() {
                 ));
                 pallet_limit_orders::LimitOrdersEnabled::<Runtime>::put(true);
                 let mut signed = orders(&owner, &delegate, netuid, 0, &[88; 32])[0].clone();
-                signed.authorization = OrderAuthorizationV2::AccountApproved;
-                let id = LimitOrders::derive_order_id_v2(signed.nonce, &signed.order);
+                signed.authorization = OrderAuthorization::AccountApproved;
+                let id = LimitOrders::derive_authorized_order_id(signed.nonce, &signed.order);
                 let approval =
                     RuntimeCall::LimitOrders(pallet_limit_orders::Call::authorize_order {
                         order: signed.order.clone().with_nonce(signed.nonce).unwrap(),
@@ -392,13 +393,11 @@ fn restricted_proxy_cannot_create_deferred_order_spending_authority() {
                         pallet_proxy::LastCallResult::<Runtime>::get(&owner),
                         Some(Err(frame_system::Error::<Runtime>::CallFiltered.into()))
                     );
-                    assert!(!pallet_limit_orders::ApprovedOrdersV2::<Runtime>::contains_key(id));
-                    assert!(
-                        !pallet_limit_orders::OrderNoncesV2::<Runtime>::contains_key(
-                            &owner,
-                            signed.nonce
-                        )
-                    );
+                    assert!(!pallet_limit_orders::ApprovedOrders::<Runtime>::contains_key(id));
+                    assert!(!pallet_limit_orders::OrderNonces::<Runtime>::contains_key(
+                        &owner,
+                        signed.nonce
+                    ));
                     assert_noop!(
                         LimitOrders::execute_orders(
                             RuntimeOrigin::signed(delegate.clone()),
@@ -428,7 +427,7 @@ fn restricted_proxy_cannot_create_deferred_order_spending_authority() {
                     Some(ProxyType::Any),
                     Box::new(approval)
                 ));
-                assert!(pallet_limit_orders::ApprovedOrdersV2::<Runtime>::contains_key(id));
+                assert!(pallet_limit_orders::ApprovedOrders::<Runtime>::contains_key(id));
                 assert_ok!(LimitOrders::execute_orders(
                     RuntimeOrigin::signed(delegate.clone()),
                     unified_orders(vec![signed].try_into().unwrap()),
@@ -453,7 +452,7 @@ fn restricted_proxy_cannot_create_deferred_order_spending_authority() {
 }
 
 fn unified_orders(
-    orders: frame_support::BoundedVec<SignedOrderV2, pallet_limit_orders::MaxOrdersV2>,
+    orders: frame_support::BoundedVec<AuthorizedOrder, pallet_limit_orders::MaxAuthorizedOrders>,
 ) -> frame_support::BoundedVec<
     pallet_limit_orders::SignedOrder<AccountId>,
     <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch,

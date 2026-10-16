@@ -114,7 +114,7 @@ impl Keypair {
 
     /// Restore public account metadata without retaining any signing material.
     pub fn from_hashed_descriptor(encoded: &[u8], ss58_format: u16) -> Result<Self, CoreError> {
-        if encoded.first() == Some(&subtensor_hashed::v2::VERSION) {
+        if encoded.first() == Some(&subtensor_hashed::mldsa::VERSION) {
             return Self::from_mldsa_descriptor(encoded, ss58_format);
         }
         let mut input = encoded;

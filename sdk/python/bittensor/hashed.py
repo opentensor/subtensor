@@ -55,11 +55,11 @@ async def hashed_accounts_enabled(substrate, *, block_hash=None):
 def descriptor_storage(descriptor: bytes) -> str:
     """Return the distinct permanent registry, validating the descriptor first."""
     descriptor_value(descriptor)
-    return "V2Records" if descriptor[0] == 2 else "Accounts"
+    return "MlDsaAccounts" if descriptor[0] == 2 else "Accounts"
 
 
 async def protected_account_record(substrate, account: str, *, block_hash=None):
-    """Resolve direct and derived protection without querying absent v2 metadata.
+    """Resolve direct and derived protection without querying absent ML-DSA metadata.
 
     Derived records are authority policies, never direct signing descriptors.
     Registrations remain authoritative when authorization/setup is paused.
@@ -67,8 +67,8 @@ async def protected_account_record(substrate, account: str, *, block_hash=None):
     record = await substrate.query("HashedAccounts", "Accounts", [account], block_hash=block_hash)
     if record is not None:
         return "v1", record
-    if await substrate.constant("HashedAccounts", "V2RegistrationDeposit") is not None:
-        for kind, storage in (("v2", "V2Records"), ("derived", "DerivedAuthorities")):
+    if await substrate.constant("HashedAccounts", "MlDsaRegistrationDeposit") is not None:
+        for kind, storage in (("mldsa", "MlDsaAccounts"), ("derived", "DerivedAuthorities")):
             record = await substrate.query(
                 "HashedAccounts", storage, [account], block_hash=block_hash
             )
@@ -79,10 +79,10 @@ async def protected_account_record(substrate, account: str, *, block_hash=None):
 
 async def is_pq_required(substrate, account: str, *, block_hash=None) -> bool:
     """Read the permanent direct or derived quantum-resistant authority floor."""
-    if await substrate.constant("HashedAccounts", "V2RegistrationDeposit") is None:
+    if await substrate.constant("HashedAccounts", "MlDsaRegistrationDeposit") is None:
         return False
     kind, _ = await protected_account_record(substrate, account, block_hash=block_hash)
-    return kind in ("v2", "derived")
+    return kind in ("mldsa", "derived")
 
 
 async def compose_derivative(substrate, parent: str, index: int, call):
@@ -107,7 +107,7 @@ async def compose_derivative(substrate, parent: str, index: int, call):
 
 async def multisig_protection_status(substrate, signatories: list[str], threshold: int) -> dict:
     """Describe finalized protection eligibility without submitting anything."""
-    if await substrate.constant("HashedAccounts", "V2RegistrationDeposit") is None:
+    if await substrate.constant("HashedAccounts", "MlDsaRegistrationDeposit") is None:
         return {"eligible": False, "registered": False}
     account = substrate.multisig_account(
         [parse_recipient(s).account for s in signatories], threshold
@@ -135,7 +135,7 @@ async def multisig_protection_call(
     """
     from .sp_core import ss58_decode, ss58_encode
 
-    if await substrate.constant("HashedAccounts", "V2RegistrationDeposit") is None:
+    if await substrate.constant("HashedAccounts", "MlDsaRegistrationDeposit") is None:
         raise ValueError("quantum-resistant derived accounts are not supported on this chain")
     if await hashed_accounts_enabled(substrate) is not True:
         raise ValueError("hashed accounts are not enabled on this chain")
@@ -164,7 +164,7 @@ async def multisig_protection_call(
             raise ValueError("registered derived authority does not match the multisig")
         function = "check_derived"
     else:
-        if await substrate.query("HashedAccounts", "V2RegistrationEnabled") is not True:
+        if await substrate.query("HashedAccounts", "MlDsaRegistrationEnabled") is not True:
             raise ValueError("derived account registration is not enabled")
         function = "register_derived_sponsored"
     params = {"descriptor": descriptor}
@@ -176,7 +176,7 @@ async def multisig_protection_call(
 async def descriptor_registration_enabled(substrate, descriptor: bytes, *, block_hash=None):
     if descriptor_storage(descriptor) == "Accounts":
         return await hashed_accounts_enabled(substrate, block_hash=block_hash)
-    if await substrate.constant("HashedAccounts", "V2RegistrationDeposit") is None:
+    if await substrate.constant("HashedAccounts", "MlDsaRegistrationDeposit") is None:
         return None
     if descriptor[1] == 5:
         profiles = await substrate.constant("HashedAccounts", "MldsaAccountProfiles")
@@ -185,7 +185,9 @@ async def descriptor_registration_enabled(substrate, descriptor: bytes, *, block
     master = await hashed_accounts_enabled(substrate, block_hash=block_hash)
     if master is not True:
         return master
-    return await substrate.query("HashedAccounts", "V2RegistrationEnabled", block_hash=block_hash)
+    return await substrate.query(
+        "HashedAccounts", "MlDsaRegistrationEnabled", block_hash=block_hash
+    )
 
 
 async def _require_receiving_support(substrate, descriptor: bytes):
@@ -449,7 +451,7 @@ async def with_recipient_registration(
         owner = public_view(wallet if origin is None else origin, "coldkey").ss58_address
         kind, _ = await protected_account_record(substrate, owner)
         requires_pq = any(descriptor[0] == 2 for descriptor in descriptors.values())
-        if kind is None or (requires_pq and kind not in ("v2", "derived")):
+        if kind is None or (requires_pq and kind not in ("mldsa", "derived")):
             raise ValueError("a hashed hotkey requires a registered hashed coldkey owner")
     finalized_hash = None
     direct = intent.op in ("swap_coldkey_announced", "pow_register", "execute_proxy_announced")
@@ -503,7 +505,9 @@ async def with_recipient_registration(
                     "before using this operation"
                 )
             new_accounts.append(address)
-            deposit_name = "V2RegistrationDeposit" if descriptor[0] == 2 else "RegistrationDeposit"
+            deposit_name = (
+                "MlDsaRegistrationDeposit" if descriptor[0] == 2 else "RegistrationDeposit"
+            )
             total_deposit += int(await substrate.constant("HashedAccounts", deposit_name))
         if finalized_hash is not None:
             continue

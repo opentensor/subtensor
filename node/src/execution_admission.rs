@@ -155,7 +155,7 @@ fn read_only(method: &str) -> bool {
 
 fn mldsa_validation(data: &[u8]) -> bool {
     // Runtime API v3 encodes TransactionSource, the extrinsic, then block hash.
-    // Inspect only its prefix, including malformed v2 profiles/carriers. The
+    // Inspect only its prefix, including malformed ML-DSA profiles/carriers. The
     // current validation pipeline checks extensions but does not dispatch the
     // call; legacy validation therefore cannot execute detached order proofs.
     let Some(mut input) = data.get(1..) else {

@@ -115,7 +115,7 @@ def test_evm_commands_encode_all_wallet_types(wallet_case, command, reference):
         c
         for c in substrate.query.call_args_list
         if c.args[:2]
-        == ("HashedAccounts", "V2Records" if key.crypto_type in (7, 8) else "Accounts")
+        == ("HashedAccounts", "MlDsaAccounts" if key.crypto_type in (7, 8) else "Accounts")
     ]
     if key.crypto_type in REGISTERED_CRYPTO_TYPES:
         assert len(queries) == 1
@@ -141,7 +141,7 @@ def test_protected_commands_fail_before_evm_submission(wallet_case, command, fai
         async def query(*a, **kw):
             if a[:2] == (
                 "HashedAccounts",
-                "V2Records" if key.crypto_type in (7, 8) else "Accounts",
+                "MlDsaAccounts" if key.crypto_type in (7, 8) else "Accounts",
             ) and kw.get("block_hash"):
                 return None
             return await original(*a, **kw)
@@ -204,7 +204,7 @@ def test_generic_views_resolve_descriptor_addresses_without_registration(wallet_
     fn = {"inputs": [{"type": "bytes32[]"}], "stateMutability": "view"}
     substrate.seed(
         "HashedAccounts",
-        "V2Records" if wallet.hotkey.crypto_type in (7, 8) else "Accounts",
+        "MlDsaAccounts" if wallet.hotkey.crypto_type in (7, 8) else "Accounts",
         [wallet.hotkey.ss58_address],
         None,
     )
@@ -236,7 +236,7 @@ def test_generic_writes_require_registration_for_every_array_member(wallet_case)
     ]
     substrate.seed(
         "HashedAccounts",
-        "V2Records" if wallet.hotkey.crypto_type in (7, 8) else "Accounts",
+        "MlDsaAccounts" if wallet.hotkey.crypto_type in (7, 8) else "Accounts",
         [wallet.hotkey.ss58_address],
         None,
     )

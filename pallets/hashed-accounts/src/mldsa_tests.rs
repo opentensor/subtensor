@@ -7,14 +7,14 @@ use crate::tests::{
 use frame_support::{assert_noop, assert_ok, traits::Currency};
 use sp_runtime::DispatchError;
 
-fn fixture(byte: u8) -> (subtensor_hashed::v2::Descriptor, AccountId32, [u8; 1952]) {
+fn fixture(byte: u8) -> (subtensor_hashed::mldsa::Descriptor, AccountId32, [u8; 1952]) {
     let public = [byte; 1952];
-    let descriptor = subtensor_hashed::v2::Descriptor {
+    let descriptor = subtensor_hashed::mldsa::Descriptor {
         version: 2,
         algorithm: 4,
-        initial_commitment: subtensor_hashed::v2::key_commitment(&public),
+        initial_commitment: subtensor_hashed::mldsa::key_commitment(&public),
     };
-    let account = AccountId32::new(subtensor_hashed::v2::account_id(&descriptor));
+    let account = AccountId32::new(subtensor_hashed::mldsa::account_id(&descriptor));
     (descriptor, account, public)
 }
 
@@ -29,15 +29,15 @@ fn activate() {
 #[test]
 fn master_switch_gates_every_ms_profile_and_preserves_state_for_resume() {
     for algorithm in [
-        subtensor_hashed::v2::ALGORITHM,
-        subtensor_hashed::v2::FIXED_ALGORITHM,
+        subtensor_hashed::mldsa::ALGORITHM,
+        subtensor_hashed::mldsa::FIXED_ALGORITHM,
     ] {
         new_test_ext().execute_with(|| {
             activate();
             let (mut descriptor, _, public) = fixture(2);
             descriptor.algorithm = algorithm;
-            let account = AccountId32::new(subtensor_hashed::v2::account_id(&descriptor));
-            let next = if algorithm == subtensor_hashed::v2::FIXED_ALGORITHM {
+            let account = AccountId32::new(subtensor_hashed::mldsa::account_id(&descriptor));
+            let next = if algorithm == subtensor_hashed::mldsa::FIXED_ALGORITHM {
                 descriptor.initial_commitment
             } else {
                 [9; 64]
@@ -46,7 +46,7 @@ fn master_switch_gates_every_ms_profile_and_preserves_state_for_resume() {
                 || HashedAccounts::register(RuntimeOrigin::signed(sponsor()), descriptor.into());
             crate::tests::Enabled::set(false);
             assert_noop!(register(), Error::<Test>::Disabled);
-            assert!(!V2Records::<Test>::contains_key(&account));
+            assert!(!MlDsaAccounts::<Test>::contains_key(&account));
             crate::tests::Enabled::set(true);
             assert_ok!(register());
             let derived = DerivedDescriptor::Derivative {
@@ -58,7 +58,7 @@ fn master_switch_gates_every_ms_profile_and_preserves_state_for_resume() {
                 derived.clone()
             ));
             let authorize =
-                || HashedAccounts::check_authorization_v2(&account, algorithm, &public, 0, next);
+                || HashedAccounts::check_mldsa_authorization(&account, algorithm, &public, 0, next);
             let ticket = authorize().unwrap();
             assert_ok!(HashedAccounts::do_install_capability(
                 &account,
@@ -67,7 +67,7 @@ fn master_switch_gates_every_ms_profile_and_preserves_state_for_resume() {
                 10,
                 trading_scope()
             ));
-            let before = V2Records::<Test>::get(&account);
+            let before = MlDsaAccounts::<Test>::get(&account);
             let derived_before = DerivedAuthorities::<Test>::get(derived.account_id());
             crate::tests::Enabled::set(false);
             // Even Root's ML-DSA subgates cannot override the master switch.
@@ -75,7 +75,10 @@ fn master_switch_gates_every_ms_profile_and_preserves_state_for_resume() {
             assert_noop!(register(), Error::<Test>::Disabled);
             assert_noop!(authorize(), Error::<Test>::Disabled);
             // A ticket validated before a toggle must fail during preparation.
-            assert_noop!(HashedAccounts::advance_v2(&ticket), Error::<Test>::Disabled);
+            assert_noop!(
+                HashedAccounts::advance_mldsa(&ticket),
+                Error::<Test>::Disabled
+            );
             assert_noop!(
                 HashedAccounts::check_registered(
                     RuntimeOrigin::signed(sponsor()),
@@ -109,7 +112,7 @@ fn master_switch_gates_every_ms_profile_and_preserves_state_for_resume() {
                 HashedAccounts::checked_capability(&account, CapabilityRole::Order, 1, &public),
                 Error::<Test>::Disabled
             );
-            assert_eq!(V2Records::<Test>::get(&account), before);
+            assert_eq!(MlDsaAccounts::<Test>::get(&account), before);
             assert_eq!(
                 DerivedAuthorities::<Test>::get(derived.account_id()),
                 derived_before
@@ -128,8 +131,8 @@ fn master_switch_gates_every_ms_profile_and_preserves_state_for_resume() {
             ));
             crate::tests::Enabled::set(true);
             assert_ok!(authorize());
-            assert_ok!(HashedAccounts::advance_v2(&ticket));
-            assert_eq!(V2Records::<Test>::get(&account).unwrap().generation, 1);
+            assert_ok!(HashedAccounts::advance_mldsa(&ticket));
+            assert_eq!(MlDsaAccounts::<Test>::get(&account).unwrap().generation, 1);
         });
     }
 }
@@ -152,11 +155,11 @@ fn multisig(mut members: Vec<AccountId32>, threshold: u16) -> DerivedDescriptor 
 }
 
 #[test]
-fn v2_flags_are_independent_root_only_and_never_erase_protection() {
+fn mldsa_flags_are_independent_root_only_and_never_erase_protection() {
     new_test_ext().execute_with(|| {
         let (descriptor, account, public) = fixture(2);
-        assert!(!HashedAccounts::v2_registration_enabled());
-        assert!(!HashedAccounts::v2_authorization_enabled());
+        assert!(!HashedAccounts::mldsa_registration_enabled());
+        assert!(!HashedAccounts::mldsa_authorization_enabled());
         assert_noop!(
             HashedAccounts::set_mldsa_enabled(RuntimeOrigin::signed(sponsor()), true, true),
             DispatchError::BadOrigin
@@ -176,9 +179,9 @@ fn v2_flags_are_independent_root_only_and_never_erase_protection() {
             true
         ));
         assert!(
-            HashedAccounts::check_authorization_v2(
+            HashedAccounts::check_mldsa_authorization(
                 &account,
-                subtensor_hashed::v2::ALGORITHM,
+                subtensor_hashed::mldsa::ALGORITHM,
                 &public,
                 0,
                 [9; 64]
@@ -204,9 +207,9 @@ fn v2_flags_are_independent_root_only_and_never_erase_protection() {
             false
         ));
         assert_noop!(
-            HashedAccounts::check_authorization_v2(
+            HashedAccounts::check_mldsa_authorization(
                 &account,
-                subtensor_hashed::v2::ALGORITHM,
+                subtensor_hashed::mldsa::ALGORITHM,
                 &public,
                 0,
                 [9; 64]
@@ -229,7 +232,7 @@ fn v2_flags_are_independent_root_only_and_never_erase_protection() {
 }
 
 #[test]
-fn v2_ticket_is_read_only_single_use_and_rechecks_both_state_fields() {
+fn mldsa_ticket_is_read_only_single_use_and_rechecks_both_state_fields() {
     new_test_ext().execute_with(|| {
         activate();
         let (descriptor, account, public) = fixture(2);
@@ -238,22 +241,22 @@ fn v2_ticket_is_read_only_single_use_and_rechecks_both_state_fields() {
             descriptor.into()
         ));
         let before = sp_io::storage::root(sp_runtime::StateVersion::V1);
-        let ticket = HashedAccounts::check_authorization_v2(
+        let ticket = HashedAccounts::check_mldsa_authorization(
             &account,
-            subtensor_hashed::v2::ALGORITHM,
+            subtensor_hashed::mldsa::ALGORITHM,
             &public,
             0,
             [9; 64],
         )
         .unwrap();
         assert_eq!(sp_io::storage::root(sp_runtime::StateVersion::V1), before);
-        assert_ok!(HashedAccounts::advance_v2(&ticket));
+        assert_ok!(HashedAccounts::advance_mldsa(&ticket));
         assert_noop!(
-            HashedAccounts::advance_v2(&ticket),
+            HashedAccounts::advance_mldsa(&ticket),
             Error::<Test>::WrongGeneration
         );
         assert_eq!(
-            V2Records::<Test>::get(&account).unwrap().commitment,
+            MlDsaAccounts::<Test>::get(&account).unwrap().commitment,
             [9; 64]
         );
         assert_eq!(System::account_nonce(&account), 1); // independent counter
@@ -261,26 +264,26 @@ fn v2_ticket_is_read_only_single_use_and_rechecks_both_state_fields() {
             RuntimeOrigin::signed(AccountId32::new([88; 32])),
             descriptor.into()
         ));
-        assert_eq!(V2Records::<Test>::get(&account).unwrap().generation, 1);
+        assert_eq!(MlDsaAccounts::<Test>::get(&account).unwrap().generation, 1);
         assert_eq!(Balances::reserved_balance(sponsor()), 20);
-        V2Records::<Test>::mutate(&account, |record| record.as_mut().unwrap().generation = 0);
+        MlDsaAccounts::<Test>::mutate(&account, |record| record.as_mut().unwrap().generation = 0);
         assert_noop!(
-            HashedAccounts::advance_v2(&ticket),
+            HashedAccounts::advance_mldsa(&ticket),
             Error::<Test>::WrongCommitment
         );
     });
 }
 
 #[test]
-fn v2_rejects_invalid_state_commitments_and_exhaustion() {
+fn mldsa_rejects_invalid_state_commitments_and_exhaustion() {
     new_test_ext().execute_with(|| {
         activate();
         let (_, account, public) = fixture(2);
         register(2);
         assert_noop!(
-            HashedAccounts::check_authorization_v2(
+            HashedAccounts::check_mldsa_authorization(
                 &account,
-                subtensor_hashed::v2::ALGORITHM,
+                subtensor_hashed::mldsa::ALGORITHM,
                 &public,
                 1,
                 [9; 64]
@@ -288,9 +291,9 @@ fn v2_rejects_invalid_state_commitments_and_exhaustion() {
             Error::<Test>::WrongGeneration
         );
         assert_noop!(
-            HashedAccounts::check_authorization_v2(
+            HashedAccounts::check_mldsa_authorization(
                 &account,
-                subtensor_hashed::v2::ALGORITHM,
+                subtensor_hashed::mldsa::ALGORITHM,
                 &[3; 1952],
                 0,
                 [9; 64]
@@ -298,9 +301,9 @@ fn v2_rejects_invalid_state_commitments_and_exhaustion() {
             Error::<Test>::WrongCommitment
         );
         assert_noop!(
-            HashedAccounts::check_authorization_v2(
+            HashedAccounts::check_mldsa_authorization(
                 &account,
-                subtensor_hashed::v2::ALGORITHM,
+                subtensor_hashed::mldsa::ALGORITHM,
                 &public,
                 0,
                 [0; 64]
@@ -308,22 +311,22 @@ fn v2_rejects_invalid_state_commitments_and_exhaustion() {
             Error::<Test>::InvalidNextCommitment
         );
         assert_noop!(
-            HashedAccounts::check_authorization_v2(
+            HashedAccounts::check_mldsa_authorization(
                 &account,
-                subtensor_hashed::v2::ALGORITHM,
+                subtensor_hashed::mldsa::ALGORITHM,
                 &public,
                 0,
-                subtensor_hashed::v2::key_commitment(&public)
+                subtensor_hashed::mldsa::key_commitment(&public)
             ),
             Error::<Test>::InvalidNextCommitment
         );
-        V2Records::<Test>::mutate(&account, |record| {
+        MlDsaAccounts::<Test>::mutate(&account, |record| {
             record.as_mut().unwrap().generation = u64::MAX
         });
         assert_noop!(
-            HashedAccounts::check_authorization_v2(
+            HashedAccounts::check_mldsa_authorization(
                 &account,
-                subtensor_hashed::v2::ALGORITHM,
+                subtensor_hashed::mldsa::ALGORITHM,
                 &public,
                 u64::MAX,
                 [9; 64]
@@ -401,7 +404,7 @@ fn mixed_multisig_requires_a_pq_member_in_every_threshold_and_preserves_address(
             AuthenticationKind::DerivedPq
         );
         assert!(!HashedAccounts::is_registered(&account));
-        assert!(HashedAccounts::v2_records(&account).is_none());
+        assert!(HashedAccounts::mldsa_accounts(&account).is_none());
         assert_eq!(
             EvmAliases::<Test>::get(HashedAccounts::evm_alias(&account)),
             Some(account.clone())
@@ -487,7 +490,7 @@ fn capabilities_require_protected_owner_and_have_independent_monotonic_epochs() 
         activate();
         let owner = register(2);
         let public = [22; 1952];
-        let commitment = subtensor_hashed::v2::commitment(&public);
+        let commitment = subtensor_hashed::mldsa::commitment(&public);
         assert_noop!(
             HashedAccounts::install_capability(
                 RuntimeOrigin::signed(sponsor()),
@@ -566,7 +569,7 @@ fn capability_expiry_and_epoch_exhaustion_fail_closed_but_allow_revocation() {
         activate();
         let owner = register(2);
         let public = [22; 1952];
-        let commitment = subtensor_hashed::v2::commitment(&public);
+        let commitment = subtensor_hashed::mldsa::commitment(&public);
         assert_noop!(
             HashedAccounts::install_capability(
                 RuntimeOrigin::signed(owner.clone()),
@@ -625,7 +628,7 @@ fn trading_capability_enforces_asset_recipient_fee_and_separate_total_budgets() 
         assert_ok!(HashedAccounts::install_capability(
             RuntimeOrigin::signed(owner.clone()),
             1,
-            subtensor_hashed::v2::commitment(&public),
+            subtensor_hashed::mldsa::commitment(&public),
             100,
             trading_scope()
         ));
@@ -690,7 +693,7 @@ fn message_capability_does_not_authorize_trading() {
         assert_ok!(HashedAccounts::install_capability(
             RuntimeOrigin::signed(owner.clone()),
             1,
-            subtensor_hashed::v2::commitment(&public),
+            subtensor_hashed::mldsa::commitment(&public),
             100,
             CapabilityScope::Message {
                 audience: b"subnet.example".to_vec().try_into().unwrap()
@@ -828,8 +831,8 @@ fn fixed_profile_preserves_key_but_consumes_counter_and_forbids_policy_changes()
     new_test_ext().execute_with(|| {
         activate();
         let (mut descriptor, rotating, public) = fixture(31);
-        descriptor.algorithm = subtensor_hashed::v2::FIXED_ALGORITHM;
-        let account = AccountId32::new(subtensor_hashed::v2::account_id(&descriptor));
+        descriptor.algorithm = subtensor_hashed::mldsa::FIXED_ALGORITHM;
+        let account = AccountId32::new(subtensor_hashed::mldsa::account_id(&descriptor));
         assert_ne!(account, rotating);
         assert_ok!(HashedAccounts::register(
             RuntimeOrigin::signed(sponsor()),
@@ -841,27 +844,28 @@ fn fixed_profile_preserves_key_but_consumes_counter_and_forbids_policy_changes()
         ));
         let initial = descriptor.initial_commitment;
         for generation in 0..3 {
-            let before = V2Records::<Test>::get(&account).unwrap();
+            let before = MlDsaAccounts::<Test>::get(&account).unwrap();
             for (profile, next) in [(4, initial), (5, [9; 64]), (5, [0; 64])] {
                 assert!(
-                    HashedAccounts::check_authorization_v2(
+                    HashedAccounts::check_mldsa_authorization(
                         &account, profile, &public, generation, next
                     )
                     .is_err()
                 );
-                assert_eq!(V2Records::<Test>::get(&account).unwrap(), before);
+                assert_eq!(MlDsaAccounts::<Test>::get(&account).unwrap(), before);
             }
-            let proof =
-                HashedAccounts::check_authorization_v2(&account, 5, &public, generation, initial)
-                    .unwrap();
-            assert_ok!(HashedAccounts::advance_v2(&proof));
-            assert!(HashedAccounts::advance_v2(&proof).is_err());
-            let after = V2Records::<Test>::get(&account).unwrap();
+            let proof = HashedAccounts::check_mldsa_authorization(
+                &account, 5, &public, generation, initial,
+            )
+            .unwrap();
+            assert_ok!(HashedAccounts::advance_mldsa(&proof));
+            assert!(HashedAccounts::advance_mldsa(&proof).is_err());
+            let after = MlDsaAccounts::<Test>::get(&account).unwrap();
             assert_eq!(after.generation, generation + 1);
             assert_eq!(after.commitment, initial);
             assert_eq!(after.descriptor, descriptor);
             System::assert_last_event(
-                Event::AuthorizedFixedV2 {
+                Event::AuthorizedFixed {
                     account: account.clone(),
                     generation: generation + 1,
                 }

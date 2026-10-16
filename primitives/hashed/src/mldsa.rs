@@ -343,5 +343,5 @@ impl Output for HashOutput {
 }
 
 #[cfg(test)]
-#[path = "v2_tests.rs"]
+#[path = "mldsa_tests.rs"]
 mod tests;

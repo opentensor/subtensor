@@ -471,7 +471,7 @@ class TestTransactions:
         # No hashed/ML-DSA activation is needed for this ordinary wallet.
         fake.seed_default("System", "Account", {"data": {"free": 1000}})
         fake.seed("AdminUtils", "HashedAccountsEnabled", [], False)
-        fake.seed("HashedAccounts", "V2AuthorizationEnabled", [], False)
+        fake.seed("HashedAccounts", "MlDsaAuthorizationEnabled", [], False)
         fake.mev_key = bytes(1184)
         fake.seed("MevShield", "NextKey", [], fake.mev_key)
         sizes = []

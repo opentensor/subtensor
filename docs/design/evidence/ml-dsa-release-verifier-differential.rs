@@ -25,10 +25,10 @@ use sp_runtime::{
     traits::{AccountIdConversion, TransactionExtension},
     AccountId32, Perbill,
 };
-use subtensor_hashed::v2;
+use subtensor_hashed::mldsa;
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance};
 fn setup(
-    public: &v2::PublicKeyBytes,
+    public: &mldsa::PublicKeyBytes,
     owner: &AccountId32,
     sudo: &AccountId32,
 ) -> sp_io::TestExternalities {
@@ -61,13 +61,13 @@ fn setup(
         node_subtensor_runtime::AdminUtils::sudo_set_hashed_accounts_enabled(
             node_subtensor_runtime::RuntimeOrigin::root(), true,
         ).unwrap();
-        pallet_hashed_accounts::V2AuthorizationEnabled::<Runtime>::put(true);
+        pallet_hashed_accounts::MlDsaAuthorizationEnabled::<Runtime>::put(true);
         ActiveCapabilities::<Runtime>::insert(
             owner,
             CapabilityRole::Order,
             CapabilityRecord {
                 epoch: 1,
-                key_commitment: v2::commitment(public),
+                key_commitment: mldsa::commitment(public),
                 expires_at: 100,
                 scope: CapabilityScope::UnrestrictedTrading,
                 spent_tao: 0,
@@ -79,7 +79,7 @@ fn setup(
 }
 fn transaction(
     order: VersionedOrder<AccountId32>,
-    public: v2::PublicKeyBytes,
+    public: mldsa::PublicKeyBytes,
     signature: Vec<u8>,
     owner: &AccountId32,
     pair: &sr25519::Pair,
@@ -132,7 +132,7 @@ fn main() {
     let sudo: AccountId32 = pair.public().into();
     let owner = AccountId32::new([88; 32]);
     let seed = [89; 32];
-    let public = v2::public_key_from_seed(&seed).unwrap();
+    let public = mldsa::public_key_from_seed(&seed).unwrap();
     let mut ext = setup(&public, &owner, &sudo);
     let version_native =
         ext.execute_with(|| node_subtensor_runtime::api::dispatch("Core_version", &[]).unwrap());
@@ -164,7 +164,7 @@ fn main() {
         })
     });
     let payload = ext.execute_with(|| LimitOrders::order_signing_payload(1, 0, &order));
-    let sig = v2::sign_message(
+    let sig = mldsa::sign_message(
         &seed,
         &payload,
         pallet_limit_orders::ORDER_CONTEXT,
@@ -175,7 +175,7 @@ fn main() {
         ("valid_deterministic".to_string(), sig.to_vec(), true),
         (
             "valid_randomized".into(),
-            v2::sign_message(
+            mldsa::sign_message(
                 &seed,
                 &payload,
                 pallet_limit_orders::ORDER_CONTEXT,
@@ -190,14 +190,14 @@ fn main() {
         ("zero_signature".into(), vec![0; 3309], false),
         (
             "wrong_context".into(),
-            v2::sign_message(&seed, &payload, b"wrong-context", &[0; 32])
+            mldsa::sign_message(&seed, &payload, b"wrong-context", &[0; 32])
                 .unwrap()
                 .to_vec(),
             false,
         ),
         (
             "wrong_message".into(),
-            v2::sign_message(
+            mldsa::sign_message(
                 &seed,
                 b"wrong-message",
                 pallet_limit_orders::ORDER_CONTEXT,
@@ -231,7 +231,7 @@ fn main() {
     for (name, signature, expected) in cases {
         let mut native = setup(&public, &owner, &sudo);
         let mut interpreted = setup(&public, &owner, &sudo);
-        let id = native.execute_with(|| LimitOrders::derive_order_id_v2(0, &order));
+        let id = native.execute_with(|| LimitOrders::derive_authorized_order_id(0, &order));
         let (balance_before, stake_before) = native.execute_with(|| {
             (
                 Balances::free_balance(&owner),

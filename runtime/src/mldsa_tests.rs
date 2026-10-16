@@ -1,12 +1,12 @@
 //! ML-DSA authority enters the same Executive and pallet origin pipeline.
 use super::*;
 use frame_support::{assert_noop, assert_ok};
-use pallet_hashed_accounts::{DerivedDescriptor, V2Records};
+use pallet_hashed_accounts::{DerivedDescriptor, MlDsaAccounts};
 use sp_runtime::{generic::Preamble, traits::TransactionExtension};
-use subtensor_hashed::v2;
+use subtensor_hashed::mldsa;
 
 frame_support::parameter_types! {
-    static TestAccountProfiles: (u8, u8) = (v2::ALGORITHM, v2::ALGORITHM);
+    static TestAccountProfiles: (u8, u8) = (mldsa::ALGORITHM, mldsa::ALGORITHM);
 }
 
 fn profile(identity: u8) -> u8 {
@@ -34,7 +34,7 @@ pub(super) fn with_profiles(test: impl Fn()) {
 }
 
 pub(super) fn seed(identity: u8, generation: u64) -> [u8; 32] {
-    let generation = if profile(identity) == v2::FIXED_ALGORITHM {
+    let generation = if profile(identity) == mldsa::FIXED_ALGORITHM {
         0
     } else {
         generation
@@ -44,11 +44,13 @@ pub(super) fn seed(identity: u8, generation: u64) -> [u8; 32] {
     seed
 }
 
-pub(super) fn descriptor(identity: u8) -> v2::Descriptor {
-    v2::Descriptor {
-        version: v2::VERSION,
+pub(super) fn descriptor(identity: u8) -> mldsa::Descriptor {
+    mldsa::Descriptor {
+        version: mldsa::VERSION,
         algorithm: profile(identity),
-        initial_commitment: v2::commitment(&v2::public_key_from_seed(&seed(identity, 0)).unwrap()),
+        initial_commitment: mldsa::commitment(
+            &mldsa::public_key_from_seed(&seed(identity, 0)).unwrap(),
+        ),
     }
 }
 
@@ -67,7 +69,7 @@ pub(super) fn register(identity: u8) -> AccountId {
     let sponsor = AccountId::from(pair(70).public());
     let _ = Balances::make_free_balance_be(&sponsor, TaoBalance::new(1_000_000_000_000_000));
     let descriptor = descriptor(identity);
-    let account = AccountId::new(v2::account_id(&descriptor));
+    let account = AccountId::new(mldsa::account_id(&descriptor));
     assert_ok!(HashedAccounts::register(
         RuntimeOrigin::signed(sponsor),
         descriptor.into()
@@ -77,8 +79,8 @@ pub(super) fn register(identity: u8) -> AccountId {
 }
 
 pub(super) fn sign(identity: u8, call: RuntimeCall) -> UncheckedExtrinsic {
-    let account = AccountId::new(v2::account_id(&descriptor(identity)));
-    let generation = V2Records::<Runtime>::get(&account).unwrap().generation;
+    let account = AccountId::new(mldsa::account_id(&descriptor(identity)));
+    let generation = MlDsaAccounts::<Runtime>::get(&account).unwrap().generation;
     sign_with_extra(
         identity,
         generation,
@@ -94,14 +96,14 @@ fn sign_with_extra(
     extra: TxExtension,
 ) -> UncheckedExtrinsic {
     let descriptor = descriptor(identity);
-    let header = v2::Header {
-        account: v2::account_id(&descriptor),
+    let header = mldsa::Header {
+        account: mldsa::account_id(&descriptor),
         version: 2,
         algorithm: descriptor.algorithm,
         generation,
-        public_key: v2::public_key_from_seed(&seed(identity, generation)).unwrap(),
-        next_commitment: v2::commitment(
-            &v2::public_key_from_seed(&seed(identity, generation + 1)).unwrap(),
+        public_key: mldsa::public_key_from_seed(&seed(identity, generation)).unwrap(),
+        next_commitment: mldsa::commitment(
+            &mldsa::public_key_from_seed(&seed(identity, generation + 1)).unwrap(),
         ),
     };
     let payload = (&call, &extra, extra.implicit().unwrap()).encode();
@@ -111,7 +113,9 @@ fn sign_with_extra(
     UncheckedExtrinsic::new_signed(
         call,
         Address::Raw(address.encode()),
-        Signature::Ed25519(sp_core::ed25519::Signature::from_raw(v2::CARRIER_SIGNATURE)),
+        Signature::Ed25519(sp_core::ed25519::Signature::from_raw(
+            mldsa::CARRIER_SIGNATURE,
+        )),
         extra,
     )
 }
@@ -133,16 +137,22 @@ fn full_payload_v4_roundtrip_executes_and_consumes_only_once() {
             LegacyUnchecked::decode(&mut &wire[..]).unwrap().encode(),
             wire
         );
-        let before = V2Records::<Runtime>::get(&account).unwrap();
+        let before = MlDsaAccounts::<Runtime>::get(&account).unwrap();
         let checked = tx.clone().check(&ChainContext::default()).unwrap();
         assert_eq!(checked.get_dispatch_info(), tx.get_dispatch_info());
-        assert_eq!(V2Records::<Runtime>::get(&account).unwrap(), before);
+        assert_eq!(MlDsaAccounts::<Runtime>::get(&account).unwrap(), before);
         assert_ok!(Executive::apply_extrinsic(tx.clone()).unwrap());
-        assert_eq!(V2Records::<Runtime>::get(&account).unwrap().generation, 1);
+        assert_eq!(
+            MlDsaAccounts::<Runtime>::get(&account).unwrap().generation,
+            1
+        );
         assert_eq!(System::account_nonce(&account), 2);
         assert!(Executive::apply_extrinsic(tx).is_err());
         assert_ok!(Executive::apply_extrinsic(sign(42, call)).unwrap());
-        assert_eq!(V2Records::<Runtime>::get(account).unwrap().generation, 2);
+        assert_eq!(
+            MlDsaAccounts::<Runtime>::get(account).unwrap().generation,
+            2
+        );
     });
 }
 
@@ -151,7 +161,7 @@ fn malformed_markers_and_transcript_mutations_never_rotate_or_charge() {
     with_profiles(|| {
         let account = register(43);
         let tx = sign(43, call());
-        let state = V2Records::<Runtime>::get(&account);
+        let state = MlDsaAccounts::<Runtime>::get(&account);
         let balance = Balances::free_balance(&account);
         for mutation in 0..8 {
             let mut bad = tx.clone();
@@ -164,7 +174,7 @@ fn malformed_markers_and_transcript_mutations_never_rotate_or_charge() {
                 0 => *marker = Signature::Ed25519(sp_core::ed25519::Signature::from_raw([0; 64])),
                 1 => {
                     *marker =
-                        Signature::Sr25519(sr25519::Signature::from_raw(v2::CARRIER_SIGNATURE))
+                        Signature::Sr25519(sr25519::Signature::from_raw(mldsa::CARRIER_SIGNATURE))
                 }
                 2 => raw[0] ^= 1,
                 3 => raw[34] ^= 1,
@@ -177,7 +187,7 @@ fn malformed_markers_and_transcript_mutations_never_rotate_or_charge() {
                 Executive::apply_extrinsic(bad).is_err(),
                 "mutation {mutation}"
             );
-            assert_eq!(V2Records::<Runtime>::get(&account), state);
+            assert_eq!(MlDsaAccounts::<Runtime>::get(&account), state);
             assert_eq!(Balances::free_balance(&account), balance);
             assert_eq!(System::account_nonce(&account), 1);
         }
@@ -185,7 +195,7 @@ fn malformed_markers_and_transcript_mutations_never_rotate_or_charge() {
         let UncheckedExtrinsic::Legacy(ref mut legacy) = changed_call;
         legacy.0.function = RuntimeCall::System(SystemCall::remark { remark: vec![9] });
         assert!(Executive::apply_extrinsic(changed_call).is_err());
-        assert_eq!(V2Records::<Runtime>::get(account), state);
+        assert_eq!(MlDsaAccounts::<Runtime>::get(account), state);
     });
 }
 
@@ -198,15 +208,21 @@ fn included_dispatch_error_rotates_but_disabled_and_overweight_do_not() {
             value: TaoBalance::new(u64::MAX),
         });
         let tx = sign(44, fail);
-        pallet_hashed_accounts::V2AuthorizationEnabled::<Runtime>::put(false);
+        pallet_hashed_accounts::MlDsaAuthorizationEnabled::<Runtime>::put(false);
         assert!(Executive::apply_extrinsic(tx.clone()).is_err());
-        pallet_hashed_accounts::V2AuthorizationEnabled::<Runtime>::put(true);
+        pallet_hashed_accounts::MlDsaAuthorizationEnabled::<Runtime>::put(true);
         hashed_auth::TestVerificationWeight::set(Weight::MAX);
         assert!(Executive::apply_extrinsic(tx.clone()).is_err());
-        assert_eq!(V2Records::<Runtime>::get(&account).unwrap().generation, 0);
+        assert_eq!(
+            MlDsaAccounts::<Runtime>::get(&account).unwrap().generation,
+            0
+        );
         hashed_auth::TestVerificationWeight::set(Weight::from_parts(10_000_000, 0));
         assert!(Executive::apply_extrinsic(tx).unwrap().is_err());
-        assert_eq!(V2Records::<Runtime>::get(account).unwrap().generation, 1);
+        assert_eq!(
+            MlDsaAccounts::<Runtime>::get(account).unwrap().generation,
+            1
+        );
     });
 }
 
@@ -215,7 +231,7 @@ fn admin_master_switch_pauses_ms_but_ordinary_sr_ed_transfers_still_execute() {
     with_profiles(|| {
         let account = register(44);
         let tx = sign(44, call());
-        let before = V2Records::<Runtime>::get(&account);
+        let before = MlDsaAccounts::<Runtime>::get(&account);
         let nonce = System::account_nonce(&account);
         let balance = Balances::free_balance(&account);
         assert_ok!(AdminUtils::sudo_set_hashed_accounts_enabled(
@@ -223,10 +239,10 @@ fn admin_master_switch_pauses_ms_but_ordinary_sr_ed_transfers_still_execute() {
             false
         ));
         // The two subordinate switches remain on and cannot override AdminUtils.
-        assert!(HashedAccounts::v2_registration_enabled());
-        assert!(HashedAccounts::v2_authorization_enabled());
+        assert!(HashedAccounts::mldsa_registration_enabled());
+        assert!(HashedAccounts::mldsa_authorization_enabled());
         assert!(Executive::apply_extrinsic(tx.clone()).is_err());
-        assert_eq!(V2Records::<Runtime>::get(&account), before);
+        assert_eq!(MlDsaAccounts::<Runtime>::get(&account), before);
         assert_eq!(System::account_nonce(&account), nonce);
         assert_eq!(Balances::free_balance(&account), balance);
         let recipient = AccountId::new([98; 32]);
@@ -263,7 +279,10 @@ fn admin_master_switch_pauses_ms_but_ordinary_sr_ed_transfers_still_execute() {
             true
         ));
         assert_ok!(Executive::apply_extrinsic(tx).unwrap());
-        assert_eq!(V2Records::<Runtime>::get(&account).unwrap().generation, 1);
+        assert_eq!(
+            MlDsaAccounts::<Runtime>::get(&account).unwrap().generation,
+            1
+        );
     });
 }
 
@@ -281,7 +300,7 @@ fn sponsor_registration_and_funding_are_atomic_under_normal_signed_v4() {
         let sponsor_id = AccountId::from(sponsor.public());
         let _ = Balances::make_free_balance_be(&sponsor_id, TaoBalance::new(1_000_000_000_000));
         let descriptor = descriptor(45);
-        let account = AccountId::new(v2::account_id(&descriptor));
+        let account = AccountId::new(mldsa::account_id(&descriptor));
         let register_and_fund = |amount| {
             RuntimeCall::Utility(pallet_utility::Call::batch_all {
                 calls: vec![
@@ -300,7 +319,7 @@ fn sponsor_registration_and_funding_are_atomic_under_normal_signed_v4() {
                 .unwrap()
                 .is_err()
         );
-        assert!(V2Records::<Runtime>::get(&account).is_none());
+        assert!(MlDsaAccounts::<Runtime>::get(&account).is_none());
         assert_eq!(System::account_nonce(&account), 0);
         assert_ok!(
             Executive::apply_extrinsic(legacy(&sponsor, register_and_fund(10_000_000_000)))
@@ -410,8 +429,8 @@ fn mixed_and_all_pq_multisig_execute_under_the_unchanged_account_and_call_hash()
             );
             assert!(pallet_multisig::Multisigs::<Runtime>::get(&composite, hash).is_none());
             assert!(HashedAccounts::is_protected(&composite));
-            assert_eq!(V2Records::<Runtime>::get(first).unwrap().generation, 2);
-            assert_eq!(V2Records::<Runtime>::get(composite), None);
+            assert_eq!(MlDsaAccounts::<Runtime>::get(first).unwrap().generation, 2);
+            assert_eq!(MlDsaAccounts::<Runtime>::get(composite), None);
         });
     }
 }
@@ -442,7 +461,7 @@ fn pq_delegates_preserve_identity_and_classical_delegates_are_rejected() {
             ))
             .unwrap()
         );
-        let before = V2Records::<Runtime>::get(&account);
+        let before = MlDsaAccounts::<Runtime>::get(&account);
         let recipient = AccountId::new([97; 32]);
         let inner = RuntimeCall::Balances(BalancesCall::transfer_keep_alive {
             dest: recipient.clone().into(),
@@ -463,8 +482,11 @@ fn pq_delegates_preserve_identity_and_classical_delegates_are_rejected() {
             Balances::free_balance(recipient),
             TaoBalance::new(1_000_000_000)
         );
-        assert_eq!(V2Records::<Runtime>::get(account), before);
-        assert_eq!(V2Records::<Runtime>::get(delegate).unwrap().generation, 1);
+        assert_eq!(MlDsaAccounts::<Runtime>::get(account), before);
+        assert_eq!(
+            MlDsaAccounts::<Runtime>::get(delegate).unwrap().generation,
+            1
+        );
     });
 }
 
@@ -639,7 +661,7 @@ fn protected_derivatives_and_pure_proxies_preserve_their_floor_through_lifecycle
             pallet_hashed_accounts::SecurityFloor::PqRequired
         ));
         let failed_child = Utility::derivative_account_id(parent.clone(), 8).unwrap();
-        let before = V2Records::<Runtime>::get(&parent).unwrap().generation;
+        let before = MlDsaAccounts::<Runtime>::get(&parent).unwrap().generation;
         let fail = RuntimeCall::Balances(BalancesCall::transfer_keep_alive {
             dest: AccountId::new([98; 32]).into(),
             value: TaoBalance::new(u64::MAX),
@@ -657,7 +679,7 @@ fn protected_derivatives_and_pure_proxies_preserve_their_floor_through_lifecycle
         );
         assert!(!HashedAccounts::is_protected(&failed_child));
         assert_eq!(
-            V2Records::<Runtime>::get(&parent).unwrap().generation,
+            MlDsaAccounts::<Runtime>::get(&parent).unwrap().generation,
             before + 1
         );
         let ext_index = System::extrinsic_index().unwrap_or_default();
@@ -857,7 +879,10 @@ fn shield_mldsa_outer_and_inner_consume_exactly_the_two_prepared_generations() {
         });
         let immortal = sign(51, carrier.clone());
         assert!(Executive::apply_extrinsic(immortal).is_err());
-        assert_eq!(V2Records::<Runtime>::get(&account).unwrap().generation, 0);
+        assert_eq!(
+            MlDsaAccounts::<Runtime>::get(&account).unwrap().generation,
+            0
+        );
         // An inner generation cannot execute before its own carrier.
         assert!(Executive::apply_extrinsic(inner.clone()).is_err());
         let outer = sign_with_extra(51, 0, carrier, outer_extra);
@@ -873,7 +898,10 @@ fn shield_mldsa_outer_and_inner_consume_exactly_the_two_prepared_generations() {
         }
         assert!(hashed_extrinsic::shielded_transaction(forged.clone()).is_some());
         assert!(Executive::apply_extrinsic(forged).is_err());
-        assert_eq!(V2Records::<Runtime>::get(&account).unwrap().generation, 0);
+        assert_eq!(
+            MlDsaAccounts::<Runtime>::get(&account).unwrap().generation,
+            0
+        );
         assert_eq!(System::account_nonce(&account), 1);
         assert!(
             hashed_extrinsic::shielded_transaction(UncheckedExtrinsic::new_bare(
@@ -882,9 +910,15 @@ fn shield_mldsa_outer_and_inner_consume_exactly_the_two_prepared_generations() {
             .is_none()
         );
         assert_ok!(Executive::apply_extrinsic(outer.clone()).unwrap());
-        assert_eq!(V2Records::<Runtime>::get(&account).unwrap().generation, 1);
+        assert_eq!(
+            MlDsaAccounts::<Runtime>::get(&account).unwrap().generation,
+            1
+        );
         assert_ok!(Executive::apply_extrinsic(inner.clone()).unwrap());
-        assert_eq!(V2Records::<Runtime>::get(&account).unwrap().generation, 2);
+        assert_eq!(
+            MlDsaAccounts::<Runtime>::get(&account).unwrap().generation,
+            2
+        );
         assert_eq!(System::account_nonce(account), 3);
         assert!(Executive::apply_extrinsic(outer).is_err());
         assert!(Executive::apply_extrinsic(inner).is_err());

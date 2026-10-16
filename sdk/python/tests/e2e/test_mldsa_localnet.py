@@ -45,7 +45,7 @@ async def fund(client, key, amount=100):
 
 
 async def record(client, key):
-    return await client.query(("HashedAccounts", "V2Records"), [key.ss58_address])
+    return await client.query(("HashedAccounts", "MlDsaAccounts"), [key.ss58_address])
 
 
 async def account(client, key):

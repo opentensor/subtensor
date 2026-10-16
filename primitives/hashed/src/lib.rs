@@ -7,7 +7,7 @@
 extern crate alloc;
 
 /// Quantum-resistant account protocol, independent of the immutable v1 format.
-pub mod v2;
+pub mod mldsa;
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
@@ -130,7 +130,7 @@ pub enum RegistrationDescriptor {
     #[codec(index = 0)]
     Classical(Descriptor),
     #[codec(index = 1)]
-    MlDsa65(v2::Descriptor),
+    MlDsa65(mldsa::Descriptor),
 }
 
 impl From<Descriptor> for RegistrationDescriptor {
@@ -139,8 +139,8 @@ impl From<Descriptor> for RegistrationDescriptor {
     }
 }
 
-impl From<v2::Descriptor> for RegistrationDescriptor {
-    fn from(descriptor: v2::Descriptor) -> Self {
+impl From<mldsa::Descriptor> for RegistrationDescriptor {
+    fn from(descriptor: mldsa::Descriptor) -> Self {
         Self::MlDsa65(descriptor)
     }
 }
@@ -243,9 +243,9 @@ mod registration_tests {
             scheme: Scheme::Sr25519,
             initial_commitment: [3; 32],
         };
-        let mldsa = v2::Descriptor {
-            version: v2::VERSION,
-            algorithm: v2::ALGORITHM,
+        let mldsa = mldsa::Descriptor {
+            version: mldsa::VERSION,
+            algorithm: mldsa::ALGORITHM,
             initial_commitment: [5; 64],
         };
         for (tag, inner, registration) in [

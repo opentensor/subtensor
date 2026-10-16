@@ -355,7 +355,7 @@ class FakeSubstrate:
     async def prepare_hashed_snapshot(self, keypair) -> HashedSigningSnapshot:
         from bittensor.hashed import descriptor_bytes, raw_bytes
 
-        registry = "V2Records" if keypair.crypto_type in (7, 8) else "Accounts"
+        registry = "MlDsaAccounts" if keypair.crypto_type in (7, 8) else "Accounts"
         record = await self.query("HashedAccounts", registry, [keypair.ss58_address])
         generation = int(record["generation"]) if record else keypair.hashed_generation
         return HashedSigningSnapshot(

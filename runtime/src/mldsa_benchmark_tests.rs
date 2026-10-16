@@ -3,7 +3,7 @@
 use super::*;
 use frame_support::assert_ok;
 use pallet_hashed_accounts::{DerivedAuthorities, DerivedDescriptor, OnRegister};
-use subtensor_hashed::v2;
+use subtensor_hashed::mldsa;
 
 fn payer() -> AccountId {
     let payer = AccountId::new([93; 32]);
@@ -18,17 +18,17 @@ fn protected_parent() -> AccountId {
 }
 
 #[test]
-fn v2_registration_benchmark_exercises_all_delegates_announcements_and_alias_sweep() {
+fn mldsa_registration_benchmark_exercises_all_delegates_announcements_and_alias_sweep() {
     ext().execute_with(|| {
         System::set_block_number(1);
         let payer = payer();
-        let descriptor = v2::Descriptor {
+        let descriptor = mldsa::Descriptor {
             version: 2,
             algorithm: 4,
-            initial_commitment: v2::commitment(&v2::public_key_from_seed(&[91; 32]).unwrap()),
+            initial_commitment: mldsa::commitment(&mldsa::public_key_from_seed(&[91; 32]).unwrap()),
         };
-        let account = AccountId::new(v2::account_id(&descriptor));
-        assert_ok!(hashed_auth::OnHashedRegistered::setup_benchmark_v2(
+        let account = AccountId::new(mldsa::account_id(&descriptor));
+        assert_ok!(hashed_auth::OnHashedRegistered::setup_benchmark_mldsa(
             &account,
             &payer,
             &descriptor

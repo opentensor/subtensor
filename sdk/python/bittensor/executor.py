@@ -89,10 +89,10 @@ async def estimate_shielded_carrier_fee(
     public = _FeeAddressView(fee_payer)
     if (
         await hashed_accounts_enabled(substrate) is True
-        or await substrate.constant("HashedAccounts", "V2RegistrationDeposit") is not None
+        or await substrate.constant("HashedAccounts", "MlDsaRegistrationDeposit") is not None
     ):
         kind, record = await protected_account_record(substrate, fee_payer)
-        if kind in ("v1", "v2"):
+        if kind in ("v1", "mldsa"):
             public = Keypair.from_hashed_descriptor(descriptor_bytes(record["descriptor"]))
             if public.ss58_address != fee_payer:
                 raise ValueError("registered hashed descriptor does not match the fee payer")

@@ -55,9 +55,9 @@ def chain():
     substrate.seed_constant("HashedAccounts", "Enabled", True)
     substrate.seed_constant("HashedAccounts", "MldsaAccountProfiles", "0x0405")
     substrate.seed_constant("HashedAccounts", "RegistrationDeposit", 100)
-    substrate.seed_constant("HashedAccounts", "V2RegistrationDeposit", 200)
-    substrate.seed("HashedAccounts", "V2RegistrationEnabled", [], True)
-    substrate.seed("HashedAccounts", "V2AuthorizationEnabled", [], True)
+    substrate.seed_constant("HashedAccounts", "MlDsaRegistrationDeposit", 200)
+    substrate.seed("HashedAccounts", "MlDsaRegistrationEnabled", [], True)
+    substrate.seed("HashedAccounts", "MlDsaAuthorizationEnabled", [], True)
     return substrate
 
 
@@ -70,7 +70,7 @@ class Codec:
             return "0x0405"
         if name == "Enabled":
             return True
-        assert name == "V2RegistrationDeposit"
+        assert name == "MlDsaRegistrationDeposit"
         return 200
 
     @staticmethod
@@ -106,11 +106,11 @@ def connection(wallet):
 
     async def query(pallet, item, params=None, *, block_hash):
         assert block_hash == "0xfinalized"
-        if item == "V2AuthorizationEnabled":
+        if item == "MlDsaAuthorizationEnabled":
             return True
         assert params == [wallet.ss58_address]
         if pallet == "HashedAccounts" and item == (
-            "V2Records" if wallet.crypto_type in (7, 8) else "Accounts"
+            "MlDsaAccounts" if wallet.crypto_type in (7, 8) else "Accounts"
         ):
             return state
         assert (pallet, item) == ("System", "Account")
@@ -163,7 +163,7 @@ def test_bth2_descriptor_roundtrip_preserves_v1_namespace(wallet):
     recipient = parse_recipient(address)
     assert recipient.account == wallet.ss58_address
     assert recipient.descriptor == bytes(wallet.hashed_descriptor)
-    assert descriptor_storage(recipient.descriptor) == "V2Records"
+    assert descriptor_storage(recipient.descriptor) == "MlDsaAccounts"
     assert descriptor_bytes(descriptor_value(recipient.descriptor)) == recipient.descriptor
     assert receiving_address(wallet.public_only()) == address
     for invalid in (address + "=", address.replace("bth2_", "bth1_"), " " + address):
@@ -173,7 +173,7 @@ def test_bth2_descriptor_roundtrip_preserves_v1_namespace(wallet):
         descriptor_value(bytes([2, 4]) + bytes(64))
 
 
-async def test_transport_uses_finalized_v2_record_full_proof_and_stable_identity(wallet):
+async def test_transport_uses_finalized_mldsa_record_full_proof_and_stable_identity(wallet):
     conn, codec, _state = connection(wallet)
     call = b"large ordinary call" * 40
     await conn.create_signed_extrinsic(call, wallet)
@@ -206,7 +206,7 @@ async def test_transport_rejects_wrong_or_stale_authority_before_signing(failure
         async def paused(pallet, item, params=None, *, block_hash):
             return (
                 False
-                if item == "V2AuthorizationEnabled"
+                if item == "MlDsaAuthorizationEnabled"
                 else await original(pallet, item, params, block_hash=block_hash)
             )
 
@@ -228,11 +228,11 @@ async def test_fee_quote_uses_complete_dummy_proof_without_private_wallet(wallet
 
 
 @pytest.mark.parametrize("exists,enabled", [(False, True), (True, True), (True, False)])
-async def test_receiving_guard_routes_to_v2_and_prices_v2_deposit(exists, enabled, wallet):
+async def test_receiving_guard_routes_to_mldsa_and_prices_mldsa_deposit(exists, enabled, wallet):
     substrate = chain()
-    substrate.seed("HashedAccounts", "V2RegistrationEnabled", [], enabled)
+    substrate.seed("HashedAccounts", "MlDsaRegistrationEnabled", [], enabled)
     if exists:
-        substrate.seed("HashedAccounts", "V2Records", [wallet.ss58_address], record(wallet))
+        substrate.seed("HashedAccounts", "MlDsaAccounts", [wallet.ss58_address], record(wallet))
     intent, recipients = await prepare_recipient_intent(
         substrate, Transfer(dest_ss58=receiving_address(wallet), amount_tao=1)
     )
@@ -251,9 +251,9 @@ async def test_receiving_guard_routes_to_v2_and_prices_v2_deposit(exists, enable
     assert guarded[-1].params["dest"] == wallet.ss58_address
 
 
-async def test_disabled_v2_registration_cannot_fund_unregistered_identity(wallet):
+async def test_disabled_mldsa_registration_cannot_fund_unregistered_identity(wallet):
     substrate = chain()
-    substrate.seed("HashedAccounts", "V2RegistrationEnabled", [], False)
+    substrate.seed("HashedAccounts", "MlDsaRegistrationEnabled", [], False)
     intent, recipients = await prepare_recipient_intent(
         substrate, Transfer(dest_ss58=receiving_address(wallet), amount_tao=1)
     )
@@ -266,10 +266,10 @@ async def test_disabled_v2_registration_cannot_fund_unregistered_identity(wallet
         )
 
 
-async def test_registered_write_and_evm_alias_resolve_v2_even_when_setup_is_paused(wallet):
+async def test_registered_write_and_evm_alias_resolve_mldsa_even_when_setup_is_paused(wallet):
     substrate = chain()
-    substrate.seed("HashedAccounts", "V2RegistrationEnabled", [], False)
-    substrate.seed("HashedAccounts", "V2Records", [wallet.ss58_address], record(wallet))
+    substrate.seed("HashedAccounts", "MlDsaRegistrationEnabled", [], False)
+    substrate.seed("HashedAccounts", "MlDsaAccounts", [wallet.ss58_address], record(wallet))
     address = receiving_address(wallet)
     assert await account_for_registered_write(substrate, address) == wallet.ss58_address
     alias = ss58_to_h160_truncated(wallet.ss58_address)
@@ -301,7 +301,7 @@ async def test_protected_proxy_and_derivative_routes_preserve_exact_inner_call(w
     from bittensor.intents import CreatePureProxy
 
     substrate = chain()
-    substrate.seed("HashedAccounts", "V2Records", [wallet.ss58_address], record(wallet))
+    substrate.seed("HashedAccounts", "MlDsaAccounts", [wallet.ss58_address], record(wallet))
     pure = await CreatePureProxy().build(substrate, wallet)
     assert pure.function == "create_protected_pure"
     inner = b"pinned exact economic call bytes"
@@ -320,7 +320,7 @@ async def test_multisig_protection_requires_a_pq_member_in_every_possible_quorum
     from bittensor.hashed import multisig_protection_call
 
     substrate = chain()
-    substrate.seed("HashedAccounts", "V2Records", [wallet.ss58_address], record(wallet))
+    substrate.seed("HashedAccounts", "MlDsaAccounts", [wallet.ss58_address], record(wallet))
     classic = dev_wallet().coldkey.ss58_address
     members = [classic, receiving_address(wallet)]
     registration = await multisig_protection_call(
@@ -332,7 +332,7 @@ async def test_multisig_protection_requires_a_pq_member_in_every_possible_quorum
     assert set(descriptor["Multisig"]["signatories"]) == {classic, wallet.ss58_address}
     account = substrate.multisig_account([classic, wallet.ss58_address], 2).ss58_address
     substrate.seed("HashedAccounts", "DerivedAuthorities", [account], {"descriptor": descriptor})
-    substrate.seed("HashedAccounts", "V2RegistrationEnabled", [], False)
+    substrate.seed("HashedAccounts", "MlDsaRegistrationEnabled", [], False)
     check = await multisig_protection_call(substrate, members, 2, deposit_payer=wallet.ss58_address)
     assert check.function == "check_derived"
     assert check.params["descriptor"] == registration.params["descriptor"]
@@ -346,7 +346,7 @@ async def test_pq_multisig_requires_quorum_registration_before_funding(wallet):
     substrate, owner = chain(), wallet
     other = Keypair.create_from_seed(bytes([8]) * 32, CRYPTO_MLDSA65)
     for member in (owner, other):
-        substrate.seed("HashedAccounts", "V2Records", [member.ss58_address], record(member))
+        substrate.seed("HashedAccounts", "MlDsaAccounts", [member.ss58_address], record(member))
     group = await Client(substrate=substrate).multisig([owner.ss58_address, other.ss58_address], 1)
     with pytest.raises(ValueError, match="through its quorum"):
         await group.funding_call(1_000_000)
@@ -486,7 +486,7 @@ async def test_master_switch_blocks_ms_signing_and_receiving_despite_subgates(wa
     substrate = chain()
     substrate.seed_constant("HashedAccounts", "Enabled", None)
     substrate.seed("AdminUtils", "HashedAccountsEnabled", [], False)
-    substrate.seed("HashedAccounts", "V2Records", [wallet.ss58_address], record(wallet))
+    substrate.seed("HashedAccounts", "MlDsaAccounts", [wallet.ss58_address], record(wallet))
     with pytest.raises(ValueError, match="not supported"):
         await prepare_recipient_intent(
             substrate, Transfer(dest_ss58=receiving_address(wallet), amount_tao=1)

@@ -214,7 +214,9 @@ async def order_capability(substrate, owner: str) -> OrderCapability:
     if (
         await substrate.query("AdminUtils", "HashedAccountsEnabled", block_hash=block_hash)
         is not True
-        or await substrate.query("HashedAccounts", "V2AuthorizationEnabled", block_hash=block_hash)
+        or await substrate.query(
+            "HashedAccounts", "MlDsaAuthorizationEnabled", block_hash=block_hash
+        )
         is not True
     ):
         raise ValueError("ML-DSA authorization is disabled")
@@ -293,7 +295,7 @@ async def sign_order(
         raise ValueError("wallet order key does not match the finalized capability")
     finalized_hash = await substrate.block_hash(capability.finalized_block)
     existing = await substrate.query(
-        "LimitOrders", "OrderNoncesV2", [prepared.owner, prepared.nonce], block_hash=finalized_hash
+        "LimitOrders", "OrderNonces", [prepared.owner, prepared.nonce], block_hash=finalized_hash
     )
     if existing is not None and _bytes(existing) != bytes.fromhex(prepared.order_id[2:]):
         raise ValueError("order nonce is already bound to different economic terms")

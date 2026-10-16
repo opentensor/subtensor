@@ -1,4 +1,4 @@
-"""Full-payload pinning and finalized capability boundaries for v2 orders."""
+"""Full-payload pinning and finalized capability boundaries for authorized orders."""
 
 import json
 from copy import deepcopy
@@ -65,7 +65,7 @@ class OrderSubstrate(FakeSubstrate):
 def chain(key):
     substrate = OrderSubstrate()
     substrate.seed("AdminUtils", "HashedAccountsEnabled", [], True)
-    substrate.seed("HashedAccounts", "V2AuthorizationEnabled", [], True)
+    substrate.seed("HashedAccounts", "MlDsaAuthorizationEnabled", [], True)
     substrate.seed("HashedAccounts", "CapabilityEpochs", [key.ss58_address, "Order"], 3)
     record = {
         "epoch": 3,
@@ -143,9 +143,9 @@ async def test_stale_or_modified_authority_refuses_before_order_signature(failur
     elif failure == "expiry":
         record["expires_at"] = 0
     elif failure == "disabled":
-        substrate.seed("HashedAccounts", "V2AuthorizationEnabled", [], False)
+        substrate.seed("HashedAccounts", "MlDsaAuthorizationEnabled", [], False)
     elif failure == "nonce":
-        substrate.seed("LimitOrders", "OrderNoncesV2", [key.ss58_address, 17], "0x" + "ff" * 32)
+        substrate.seed("LimitOrders", "OrderNonces", [key.ss58_address, 17], "0x" + "ff" * 32)
     else:
         prepared.order["V1"]["limit_price"] += 1
     observed = ObservedKey(key)
@@ -275,10 +275,12 @@ def test_order_id_matches_independent_runtime_wire_fixture():
     prepared = PreparedOrder(
         42,
         order(ss58_encode(bytes([0x11]) * 32, 42)),
-        (fixtures / "order-v2.scale").read_bytes(),
+        (fixtures / "authorized-order.scale").read_bytes(),
         bytes([0x44]) * 32,
     )
-    assert bytes.fromhex(prepared.order_id[2:]) == (fixtures / "order-v2-id.bin").read_bytes()
+    assert (
+        bytes.fromhex(prepared.order_id[2:]) == (fixtures / "authorized-order-id.bin").read_bytes()
+    )
 
 
 async def test_composite_owner_can_prepare_grant_for_a_separate_purpose_key(wallet):

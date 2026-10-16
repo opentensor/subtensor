@@ -87,15 +87,15 @@ pub fn authorize_order(
         T::AuthenticatedOrderSignerFilter::contains(&who),
         Error::<T>::OrderSignerFrozen
     );
-    let id = Self::derive_order_id_v2(nonce, &terms);
+    let id = Self::derive_authorized_order_id(nonce, &terms);
     Self::check_order_nonce(&who, nonce, id)?;
     ensure!(
         !Orders::<T>::contains_key(id),
         Error::<T>::OrderAlreadyProcessed
     );
-    OrderNoncesV2::<T>::insert(&who, nonce, id);
-    ApprovedOrdersV2::<T>::insert(id, Self::approval_commitment_v2(nonce, &terms));
-    Self::deposit_event(Event::OrderApprovedV2 {
+    OrderNonces::<T>::insert(&who, nonce, id);
+    ApprovedOrders::<T>::insert(id, Self::order_approval_commitment(nonce, &terms));
+    Self::deposit_event(Event::OrderApproved {
         order_id: id,
         signer: who,
         nonce,
@@ -104,6 +104,6 @@ pub fn authorize_order(
 }
 ```
 
-Delegates to [`derive_order_id_v2`](/code/pallets/limit-orders/src/authorization.rs#L256), [`check_order_nonce`](/code/pallets/limit-orders/src/authorization.rs#L303), [`approval_commitment_v2`](/code/pallets/limit-orders/src/authorization.rs#L271).
+Delegates to [`derive_authorized_order_id`](/code/pallets/limit-orders/src/authorization.rs#L256), [`check_order_nonce`](/code/pallets/limit-orders/src/authorization.rs#L303), [`order_approval_commitment`](/code/pallets/limit-orders/src/authorization.rs#L271).
 
 Every file is browsable under [/code](/code) exactly as built into the runtime, or as plain text under `/code/raw/<path>` (index: [`/code/index.json`](/code/index.json)).

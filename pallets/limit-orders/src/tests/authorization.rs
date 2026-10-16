@@ -38,19 +38,19 @@ fn order_wire_transcript_and_commitments_match_independent_golden_bytes() {
         });
         assert_eq!(
             order.encode(),
-            include_bytes!("../../tests/fixtures/order-v2.scale")
+            include_bytes!("../../tests/fixtures/authorized-order.scale")
         );
         assert_eq!(
             LimitOrders::order_signing_payload(3, 42, &order),
-            include_bytes!("../../tests/fixtures/order-v2-transcript.bin")
+            include_bytes!("../../tests/fixtures/authorized-order-transcript.bin")
         );
         assert_eq!(
-            LimitOrders::derive_order_id_v2(42, &order).as_bytes(),
-            include_bytes!("../../tests/fixtures/order-v2-id.bin")
+            LimitOrders::derive_authorized_order_id(42, &order).as_bytes(),
+            include_bytes!("../../tests/fixtures/authorized-order-id.bin")
         );
         assert_eq!(
-            &LimitOrders::approval_commitment_v2(42, &order),
-            include_bytes!("../../tests/fixtures/order-v2-approval.bin")
+            &LimitOrders::order_approval_commitment(42, &order),
+            include_bytes!("../../tests/fixtures/authorized-order-approval.bin")
         );
     });
 }
@@ -76,12 +76,12 @@ fn read_grant(owner: &AccountId32) -> Result<Grant, DispatchError> {
 }
 
 fn grant(owner: &AccountId32, epoch: u64, remaining: u64) {
-    let pk = subtensor_hashed::v2::public_key_from_seed(&SEED).unwrap();
+    let pk = subtensor_hashed::mldsa::public_key_from_seed(&SEED).unwrap();
     sp_io::storage::set(
         &grant_key(owner),
         &Grant {
             epoch,
-            commitment: subtensor_hashed::v2::commitment(&pk),
+            commitment: subtensor_hashed::mldsa::commitment(&pk),
             remaining,
         }
         .encode(),
@@ -92,13 +92,13 @@ impl OrderCapabilities for MockCapabilities {
     fn check(
         owner: &AccountId32,
         epoch: u64,
-        pk: &subtensor_hashed::v2::PublicKeyBytes,
+        pk: &subtensor_hashed::mldsa::PublicKeyBytes,
         _: &OrderView<AccountId32>,
         _: u64,
         fill: u64,
     ) -> DispatchResult {
         let grant = read_grant(owner)?;
-        if grant.epoch != epoch || grant.commitment != subtensor_hashed::v2::commitment(pk) {
+        if grant.epoch != epoch || grant.commitment != subtensor_hashed::mldsa::commitment(pk) {
             return Err(DispatchError::Other("WrongGrant"));
         }
         if fill > grant.remaining {
@@ -122,14 +122,14 @@ impl OrderCapabilities for MockCapabilities {
     fn setup_benchmark(
         owner: &AccountId32,
         epoch: u64,
-        pk: &subtensor_hashed::v2::PublicKeyBytes,
+        pk: &subtensor_hashed::mldsa::PublicKeyBytes,
         _: &OrderView<AccountId32>,
     ) -> DispatchResult {
         sp_io::storage::set(
             &grant_key(owner),
             &Grant {
                 epoch,
-                commitment: subtensor_hashed::v2::commitment(pk),
+                commitment: subtensor_hashed::mldsa::commitment(pk),
                 remaining: u64::MAX,
             }
             .encode(),
@@ -156,15 +156,15 @@ fn order() -> VersionedOrder<AccountId32> {
     })
 }
 
-fn signed(order: VersionedOrder<AccountId32>, nonce: u64, epoch: u64) -> SignedOrderV2 {
-    let public_key = subtensor_hashed::v2::public_key_from_seed(&SEED).unwrap();
+fn signed(order: VersionedOrder<AccountId32>, nonce: u64, epoch: u64) -> AuthorizedOrder {
+    let public_key = subtensor_hashed::mldsa::public_key_from_seed(&SEED).unwrap();
     let payload = LimitOrders::order_signing_payload(epoch, nonce, &order);
     let signature =
-        subtensor_hashed::v2::sign_message(&SEED, &payload, ORDER_CONTEXT, &[0; 32]).unwrap();
-    SignedOrderV2 {
+        subtensor_hashed::mldsa::sign_message(&SEED, &payload, ORDER_CONTEXT, &[0; 32]).unwrap();
+    AuthorizedOrder {
         nonce,
         order,
-        authorization: OrderAuthorizationV2::MlDsa(MlDsaOrderProof {
+        authorization: OrderAuthorization::MlDsa(MlDsaOrderProof {
             epoch,
             public_key,
             signature: signature.to_vec().try_into().unwrap(),
@@ -173,7 +173,7 @@ fn signed(order: VersionedOrder<AccountId32>, nonce: u64, epoch: u64) -> SignedO
     }
 }
 
-fn execute(signed: SignedOrderV2) -> DispatchResult {
+fn execute(signed: AuthorizedOrder) -> DispatchResult {
     LimitOrders::execute_orders(
         RuntimeOrigin::signed(charlie()),
         unified_orders(vec![signed].try_into().unwrap()),
@@ -192,16 +192,16 @@ fn approved_order_uses_owner_authority_and_keeps_legacy_protection() {
     new_test_ext().execute_with(|| {
         prepare();
         let order = order();
-        let id = LimitOrders::derive_order_id_v2(7, &order);
-        let approved = SignedOrderV2 {
+        let id = LimitOrders::derive_authorized_order_id(7, &order);
+        let approved = AuthorizedOrder {
             nonce: 7,
             order: order.clone(),
-            authorization: OrderAuthorizationV2::AccountApproved,
+            authorization: OrderAuthorization::AccountApproved,
             partial_fill: None,
         };
         assert_noop!(execute(approved.clone()), Error::<Test>::OrderNotApproved);
         // Even a matching H256 bookkeeping key cannot authorize different terms.
-        ApprovedOrdersV2::<Test>::insert(id, [9u8; 64]);
+        ApprovedOrders::<Test>::insert(id, [9u8; 64]);
         assert_noop!(execute(approved.clone()), Error::<Test>::OrderNotApproved);
         assert_noop!(
             LimitOrders::authorize_order(
@@ -258,12 +258,12 @@ fn detached_order_checks_epoch_commitment_nonce_genesis_and_every_term() {
         }
         assert_noop!(execute(mutated), Error::<Test>::InvalidSignature);
         let mut mutated = good.clone();
-        if let OrderAuthorizationV2::MlDsa(proof) = &mut mutated.authorization {
+        if let OrderAuthorization::MlDsa(proof) = &mut mutated.authorization {
             proof.epoch = 4;
         }
         assert_noop!(execute(mutated), DispatchError::Other("WrongGrant"));
         let mut mutated = good.clone();
-        if let OrderAuthorizationV2::MlDsa(proof) = &mut mutated.authorization {
+        if let OrderAuthorization::MlDsa(proof) = &mut mutated.authorization {
             proof.public_key[1] ^= 1;
         }
         assert_noop!(execute(mutated), DispatchError::Other("WrongGrant"));
@@ -299,7 +299,7 @@ fn detached_partial_fill_cancellation_and_revocation_recheck_at_execution() {
         assert_ok!(execute(proof.clone()));
         assert_eq!(read_grant(&alice()).unwrap().remaining, 800);
         assert_eq!(
-            Orders::<Test>::get(LimitOrders::derive_order_id_v2(2, &order)),
+            Orders::<Test>::get(LimitOrders::derive_authorized_order_id(2, &order)),
             Some(OrderStatus::PartiallyFilled(200))
         );
         grant(&alice(), 3, 1_000);
@@ -319,15 +319,15 @@ fn failed_swap_does_not_consume_capability_or_nonce_and_batch_is_atomic() {
         prepare();
         grant(&alice(), 1, 1_000);
         let proof = signed(order(), 4, 1);
-        let id = LimitOrders::derive_order_id_v2(4, &proof.order);
+        let id = LimitOrders::derive_authorized_order_id(4, &proof.order);
         MockSwap::set_swap_fail(true);
         assert!(execute(proof.clone()).is_err());
         assert_eq!(read_grant(&alice()).unwrap().remaining, 1_000);
         assert!(!Orders::<Test>::contains_key(id));
-        assert!(!OrderNoncesV2::<Test>::contains_key(alice(), 4));
+        assert!(!OrderNonces::<Test>::contains_key(alice(), 4));
         MockSwap::set_swap_fail(false);
         let mut invalid = signed(order(), 5, 1);
-        if let OrderAuthorizationV2::MlDsa(ref mut proof) = invalid.authorization {
+        if let OrderAuthorization::MlDsa(ref mut proof) = invalid.authorization {
             proof.signature[0] ^= 1;
         }
         assert_noop!(
@@ -430,7 +430,7 @@ fn netted_outcome(mldsa: bool) -> (Vec<SwapCall>, u64, u64, u64) {
                 unified_orders(vec![buys.clone(), sells.clone()].try_into().unwrap())
             ));
             for signed in [buys, sells] {
-                let id = LimitOrders::derive_order_id_v2(signed.nonce, &signed.order);
+                let id = LimitOrders::derive_authorized_order_id(signed.nonce, &signed.order);
                 assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::Fulfilled));
             }
             assert_eq!(read_grant(&alice()).unwrap().remaining, 500);
@@ -495,9 +495,9 @@ fn netted_budget_exhaustion_reverts_all_fill_nonce_and_capability_state() {
         assert!(!Orders::<Test>::contains_key(legacy_id));
         for signed in [first, second] {
             assert!(!Orders::<Test>::contains_key(
-                LimitOrders::derive_order_id_v2(signed.nonce, &signed.order)
+                LimitOrders::derive_authorized_order_id(signed.nonce, &signed.order)
             ));
-            assert!(!OrderNoncesV2::<Test>::contains_key(alice(), signed.nonce));
+            assert!(!OrderNonces::<Test>::contains_key(alice(), signed.nonce));
         }
     });
 }
@@ -506,10 +506,10 @@ fn netted_budget_exhaustion_reverts_all_fill_nonce_and_capability_state() {
 fn netted_approved_orders_recheck_freeze_and_detached_orders_recheck_revocation() {
     new_test_ext().execute_with(|| {
         prepare();
-        let approved = SignedOrderV2 {
+        let approved = AuthorizedOrder {
             nonce: 0,
             order: order(),
-            authorization: OrderAuthorizationV2::AccountApproved,
+            authorization: OrderAuthorization::AccountApproved,
             partial_fill: None,
         };
         assert_ok!(LimitOrders::authorize_order(
@@ -546,7 +546,7 @@ fn netted_approved_orders_recheck_freeze_and_detached_orders_recheck_revocation(
 }
 
 fn unified_orders(
-    orders: BoundedVec<SignedOrderV2, MaxOrdersV2>,
+    orders: BoundedVec<AuthorizedOrder, MaxAuthorizedOrders>,
 ) -> BoundedVec<SignedOrder<AccountId32>, <Test as Config>::MaxOrdersPerBatch> {
     orders
         .into_iter()
@@ -683,7 +683,7 @@ fn unified_calls_reject_mismatched_proof_modes_and_bound_work_before_verificatio
             Error::<Test>::OrderBatchTooLarge
         );
         assert_eq!(Orders::<Test>::iter().count(), 0);
-        assert_eq!(OrderNoncesV2::<Test>::iter().count(), 0);
+        assert_eq!(OrderNonces::<Test>::iter().count(), 0);
     });
 }
 
@@ -748,8 +748,8 @@ fn original_calls_execute_mixed_classical_approved_and_mldsa_orders_atomically()
                     .all(|id| Orders::<Test>::get(id) == Some(OrderStatus::Fulfilled))
             );
             assert_eq!(read_grant(&dave()).unwrap().remaining, 0);
-            assert_eq!(OrderNoncesV2::<Test>::get(alice(), 1), Some(ids[1]));
-            assert_eq!(OrderNoncesV2::<Test>::get(dave(), 2), Some(ids[2]));
+            assert_eq!(OrderNonces::<Test>::get(alice(), 1), Some(ids[1]));
+            assert_eq!(OrderNonces::<Test>::get(dave(), 2), Some(ids[2]));
             assert_noop!(
                 LimitOrders::cancel_order(RuntimeOrigin::signed(alice()), approved),
                 Error::<Test>::OrderAlreadyProcessed
@@ -782,8 +782,8 @@ fn original_cancel_clears_approved_remainder_without_changing_legacy_cancellatio
             authorized.clone()
         ));
         assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::Cancelled));
-        assert!(!ApprovedOrdersV2::<Test>::contains_key(id));
-        assert_eq!(OrderNoncesV2::<Test>::get(alice(), 7), Some(id));
+        assert!(!ApprovedOrders::<Test>::contains_key(id));
+        assert_eq!(OrderNonces::<Test>::get(alice(), 7), Some(id));
         assert_noop!(
             LimitOrders::cancel_order(RuntimeOrigin::signed(alice()), authorized),
             Error::<Test>::OrderAlreadyProcessed
@@ -804,7 +804,7 @@ fn mldsa_order_proof_decodes_bounded_bytes_and_requires_exact_signature_length()
         prepare();
         grant(&alice(), 1, 1_000);
         let valid = signed(order(), 1, 1);
-        let OrderAuthorizationV2::MlDsa(proof) = &valid.authorization else {
+        let OrderAuthorization::MlDsa(proof) = &valid.authorization else {
             panic!("ML-DSA fixture")
         };
         assert_eq!(proof.signature.len(), 3309);
@@ -827,7 +827,7 @@ fn mldsa_order_proof_decodes_bounded_bytes_and_requires_exact_signature_length()
         assert!(MlDsaOrderProof::decode(&mut oversized.as_slice()).is_err());
         for length in [0, 3308] {
             let mut malformed = valid.clone();
-            if let OrderAuthorizationV2::MlDsa(proof) = &mut malformed.authorization {
+            if let OrderAuthorization::MlDsa(proof) = &mut malformed.authorization {
                 proof.signature.truncate(length);
             }
             assert_noop!(execute(malformed), Error::<Test>::InvalidSignature);

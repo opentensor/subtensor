@@ -268,16 +268,16 @@ impl Runtime {
     ) -> Result<(Vec<u8>, [u8; 32]), CoreError> {
         let mldsa = if crate::keys::is_mldsa_crypto(signature_version) {
             let profile = if signature_version == crate::keys::CRYPTO_MLDSA65 {
-                subtensor_hashed::v2::ALGORITHM
+                subtensor_hashed::mldsa::ALGORITHM
             } else {
-                subtensor_hashed::v2::FIXED_ALGORITHM
+                subtensor_hashed::mldsa::FIXED_ALGORITHM
             };
             if !self.supports_mldsa_profile(profile) {
                 return Err(CoreError::Codec(
-                    "runtime does not advertise ML-DSA v2 accounts".into(),
+                    "runtime does not advertise ML-DSA ML-DSA accounts".into(),
                 ));
             }
-            let address = subtensor_hashed::v2::SignerAddress::from_bytes(signature)
+            let address = subtensor_hashed::mldsa::SignerAddress::from_bytes(signature)
                 .map_err(|_| CoreError::Codec("invalid ML-DSA authorization envelope".into()))?;
             if address.account != public_key || address.algorithm != profile {
                 return Err(CoreError::Codec(
@@ -309,7 +309,7 @@ impl Runtime {
         let (address, signature, signature_version) = if let Some(address) = &mldsa {
             (
                 Value::record(vec![("Raw".into(), Value::Bytes(address.encode()))]),
-                subtensor_hashed::v2::CARRIER_SIGNATURE.as_slice(),
+                subtensor_hashed::mldsa::CARRIER_SIGNATURE.as_slice(),
                 0,
             )
         } else if let Some(proof) = &proof {
@@ -397,14 +397,14 @@ impl Runtime {
     pub fn supports_mldsa_profile(&self, profile: u8) -> bool {
         self.supports_mldsa_accounts()
             && match profile {
-                subtensor_hashed::v2::ALGORITHM => true,
-                subtensor_hashed::v2::FIXED_ALGORITHM => self
+                subtensor_hashed::mldsa::ALGORITHM => true,
+                subtensor_hashed::mldsa::FIXED_ALGORITHM => self
                     .constant("HashedAccounts", "MldsaAccountProfiles")
                     .is_some_and(|constant| {
                         constant.value.as_slice()
                             == [
-                                subtensor_hashed::v2::ALGORITHM,
-                                subtensor_hashed::v2::FIXED_ALGORITHM,
+                                subtensor_hashed::mldsa::ALGORITHM,
+                                subtensor_hashed::mldsa::FIXED_ALGORITHM,
                             ]
                     }),
                 _ => false,
@@ -726,7 +726,7 @@ pub(crate) mod hashed_tests {
             .is_err());
     }
 
-    pub(crate) fn runtime_v2() -> Runtime {
+    pub(crate) fn runtime_mldsa() -> Runtime {
         let mut runtime = runtime(true);
         assert!(!runtime.supports_mldsa_accounts());
         let pallet = runtime
@@ -785,7 +785,7 @@ pub(crate) mod hashed_tests {
 
     #[test]
     fn fixed_profile_requires_advertised_runtime_support_before_encoding() {
-        let mut runtime = runtime_v2();
+        let mut runtime = runtime_mldsa();
         assert!(runtime.supports_mldsa_profile(4));
         assert!(runtime.supports_mldsa_profile(5));
         runtime
@@ -812,7 +812,7 @@ pub(crate) mod hashed_tests {
 
     #[test]
     fn mldsa_support_requires_registration_enum_not_a_call_name_marker() {
-        let mut runtime = runtime_v2();
+        let mut runtime = runtime_mldsa();
         let call_id = runtime
             .pallets
             .iter()
@@ -824,7 +824,7 @@ pub(crate) mod hashed_tests {
             panic!("call variants")
         };
         let descriptor_id = calls.variants[0].fields[0].ty.id;
-        calls.variants[0].name = "register_v2".into();
+        calls.variants[0].name = "register_unsupported".into();
         assert!(!runtime.supports_mldsa_accounts());
         let TypeDef::Variant(calls) = &mut runtime.types.types[call_id as usize].ty.type_def else {
             panic!("call variants")
@@ -847,7 +847,7 @@ pub(crate) mod hashed_tests {
             crate::keys::CRYPTO_MLDSA65_FIXED,
         ] {
             let legacy_runtime = runtime(false);
-            let runtime = runtime_v2();
+            let runtime = runtime_mldsa();
             let call = runtime
                 .compose_call(
                     "System",
@@ -864,7 +864,7 @@ pub(crate) mod hashed_tests {
             let proof = wallet
                 .sign_mldsa_with_randomness(&payload, &[0; 32])
                 .unwrap();
-            assert!(subtensor_hashed::v2::SignerAddress::from_bytes(&proof)
+            assert!(subtensor_hashed::mldsa::SignerAddress::from_bytes(&proof)
                 .unwrap()
                 .verify(&payload));
             let (encoded, hash) = runtime
@@ -887,7 +887,7 @@ pub(crate) mod hashed_tests {
             assert_eq!(body.byte().unwrap(), 0);
             assert_eq!(
                 body.take(64).unwrap(),
-                subtensor_hashed::v2::CARRIER_SIGNATURE
+                subtensor_hashed::mldsa::CARRIER_SIGNATURE
             );
             assert_eq!(body.take(extra.len()).unwrap(), extra);
             assert_eq!(body.take(call.len()).unwrap(), call);

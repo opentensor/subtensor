@@ -73,7 +73,7 @@ The preserved result identifies the exact Wasm and probe script. This exercises
 the real raw-RPC entry point and read availability; it does not activate ML-DSA,
 prove production throughput, or demonstrate a finalized ML-DSA transaction.
 
-The complete specification is in `../ml-dsa-accounts-v2-spec.md`. Production release tests additionally need valid ML-DSA proofs, actual finalized blocks, metadata upgrades, and the broader client and operation matrix described there.
+The complete specification is in `../ml-dsa-accounts-spec.md`. Production release tests additionally need valid ML-DSA proofs, actual finalized blocks, metadata upgrades, and the broader client and operation matrix described there.
 
 ## Consolidated API coverage
 

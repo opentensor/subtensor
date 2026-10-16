@@ -77,10 +77,10 @@ _NO_RECEIVER = "-"
 
 _DEFAULT_SCHEME = "sr25519"
 
-# V2 transports the 5336-byte capability proof in a bounded binary body prefix.
+# ML-DSA authentication transports the 5336-byte capability proof in a bounded binary body prefix.
 # It does not put a public key and hexadecimal signature in HTTP headers.
-_V2_MAGIC = b"btauth/2\x00"
-DEFAULT_MAX_V2_BODY_BYTES = 1024 * 1024
+_MLDSA_MAGIC = b"btauth/2\x00"
+DEFAULT_MAX_MLDSA_BODY_BYTES = 1024 * 1024
 
 
 class AuthError(BittensorError):
@@ -132,7 +132,7 @@ class AuthenticatedRequest:
     body: bytes
 
 
-def _v2_payload(
+def _mldsa_payload(
     *, capability: MessageCapability, method: str, path: str, body: bytes, nonce: int, receiver: str
 ) -> bytes:
     if not 0 <= nonce < 2**64:
@@ -159,7 +159,7 @@ def _v2_payload(
     return "\n".join(lines).encode()
 
 
-def sign_v2(
+def sign_mldsa(
     wallet: WalletLike,
     *,
     capability: MessageCapability,
@@ -168,14 +168,14 @@ def sign_v2(
     receiver_ss58: str,
     body: bytes = b"",
     nonce_ns: int | None = None,
-    max_body_bytes: int = DEFAULT_MAX_V2_BODY_BYTES,
+    max_body_bytes: int = DEFAULT_MAX_MLDSA_BODY_BYTES,
 ) -> SignedRequest:
     """Sign with an owner-approved message key; send the returned body verbatim."""
     if max_body_bytes < 0 or len(body) > max_body_bytes:
-        raise ValueError("HTTP body exceeds the configured v2 limit")
+        raise ValueError("HTTP body exceeds the configured ML-DSA limit")
     signer = resolve_signer(wallet, role="hotkey")
     nonce = time.time_ns() if nonce_ns is None else nonce_ns
-    payload = _v2_payload(
+    payload = _mldsa_payload(
         capability=capability,
         method=method,
         path=path,
@@ -194,11 +194,11 @@ def sign_v2(
             HEADER_NONCE: str(nonce),
             HEADER_CRYPTO: "mldsa65",
         },
-        _V2_MAGIC + proof + body,
+        _MLDSA_MAGIC + proof + body,
     )
 
 
-def verify_v2(
+def verify_mldsa(
     headers: Mapping[str, str],
     body: bytes,
     *,
@@ -210,7 +210,7 @@ def verify_v2(
     allowed_skew: float = DEFAULT_ALLOWED_SKEW,
     nonce_store: NonceStore | None = None,
     now_ns: int | None = None,
-    max_body_bytes: int = DEFAULT_MAX_V2_BODY_BYTES,
+    max_body_bytes: int = DEFAULT_MAX_MLDSA_BODY_BYTES,
 ) -> AuthenticatedRequest:
     """Verify against fresh trusted chain state, then return the original body.
 
@@ -219,13 +219,13 @@ def verify_v2(
     documented revocation-latency bound; request fields are never a registry.
     Apply the same total body limit in the HTTP server before reading the body.
     """
-    prefix = len(_V2_MAGIC) + PROOF_LENGTH
+    prefix = len(_MLDSA_MAGIC) + PROOF_LENGTH
     if (
         max_body_bytes < 0
         or not prefix <= len(body) <= prefix + max_body_bytes
-        or not body.startswith(_V2_MAGIC)
+        or not body.startswith(_MLDSA_MAGIC)
     ):
-        raise MalformedAuth("invalid or oversized v2 authentication body")
+        raise MalformedAuth("invalid or oversized ML-DSA authentication body")
     lowered = {key.lower(): value for key, value in headers.items()}
     if (
         lowered.get(HEADER_VERSION.lower()) != "2"
@@ -238,10 +238,10 @@ def verify_v2(
         raise WrongReceiver("request was signed for a different receiving hotkey")
     raw_nonce = lowered.get(HEADER_NONCE.lower(), "")
     if not raw_nonce.isascii() or not raw_nonce.isdecimal() or len(raw_nonce) > 20:
-        raise MalformedAuth("invalid v2 nonce")
+        raise MalformedAuth("invalid ML-DSA nonce")
     nonce = int(raw_nonce)
     if raw_nonce != str(nonce) or nonce >= 2**64:
-        raise MalformedAuth("noncanonical v2 nonce")
+        raise MalformedAuth("noncanonical ML-DSA nonce")
     if not (0 <= max_age < float("inf") and 0 <= allowed_skew < float("inf")):
         raise ValueError("freshness bounds must be finite and nonnegative")
     now = time.time_ns() if now_ns is None else now_ns
@@ -249,7 +249,7 @@ def verify_v2(
         raise StaleRequest("request is outside the freshness window")
     original = body[prefix:]
     try:
-        payload = _v2_payload(
+        payload = _mldsa_payload(
             capability=capability,
             method=method,
             path=path,
@@ -259,7 +259,7 @@ def verify_v2(
         )
     except ValueError as error:
         raise MalformedAuth(str(error)) from None
-    proof = body[len(_V2_MAGIC) : prefix]
+    proof = body[len(_MLDSA_MAGIC) : prefix]
     if not verify_payload(proof, payload, capability):
         raise BadSignature("ML-DSA proof does not match the trusted message capability")
     store = nonce_store if nonce_store is not None else _default_nonce_store
@@ -539,7 +539,7 @@ __all__ = [
     "WrongReceiver",
     "build_payload",
     "sign",
-    "sign_v2",
+    "sign_mldsa",
     "verify",
-    "verify_v2",
+    "verify_mldsa",
 ]

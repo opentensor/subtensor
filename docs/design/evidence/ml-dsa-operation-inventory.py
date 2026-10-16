@@ -135,19 +135,19 @@ REGRESSIONS = [
         "HashedAccounts.install_capability LimitOrders.authorize_order Proxy.proxy Utility.batch_all",
     ),
     (
-        "pallets/hashed-accounts/src/v2_tests.rs",
-        "v2_flags_are_independent_root_only_and_never_erase_protection",
+        "pallets/hashed-accounts/src/mldsa_tests.rs",
+        "mldsa_flags_are_independent_root_only_and_never_erase_protection",
         "Pallet mock: Root-only independent switches, registration/check behavior and persistent protection.",
         "HashedAccounts.set_mldsa_enabled HashedAccounts.register HashedAccounts.check_registered",
     ),
     (
-        "pallets/hashed-accounts/src/v2_tests.rs",
+        "pallets/hashed-accounts/src/mldsa_tests.rs",
         "sponsored_derived_registration_requires_owner_and_payer_consent_and_never_double_charges",
         "Pallet mock: derived owner/payer consent and idempotent charging; not an outer ML-DSA transaction.",
         "HashedAccounts.register_derived_sponsored",
     ),
     (
-        "pallets/hashed-accounts/src/v2_tests.rs",
+        "pallets/hashed-accounts/src/mldsa_tests.rs",
         "capabilities_require_protected_owner_and_have_independent_monotonic_epochs",
         "Pallet mock: protected owner and independent install/revoke epochs.",
         "HashedAccounts.install_capability HashedAccounts.revoke_capability",

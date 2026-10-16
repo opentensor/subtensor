@@ -9,14 +9,14 @@ pub const ORDER_CONTEXT: &[u8] = b"bittensor/ms/v2/order";
 pub const ORDER_DOMAIN: &[u8] = b"bittensor/ms/v2/order";
 pub const ORDER_ID_DOMAIN: &[u8] = b"bittensor/ms/v2/order-id";
 /// The new batch has a fixed proof-byte ceiling independent of legacy batching.
-pub type MaxOrdersV2 = ConstU32<8>;
+pub type MaxAuthorizedOrders = ConstU32<8>;
 
 #[derive(
     Clone, Debug, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen,
 )]
 pub struct MlDsaOrderProof {
     pub epoch: u64,
-    pub public_key: subtensor_hashed::v2::PublicKeyBytes,
+    pub public_key: subtensor_hashed::mldsa::PublicKeyBytes,
     /// A bounded byte sequence keeps metadata usable in clients that cannot
     /// decode fixed arrays longer than 2048 bytes. Verification requires 3309.
     pub signature: BoundedVec<u8, ConstU32<3309>>,
@@ -26,7 +26,7 @@ pub struct MlDsaOrderProof {
 #[derive(
     Clone, Debug, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen,
 )]
-pub enum OrderAuthorizationV2 {
+pub enum OrderAuthorization {
     #[codec(index = 0)]
     AccountApproved,
     #[codec(index = 1)]
@@ -36,10 +36,10 @@ pub enum OrderAuthorizationV2 {
 #[derive(
     Clone, Debug, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen,
 )]
-pub struct SignedOrderV2 {
+pub struct AuthorizedOrder {
     pub nonce: u64,
     pub order: VersionedOrder<AccountId32>,
-    pub authorization: OrderAuthorizationV2,
+    pub authorization: OrderAuthorization,
     pub partial_fill: Option<u64>,
 }
 
@@ -89,14 +89,14 @@ impl From<sp_runtime::MultiSignature> for OrderSignature {
     }
 }
 
-impl TryFrom<SignedOrderV2> for SignedOrder<AccountId32> {
+impl TryFrom<AuthorizedOrder> for SignedOrder<AccountId32> {
     type Error = &'static str;
-    fn try_from(signed: SignedOrderV2) -> Result<Self, Self::Error> {
+    fn try_from(signed: AuthorizedOrder) -> Result<Self, Self::Error> {
         Ok(Self {
             order: signed.order.with_nonce(signed.nonce)?,
             signature: match signed.authorization {
-                OrderAuthorizationV2::AccountApproved => OrderSignature::AccountApproved,
-                OrderAuthorizationV2::MlDsa(proof) => OrderSignature::MlDsa(Box::new(proof)),
+                OrderAuthorization::AccountApproved => OrderSignature::AccountApproved,
+                OrderAuthorization::MlDsa(proof) => OrderSignature::MlDsa(Box::new(proof)),
             },
             partial_fill: signed.partial_fill,
         })
@@ -109,7 +109,7 @@ pub trait OrderCapabilities {
     fn check(
         owner: &AccountId32,
         epoch: u64,
-        public_key: &subtensor_hashed::v2::PublicKeyBytes,
+        public_key: &subtensor_hashed::mldsa::PublicKeyBytes,
         order: &OrderView<AccountId32>,
         full_amount: u64,
         fill_amount: u64,
@@ -120,7 +120,7 @@ pub trait OrderCapabilities {
     fn setup_benchmark(
         owner: &AccountId32,
         epoch: u64,
-        public_key: &subtensor_hashed::v2::PublicKeyBytes,
+        public_key: &subtensor_hashed::mldsa::PublicKeyBytes,
         order: &OrderView<AccountId32>,
     ) -> DispatchResult;
 }
@@ -129,7 +129,7 @@ impl OrderCapabilities for () {
     fn check(
         _: &AccountId32,
         _: u64,
-        _: &subtensor_hashed::v2::PublicKeyBytes,
+        _: &subtensor_hashed::mldsa::PublicKeyBytes,
         _: &OrderView<AccountId32>,
         _: u64,
         _: u64,
@@ -147,7 +147,7 @@ impl OrderCapabilities for () {
     fn setup_benchmark(
         _: &AccountId32,
         _: u64,
-        _: &subtensor_hashed::v2::PublicKeyBytes,
+        _: &subtensor_hashed::mldsa::PublicKeyBytes,
         _: &OrderView<AccountId32>,
     ) -> DispatchResult {
         Err(sp_runtime::DispatchError::Other(
@@ -159,7 +159,7 @@ impl OrderCapabilities for () {
 impl<T: Config> Pallet<T> {
     pub(crate) fn authenticated_order(
         signed: &SignedOrder<AccountId32>,
-    ) -> Result<Option<SignedOrderV2>, sp_runtime::DispatchError> {
+    ) -> Result<Option<AuthorizedOrder>, sp_runtime::DispatchError> {
         let Some((nonce, order)) = signed.order.authorized_terms() else {
             ensure!(
                 !signed.signature.is_authenticated(),
@@ -168,11 +168,11 @@ impl<T: Config> Pallet<T> {
             return Ok(None);
         };
         let authorization = match &signed.signature {
-            OrderSignature::AccountApproved => OrderAuthorizationV2::AccountApproved,
-            OrderSignature::MlDsa(proof) => OrderAuthorizationV2::MlDsa(proof.as_ref().clone()),
+            OrderSignature::AccountApproved => OrderAuthorization::AccountApproved,
+            OrderSignature::MlDsa(proof) => OrderAuthorization::MlDsa(proof.as_ref().clone()),
             _ => return Err(Error::<T>::InvalidAuthorizationMode.into()),
         };
-        Ok(Some(SignedOrderV2 {
+        Ok(Some(AuthorizedOrder {
             nonce,
             order,
             authorization,
@@ -190,7 +190,7 @@ impl<T: Config> Pallet<T> {
             .filter(|signed| signed.order.is_authorized() || signed.signature.is_authenticated())
             .count();
         ensure!(
-            count <= <MaxOrdersV2 as Get<u32>>::get() as usize,
+            count <= <MaxAuthorizedOrders as Get<u32>>::get() as usize,
             Error::<T>::OrderBatchTooLarge
         );
         Ok(())
@@ -234,7 +234,7 @@ impl<T: Config> Pallet<T> {
         nonce: u64,
         order: VersionedOrder<AccountId32>,
     ) -> DispatchResult {
-        let order_id = Self::derive_order_id_v2(nonce, &order);
+        let order_id = Self::derive_authorized_order_id(nonce, &order);
         Self::check_order_nonce(&who, nonce, order_id)?;
         ensure!(
             !matches!(
@@ -243,9 +243,9 @@ impl<T: Config> Pallet<T> {
             ),
             Error::<T>::OrderAlreadyProcessed
         );
-        OrderNoncesV2::<T>::insert(&who, nonce, order_id);
+        OrderNonces::<T>::insert(&who, nonce, order_id);
         Orders::<T>::insert(order_id, OrderStatus::Cancelled);
-        ApprovedOrdersV2::<T>::remove(order_id);
+        ApprovedOrders::<T>::remove(order_id);
         Self::deposit_event(Event::OrderCancelled {
             order_id,
             signer: who,
@@ -253,7 +253,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn derive_order_id_v2(nonce: u64, order: &VersionedOrder<AccountId32>) -> H256 {
+    pub fn derive_authorized_order_id(nonce: u64, order: &VersionedOrder<AccountId32>) -> H256 {
         let mut bytes = ORDER_ID_DOMAIN.to_vec();
         (
             frame_system::Pallet::<T>::block_hash(
@@ -268,7 +268,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Full-strength owner approval; H256 remains only the shared bookkeeping ID.
-    pub fn approval_commitment_v2(nonce: u64, order: &VersionedOrder<AccountId32>) -> [u8; 64] {
+    pub fn order_approval_commitment(nonce: u64, order: &VersionedOrder<AccountId32>) -> [u8; 64] {
         let terms = (
             frame_system::Pallet::<T>::block_hash(
                 frame_system::pallet_prelude::BlockNumberFor::<T>::zero(),
@@ -278,7 +278,7 @@ impl<T: Config> Pallet<T> {
             order,
         )
             .encode();
-        subtensor_hashed::v2::shake256_64(&[b"bittensor/ms/v2/order-approval", &terms])
+        subtensor_hashed::mldsa::shake256_64(&[b"bittensor/ms/v2/order-approval", &terms])
     }
 
     pub fn order_signing_payload(
@@ -301,14 +301,14 @@ impl<T: Config> Pallet<T> {
     }
 
     pub(crate) fn check_order_nonce(owner: &AccountId32, nonce: u64, id: H256) -> DispatchResult {
-        if let Some(existing) = OrderNoncesV2::<T>::get(owner, nonce) {
+        if let Some(existing) = OrderNonces::<T>::get(owner, nonce) {
             ensure!(existing == id, Error::<T>::OrderNonceUsed);
         }
         Ok(())
     }
 
-    pub(crate) fn validate_order_v2(
-        signed: &SignedOrderV2,
+    pub(crate) fn validate_authorized_order(
+        signed: &AuthorizedOrder,
         order: &OrderView<AccountId32>,
         id: H256,
         now_ms: u64,
@@ -330,15 +330,15 @@ impl<T: Config> Pallet<T> {
             Self::validate_order_execution(order, signed.partial_fill, id, now_ms, price, relayer)?;
         let fill = signed.partial_fill.unwrap_or(amount);
         match &signed.authorization {
-            OrderAuthorizationV2::AccountApproved => {
+            OrderAuthorization::AccountApproved => {
                 ensure!(
-                    ApprovedOrdersV2::<T>::get(id)
-                        == Some(Self::approval_commitment_v2(signed.nonce, &signed.order)),
+                    ApprovedOrders::<T>::get(id)
+                        == Some(Self::order_approval_commitment(signed.nonce, &signed.order)),
                     Error::<T>::OrderNotApproved
                 );
             }
-            OrderAuthorizationV2::MlDsa(proof) => {
-                let signature: &subtensor_hashed::v2::SignatureBytes = proof
+            OrderAuthorization::MlDsa(proof) => {
+                let signature: &subtensor_hashed::mldsa::SignatureBytes = proof
                     .signature
                     .as_slice()
                     .try_into()
@@ -353,7 +353,7 @@ impl<T: Config> Pallet<T> {
                 )?;
                 let payload = Self::order_signing_payload(proof.epoch, signed.nonce, &signed.order);
                 ensure!(
-                    subtensor_hashed::v2::verify_message(
+                    subtensor_hashed::mldsa::verify_message(
                         &proof.public_key,
                         &payload,
                         ORDER_CONTEXT,
@@ -367,8 +367,8 @@ impl<T: Config> Pallet<T> {
     }
 
     #[transactional]
-    pub(crate) fn try_execute_order_v2(
-        signed: SignedOrderV2,
+    pub(crate) fn try_execute_authorized_order(
+        signed: AuthorizedOrder,
         id: H256,
         relayer: &AccountId32,
     ) -> DispatchResult {
@@ -377,11 +377,11 @@ impl<T: Config> Pallet<T> {
         let now_ms = T::TimeProvider::now().as_millis() as u64;
         let price = T::SwapInterface::current_alpha_price(order.netuid);
         let (amount, provider) =
-            Self::validate_order_v2(&signed, &order, id, now_ms, price, relayer)?;
+            Self::validate_authorized_order(&signed, &order, id, now_ms, price, relayer)?;
         let fill = signed.partial_fill.unwrap_or(amount);
-        OrderNoncesV2::<T>::insert(&order.signer, signed.nonce, id);
+        OrderNonces::<T>::insert(&order.signer, signed.nonce, id);
         Self::execute_validated_order(&order, signed.partial_fill, id, amount, provider)?;
-        if let OrderAuthorizationV2::MlDsa(proof) = &signed.authorization {
+        if let OrderAuthorization::MlDsa(proof) = &signed.authorization {
             T::Capabilities::consume(&order.signer, proof.epoch, order.order_type.is_buy(), fill)?;
         }
         Ok(())
@@ -419,7 +419,7 @@ impl<T: Config> Pallet<T> {
             // This reservation is inside the same storage transaction as all
             // fills. It also catches conflicting nonces within a single batch.
             if let Some((nonce, _)) = signed.order.authorized_terms() {
-                OrderNoncesV2::<T>::insert(&order.signer, nonce, id);
+                OrderNonces::<T>::insert(&order.signer, nonce, id);
             }
             let entry = Self::classify_order(&order, signed.partial_fill, id, amount, provider);
             if let OrderSignature::MlDsa(proof) = signed.signature {
