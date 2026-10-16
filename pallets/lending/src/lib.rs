@@ -960,7 +960,7 @@ impl<T: Config> Pallet<T> {
         let vault = Self::reserve_account(netuid);
         let escrow = Self::position_account(&owner, netuid);
         let custody = Self::custody_hotkey()?;
-        let proceeds = match side {
+        match side {
             Side::Short => {
                 T::Pool::transfer_tao(&owner, &escrow, collateral.into())?;
                 T::Pool::transfer_staked_alpha(
@@ -973,7 +973,6 @@ impl<T: Config> Pallet<T> {
                     false,
                     true,
                 )?;
-                0
             }
             Side::Long => {
                 T::Pool::lock_alpha_collateral(
@@ -985,9 +984,8 @@ impl<T: Config> Pallet<T> {
                     collateral.into(),
                 )?;
                 T::Pool::transfer_tao(&vault, &owner, quote.principal.into())?;
-                0
             }
-        };
+        }
         Vaults::<T>::try_mutate(netuid, |vault| -> DispatchResult {
             let vault = vault.as_mut().ok_or(Error::<T>::InsufficientReserves)?;
             match side {
@@ -1004,7 +1002,6 @@ impl<T: Config> Pallet<T> {
         })?;
         position.principal = Self::add(position.principal, quote.principal)?;
         position.collateral = Self::add(position.collateral, collateral)?;
-        position.proceeds = Self::add(position.proceeds, proceeds)?;
         position.annual_interest = Self::add(position.annual_interest, quote.annual_interest)?;
         if !increasing {
             let due = position.due;
@@ -1028,7 +1025,7 @@ impl<T: Config> Pallet<T> {
                 side,
                 principal: quote.principal,
                 collateral,
-                proceeds,
+                proceeds: 0,
                 annual_interest: quote.annual_interest,
             }
         } else {
@@ -1038,7 +1035,7 @@ impl<T: Config> Pallet<T> {
                 side,
                 principal: quote.principal,
                 collateral,
-                proceeds,
+                proceeds: 0,
                 annual_interest: quote.annual_interest,
             }
         });
