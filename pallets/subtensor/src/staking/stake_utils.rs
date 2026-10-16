@@ -234,8 +234,8 @@ impl<T: Config> Pallet<T> {
         hotkey: &T::AccountId,
         netuid: NetUid,
     ) -> (I64F64, I64F64, I64F64) {
-        // Retrieve the subnet's effective TAO weight.
-        let tao_weight = I64F64::saturating_from_num(Self::get_subnet_tao_weight(netuid));
+        // Retrieve the global tao weight.
+        let tao_weight = I64F64::saturating_from_num(Self::get_tao_weight());
         log::debug!("tao_weight: {tao_weight:?}");
 
         // Step 1: Get stake of hotkey (neuron)
@@ -261,8 +261,8 @@ impl<T: Config> Pallet<T> {
     pub fn get_stake_weights_for_network(
         netuid: NetUid,
     ) -> (Vec<I64F64>, Vec<I64F64>, Vec<I64F64>) {
-        // Retrieve the subnet's effective TAO weight.
-        let tao_weight: I64F64 = I64F64::saturating_from_num(Self::get_subnet_tao_weight(netuid));
+        // Retrieve the global tao weight.
+        let tao_weight: I64F64 = I64F64::saturating_from_num(Self::get_tao_weight());
         log::debug!("tao_weight: {tao_weight:?}");
 
         // Step 1: Get subnetwork size
@@ -319,7 +319,7 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
     ) -> (Vec<I64F64>, Vec<I64F64>, Vec<I64F64>) {
         let n = Self::get_subnetwork_n(netuid);
-        let tao_weight = I64F64::saturating_from_num(Self::get_subnet_tao_weight(netuid));
+        let tao_weight = I64F64::saturating_from_num(Self::get_tao_weight());
         let hotkeys: Vec<Option<T::AccountId>> = (0..n)
             .map(|uid| Keys::<T>::try_get(netuid, uid).ok())
             .collect();

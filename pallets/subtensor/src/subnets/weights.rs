@@ -511,9 +511,9 @@ impl<T: Config> Pallet<T> {
             I64F64::saturating_from_num(Self::get_inherited_for_hotkey_on_subnet(who, netuid));
         let tao =
             I64F64::saturating_from_num(Self::get_tao_inherited_for_hotkey_on_subnet(who, netuid));
-        let stake = alpha.saturating_add(tao.saturating_mul(I64F64::saturating_from_num(
-            Self::get_subnet_tao_weight(netuid),
-        )));
+        let stake = alpha.saturating_add(
+            tao.saturating_mul(I64F64::saturating_from_num(Self::get_tao_weight())),
+        );
         let eligible = stake > I64F64::from(0)
             && (owner_uid == Some(uid) || fixed64_to_u64(stake) >= Self::get_stake_threshold());
         (

@@ -14,8 +14,6 @@ pub const MIGRATION_NAME: &[u8] = b"seed_subnet_emission_weights_v1";
 /// * owner slot = legacy `SubnetOwnerCut` scaled to u64 parts when `OwnerCutEnabled`, else 0;
 /// * validator slot = half of the remainder (the old 50/50 split);
 /// * miner slot = whatever is left, absorbing the rounding ulp;
-/// * effective TAO weight = the global `TaoWeight` (no per-subnet entry, so the subnet keeps
-///   following root's knob until it changes its validator share);
 /// * accrued owner cut = `alpha_issuance × legacy SubnetOwnerCut`, the exact deduction the
 ///   legacy lock refund applied before this upgrade, so dissolution pays no more than it
 ///   would have;
@@ -54,7 +52,6 @@ pub fn migrate_seed_subnet_emission_weights<T: Config>() -> Weight {
         total_weight = total_weight.saturating_add(T::DbWeight::get().reads(2));
 
         SubnetEmissionWeights::<T>::insert(netuid, Pallet::<T>::emission_weights_to_vec(weights));
-        SubnetTaoWeight::<T>::remove(netuid);
         SubnetOwnerCutAccrued::<T>::insert(
             netuid,
             legacy_owner_cut_accrued::<T>(netuid, legacy_owner_cut),
@@ -64,7 +61,7 @@ pub fn migrate_seed_subnet_emission_weights<T: Config>() -> Weight {
             SubnetCreatedViaLease::<T>::insert(netuid, true);
             total_weight = total_weight.saturating_add(T::DbWeight::get().writes(1));
         }
-        total_weight = total_weight.saturating_add(T::DbWeight::get().writes(4));
+        total_weight = total_weight.saturating_add(T::DbWeight::get().writes(3));
         seeded = seeded.saturating_add(1);
     }
 
@@ -258,12 +255,6 @@ pub mod seed_subnet_emission_weights {
                 ensure!(
                     validator == EMISSION_WEIGHT_ONE.saturating_sub(owner) / 2,
                     "validator slot must be half of the post-owner remainder"
-                );
-                ensure!(
-                    !SubnetTaoWeight::<T>::contains_key(netuid)
-                        && Pallet::<T>::get_subnet_tao_weight_parts(netuid)
-                            == TaoWeight::<T>::get(),
-                    "seeded subnets must follow the global TaoWeight"
                 );
                 ensure!(
                     Pallet::<T>::get_subnet_created_via_lease(netuid) == leased,

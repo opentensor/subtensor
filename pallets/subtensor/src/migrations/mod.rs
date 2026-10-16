@@ -59,6 +59,7 @@ pub mod migrate_remove_network_modality;
 pub mod migrate_remove_old_identity_maps;
 pub mod migrate_remove_root_weights;
 pub mod migrate_remove_stake_map;
+pub mod migrate_remove_subnet_tao_weight;
 pub mod migrate_remove_tao_dividends;
 pub mod migrate_remove_total_hotkey_coldkey_stakes_this_interval;
 pub mod migrate_remove_unknown_neuron_axon_cert_prom;

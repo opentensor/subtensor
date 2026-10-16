@@ -53,8 +53,8 @@ pub use guards::*;
 pub use subnets::emission_weights::{
     EMISSION_WEIGHT_ONE, EMISSION_WEIGHT_SLOTS, EMISSION_WEIGHTS_VIEW_READS, EmissionIndex,
     EmissionWeights, EmissionWeightsVec, EmissionWeightsView, MAX_OWNER_EMISSION,
-    MAX_VALIDATOR_EMISSION, MIN_MINER_EMISSION, emission_fraction, normalize_tao_weight,
-    root_emission_share, solve_tao_weight_for_root_share, tao_weight_to_parts,
+    MAX_VALIDATOR_EMISSION, MIN_MINER_EMISSION, emission_fraction, emission_share_to_parts,
+    normalize_tao_weight, root_emission_share,
 };
 
 #[cfg(test)]
@@ -2328,19 +2328,6 @@ pub mod pallet {
         ValueQuery,
         DefaultSubnetEmissionWeights<T>,
     >;
-
-    /// MAP ( netuid ) --> effective TAO weight `w_s` in `u64::MAX` parts. Re-solved once on
-    /// every accepted set of [`SubnetEmissionWeights`] so root's share of the subnet's
-    /// emission equals its baseline (default validator share, global [`TaoWeight`]) at that
-    /// block; never recomputed per block. Consensus side only: the pool side keeps using the
-    /// global [`TaoWeight`]. No entry means the subnet's validator share is the default and
-    /// it follows the global [`TaoWeight`] exactly as before per-subnet weights existed (see
-    /// `get_subnet_tao_weight_parts`).
-    /// The fallback lives in the getter rather than in a `type_value` default because
-    /// storage defaults are evaluated while building the runtime metadata, where no
-    /// storage can be read.
-    #[pallet::storage]
-    pub type SubnetTaoWeight<T: Config> = StorageMap<_, Identity, NetUid, u64, OptionQuery>;
 
     /// MAP ( netuid ) --> true when the subnet was registered through a lease. Persists after
     /// the lease ends; such subnets may not lower their owner cut below the launch default.

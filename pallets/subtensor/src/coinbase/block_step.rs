@@ -72,29 +72,18 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         }
     }
 
-    /// Pool-side root proportion
+    /// Root proportion
     /// `root_tao · TaoWeight / (root_tao · TaoWeight + alpha_issuance)` with the
-    /// *global* TAO weight. It drives the alpha-injection cap in
-    /// `get_subnet_terms` and the `RootProp` view, and is deliberately
-    /// independent of the subnet's emission weight vector: changing the
-    /// validator share must not move TAO-in, alpha-in or the pool cap.
+    /// global TAO weight. It drives the alpha-injection cap in
+    /// `get_subnet_terms` and the `RootProp` view, and scaled by the default
+    /// validator share it is root's baseline share of the subnet's emission
+    /// (`baseline_root_emission_share`). Independent of the subnet's emission
+    /// weight vector: changing the validator share must not move TAO-in,
+    /// alpha-in, the pool cap or root's payout.
     pub fn root_proportion(netuid: NetUid) -> U96F32 {
-        Self::root_proportion_with_tao_weight(netuid, Self::get_tao_weight())
-    }
-
-    /// Consensus-side root proportion: the same formula with the subnet's
-    /// effective TAO weight `w_s` (`SubnetTaoWeight`), which is re-solved on
-    /// every accepted emission-weights set so root's share of emission equals
-    /// its baseline at that block. Used only to carve root's alpha out of the
-    /// validator slot. Never used on the pool / injection side.
-    pub fn consensus_root_proportion(netuid: NetUid) -> U96F32 {
-        Self::root_proportion_with_tao_weight(netuid, Self::get_subnet_tao_weight(netuid))
-    }
-
-    fn root_proportion_with_tao_weight(netuid: NetUid, tao_weight: U96F32) -> U96F32 {
         let alpha_issuance = U96F32::from_num(Self::get_alpha_issuance(netuid));
         let root_tao: U96F32 = U96F32::from_num(Self::get_subnet_tao(NetUid::ROOT));
-        let weighted_root_tao: U96F32 = root_tao.saturating_mul(tao_weight);
+        let weighted_root_tao: U96F32 = root_tao.saturating_mul(Self::get_tao_weight());
 
         weighted_root_tao
             .checked_div(weighted_root_tao.saturating_add(alpha_issuance))

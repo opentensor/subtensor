@@ -14,12 +14,10 @@ from ..emission_weights import (
     DEFAULT_OWNER,
     SLOT_NAMES,
     Rules,
-    baseline_root_share,
+    min_validator_parts,
     normalize_weights,
     rate_limit_status,
-    root_emission_share,
     share_to_float,
-    validator_floor,
 )
 from .base import read, utf8_text
 
@@ -184,10 +182,10 @@ def emission_weights_rate_limit_key(netuid: int) -> dict:
 
 
 async def root_preservation_inputs(query, netuid: int) -> tuple[int, int, float]:
-    """``(root_tao, alpha_issuance, global_tao_weight)``: the live values the
-    chain uses to re-anchor root's share of emission when a subnet sets its
-    vector — root TAO and alpha issuance in rao, the global ``TaoWeight`` as a
-    0..1 float. ``query(item, keys)`` is an async storage read."""
+    """``(root_tao, alpha_issuance, global_tao_weight)``: the live values root's
+    baseline share of a subnet's emission is computed from every block — root
+    TAO and alpha issuance in rao, the global ``TaoWeight`` as a 0..1 float.
+    ``query(item, keys)`` is an async storage read."""
     root_tao, alpha_in, alpha_out, reservoir, tao_weight = await asyncio.gather(
         query(st.SubtensorModule.SubnetTAO, [0]),
         query(st.SubtensorModule.SubnetAlphaIn, [netuid]),
@@ -204,18 +202,20 @@ class SubnetEmissionWeights:
     """A subnet's emission weight vector and the rule inputs that bound it.
 
     Shares are u64 parts of ``u64::MAX``; ``shares`` carries the same values as
-    0..1 floats keyed by slot name. ``effective_tao_weight`` is the subnet's
-    consensus-side TAO weight ``w_s`` (0..1); ``global_tao_weight`` the chain
-    wide knob a subnet follows until it sets a validator share other than the
-    default. Every accepted set re-solves ``w_s`` so root's share of this
-    subnet's emission equals ``baseline_root_share`` (default validator share,
-    global weight); ``root_share`` is root's share right now under the stored
-    weight. ``min_validator`` is the lowest validator share the chain would
-    accept at this block (None when there is no root stake or alpha issued, so
-    any share is accepted). All of these derive from ``root_tao`` and
-    ``alpha_issuance`` (rao). ``last_change_block`` is when the owner last
-    changed the vector (0 = never); :meth:`rate_limit` turns it into when the
-    owner may change it next. Everything is read at ``block``.
+    0..1 floats keyed by slot name. ``baseline_root_share`` is root's baseline
+    share of this subnet's emission at ``block`` (what root earns with the
+    default validator share and the global ``TaoWeight``, from ``root_tao``,
+    ``alpha_issuance`` in rao and ``global_tao_weight``); the chain pays root
+    that off the top of the validator slot every block, capped at the slot, so
+    ``root_share = min(validator, baseline_root_share)`` and alpha validators
+    get ``validator_share_after_root``. ``root_capped`` is True when the
+    baseline has grown past the validator slot and validators get nothing.
+    ``baseline_root_parts`` is the baseline in exact u64 parts (what the
+    runtime API reports); ``min_validator`` is the lowest validator share
+    (parts) the chain accepts at this block: one part above it.
+    ``last_change_block`` is when
+    the owner last changed the vector (0 = never); :meth:`rate_limit` turns it
+    into when the owner may change it next.
     """
 
     netuid: int
@@ -226,14 +226,16 @@ class SubnetEmissionWeights:
     owner: int
     validator: int
     miner: int
-    effective_tao_weight: float
     global_tao_weight: float
     created_via_lease: bool
     root_tao: int
     alpha_issuance: int
     root_share: float
     baseline_root_share: float
-    min_validator: Optional[int]
+    baseline_root_parts: int
+    validator_share_after_root: float
+    root_capped: bool
+    min_validator: int
     block: int
     last_change_block: int
 
@@ -270,14 +272,13 @@ async def subnet_emission_weights(view, netuid: int) -> Optional[SubnetEmissionW
     if info is None:
         return None
     weights = normalize_weights(info["weights"])
-    tao_weight = share_to_float(int(info["effective_tao_weight"]))
     rate_limit_key = emission_weights_rate_limit_key(netuid)
     (root_tao, alpha_issuance, global_tao_weight), last_change = await asyncio.gather(
         root_preservation_inputs(view.query, netuid),
         view.query(st.SubtensorModule.LastRateLimitedBlock, [rate_limit_key]),
     )
-    validator = share_to_float(weights[3])
-    floor = validator_floor(global_tao_weight, root_tao, alpha_issuance)
+    baseline_parts = int(info["root_baseline_share"])
+    root_parts = min(int(info["root_share"]), weights[3])
     return SubnetEmissionWeights(
         netuid=int(info["netuid"]),
         weights=weights,
@@ -287,14 +288,16 @@ async def subnet_emission_weights(view, netuid: int) -> Optional[SubnetEmissionW
         owner=int(info["owner"]),
         validator=int(info["validator"]),
         miner=int(info["miner"]),
-        effective_tao_weight=tao_weight,
         global_tao_weight=global_tao_weight,
         created_via_lease=bool(info["created_via_lease"]),
         root_tao=root_tao,
         alpha_issuance=alpha_issuance,
-        root_share=root_emission_share(validator, tao_weight, root_tao, alpha_issuance),
-        baseline_root_share=baseline_root_share(global_tao_weight, root_tao, alpha_issuance),
-        min_validator=None if floor is None else int(floor * (2**64 - 1)),
+        root_share=share_to_float(root_parts),
+        baseline_root_share=share_to_float(baseline_parts),
+        baseline_root_parts=baseline_parts,
+        validator_share_after_root=share_to_float(weights[3] - root_parts),
+        root_capped=baseline_parts > weights[3],
+        min_validator=min_validator_parts(baseline_parts),
         block=view.block,
         last_change_block=int(last_change or 0),
     )
