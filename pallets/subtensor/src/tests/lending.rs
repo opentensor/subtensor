@@ -2002,7 +2002,7 @@ fn price_impact_adapter_rejects_subnet_lifecycle_locks() {
 fn capacity_deferred_pool_stays_intact_and_is_admitted_after_a_slot_frees() {
     use crate::migrations::migrate_pool_lending::{MIGRATION_NAME, Migration};
     use frame_support::traits::OnRuntimeUpgrade;
-    use pallet_lending::{LendingInterface, Vault, VaultCount};
+    use pallet_lending::{LendingInterface, Vault};
 
     new_test_ext(1).execute_with(|| {
         let netuid = market(true);
@@ -2011,7 +2011,7 @@ fn capacity_deferred_pool_stays_intact_and_is_admitted_after_a_slot_frees() {
         for id in 2_u16..=257 {
             Vaults::<Test>::insert(NetUid::from(id), Vault::default());
         }
-        VaultCount::<Test>::put(256);
+        assert_eq!(Vaults::<Test>::count(), 256);
         assert!(!<Lending as LendingInterface<U256>>::has_funding_capacity());
         let before = sp_io::storage::root(sp_runtime::StateVersion::V1);
         assert_ok!(SubtensorModule::fund_unreachable_reserves(netuid, true));
@@ -2042,7 +2042,7 @@ fn capacity_deferred_pool_stays_intact_and_is_admitted_after_a_slot_frees() {
         SubtensorModule::fund_one_new_lending_vault();
         let vault = Vaults::<Test>::get(netuid).unwrap();
         assert!(vault.available_alpha > 0 && vault.available_tao > 0);
-        assert_eq!(VaultCount::<Test>::get(), 256);
+        assert_eq!(Vaults::<Test>::count(), 256);
         assert_eq!(Balances::total_issuance(), issuance);
         assert_eq!(
             SubnetAlphaIn::<Test>::get(netuid).to_u64() + vault.available_alpha,

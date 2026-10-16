@@ -2000,6 +2000,62 @@ fn twenty_four_hour_geometric_half_life() {
 }
 
 #[test]
+fn vault_capacity_tracks_distinct_funding_and_terminal_cleanup() {
+    ext().execute_with(|| {
+        assert_eq!(Vaults::<Test>::count(), 1);
+        let reference = References::<Test>::get(netuid()).unwrap();
+        assert_ok!(Lending::fund_reserves(
+            netuid(),
+            1.into(),
+            1.into(),
+            U64F64::from_num(99),
+            true
+        ));
+        assert_eq!(Vaults::<Test>::count(), 1);
+        assert_eq!(References::<Test>::get(netuid()).unwrap(), reference);
+        for id in 1_u16..=3 {
+            assert_ok!(Lending::fund_reserves(
+                id.into(),
+                0.into(),
+                0.into(),
+                U64F64::from_num(1),
+                true
+            ));
+        }
+        assert_eq!(Vaults::<Test>::count(), 4);
+        assert!(!<Lending as LendingInterface<Account>>::has_funding_capacity());
+        assert_noop!(
+            Lending::fund_reserves(4.into(), 0.into(), 0.into(), U64F64::from_num(1), true),
+            Error::<Test>::TooManySubnets
+        );
+        // Topping up an existing vault still works when all slots are occupied.
+        assert_ok!(Lending::fund_reserves(
+            netuid(),
+            1.into(),
+            1.into(),
+            U64F64::from_num(1),
+            true
+        ));
+        assert_eq!(Vaults::<Test>::count(), 4);
+        assert_ok!(Lending::finish_dissolution(2.into()));
+        assert_eq!(Vaults::<Test>::count(), 3);
+        assert!(<Lending as LendingInterface<Account>>::has_funding_capacity());
+        // Repeated cleanup cannot decrement the count a second time.
+        assert_ok!(Lending::finish_dissolution(2.into()));
+        assert_eq!(Vaults::<Test>::count(), 3);
+        assert_ok!(Lending::fund_reserves(
+            4.into(),
+            0.into(),
+            0.into(),
+            U64F64::from_num(1),
+            true
+        ));
+        assert_eq!(Vaults::<Test>::count(), 4);
+        assert!(!<Lending as LendingInterface<Account>>::has_funding_capacity());
+    });
+}
+
+#[test]
 fn new_subnet_reference_requires_warmup_and_refunding_does_not_reset_it() {
     ext().execute_with(|| {
         let new: NetUid = 65.into();

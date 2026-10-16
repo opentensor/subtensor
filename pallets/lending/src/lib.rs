@@ -422,9 +422,7 @@ pub mod pallet {
     #[pallet::storage]
     pub type Enabled<T> = StorageValue<_, bool, ValueQuery>;
     #[pallet::storage]
-    pub type Vaults<T> = StorageMap<_, Identity, NetUid, Vault, OptionQuery>;
-    #[pallet::storage]
-    pub type VaultCount<T> = StorageValue<_, u32, ValueQuery>;
+    pub type Vaults<T> = CountedStorageMap<_, Identity, NetUid, Vault, OptionQuery>;
     /// Governance's requested geometric minimum for both reference directions.
     /// Zero is disabled. Relaxing this policy never returns vault assets or widens
     /// existing curves. No recurring recalibration is needed on the fixed ellipse.
@@ -620,7 +618,7 @@ pub mod pallet {
         fn on_initialize(_: BlockNumberFor<T>) -> Weight {
             // Reserve finalize work in advance; the migration enforces MaxFundedSubnets.
             T::WeightInfo::update_reference()
-                .saturating_mul(u64::from(VaultCount::<T>::get()))
+                .saturating_mul(u64::from(Vaults::<T>::count()))
                 .saturating_add(T::DbWeight::get().reads(2))
         }
 
@@ -1090,10 +1088,9 @@ impl<T: Config> Pallet<T> {
         Self::initialize_custody()?;
         if !Vaults::<T>::contains_key(netuid) {
             ensure!(
-                VaultCount::<T>::get() < T::MaxFundedSubnets::get(),
+                Vaults::<T>::count() < T::MaxFundedSubnets::get(),
                 Error::<T>::TooManySubnets
             );
-            VaultCount::<T>::mutate(|count| *count = count.saturating_add(1));
             let now = frame_system::Pallet::<T>::block_number();
             let valid_after = if has_history {
                 now
@@ -2714,7 +2711,6 @@ impl<T: Config> Pallet<T> {
                 )?;
             }
             Vaults::<T>::remove(netuid);
-            VaultCount::<T>::mutate(|count| *count = count.saturating_sub(1));
         }
         References::<T>::remove(netuid);
         MinPriceImpactBps::<T>::remove(netuid);
@@ -2735,7 +2731,7 @@ impl<T: Config> LendingInterface<T::AccountId> for Pallet<T> {
         Vaults::<T>::contains_key(netuid)
     }
     fn has_funding_capacity() -> bool {
-        VaultCount::<T>::get() < T::MaxFundedSubnets::get()
+        Vaults::<T>::count() < T::MaxFundedSubnets::get()
     }
     fn has_positions(owner: &T::AccountId) -> bool {
         use frame_support::StorageDoubleMap as _;
