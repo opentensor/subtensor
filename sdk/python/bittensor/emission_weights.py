@@ -11,16 +11,16 @@ recycle are treated as zero. The chain then checks the v1 rules:
 * burn (0) and recycle (1) must be zero — reserved for a later runtime;
 * ``0 <= owner <= 0.33``; lease-created subnets may not drop below the launch
   default (18% on mainnet);
-* ``validator <= 0.50``, and it must leave room for root's baseline share:
-  every accepted set re-solves the subnet's effective TAO weight ``w_s`` once,
-  at that block, so root's share of this subnet's emission equals what root
-  would earn with the default validator share (``V0``, 41% on mainnet) and
-  the global ``TaoWeight`` — the *baseline*. The chain rejects the change
-  when no ``w_s <= 1`` can reach it (root TAO never counts more than 1:1).
-  The baseline never looks at the old vector or the old ``w_s``, so a series
-  of changes cannot ratchet root's share. The resulting floor depends on live
-  chain state — root TAO, the subnet's alpha issuance and the global
-  ``TaoWeight`` — see :func:`validator_floor`;
+* ``validator <= 0.50``, and it must stay *above* root's baseline share:
+  every block the chain pays root ``min(V, r)`` of the subnet's emission off
+  the top of the validator slot, where ``r`` is what root would earn there
+  with the default validator share (``V0``, 41% on mainnet) and the global
+  ``TaoWeight`` — the *baseline*, recomputed from live chain state (root
+  TAO, the subnet's alpha issuance, the global ``TaoWeight``) on every block.
+  Alpha validators get the rest, ``V - min(V, r)``. A set with ``V <= r`` is
+  rejected because validators would get nothing; if the baseline later grows
+  past ``V``, root's cut is capped at the whole slot until the owner raises
+  ``V`` — see :func:`baseline_root_share` and :func:`validator_floor`;
 * ``miner >= 0.33``;
 * the five slots sum to exactly one.
 
@@ -65,8 +65,7 @@ DEFAULT_OWNER = (11796 * ONE) // 65535
 
 #: Validator share of the default vector (``V0``, ~41% on mainnet): half of what
 #: is left after the default owner cut. Root's baseline share is anchored to
-#: it, and setting the validator slot to exactly ``V0`` makes the subnet follow
-#: the global ``TaoWeight`` again.
+#: it: whatever a subnet sets, root is paid what it would earn at ``V0``.
 DEFAULT_VALIDATOR = (ONE - DEFAULT_OWNER) // 2
 
 #: How often a subnet owner may change the vector (blocks; ~7 days at 12 s).
@@ -164,11 +163,11 @@ def format_share(parts: int, places: int = 2) -> str:
 class Rules:
     """The per-subnet inputs the chain rules depend on.
 
-    ``min_validator`` is the lowest validator share that still lets the chain
-    reach root's baseline share of emission with a TAO weight ``<= 1`` (see
-    :func:`validator_floor`); ``None`` when it is unknown or there is nothing
-    to preserve (no root stake or no alpha issued). ``min_owner`` is the lease
-    floor, zero for subnets not created through a lease.
+    ``min_validator`` is the lowest validator share (parts) the chain accepts
+    at this block: one part above root's baseline share, since the chain
+    rejects ``V <= r`` (see :func:`validator_floor`); ``None`` when it is
+    unknown (no chain state at hand). ``min_owner`` is the lease floor, zero
+    for subnets not created through a lease.
     """
 
     min_validator: Optional[int] = None
@@ -180,7 +179,7 @@ class Rules:
 
         Each entry carries ``min`` / ``max`` as 0..1 floats and ``min_parts`` /
         ``max_parts`` as exact u64 parts, plus ``why``. ``validator.min`` is the
-        live root-preserving floor, ``None`` when there is nothing to preserve.
+        live floor (just above root's baseline share), ``None`` when unknown.
         """
         owner_min = self.min_owner if self.created_via_lease else 0
         return {
@@ -196,9 +195,9 @@ class Rules:
             "validator": _limit(
                 self.min_validator,
                 MAX_VALIDATOR,
-                "the floor is where root's baseline share needs a TAO weight of 100%"
+                "must exceed root's baseline share, which is paid off the top of this slot"
                 if self.min_validator is not None
-                else "no root stake or alpha issued yet, so any share is accepted",
+                else "must exceed root's baseline share (unknown without chain state)",
             ),
             "miner": _limit(MIN_MINER, ONE, "miner incentive floor"),
         }
@@ -369,10 +368,10 @@ def validate(weights: Iterable[int], rules: Optional[Rules] = None) -> list[Viol
         found.append(
             Violation(
                 "ValidatorEmissionTooLowToPreserveRoot",
-                f"validator (slot 3) is {format_share(w[VALIDATOR], 4)}; every change re-solves "
-                "this subnet's TAO weight so root earns its baseline share of emission, and "
-                "that weight is capped at 100%, so right now the validator share must be at "
-                f"least about {format_share(rules.min_validator, 4)}",
+                f"validator (slot 3) is {format_share(w[VALIDATOR], 4)}; root is paid its "
+                "baseline share of emission off the top of this slot every block, so right "
+                f"now the validator share must be above {format_share(rules.min_validator - 1, 4)} "
+                "or validators would get nothing",
             )
         )
     if w[MINER] < MIN_MINER:
@@ -400,76 +399,47 @@ def root_emission_share(
     validator: float, tao_weight: float, root_tao: float, alpha_issuance: float
 ) -> float:
     """Root's share of the subnet's emission, ``V * x / (x + A)`` with
-    ``x = root_tao * tao_weight`` — the shape the chain applies every block.
-    Inputs are 0..1 floats for ``validator`` and ``tao_weight`` and raw
-    balances (any common unit) for ``root_tao`` and ``alpha_issuance``."""
+    ``x = root_tao * tao_weight``. With the default validator share and the
+    global ``TaoWeight`` this is root's baseline, the shape the chain pays
+    every block. Inputs are 0..1 floats for ``validator`` and ``tao_weight``
+    and raw balances (any common unit) for ``root_tao`` and ``alpha_issuance``."""
     weighted = root_tao * tao_weight
     if weighted + alpha_issuance <= 0:
         return 0.0
     return validator * weighted / (weighted + alpha_issuance)
 
 
-def solve_tao_weight(
-    root_share: float, validator: float, root_tao: float, alpha_issuance: float
-) -> Optional[float]:
-    """The TAO weight that gives root exactly ``root_share`` once the validator
-    slot is ``validator``: ``x = r * A / (V - r)``, ``w = x / root_tao``. None
-    when the chain would reject (``V <= r``, or ``w`` would exceed 1)."""
-    if validator <= root_share or root_tao <= 0:
-        return None
-    weight = root_share * alpha_issuance / (validator - root_share) / root_tao
-    return weight if weight <= 1 else None
-
-
 def baseline_root_share(global_tao_weight: float, root_tao: float, alpha_issuance: float) -> float:
     """Root's *baseline* share of a subnet's emission: what root earns there
     with the default validator share ``V0`` and the global ``TaoWeight``,
     ``V0 * x_g / (x_g + A)`` with ``x_g = root_tao * global_tao_weight``.
-    Every accepted set re-solves the subnet's TAO weight to hit this value; it
-    reads nothing the subnet stores, so repeated changes cannot ratchet root's
-    share."""
+    The chain pays root exactly this (capped at the validator slot) off the
+    top of the slot every block, recomputed from live state, so nothing the
+    subnet sets can move it."""
     return root_emission_share(
         share_to_float(DEFAULT_VALIDATOR), global_tao_weight, root_tao, alpha_issuance
     )
 
 
-def validator_floor(
-    global_tao_weight: float, root_tao: float, alpha_issuance: float
-) -> Optional[float]:
-    """Lowest validator share (0..1) the chain accepts right now:
-    ``r * (1 + A / root_tao)`` where ``r`` is root's baseline share — the
-    point where reaching the baseline needs a TAO weight of exactly 1. None
-    when there is no root stake or no alpha issuance (then any share is
-    accepted and the subnet's TAO weight is left alone)."""
-    if root_tao <= 0 or alpha_issuance <= 0:
-        return None
-    root_share = baseline_root_share(global_tao_weight, root_tao, alpha_issuance)
-    return root_share * (1 + alpha_issuance / root_tao)
+def validator_floor(global_tao_weight: float, root_tao: float, alpha_issuance: float) -> float:
+    """The validator share (0..1) a set must *exceed* right now: root's
+    baseline share. The chain rejects ``V <= r`` because alpha validators
+    would be left with nothing. Zero when root holds no TAO."""
+    return baseline_root_share(global_tao_weight, root_tao, alpha_issuance)
 
 
-def tao_weight_after_set(
-    new_validator: int,
-    *,
-    tao_weight: float,
-    global_tao_weight: float,
-    root_tao: float,
-    alpha_issuance: float,
-) -> Optional[float]:
-    """The subnet's effective TAO weight once a set lands with the validator
-    slot at ``new_validator`` (parts), mirroring the chain: unchanged when
-    there is nothing to preserve, the global weight when ``new_validator`` is
-    exactly ``V0`` (the entry is cleared), otherwise the solve against the
-    baseline — ``None`` when no weight <= 1 fits and the chain rejects."""
-    if root_tao <= 0 or alpha_issuance <= 0:
-        return tao_weight
-    if new_validator == DEFAULT_VALIDATOR:
-        return global_tao_weight
-    return solve_tao_weight(
-        baseline_root_share(global_tao_weight, root_tao, alpha_issuance),
-        share_to_float(new_validator),
-        root_tao,
-        alpha_issuance,
-    )
+def min_validator_parts(baseline_parts: int) -> int:
+    """Lowest validator share in parts the chain accepts given root's baseline
+    share in parts (as the runtime API reports it): one part above it."""
+    return min(ONE, int(baseline_parts) + 1)
+
+
+def root_share_paid(validator_parts: int, baseline_parts: int) -> float:
+    """What root is paid of the subnet's emission (0..1) with the validator
+    slot at ``validator_parts`` and root's baseline at ``baseline_parts``
+    (both u64 parts, as the runtime API reports them): the baseline, capped
+    at the slot."""
+    return share_to_float(min(int(validator_parts), int(baseline_parts)))
 
 
 def describe(weights: Iterable[int]) -> dict[str, str]:
@@ -490,7 +460,7 @@ def preview(
     before: Iterable[int],
     after: Iterable[int],
     *,
-    tao_weight: float,
+    baseline_parts: int,
     global_tao_weight: float,
     root_tao: int,
     alpha_issuance: int,
@@ -499,34 +469,23 @@ def preview(
 
     ``before`` / ``after`` carry the full vectors in parts and as shares and
     ``changed`` lists the slots that move. ``root`` says what root TAO stakers
-    earn on this subnet before (``share_before``, under the stored weight) and
-    after (``share_after``: the baseline the chain re-anchors to), and how the
-    subnet's effective TAO weight moves to make that true. ``tao_weight_after``
-    is ``None`` when no weight <= 1 can reach the baseline, which the chain
-    rejects with ``ValidatorEmissionTooLowToPreserveRoot``.
+    earn on this subnet before and after (``min(V, r)`` with ``r`` the live
+    baseline, given in u64 parts as the runtime API reports it), what alpha
+    validators are left with (``validators_before`` / ``validators_after``),
+    and whether root's cut is capped at the whole validator slot.
+    ``share_after`` is ``None`` when ``V_new <= r``, which the chain rejects
+    with ``ValidatorEmissionTooLowToPreserveRoot``. Comparisons are made in
+    parts so the preview agrees with :func:`validate` to the last part.
     """
     old = normalize_weights(before)
     new = normalize_weights(after)
-    preservable = root_tao > 0 and alpha_issuance > 0
-    share_before = root_emission_share(
-        share_to_float(old[VALIDATOR]), tao_weight, root_tao, alpha_issuance
-    )
-    baseline = baseline_root_share(global_tao_weight, root_tao, alpha_issuance)
-    tao_weight_after = tao_weight_after_set(
-        new[VALIDATOR],
-        tao_weight=tao_weight,
-        global_tao_weight=global_tao_weight,
-        root_tao=root_tao,
-        alpha_issuance=alpha_issuance,
-    )
-    if not preservable:
-        share_after = root_emission_share(
-            share_to_float(new[VALIDATOR]), tao_weight, root_tao, alpha_issuance
-        )
-    elif tao_weight_after is None:
-        share_after = None
-    else:
-        share_after = baseline
+    baseline_parts = int(baseline_parts)
+    baseline_share = share_to_float(baseline_parts)
+    share_before = root_share_paid(old[VALIDATOR], baseline_parts)
+    validators_before = share_to_float(old[VALIDATOR] - min(old[VALIDATOR], baseline_parts))
+    rejected = new[VALIDATOR] <= baseline_parts
+    share_after = None if rejected else root_share_paid(new[VALIDATOR], baseline_parts)
+    validators_after = None if rejected else share_to_float(new[VALIDATOR] - baseline_parts)
     return {
         "before": {"weights": old, "shares": shares(old)},
         "after": {"weights": new, "shares": shares(new)},
@@ -534,9 +493,12 @@ def preview(
         "root": {
             "share_before": share_before,
             "share_after": share_after,
-            "baseline_share": baseline,
-            "tao_weight_before": tao_weight,
-            "tao_weight_after": tao_weight_after,
+            "baseline_share": baseline_share,
+            "validators_before": validators_before,
+            "validators_after": validators_after,
+            "capped_before": baseline_parts > old[VALIDATOR],
+            "capped_after": False if rejected else baseline_parts > new[VALIDATOR],
+            "validator_floor": baseline_share,
             "global_tao_weight": global_tao_weight,
             "root_tao": root_tao,
             "alpha_issuance": alpha_issuance,

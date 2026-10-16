@@ -37,8 +37,10 @@ app = typer.Typer(
         "Subnet emission weights: how a subnet splits its alpha emission between the owner, "
         "validators and miners.\n\n"
         "Only the subnet owner coldkey can change the vector, once every 50,400 blocks "
-        "(about 7 days) per subnet. Add --dry-run to any write to preview the before/after "
-        "vector, root's share and the TAO weight move; --json for machine-readable output.\n\n"
+        "(about 7 days) per subnet. Root is paid its baseline share of emission off the top "
+        "of the validator slot every block, whatever the subnet sets. Add --dry-run to any "
+        "write to preview the before/after vector and what root and validators keep; --json "
+        "for machine-readable output.\n\n"
         f"{_EXIT_CODES}\n\nGuide: {guide_docs_url('subnets')}"
     ),
 )
@@ -81,10 +83,11 @@ def _record(info: SubnetEmissionWeights) -> dict[str, Any]:
         "block": info.block,
         "weights": info.weights,
         "shares": info.shares,
-        "effective_tao_weight": info.effective_tao_weight,
         "global_tao_weight": info.global_tao_weight,
         "root_share": info.root_share,
         "baseline_root_share": info.baseline_root_share,
+        "validator_share_after_root": info.validator_share_after_root,
+        "root_capped": info.root_capped,
         "root_tao": info.root_tao,
         "alpha_issuance": info.alpha_issuance,
         "min_validator": info.min_validator,
@@ -166,7 +169,7 @@ def _reject(app_ctx: AppContext, info: SubnetEmissionWeights, proposed: list[int
 
 
 def _card(info: SubnetEmissionWeights, preview: dict[str, Any]) -> list[tuple]:
-    """Review-card rows: each moving slot, what root keeps, the TAO weight move."""
+    """Review-card rows: each moving slot, what root keeps, what validators are left."""
     before, after = preview["before"]["weights"], preview["after"]["weights"]
     rows: list[tuple] = []
     for slot in ew.ADJUSTABLE_SLOTS:
@@ -180,19 +183,23 @@ def _card(info: SubnetEmissionWeights, preview: dict[str, Any]) -> list[tuple]:
         (
             "root share of emission",
             f"{root['share_before'] * 100:.4f}% -> "
-            + (f"{share_after * 100:.4f}% (baseline)" if share_after is not None else "rejected"),
+            + (f"{share_after * 100:.4f}%" if share_after is not None else "rejected")
+            + f" (baseline {root['baseline_share'] * 100:.4f}%, paid off the top)",
         )
     )
-    weight_after = root["tao_weight_after"]
-    if weight_after is None:
-        moved = "none <= 100% fits"
-    elif weight_after == root["tao_weight_before"]:
-        moved = f"{weight_after * 100:.2f}% (unchanged)"
-    else:
-        moved = f"{root['tao_weight_before'] * 100:.2f}% -> {weight_after * 100:.2f}%"
-        if weight_after == root["global_tao_weight"]:
-            moved += " (follows the global TaoWeight again)"
-    rows.append(("subnet tao weight", moved))
+    validators_after = root["validators_after"]
+    rows.append(
+        (
+            "validators after root",
+            f"{root['validators_before'] * 100:.4f}% -> "
+            + (
+                f"{validators_after * 100:.4f}%"
+                + (" (capped: root takes the whole slot)" if root["capped_after"] else "")
+                if validators_after is not None
+                else "rejected"
+            ),
+        )
+    )
     rate = info.rate_limit()
     rows.append(
         (
@@ -222,7 +229,7 @@ def _submit(
     preview = ew.preview(
         info.weights,
         proposed,
-        tao_weight=info.effective_tao_weight,
+        baseline_parts=info.baseline_root_parts,
         global_tao_weight=info.global_tao_weight,
         root_tao=info.root_tao,
         alpha_issuance=info.alpha_issuance,
@@ -245,9 +252,9 @@ def _renormalized_submit(
     "show",
     epilog=(
         "Example: btcli subnets emission show --netuid 4\n\n"
-        "JSON fields: netuid, block, weights (u64 parts), shares (0..1), effective_tao_weight, "
-        "global_tao_weight, root_share, baseline_root_share, root_tao, alpha_issuance (rao), "
-        "min_validator (parts or null), "
+        "JSON fields: netuid, block, weights (u64 parts), shares (0..1), global_tao_weight, "
+        "root_share, baseline_root_share, validator_share_after_root, root_capped, root_tao, "
+        "alpha_issuance (rao), min_validator (parts), "
         "created_via_lease, limits{slot: min, max, min_parts, max_parts, why}, "
         "rate_limit{limit_blocks, last_change_block, next_allowed_block, "
         "blocks_until_allowed, owner_can_change_now}."
@@ -269,28 +276,37 @@ def show(
         for slot in (ew.BURN, ew.RECYCLE)
     ]
     next_value, next_note = _next_change(info.rate_limit())
-    follows_global = info.effective_tao_weight == info.global_tao_weight
     root_rows: list[tuple[str, str, Optional[str]]] = [
         (
             "root share of emission",
             f"{info.root_share * 100:.4f}%",
-            "what root TAO stakers earn from this subnet now",
+            (
+                "the baseline, capped at the validator slot: root takes the whole slot"
+                if info.root_capped
+                else "what root TAO stakers earn from this subnet now, paid off the top of "
+                "the validator slot"
+            ),
         ),
         (
             "root baseline share",
             f"{info.baseline_root_share * 100:.4f}%",
-            "with the default validator share and the global TaoWeight; "
-            "every change re-anchors root here",
+            f"with the default validator share and the global TaoWeight "
+            f"({info.global_tao_weight * 100:.2f}%); recomputed every block, so it moves with "
+            "root stake and alpha issuance, not with this vector",
         ),
         (
-            "effective tao weight",
-            f"{info.effective_tao_weight * 100:.2f}%",
+            "validators after root",
+            f"{info.validator_share_after_root * 100:.4f}%",
             (
-                f"follows the global TaoWeight ({info.global_tao_weight * 100:.2f}%)"
-                if follows_global
-                else f"frozen at the last change; global TaoWeight is "
-                f"{info.global_tao_weight * 100:.2f}%"
+                "nothing: raise the validator share above the baseline to pay validators"
+                if info.root_capped
+                else "what alpha validators share once root is paid"
             ),
+        ),
+        (
+            "validator floor",
+            f"> {info.baseline_root_share * 100:.4f}%",
+            "a change must leave the validator share above the baseline",
         ),
         ("root tao", f"{info.root_tao / 1e9:,.0f} TAO", None),
         ("alpha issuance", f"{info.alpha_issuance / 1e9:,.0f} alpha", None),
@@ -331,10 +347,10 @@ def set_weights(
     """Set the owner / validator / miner split in one go (burn and recycle stay 0).
 
     The three shares must add up to 100%; rounding dust of a few parts lands
-    in the miner slot. Root stakers always end up at their baseline share:
-    every change re-solves this subnet's TAO weight once so root earns what it
-    would with the default validator share, and a validator share too low for
-    any weight <= 100% to reach that is rejected.
+    in the miner slot. Root stakers always keep their baseline share: it is
+    paid off the top of the validator slot every block, so the validator
+    share must stay above it (a share at or below the baseline is rejected)
+    and alpha validators share what is left.
     """
     app_ctx: AppContext = ctx_of(ctx)
     info = _fetch(app_ctx, netuid)

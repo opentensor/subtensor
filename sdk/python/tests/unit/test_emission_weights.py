@@ -13,7 +13,14 @@ from bittensor.cli import context as cli_context
 from bittensor.client import Client
 from bittensor.intents import SetSubnetEmissionWeights
 from tests.harness.fake_substrate import FakeSubstrate
-from tests.harness.samples import EMISSION_WEIGHTS_INFO, TAO_WEIGHT, dev_wallet
+from tests.harness.samples import (
+    EMISSION_ALPHA_ISSUANCE,
+    EMISSION_ROOT_TAO,
+    EMISSION_WEIGHTS_INFO,
+    ROOT_BASELINE_SHARE,
+    TAO_WEIGHT,
+    dev_wallet,
+)
 from tests.unit.test_cli_commands import invoke, isolated_cli, wallet_dir  # noqa: F401
 
 ONE = ew.ONE
@@ -208,55 +215,36 @@ def test_root_preservation_helpers_match_sn4_numbers():
     assert ew.root_emission_share(validator, tao_weight, root_tao, issuance) == pytest.approx(
         baseline
     )
+    # The validator share must exceed the baseline itself: the chain pays root
+    # ``min(V, r)`` off the top, so V <= r leaves alpha validators nothing.
     floor = ew.validator_floor(tao_weight, root_tao, issuance)
-    assert floor == pytest.approx(0.1181, abs=1e-4)
-    # Lowering V to 11.9% fits with a weight just under 1; 11.7% does not.
-    solved = ew.solve_tao_weight(baseline, 0.119, root_tao, issuance)
-    assert solved is not None and 0.98 < solved <= 1.0
-    assert ew.root_emission_share(0.119, solved, root_tao, issuance) == pytest.approx(baseline)
-    assert ew.solve_tao_weight(baseline, 0.117, root_tao, issuance) is None
-    # V at or below the baseline can never work; raising V lowers the weight.
-    assert ew.solve_tao_weight(baseline, baseline, root_tao, issuance) is None
-    assert ew.solve_tao_weight(baseline, 0.5, root_tao, issuance) < tao_weight
-    # Nothing to preserve without root stake or issuance.
-    assert ew.validator_floor(tao_weight, 0, issuance) is None
-    assert ew.validator_floor(tao_weight, root_tao, 0) is None
+    assert floor == pytest.approx(baseline)
+    baseline_parts = int(baseline * ONE)
+    assert ew.min_validator_parts(baseline_parts) == baseline_parts + 1
+    assert ew.min_validator_parts(ONE) == ONE
+    # Whatever the owner sets, root is paid the baseline, capped at the slot.
+    paid = ew.root_share_paid
+    assert paid(ew.parse_share("30%"), baseline_parts) == pytest.approx(baseline)
+    assert paid(ew.parse_share("5%"), baseline_parts) == pytest.approx(0.05)
+    assert paid(ew.parse_share("5.5%"), baseline_parts) == pytest.approx(baseline)
+    # The baseline moves with the global knob and the A/T ratio, never with V.
+    assert ew.baseline_root_share(0.36, root_tao, issuance) > baseline
+    assert ew.baseline_root_share(tao_weight, root_tao, 10 * issuance) < baseline
+    # Nothing to preserve without root stake; no issuance means root earns V0.
+    assert ew.validator_floor(tao_weight, 0, issuance) == 0.0
+    assert ew.validator_floor(tao_weight, root_tao, 0) == pytest.approx(validator)
     assert ew.root_emission_share(validator, tao_weight, 0, 0) == 0.0
 
 
-def test_tao_weight_after_set_mirrors_the_chain():
-    root_tao, issuance, tao_weight = 5_443_000e9, 6_457_000e9, 0.18
-    common = dict(global_tao_weight=tao_weight, root_tao=root_tao, alpha_issuance=issuance)
-    # Exactly V0 clears the entry: back to the global knob whatever was frozen.
-    assert ew.tao_weight_after_set(ew.DEFAULT_VALIDATOR, tao_weight=0.9, **common) == tao_weight
-    # Any other share solves against the baseline, never against the old weight.
-    frozen_high = ew.tao_weight_after_set(ew.parse_share("30%"), tao_weight=0.9, **common)
-    frozen_low = ew.tao_weight_after_set(ew.parse_share("30%"), tao_weight=0.01, **common)
-    assert frozen_high == frozen_low
-    baseline = ew.baseline_root_share(tao_weight, root_tao, issuance)
-    assert ew.root_emission_share(0.30, frozen_high, root_tao, issuance) == pytest.approx(baseline)
-    # Below the floor nothing fits.
-    assert ew.tao_weight_after_set(ew.parse_share("11.7%"), tao_weight=0.18, **common) is None
-    # Nothing to preserve: the stored weight is left alone.
-    assert (
-        ew.tao_weight_after_set(
-            ew.parse_share("5%"),
-            tao_weight=0.42,
-            global_tao_weight=tao_weight,
-            root_tao=0,
-            alpha_issuance=issuance,
-        )
-        == 0.42
-    )
-
-
-def test_preview_reports_vectors_root_shares_and_tao_weight():
+def test_preview_reports_vectors_and_root_shares():
     root_tao, issuance, tao_weight = 5_443_000 * 10**9, 6_457_000 * 10**9, 0.18
+    baseline_parts = int(ew.baseline_root_share(tao_weight, root_tao, issuance) * ONE)
+    baseline = ew.share_to_float(baseline_parts)
     after = ew.renormalize(DEFAULT, {"validator": ew.parse_share("30%")})
     preview = ew.preview(
         DEFAULT,
         after,
-        tao_weight=tao_weight,
+        baseline_parts=baseline_parts,
         global_tao_weight=tao_weight,
         root_tao=root_tao,
         alpha_issuance=issuance,
@@ -270,25 +258,45 @@ def test_preview_reports_vectors_root_shares_and_tao_weight():
         "miner",
     }
     root = preview["root"]
-    assert root["share_before"] == pytest.approx(root["baseline_share"])
-    assert root["share_after"] == pytest.approx(root["baseline_share"])
-    assert root["tao_weight_before"] == tao_weight
-    assert root["tao_weight_after"] == pytest.approx(
-        ew.solve_tao_weight(root["baseline_share"], 0.30, root_tao, issuance)
-    )
+    assert root["baseline_share"] == baseline
+    # Root is paid the baseline before and after; validators get what is left.
+    assert root["share_before"] == pytest.approx(baseline)
+    assert root["share_after"] == pytest.approx(baseline)
+    assert root["validators_before"] == pytest.approx(0.41 - baseline, abs=1e-4)
+    assert root["validators_after"] == pytest.approx(0.30 - baseline)
+    assert (root["capped_before"], root["capped_after"]) == (False, False)
+    assert root["validator_floor"] == baseline
+    assert root["global_tao_weight"] == tao_weight
     assert (root["root_tao"], root["alpha_issuance"]) == (root_tao, issuance)
 
     # Too low: the preview says so instead of guessing.
     too_low = ew.preview(
         DEFAULT,
         ew.renormalize(DEFAULT, {"validator": ew.parse_share("5%")}),
-        tao_weight=tao_weight,
+        baseline_parts=baseline_parts,
         global_tao_weight=tao_weight,
         root_tao=root_tao,
         alpha_issuance=issuance,
     )
-    assert too_low["root"]["tao_weight_after"] is None
     assert too_low["root"]["share_after"] is None
+    assert too_low["root"]["validators_after"] is None
+    assert too_low["root"]["capped_after"] is False
+
+    # Capped: the baseline has grown past a slot that was fine when it was set.
+    capped = ew.preview(
+        ew.renormalize(DEFAULT, {"validator": ew.parse_share("5%")}),
+        ew.renormalize(DEFAULT, {"validator": ew.parse_share("5.5%")}),
+        baseline_parts=baseline_parts,
+        global_tao_weight=tao_weight,
+        root_tao=root_tao,
+        alpha_issuance=issuance,
+    )
+    assert capped["root"]["capped_before"] is True
+    assert capped["root"]["share_before"] == pytest.approx(0.05)
+    assert capped["root"]["validators_before"] == pytest.approx(0.0)
+    assert capped["root"]["capped_after"] is False
+    assert capped["root"]["share_after"] == pytest.approx(baseline)
+    assert capped["root"]["validators_after"] == pytest.approx(0.055 - baseline)
 
 
 def test_rate_limit_status():
@@ -330,10 +338,14 @@ def test_rules_limits_and_table_cover_every_slot():
 # --- intent -----------------------------------------------------------------
 
 
-ROOT_TAO = 5_443_000 * 10**9
-ALPHA_ISSUANCE = 6_457_000 * 10**9
+ROOT_TAO = EMISSION_ROOT_TAO
+ALPHA_ISSUANCE = EMISSION_ALPHA_ISSUANCE
 GLOBAL_TAO_WEIGHT = ew.share_to_float(TAO_WEIGHT)
-BASELINE = ew.baseline_root_share(GLOBAL_TAO_WEIGHT, ROOT_TAO, ALPHA_ISSUANCE)
+#: Root's baseline share as the runtime API reports it for the fixture (~1.74%).
+BASELINE = ew.share_to_float(ROOT_BASELINE_SHARE)
+#: Lowest validator share the chain accepts: one part above the baseline.
+MIN_VALIDATOR = ew.min_validator_parts(ROOT_BASELINE_SHARE)
+DEFAULT_VALIDATOR_SHARE = ew.share_to_float(DEFAULT[ew.VALIDATOR])
 RATE_LIMIT_KEY = {"OwnerHyperparamUpdate": [1, "EmissionWeights"]}
 
 
@@ -349,12 +361,18 @@ def _client() -> tuple[Client, FakeSubstrate]:
     return Client("local", substrate=fake), fake
 
 
-def _expected_floor() -> float:
-    return ew.validator_floor(GLOBAL_TAO_WEIGHT, ROOT_TAO, ALPHA_ISSUANCE)
+def test_fixture_baseline_matches_the_pure_formula():
+    # The runtime payload in the harness is derived by hand; keep it honest.
+    pure = ew.baseline_root_share(GLOBAL_TAO_WEIGHT, ROOT_TAO, ALPHA_ISSUANCE)
+    assert pytest.approx(pure, rel=1e-9) == BASELINE
+    assert pytest.approx(0.0174, abs=1e-4) == BASELINE
 
 
-#: The live floor as the CLI prints it (3.8111% with the fixture's 5.27% global weight).
-FLOOR_TEXT = ew.format_share(int(_expected_floor() * ONE), 4)
+#: The live floor as the CLI prints it: the validator share must be *above* this
+#: (1.7407% with the fixture's 5.27% global weight), i.e. at least MIN_VALIDATOR.
+FLOOR_TEXT = ew.format_share(MIN_VALIDATOR - 1, 4)
+#: The lowest accepted share as the rule table prints it.
+MIN_VALIDATOR_TEXT = ew.format_share(MIN_VALIDATOR, 4)
 
 
 def test_intent_normalises_slots_and_shares():
@@ -387,28 +405,41 @@ def test_intent_plan_renormalizes_and_reports_root_baseline():
     plan = asyncio.run(client.plan(intent, dev_wallet()))
     assert plan.ok, plan.violations
     assert any("validator 41.00%" in line and "validator 30.00%" in line for line in plan.effects)
-    solved = ew.solve_tao_weight(BASELINE, 0.30, ROOT_TAO, ALPHA_ISSUANCE)
+    validators_before = ew.share_to_float(DEFAULT[ew.VALIDATOR]) - BASELINE
     assert any(
-        f"{BASELINE * 100:.4f}% after" in line
-        and f"{GLOBAL_TAO_WEIGHT * 100:.2f}% -> {solved * 100:.2f}%" in line
+        f"root keeps its baseline {BASELINE * 100:.4f}% of this subnet's emission" in line
+        and f"alpha validators get {validators_before * 100:.4f}% -> {(0.30 - BASELINE) * 100:.4f}%"
+        in line
         for line in plan.effects
     ), plan.effects
     # The structured preview rides along for --json consumers.
     assert plan.preview["after"]["weights"][ew.VALIDATOR] == ew.parse_share("30%")
-    assert plan.preview["root"]["tao_weight_after"] == pytest.approx(solved)
     assert plan.preview["root"]["share_after"] == pytest.approx(BASELINE)
+    assert plan.preview["root"]["baseline_share"] == pytest.approx(BASELINE)
+    assert plan.preview["root"]["validators_after"] == pytest.approx(0.30 - BASELINE)
+    assert plan.preview["root"]["capped_after"] is False
     assert plan.preview["rate_limit"]["owner_can_change_now"] is True
-    assert plan.preview["limits"]["validator"]["min"] == pytest.approx(_expected_floor())
+    assert plan.preview["limits"]["validator"]["min_parts"] == MIN_VALIDATOR
     assert plan.to_dict()["preview"] == plan.preview
 
-    # Below the live floor the plan is blocked before signing.
+    # At or below the live baseline the plan is blocked before signing.
     too_low = SetSubnetEmissionWeights(
-        netuid=1, slots=["validator"], values=["3%"], renormalize=True
+        netuid=1, slots=["validator"], values=["1%"], renormalize=True
     )
     plan = asyncio.run(client.plan(too_low, dev_wallet()))
     assert not plan.ok
     assert plan.violations[0].startswith("ValidatorEmissionTooLowToPreserveRoot")
-    assert FLOOR_TEXT in plan.violations[0]
+    assert f"must be above {FLOOR_TEXT}" in plan.violations[0]
+    assert any("validators would get nothing (the chain rejects)" in e for e in plan.effects)
+
+    # One part above the baseline is the lowest the chain takes.
+    lowest = SetSubnetEmissionWeights(
+        netuid=1, slots=["validator"], values=[MIN_VALIDATOR], renormalize=True
+    )
+    plan = asyncio.run(client.plan(lowest, dev_wallet()))
+    assert plan.ok, plan.violations
+    assert plan.preview["root"]["share_after"] == pytest.approx(BASELINE)
+    assert plan.preview["root"]["validators_after"] == pytest.approx(0.0, abs=1e-12)
 
 
 def test_intent_plan_blocks_on_chain_rules():
@@ -491,12 +522,14 @@ def test_read_decodes_runtime_payload():
     info = asyncio.run(client.read("subnet_emission_weights", netuid=1))
     assert info.weights == EMISSION_WEIGHTS_INFO["weights"]
     assert info.shares["owner"] == pytest.approx(0.18, abs=1e-4)
-    assert info.effective_tao_weight == pytest.approx(0.0527, abs=1e-4)
-    assert info.global_tao_weight == info.effective_tao_weight
+    assert info.global_tao_weight == pytest.approx(0.0527, abs=1e-4)
     assert (info.root_tao, info.alpha_issuance) == (ROOT_TAO, ALPHA_ISSUANCE)
     assert info.root_share == pytest.approx(0.0174, abs=1e-4)
     assert info.baseline_root_share == pytest.approx(info.root_share)
-    assert info.rules().min_validator == int(_expected_floor() * ONE)
+    assert info.validator_share_after_root == pytest.approx(0.41 - BASELINE, abs=1e-4)
+    assert info.root_capped is False
+    assert info.min_validator == MIN_VALIDATOR
+    assert info.rules().min_validator == MIN_VALIDATOR
     assert not info.rules().created_via_lease
     assert info.block == 100 and info.last_change_block == 0
     assert info.rate_limit()["owner_can_change_now"] is True
@@ -510,10 +543,11 @@ SHOW_FIELDS = [
     "block",
     "weights",
     "shares",
-    "effective_tao_weight",
     "global_tao_weight",
     "root_share",
     "baseline_root_share",
+    "validator_share_after_root",
+    "root_capped",
     "root_tao",
     "alpha_issuance",
     "min_validator",
@@ -544,8 +578,12 @@ def test_cli_show_json_has_stable_fields(emission_cli):
     assert list(record) == SHOW_FIELDS
     assert record["weights"] == EMISSION_WEIGHTS_INFO["weights"]
     assert record["shares"]["validator"] == pytest.approx(0.41, abs=1e-4)
-    assert record["min_validator"] == int(_expected_floor() * ONE)
-    assert record["limits"]["validator"]["min"] == pytest.approx(_expected_floor())
+    assert record["root_share"] == pytest.approx(BASELINE)
+    assert record["baseline_root_share"] == pytest.approx(BASELINE)
+    assert record["validator_share_after_root"] == pytest.approx(0.41 - BASELINE, abs=1e-4)
+    assert record["root_capped"] is False
+    assert record["min_validator"] == MIN_VALIDATOR
+    assert record["limits"]["validator"]["min_parts"] == MIN_VALIDATOR
     assert record["limits"]["validator"]["max"] == 0.5
     assert record["limits"]["owner"] == {
         "min": 0.0,
@@ -575,14 +613,17 @@ def test_cli_show_human_output(emission_cli):
         "reserved, pinned to 0",
         "Root",
         "root share of emission  1.7",
+        "paid off the top of the validator slot",
         "root baseline share  1.7",
-        "effective tao weight  5.27%",
-        "follows the global TaoWeight",
+        "global TaoWeight (5.27%)",
+        "recomputed every block",
+        f"validators after root  {(DEFAULT_VALIDATOR_SHARE - BASELINE) * 100:.4f}%",
+        f"validator floor  > {FLOOR_TEXT}",
         "root tao  5,443,000 TAO",
         "alpha issuance  6,457,000 alpha",
         "next owner change  now",
         "Allowed",
-        f"validator  {FLOOR_TEXT} to 50.0000%",
+        f"validator  {MIN_VALIDATOR_TEXT} to 50.0000%",
         "miner  >= 33.00%",
         "sum  = 100%",
         "set-value --netuid 1",
@@ -590,17 +631,38 @@ def test_cli_show_human_output(emission_cli):
         assert needle in out, (needle, out)
 
 
-def test_cli_show_reports_a_frozen_weight_and_a_closed_window(emission_cli):
-    frozen = dict(EMISSION_WEIGHTS_INFO, effective_tao_weight=ONE // 4)
-    emission_cli.seed_runtime("SubnetInfoRuntimeApi", "get_subnet_emission_weights", frozen)
+def test_cli_show_reports_a_capped_root_share_and_a_closed_window(emission_cli):
+    # The baseline grew past a 5% validator slot after it was set: root takes
+    # the whole slot and the owner must raise the share to pay validators again.
+    low = ew.renormalize(EMISSION_WEIGHTS_INFO["weights"], {"validator": ew.parse_share("5%")})
+    capped = dict(
+        EMISSION_WEIGHTS_INFO,
+        weights=low,
+        owner=low[ew.OWNER],
+        validator=low[ew.VALIDATOR],
+        miner=low[ew.MINER],
+        root_baseline_share=ew.parse_share("6%"),
+        root_share=low[ew.VALIDATOR],
+    )
+    emission_cli.seed_runtime("SubnetInfoRuntimeApi", "get_subnet_emission_weights", capped)
     emission_cli.seed("SubtensorModule", "LastRateLimitedBlock", [RATE_LIMIT_KEY], 90)
     human = invoke("subnets", "emission", "show", "--netuid", "1")
     assert human.exit_code == 0, human.output
-    assert "effective tao weight  25.00%  frozen at the last change" in human.output
+    assert "root share of emission  5.0000%  the baseline, capped at the validator slot" in (
+        human.output
+    )
+    assert "root baseline share  6.0000%" in human.output
+    assert "validators after root  0.0000%  nothing: raise the validator share" in human.output
+    assert "validator floor  > 6.0000%" in human.output
+    assert "validator  6.0000% to 50.0000%" in human.output
     assert "next owner change  block 50,490" in human.output
     assert "root is exempt" in human.output
     record = json.loads(invoke("--json", "subnets", "emission", "show", "--netuid", "1").output)
-    assert record["effective_tao_weight"] == pytest.approx(0.25)
+    assert record["root_capped"] is True
+    assert record["root_share"] == pytest.approx(0.05)
+    assert record["baseline_root_share"] == pytest.approx(0.06)
+    assert record["validator_share_after_root"] == 0.0
+    assert record["min_validator"] == ew.parse_share("6%") + 1
     assert record["rate_limit"]["next_allowed_block"] == 50_490
     assert record["rate_limit"]["owner_can_change_now"] is False
 
@@ -636,8 +698,11 @@ def test_cli_set_value_dry_run_renormalizes(emission_cli):
     assert preview["after"]["weights"][2] == ew.parse_share("10%")
     assert sum(preview["after"]["weights"]) == ONE
     assert preview["changed"] == ["owner", "validator", "miner"]
+    assert preview["root"]["share_before"] == pytest.approx(BASELINE)
     assert preview["root"]["share_after"] == pytest.approx(BASELINE)
-    assert preview["root"]["tao_weight_after"] < preview["root"]["tao_weight_before"]
+    validators_after = ew.share_to_float(preview["after"]["weights"][ew.VALIDATOR]) - BASELINE
+    assert preview["root"]["validators_after"] == pytest.approx(validators_after)
+    assert preview["root"]["global_tao_weight"] == pytest.approx(GLOBAL_TAO_WEIGHT)
     assert preview["rate_limit"]["owner_can_change_now"] is True
     assert "validator" in preview["limits"]
     assert "command" in plan
@@ -658,7 +723,8 @@ def test_cli_set_value_dry_run_renormalizes(emission_cli):
     assert human.exit_code == 0, human.output
     assert "dry run:" in human.output
     assert "owner 18.00% / validator 41.00% / miner 41.00% -> owner 10.00%" in human.output
-    assert f"{BASELINE * 100:.4f}% after" in human.output
+    assert f"root keeps its baseline {BASELINE * 100:.4f}%" in human.output
+    assert "alpha validators get" in human.output
     assert "run for real" in human.output
 
 
@@ -753,16 +819,16 @@ def test_cli_explains_rule_violations_before_submitting(emission_cli):
         "--slot",
         "validator",
         "--value",
-        "3%",
+        "1%",
     )
     assert too_low.exit_code == 2, too_low.output
     error = _stderr_json(too_low)
     assert error["error"].startswith(
         "the chain would reject this change: ValidatorEmissionTooLowToPreserveRoot"
     )
-    assert FLOOR_TEXT in error["error"]
+    assert f"must be above {FLOOR_TEXT} or validators would get nothing" in error["error"]
     assert error["note"].startswith(
-        f"allowed on subnet 1 right now: validator {FLOOR_TEXT} to 50.0000%"
+        f"allowed on subnet 1 right now: validator {MIN_VALIDATOR_TEXT} to 50.0000%"
     )
     assert (
         error["help"]
@@ -851,7 +917,10 @@ def test_cli_set_value_submits_the_renormalized_vector(emission_cli):
     assert call.params["values"][3] == ew.parse_share("30%")
     assert sum(call.params["values"]) == ONE
     assert signer.startswith("5")
-    # The review card names the move, the baseline and the TAO weight.
+    # The review card names the move, root's unchanged cut and what validators keep.
     assert "41.00% -> 30.00%" in result.output
-    assert "root share of emission" in result.output and "(baseline)" in result.output
-    assert "subnet tao weight" in result.output
+    assert "root share of emission" in result.output and "paid off the top" in result.output
+    assert f"{BASELINE * 100:.4f}% -> {BASELINE * 100:.4f}%" in result.output
+    assert "validators after root" in result.output
+    assert f"-> {(0.30 - BASELINE) * 100:.4f}%" in result.output
+    assert "next owner change after this" in result.output
