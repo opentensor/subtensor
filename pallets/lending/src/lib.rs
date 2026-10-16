@@ -123,6 +123,11 @@ pub trait LendingPoolInterface<AccountId>: OrderSwapInterface<AccountId> {
         Self::transfer_tao(from, vault, amount)?;
         Ok(amount)
     }
+    /// Reconcile only a sub-ED TAO collateral remainder lost when its escrow
+    /// was reaped. Preserve proceeds and do not forgive other custody deficits.
+    fn remaining_tao_collateral(_escrow: &AccountId, collateral: u64, _proceeds: u64) -> u64 {
+        collateral
+    }
     /// Burn exactly the collected fee using the chain's canonical TAO burn account.
     /// Failure must preserve both balances, including unrelated custody principal.
     fn burn_interest_tao(account: &AccountId, amount: TaoBalance) -> DispatchResult;
@@ -935,6 +940,9 @@ impl<T: Config> Pallet<T> {
             // Settle only whole atoms and retain fractional interest. Increasing
             // a loan cannot erase accrued fees or postpone its scheduled collection.
             Self::charge_interest(&owner, netuid, &mut position, now, false)?;
+            // The coupon may reap its last sub-ED TAO even when the pre-charge
+            // quote still saw a positive nominal remainder. Do not revive it.
+            ensure!(position.collateral > 0, Error::<T>::InsufficientEscrow);
             position
         } else {
             Position {
@@ -1217,20 +1225,27 @@ impl<T: Config> Pallet<T> {
         if let Some(quote) = &requested_quote {
             Self::ensure_borrow_capacity(&vault, side, quote.principal)?;
         }
-        let (combined_collateral, old_principal) = if let Some((_, position)) = existing {
+        let (combined_collateral, old_principal) = if let Some((owner, position)) = existing {
             let now = frame_system::Pallet::<T>::block_number();
             let (interest, remainder) = Self::interest_due(position, now, false)?;
             // Reserve a whole atom for the preserved fractional coupon. A loan
             // whose old collateral is exhausted cannot be revived by discarding fees.
             let accrued = Self::add(interest, u64::from(remainder > 0))?;
-            let remaining = position
-                .collateral
+            let backed_collateral = match side {
+                Side::Short => T::Pool::remaining_tao_collateral(
+                    &Self::position_account(owner, netuid),
+                    position.collateral,
+                    position.proceeds,
+                ),
+                Side::Long => position.collateral,
+            };
+            let remaining = backed_collateral
                 .checked_sub(accrued)
                 .filter(|remaining| *remaining > 0)
                 .ok_or(Error::<T>::InsufficientEscrow)?;
             // Actual custody retains the fractional atom until it is charged;
             // validate that addition too, even though valuation reserves the atom.
-            Self::add(Self::sub(position.collateral, interest)?, collateral)?;
+            Self::add(Self::sub(backed_collateral, interest)?, collateral)?;
             (Self::add(remaining, collateral)?, position.principal)
         } else {
             (collateral, 0)
@@ -1822,6 +1837,30 @@ impl<T: Config> Pallet<T> {
         ))
     }
 
+    fn reconcile_collateral(
+        owner: &T::AccountId,
+        netuid: NetUid,
+        position: &mut Position<T::AccountId, BlockNumberFor<T>>,
+    ) -> DispatchResult {
+        if position.side == Side::Short {
+            let remaining = T::Pool::remaining_tao_collateral(
+                &Self::position_account(owner, netuid),
+                position.collateral,
+                position.proceeds,
+            );
+            let dust = Self::sub(position.collateral, remaining)?;
+            if dust > 0 {
+                position.collateral = remaining;
+                Self::deposit_event(Event::DustForfeited {
+                    netuid,
+                    recipient: owner.clone(),
+                    tao: dust,
+                });
+            }
+        }
+        Ok(())
+    }
+
     fn charge_interest(
         owner: &T::AccountId,
         netuid: NetUid,
@@ -1829,6 +1868,7 @@ impl<T: Config> Pallet<T> {
         until: BlockNumberFor<T>,
         final_charge: bool,
     ) -> DispatchResult {
+        Self::reconcile_collateral(owner, netuid, position)?;
         let (due, remainder) = Self::interest_due(position, until, final_charge)?;
         let paid = due.min(position.collateral);
         if paid > 0 {
@@ -1887,6 +1927,7 @@ impl<T: Config> Pallet<T> {
                 collateral_paid: paid,
             });
         }
+        Self::reconcile_collateral(owner, netuid, position)?;
         position.last_accrued = until;
         position.interest_remainder = remainder;
         Ok(())

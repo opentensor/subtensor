@@ -3167,6 +3167,168 @@ fn failed_long_coupon_burn_rolls_back_swap_and_retries_backed_pending_alpha() {
 }
 
 #[test]
+fn reaped_short_collateral_is_cleaned_up_and_does_not_block_dissolution() {
+    for already_reaped in [false, true] {
+        for dissolving in [false, true] {
+            new_test_ext(1).execute_with(|| {
+                ExistentialDeposit::set(500.into());
+                let netuid = funded_market();
+                let (owner, hotkey) = borrower(16_171);
+                // Per-block interest is below the production 500-rao ED.
+                assert_ok!(Lending::open_exact(
+                    RuntimeOrigin::signed(owner),
+                    netuid,
+                    Side::Short,
+                    COLLATERAL,
+                    hotkey,
+                    UNIT,
+                    0,
+                ));
+                let before = Positions::<Test>::get(owner, netuid).unwrap();
+                let escrow = Lending::position_account(&owner, netuid);
+                assert_eq!(before.proceeds, 0);
+                let elapsed = ((u128::from(before.collateral) - 1)
+                    * u128::from(LendingBlocksPerYear::get())
+                    / u128::from(before.annual_interest)) as u64;
+                let numerator = u128::from(before.annual_interest) * u128::from(elapsed);
+                let paid = (numerator / u128::from(LendingBlocksPerYear::get())) as u64;
+                let nominal_remaining = before.collateral - paid;
+                assert!(nominal_remaining > 0 && nominal_remaining < 500);
+                let collected_at = before.last_accrued + elapsed;
+                System::set_block_number(collected_at);
+
+                if already_reaped {
+                    // Reproduce the previous runtime's successful collection and
+                    // stale accounting, using a real allow-death currency transfer.
+                    assert_ok!(
+                        <SubtensorModule as LendingPoolInterface<U256>>::collect_interest_tao(
+                            &escrow,
+                            &Lending::reserve_account(netuid),
+                            paid.into(),
+                        )
+                    );
+                    assert_eq!(Balances::free_balance(escrow), TaoBalance::ZERO);
+                    Positions::<Test>::mutate(owner, netuid, |position| {
+                        let position = position.as_mut().unwrap();
+                        position.collateral = nominal_remaining;
+                        position.last_accrued = collected_at;
+                        position.interest_remainder =
+                            (numerator % u128::from(LendingBlocksPerYear::get())) as u64;
+                    });
+                    Vaults::<Test>::mutate(netuid, |vault| {
+                        vault.as_mut().unwrap().pending_tao += paid;
+                    });
+                    // Neither quoting nor dispatch may revive phantom collateral,
+                    // even in the same block and with ample additional collateral.
+                    assert_eq!(
+                        Lending::quote_open_exact_for(
+                            &owner,
+                            netuid,
+                            Side::Short,
+                            COLLATERAL,
+                            &hotkey,
+                            UNIT,
+                        )
+                        .unwrap_err(),
+                        pallet_lending::Error::<Test>::InsufficientEscrow.into(),
+                    );
+                    assert_noop!(
+                        Lending::open_exact(
+                            RuntimeOrigin::signed(owner),
+                            netuid,
+                            Side::Short,
+                            COLLATERAL,
+                            hotkey,
+                            UNIT,
+                            0,
+                        ),
+                        pallet_lending::Error::<Test>::InsufficientEscrow
+                    );
+                    // Exercise recovery well after more interest has accrued too.
+                    System::set_block_number(collected_at + LendingInterestPeriod::get());
+                }
+
+                // A failed close must roll back the coupon and dust reconciliation;
+                // background collection or dissolution will finalize the position.
+                assert_noop!(
+                    Lending::close(RuntimeOrigin::signed(owner), netuid, true, u64::MAX, 0),
+                    pallet_lending::Error::<Test>::InsufficientEscrow
+                );
+                assert_noop!(
+                    Lending::open_exact(
+                        RuntimeOrigin::signed(owner),
+                        netuid,
+                        Side::Short,
+                        COLLATERAL,
+                        hotkey,
+                        UNIT,
+                        0,
+                    ),
+                    pallet_lending::Error::<Test>::InsufficientEscrow
+                );
+                if dissolving {
+                    assert_ok!(SubtensorModule::do_dissolve_network(netuid));
+                    assert!(Lending::settle_shorts(netuid, &mut meter()));
+                    assert_eq!(Positions::<Test>::get(owner, netuid).unwrap().collateral, 0);
+                    assert!(
+                        pallet_lending::Dissolutions::<Test>::get(netuid)
+                            .unwrap()
+                            .reserves_returned
+                    );
+                    let _status = run_destroy_alpha_get_total_and_settle(netuid);
+                    assert!(Lending::settle_remaining_longs(netuid, &mut meter()));
+                } else {
+                    // Budget one collection rather than scanning the empty blocks
+                    // skipped by the deliberately large time jump.
+                    let budget = <Test as frame_system::Config>::DbWeight::get()
+                        .reads_writes(3, 2)
+                        .saturating_add(
+                            <<Test as pallet_lending::Config>::WeightInfo as
+                                pallet_lending::weights::WeightInfo>::collect(),
+                        );
+                    Lending::on_idle(System::block_number(), budget);
+                }
+                assert!(!Positions::<Test>::contains_key(owner, netuid));
+                assert!(!pallet_lending::OpenByNetuid::<Test>::contains_key(
+                    netuid, owner
+                ));
+                assert!(!pallet_lending::EscrowOwner::<Test>::contains_key(
+                    netuid, escrow
+                ));
+                assert_eq!(pallet_lending::PositionCount::<Test>::get(netuid), 0);
+                assert_eq!(pallet_lending::TotalPositions::<Test>::get(), 0);
+                assert_eq!(pallet_lending::LoanHotkeys::<Test>::get(hotkey), 0);
+                assert_eq!(pallet_lending::Due::<Test>::iter().count(), 0);
+                let vault = Vaults::<Test>::get(netuid).unwrap();
+                assert_eq!(vault.outstanding_alpha, 0);
+                assert_eq!(vault.lost_alpha, before.principal);
+                assert_eq!(Balances::free_balance(escrow), TaoBalance::ZERO);
+                assert_eq!(TotalIssuance::<Test>::get(), Balances::total_issuance());
+            });
+        }
+    }
+}
+
+#[test]
+fn short_collateral_reconciliation_only_discards_missing_dust() {
+    new_test_ext(1).execute_with(|| {
+        ExistentialDeposit::set(500.into());
+        let escrow = U256::from(16_172);
+        let remaining = |collateral, proceeds| {
+            <SubtensorModule as LendingPoolInterface<U256>>::remaining_tao_collateral(
+                &escrow, collateral, proceeds,
+            )
+        };
+        assert_eq!(remaining(499, 0), 0);
+        assert_eq!(remaining(500, 0), 500);
+        assert_eq!(remaining(1_000, 0), 1_000);
+        assert_eq!(remaining(499, 1), 499);
+        add_balance_to_coldkey_account(&escrow, 1_000.into());
+        assert_eq!(remaining(499, 0), 499);
+    });
+}
+
+#[test]
 fn collateral_exhaustion_forfeits_fixed_debt_and_cleans_custody() {
     new_test_ext(1).execute_with(|| {
         let netuid = funded_market();

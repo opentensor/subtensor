@@ -269,6 +269,13 @@ explicit dust exception: it is recycled and recorded as `DustForfeited`, rather
 than credited or reported as an interest burn. This can apply to a tiny first
 coupon when a vault holds only alpha.
 
+If a TAO coupon transfer reaps an escrow's final balance below the existential
+deposit, that missing collateral is also recorded as `DustForfeited` and removed
+from the position's accounting. Collection then finalizes the exhausted position.
+The same check repairs an already-reaped sub-deposit remainder before collection
+or dissolution, and prevents it from backing a position increase. It does not
+forgive larger custody deficits or missing sale proceeds.
+
 There are no price-triggered liquidations. When collateral is exhausted, the
 chain forfeits and finalizes the position, retains assets still held in custody,
 and records unrecovered principal as a loss. Freely transferred borrowed assets
