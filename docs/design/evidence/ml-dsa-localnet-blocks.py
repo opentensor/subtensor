@@ -23,9 +23,25 @@ async def main():
     ) as client:
         assert await client.query(bt.storage.Sudo.Key) == dev_wallet().coldkey.ss58_address
         keys = [Keypair.create_from_seed(os.urandom(32), code) for code in (0, 1, 4, 6, 7, 8)]
+        classical_deposit = int(
+            await client.constant(bt.constants.HashedAccounts.RegistrationDeposit)
+        )
+        mldsa_deposit = int(
+            await client.constant(bt.constants.HashedAccounts.MlDsaRegistrationDeposit)
+        )
         for key in keys:
+            deposit = (
+                mldsa_deposit
+                if key.crypto_type in (7, 8)
+                else classical_deposit
+                if key.crypto_type in (4, 6)
+                else 0
+            )
             result = await client.execute(
-                bt.intents.Transfer(receiving_address(key), 10), dev_wallet("//Charlie")
+                bt.intents.Transfer(receiving_address(key), 10),
+                dev_wallet("//Charlie"),
+                max_registration_deposit=bt.Balance.from_rao(deposit),
+                wait_for_finalization=True,
             )
             assert result.success, result.to_dict()
         raw = client._substrate.raw

@@ -42,7 +42,13 @@ async def test_cross_validator_shield_and_external_nonce_advancement(code, spons
         wallet = SimpleNamespace(coldkey=key, coldkeypub=key, hotkey=key)
         address = receiving_address(key)
         result = await asyncio.wait_for(
-            a.execute(bt.intents.Transfer(address, 50), dev_wallet(f"//{sponsor}")), 120
+            a.execute(
+                bt.intents.Transfer(address, 50),
+                dev_wallet(f"//{sponsor}"),
+                max_registration_deposit=bt.Balance.from_tao(2),
+                wait_for_finalization=True,
+            ),
+            120,
         )
         assert result.success, result.to_dict()
         initial = await a.query(bt.storage.System.Account, [key.ss58_address])

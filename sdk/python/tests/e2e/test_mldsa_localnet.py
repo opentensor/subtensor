@@ -46,6 +46,7 @@ async def fund_unlocked(client, key, amount=100):
         bt.intents.Transfer(receiving_address(key), amount),
         dev_wallet("//Bob"),
         wait_for_finalization=True,
+        max_registration_deposit=bt.Balance.from_tao(2),
     )
     assert result.success, result.to_dict()
 

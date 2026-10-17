@@ -13,6 +13,7 @@ import os
 import sys
 import time
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import pytest
 
@@ -59,6 +60,16 @@ async def alice_submission():
 async def test_composable_wallet_lifecycle(tmp_path, scheme, mode):
     env = {**os.environ, "BTCLI_CONFIG": str(tmp_path / "config.json")}
     wallet_path = str(tmp_path / "wallets")
+    receipts = []
+
+    def record_receipt(result):
+        receipts.append(result.to_dict())
+        if directory := os.getenv("E2E_EVIDENCE_DIR"):
+            path = Path(directory)
+            path.mkdir(parents=True, exist_ok=True)
+            (path / f"lifecycle-{scheme}-{mode}.json").write_text(
+                json.dumps(receipts, indent=2, default=str) + "\n"
+            )
 
     async def cli(*args, expected_error=None):
         process = await asyncio.create_subprocess_exec(
@@ -113,6 +124,7 @@ async def test_composable_wallet_lifecycle(tmp_path, scheme, mode):
                     )
             else:
                 result = await client.submit_call(call, signer, signer=role)
+            record_receipt(result)
             assert result.success == success, result.to_dict()
             return result
 
@@ -137,8 +149,12 @@ async def test_composable_wallet_lifecycle(tmp_path, scheme, mode):
             address = receiving_address(key) if hashed else key.ss58_address
             async with alice_submission():
                 result = await client.execute(
-                    bt.intents.Transfer(address, amount), alice, wait_for_finalization=True
+                    bt.intents.Transfer(address, amount),
+                    alice,
+                    wait_for_finalization=True,
+                    max_registration_deposit=bt.Balance.from_tao(2),
                 )
+            record_receipt(result)
             assert result.success, result.to_dict()
 
         # Storage registration has a sponsor; PoW admission itself remains fee-free.
@@ -244,6 +260,7 @@ async def test_composable_wallet_lifecycle(tmp_path, scheme, mode):
             result = await client.execute(
                 bt.intents.Transfer(alice.coldkey.ss58_address, 1), wallet
             )
+            record_receipt(result)
             assert result.success, result.to_dict()
         await submit(
             bt.calls.Balances.transfer_keep_alive(dest=alice.coldkey.ss58_address, value=10**18),
@@ -408,6 +425,7 @@ async def test_composable_wallet_lifecycle(tmp_path, scheme, mode):
             bt.intents.RemoveStake(wallet.hotkey.ss58_address, 0, 1),
         ):
             result = await client.execute(intent, recovered)
+            record_receipt(result)
             assert result.success, result.to_dict()
         await cli("wallet", "balance", "--all")
         await cli("wallet", "overview")
@@ -494,7 +512,12 @@ async def test_composable_wallet_lifecycle(tmp_path, scheme, mode):
         # Re-announcing under the active swap lock must remain a direct call;
         # the first announcement may still sponsor a new destination atomically.
         for _ in range(2):
-            result = await client.execute(bt.intents.AnnounceColdkeySwap(destination), recovered)
+            result = await client.execute(
+                bt.intents.AnnounceColdkeySwap(destination),
+                recovered,
+                max_registration_deposit=bt.Balance.from_tao(2),
+            )
+            record_receipt(result)
             assert result.success, result.to_dict()
             start = await client._substrate.raw._session.request("chain_getHeader", [])
             deadline = time.monotonic() + 90
@@ -505,6 +528,7 @@ async def test_composable_wallet_lifecycle(tmp_path, scheme, mode):
                 assert time.monotonic() < deadline, "chain stopped during coldkey swap delay"
                 await asyncio.sleep(0.2)
         result = await client.execute(bt.intents.SwapColdkeyAnnounced(destination), recovered)
+        record_receipt(result)
         assert result.success, result.to_dict()
         assert (
             await client.query(bt.storage.SubtensorModule.Owner, [recovered.hotkey.ss58_address])

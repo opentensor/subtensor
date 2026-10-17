@@ -56,6 +56,8 @@ async def test_cli_wallet_parity(tmp_path, scheme, mode):
             "bittensor.cli.main",
             "--yes",
             "--json",
+            "--max-registration-deposit",
+            "2",
             "--network",
             ENDPOINT,
             "--fallback-endpoints",
@@ -113,6 +115,7 @@ async def test_cli_wallet_parity(tmp_path, scheme, mode):
                     bt.intents.Transfer(receiving_address(key), amount),
                     alice,
                     wait_for_finalization=True,
+                    max_registration_deposit=bt.Balance.from_tao(2),
                 )
             assert result.success, result.to_dict()
             receipts.append({"operation": "sponsor transfer", **result.to_dict()})
