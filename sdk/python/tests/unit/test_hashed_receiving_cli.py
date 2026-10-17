@@ -177,7 +177,7 @@ def test_wallet_list_isolates_unreadable_public_keys(wallet_path, monkeypatch, c
         assert "error" not in affected
     else:
         assert "public key unavailable" in affected["error"]
-    assert healthy["ss58"].startswith("bth") and "error" not in healthy
+    assert healthy["ss58"].startswith(("bth1_", "tao_")) and "error" not in healthy
     assert records["healthy"]["ss58"] == other.coldkeypub.ss58_address
     assert "error" not in records["healthy"]
     for invalid_address in (bad_key.ss58_address, receiving_address(bad_key)):
@@ -313,7 +313,9 @@ def test_contact_keeps_descriptor_for_registration_on_selected_chain(wallet_path
     assert not substrate.submissions
 
 
-@pytest.mark.parametrize("malformed", ["bth1_bad", "bth2_bad", "bth1_", "bth1_!"])
+@pytest.mark.parametrize(
+    "malformed", ["bth1_bad", "bth2_bad", "tao_bad", "TAO_bad", " tao_bad", "bth1_", "bth1_!"]
+)
 def test_malformed_receiving_addresses_never_become_wallet_names(
     wallet_path, monkeypatch, malformed
 ):
@@ -325,6 +327,31 @@ def test_malformed_receiving_addresses_never_become_wallet_names(
     )
     with pytest.raises(ValueError):
         _context(wallet_path).resolve_address_ref("dest_ss58", malformed)
+
+
+@pytest.mark.parametrize("mode", ["standard", "hashed"])
+@pytest.mark.parametrize("legacy_prefix", [False, True])
+def test_ms_address_prefixes_support_contacts_public_recovery_and_transfers(
+    wallet_path, monkeypatch, mode, legacy_prefix
+):
+    created = _invoke("wallet", "create", "--crypto-type", "ms", "--type", mode, "--no-password")
+    assert created.exit_code == 0, created.output
+    address = json.loads(created.output)["coldkey_address"]
+    assert address.startswith("tao_")
+    supplied = address.replace("tao_", "bth2_", 1) if legacy_prefix else address
+    saved = _invoke("addr", "add", "friend", supplied)
+    assert saved.exit_code == 0, saved.output
+    assert config.get_address("friend") == supplied
+    resolved = _context(wallet_path).resolve_address_ref("dest_ss58", "friend")
+    assert resolved.account == Wallet("recipient", path=str(wallet_path)).coldkeypub.ss58_address
+    restored = _invoke("wallet", "regen-coldkeypub", "--wallet", "watch", "--address", supplied)
+    assert restored.exit_code == 0, restored.output
+    assert receiving_address(Wallet("watch", path=str(wallet_path)).coldkeypub) == address
+    submitted = []
+    monkeypatch.setattr(AppContext, "submit", lambda self, intent: submitted.append(intent))
+    sent = _invoke("wallet", "transfer", "--dest", "friend", "--amount", "1")
+    assert sent.exit_code == 0, sent.output
+    assert submitted[0].dest_ss58 == supplied
 
 
 def test_show_and_local_resolution_use_only_public_metadata(wallet_path, monkeypatch):

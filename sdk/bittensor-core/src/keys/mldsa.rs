@@ -737,17 +737,27 @@ mod tests {
         let address = encode_hashed_receiving_address(&descriptor).unwrap();
         assert_eq!(
             address,
-            "bth2_AgQHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHhs8-H4mAmmA"
+            "tao_AgQHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHhs8-H4mAmmA"
         );
-        assert_eq!(
-            decode_hashed_receiving_address(&address).unwrap(),
-            descriptor
-        );
-        assert!(decode_hashed_receiving_address(&(address.clone() + "=")).is_err());
-        assert!(decode_hashed_receiving_address(&address.replacen("bth2_", "bth1_", 1)).is_err());
-        let mut bytes = address.into_bytes();
-        bytes[30] = if bytes[30] == b'A' { b'B' } else { b'A' };
-        assert!(decode_hashed_receiving_address(std::str::from_utf8(&bytes).unwrap()).is_err());
+        assert_eq!(address.len(), 103);
+        for spelling in [address.clone(), address.replacen("tao_", "bth2_", 1)] {
+            let decoded = decode_hashed_receiving_address(&spelling).unwrap();
+            assert_eq!(decoded, descriptor);
+            assert_eq!(encode_hashed_receiving_address(&decoded).unwrap(), address);
+            for invalid in [
+                format!("{spelling}="),
+                format!(" {spelling}"),
+                format!("{spelling}\n"),
+                spelling.to_uppercase(),
+                spelling[..spelling.len() - 1].to_string(),
+            ] {
+                assert!(decode_hashed_receiving_address(&invalid).is_err());
+            }
+            let mut bytes = spelling.into_bytes();
+            bytes[30] = if bytes[30] == b'A' { b'B' } else { b'A' };
+            assert!(decode_hashed_receiving_address(std::str::from_utf8(&bytes).unwrap()).is_err());
+        }
+        assert!(decode_hashed_receiving_address(&address.replacen("tao_", "bth1_", 1)).is_err());
     }
 
     #[test]

@@ -159,18 +159,27 @@ def test_native_aliases_keep_identity_and_variable_width_authorization(wallet):
         )
 
 
-def test_bth2_descriptor_roundtrip_preserves_v1_namespace(wallet):
+def test_tao_descriptor_roundtrip_preserves_legacy_addresses_and_identity(wallet):
     address = receiving_address(wallet)
-    assert address.startswith("bth2_") and len(address) == 104
+    assert address.startswith("tao_") and len(address) == 103
     recipient = parse_recipient(address)
     assert recipient.account == wallet.ss58_address
     assert recipient.descriptor == bytes(wallet.hashed_descriptor)
     assert descriptor_storage(recipient.descriptor) == "MlDsaAccounts"
     assert descriptor_bytes(descriptor_value(recipient.descriptor)) == recipient.descriptor
     assert receiving_address(wallet.public_only()) == address
-    for invalid in (address + "=", address.replace("bth2_", "bth1_"), " " + address):
-        with pytest.raises(ValueError):
-            parse_recipient(invalid)
+    legacy = "bth2_" + address.removeprefix("tao_")
+    for spelling in (address, legacy):
+        decoded = parse_recipient(spelling)
+        assert decoded.account == recipient.account
+        assert decoded.descriptor == recipient.descriptor
+        restored = Keypair.from_hashed_descriptor(decoded.descriptor)
+        assert receiving_address(restored) == address
+        for invalid in (spelling + "=", spelling.upper(), " " + spelling):
+            with pytest.raises(ValueError):
+                parse_recipient(invalid)
+    with pytest.raises(ValueError):
+        parse_recipient(address.replace("tao_", "bth1_"))
     with pytest.raises(ValueError):
         descriptor_value(bytes([2, 4]) + bytes(64))
 
@@ -230,13 +239,19 @@ async def test_fee_quote_uses_complete_dummy_proof_without_private_wallet(wallet
 
 
 @pytest.mark.parametrize("exists,enabled", [(False, True), (True, True), (True, False)])
-async def test_receiving_guard_routes_to_mldsa_and_prices_mldsa_deposit(exists, enabled, wallet):
+@pytest.mark.parametrize("legacy_prefix", [False, True])
+async def test_receiving_guard_routes_to_mldsa_and_prices_mldsa_deposit(
+    exists, enabled, wallet, legacy_prefix
+):
     substrate = chain()
     substrate.seed("HashedAccounts", "MlDsaRegistrationEnabled", [], enabled)
     if exists:
         substrate.seed("HashedAccounts", "MlDsaAccounts", [wallet.ss58_address], record(wallet))
+    address = receiving_address(wallet)
+    if legacy_prefix:
+        address = address.replace("tao_", "bth2_", 1)
     intent, recipients = await prepare_recipient_intent(
-        substrate, Transfer(dest_ss58=receiving_address(wallet), amount_tao=1)
+        substrate, Transfer(dest_ss58=address, amount_tao=1)
     )
     payment = await substrate.compose(
         calls.Balances.transfer_keep_alive(dest=wallet.ss58_address, value=1)

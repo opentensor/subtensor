@@ -1,6 +1,6 @@
 """Self-contained payment addresses; never discard setup data on a write path.
 
-``bth1_`` and ``bth2_`` addresses carry a public descriptor and checksum.
+``bth1_`` and ``tao_`` addresses carry a public descriptor and checksum.
 They contain no network field.
 Their AccountId and authorization remain the runtime's existing ones. Only the
 native codec defines the wire format and checksum.
@@ -27,7 +27,7 @@ def is_receiving_address(value: Any) -> bool:
     This is a routing predicate, not validation. Invalid family members must
     reach the strict decoder rather than fall through to a wallet-name lookup.
     """
-    return isinstance(value, str) and value.lstrip().lower().startswith("bth")
+    return isinstance(value, str) and value.lstrip().lower().startswith(("bth", "tao_"))
 
 
 def parse_recipient(value: str) -> Recipient:

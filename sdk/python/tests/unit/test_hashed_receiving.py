@@ -338,13 +338,17 @@ async def test_remote_wallet_object_uses_only_its_public_file(tmp_path, setup, m
     assert plan.args["dest_ss58"].startswith("bth1_")
 
 
-@pytest.mark.parametrize("case", ["checksum", "version", "whitespace", "disabled"])
+@pytest.mark.parametrize(
+    "case", ["checksum", "version", "legacy_version", "whitespace", "disabled"]
+)
 async def test_bad_receiving_addresses_fail_before_composition_or_submission(setup, case):
     chain, wallet, _key, address = setup
     chain.compose = AsyncMock(wraps=chain.compose)
     if case == "checksum":
         address = address[:-2] + ("A" if address[-2] != "A" else "B") + address[-1]
     elif case == "version":
+        address = "tao_" + address[5:]
+    elif case == "legacy_version":
         address = "bth2_" + address[5:]
     elif case == "whitespace":
         address = " " + address
