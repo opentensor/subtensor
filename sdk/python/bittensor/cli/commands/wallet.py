@@ -23,10 +23,11 @@ from ...intents import (
     SwapHotkey,
     Transfer,
 )
-from ...keyfiles import WrongPasswordError
+from ...keyfiles import KeyfileError, WrongPasswordError
 from ...masked_input import masked_input
 from ...receiving import parse_recipient
 from ...settings import BLOCKTIME, DOCS_URL, query_docs_url, resolve_endpoint
+from ...sp_core import deserialize_keypair_from_keyfile_data, keyfile_data_is_encrypted
 from ...timelock import format_duration
 from .. import multisig_helpers as ms_helpers
 from ..context import AppContext, address_cli_name, ctx_of, ss58_param_help
@@ -1213,29 +1214,55 @@ def list_wallets(ctx: typer.Context):
     app_ctx: AppContext = ctx_of(ctx)
     coldkeys = wallets.list_wallets_detailed(app_ctx.wallet_path)
 
-    def listed_address(name, key, hotkey=None):
+    def listed_key(name, key, hotkey=None):
+        unavailable = {
+            "ss58": None,
+            "error": "public key unavailable: invalid, incompatible, or unreadable keyfile",
+        }
         if key.crypto_type not in wallets.REGISTERED_CRYPTO_TYPES:
-            return key.ss58
+            if key.ss58:
+                return {"ss58": key.ss58}
+            key_path = Path(app_ctx.wallet_path).expanduser() / name
+            key_path = key_path / "hotkeys" / hotkey if hotkey else key_path / "coldkeypub.txt"
+            try:
+                if keyfile_data_is_encrypted(key_path.read_bytes()):
+                    return {
+                        "ss58": None,
+                        "crypto_type": "unknown",
+                        "account_type": None,
+                        "signing_scheme": None,
+                        "encrypted": True,
+                        "note": "encrypted key; public address unavailable",
+                    }
+            except OSError:
+                pass
+            return unavailable
         wallet = wallets.open_wallet(
             name=name, hotkey=hotkey or "default", path=app_ctx.wallet_path
         )
-        public = wallet.hotkeypub if hotkey else wallet.coldkeypub
-        return app_ctx.wallet_address(public)
+        public_file = wallet.hotkeypub_file if hotkey else wallet.coldkeypub_file
+        try:
+            # Listing must never unlock a key or substitute a bare account address
+            # when the complete receiving descriptor cannot be validated.
+            public = deserialize_keypair_from_keyfile_data(Path(public_file.path).read_bytes())
+            return {"ss58": app_ctx.wallet_address(public)}
+        except (KeyfileError, OSError, ValueError):
+            return unavailable
 
     records = [
         {
             "coldkey": ck.name,
-            "ss58": listed_address(ck.name, ck),
             "crypto_type": wallets.format_crypto_type(ck.crypto_type),
             "account_type": wallets.account_type_name(ck.crypto_type),
             "signing_scheme": wallets.signing_scheme_name(ck.crypto_type),
+            **listed_key(ck.name, ck),
             "hotkeys": [
                 {
                     "name": hk.name,
-                    "ss58": listed_address(ck.name, hk, hk.name),
                     "crypto_type": wallets.format_crypto_type(hk.crypto_type),
                     "account_type": wallets.account_type_name(hk.crypto_type),
                     "signing_scheme": wallets.signing_scheme_name(hk.crypto_type),
+                    **listed_key(ck.name, hk, hk.name),
                 }
                 for hk in ck.hotkeys
             ],

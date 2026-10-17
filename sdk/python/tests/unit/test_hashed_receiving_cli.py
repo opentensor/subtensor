@@ -18,6 +18,7 @@ from bittensor.cli.stake_picker import _dest_choices
 from bittensor.client import Client
 from bittensor.executor import Executor
 from bittensor.hashed import descriptor_value, registration_descriptor_value
+from bittensor.keyfiles import Keyfile
 from bittensor.receiving import parse_recipient, receiving_address
 from bittensor.settings import FINNEY_GENESIS_HASH
 from bittensor.sp_core import CRYPTO_HASHED, CRYPTO_SR25519, Keypair
@@ -130,6 +131,131 @@ def test_local_picker_and_wallet_list_share_complete_public_addresses(wallet_pat
     assert details["coldkey_address"] in listed.output
     assert details["hotkey_address"] in listed.output
     assert details["coldkey_mnemonic"] not in listed.output
+
+
+@pytest.mark.parametrize("code", [4, 6, 7, 8])
+@pytest.mark.parametrize("role", ["coldkey", "hotkey"])
+@pytest.mark.parametrize("failure", ["descriptor", "missing", "encrypted", "non_object"])
+def test_wallet_list_isolates_unreadable_public_keys(wallet_path, monkeypatch, code, role, failure):
+    wallet = Wallet("recipient", path=str(wallet_path))
+    wallet.regenerate_coldkey(
+        seed=bytes([21]) * 32, crypto_type=code, use_password=False, suppress=True
+    )
+    wallet.regenerate_hotkey(seed=bytes([22]) * 32, crypto_type=code, suppress=True)
+    other = Wallet("healthy", path=str(wallet_path))
+    other.regenerate_coldkey(seed=bytes([23]) * 32, use_password=False, suppress=True)
+    bad_key = getattr(wallet, role + "pub")
+    public_path = (
+        wallet_path
+        / "recipient"
+        / ("coldkeypub.txt" if role == "coldkey" else "hotkeys/defaultpub.txt")
+    )
+    if failure == "descriptor":
+        data = json.loads(public_path.read_text())
+        data["mldsaDescriptor" if code in (7, 8) else "hashedDescriptor"] = "0x00"
+        public_path.write_text(json.dumps(data))
+    elif failure == "missing":
+        public_path.unlink()
+    elif failure == "encrypted":
+        public_path.write_bytes(b"$NACL\xffinvalid encrypted public keyfile")
+    else:
+        public_path.write_text("[]")
+    before = {p: p.read_bytes() for p in wallet_path.rglob("*") if p.is_file()}
+    monkeypatch.setattr(AppContext, "run", lambda *_: pytest.fail("unexpected network access"))
+    monkeypatch.setattr(Keyfile, "get_keypair", lambda *_: pytest.fail("must not unlock keys"))
+
+    listed = _invoke("wallet", "list")
+    assert listed.exit_code == 0, listed.output
+    records = {row["coldkey"]: row for row in json.loads(listed.output)["coldkeys"]}
+    affected = records["recipient"]
+    healthy = affected["hotkeys"][0] if role == "coldkey" else affected
+    affected = affected if role == "coldkey" else affected["hotkeys"][0]
+    assert affected["ss58"] is None
+    if role == "coldkey" and failure == "encrypted":
+        assert affected["encrypted"] is True
+        assert "encrypted key" in affected["note"]
+        assert "error" not in affected
+    else:
+        assert "public key unavailable" in affected["error"]
+    assert healthy["ss58"].startswith("bth") and "error" not in healthy
+    assert records["healthy"]["ss58"] == other.coldkeypub.ss58_address
+    assert "error" not in records["healthy"]
+    for invalid_address in (bad_key.ss58_address, receiving_address(bad_key)):
+        assert invalid_address not in listed.output
+
+    human = runner.invoke(app, ["wallet", "list"])
+    assert human.exit_code == 0, human.output
+    assert (affected.get("error") or affected["note"]) in human.output
+    assert "healthy" in human.output
+    assert bad_key.ss58_address not in human.output
+    assert before == {p: p.read_bytes() for p in wallet_path.rglob("*") if p.is_file()}
+
+
+@pytest.mark.parametrize("role", ["coldkey", "hotkey"])
+def test_wallet_list_retains_legacy_ms_entry_without_exposing_invalid_address(wallet_path, role):
+    wallet = Wallet("recipient", path=str(wallet_path))
+    wallet.regenerate_coldkey(
+        seed=bytes([24]) * 32, crypto_type=7, use_password=False, suppress=True
+    )
+    wallet.regenerate_hotkey(seed=bytes([25]) * 32, crypto_type=7, suppress=True)
+    public_path = (
+        wallet_path
+        / "recipient"
+        / ("coldkeypub.txt" if role == "coldkey" else "hotkeys/defaultpub.txt")
+    )
+    data = json.loads(public_path.read_text())
+    data.pop("walletVersion")
+    data.pop("mldsaDescriptor")
+    data["hashedDescriptor"] = "0x0202" + "01" * 32
+    public_path.write_text(json.dumps(data))
+    listed = _invoke("wallet", "list")
+    assert listed.exit_code == 0, listed.output
+    record = json.loads(listed.output)["coldkeys"][0]
+    record = record if role == "coldkey" else record["hotkeys"][0]
+    assert record["ss58"] is None
+    assert "public key unavailable" in record["error"]
+    assert data["ss58Address"] not in listed.output
+    assert json.loads(public_path.read_text()) == data
+
+
+@pytest.mark.parametrize("code", [0, 1, 4, 6, 7, 8])
+@pytest.mark.parametrize("has_public_file", [False, True])
+def test_wallet_list_does_not_treat_encrypted_hotkeys_as_broken(
+    wallet_path, monkeypatch, code, has_public_file
+):
+    wallet = Wallet("recipient", path=str(wallet_path))
+    wallet.regenerate_coldkey(seed=bytes([26]) * 32, use_password=False, suppress=True)
+    wallet.regenerate_hotkey(
+        seed=bytes([27]) * 32,
+        crypto_type=code,
+        hotkey_password="test-only-password",
+        suppress=True,
+    )
+    expected_address = receiving_address(wallet.hotkeypub)
+    if not has_public_file:
+        (wallet_path / "recipient" / "hotkeys/defaultpub.txt").unlink()
+    before = {p: p.read_bytes() for p in wallet_path.rglob("*") if p.is_file()}
+    monkeypatch.setattr(Keyfile, "get_keypair", lambda *_: pytest.fail("must not unlock keys"))
+    monkeypatch.setattr(AppContext, "run", lambda *_: pytest.fail("unexpected network access"))
+
+    listed = _invoke("wallet", "list")
+    assert listed.exit_code == 0, listed.output
+    hotkey = json.loads(listed.output)["coldkeys"][0]["hotkeys"][0]
+    assert "error" not in hotkey
+    if has_public_file:
+        assert hotkey["ss58"] == expected_address
+    else:
+        assert hotkey["ss58"] is None
+        assert hotkey["encrypted"] is True
+        assert hotkey["crypto_type"] == "unknown"
+        assert hotkey["signing_scheme"] is None
+        assert hotkey["account_type"] is None
+        assert "encrypted key" in hotkey["note"]
+        human = runner.invoke(app, ["wallet", "list"])
+        assert human.exit_code == 0, human.output
+        assert hotkey["note"] in human.output
+        assert "invalid" not in human.output
+    assert before == {p: p.read_bytes() for p in wallet_path.rglob("*") if p.is_file()}
 
 
 def test_coldkey_swap_preserves_contact_receiving_address(wallet_path, monkeypatch):

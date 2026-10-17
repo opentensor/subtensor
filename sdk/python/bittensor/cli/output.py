@@ -1784,6 +1784,8 @@ class Output:
         count: int | None = None,
         crypto_type: str | None = None,
         kind: str | None = None,
+        error: str | None = None,
+        note: str | None = None,
     ) -> Text:
         node = Text()
         node.append(name, style=name_style)
@@ -1792,7 +1794,13 @@ class Output:
         if count:
             suffix = "hotkey" if count == 1 else "hotkeys"
             node.append(f"  ({count} {suffix})", style="dim")
-        if ss58 and ss58 != name:
+        if error:
+            node.append("\n")
+            node.append(error, style=f"dim {PASTEL_RED}")
+        elif note:
+            node.append("\n")
+            node.append(note, style="dim")
+        elif ss58 and ss58 != name:
             node.append("\n")
             url = self.account_url(ss58, kind) if kind else None
             node.append(ss58, style=f"dim link {url}" if url else "dim")
@@ -1875,6 +1883,8 @@ class Output:
                         else ck.get("crypto_type")
                     ),
                     kind="coldkey",
+                    error=ck.get("error"),
+                    note=ck.get("note"),
                 )
             )
             if not hotkeys:
@@ -1892,6 +1902,8 @@ class Output:
                             else hk.get("crypto_type")
                         ),
                         kind="hotkey",
+                        error=hk.get("error"),
+                        note=hk.get("note"),
                     )
                 )
 

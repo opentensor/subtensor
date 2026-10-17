@@ -634,6 +634,8 @@ def _read_keyfile(key_file: Path) -> tuple[str | None, int | None]:
         data = json.loads(key_file.read_text())
     except (OSError, ValueError):
         return None, None
+    if not isinstance(data, dict):
+        return None, None
     address = data.get("ss58Address")
     ss58 = address if isinstance(address, str) else None
     raw_type = data.get("cryptoType", data.get("crypto_type"))
@@ -663,6 +665,8 @@ def list_wallets_detailed(path: str = DEFAULT_WALLET_PATH) -> list[ColdkeyInfo]:
             for hk in sorted(hotkeys_dir.iterdir(), key=lambda p: natural_name_key(p.name)):
                 if hk.is_file() and not _is_hotkey_companion_file(hk.name):
                     hk_ss58, hk_crypto = _read_keyfile(hk)
+                    if hk_ss58 is None and hk_crypto is None:
+                        hk_ss58, hk_crypto = _read_keyfile(hk.with_name(f"{hk.name}pub.txt"))
                     info.hotkeys.append(
                         HotkeyInfo(name=hk.name, ss58=hk_ss58, crypto_type=hk_crypto)
                     )
