@@ -27,9 +27,10 @@ from ...keyfiles import KeyfileError, WrongPasswordError
 from ...masked_input import masked_input
 from ...receiving import parse_recipient
 from ...settings import BLOCKTIME, DOCS_URL, query_docs_url, resolve_endpoint
-from ...sp_core import deserialize_keypair_from_keyfile_data, keyfile_data_is_encrypted
+from ...sp_core import keyfile_data_is_encrypted
 from ...timelock import format_duration
 from .. import multisig_helpers as ms_helpers
+from .. import wallet_addresses
 from ..context import AppContext, address_cli_name, ctx_of, ss58_param_help
 from ..globals import with_globals, with_tx_globals, with_unlock_globals
 from ..helpers import (
@@ -129,10 +130,8 @@ _SEED_RE = re.compile(r"(0x)?[0-9a-fA-F]{64}")
 _PRIVATE_KEY_RE = re.compile(r"(0x)?[0-9a-fA-F]{128}")
 
 
-def _address_fields(app_ctx: AppContext, public, *, role: str = "") -> dict[str, str]:
-    suffix = "address" if public.crypto_type in wallets.REGISTERED_CRYPTO_TYPES else "ss58"
-    key = f"{role}_{suffix}" if role else suffix
-    return {key: app_ctx.wallet_address(public)}
+def _address_fields(app_ctx: AppContext, public, *, role: str = "") -> dict[str, Any]:
+    return wallet_addresses.address_fields(public, network=app_ctx.network, role=role)
 
 
 def _hashed_recovery_hint(app_ctx: AppContext, *crypto_types: int) -> None:
@@ -141,13 +140,8 @@ def _hashed_recovery_hint(app_ctx: AppContext, *crypto_types: int) -> None:
         and not app_ctx.output.json_mode
     ):
         app_ctx.output.message(
-            "Record both the signing scheme and account mode with each recovery phrase. "
-            "Restore with "
-            "`btcli wallet regen-coldkey --crypto-type <scheme> --type <mode>` or "
-            "`btcli wallet regen-hotkey --crypto-type <scheme> --type <mode>`. "
-            "Creating or restoring a wallet does "
-            "not register it on chain. Register each new descriptor-based account and wait for "
-            "finalization before publicly sharing its receiving address."
+            "Recovery: save the signing scheme and account type with each phrase; "
+            "restore with matching `--crypto-type` and `--type`."
         )
 
 
@@ -419,7 +413,7 @@ def create(
         fields.update(_address_fields(app_ctx, wallet.hotkeypub, role="hotkey"))
     # Human mode already showed the mnemonics above; JSON carries them in the
     # payload so scripted consumers can capture them.
-    app_ctx.output.detail("created wallet", fields, json_fields={**fields, **mnemonics})
+    app_ctx.output.wallet_detail("created wallet", fields, json_fields={**fields, **mnemonics})
     _hashed_recovery_hint(app_ctx, coldkey_crypto, hotkey_crypto)
     app_ctx.output.mnemonic_clear_hint()
 
@@ -469,7 +463,7 @@ def new_coldkey(
         "signing_scheme": wallets.signing_scheme_name(crypto),
         **_address_fields(app_ctx, wallet.coldkeypub),
     }
-    app_ctx.output.detail("created coldkey", fields, json_fields={**fields, **mnemonics})
+    app_ctx.output.wallet_detail("created coldkey", fields, json_fields={**fields, **mnemonics})
     _hashed_recovery_hint(app_ctx, crypto)
     app_ctx.output.mnemonic_clear_hint()
 
@@ -521,7 +515,7 @@ def new_hotkey(
         "signing_scheme": wallets.signing_scheme_name(crypto),
         **_address_fields(app_ctx, wallet.hotkeypub),
     }
-    app_ctx.output.detail("created hotkey", fields, json_fields={**fields, **mnemonics})
+    app_ctx.output.wallet_detail("created hotkey", fields, json_fields={**fields, **mnemonics})
     _hashed_recovery_hint(app_ctx, crypto)
     app_ctx.output.mnemonic_clear_hint()
 
@@ -601,7 +595,7 @@ def regen_coldkey(
         app_ctx.output.error(str(error))
         raise typer.Exit(1)
     reported_crypto = wallet.coldkey.crypto_type if json_keystore else crypto
-    app_ctx.output.detail(
+    app_ctx.output.wallet_detail(
         "regenerated coldkey",
         {
             "coldkey": app_ctx.wallet_name,
@@ -663,7 +657,7 @@ def regen_hotkey(
         overwrite=overwrite,
         crypto_type=crypto,
     )
-    app_ctx.output.detail(
+    app_ctx.output.wallet_detail(
         "regenerated hotkey",
         {
             "coldkey": app_ctx.wallet_name,
@@ -712,7 +706,7 @@ def regen_coldkey_pub(
     except ValueError as error:
         app_ctx.output.error(str(error))
         raise typer.Exit(1)
-    app_ctx.output.detail(
+    app_ctx.output.wallet_detail(
         "regenerated coldkeypub",
         {
             **_address_fields(app_ctx, wallet.coldkeypub),
@@ -764,7 +758,7 @@ def regen_hotkey_pub(
     except ValueError as error:
         app_ctx.output.error(str(error))
         raise typer.Exit(1)
-    app_ctx.output.detail(
+    app_ctx.output.wallet_detail(
         "regenerated hotkeypub",
         {
             **_address_fields(app_ctx, wallet.hotkeypub),
@@ -1009,7 +1003,7 @@ def unlock_wallet(ctx: typer.Context):
     confirm_wallet(app_ctx, help_text="Wallet to unlock.", allow_multisig=False)
     wallet = app_ctx.wallet()
     if not wallet.coldkey_file.is_encrypted():
-        app_ctx.output.detail(
+        app_ctx.output.wallet_detail(
             "unlock",
             {
                 "wallet": app_ctx.wallet_name,
@@ -1052,7 +1046,7 @@ def unlock_wallet(ctx: typer.Context):
                 password = None
                 continue
             _report_unlock_error(app_ctx, error)
-    app_ctx.output.detail(
+    app_ctx.output.wallet_detail(
         "unlocked",
         {
             "wallet": app_ctx.wallet_name,
@@ -1151,8 +1145,13 @@ def keychain_delete(ctx: typer.Context):
 
 @app.command("show", rich_help_panel=PANEL_INFO)
 @with_globals
-def show_wallet(ctx: typer.Context):
-    """Show the configured wallet's public keys and crypto schemes."""
+def show_wallet(
+    ctx: typer.Context,
+    offline: bool = typer.Option(
+        False, "--offline", help="Show public addresses without checking on-chain registration."
+    ),
+):
+    """Show public addresses and finalized registration on the selected network."""
     app_ctx: AppContext = ctx_of(ctx)
     confirm_wallet(app_ctx, help_text="Wallet to show.")
     # Same precedence as the write path: `-w <multisig>` means the multisig
@@ -1174,27 +1173,32 @@ def show_wallet(ctx: typer.Context):
     # coldkeypub.txt; some wallets have no hotkey named like -H): show what
     # exists and say what is missing instead of failing on the first absence.
     detail: dict[str, Any] = {}
+    public_records: dict[str, dict[str, Any]] = {}
     try:
-        detail.update(_address_fields(app_ctx, wallet.coldkeypub, role="coldkey"))
-        detail["coldkey_crypto_type"] = wallets.format_crypto_type(wallet.coldkeypub.crypto_type)
-        detail["coldkey_account_type"] = wallets.account_type_name(wallet.coldkeypub.crypto_type)
-        detail["coldkey_signing_scheme"] = wallets.signing_scheme_name(
-            wallet.coldkeypub.crypto_type
-        )
+        coldkey = wallet_addresses.public_key_from_file(wallet.coldkeypub_file.path)
+        public_records["coldkey"] = _address_fields(app_ctx, coldkey)
+        detail["coldkey_crypto_type"] = wallets.format_crypto_type(coldkey.crypto_type)
+        detail["coldkey_account_type"] = wallets.account_type_name(coldkey.crypto_type)
+        detail["coldkey_signing_scheme"] = wallets.signing_scheme_name(coldkey.crypto_type)
     except Exception as error:
         detail["coldkey"] = f"unavailable ({error})"
     detail["hotkey"] = app_ctx.hotkey_name
     try:
         try:
-            hotkey = wallet.hotkeypub
+            hotkey = wallet_addresses.public_key_from_file(wallet.hotkeypub_file.path)
         except FileNotFoundError:
-            hotkey = wallet.hotkey
-        detail.update(_address_fields(app_ctx, hotkey, role="hotkey"))
+            # Older wallets may keep public metadata only in the hotkey file.
+            # Never decrypt it or derive a private key to display an address.
+            hotkey = wallet_addresses.public_key_from_file(wallet.hotkey_file.path)
+        public_records["hotkey"] = _address_fields(app_ctx, hotkey)
         detail["hotkey_crypto_type"] = wallets.format_crypto_type(hotkey.crypto_type)
         detail["hotkey_account_type"] = wallets.account_type_name(hotkey.crypto_type)
         detail["hotkey_signing_scheme"] = wallets.signing_scheme_name(hotkey.crypto_type)
     except Exception as error:
         detail["hotkey"] = f"{app_ctx.hotkey_name} — unavailable ({error})"
+    wallet_addresses.check_registration(app_ctx, list(public_records.values()), offline=offline)
+    for role, record in public_records.items():
+        detail.update({f"{role}_{key}": value for key, value in record.items()})
     detail["path"] = app_ctx.wallet_path
     if not {"coldkey_ss58", "hotkey_ss58", "coldkey_address", "hotkey_address"}.intersection(
         detail
@@ -1204,12 +1208,17 @@ def show_wallet(ctx: typer.Context):
             note=detail.get("coldkey"),
         )
         raise typer.Exit(1)
-    app_ctx.output.detail(app_ctx.wallet_name, detail)
+    app_ctx.output.wallet_detail(app_ctx.wallet_name, detail)
 
 
 @app.command("list", rich_help_panel=PANEL_INFO)
 @with_globals
-def list_wallets(ctx: typer.Context):
+def list_wallets(
+    ctx: typer.Context,
+    offline: bool = typer.Option(
+        False, "--offline", help="Show public addresses without checking on-chain registration."
+    ),
+):
     """List wallets on disk, saved multisigs, the address book, and the proxy book."""
     app_ctx: AppContext = ctx_of(ctx)
     coldkeys = wallets.list_wallets_detailed(app_ctx.wallet_path)
@@ -1244,8 +1253,8 @@ def list_wallets(ctx: typer.Context):
         try:
             # Listing must never unlock a key or substitute a bare account address
             # when the complete receiving descriptor cannot be validated.
-            public = deserialize_keypair_from_keyfile_data(Path(public_file.path).read_bytes())
-            return {"ss58": app_ctx.wallet_address(public)}
+            public = wallet_addresses.public_key_from_file(public_file.path)
+            return _address_fields(app_ctx, public)
         except (KeyfileError, OSError, ValueError):
             return unavailable
 
@@ -1269,12 +1278,11 @@ def list_wallets(ctx: typer.Context):
         }
         for ck in coldkeys
     ]
-    multisig_entries = cfg.load_multisigs()
-    multisigs = (
-        app_ctx.run(lambda client: ms_helpers.multisig_list_records(client, app_ctx))
-        if multisig_entries
-        else []
+    wallet_addresses.check_registration(
+        app_ctx, [key for ck in records for key in (ck, *ck["hotkeys"])], offline=offline
     )
+    multisig_entries = cfg.load_multisigs()
+    multisigs = ms_helpers.multisig_list_records(app_ctx, entries=multisig_entries)
     app_ctx.output.wallet_list(
         app_ctx.wallet_path,
         records,

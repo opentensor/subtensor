@@ -317,7 +317,9 @@ async def test_remote_payment_keeps_complete_input_and_registers_before_funding(
     assert payment.params["dest"] == key.ss58_address
     assert payment.params["value"] == 10**9
     assert plan.spend.rao == 10**9 + RESERVE
-    result = await Executor(chain).execute(intent, wallet)
+    result = await Executor(chain).execute(
+        intent, wallet, max_registration_deposit=Balance.from_rao(RESERVE)
+    )
     assert result.success
     assert chain.last_call == plan.call
 

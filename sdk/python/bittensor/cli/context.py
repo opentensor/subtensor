@@ -50,6 +50,7 @@ from ..vault import VaultSigner
 from ..wallets import is_bittensor_address
 from . import multisig_helpers as ms_helpers
 from .output import STYLE_WARNING, Output
+from .registration import confirm_registration_sponsorship
 
 T = TypeVar("T")
 
@@ -212,6 +213,8 @@ class AppContext:
     # Multisig names currently being derived by ``resolve_address`` — breaks
     # the recursion when a saved multisig lists itself among its signatories.
     _resolving_multisigs: set = field(default_factory=set)
+    # Explicit per-invocation authorization; never persisted as a wallet default.
+    max_registration_deposit: Optional[Balance] = None
 
     def reset_extension_session(self) -> None:
         self._extension_selection = None
@@ -1152,6 +1155,34 @@ class AppContext:
                         "(alpha fees only work on the unshielded call)"
                     )
         options = {"proxy_for": proxy_for, "proxy_type": force_proxy_type}
+        approved_registration_quotes: set[tuple[str, str, int]] = set()
+
+        def approve_registration(quote):
+            identity = (quote.recipient_account, quote.payer_account, quote.deposit.rao)
+            if identity not in approved_registration_quotes:
+                confirm_registration_sponsorship(self, quote)
+                approved_registration_quotes.add(identity)
+            return True
+
+        sponsorship_options = {
+            "max_registration_deposit": self.max_registration_deposit,
+        }
+
+        async def approve_registration_during_execution(quote):
+            identity = (quote.recipient_account, quote.payer_account, quote.deposit.rao)
+            if identity in approved_registration_quotes:
+                return True
+            if (
+                self.max_registration_deposit is not None
+                or self.output.json_mode
+                or not sys.stdin.isatty()
+            ):
+                return approve_registration(quote)
+            # A changed quote or an external signer may need approval here.
+            # Keep RPC heartbeats alive while the user considers the deposit.
+            return await asyncio.to_thread(approve_registration, quote)
+
+        sponsorship_options["on_registration_sponsorship"] = approve_registration_during_execution
         registration_quote = None
         registration_flow = None
         neuron_reg_cost = None
@@ -1284,6 +1315,7 @@ class AppContext:
         fee_facts: list[tuple[str, str]] = []
         facts_title = "Fees"
         estimated_fee = None
+        sponsorship_quote = None
         if not self.uses_external_signer():
 
             async def _preflight(client):
@@ -1295,7 +1327,13 @@ class AppContext:
                         proxy_type=force_proxy_type,
                     )
                 except Exception:
-                    return [], [], [], [], "Fees", None
+                    # Optional fee previews may fail, but an unknown recipient
+                    # setup cost must not fall through to unlocking a wallet.
+                    from ..hashed import has_receiving_setup_inputs
+
+                    if await has_receiving_setup_inputs(client._substrate, wallet, intent):
+                        raise
+                    return [], [], [], [], "Fees", None, None
                 warnings = list(preview.warnings)
                 if semantic_intent.op in ("claim_root", "claim_root_with_hotkey"):
                     effects = list(preview.effects)
@@ -1308,9 +1346,18 @@ class AppContext:
                     list(preview.facts),
                     preview.facts_title,
                     preview.estimated_fee,
+                    getattr(preview, "registration_sponsorship", None),
                 )
 
-            effects, warnings, blocks, fee_facts, facts_title, estimated_fee = self.run(_preflight)
+            (
+                effects,
+                warnings,
+                blocks,
+                fee_facts,
+                facts_title,
+                estimated_fee,
+                sponsorship_quote,
+            ) = self.run(_preflight)
             summary_line = intent.summary()
             # Structured facts render as the review card's "Fees" stage; the
             # prose effect lines only print where the card cannot (quiet/json
@@ -1429,6 +1476,9 @@ class AppContext:
                     self._confirm_facts(intent, proxy_for=proxy_for, shield=shield),
                 )
                 self.confirm("sign and submit?", indent=4)
+
+        if sponsorship_quote is not None:
+            approve_registration(sponsorship_quote)
 
         # Native keyfiles unlock synchronously on their first signature. Unlock
         # encrypted coldkeys eagerly instead: a wrong password can be retried
@@ -1577,6 +1627,7 @@ class AppContext:
                     shield_options = {
                         "wait_for_finalization": finalize,
                         **options,
+                        **sponsorship_options,
                     }
                     if intent.op == "register_subnet":
                         shield_options["on_progress"] = _registration_progress
@@ -1589,6 +1640,7 @@ class AppContext:
                     execute_options = {
                         "wait_for_finalization": finalize,
                         **options,
+                        **sponsorship_options,
                     }
                     if intent.op == "register_subnet":
                         execute_options["on_progress"] = _registration_progress

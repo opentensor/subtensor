@@ -41,6 +41,12 @@ from .intents._money import UNBOUNDED
 from .intents.base import BuiltCall, IntentPreflight
 from .intents.proxy import check_proxy_type
 from .receiving import account_for_read, coerce_payment_address
+from .registration_sponsorship import (
+    RegistrationSponsorshipCallback,
+    authorize_registration_sponsorship,
+    registration_sponsorship_quote,
+    validate_registration_deposit_limit,
+)
 from .result import (
     ChainError,
     ExtrinsicResult,
@@ -783,6 +789,9 @@ class Executor:
             fee_payer,
             call=call,
         )
+        preview.registration_sponsorship = registration_sponsorship_quote(
+            extras or {}, dispatch_origin
+        )
         for recipient in recipients.values():
             preview.effects = [
                 effect.replace(recipient.account, recipient.address) for effect in preview.effects
@@ -926,6 +935,8 @@ class Executor:
         wait_for_registration: bool = True,
         registration_timeout: Optional[float] = None,
         on_progress: Any = None,
+        max_registration_deposit: Balance | None = None,
+        on_registration_sponsorship: RegistrationSponsorshipCallback | None = None,
     ) -> ExtrinsicResult:
         """Plan, then sign and submit. Raises ``PolicyError`` if the plan violates
         policy. (To preview without submitting, call ``plan`` instead.)
@@ -948,7 +959,15 @@ class Executor:
         event and returns its netuid. Set ``wait_for_registration=False`` to
         return the queue receipt instead. ``registration_timeout`` and the
         optional ``on_progress(dict)`` callback apply only to that wait.
+
+        Automatic recipient registration requires explicit sponsorship consent
+        before requesting a signature. Set ``max_registration_deposit`` to a
+        native TAO ``Balance`` cap, or supply ``on_registration_sponsorship``
+        returning exactly ``True`` for the current quote. The deposit remains
+        permanently reserved from the sender, separate from payment and fees.
+        When both are given, the callback cannot override the cap.
         """
+        validate_registration_deposit_limit(max_registration_deposit)
         proxy_for = await account_for_read(self.substrate, proxy_for)
         if intent.semantic_intent().mev_shield_required:
             return await self.submit_shielded(
@@ -962,12 +981,21 @@ class Executor:
                 wait_for_registration=wait_for_registration,
                 registration_timeout=registration_timeout,
                 on_progress=on_progress,
+                max_registration_deposit=max_registration_deposit,
+                on_registration_sponsorship=on_registration_sponsorship,
             )
         plan = await self.plan(
             intent, wallet, policy=policy, proxy_for=proxy_for, proxy_type=proxy_type
         )
         if not plan.ok:
             raise PolicyError(plan.violations)
+
+        await authorize_registration_sponsorship(
+            plan.extras,
+            plan.signer_address,
+            max_registration_deposit=max_registration_deposit,
+            on_registration_sponsorship=on_registration_sponsorship,
+        )
 
         keypair = resolve_signer(wallet, intent.signer)
         attempts = max(0, int(retries)) + 1
@@ -1052,6 +1080,8 @@ class Executor:
         wait_for_registration: bool = True,
         registration_timeout: Optional[float] = None,
         on_progress: Any = None,
+        max_registration_deposit: Balance | None = None,
+        on_registration_sponsorship: RegistrationSponsorshipCallback | None = None,
     ) -> ExtrinsicResult:
         """Submit an intent MEV-shielded via the MevShield pallet.
 
@@ -1067,7 +1097,12 @@ class Executor:
         :meth:`execute`: the inner signed extrinsic is the already-composed
         call (semantic → sudo → proxy → adapter). Shield wraps that; it does
         not replace the proxy wrap.
+
+        Automatic registration uses the same ``max_registration_deposit`` /
+        ``on_registration_sponsorship`` consent as :meth:`execute`, before
+        signing either the inner transaction or its carrier.
         """
+        validate_registration_deposit_limit(max_registration_deposit)
         wallet = as_wallet(wallet)
         proxy_for = await account_for_read(self.substrate, proxy_for)
         intent = await _coerce_addresses(self.substrate, intent)
@@ -1125,6 +1160,13 @@ class Executor:
                         f"MEV-shield carrier fee (~{Balance.from_rao(combined_rao)})"
                     )
         self._enforce(intent, fee, policy, blocks, extras)
+
+        await authorize_registration_sponsorship(
+            extras,
+            fee_payer,
+            max_registration_deposit=max_registration_deposit,
+            on_registration_sponsorship=on_registration_sponsorship,
+        )
 
         keypair = resolve_signer(wallet, intent.signer)
         result = await self._submit_encrypted_call(

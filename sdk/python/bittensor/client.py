@@ -482,6 +482,10 @@ class Client:
         """Sign and submit an intent through the policy-gated choke point.
 
         Raises :class:`PolicyError` if the intent violates the active policy.
+        Automatic recipient registration also requires an explicit native TAO
+        ``Balance`` cap (``max_registration_deposit``) or an approving
+        ``on_registration_sponsorship(quote)`` callback. The deposit is
+        permanently reserved separately from the payment and transaction fees.
         """
         return await self._executor.execute(intent, wallet, **kwargs)
 
@@ -496,7 +500,7 @@ class Client:
     ) -> ExtrinsicResult:
         """Submit an intent MEV-shielded (encrypted until block-author execution).
 
-        Same ``policy`` / ``proxy_for`` / ``proxy_type`` options as :meth:`execute`;
+        Same policy, origin and registration sponsorship options as :meth:`execute`;
         see ``Executor.submit_shielded``.
         """
         return await self._executor.submit_shielded(intent, wallet, **kwargs)

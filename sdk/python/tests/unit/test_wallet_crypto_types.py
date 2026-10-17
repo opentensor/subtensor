@@ -281,9 +281,9 @@ def test_explicit_scheme_and_mode_create_recover_and_sign(wallet_path, scheme, m
             signature = signer.sign(b"composable accounts")
             assert key.verify(b"composable accounts", signature)
             assert not key.verify(b"different message", signature)
-    shown = json.loads(invoke("show").output)
+    shown = json.loads(invoke("show", "--offline").output)
     assert shown["coldkey_account_type"] == mode
-    listed = json.loads(invoke("list").output)
+    listed = json.loads(invoke("list", "--offline").output)
     assert mode in json.dumps(listed)
 
 

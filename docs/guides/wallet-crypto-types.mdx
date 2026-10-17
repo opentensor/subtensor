@@ -56,13 +56,72 @@ creating or restoring a keyfile.
 Rotating Sr25519/Ed25519 and both ML-DSA modes require registration before use.
 Their `bth1_` (classical) or `tao_` (ML-DSA) receiving addresses carry a public registration descriptor without revealing the active
 signing public key. A wallet has the same address on every network; registration,
-balances, and generations are independent on each chain. Creating, listing, and
-restoring wallets requires no network connection.
+balances, and generations are independent on each chain. Creating and restoring
+wallets requires no network connection.
+
+`btcli wallet show` and `btcli wallet list` always show the complete **receiving
+address** first for these wallets. Share this address for payments, including
+after registration: its descriptor lets the sender check registration and
+prepare it when needed. The **Account ID (SS58)** identifies the same account in
+Polkadot.js and other explorers, but does not contain the registration descriptor.
+Ordinary standard Sr25519 and Ed25519 wallets continue to use SS58.
+
+The commands check registration at a finalized block on the selected `--network`.
+Registration status is specific to that network; it does not imply registration
+on another chain or that signing is currently enabled. This check never changes
+which address is primary.
+
+If the RPC is unavailable, the commands still show local public addresses and
+report registration as unknown. Use `--offline` to skip the check entirely.
+Creation and recovery also show both forms with registration not checked.
+The receiving address also supports watch-only recovery. JSON output exposes `ss58`,
+`receiving_address`, `primary_address`, and `registration` (with `coldkey_` or
+`hotkey_` prefixes where applicable); the existing `address` field continues to
+carry the complete receiving address. For these wallet types, `primary_address`
+always equals `receiving_address`, including after finalized registration.
 
 Transfers to a receiving address can sponsor registration. Wait for finalized
 registration before sharing a plain SS58 address or assigning account roles.
 The receiving address and canonical SS58 address identify the same account.
 Multisig and EVM payments require finalized recipient registration first.
+
+When a transfer needs to register its recipient, the CLI asks a separate
+default-No question naming the network, recipient, paying account, and exact
+deposit. This deposit is **permanently reserved from the sender**, in addition
+to the payment and transaction fees. The amount comes from that chain's
+runtime, not from a fixed CLI price. Declining submits nothing. An already
+registered recipient requires no new deposit or sponsorship prompt.
+
+`--yes` does not authorize this extra deposit. For non-interactive commands,
+explicitly set `--max-registration-deposit` to the maximum TAO you accept:
+
+```bash
+btcli wallet transfer --wallet sender --dest <receiving-address> --amount 1 \
+  --yes --max-registration-deposit 1.144
+```
+
+The command refuses a deposit above that limit. `--dry-run` shows the reserve
+without requesting consent or submitting. JSON and other non-interactive
+sessions require the explicit limit when registration is needed.
+
+The SDK also requires consent for registration it adds automatically. After
+reviewing the quote from `await client.preflight(intent, sender)`, provide a
+native TAO `Balance` limit to `client.execute` or `client.submit_shielded`:
+
+```python
+await client.execute(
+    intent,
+    sender,
+    max_registration_deposit=bt.Balance.from_tao("1.144"),
+)
+```
+
+Alternatively, `on_registration_sponsorship` receives a quote with
+`recipient_account`, `payer_account`, and `deposit`; it must explicitly return
+`True` to approve. The SDK never opens an interactive prompt itself. If both a
+limit and callback are supplied, both must approve. Consent is checked against
+the composed transaction before signing, including for Shield submissions.
+An explicitly constructed raw registration call remains an explicit operation.
 
 Hashed accounts require hashed proxy delegates and, when used as hotkeys, hashed
 coldkey owners. Hashed Sr25519 and Ed25519 can control each other. Registration
