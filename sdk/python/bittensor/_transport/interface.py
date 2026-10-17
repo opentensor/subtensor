@@ -12,7 +12,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from hashlib import blake2b
-from typing import Any, AsyncIterator, Optional
+from typing import Any, AsyncIterator, Awaitable, Callable, Optional, TypeVar
 
 from ..mldsa import supports_fixed_profile
 from ..sp_core import MLDSA_CRYPTO_TYPES, REGISTERED_CRYPTO_TYPES
@@ -53,6 +53,33 @@ logger = logging.getLogger("bittensor.transport")
 
 # How long a probed finalized-head height is trusted (one mainnet block).
 _FINALIZED_TTL = 12.0
+
+_SubmissionResult = TypeVar("_SubmissionResult")
+_ADMISSION_DELAYS = (0.125, 0.25, 0.5, 1.0)
+_ADMISSION_ERRORS = (
+    "Local transaction admission capacity reached; retry later",
+    "Local runtime execution capacity reached; retry later",
+)
+
+
+async def _submit_with_admission_retry(
+    submit: Callable[[], Awaitable[_SubmissionResult]],
+) -> _SubmissionResult:
+    """Retry only explicit pre-admission rejection, never an ambiguous send.
+
+    The caller retains the same signed bytes. Once a watch is accepted, its
+    updates and failures are outside this retry boundary.
+    """
+    for attempt in range(len(_ADMISSION_DELAYS) + 1):
+        try:
+            return await submit()
+        except SubstrateRequestException as error:
+            if attempt == len(_ADMISSION_DELAYS) or not any(
+                message in str(error) for message in _ADMISSION_ERRORS
+            ):
+                raise
+            await asyncio.sleep(_ADMISSION_DELAYS[attempt])
+    raise AssertionError("unreachable admission retry state")
 
 
 class QueryMapResult:
@@ -897,14 +924,19 @@ class SubstrateConnection:
         wait_for_finalization: bool = False,
     ) -> InclusionReport:
         """Submit; optionally watch until included/finalized and resolve the outcome."""
+        data_hex, extrinsic_hash = extrinsic.data_hex, extrinsic.extrinsic_hash
         if not (wait_for_inclusion or wait_for_finalization):
-            result = await self._session.request("author_submitExtrinsic", [extrinsic.data_hex])
+            result = await _submit_with_admission_retry(
+                lambda: self._session.request("author_submitExtrinsic", [data_hex])
+            )
             return InclusionReport(extrinsic_hash=str(result))
 
-        subscription = await self._session.subscribe(
-            "author_submitAndWatchExtrinsic",
-            [extrinsic.data_hex],
-            "author_unwatchExtrinsic",
+        subscription = await _submit_with_admission_retry(
+            lambda: self._session.subscribe(
+                "author_submitAndWatchExtrinsic",
+                [data_hex],
+                "author_unwatchExtrinsic",
+            )
         )
         block_hash: Optional[str] = None
         finalized = False
@@ -923,10 +955,9 @@ class SubstrateConnection:
 
         if block_hash is None:
             raise SubstrateRequestException(
-                f"extrinsic watch for {extrinsic.extrinsic_hash} ended without "
-                "reaching the awaited state"
+                f"extrinsic watch for {extrinsic_hash} ended without reaching the awaited state"
             )
-        return await self._resolve_inclusion(extrinsic.extrinsic_hash, block_hash, finalized)
+        return await self._resolve_inclusion(extrinsic_hash, block_hash, finalized)
 
     async def resolve_extrinsic(
         self, extrinsic_hash: str, block_hash: str, *, finalized: bool = False
