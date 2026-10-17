@@ -1,6 +1,6 @@
 """Fund-safety release regressions on a disposable activated Alice-root chain.
 
-Run serially: the activation test temporarily changes global gates, and the
+Run serially: the activation test temporarily changes the global activation switch, and the
 Shield boundary test uses sudo to set a disposable account's nonce to 63.
 Development weights permit execution; these tests do not measure capacity.
 """
@@ -181,7 +181,7 @@ async def test_failed_registration_payment_batch_preserves_funds_and_next_author
         evidence(f"atomic-failure-recovery-{code}", [result.to_dict(), recovered.to_dict()])
 
 
-async def test_master_and_mldsa_gates_preserve_funds_and_resume_authority():
+async def test_master_gate_preserves_funds_and_resumes_all_registered_authorities():
     protected = [key(code) for code in (4, 6, 7, 8)]
     classical = [key(code) for code in (0, 1)]
     receipts = []
@@ -191,9 +191,7 @@ async def test_master_and_mldsa_gates_preserve_funds_and_resume_authority():
         for signer in (*protected, *classical):
             await fund(client, signer)
         initial_master = await client.query(("AdminUtils", "HashedAccountsEnabled"))
-        initial_reg = await client.query(("HashedAccounts", "MlDsaRegistrationEnabled"))
-        initial_auth = await client.query(("HashedAccounts", "MlDsaAuthorizationEnabled"))
-        assert initial_master is initial_reg is initial_auth is True
+        assert initial_master is True
         raw = client._substrate.raw
         call = await client.compose(bt.calls.System.remark(remark="0x1234"))
         signed = [await raw.create_signed_extrinsic(call, signer) for signer in protected]
@@ -214,51 +212,38 @@ async def test_master_and_mldsa_gates_preserve_funds_and_resume_authority():
             for signer in classical:
                 result = await client.submit_call(call, signer, wait_for_finalization=True)
                 assert result.success, result.to_dict()
-            await root(client, bt.calls.AdminUtils.sudo_set_hashed_accounts_enabled(enabled=True))
-            await root(
-                client,
-                bt.calls.HashedAccounts.set_mldsa_enabled(registration=False, authorization=True),
-            )
-            for signer in protected:
-                result = await client.submit_call(call, signer, wait_for_finalization=True)
-                assert result.success, result.to_dict()
-            for code in (7, 8):
+            for code in (4, 6, 7, 8):
                 fresh = key(code)
                 before = await account(client, dev_wallet().coldkey)
-                with pytest.raises(ValueError, match="registrations are not enabled"):
+                with pytest.raises(ValueError, match="not supported"):
                     await client.execute(
-                        bt.intents.Transfer(receiving_address(fresh), 1), dev_wallet()
+                        bt.intents.Transfer(receiving_address(fresh), 1),
+                        dev_wallet(),
+                        max_registration_deposit=bt.Balance.from_tao(2),
                     )
                 assert await record(client, fresh) is None
                 assert await account(client, dev_wallet().coldkey) == before
-            prepared = [
-                (signer, await raw.create_signed_extrinsic(call, signer))
-                for signer in protected[2:]
-            ]
+                registration = await client.submit_call(
+                    bt.calls.HashedAccounts.register(
+                        descriptor=registration_descriptor_value(bytes(fresh.hashed_descriptor))
+                    ),
+                    dev_wallet(),
+                    wait_for_finalization=True,
+                )
+                assert not registration.success, registration.to_dict()
+                assert registration.error and registration.error.name == "Disabled", (
+                    registration.to_dict()
+                )
+                receipts.append(registration.to_dict())
+                assert await record(client, fresh) is None
+                assert (await account(client, dev_wallet().coldkey))["data"]["reserved"] == before[
+                    "data"
+                ]["reserved"]
+        finally:
             await root(
                 client,
-                bt.calls.HashedAccounts.set_mldsa_enabled(registration=True, authorization=False),
+                bt.calls.AdminUtils.sudo_set_hashed_accounts_enabled(enabled=initial_master),
             )
-            for signer, extrinsic in prepared:
-                before = await account(client, signer)
-                rejections.append(await reject_transaction(raw, extrinsic))
-                assert await account(client, signer) == before
-            for signer in protected[:2]:
-                result = await client.submit_call(call, signer, wait_for_finalization=True)
-                assert result.success, result.to_dict()
-        finally:
-            try:
-                await root(
-                    client,
-                    bt.calls.AdminUtils.sudo_set_hashed_accounts_enabled(enabled=initial_master),
-                )
-            finally:
-                await root(
-                    client,
-                    bt.calls.HashedAccounts.set_mldsa_enabled(
-                        registration=initial_reg, authorization=initial_auth
-                    ),
-                )
         for signer in protected:
             result = await client.submit_call(call, signer, wait_for_finalization=True)
             assert result.success, result.to_dict()

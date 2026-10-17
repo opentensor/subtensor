@@ -61,11 +61,6 @@ pub(super) fn register(identity: u8) -> AccountId {
         true
     ));
     hashed_auth::TestVerificationWeight::set(Weight::from_parts(10_000_000, 0));
-    assert_ok!(HashedAccounts::set_mldsa_enabled(
-        RuntimeOrigin::root(),
-        true,
-        true
-    ));
     let sponsor = AccountId::from(pair(70).public());
     let _ = Balances::make_free_balance_be(&sponsor, TaoBalance::new(1_000_000_000_000_000));
     let descriptor = descriptor(identity);
@@ -208,9 +203,15 @@ fn included_dispatch_error_rotates_but_disabled_and_overweight_do_not() {
             value: TaoBalance::new(u64::MAX),
         });
         let tx = sign(44, fail);
-        pallet_hashed_accounts::MlDsaAuthorizationEnabled::<Runtime>::put(false);
+        assert_ok!(AdminUtils::sudo_set_hashed_accounts_enabled(
+            RuntimeOrigin::root(),
+            false
+        ));
         assert!(Executive::apply_extrinsic(tx.clone()).is_err());
-        pallet_hashed_accounts::MlDsaAuthorizationEnabled::<Runtime>::put(true);
+        assert_ok!(AdminUtils::sudo_set_hashed_accounts_enabled(
+            RuntimeOrigin::root(),
+            true
+        ));
         hashed_auth::TestVerificationWeight::set(Weight::MAX);
         assert!(Executive::apply_extrinsic(tx.clone()).is_err());
         assert_eq!(
@@ -227,24 +228,126 @@ fn included_dispatch_error_rotates_but_disabled_and_overweight_do_not() {
 }
 
 #[test]
-fn admin_master_switch_pauses_ms_but_ordinary_sr_ed_transfers_still_execute() {
+fn single_admin_toggle_controls_all_hashed_schemes_and_preserves_authority() {
+    use pallet_hashed_accounts::{CapabilityEpochs, CapabilityRole, CapabilityScope, EvmAliases};
+
     with_profiles(|| {
+        // with_profiles covers fixed and rotating ML-DSA using only AdminUtils.
         let account = register(44);
         let tx = sign(44, call());
         let before = MlDsaAccounts::<Runtime>::get(&account);
         let nonce = System::account_nonce(&account);
         let balance = Balances::free_balance(&account);
+        assert_ok!(HashedAccounts::revoke_capability(
+            RuntimeOrigin::signed(account.clone()),
+            CapabilityRole::Order
+        ));
+        let epoch = CapabilityEpochs::<Runtime>::get(&account, CapabilityRole::Order);
+        assert_eq!(epoch, 1);
+        let sponsor = pair(70);
+        let sponsor_id = AccountId::from(sponsor.public());
+        let mut classical = Vec::new();
+        for scheme in [Scheme::Sr25519, Scheme::Ed25519] {
+            let sr = pair(92);
+            let ed = sp_core::ed25519::Pair::from_seed(&[93; 32]);
+            let (public_key, next_public) = match scheme {
+                Scheme::Sr25519 => (sr.public().0, pair(94).public().0),
+                Scheme::Ed25519 => (
+                    ed.public().0,
+                    sp_core::ed25519::Pair::from_seed(&[95; 32]).public().0,
+                ),
+            };
+            let descriptor = Descriptor {
+                version: 1,
+                scheme,
+                initial_commitment: subtensor_hashed::key_commitment(scheme, &public_key),
+            };
+            let who = AccountId::new(subtensor_hashed::account_id(&descriptor));
+            assert_ok!(
+                Executive::apply_extrinsic(legacy(
+                    &sponsor,
+                    RuntimeCall::HashedAccounts(pallet_hashed_accounts::Call::register {
+                        descriptor: descriptor.into(),
+                    })
+                ))
+                .unwrap()
+            );
+            let _ = Balances::make_free_balance_be(&who, TaoBalance::new(1_000_000_000_000));
+            let extra = extra(System::account_nonce(&who));
+            let call = call();
+            let address = subtensor_hashed::SignerAddress {
+                version: 1,
+                account: *who.as_ref(),
+                scheme,
+                generation: 0,
+                public_key,
+                next_commitment: subtensor_hashed::key_commitment(scheme, &next_public),
+            };
+            let message = hashed_extrinsic::signing_hash(&address, &call, &extra).unwrap();
+            let signature = match scheme {
+                Scheme::Sr25519 => Signature::Sr25519(sr.sign(&message)),
+                Scheme::Ed25519 => Signature::Ed25519(ed.sign(&message)),
+            };
+            let signed = UncheckedExtrinsic::new_signed(
+                call,
+                Address::Raw(address.encode()),
+                signature,
+                extra,
+            );
+            let state = (
+                HashedAccounts::accounts(&who),
+                System::account_nonce(&who),
+                Balances::free_balance(&who),
+            );
+            classical.push((who, descriptor, signed, state));
+        }
         assert_ok!(AdminUtils::sudo_set_hashed_accounts_enabled(
             RuntimeOrigin::root(),
             false
         ));
-        // The two subordinate switches remain on and cannot override AdminUtils.
-        assert!(HashedAccounts::mldsa_registration_enabled());
-        assert!(HashedAccounts::mldsa_authorization_enabled());
+        assert!(!HashedEnabled::get());
         assert!(Executive::apply_extrinsic(tx.clone()).is_err());
         assert_eq!(MlDsaAccounts::<Runtime>::get(&account), before);
         assert_eq!(System::account_nonce(&account), nonce);
         assert_eq!(Balances::free_balance(&account), balance);
+        assert!(HashedAccounts::is_protected(&account));
+        assert_eq!(
+            EvmAliases::<Runtime>::get(HashedAccounts::evm_alias(&account)),
+            Some(account.clone())
+        );
+        assert_eq!(
+            CapabilityEpochs::<Runtime>::get(&account, CapabilityRole::Order),
+            epoch
+        );
+        let fresh_ms = descriptor(45);
+        assert_noop!(
+            HashedAccounts::register(RuntimeOrigin::signed(sponsor_id.clone()), fresh_ms.into()),
+            pallet_hashed_accounts::Error::<Runtime>::Disabled
+        );
+        for (who, descriptor, signed, state) in &classical {
+            assert!(Executive::apply_extrinsic(signed.clone()).is_err());
+            assert_eq!(
+                (
+                    HashedAccounts::accounts(who),
+                    System::account_nonce(who),
+                    Balances::free_balance(who)
+                ),
+                *state
+            );
+            assert!(HashedAccounts::is_protected(who));
+            assert_eq!(
+                EvmAliases::<Runtime>::get(HashedAccounts::evm_alias(who)),
+                Some(who.clone())
+            );
+            let mut fresh = *descriptor;
+            fresh.initial_commitment[0] ^= 1;
+            assert_noop!(
+                HashedAccounts::register(RuntimeOrigin::signed(sponsor_id.clone()), fresh.into()),
+                pallet_hashed_accounts::Error::<Runtime>::Disabled
+            );
+        }
+
+        // Ordinary keys keep transferring while every registered hashed scheme is paused.
         let recipient = AccountId::new([98; 32]);
         let transfer = RuntimeCall::Balances(BalancesCall::transfer_keep_alive {
             dest: recipient.clone().into(),
@@ -274,15 +377,60 @@ fn admin_master_switch_pauses_ms_but_ordinary_sr_ed_transfers_still_execute() {
             Balances::free_balance(recipient),
             TaoBalance::new(2_000_000_000)
         );
+
         assert_ok!(AdminUtils::sudo_set_hashed_accounts_enabled(
             RuntimeOrigin::root(),
             true
         ));
-        assert_ok!(Executive::apply_extrinsic(tx).unwrap());
+        assert_ok!(Executive::apply_extrinsic(tx.clone()).unwrap());
         assert_eq!(
             MlDsaAccounts::<Runtime>::get(&account).unwrap().generation,
             1
         );
+        assert_eq!(
+            CapabilityEpochs::<Runtime>::get(&account, CapabilityRole::Order),
+            epoch
+        );
+        assert_noop!(
+            HashedAccounts::install_capability(
+                RuntimeOrigin::signed(account.clone()),
+                epoch,
+                fresh_ms.initial_commitment,
+                100,
+                CapabilityScope::UnrestrictedTrading
+            ),
+            pallet_hashed_accounts::Error::<Runtime>::CapabilityEpochMismatch
+        );
+        assert_ok!(HashedAccounts::register(
+            RuntimeOrigin::signed(sponsor_id),
+            fresh_ms.into()
+        ));
+        for (who, _, signed, _) in &classical {
+            assert_ok!(Executive::apply_extrinsic(signed.clone()).unwrap());
+            assert_eq!(HashedAccounts::accounts(who).unwrap().generation, 1);
+        }
+        // A later pause/resume must not reset consumed generations or capability tombstones.
+        assert_ok!(AdminUtils::sudo_set_hashed_accounts_enabled(
+            RuntimeOrigin::root(),
+            false
+        ));
+        assert_ok!(AdminUtils::sudo_set_hashed_accounts_enabled(
+            RuntimeOrigin::root(),
+            true
+        ));
+        assert!(Executive::apply_extrinsic(tx).is_err());
+        assert_eq!(
+            MlDsaAccounts::<Runtime>::get(&account).unwrap().generation,
+            1
+        );
+        assert_eq!(
+            CapabilityEpochs::<Runtime>::get(&account, CapabilityRole::Order),
+            epoch
+        );
+        for (who, _, signed, _) in classical {
+            assert!(Executive::apply_extrinsic(signed).is_err());
+            assert_eq!(HashedAccounts::accounts(who).unwrap().generation, 1);
+        }
     });
 }
 
@@ -291,11 +439,6 @@ fn sponsor_registration_and_funding_are_atomic_under_normal_signed_v4() {
     with_profiles(|| {
         System::set_block_number(1);
         hashed_auth::TestVerificationWeight::set(Weight::from_parts(10_000_000, 0));
-        assert_ok!(HashedAccounts::set_mldsa_enabled(
-            RuntimeOrigin::root(),
-            true,
-            true
-        ));
         let sponsor = pair(71);
         let sponsor_id = AccountId::from(sponsor.public());
         let _ = Balances::make_free_balance_be(&sponsor_id, TaoBalance::new(1_000_000_000_000));

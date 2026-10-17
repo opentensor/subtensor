@@ -26,11 +26,10 @@ runner = CliRunner()
 @pytest.fixture(params=[4, 6, 7, 8])
 def recipient(request, fake):
     key = Keypair.create_from_seed(bytes([67]) * 32, request.param)
-    fake.seed_constant("HashedAccounts", "Enabled", True)
+    fake.seed("AdminUtils", "HashedAccountsEnabled", [], True)
     fake.seed_constant("HashedAccounts", "MldsaAccountProfiles", "0x0405")
     fake.seed_constant("HashedAccounts", "RegistrationDeposit", 200_000_000)
     fake.seed_constant("HashedAccounts", "MlDsaRegistrationDeposit", 1_144_000_000)
-    fake.seed("HashedAccounts", "MlDsaRegistrationEnabled", [], True)
     fake.seed_default("System", "Account", {"data": {"free": 10**13, "frozen": 0}})
     return key
 

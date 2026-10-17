@@ -1188,8 +1188,9 @@ fn unified_carrier_preserves_legacy_wire_and_selects_bounded_weight() {
             let weight = if size <= 8192 {
                 <() as WeightInfo>::submit_encrypted()
             } else {
-                frame_support::weights::Weight::MAX
+                <() as WeightInfo>::submit_encrypted_large()
             };
+            assert_ne!(weight, frame_support::weights::Weight::MAX);
             assert_eq!(call.get_dispatch_info().call_weight, weight);
             assert_eq!(
                 MevShield::carrier_ciphertext(&call),

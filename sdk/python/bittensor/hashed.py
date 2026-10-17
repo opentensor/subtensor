@@ -41,12 +41,9 @@ _DESCRIPTOR_TARGETS = {**_REGISTRATION_TARGETS, "associate_hotkey": "hotkey_ss58
 async def hashed_accounts_enabled(substrate, *, block_hash=None):
     """Read the live switch; None means this runtime has no hashed support.
 
-    Older experimental runtimes exposed a constant instead. Never cache the
-    storage value: sudo can change it without changing runtime metadata.
+    Never cache the storage value: sudo can change it without changing runtime
+    metadata. RegistrationDeposit identifies runtimes that support the pallet.
     """
-    legacy = await substrate.constant("HashedAccounts", "Enabled")
-    if isinstance(legacy, bool):
-        return legacy
     if await substrate.constant("HashedAccounts", "RegistrationDeposit") is None:
         return None
     return await substrate.query("AdminUtils", "HashedAccountsEnabled", block_hash=block_hash)
@@ -164,8 +161,6 @@ async def multisig_protection_call(
             raise ValueError("registered derived authority does not match the multisig")
         function = "check_derived"
     else:
-        if await substrate.query("HashedAccounts", "MlDsaRegistrationEnabled") is not True:
-            raise ValueError("derived account registration is not enabled")
         function = "register_derived_sponsored"
     params = {"descriptor": descriptor}
     if function == "register_derived_sponsored":
@@ -182,18 +177,12 @@ async def descriptor_registration_enabled(substrate, descriptor: bytes, *, block
         profiles = await substrate.constant("HashedAccounts", "MldsaAccountProfiles")
         if not supports_fixed_profile(profiles):
             return None
-    master = await hashed_accounts_enabled(substrate, block_hash=block_hash)
-    if master is not True:
-        return master
-    return await substrate.query(
-        "HashedAccounts", "MlDsaRegistrationEnabled", block_hash=block_hash
-    )
+    return await hashed_accounts_enabled(substrate, block_hash=block_hash)
 
 
 async def _require_receiving_support(substrate, descriptor: bytes):
     enabled = await descriptor_registration_enabled(substrate, descriptor)
-    # The registration subgate permits existing records; the master gate does not.
-    if enabled is None or await hashed_accounts_enabled(substrate) is not True:
+    if enabled is not True:
         raise ValueError("hashed receiving addresses are not supported on this chain")
 
 

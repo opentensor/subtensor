@@ -194,16 +194,6 @@ pub mod pallet {
     pub type DerivedAuthorities<T: Config> =
         StorageMap<_, Blake2_128Concat, AccountId32, DerivedAuthorityRecord>;
 
-    /// Additional ML-DSA registration gate, subordinate to `Config::Enabled`.
-    #[pallet::storage]
-    #[pallet::getter(fn mldsa_registration_enabled)]
-    pub type MlDsaRegistrationEnabled<T: Config> = StorageValue<_, bool, ValueQuery>;
-
-    /// Additional ML-DSA authorization gate, subordinate to `Config::Enabled`.
-    #[pallet::storage]
-    #[pallet::getter(fn mldsa_authorization_enabled)]
-    pub type MlDsaAuthorizationEnabled<T: Config> = StorageValue<_, bool, ValueQuery>;
-
     #[pallet::storage]
     pub type CapabilityEpochs<T: Config> = StorageDoubleMap<
         _,
@@ -261,11 +251,8 @@ pub mod pallet {
             role: CapabilityRole,
             epoch: u64,
         },
-        MlDsaEnabled {
-            registration: bool,
-            authorization: bool,
-        },
         /// A fixed-key ML-DSA authorization consumed its replay counter.
+        #[codec(index = 8)]
         AuthorizedFixed {
             account: AccountId32,
             generation: u64,
@@ -432,25 +419,6 @@ pub mod pallet {
                 record.descriptor == descriptor,
                 Error::<T>::DescriptorMismatch
             );
-            Ok(())
-        }
-
-        /// Independently gate new ML-DSA registrations and direct authentication.
-        /// Neither flag changes permanent identity/alias or authority protection.
-        #[pallet::call_index(6)]
-        #[pallet::weight(T::WeightInfo::set_mldsa_enabled())]
-        pub fn set_mldsa_enabled(
-            origin: OriginFor<T>,
-            registration: bool,
-            authorization: bool,
-        ) -> DispatchResult {
-            ensure_root(origin)?;
-            MlDsaRegistrationEnabled::<T>::put(registration);
-            MlDsaAuthorizationEnabled::<T>::put(authorization);
-            Self::deposit_event(Event::MlDsaEnabled {
-                registration,
-                authorization,
-            });
             Ok(())
         }
     }

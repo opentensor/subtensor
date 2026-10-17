@@ -48,8 +48,8 @@ class _Codec:
     enabled = True
 
     def constant(self, pallet, name):
-        assert (pallet, name) == ("HashedAccounts", "Enabled")
-        return self.enabled
+        assert (pallet, name) == ("HashedAccounts", "RegistrationDeposit")
+        return 200_000_000
 
     @staticmethod
     def call_data(call):
@@ -74,6 +74,8 @@ class _LifecycleCodec(_Codec):
     """Storage framing is JSON in this harness; it does not claim SCALE coverage."""
 
     def storage_entry(self, pallet, item):
+        if (pallet, item) == ("AdminUtils", "HashedAccountsEnabled"):
+            return StorageEntry(pallet, item, pallet, item, [], [], "Default", b"false")
         assert (pallet, item) in (("HashedAccounts", "Accounts"), ("System", "Account"))
         return StorageEntry(pallet, item, pallet, item, ["AccountId"], [], "Optional", b"null")
 
@@ -131,7 +133,11 @@ class _LifecycleRpc:
             return self.state["nonce"] + int(self.pending is not None)
         if method == "state_getStorageAt":
             encoded_key, block_hash = params
-            pallet, item, address = json.loads(bytes.fromhex(encoded_key.removeprefix("0x")))
+            key = json.loads(bytes.fromhex(encoded_key.removeprefix("0x")))
+            if key == ["AdminUtils", "HashedAccountsEnabled"]:
+                assert block_hash is not None
+                return "0x" + b"true".hex()
+            pallet, item, address = key
             assert block_hash is not None
             self.storage_reads.append((pallet, item, address, block_hash))
             if address != self.address:
@@ -225,8 +231,10 @@ def _connection(key, *, generation=7, nonce=13):
     conn._normalize_era = AsyncMock(return_value=("00", GENESIS))
     record = _record(key, generation)
 
-    async def query(pallet, item, params, *, block_hash):
+    async def query(pallet, item, params=None, *, block_hash):
         assert block_hash == "0xhead"
+        if (pallet, item) == ("AdminUtils", "HashedAccountsEnabled"):
+            return codec.enabled
         assert params == [key.ss58_address]
         return record if pallet == "HashedAccounts" else {"nonce": nonce}
 
@@ -541,7 +549,7 @@ def setup_wallets(tmp_path):
         suppress=True,
     )
     substrate = FakeSubstrate()
-    substrate.seed_constant("HashedAccounts", "Enabled", True)
+    substrate.seed("AdminUtils", "HashedAccountsEnabled", [], True)
     substrate.seed_constant("HashedAccounts", "RegistrationDeposit", 200_000_000)
     return sponsor, recipient, substrate
 
@@ -632,7 +640,8 @@ async def test_executor_reserves_next_generation_only_for_shield_inner(monkeypat
 async def test_shield_fee_estimate_uses_complete_hashed_authorization():
     substrate = FakeSubstrate()
     key = _key()
-    substrate.seed_constant("HashedAccounts", "Enabled", True)
+    substrate.seed("AdminUtils", "HashedAccountsEnabled", [], True)
+    substrate.seed_constant("HashedAccounts", "RegistrationDeposit", 200_000_000)
     substrate.seed("HashedAccounts", "Accounts", [key.ss58_address], _record(key, 7))
     substrate.estimate_fee = AsyncMock(return_value=substrate.fee)
     await estimate_shielded_carrier_fee(
@@ -645,8 +654,7 @@ async def test_shield_fee_estimate_uses_complete_hashed_authorization():
 
 async def test_signing_reads_live_switch_at_the_authority_block():
     key = _key()
-    conn, codec, _ = _connection(key)
-    codec.enabled = None
+    conn, _, _ = _connection(key)
     query_authority = conn.query
     enabled = False
 

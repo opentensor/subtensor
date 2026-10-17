@@ -65,7 +65,6 @@ class OrderSubstrate(FakeSubstrate):
 def chain(key):
     substrate = OrderSubstrate()
     substrate.seed("AdminUtils", "HashedAccountsEnabled", [], True)
-    substrate.seed("HashedAccounts", "MlDsaAuthorizationEnabled", [], True)
     substrate.seed("HashedAccounts", "CapabilityEpochs", [key.ss58_address, "Order"], 3)
     record = {
         "epoch": 3,
@@ -143,7 +142,7 @@ async def test_stale_or_modified_authority_refuses_before_order_signature(failur
     elif failure == "expiry":
         record["expires_at"] = 0
     elif failure == "disabled":
-        substrate.seed("HashedAccounts", "MlDsaAuthorizationEnabled", [], False)
+        substrate.seed("AdminUtils", "HashedAccountsEnabled", [], False)
     elif failure == "nonce":
         substrate.seed("LimitOrders", "OrderNonces", [key.ss58_address, 17], "0x" + "ff" * 32)
     else:

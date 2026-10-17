@@ -54,12 +54,10 @@ def record(wallet, generation=7):
 
 def chain():
     substrate = FakeSubstrate()
-    substrate.seed_constant("HashedAccounts", "Enabled", True)
+    substrate.seed("AdminUtils", "HashedAccountsEnabled", [], True)
     substrate.seed_constant("HashedAccounts", "MldsaAccountProfiles", "0x0405")
     substrate.seed_constant("HashedAccounts", "RegistrationDeposit", 100)
     substrate.seed_constant("HashedAccounts", "MlDsaRegistrationDeposit", 200)
-    substrate.seed("HashedAccounts", "MlDsaRegistrationEnabled", [], True)
-    substrate.seed("HashedAccounts", "MlDsaAuthorizationEnabled", [], True)
     return substrate
 
 
@@ -70,9 +68,7 @@ class Codec:
         assert pallet == "HashedAccounts"
         if name == "MldsaAccountProfiles":
             return "0x0405"
-        if name == "Enabled":
-            return True
-        assert name == "MlDsaRegistrationDeposit"
+        assert name in ("MlDsaRegistrationDeposit", "RegistrationDeposit")
         return 200
 
     @staticmethod
@@ -108,7 +104,7 @@ def connection(wallet):
 
     async def query(pallet, item, params=None, *, block_hash):
         assert block_hash == "0xfinalized"
-        if item == "MlDsaAuthorizationEnabled":
+        if (pallet, item) == ("AdminUtils", "HashedAccountsEnabled"):
             return True
         assert params == [wallet.ss58_address]
         if pallet == "HashedAccounts" and item == (
@@ -217,7 +213,7 @@ async def test_transport_rejects_wrong_or_stale_authority_before_signing(failure
         async def paused(pallet, item, params=None, *, block_hash):
             return (
                 False
-                if item == "MlDsaAuthorizationEnabled"
+                if (pallet, item) == ("AdminUtils", "HashedAccountsEnabled")
                 else await original(pallet, item, params, block_hash=block_hash)
             )
 
@@ -238,13 +234,12 @@ async def test_fee_quote_uses_complete_dummy_proof_without_private_wallet(wallet
     conn._nonces.next_for.assert_not_awaited()
 
 
-@pytest.mark.parametrize("exists,enabled", [(False, True), (True, True), (True, False)])
+@pytest.mark.parametrize("exists", [False, True])
 @pytest.mark.parametrize("legacy_prefix", [False, True])
 async def test_receiving_guard_routes_to_mldsa_and_prices_mldsa_deposit(
-    exists, enabled, wallet, legacy_prefix
+    exists, wallet, legacy_prefix
 ):
     substrate = chain()
-    substrate.seed("HashedAccounts", "MlDsaRegistrationEnabled", [], enabled)
     if exists:
         substrate.seed("HashedAccounts", "MlDsaAccounts", [wallet.ss58_address], record(wallet))
     address = receiving_address(wallet)
@@ -268,24 +263,33 @@ async def test_receiving_guard_routes_to_mldsa_and_prices_mldsa_deposit(
     assert guarded[-1].params["dest"] == wallet.ss58_address
 
 
-async def test_disabled_mldsa_registration_cannot_fund_unregistered_identity(wallet):
+@pytest.mark.parametrize("registered", [False, True])
+async def test_disabled_master_cannot_fund_mldsa_descriptor(wallet, registered):
     substrate = chain()
-    substrate.seed("HashedAccounts", "MlDsaRegistrationEnabled", [], False)
-    intent, recipients = await prepare_recipient_intent(
-        substrate, Transfer(dest_ss58=receiving_address(wallet), amount_tao=1)
+    substrate.seed("AdminUtils", "HashedAccountsEnabled", [], False)
+    if registered:
+        substrate.seed("HashedAccounts", "MlDsaAccounts", [wallet.ss58_address], record(wallet))
+    with pytest.raises(ValueError, match="not supported"):
+        await prepare_recipient_intent(
+            substrate, Transfer(dest_ss58=receiving_address(wallet), amount_tao=1)
+        )
+    # Explicit descriptors also cannot bypass the ordinary recipient boundary.
+    intent = Transfer(
+        dest_ss58=wallet.ss58_address,
+        amount_tao=1,
+        hashed_descriptor=bytes(wallet.hashed_descriptor),
     )
     payment = await substrate.compose(
         calls.Balances.transfer_keep_alive(dest=wallet.ss58_address, value=1)
     )
-    with pytest.raises(ValueError, match="not enabled"):
-        await with_recipient_registration(
-            substrate, dev_wallet(), intent, payment, recipients=recipients
-        )
+    with pytest.raises(ValueError, match="not supported"):
+        await with_recipient_registration(substrate, dev_wallet(), intent, payment)
+    assert not substrate.submissions
 
 
-async def test_registered_write_and_evm_alias_resolve_mldsa_even_when_setup_is_paused(wallet):
+async def test_registered_write_and_evm_alias_resolve_mldsa_when_master_is_disabled(wallet):
     substrate = chain()
-    substrate.seed("HashedAccounts", "MlDsaRegistrationEnabled", [], False)
+    substrate.seed("AdminUtils", "HashedAccountsEnabled", [], False)
     substrate.seed("HashedAccounts", "MlDsaAccounts", [wallet.ss58_address], record(wallet))
     address = receiving_address(wallet)
     assert await account_for_registered_write(substrate, address) == wallet.ss58_address
@@ -349,7 +353,6 @@ async def test_multisig_protection_requires_a_pq_member_in_every_possible_quorum
     assert set(descriptor["Multisig"]["signatories"]) == {classic, wallet.ss58_address}
     account = substrate.multisig_account([classic, wallet.ss58_address], 2).ss58_address
     substrate.seed("HashedAccounts", "DerivedAuthorities", [account], {"descriptor": descriptor})
-    substrate.seed("HashedAccounts", "MlDsaRegistrationEnabled", [], False)
     check = await multisig_protection_call(substrate, members, 2, deposit_payer=wallet.ss58_address)
     assert check.function == "check_derived"
     assert check.params["descriptor"] == registration.params["descriptor"]
@@ -484,16 +487,19 @@ def test_fixed_profile_rejects_absent_or_malformed_advertisements(profiles):
     assert not supports_fixed_profile(profiles)
 
 
-async def test_master_switch_blocks_ms_signing_and_receiving_despite_subgates(wallet):
+@pytest.mark.parametrize("crypto", [4, 6, 7, 8])
+@pytest.mark.parametrize("enabled", [False, None])
+async def test_master_switch_blocks_registered_signing_and_receiving(crypto, enabled):
+    wallet = key(crypto)
     conn, codec, _ = connection(wallet)
-    old_constant = codec.constant
-    codec.constant = lambda pallet, name: None if name == "Enabled" else old_constant(pallet, name)
+    if crypto in (4, 6):
+        conn.get_chain_head = AsyncMock(return_value="0xfinalized")
     original = conn.query.side_effect
 
     async def query(pallet, item, params=None, *, block_hash):
         if (pallet, item) == ("AdminUtils", "HashedAccountsEnabled"):
             assert block_hash == "0xfinalized"
-            return False
+            return enabled
         return await original(pallet, item, params, block_hash=block_hash)
 
     conn.query.side_effect = query
@@ -501,9 +507,13 @@ async def test_master_switch_blocks_ms_signing_and_receiving_despite_subgates(wa
         await conn.create_signed_extrinsic(b"call", wallet)
     assert not hasattr(codec, "proof")
     substrate = chain()
-    substrate.seed_constant("HashedAccounts", "Enabled", None)
-    substrate.seed("AdminUtils", "HashedAccountsEnabled", [], False)
-    substrate.seed("HashedAccounts", "MlDsaAccounts", [wallet.ss58_address], record(wallet))
+    substrate.seed("AdminUtils", "HashedAccountsEnabled", [], enabled)
+    substrate.seed(
+        "HashedAccounts",
+        descriptor_storage(bytes(wallet.hashed_descriptor)),
+        [wallet.ss58_address],
+        record(wallet),
+    )
     with pytest.raises(ValueError, match="not supported"):
         await prepare_recipient_intent(
             substrate, Transfer(dest_ss58=receiving_address(wallet), amount_tao=1)

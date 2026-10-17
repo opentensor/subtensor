@@ -131,17 +131,15 @@ fixed ML-DSA receives the same protections as rotating ML-DSA. A protected
 multisig must require at least one protected post-quantum member in every
 possible quorum. Ordinary fixed Sr25519 and Ed25519 accounts retain their rules.
 
-For classical rotating accounts, root controls registration and signing through
+Root controls registration and signing for all hashed Sr25519/Ed25519 and fixed
+or rotating ML-DSA accounts through
 `AdminUtils.sudo_set_hashed_accounts_enabled(enabled)`. The current value is in
-`AdminUtils.HashedAccountsEnabled`; its default is false. Disabling pauses both
-new registration and existing hashed signing, preserving all account records,
-generations, and EVM aliases. Ordinary fixed Sr25519/Ed25519 wallets are unaffected. Authorization
-weights must be benchmarked on reference hardware before enabling the feature;
-unmeasured weights fail closed.
-
-ML-DSA uses separate root-controlled registration and authorization switches,
-`HashedAccounts.set_mldsa_enabled`, shared by fixed and rotating profiles. Fixed
-ML-DSA also requires metadata advertising profile 5 in `MldsaAccountProfiles`.
+`AdminUtils.HashedAccountsEnabled`; its default is false. Disabling pauses new
+registration and existing signing for these accounts, preserving all records,
+generations, and EVM aliases. Ordinary fixed Sr25519/Ed25519 wallets are unaffected.
+The chain must also support the wallet's account profile and have usable
+reference-measured authorization weights. Fixed ML-DSA requires metadata
+advertising profile 5 in `MldsaAccountProfiles`.
 Wallet creation is local; transaction use requires a compatible, activated chain.
 See the [ML-DSA specification](/docs/design/ml-dsa-accounts-spec) for protocol
 and activation requirements.

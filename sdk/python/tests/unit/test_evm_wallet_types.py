@@ -42,7 +42,8 @@ def wallet_case(request, tmp_path, monkeypatch):
             suppress=True,
         )
     substrate = FakeSubstrate()
-    substrate.seed_constant("HashedAccounts", "Enabled", True)
+    substrate.seed("AdminUtils", "HashedAccountsEnabled", [], True)
+    substrate.seed_constant("HashedAccounts", "RegistrationDeposit", 200_000_000)
     for role in ("coldkey", "hotkey"):
         key = getattr(wallet, role)
         if request.param in REGISTERED_CRYPTO_TYPES:
@@ -178,7 +179,7 @@ def test_protected_commands_fail_before_evm_submission(wallet_case, command, fai
 
 async def test_registered_write_does_not_depend_on_registration_being_enabled(wallet_case):
     wallet, substrate, _, _ = wallet_case
-    substrate.seed_constant("HashedAccounts", "Enabled", False)
+    substrate.seed("AdminUtils", "HashedAccountsEnabled", [], False)
     address = receiving_address(wallet.coldkey)
     assert await account_for_registered_write(substrate, address) == wallet.coldkey.ss58_address
 

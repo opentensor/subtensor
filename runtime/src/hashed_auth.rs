@@ -42,9 +42,6 @@ impl WeightInfo for TestWeights {
     fn check_derived() -> Weight {
         TestVerificationWeight::get()
     }
-    fn set_mldsa_enabled() -> Weight {
-        TestVerificationWeight::get()
-    }
     fn install_capability() -> Weight {
         TestVerificationWeight::get()
     }
@@ -841,8 +838,7 @@ fn setup_pq_benchmark_graph(marker: &AccountId) -> Result<AccountId, DispatchErr
     };
     let leaf = AccountId::new(subtensor_hashed::mldsa::account_id(&descriptor));
     pallet_admin_utils::HashedAccountsEnabled::<Runtime>::put(true);
-    pallet_hashed_accounts::MlDsaRegistrationEnabled::<Runtime>::put(true);
-    pallet_hashed_accounts::MlDsaAuthorizationEnabled::<Runtime>::put(true);
+
     pallet_hashed_accounts::MlDsaAccounts::<Runtime>::insert(
         &leaf,
         pallet_hashed_accounts::MlDsaAccountRecord {
@@ -974,8 +970,7 @@ pub(crate) fn setup_pq_benchmark_parent(account: &AccountId) -> DispatchResult {
         initial_commitment: [7; 64],
     };
     pallet_admin_utils::HashedAccountsEnabled::<Runtime>::put(true);
-    pallet_hashed_accounts::MlDsaRegistrationEnabled::<Runtime>::put(true);
-    pallet_hashed_accounts::MlDsaAuthorizationEnabled::<Runtime>::put(true);
+
     pallet_hashed_accounts::MlDsaAccounts::<Runtime>::insert(
         account,
         pallet_hashed_accounts::MlDsaAccountRecord {

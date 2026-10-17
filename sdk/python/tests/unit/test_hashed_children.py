@@ -31,7 +31,7 @@ async def test_children_receiving_addresses_keep_registration_guards(setup, sche
     if state != "unregistered":
         registered(chain, child)
     if state == "disabled":
-        chain.seed_constant("HashedAccounts", "Enabled", False)
+        chain.seed("AdminUtils", "HashedAccountsEnabled", [], False)
     elif state == "mismatched":
         other = Keypair.create_from_seed(bytes([92]) * 32, scheme)
         chain.seed(
@@ -82,7 +82,7 @@ async def test_local_child_ss58_keeps_descriptor_context(setup, tmp_path, scheme
     if state == "registered":
         registered(chain, key)
     if state == "disabled":
-        chain.seed_constant("HashedAccounts", "Enabled", False)
+        chain.seed("AdminUtils", "HashedAccountsEnabled", [], False)
     intent = Batch([SetChildren(1, [[0.5, key.ss58_address]], hotkey_ss58=ALICE)])
     kwargs = {"proxy_for": BOB} if proxy else {}
     if state != "registered":

@@ -1098,7 +1098,7 @@ class AdminUtils:
 
     @staticmethod
     def sudo_set_hashed_accounts_enabled(enabled: 'bool') -> Call:
-        'Enables or disables hashed registration and signing. Root-only. Defaults off. Disabling pauses existing accounts too; their records, generations, EVM aliases and restrictions on alternate authority remain.'
+        'Enables or disables registration and signing for all hashed SR/ED and fixed/rotating ML-DSA accounts. Ordinary SR/ED signing is unaffected. Root-only. Defaults off. Disabling pauses existing accounts too; their records, generations, EVM aliases and restrictions on alternate authority remain.'
         return Call('AdminUtils', 'sudo_set_hashed_accounts_enabled', {'enabled': enabled})
 
     @staticmethod
@@ -1771,8 +1771,3 @@ class HashedAccounts:
     @staticmethod
     def revoke_capability(role: 'CapabilityRole') -> Call:
         return Call('HashedAccounts', 'revoke_capability', {'role': role})
-
-    @staticmethod
-    def set_mldsa_enabled(registration: 'bool', authorization: 'bool') -> Call:
-        'Independently gate new ML-DSA registrations and direct authentication. Neither flag changes permanent identity/alias or authority protection.'
-        return Call('HashedAccounts', 'set_mldsa_enabled', {'registration': registration, 'authorization': authorization})

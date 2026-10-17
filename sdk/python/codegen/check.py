@@ -84,8 +84,6 @@ RAW_ONLY: dict[str, set[str]] = {
         "register_derived",
         "register_derived_sponsored",
         "check_derived",
-        # Independent root-controlled rollout switches.
-        "set_mldsa_enabled",
     },
     "SubtensorModule": {
         # sudo/admin/root-origin operations — deliberately not agent-executable

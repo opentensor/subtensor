@@ -208,7 +208,6 @@ impl<T: Config> Pallet<T> {
             );
             return Ok(());
         }
-        ensure!(MlDsaRegistrationEnabled::<T>::get(), Error::<T>::Disabled);
         Self::check_new_kind(&account)?;
         T::OnRegister::on_register_mldsa(&account, sponsor, &descriptor)?;
         let deposit = T::MlDsaRegistrationDeposit::get();
@@ -377,7 +376,6 @@ impl<T: Config> Pallet<T> {
             );
             return Ok(());
         }
-        ensure!(MlDsaRegistrationEnabled::<T>::get(), Error::<T>::Disabled);
         Self::check_new_kind(&account)?;
         let (depth, nodes, pq_dependencies) = Self::derived_shape(&descriptor)?;
         Self::ensure_acyclic(&account, &pq_dependencies)?;
@@ -414,7 +412,6 @@ impl<T: Config> Pallet<T> {
         next_commitment: [u8; 64],
     ) -> Result<ValidatedMlDsaProof, DispatchError> {
         ensure!(T::Enabled::get(), Error::<T>::Disabled);
-        ensure!(MlDsaAuthorizationEnabled::<T>::get(), Error::<T>::Disabled);
         let record = MlDsaAccounts::<T>::get(account).ok_or(Error::<T>::NotRegistered)?;
         ensure!(
             record.descriptor.is_supported() && record.descriptor.algorithm == profile,
@@ -447,7 +444,6 @@ impl<T: Config> Pallet<T> {
     /// Consume in transaction-extension preparation, outside inner-call rollback.
     pub fn advance_mldsa(validated: &ValidatedMlDsaProof) -> DispatchResult {
         ensure!(T::Enabled::get(), Error::<T>::Disabled);
-        ensure!(MlDsaAuthorizationEnabled::<T>::get(), Error::<T>::Disabled);
         let generation = validated
             .generation
             .checked_add(1)

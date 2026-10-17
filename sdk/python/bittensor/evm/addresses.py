@@ -88,11 +88,11 @@ async def resolve_evm_recipient(substrate: Any, evm_address: str) -> Recipient:
     a protected recipient's full receiving address through normal transfer
     composition, including its idempotent registration guard.
     """
-    from ..hashed import descriptor_bytes, hashed_accounts_enabled, protected_account_record
+    from ..hashed import descriptor_bytes, protected_account_record
 
     address = normalize_h160(evm_address)
     legacy = h160_to_ss58(address)
-    if await hashed_accounts_enabled(substrate) is None:
+    if await substrate.constant("HashedAccounts", "RegistrationDeposit") is None:
         return Recipient(legacy, legacy)
     head = await substrate.block_hash()
     bound = await substrate.query("HashedAccounts", "EvmAliases", [address], block_hash=head)

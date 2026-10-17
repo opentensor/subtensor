@@ -28,11 +28,10 @@ MLDSA_DEPOSIT = 1_144_000_000
 @pytest.fixture(params=[4, 6, 7, 8])
 def setup(request):
     chain = FakeSubstrate()
-    chain.seed_constant("HashedAccounts", "Enabled", True)
+    chain.seed("AdminUtils", "HashedAccountsEnabled", [], True)
     chain.seed_constant("HashedAccounts", "MldsaAccountProfiles", "0x0405")
     chain.seed_constant("HashedAccounts", "RegistrationDeposit", CLASSICAL_DEPOSIT)
     chain.seed_constant("HashedAccounts", "MlDsaRegistrationDeposit", MLDSA_DEPOSIT)
-    chain.seed("HashedAccounts", "MlDsaRegistrationEnabled", [], True)
     chain.seed("System", "Account", [ALICE], {"data": {"free": 10**12, "frozen": 0}})
     key = Keypair.create_from_seed(bytes([22]) * 32, request.param)
     executor = Executor(chain)

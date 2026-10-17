@@ -18,14 +18,6 @@ fn fixture(byte: u8) -> (subtensor_hashed::mldsa::Descriptor, AccountId32, [u8; 
     (descriptor, account, public)
 }
 
-fn activate() {
-    assert_ok!(HashedAccounts::set_mldsa_enabled(
-        RuntimeOrigin::root(),
-        true,
-        true
-    ));
-}
-
 #[test]
 fn master_switch_gates_every_ms_profile_and_preserves_state_for_resume() {
     for algorithm in [
@@ -33,7 +25,6 @@ fn master_switch_gates_every_ms_profile_and_preserves_state_for_resume() {
         subtensor_hashed::mldsa::FIXED_ALGORITHM,
     ] {
         new_test_ext().execute_with(|| {
-            activate();
             let (mut descriptor, _, public) = fixture(2);
             descriptor.algorithm = algorithm;
             let account = AccountId32::new(subtensor_hashed::mldsa::account_id(&descriptor));
@@ -70,8 +61,6 @@ fn master_switch_gates_every_ms_profile_and_preserves_state_for_resume() {
             let before = MlDsaAccounts::<Test>::get(&account);
             let derived_before = DerivedAuthorities::<Test>::get(derived.account_id());
             crate::tests::Enabled::set(false);
-            // Even Root's ML-DSA subgates cannot override the master switch.
-            activate();
             assert_noop!(register(), Error::<Test>::Disabled);
             assert_noop!(authorize(), Error::<Test>::Disabled);
             // A ticket validated before a toggle must fail during preparation.
@@ -155,67 +144,14 @@ fn multisig(mut members: Vec<AccountId32>, threshold: u16) -> DerivedDescriptor 
 }
 
 #[test]
-fn mldsa_flags_are_independent_root_only_and_never_erase_protection() {
+fn disabling_never_erases_zero_balance_account_protection() {
     new_test_ext().execute_with(|| {
-        let (descriptor, account, public) = fixture(2);
-        assert!(!HashedAccounts::mldsa_registration_enabled());
-        assert!(!HashedAccounts::mldsa_authorization_enabled());
-        assert_noop!(
-            HashedAccounts::set_mldsa_enabled(RuntimeOrigin::signed(sponsor()), true, true),
-            DispatchError::BadOrigin
-        );
-        assert_noop!(
-            HashedAccounts::register(RuntimeOrigin::signed(sponsor()), descriptor.into()),
-            Error::<Test>::Disabled
-        );
-        activate();
+        let (descriptor, account, _) = fixture(2);
         assert_ok!(HashedAccounts::register(
             RuntimeOrigin::signed(sponsor()),
             descriptor.into()
         ));
-        assert_ok!(HashedAccounts::set_mldsa_enabled(
-            RuntimeOrigin::root(),
-            false,
-            true
-        ));
-        assert!(
-            HashedAccounts::check_mldsa_authorization(
-                &account,
-                subtensor_hashed::mldsa::ALGORITHM,
-                &public,
-                0,
-                [9; 64]
-            )
-            .is_ok()
-        );
-        assert_ok!(HashedAccounts::check_registered(
-            RuntimeOrigin::signed(sponsor()),
-            descriptor.into()
-        ));
-        assert_ok!(HashedAccounts::register(
-            RuntimeOrigin::signed(sponsor()),
-            descriptor.into()
-        ));
-        let other = fixture(3).0;
-        assert_noop!(
-            HashedAccounts::register(RuntimeOrigin::signed(sponsor()), other.into()),
-            Error::<Test>::Disabled
-        );
-        assert_ok!(HashedAccounts::set_mldsa_enabled(
-            RuntimeOrigin::root(),
-            false,
-            false
-        ));
-        assert_noop!(
-            HashedAccounts::check_mldsa_authorization(
-                &account,
-                subtensor_hashed::mldsa::ALGORITHM,
-                &public,
-                0,
-                [9; 64]
-            ),
-            Error::<Test>::Disabled
-        );
+        crate::tests::Enabled::set(false);
         let _ = Balances::make_free_balance_be(&account, 0);
         assert!(HashedAccounts::is_protected(&account));
         assert!(!HashedAccounts::is_registered(&account));
@@ -234,7 +170,6 @@ fn mldsa_flags_are_independent_root_only_and_never_erase_protection() {
 #[test]
 fn mldsa_ticket_is_read_only_single_use_and_rechecks_both_state_fields() {
     new_test_ext().execute_with(|| {
-        activate();
         let (descriptor, account, public) = fixture(2);
         assert_ok!(HashedAccounts::register(
             RuntimeOrigin::signed(sponsor()),
@@ -277,7 +212,6 @@ fn mldsa_ticket_is_read_only_single_use_and_rechecks_both_state_fields() {
 #[test]
 fn mldsa_rejects_invalid_state_commitments_and_exhaustion() {
     new_test_ext().execute_with(|| {
-        activate();
         let (_, account, public) = fixture(2);
         register(2);
         assert_noop!(
@@ -339,7 +273,6 @@ fn mldsa_rejects_invalid_state_commitments_and_exhaustion() {
 #[test]
 fn registration_conflicts_and_hook_failures_do_not_leave_partial_state() {
     new_test_ext().execute_with(|| {
-        activate();
         let (descriptor, account, _) = fixture(2);
         RejectRegistration::set(true);
         assert_noop!(
@@ -372,7 +305,6 @@ fn registration_conflicts_and_hook_failures_do_not_leave_partial_state() {
 #[test]
 fn mixed_multisig_requires_a_pq_member_in_every_threshold_and_preserves_address() {
     new_test_ext().execute_with(|| {
-        activate();
         let first = register(2);
         let second = register(3);
         let classical = AccountId32::new([44; 32]);
@@ -423,9 +355,8 @@ fn mixed_multisig_requires_a_pq_member_in_every_threshold_and_preserves_address(
 }
 
 #[test]
-fn derivative_graph_is_bounded_and_disabled_flags_preserve_all_aliases() {
+fn derivative_graph_is_bounded_and_disabled_switch_preserves_all_aliases() {
     new_test_ext().execute_with(|| {
-        activate();
         let mut parent = register(2);
         for index in 0..u16::from(MAX_DERIVED_DEPTH) {
             let descriptor = DerivedDescriptor::Derivative { parent, index };
@@ -443,11 +374,7 @@ fn derivative_graph_is_bounded_and_disabled_flags_preserve_all_aliases() {
             HashedAccounts::register_derived(RuntimeOrigin::signed(sponsor()), excessive),
             Error::<Test>::DerivedAuthorityTooComplex
         );
-        assert_ok!(HashedAccounts::set_mldsa_enabled(
-            RuntimeOrigin::root(),
-            false,
-            false
-        ));
+        crate::tests::Enabled::set(false);
         assert!(HashedAccounts::is_protected(&parent));
         assert_eq!(
             EvmAliases::<Test>::get(HashedAccounts::evm_alias(&parent)),
@@ -487,7 +414,6 @@ fn trading_scope() -> CapabilityScope {
 #[test]
 fn capabilities_require_protected_owner_and_have_independent_monotonic_epochs() {
     new_test_ext().execute_with(|| {
-        activate();
         let owner = register(2);
         let public = [22; 1952];
         let commitment = subtensor_hashed::mldsa::commitment(&public);
@@ -566,7 +492,6 @@ fn capabilities_require_protected_owner_and_have_independent_monotonic_epochs() 
 #[test]
 fn capability_expiry_and_epoch_exhaustion_fail_closed_but_allow_revocation() {
     new_test_ext().execute_with(|| {
-        activate();
         let owner = register(2);
         let public = [22; 1952];
         let commitment = subtensor_hashed::mldsa::commitment(&public);
@@ -622,7 +547,6 @@ fn capability_expiry_and_epoch_exhaustion_fail_closed_but_allow_revocation() {
 #[test]
 fn trading_capability_enforces_asset_recipient_fee_and_separate_total_budgets() {
     new_test_ext().execute_with(|| {
-        activate();
         let owner = register(2);
         let public = [22; 1952];
         assert_ok!(HashedAccounts::install_capability(
@@ -687,7 +611,6 @@ fn trading_capability_enforces_asset_recipient_fee_and_separate_total_budgets() 
 #[test]
 fn message_capability_does_not_authorize_trading() {
     new_test_ext().execute_with(|| {
-        activate();
         let owner = register(2);
         let public = [22; 1952];
         assert_ok!(HashedAccounts::install_capability(
@@ -714,7 +637,6 @@ fn message_capability_does_not_authorize_trading() {
 #[test]
 fn sponsored_derived_registration_requires_owner_and_payer_consent_and_never_double_charges() {
     new_test_ext().execute_with(|| {
-        activate();
         let first = register(2);
         let second = register(3);
         let descriptor = multisig(vec![first.clone(), second], 2);
@@ -768,7 +690,6 @@ fn sponsored_derived_registration_requires_owner_and_payer_consent_and_never_dou
 #[test]
 fn later_weak_member_protection_cannot_expand_an_existing_security_proof() {
     new_test_ext().execute_with(|| {
-        activate();
         let first = register(2);
         let second = register(3);
         let mut future_parent = first.clone();
@@ -829,7 +750,6 @@ fn later_weak_member_protection_cannot_expand_an_existing_security_proof() {
 #[test]
 fn fixed_profile_preserves_key_but_consumes_counter_and_forbids_policy_changes() {
     new_test_ext().execute_with(|| {
-        activate();
         let (mut descriptor, rotating, public) = fixture(31);
         descriptor.algorithm = subtensor_hashed::mldsa::FIXED_ALGORITHM;
         let account = AccountId32::new(subtensor_hashed::mldsa::account_id(&descriptor));

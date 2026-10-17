@@ -373,7 +373,6 @@ The original APIs support every account profile. Finalized mainnet metadata at b
 | --- | --- | --- |
 | HashedAccounts | 0 / 1 | `register(descriptor)` / `check_registered(descriptor)`, both descriptor profiles |
 | HashedAccounts | 4 / 5 | `register_derived(descriptor)` / `check_derived(descriptor)` |
-| HashedAccounts | 6 | `set_mldsa_enabled(registration, authorization)`; Root only |
 | HashedAccounts | 7 / 8 | `install_capability(expected_epoch, key_commitment, expires_at, scope)` / `revoke_capability(role)` |
 | HashedAccounts | 9 | `register_derived_sponsored(descriptor, deposit_payer)` |
 | Proxy | 12 | `create_protected_pure(proxy_type, delay, index)` |
@@ -384,7 +383,10 @@ The original APIs support every account profile. Finalized mainnet metadata at b
 
 The protected-child operations remain distinct because they require explicit consent to permanent authority/deposit policies. Cryptographic format versions, commitment domains, and existing V1/V2 order payload tags remain unchanged. The undeployed ML-DSA storage items use scheme-specific names. They are not duplicate dispatchable APIs.
 
-Production new-call and ML-DSA verification weights deliberately return `Weight::MAX` until replaced by approved reference-generated values. The runtime rejects ML-DSA authorization whose worst valid/invalid verifier weight cannot fit the block, before expanding the key matrix. New call weights also flow through normal nested dispatch accounting. Unit tests alone use explicit test weights; those values are not production estimates. The AdminUtils `HashedAccountsEnabled` switch is the master gate for registration and authentication of hashed SR/ED, fixed MS, and hashed MS accounts, including ML-DSA capability installation and use. Ordinary SR/ED signing is unaffected. Both `MlDsaRegistrationEnabled` and `MlDsaAuthorizationEnabled` default to false and are additional subordinate ML-DSA gates: neither overrides the master switch. Setting a flag does not bypass the weight gate. Disabling flags never removes account protection, alias binding, the direct-signature ban, or epoch/generation tombstones. Registration guards continue to check existing records when the ML-DSA registration subgate is paused, but reject while the master switch is off. Capability revocation remains available without granting new authority.
+Production ML-DSA, derived-account, authenticated-order and large Shield weights use approved reference measurements from run `39060946210`. The runtime rejects ML-DSA authorization whose worst valid/invalid verifier weight cannot fit the block, before expanding the key matrix. Nested dispatch retains normal weight accounting. The remaining formulas conservatively retain the measured cost of the removed ML-DSA subgate reads; cleanup does not invent lower weights.
+
+`AdminUtils.sudo_set_hashed_accounts_enabled` is the sole activation control. Its `HashedAccountsEnabled` value defaults to false and gates registration and authentication of hashed SR/ED, fixed MS, and hashed MS accounts, including ML-DSA capability installation and use. Ordinary SR/ED signing is unaffected. Disabling it never removes account protection, alias binding, the direct-signature ban, or epoch/generation tombstones. Registration guards reject while it is off. Capability revocation remains available without granting new authority. Call index 6 remains unused; the surviving `AuthorizedFixed` event retains index 8.
+
 
 | Area | Work |
 | --- | --- |

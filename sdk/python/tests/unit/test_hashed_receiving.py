@@ -55,7 +55,7 @@ async def test_registration_rejects_missing_descriptor_before_chain_access():
 @pytest.fixture
 def setup():
     chain = FakeSubstrate()
-    chain.seed_constant("HashedAccounts", "Enabled", True)
+    chain.seed("AdminUtils", "HashedAccountsEnabled", [], True)
     chain.seed_constant("HashedAccounts", "RegistrationDeposit", RESERVE)
     chain.seed("System", "Account", [ALICE], {"data": {"free": 10**12, "frozen": 0}})
     key = Keypair.create_from_seed(bytes([91]) * 32, CRYPTO_HASHED)
@@ -105,7 +105,7 @@ async def test_multisig_discovers_local_ss58_recipient(
     )
     if exists:
         registered(chain, key)
-    chain.seed_constant("HashedAccounts", "Enabled", enabled)
+    chain.seed("AdminUtils", "HashedAccountsEnabled", [], enabled)
     transfer = Transfer(key.ss58_address, 1)
     kwargs = {"other_signatories": [BOB], "call": transfer.to_dict()}
     intent = (
@@ -164,7 +164,7 @@ async def test_proxied_batch_discovers_local_ss58_recipient(
     )
     if exists:
         registered(chain, key)
-    chain.seed_constant("HashedAccounts", "Enabled", enabled)
+    chain.seed("AdminUtils", "HashedAccountsEnabled", [], enabled)
     build_transfer = Transfer.build
 
     async def check_origin(transfer, substrate, view):
@@ -355,7 +355,7 @@ async def test_bad_receiving_addresses_fail_before_composition_or_submission(set
     elif case == "whitespace":
         address = " " + address
     else:
-        chain.seed_constant("HashedAccounts", "Enabled", False)
+        chain.seed("AdminUtils", "HashedAccountsEnabled", [], False)
     with pytest.raises(ValueError):
         await Executor(chain).execute(Transfer(address, 1), wallet)
     chain.compose.assert_not_awaited()
@@ -610,7 +610,7 @@ async def test_imported_multisig_bytes_cannot_bypass_recipient_information(setup
     else:
         semantic = FundEvmKey("0x" + "12" * 20, 1)
         if form == "evm_disabled":
-            chain.seed_constant("HashedAccounts", "Enabled", False)
+            chain.seed("AdminUtils", "HashedAccountsEnabled", [], False)
             registered(chain, key)
             alias = "0x" + bytes(key.public_key)[:20].hex()
             chain.seed("HashedAccounts", "EvmAliases", [alias], key.ss58_address)
@@ -839,7 +839,7 @@ def test_all_wallet_addresses_are_network_independent(code):
 @pytest.mark.parametrize("registered_here", [False, True])
 async def test_descriptor_address_uses_registration_on_selected_chain(code, registered_here):
     chain = FakeSubstrate()
-    chain.seed_constant("HashedAccounts", "Enabled", True)
+    chain.seed("AdminUtils", "HashedAccountsEnabled", [], True)
     chain.seed_constant("HashedAccounts", "RegistrationDeposit", RESERVE)
     key = Keypair.create_from_seed(bytes([39]) * 32, code)
     if registered_here:
@@ -1040,7 +1040,7 @@ async def test_announced_proxy_rejects_unverified_identity_before_submission(
 
         chain.block_hash = AsyncMock(side_effect=missing_finalized_hash)
     if state == "disabled":
-        chain.seed_constant("HashedAccounts", "Enabled", False)
+        chain.seed("AdminUtils", "HashedAccountsEnabled", [], False)
     error, message = {
         "missing": (ValueError, "registration is not finalized"),
         "mismatch": (ValueError, "descriptor does not match"),

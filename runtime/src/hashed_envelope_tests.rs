@@ -187,13 +187,25 @@ fn account_metadata_uses_scheme_names_and_preserves_event_and_call_indices() {
                     .find(|p| p.name == "HashedAccounts")
                     .unwrap();
                 let storage = &pallet.storage.as_ref().unwrap().entries;
-                for name in [
-                    "MlDsaAccounts",
-                    "MlDsaRegistrationEnabled",
-                    "MlDsaAuthorizationEnabled",
-                ] {
-                    assert!(storage.iter().any(|entry| entry.name == name));
-                }
+                assert!(storage.iter().any(|entry| entry.name == "MlDsaAccounts"));
+                assert!(storage.iter().all(|entry| !matches!(
+                    entry.name.as_str(),
+                    "MlDsaRegistrationEnabled" | "MlDsaAuthorizationEnabled"
+                )));
+                let admin = data
+                    .pallets
+                    .iter()
+                    .find(|p| p.name == "AdminUtils")
+                    .unwrap();
+                assert!(
+                    admin
+                        .storage
+                        .as_ref()
+                        .unwrap()
+                        .entries
+                        .iter()
+                        .any(|entry| entry.name == "HashedAccountsEnabled")
+                );
                 assert!(storage.iter().all(|entry| !entry.name.contains("V2")));
                 assert!(
                     pallet
@@ -224,7 +236,6 @@ fn account_metadata_uses_scheme_names_and_preserves_event_and_call_indices() {
                         (4, "DerivedProtected"),
                         (5, "CapabilityInstalled"),
                         (6, "CapabilityRevoked"),
-                        (7, "MlDsaEnabled"),
                         (8, "AuthorizedFixed"),
                     ]
                 );
@@ -237,18 +248,24 @@ fn account_metadata_uses_scheme_names_and_preserves_event_and_call_indices() {
                     panic!("call enum")
                 };
                 assert!(calls.variants.iter().all(|v| !v.name.contains("v2")));
-                for (index, name) in [
-                    (0, "register"),
-                    (1, "check_registered"),
-                    (6, "set_mldsa_enabled"),
-                ] {
-                    assert!(
-                        calls
-                            .variants
-                            .iter()
-                            .any(|v| v.index == index && v.name == name)
-                    );
-                }
+                let mut call_indices = calls
+                    .variants
+                    .iter()
+                    .map(|v| (v.index, v.name.as_str()))
+                    .collect::<Vec<_>>();
+                call_indices.sort_unstable();
+                assert_eq!(
+                    call_indices,
+                    vec![
+                        (0, "register"),
+                        (1, "check_registered"),
+                        (4, "register_derived"),
+                        (5, "check_derived"),
+                        (7, "install_capability"),
+                        (8, "revoke_capability"),
+                        (9, "register_derived_sponsored"),
+                    ]
+                );
                 let orders = data
                     .pallets
                     .iter()

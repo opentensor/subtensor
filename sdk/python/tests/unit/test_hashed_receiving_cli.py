@@ -98,7 +98,7 @@ def test_create_contact_transfer_preserves_complete_receiving_address(wallet_pat
     sponsor = Wallet("sponsor", path=str(wallet_path))
     sponsor.regenerate_coldkey(seed=bytes([8]) * 32, use_password=False, suppress=True)
     substrate = FakeSubstrate()
-    substrate.seed_constant("HashedAccounts", "Enabled", True)
+    substrate.seed("AdminUtils", "HashedAccountsEnabled", [], True)
     substrate.seed_constant("HashedAccounts", "RegistrationDeposit", 200_000_000)
     substrate.block_hash = _finney_hash
     plan = asyncio.run(Executor(substrate).plan(submitted[0], sponsor))
@@ -314,7 +314,7 @@ def test_contact_keeps_descriptor_for_registration_on_selected_chain(wallet_path
     sponsor.regenerate_coldkey(seed=bytes([8]) * 32, use_password=False, suppress=True)
     substrate = FakeSubstrate()
     substrate.block_hash = _finney_hash
-    substrate.seed_constant("HashedAccounts", "Enabled", True)
+    substrate.seed("AdminUtils", "HashedAccountsEnabled", [], True)
     substrate.seed_constant("HashedAccounts", "RegistrationDeposit", 200_000_000)
     plan = asyncio.run(Executor(substrate).plan(submitted[0], sponsor))
     guard, transfer = plan.call.params["calls"]
@@ -821,7 +821,7 @@ def test_root_move_matches_identity_and_preserves_receiving_descriptors(
         from tests.harness.samples import dev_wallet
 
         chain = FakeSubstrate()
-        chain.seed_constant("HashedAccounts", "Enabled", True)
+        chain.seed("AdminUtils", "HashedAccountsEnabled", [], True)
         chain.seed_constant("HashedAccounts", "RegistrationDeposit", 200_000_000)
         for public in (key, destination_key):
             chain.seed(
@@ -844,7 +844,7 @@ def test_root_move_matches_identity_and_preserves_receiving_descriptors(
             "move_stake",
         ]
         assert children[-1].params["destination_hotkey"] == destination_key.ss58_address
-        chain.seed_constant("HashedAccounts", "Enabled", False)
+        chain.seed("AdminUtils", "HashedAccountsEnabled", [], False)
         with pytest.raises(ValueError, match="hashed receiving addresses are not supported"):
             asyncio.run(_compose_intent_call(chain, intent, dev_wallet()))
 

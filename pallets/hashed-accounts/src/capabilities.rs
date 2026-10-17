@@ -105,7 +105,6 @@ impl<T: Config> Pallet<T> {
         scope: CapabilityScope,
     ) -> DispatchResult {
         ensure!(T::Enabled::get(), Error::<T>::Disabled);
-        ensure!(MlDsaAuthorizationEnabled::<T>::get(), Error::<T>::Disabled);
         ensure!(
             Self::authority_meets(owner, SecurityFloor::PqRequired),
             Error::<T>::NotRegistered
@@ -168,7 +167,6 @@ impl<T: Config> Pallet<T> {
         public_key: &subtensor_hashed::mldsa::PublicKeyBytes,
     ) -> Result<CapabilityRecord, sp_runtime::DispatchError> {
         ensure!(T::Enabled::get(), Error::<T>::Disabled);
-        ensure!(MlDsaAuthorizationEnabled::<T>::get(), Error::<T>::Disabled);
         let record =
             ActiveCapabilities::<T>::get(owner, role).ok_or(Error::<T>::CapabilityMissing)?;
         ensure!(

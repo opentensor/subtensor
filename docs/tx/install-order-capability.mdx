@@ -11,7 +11,7 @@ UnrestrictedTrading explicitly permits every trade until expiry/revocation.
 
 | Signer | Origin | Pallet | Wraps |
 | --- | --- | --- | --- |
-| `coldkey` | signed account (pallet role may apply) | HashedAccounts | [`HashedAccounts.install_capability`](/code/pallets/hashed-accounts/src/lib.rs#L324-L336) |
+| `coldkey` | signed account (pallet role may apply) | HashedAccounts | [`HashedAccounts.install_capability`](/code/pallets/hashed-accounts/src/lib.rs#L311-L323) |
 
 ## Parameters
 
@@ -69,7 +69,7 @@ result = sub.execute_tool("install_order_capability", {...}, wallet)
 
 ## On-chain implementation
 
-`HashedAccounts.install_capability` — [`pallets/hashed-accounts/src/lib.rs#L327`](/code/pallets/hashed-accounts/src/lib.rs#L324-L336):
+`HashedAccounts.install_capability` — [`pallets/hashed-accounts/src/lib.rs#L314`](/code/pallets/hashed-accounts/src/lib.rs#L311-L323):
 
 ```rust
 #[pallet::call_index(7)]

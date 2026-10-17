@@ -606,26 +606,22 @@ class SubstrateConnection:
         if not block_hash:
             raise SubstrateRequestException("could not resolve hashed authority block")
         mldsa = keypair.crypto_type in MLDSA_CRYPTO_TYPES
-        enabled = True
         codec = await self._runtimes.codec_at(block_hash)
+        if codec.constant("HashedAccounts", "RegistrationDeposit") is None:
+            raise SubstrateRequestException("runtime does not support hashed accounts")
         if mldsa:
             if codec.constant("HashedAccounts", "MlDsaRegistrationDeposit") is None:
-                raise SubstrateRequestException("runtime does not support ML-DSA ML-DSA accounts")
+                raise SubstrateRequestException("runtime does not support ML-DSA accounts")
             if bytes(keypair.hashed_descriptor)[1] == 5:
                 profiles = codec.constant("HashedAccounts", "MldsaAccountProfiles")
                 if not supports_fixed_profile(profiles):
                     raise SubstrateRequestException(
                         "runtime does not support fixed-key ML-DSA accounts"
                     )
-            enabled = await self.query(
-                "HashedAccounts", "MlDsaAuthorizationEnabled", block_hash=block_hash
-            )
-        master_enabled = codec.constant("HashedAccounts", "Enabled")
-        if not isinstance(master_enabled, bool):
-            master_enabled = await self.query(
-                "AdminUtils", "HashedAccountsEnabled", block_hash=block_hash
-            )
-        if master_enabled is not True or (mldsa and enabled is not True):
+        master_enabled = await self.query(
+            "AdminUtils", "HashedAccountsEnabled", block_hash=block_hash
+        )
+        if master_enabled is not True:
             raise SubstrateRequestException("hashed accounts are not enabled on this chain")
         state, account = await asyncio.gather(
             self.query(

@@ -40,8 +40,6 @@ fn setup_mldsa<T: Config>() -> Result<
     ),
     BenchmarkError,
 > {
-    MlDsaRegistrationEnabled::<T>::put(true);
-    MlDsaAuthorizationEnabled::<T>::put(true);
     let sponsor: AccountId32 = whitelisted_caller();
     let _ = T::Currency::make_free_balance_be(&sponsor, BalanceOf::<T>::max_value());
     let seed = [57; 32];
@@ -218,14 +216,6 @@ mod benchmarks {
             descriptor.account_id()
         ));
         Ok(())
-    }
-
-    #[benchmark]
-    fn set_mldsa_enabled() {
-        #[extrinsic_call]
-        _(RawOrigin::Root, true, true);
-        assert!(MlDsaRegistrationEnabled::<T>::get());
-        assert!(MlDsaAuthorizationEnabled::<T>::get());
     }
 
     #[benchmark]

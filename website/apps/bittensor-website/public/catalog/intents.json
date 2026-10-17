@@ -1546,9 +1546,9 @@
         "pallet": "HashedAccounts",
         "call": "install_capability",
         "path": "pallets/hashed-accounts/src/lib.rs",
-        "line": 327,
-        "end_line": 336,
-        "url": "/code/pallets/hashed-accounts/src/lib.rs#L324-L336",
+        "line": 314,
+        "end_line": 323,
+        "url": "/code/pallets/hashed-accounts/src/lib.rs#L311-L323",
         "raw_url": "/code/raw/pallets/hashed-accounts/src/lib.rs"
       }
     ]
@@ -2822,9 +2822,9 @@
         "pallet": "HashedAccounts",
         "call": "revoke_capability",
         "path": "pallets/hashed-accounts/src/lib.rs",
-        "line": 341,
-        "end_line": 344,
-        "url": "/code/pallets/hashed-accounts/src/lib.rs#L338-L344",
+        "line": 328,
+        "end_line": 331,
+        "url": "/code/pallets/hashed-accounts/src/lib.rs#L325-L331",
         "raw_url": "/code/raw/pallets/hashed-accounts/src/lib.rs"
       }
     ]

@@ -80,8 +80,7 @@ fn signed(call: RuntimeCall, mode: Mode) -> (AccountId, UncheckedExtrinsic) {
         ),
         Mode::HashedMs | Mode::FixedMs => {
             pallet_admin_utils::HashedAccountsEnabled::<Runtime>::put(true);
-            pallet_hashed_accounts::MlDsaRegistrationEnabled::<Runtime>::put(true);
-            pallet_hashed_accounts::MlDsaAuthorizationEnabled::<Runtime>::put(true);
+
             hashed_auth::TestVerificationWeight::set(Weight::from_parts(10_000_000, 0));
             let public_key = mldsa::public_key_from_seed(&key).unwrap();
             let descriptor = mldsa::Descriptor {
@@ -237,8 +236,7 @@ fn every_metadata_call_has_explicit_envelope_and_dispatch_coverage() {
                 ext().execute_with(|| {
                     System::set_block_number(1);
                     pallet_admin_utils::HashedAccountsEnabled::<Runtime>::put(true);
-                    pallet_hashed_accounts::MlDsaRegistrationEnabled::<Runtime>::put(true);
-                    pallet_hashed_accounts::MlDsaAuthorizationEnabled::<Runtime>::put(true);
+
                     let (account, tx) = signed(call.clone(), mode);
                     let protected = matches!(mode, Mode::HashedMs | Mode::FixedMs);
                     let checked = tx.clone().check(&ChainContext::default());
@@ -412,8 +410,7 @@ fn malformed_faucet_work_is_a_dispatch_error_for_every_signing_mode() {
 fn disclosed_unregistered_ms_address_can_be_blocked_by_hostile_hotkey_association() {
     super::mldsa::with_profiles(|| {
         System::set_block_number(1);
-        pallet_hashed_accounts::MlDsaRegistrationEnabled::<Runtime>::put(true);
-        pallet_hashed_accounts::MlDsaAuthorizationEnabled::<Runtime>::put(true);
+
         hashed_auth::TestVerificationWeight::set(Weight::from_parts(10_000_000, 0));
         let descriptor = super::mldsa::descriptor(74);
         let victim = AccountId::new(mldsa::account_id(&descriptor));
@@ -551,8 +548,7 @@ fn registered_ms_address_rejects_hostile_weak_owner_and_remains_spendable() {
 fn atomic_ms_registration_payment_does_not_fund_a_hostile_association() {
     super::mldsa::with_profiles(|| {
         System::set_block_number(1);
-        pallet_hashed_accounts::MlDsaRegistrationEnabled::<Runtime>::put(true);
-        pallet_hashed_accounts::MlDsaAuthorizationEnabled::<Runtime>::put(true);
+
         hashed_auth::TestVerificationWeight::set(Weight::from_parts(10_000_000, 0));
         let descriptor = super::mldsa::descriptor(74);
         let victim = AccountId::new(mldsa::account_id(&descriptor));

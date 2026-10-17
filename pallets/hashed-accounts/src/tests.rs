@@ -471,36 +471,22 @@ fn unified_registration_preserves_scheme_policy_and_account_identity() {
         };
         let mldsa_account = AccountId32::new(subtensor_hashed::mldsa::account_id(&mldsa));
 
-        // Classical registration remains usable with ML-DSA activation disabled.
-        assert_ok!(HashedAccounts::register(
-            RuntimeOrigin::signed(sponsor()),
-            classical.into(),
-        ));
-        assert_noop!(
-            HashedAccounts::register(RuntimeOrigin::signed(sponsor()), mldsa.into()),
-            Error::<Test>::Disabled,
-        );
-        assert_eq!(Balances::reserved_balance(sponsor()), 10);
-
-        // ML-DSA subgates cannot override the master switch. Each scheme
-        // retains its deposit and account ID through the same dispatchable.
+        // The single switch gates both schemes through the original dispatchable.
         Enabled::set(false);
-        assert_ok!(HashedAccounts::set_mldsa_enabled(
-            RuntimeOrigin::root(),
-            true,
-            true,
-        ));
         for descriptor in [classical.into(), mldsa.into()] {
             assert_noop!(
                 HashedAccounts::register(RuntimeOrigin::signed(sponsor()), descriptor),
                 Error::<Test>::Disabled,
             );
         }
+        assert_eq!(Balances::reserved_balance(sponsor()), 0);
         Enabled::set(true);
-        assert_ok!(HashedAccounts::register(
-            RuntimeOrigin::signed(sponsor()),
-            mldsa.into(),
-        ));
+        for descriptor in [classical.into(), mldsa.into()] {
+            assert_ok!(HashedAccounts::register(
+                RuntimeOrigin::signed(sponsor()),
+                descriptor
+            ));
+        }
         assert_eq!(Balances::reserved_balance(sponsor()), 30);
         assert_eq!(
             Accounts::<Test>::get(&classical_account)
@@ -586,13 +572,21 @@ fn unified_registration_uses_original_call_indices_and_scheme_weights() {
         classical_check.get_dispatch_info().call_weight,
         frame_support::weights::Weight::MAX
     );
-    // The shared API must not bypass the unmeasured ML-DSA weight gate.
-    assert_eq!(
-        mldsa_register.get_dispatch_info().call_weight,
+    // The original calls select the measured scheme-specific weights.
+    assert_ne!(
+        <() as WeightInfo>::register_mldsa65(),
+        frame_support::weights::Weight::MAX
+    );
+    assert_ne!(
+        <() as WeightInfo>::check_registered_mldsa65(),
         frame_support::weights::Weight::MAX
     );
     assert_eq!(
+        mldsa_register.get_dispatch_info().call_weight,
+        <() as WeightInfo>::register_mldsa65()
+    );
+    assert_eq!(
         mldsa_check.get_dispatch_info().call_weight,
-        frame_support::weights::Weight::MAX
+        <() as WeightInfo>::check_registered_mldsa65()
     );
 }

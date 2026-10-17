@@ -538,16 +538,15 @@ impl Client {
             } else {
                 self.block_hash(None)?
             };
-            if mldsa
-                && self.query(
-                    "HashedAccounts",
-                    "MlDsaAuthorizationEnabled",
-                    &[],
-                    Some(&state_hash),
-                )? != Value::Bool(true)
+            if self.query(
+                "AdminUtils",
+                "HashedAccountsEnabled",
+                &[],
+                Some(&state_hash),
+            )? != Value::Bool(true)
             {
                 return Err(CoreError::Policy(
-                    "ML-DSA account authorization is not active".into(),
+                    "hashed account authorization is not active".into(),
                 ));
             }
             let record = self.query(

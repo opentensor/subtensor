@@ -1,4 +1,4 @@
-//! Only unit tests may bypass uncalibrated new-call weights. Production stays fail closed.
+//! Unit-test weight overrides exercise admission boundaries independently of reference costs.
 use crate::Runtime;
 use crate::{pallet_proxy, pallet_utility};
 use frame_support::weights::Weight;

@@ -471,7 +471,6 @@ class TestTransactions:
         # No hashed/ML-DSA activation is needed for this ordinary wallet.
         fake.seed_default("System", "Account", {"data": {"free": 1000}})
         fake.seed("AdminUtils", "HashedAccountsEnabled", [], False)
-        fake.seed("HashedAccounts", "MlDsaAuthorizationEnabled", [], False)
         fake.mev_key = bytes(1184)
         fake.seed("MevShield", "NextKey", [], fake.mev_key)
         sizes = []
@@ -1387,7 +1386,7 @@ def test_child_set_submits_guarded_hashed_receiving_address(fake, scheme):
 
     child = Keypair.create_from_seed(bytes([91]) * 32, scheme)
     descriptor = descriptor_value(bytes(child.hashed_descriptor))
-    fake.seed_constant("HashedAccounts", "Enabled", True)
+    fake.seed("AdminUtils", "HashedAccountsEnabled", [], True)
     fake.seed_constant("HashedAccounts", "RegistrationDeposit", 200_000_000)
     fake.seed("HashedAccounts", "Accounts", [child.ss58_address], {"descriptor": descriptor})
     fake.seed_default("System", "Account", {"data": {"free": 10**12}})
