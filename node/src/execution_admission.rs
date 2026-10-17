@@ -9,7 +9,9 @@
 //! authoring use `Onchain`.
 
 use sc_executor::{RuntimeVersion, RuntimeVersionOf, error};
-use sp_core::traits::{CallContext, CodeExecutor, Externalities, ReadRuntimeVersion, RuntimeCode};
+use sp_core::traits::{
+    CallContext, CodeExecutor, Externalities, ExternalitiesExt, ReadRuntimeVersion, RuntimeCode,
+};
 use sp_runtime::codec::{Compact, Decode};
 use std::{
     sync::{Arc, Mutex},
@@ -18,11 +20,14 @@ use std::{
 
 const MAX_ACTIVE: usize = 2;
 const MAX_INPUT_BYTES: usize = 16 * 1024 * 1024;
-// Reserve an independent 16 MiB input budget for each of four services.
+// Pending and Other split one of the four original service reservations.
 const MAX_ACTIVE_BYTES: usize = MAX_INPUT_BYTES;
 const BURST: u32 = 16;
 const REFILL: Duration = Duration::from_millis(125);
 const MLDSA_ADDRESS_BYTES: u32 = 5367;
+
+#[cfg(test)]
+static PENDING_TEST_LOCK: Mutex<()> = Mutex::new(());
 
 fn busy() -> error::Error {
     error::Error::Other(fp_rpc::LOCAL_EXECUTION_CAPACITY_ERROR.into())
@@ -176,14 +181,25 @@ fn needs_admission(method: &str, data: &[u8], context: CallContext) -> bool {
 /// Keep independent workloads available even if another API is flooded with
 /// malformed requests. The executor boundary has no authenticated caller ID.
 /// Each service retains its own bounded concurrency, bytes and token bucket;
-/// no idle quota is borrowed across services. Four services permit at most
-/// eight concurrent executions (and 64 MiB of input) across executor clones.
+/// no idle quota is borrowed across services. Pending and Other each receive
+/// half of one original reservation, preserving the total ceiling of eight
+/// executions, 64 MiB of input, 64 burst tokens and 32 refills per second.
 #[derive(Clone, Copy)]
 enum Service {
     Validation = 0,
     Evm = 1,
     Contracts = 2,
     Other = 3,
+    Pending = 4,
+}
+
+fn pending_method(method: &str) -> bool {
+    matches!(
+        method,
+        "EthereumRuntimeRPCApi_initialize_pending_block"
+            | "Core_initialize_block"
+            | "BlockBuilder_apply_extrinsic"
+    )
 }
 
 fn service(method: &str) -> Service {
@@ -204,6 +220,10 @@ struct State {
     bytes: usize,
     tokens: u32,
     refilled: Instant,
+    max_active: usize,
+    max_bytes: usize,
+    burst: u32,
+    refill: Duration,
 }
 
 impl State {
@@ -213,24 +233,41 @@ impl State {
             bytes: 0,
             tokens: BURST,
             refilled: now,
+            max_active: MAX_ACTIVE,
+            max_bytes: MAX_ACTIVE_BYTES,
+            burst: BURST,
+            refill: REFILL,
         }
+    }
+
+    fn for_service(service: usize, now: Instant) -> Self {
+        let mut state = Self::new(now);
+        if service == Service::Other as usize || service == Service::Pending as usize {
+            state.max_active = MAX_ACTIVE / 2;
+            state.max_bytes = MAX_ACTIVE_BYTES / 2;
+            state.burst = BURST / 2;
+            state.tokens = state.burst;
+            state.refill = REFILL.saturating_mul(2);
+        }
+        state
     }
 
     fn acquire(&mut self, bytes: usize, now: Instant) -> Result<(), error::Error> {
         let next_bytes = self.bytes.checked_add(bytes).ok_or_else(busy)?;
-        if self.active >= MAX_ACTIVE || bytes > MAX_INPUT_BYTES || next_bytes > MAX_ACTIVE_BYTES {
+        if self.active >= self.max_active || bytes > MAX_INPUT_BYTES || next_bytes > self.max_bytes
+        {
             return Err(busy());
         }
         if let Some(elapsed) = now.checked_duration_since(self.refilled) {
             let added = elapsed
                 .as_nanos()
-                .checked_div(REFILL.as_nanos())
+                .checked_div(self.refill.as_nanos())
                 .unwrap_or(0);
             if added != 0 {
                 self.tokens = self
                     .tokens
-                    .saturating_add(added.min(u128::from(BURST)) as u32)
-                    .min(BURST);
+                    .saturating_add(added.min(u128::from(self.burst)) as u32)
+                    .min(self.burst);
                 // Discard fractional credit conservatively; never move backwards.
                 self.refilled = now;
             }
@@ -264,7 +301,7 @@ impl Drop for Permit {
 #[derive(Clone)]
 pub struct AdmissionExecutor<E> {
     inner: E,
-    states: [Arc<Mutex<State>>; 4],
+    states: [Arc<Mutex<State>>; 5],
 }
 
 impl<E> AdmissionExecutor<E> {
@@ -272,17 +309,20 @@ impl<E> AdmissionExecutor<E> {
     pub fn new(inner: E) -> Self {
         Self {
             inner,
-            states: std::array::from_fn(|_| Arc::new(Mutex::new(State::new(Instant::now())))),
+            states: std::array::from_fn(|index| {
+                Arc::new(Mutex::new(State::for_service(index, Instant::now())))
+            }),
         }
     }
 
     fn acquire(&self, service: Service, bytes: usize) -> Result<Permit, error::Error> {
-        let [validation, evm, contracts, other] = &self.states;
+        let [validation, evm, contracts, other, pending] = &self.states;
         let state = match service {
             Service::Validation => validation,
             Service::Evm => evm,
             Service::Contracts => contracts,
             Service::Other => other,
+            Service::Pending => pending,
         };
         state
             .lock()
@@ -300,14 +340,31 @@ impl<E: CodeExecutor<Error = error::Error>> CodeExecutor for AdmissionExecutor<E
 
     fn call(
         &self,
-        ext: &mut dyn Externalities,
+        mut ext: &mut dyn Externalities,
         runtime_code: &RuntimeCode,
         method: &str,
         data: &[u8],
         context: CallContext,
     ) -> (Result<Vec<u8>, Self::Error>, bool) {
+        let pending = if context == CallContext::Offchain {
+            if let Some(budget) = ext.extension::<fc_rpc::execution_admission::PendingExecution>() {
+                if let Err(message) = budget.charge(data.len()) {
+                    return (Err(error::Error::Other(message.into())), false);
+                }
+                pending_method(method)
+            } else {
+                false
+            }
+        } else {
+            false
+        };
         let _permit = if needs_admission(method, data, context) {
-            match self.acquire(service(method), data.len()) {
+            let service = if pending {
+                Service::Pending
+            } else {
+                service(method)
+            };
+            match self.acquire(service, data.len()) {
                 Ok(permit) => Some(permit),
                 Err(error) => return (Err(error), false),
             }
@@ -500,7 +557,7 @@ mod tests {
         use sc_transaction_pool_api::error::IntoPoolError;
         let (executor, _) = executor();
         let first = executor.acquire(Service::Other, 1).unwrap();
-        let second = executor.clone().acquire(Service::Other, 1).unwrap();
+
         let error =
             execute(&executor, "Core_execute_block", &[], CallContext::Offchain).unwrap_err();
         assert_eq!(executor.inner.calls.load(Ordering::SeqCst), 0);
@@ -529,7 +586,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(executor.inner.calls.load(Ordering::SeqCst), 4);
-        drop((first, second));
+        drop(first);
         execute(&executor, "Core_execute_block", &[], CallContext::Offchain).unwrap();
         assert_eq!(
             executor
@@ -563,14 +620,14 @@ mod tests {
             .unwrap();
         assert_eq!(state.active, 0);
         assert_eq!(state.bytes, 0);
-        assert_eq!(state.tokens, BURST - 1);
+        assert_eq!(state.tokens, BURST / 2 - 1);
     }
 
     #[test]
     fn cancelled_callers_cannot_release_running_executors() {
         let (executor, entered) = executor();
         let (finished, finished_rx) = mpsc::channel();
-        for _ in 0..MAX_ACTIVE {
+        for _ in 0..(MAX_ACTIVE / 2) {
             let clone = executor.clone();
             let finished = finished.clone();
             // Dropping a caller's JoinHandle does not stop synchronous Wasm or
@@ -580,15 +637,18 @@ mod tests {
                 finished.send(()).unwrap();
             }));
         }
-        for _ in 0..MAX_ACTIVE {
+        for _ in 0..(MAX_ACTIVE / 2) {
             entered.recv_timeout(Duration::from_secs(5)).unwrap();
         }
         assert!(execute(&executor, "Core_execute_block", &[], CallContext::Offchain).is_err());
-        assert_eq!(executor.inner.calls.load(Ordering::SeqCst), MAX_ACTIVE);
+        assert_eq!(
+            executor.inner.calls.load(Ordering::SeqCst),
+            (MAX_ACTIVE / 2)
+        );
         let (lock, wake) = &*executor.inner.resume;
         *lock.lock().unwrap() = true;
         wake.notify_all();
-        for _ in 0..MAX_ACTIVE {
+        for _ in 0..(MAX_ACTIVE / 2) {
             finished_rx.recv_timeout(Duration::from_secs(5)).unwrap();
         }
         assert_eq!(
@@ -616,7 +676,14 @@ mod tests {
             "EthereumRuntimeRPCApi_call",
             "ContractsApi_call",
         ] {
-            for _ in 0..BURST {
+            let burst = executor
+                .states
+                .get(service(method) as usize)
+                .unwrap()
+                .lock()
+                .unwrap()
+                .burst;
+            for _ in 0..burst {
                 assert!(execute(&executor, method, b"fail", CallContext::Offchain).is_err());
             }
             let calls = executor.inner.calls.load(Ordering::SeqCst);
@@ -640,9 +707,7 @@ mod tests {
         let first = executor
             .acquire(Service::Other, MAX_INPUT_BYTES / 2)
             .unwrap();
-        let second = executor
-            .acquire(Service::Other, MAX_INPUT_BYTES / 2)
-            .unwrap();
+
         assert!(execute(&executor, "UnknownApi_call", &[], CallContext::Offchain).is_err());
         for method in ["EthereumRuntimeRPCApi_call", "ContractsApi_call"] {
             execute(&executor.clone(), method, &[], CallContext::Offchain).unwrap();
@@ -654,7 +719,7 @@ mod tests {
             CallContext::Offchain,
         )
         .unwrap();
-        drop((first, second));
+        drop(first);
     }
 
     #[test]
@@ -677,12 +742,165 @@ mod tests {
         state.acquire(0, now + REFILL).unwrap();
         assert_eq!(state.tokens, 0);
     }
+
+    #[test]
+    fn pending_reservation_preserves_aggregate_execution_limits() {
+        let (executor, _) = executor();
+        let states = executor
+            .states
+            .iter()
+            .map(|state| state.lock().unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            states.iter().map(|state| state.max_active).sum::<usize>(),
+            8
+        );
+        assert_eq!(
+            states.iter().map(|state| state.max_bytes).sum::<usize>(),
+            64 * 1024 * 1024
+        );
+        assert_eq!(states.iter().map(|state| state.burst).sum::<u32>(), 64);
+        assert_eq!(
+            states
+                .iter()
+                .map(|state| 1000 / state.refill.as_millis())
+                .sum::<u128>(),
+            32
+        );
+    }
+
+    #[test]
+    fn only_trusted_pending_api_can_use_reserved_reconstruction_capacity() {
+        use fc_rpc::execution_admission::{PENDING_TIMEOUT, PendingExecution};
+        let _serial = PENDING_TEST_LOCK.lock().unwrap();
+        let (executor, _) = executor();
+        executor
+            .states
+            .get(Service::Other as usize)
+            .unwrap()
+            .lock()
+            .unwrap()
+            .refilled = Instant::now() + Duration::from_secs(60);
+        for _ in 0..BURST / 2 {
+            assert!(
+                execute(
+                    &executor,
+                    "NonexistentApi_call",
+                    b"fail",
+                    CallContext::Offchain
+                )
+                .is_err()
+            );
+        }
+        // Naming the pending export or encoding a marker-looking payload is
+        // insufficient: only the trusted host can attach this extension.
+        for method in [
+            "EthereumRuntimeRPCApi_initialize_pending_block",
+            "BlockBuilder_apply_extrinsic",
+        ] {
+            assert!(
+                execute(
+                    &executor,
+                    method,
+                    b"PendingExecution",
+                    CallContext::Offchain
+                )
+                .is_err()
+            );
+        }
+        let mut ext = sp_io::TestExternalities::default();
+        ext.register_extension(
+            PendingExecution::try_new(Instant::now() + PENDING_TIMEOUT).unwrap(),
+        );
+        for method in [
+            "EthereumRuntimeRPCApi_initialize_pending_block",
+            "Core_initialize_block",
+            "BlockBuilder_apply_extrinsic",
+        ] {
+            assert!(
+                executor
+                    .call(
+                        &mut ext.ext(),
+                        &RuntimeCode::empty(),
+                        method,
+                        &[],
+                        CallContext::Offchain
+                    )
+                    .0
+                    .is_ok()
+            );
+        }
+        // The extension does not promote arbitrary exports to pending capacity.
+        assert!(
+            executor
+                .call(
+                    &mut ext.ext(),
+                    &RuntimeCode::empty(),
+                    "NonexistentApi_call",
+                    &[],
+                    CallContext::Offchain
+                )
+                .0
+                .is_err()
+        );
+        let pending = executor
+            .acquire(Service::Pending, MAX_INPUT_BYTES / 2)
+            .unwrap();
+        assert!(executor.acquire(Service::Pending, 0).is_err());
+        drop(pending);
+        assert!(
+            executor
+                .acquire(Service::Pending, MAX_INPUT_BYTES / 2 + 1)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn expired_pending_budget_stops_even_final_reads_without_affecting_latest_reads() {
+        use fc_rpc::execution_admission::{PENDING_LIMIT_ERROR, PendingExecution};
+        let _serial = PENDING_TEST_LOCK.lock().unwrap();
+        let (executor, _) = executor();
+        let mut ext = sp_io::TestExternalities::default();
+        ext.register_extension(
+            PendingExecution::try_new(Instant::now() + Duration::from_millis(10)).unwrap(),
+        );
+        std::thread::sleep(Duration::from_millis(20));
+        for method in [
+            "EthereumRuntimeRPCApi_account_basic",
+            "EthereumRuntimeRPCApi_account_code_at",
+            "EthereumRuntimeRPCApi_storage_at",
+        ] {
+            let error = executor
+                .call(
+                    &mut ext.ext(),
+                    &RuntimeCode::empty(),
+                    method,
+                    &[],
+                    CallContext::Offchain,
+                )
+                .0
+                .unwrap_err();
+            assert!(error.to_string().contains(PENDING_LIMIT_ERROR));
+            execute(&executor, method, &[], CallContext::Offchain).unwrap();
+        }
+        assert_eq!(executor.inner.calls.load(Ordering::SeqCst), 3);
+    }
 }
 
 #[cfg(test)]
-#[allow(clippy::arithmetic_side_effects)]
+#[allow(
+    clippy::arithmetic_side_effects,
+    clippy::unwrap_used,
+    clippy::await_holding_lock
+)]
 mod admission_tests {
-    use fc_rpc::{execution_admission::retry_execution_capacity, internal_err};
+    use fc_rpc::{
+        execution_admission::{
+            PENDING_LIMIT_ERROR, PENDING_TIMEOUT, PendingExecution, pending_limit_error,
+            retry_execution_capacity, retry_pending_execution,
+        },
+        internal_err,
+    };
     use jsonrpsee::types::error::CALL_EXECUTION_FAILED_CODE;
     use std::{cell::Cell, time::Duration};
 
@@ -766,5 +984,102 @@ mod admission_tests {
         drop(pending);
         tokio::time::sleep(Duration::from_millis(150)).await;
         assert_eq!(attempts.get(), 1);
+    }
+
+    #[tokio::test]
+    async fn pending_retries_only_capacity_on_the_same_retained_state() {
+        let _serial = super::PENDING_TEST_LOCK.lock().unwrap();
+        let budget =
+            PendingExecution::try_new(std::time::Instant::now() + PENDING_TIMEOUT).unwrap();
+        let mut state = (vec![1, 2, 3], 0);
+        let value = retry_pending_execution(&mut state, |state| {
+            assert_eq!(state.0, [1, 2, 3]);
+            state.1 += 1;
+            if state.1 < 3 {
+                Err(pending_limit_error("Execution failed: Other: Local runtime execution capacity reached; retry later"))
+            } else {
+                state.0.push(4);
+                Ok(42)
+            }
+        }, &budget).await.unwrap();
+        assert_eq!(value, 42);
+        assert_eq!(state, (vec![1, 2, 3, 4], 3));
+        for message in [
+            "runtime trapped",
+            "BadProof",
+            fp_rpc::LOCAL_EXECUTION_CAPACITY_ERROR,
+        ] {
+            let mut attempts = 0;
+            assert!(
+                retry_pending_execution(
+                    &mut attempts,
+                    |attempts| {
+                        *attempts += 1;
+                        Err::<(), _>(pending_limit_error(message))
+                    },
+                    &budget
+                )
+                .await
+                .is_err()
+            );
+            assert_eq!(attempts, 1);
+        }
+    }
+
+    #[tokio::test]
+    async fn pending_job_limits_deadline_and_cancellation_release_leases() {
+        let _serial = super::PENDING_TEST_LOCK.lock().unwrap();
+        let first = PendingExecution::try_new(std::time::Instant::now() + PENDING_TIMEOUT).unwrap();
+        let retained = first.clone();
+        let second =
+            PendingExecution::try_new(std::time::Instant::now() + PENDING_TIMEOUT).unwrap();
+        assert!(PendingExecution::try_new(std::time::Instant::now() + PENDING_TIMEOUT).is_err());
+        drop(first);
+        assert!(PendingExecution::try_new(std::time::Instant::now() + PENDING_TIMEOUT).is_err());
+        drop(retained);
+        let short =
+            PendingExecution::try_new(std::time::Instant::now() + Duration::from_millis(20))
+                .unwrap();
+        let mut attempts = 0;
+        let error = retry_pending_execution(&mut attempts, |attempts| {
+            *attempts += 1;
+            Err::<(), _>(pending_limit_error("Execution failed: Other: Local runtime execution capacity reached; retry later"))
+        }, &short).await.unwrap_err();
+        assert_eq!(error.to_string(), PENDING_LIMIT_ERROR);
+        assert_eq!(attempts, 1);
+        drop(short);
+        let mut attempts = 0;
+        let mut pending = Box::pin(async {
+            let budget =
+                PendingExecution::try_new(std::time::Instant::now() + PENDING_TIMEOUT).unwrap();
+            retry_pending_execution(&mut attempts, |attempts| {
+                *attempts += 1;
+                Err::<(), _>(pending_limit_error("Execution failed: Other: Local runtime execution capacity reached; retry later"))
+            }, &budget).await
+        });
+        assert!(futures::poll!(&mut pending).is_pending());
+        assert!(PendingExecution::try_new(std::time::Instant::now() + PENDING_TIMEOUT).is_err());
+        drop(pending);
+        assert_eq!(attempts, 1);
+        let reclaimed =
+            PendingExecution::try_new(std::time::Instant::now() + PENDING_TIMEOUT).unwrap();
+        drop((second, reclaimed));
+    }
+
+    #[test]
+    fn pending_cumulative_work_budget_is_shared_and_never_reset_by_clones() {
+        let _serial = super::PENDING_TEST_LOCK.lock().unwrap();
+        let budget =
+            PendingExecution::try_new(std::time::Instant::now() + PENDING_TIMEOUT).unwrap();
+        let clone = budget.clone();
+        for _ in 0..1024 {
+            budget.charge(1).unwrap();
+        }
+        assert_eq!(clone.charge(0), Err(PENDING_LIMIT_ERROR));
+        drop((budget, clone));
+        let budget =
+            PendingExecution::try_new(std::time::Instant::now() + PENDING_TIMEOUT).unwrap();
+        budget.charge(64 * 1024 * 1024).unwrap();
+        assert_eq!(budget.clone().charge(1), Err(PENDING_LIMIT_ERROR));
     }
 }

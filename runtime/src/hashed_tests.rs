@@ -15,6 +15,8 @@ mod envelope;
 mod mldsa;
 #[path = "mldsa_benchmark_tests.rs"]
 mod mldsa_benchmarks;
+#[path = "mldsa_dispatch_matrix_tests.rs"]
+mod mldsa_dispatch_matrix;
 #[path = "mldsa_order_tests.rs"]
 mod mldsa_orders;
 #[path = "hashed_native_evm_tests.rs"]

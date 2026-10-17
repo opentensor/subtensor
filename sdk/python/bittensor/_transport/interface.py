@@ -764,7 +764,10 @@ class SubstrateConnection:
             call,
             keypair,
             era=era,
-            nonce=confirmed_nonce + generation_offset,
+            # Fee quotes and externally supplied proofs already carry their
+            # requested nonce. Shield's inner envelope uses the next nonce;
+            # replacing it with the current one undercounts compact boundaries.
+            nonce=confirmed_nonce + generation_offset if nonce is None else nonce,
             tip=tip,
             tip_asset_id=tip_asset_id,
             genesis_hash=await self.genesis_hash(),

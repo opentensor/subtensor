@@ -2,6 +2,7 @@
 
 These tests require usable development weights. They do not measure weights or
 establish production capacity. Only disposable keys and dev sponsors are used.
+Parallel workers must share E2E_WALLET_ALICE_LOCK for the dev sponsors.
 """
 
 from __future__ import annotations
@@ -9,6 +10,7 @@ from __future__ import annotations
 import json
 import os
 from copy import deepcopy
+from hashlib import blake2b
 from itertools import permutations
 from pathlib import Path
 
@@ -20,7 +22,8 @@ from bittensor._transport.errors import SubstrateRequestException
 from bittensor.mldsa import install_message_capability, message_capability
 from bittensor.mldsa_signing import PreparedMldsaExtrinsic, sign_prepared_mldsa
 from bittensor.receiving import receiving_address
-from bittensor.sp_core import Keypair
+from bittensor.sp_core import Keypair, ss58_decode, ss58_encode
+from tests.e2e.test_wallet_types import alice_submission as sponsor_submission
 from tests.harness.samples import dev_wallet
 
 ENDPOINT = os.getenv("E2E_WALLET_ENDPOINT")
@@ -37,10 +40,28 @@ def evidence(name, value):
         (path / f"{name}.json").write_text(json.dumps(value, indent=2, default=str) + "\n")
 
 
-async def fund(client, key, amount=100):
+async def fund_unlocked(client, key, amount=100):
+    """Fund one recipient while the caller holds the shared sponsor lock."""
     result = await client.execute(
-        bt.intents.Transfer(receiving_address(key), amount), dev_wallet("//Bob")
+        bt.intents.Transfer(receiving_address(key), amount),
+        dev_wallet("//Bob"),
+        wait_for_finalization=True,
     )
+    assert result.success, result.to_dict()
+
+
+async def fund(client, key, amount=100):
+    async with sponsor_submission():
+        await fund_unlocked(client, key, amount)
+
+
+async def fund_multisig(client, address, amount):
+    async with sponsor_submission():
+        result = await client.execute(
+            bt.intents.Transfer(address, amount),
+            dev_wallet("//Bob"),
+            wait_for_finalization=True,
+        )
     assert result.success, result.to_dict()
 
 
@@ -58,6 +79,11 @@ def event(result, module, name):
         if (value.get("module_id"), value.get("event_id")) == (module, name):
             return value["attributes"]
     raise AssertionError((module, name, result.events))
+
+
+def derivative_account_id(parent: bytes, index: int) -> str:
+    entropy = b"modlpy/utilisuba" + parent + index.to_bytes(2, "little")
+    return ss58_encode(blake2b(entropy, digest_size=32).digest(), 42)
 
 
 @pytest.mark.parametrize("code", [7, 8])
@@ -86,26 +112,49 @@ async def test_offline_replay_capabilities_native_evm_and_derived_accounts(code)
             prepared, key, codec=codec, expected_genesis_hash=await raw.genesis_hash()
         )
         before = await record(client, key)
+        before_account = await account(client, key)
         with pytest.raises(ValueError, match="invalid ML-DSA transaction proof"):
             await raw.attach_mldsa_proof(prepared, proof[:-1] + bytes([proof[-1] ^ 1]))
         signed = await raw.attach_mldsa_proof(prepared, proof)
         corrupted = SignedExtrinsic(
             signed.data[:-1] + bytes([signed.data[-1] ^ 1]), "0x" + "00" * 32
         )
-        with pytest.raises(SubstrateRequestException):
+        with pytest.raises(
+            SubstrateRequestException,
+            match=r"(?i)badproof|bad proof|transaction has a bad signature",
+        ) as rejected:
             await raw.submit_extrinsic(corrupted)
+        receipts.append({"invalid_proof_rejection": str(rejected.value)})
         assert await record(client, key) == before
+        assert await account(client, key) == before_account
         included = await raw.submit_extrinsic(signed, wait_for_finalization=True)
         assert included.is_success and included.finalized
         receipts.append({"offline_block": included.block_hash, "extrinsic": signed.data_hex})
         after = await record(client, key)
+        after_account = await account(client, key)
         assert after["generation"] == before["generation"] + 1
         assert (after["commitment"] == before["commitment"]) == (code == 8)
-        with pytest.raises(SubstrateRequestException):
+        with pytest.raises(
+            SubstrateRequestException,
+            match=(
+                r"(?i)invalid transaction|already imported|stale|outdated"
+                r"|transaction is temporarily banned"
+            ),
+        ) as replayed:
             await raw.submit_extrinsic(signed)
+        receipts.append({"replay_rejection": str(replayed.value)})
+        assert await account(client, key) == after_account
         with pytest.raises(SubstrateRequestException, match="changed since preparation"):
             await raw.attach_mldsa_proof(prepared, proof)
         assert await record(client, key) == after
+        receipts.append(
+            {
+                "invalid_proof_preserved_account": before_account,
+                "replay_preserved_account": after_account,
+                "authority_before_valid_submission": before,
+                "authority_after_valid_submission_and_replay": after,
+            }
+        )
 
         # Hex-looking text and non-UTF8 audiences must never collapse to the
         # same bytes. Revocation and replacement consume monotonically new epochs.
@@ -151,13 +200,15 @@ async def test_offline_replay_capabilities_native_evm_and_derived_accounts(code)
         result = await submit(bt.calls.EVM.call(target="0x" + "42" * 20, input="0x", **common))
         event(result, "EVM", "Executed")
         # Localnet retains the ordinary contract deployment allowlist.
-        allowed = await client.query(("EVM", "WhitelistedCreators"))
-        grant = await client.submit_call(
-            bt.calls.Sudo.sudo(
-                call=await client.compose(bt.calls.EVM.set_whitelist(new=[*allowed, source]))
-            ),
-            dev_wallet(),
-        )
+        async with sponsor_submission():
+            allowed = await client.query(("EVM", "WhitelistedCreators"))
+            grant = await client.submit_call(
+                bt.calls.Sudo.sudo(
+                    call=await client.compose(bt.calls.EVM.set_whitelist(new=[*allowed, source]))
+                ),
+                dev_wallet(),
+                wait_for_finalization=True,
+            )
         assert grant.success, grant.to_dict()
         # Constructor returns one STOP byte; deployed code is checked via RPC.
         init = "0x6001600c60003960016000f300"
@@ -184,6 +235,7 @@ async def test_offline_replay_capabilities_native_evm_and_derived_accounts(code)
             )
         )
         derivative = event(result, "HashedAccounts", "DerivedProtected")["account"]
+        assert derivative == derivative_account_id(bytes(key.public_key), 7)
         assert await client.query(("HashedAccounts", "DerivedAuthorities"), [derivative])
         before = await record(client, key)
         result = await submit(
@@ -199,6 +251,22 @@ async def test_offline_replay_capabilities_native_evm_and_derived_accounts(code)
         )
         assert not any(
             e.get("event", e).get("event_id") == "DerivedProtected" for e in result.events
+        )
+        # Compact failed receipts omit events, so prove rollback from storage
+        # at this finalized inclusion block rather than relying on an empty list.
+        failed_child = derivative_account_id(bytes(key.public_key), 8)
+        assert (
+            await raw.query(
+                "HashedAccounts", "DerivedAuthorities", [failed_child], result.block_hash
+            )
+            is None
+        )
+        failed_alias = bytes(ss58_decode(failed_child))[:20]
+        assert (
+            await raw.query(
+                "HashedAccounts", "EvmAliases", ["0x" + failed_alias.hex()], result.block_hash
+            )
+            is None
         )
         assert (await record(client, key))["generation"] == before["generation"] + 1
         result = await submit(
@@ -240,8 +308,7 @@ async def test_mixed_protected_multisig_cancellation_failure_and_quorum(codes):
             result = await group.approve(protection, key, wait_for_finalization=True)
             assert result.success, result.to_dict()
         assert (await group.protection_status())["registered"]
-        result = await client.execute(bt.intents.Transfer(group.address, 10), dev_wallet("//Bob"))
-        assert result.success, result.to_dict()
+        await fund_multisig(client, group.address, 10)
         for value, success in ((10**9, True), (10**18, False), (10**9, True)):
             call = bt.calls.Balances.transfer_keep_alive(dest=recipient.ss58_address, value=value)
             for index, key in enumerate(keys):
@@ -291,8 +358,7 @@ async def test_two_of_three_all_mixed_quorums_and_runtime_rejection_of_weak_quor
             result = await group.approve(protection, key, wait_for_finalization=True)
             assert result.success, result.to_dict()
         assert (await group.protection_status())["registered"]
-        result = await client.execute(bt.intents.Transfer(group.address, 20), dev_wallet("//Bob"))
-        assert result.success, result.to_dict()
+        await fund_multisig(client, group.address, 20)
         call = bt.calls.Balances.transfer_keep_alive(dest=recipient.ss58_address, value=10**9)
         for first, second in permutations(keys, 2):
             reserved = (await account(client, first))["data"]["reserved"]
@@ -328,27 +394,35 @@ async def test_two_of_three_all_mixed_quorums_and_runtime_rejection_of_weak_quor
 async def test_original_limit_order_execution_cancellation_and_capability_revocation(code):
     owner = Keypair.create_from_seed(os.urandom(32), code)
     hot = Keypair.create_from_seed(os.urandom(32), code)
-    sponsor = dev_wallet("//Bob")
+    # Each order worker has its own relayer nonce; only setup uses shared Bob.
+    sponsor = dev_wallet(f"//Bob//MSOrders{code}")
     receipts = []
     async with bt.Client(ENDPOINT, fallback_endpoints=[], archive_endpoints=[]) as client:
-        lock_cost = await client.read("subnet_registration_cost")
-        await fund(client, owner, bt.Balance.from_rao(lock_cost.rao + 1000 * 10**9))
-        await fund(client, hot)
-        result = await client.submit_call(
-            bt.calls.SubtensorModule.register_network(hotkey=hot.ss58_address), owner
-        )
-        assert result.success, result.to_dict()
-        netuid = max(subnet.netuid for subnet in await client.subnets.all())
-        result = await client.submit_call(
-            bt.calls.Sudo.sudo(
-                call=await client.compose(
-                    bt.calls.AdminUtils.sudo_set_subtoken_enabled(
-                        netuid=netuid, subtoken_enabled=True
+        async with sponsor_submission():
+            # Keep the registration-cost quote and resulting creation together;
+            # another worker must not double the cost between these operations.
+            lock_cost = await client.read("subnet_registration_cost")
+            await fund_unlocked(client, owner, bt.Balance.from_rao(lock_cost.rao + 1000 * 10**9))
+            await fund_unlocked(client, hot)
+            await fund_unlocked(client, sponsor.coldkey)
+            result = await client.submit_call(
+                bt.calls.SubtensorModule.register_network(hotkey=hot.ss58_address),
+                owner,
+                wait_for_finalization=True,
+            )
+            assert result.success, result.to_dict()
+            netuid = int(event(result, "SubtensorModule", "NetworkAdded")[0])
+            result = await client.submit_call(
+                bt.calls.Sudo.sudo(
+                    call=await client.compose(
+                        bt.calls.AdminUtils.sudo_set_subtoken_enabled(
+                            netuid=netuid, subtoken_enabled=True
+                        )
                     )
-                )
-            ),
-            dev_wallet(),
-        )
+                ),
+                dev_wallet(),
+                wait_for_finalization=True,
+            )
         assert result.success, result.to_dict()
         chain_id = await client.query(("EVMChainId", "ChainId"))
         order = {

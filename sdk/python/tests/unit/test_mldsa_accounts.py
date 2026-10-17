@@ -4,6 +4,7 @@ from hashlib import blake2b
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
+import bittensor_core
 import pytest
 
 from bittensor._generated import calls
@@ -27,6 +28,7 @@ from bittensor.hashed import (
 from bittensor.intents import Transfer
 from bittensor.receiving import account_for_registered_write, parse_recipient, receiving_address
 from bittensor.sp_core import CRYPTO_MLDSA65, Keypair, account_crypto_type
+from tests.conftest import golden_codec
 from tests.harness.fake_substrate import FakeSubstrate
 from tests.harness.samples import dev_wallet
 
@@ -507,6 +509,7 @@ async def test_shield_quote_counts_complete_registered_envelope_without_signing(
     conn.get_payment_info = AsyncMock(return_value={"partial_fee": 17})
     await conn.get_shielded_payment_info(call, public, period=8)
     quoted_proof = codec.proof
+    assert codec.nonce == 14
     # The fixture codec emits call bytes plus the entire proof. Compare to the
     # real native signature/proof, not a hand-picked maximum transaction size.
     assert len(quoted_proof) == hashed_proof_length(crypto)
@@ -517,3 +520,63 @@ async def test_shield_quote_counts_complete_registered_envelope_without_signing(
     ciphertext = conn.compose_call.call_args.args[2]["ciphertext"]
     assert len(ciphertext) == len(actual.data) + SHIELD_ENCRYPTION_OVERHEAD
     assert conn.get_payment_info.call_args.kwargs == {"nonce": 13, "era": {"period": 8}}
+
+
+@pytest.mark.parametrize("crypto", [4, 6, 7, 8])
+@pytest.mark.parametrize("nonce", [63, 16383, 2**30 - 1])
+@pytest.mark.parametrize("carrier_size", [8192, 8193, 32768, 32769])
+async def test_registered_shield_quote_preserves_compact_nonce_boundaries(
+    crypto, nonce, carrier_size
+):
+    from bittensor._transport.extrinsics import SHIELD_ENCRYPTION_OVERHEAD
+
+    class CompactNonceCodec(Codec):
+        """Keep native SCALE framing for the fields whose size is under test."""
+
+        def encode_signed_extrinsic(self, call, **kwargs):
+            body, _ = super().encode_signed_extrinsic(call, **kwargs)
+            body += golden_codec().encode_compact(kwargs["nonce"])
+            body = golden_codec().encode_compact(len(body)) + body
+            return body, "0x" + blake2b(body, digest_size=32).hexdigest()
+
+    wallet = key(crypto)
+    conn, _, _ = connection(wallet)
+    codec = CompactNonceCodec()
+    conn._runtimes.codec_at.return_value = codec
+    conn._nonces.next_for.return_value = nonce
+    if crypto in (4, 6):
+        conn.get_chain_head = AsyncMock(return_value="0xfinalized")
+    original_query = conn.query.side_effect
+
+    async def query(pallet, item, params=None, *, block_hash):
+        if (pallet, item) == ("System", "Account"):
+            return {"nonce": nonce}
+        return await original_query(pallet, item, params, block_hash=block_hash)
+
+    conn.query.side_effect = query
+    conn.compose_call = AsyncMock(return_value=b"carrier")
+    conn.get_payment_info = AsyncMock(return_value={"partial_fee": 17})
+    size = carrier_size - SHIELD_ENCRYPTION_OVERHEAD - hashed_proof_length(crypto) - 8
+    for _ in range(4):
+        call = bytes([42]) * size
+        actual = await conn.create_signed_extrinsic(
+            call, wallet, nonce=nonce + 1, era={"period": 8}, hashed_generation_offset=1
+        )
+        delta = carrier_size - SHIELD_ENCRYPTION_OVERHEAD - len(actual.data)
+        if not delta:
+            break
+        size += delta
+    encrypted = bittensor_core.encrypt_mlkem768(bytes(1184), actual.data, include_key_hash=True)
+    assert len(encrypted) == carrier_size
+    public = wallet.public_only()
+    if carrier_size > 32768:
+        with pytest.raises(ValueError, match="32768-byte carrier limit"):
+            await conn.get_shielded_payment_info(call, public, period=8)
+        conn.compose_call.assert_not_awaited()
+        conn.get_payment_info.assert_not_awaited()
+    else:
+        await conn.get_shielded_payment_info(call, public, period=8)
+        assert codec.nonce == nonce + 1
+        quoted = conn.compose_call.call_args.args[2]["ciphertext"]
+        assert len(quoted) == len(encrypted)
+        assert (len(quoted) <= 8192) == (len(encrypted) <= 8192)

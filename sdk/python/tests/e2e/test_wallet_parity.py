@@ -1,4 +1,7 @@
-"""Real CLI compatibility matrix on an isolated, activated Alice-root chain."""
+"""Real CLI compatibility matrix on an isolated, activated Alice-root chain.
+
+Parallel workers must share E2E_WALLET_ALICE_LOCK for sponsor submissions.
+"""
 
 from __future__ import annotations
 
@@ -6,6 +9,7 @@ import asyncio
 import json
 import os
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -17,6 +21,7 @@ from bittensor.sp_core import (
     Keypair,
     serialized_keypair_to_keyfile_data,
 )
+from tests.e2e.test_wallet_types import alice_submission
 from tests.harness.receiving import descriptor_receiving_address
 from tests.harness.samples import dev_wallet
 
@@ -31,6 +36,7 @@ pytestmark = [
 @pytest.mark.parametrize("scheme,mode", WALLET_MODES)
 async def test_cli_wallet_parity(tmp_path, scheme, mode):
     env = dict(os.environ)
+    receipts = []
     for setting in (
         "CONFIG",
         "ADDRESSES_PATH",
@@ -77,7 +83,12 @@ async def test_cli_wallet_parity(tmp_path, scheme, mode):
             assert process.returncode != 0, out.decode()
             return out.decode() + err.decode()
         assert process.returncode == 0, out.decode() + err.decode()
-        return json.loads(out)
+        result = json.loads(out)
+        if isinstance(result, dict) and result.get("block_hash"):
+            # Transaction receipts contain public data. Do not persist wallet
+            # creation/import output, which can contain recovery secrets.
+            receipts.append({"wallet": name, "operation": " ".join(args[:2]), **result})
+        return result
 
     created = await cli(
         "original",
@@ -97,10 +108,14 @@ async def test_cli_wallet_parity(tmp_path, scheme, mode):
         assert await client.query(("AdminUtils", "HashedAccountsEnabled")) is True
 
         async def fund(key, amount=100):
-            result = await client.execute(
-                bt.intents.Transfer(receiving_address(key), amount), alice
-            )
+            async with alice_submission():
+                result = await client.execute(
+                    bt.intents.Transfer(receiving_address(key), amount),
+                    alice,
+                    wait_for_finalization=True,
+                )
             assert result.success, result.to_dict()
+            receipts.append({"operation": "sponsor transfer", **result.to_dict()})
 
         async def balance(key):
             value = await client.query(bt.storage.System.Account, [key.ss58_address])
@@ -316,19 +331,29 @@ async def test_cli_wallet_parity(tmp_path, scheme, mode):
         assert await balance(dest) == before + 10**9
 
         # Each scheme can create a subnet and exercise its owner permissions.
-        for call in (
+        setup = (
             bt.calls.AdminUtils.sudo_set_lock_reduction_interval(interval=1),
             bt.calls.AdminUtils.sudo_set_network_rate_limit(rate_limit=0),
             bt.calls.AdminUtils.sudo_set_owner_hparam_rate_limit(epochs=0),
             bt.calls.AdminUtils.sudo_set_admin_freeze_window(window=0),
             bt.calls.Balances.force_set_balance(who=original.coldkey.ss58_address, new_free=10**15),
-        ):
+        )
+        async with alice_submission():
             result = await client.submit_call(
-                bt.calls.Sudo.sudo(call=await client.compose(call)), alice
+                bt.calls.Sudo.sudo(
+                    call=await client.compose(
+                        bt.calls.Utility.batch_all(
+                            calls=[await client.compose(call) for call in setup]
+                        )
+                    )
+                ),
+                alice,
+                wait_for_finalization=True,
             )
-            assert result.success, result.to_dict()
-        await cli("original", "subnets", "create")
-        netuid = max(subnet.netuid for subnet in await client.subnets.all())
+        assert result.success, result.to_dict()
+        receipts.append({"operation": "root subnet setup", **result.to_dict()})
+        created_subnet = await cli("original", "subnets", "create")
+        netuid = int(created_subnet["data"]["netuid"])
         assert await client.query(bt.storage.SubtensorModule.SubnetOwner, [netuid]) == (
             original.coldkey.ss58_address
         )
@@ -385,3 +410,14 @@ async def test_cli_wallet_parity(tmp_path, scheme, mode):
             str(password),
         )
         assert await nonce(original.coldkey) == before + 1
+        if directory := os.getenv("E2E_EVIDENCE_DIR"):
+            evidence_path = Path(directory)
+            evidence_path.mkdir(parents=True, exist_ok=True)
+            (evidence_path / f"wallet-parity-{scheme}-{mode}.json").write_text(
+                json.dumps(
+                    {"scheme": scheme, "mode": mode, "netuid": netuid, "receipts": receipts},
+                    indent=2,
+                    default=str,
+                )
+                + "\n"
+            )

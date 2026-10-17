@@ -157,6 +157,113 @@ fn simulate_call(wallet: &Wallet, nonce: Option<U256>) {
 }
 
 #[test]
+#[cfg(not(feature = "fast-runtime"))]
+fn neuron_evm_association_honors_production_cooldown_for_every_wallet_mode() {
+    use pallet_subtensor::{AssociatedEvmAddress, AssociatedUidsByEvmAddress};
+    use subtensor_runtime_common::{CustomTransactionError, NetUid};
+
+    assert_eq!(EvmKeyAssociateRateLimit::get(), 7_200);
+    for mode in MODES {
+        super::mldsa::with_profiles(|| {
+            let wallet = Wallet::new(mode);
+            let netuid = NetUid::from(1);
+            let uid = 0u16;
+            pallet_subtensor::NetworksAdded::<Runtime>::insert(netuid, true);
+            // Self ownership preserves each protected wallet's authority floor.
+            assert_ok!(SubtensorModule::create_account_if_non_existent(
+                &wallet.account,
+                &wallet.account,
+            ));
+            pallet_subtensor::Uids::<Runtime>::insert(netuid, &wallet.account, uid);
+            pallet_subtensor::Keys::<Runtime>::insert(netuid, uid, &wallet.account);
+
+            let evm_pair = sp_core::ecdsa::Pair::from_seed(&[73; 32]);
+            let make_call = |block_number: u64| {
+                let message = [
+                    wallet.account.encode(),
+                    sp_core::keccak_256(&block_number.encode()).to_vec(),
+                ]
+                .concat();
+                let digest = sp_core::keccak_256(
+                    &[
+                        b"\x19Ethereum Signed Message:\n64".as_slice(),
+                        message.as_slice(),
+                    ]
+                    .concat(),
+                );
+                let mut signature = evm_pair.sign_prehashed(&digest);
+                let public = sp_io::crypto::secp256k1_ecdsa_recover(&signature.0, &digest)
+                    .unwrap_or_else(|_| panic!("valid ECDSA association proof must recover"));
+                let evm_key = H160::from_slice(&sp_core::keccak_256(&public)[12..]);
+                signature.0[64] += 27;
+                (
+                    evm_key,
+                    RuntimeCall::SubtensorModule(pallet_subtensor::Call::associate_evm_key {
+                        netuid,
+                        evm_key,
+                        block_number,
+                        signature,
+                    }),
+                )
+            };
+
+            // Pool validation prepares the next block, so a parent at 7,198
+            // must reject inclusion at 7,199. Roll its temporary header back.
+            System::set_block_number(7_198);
+            let (evm_key, too_early) = make_call(7_199);
+            let expected_early_error =
+                sp_runtime::transaction_validity::TransactionValidityError::from(
+                    CustomTransactionError::EvmKeyAssociateRateLimitExceeded,
+                );
+            assert_eq!(
+                with_transaction_unchecked(|| TransactionOutcome::Rollback(
+                    Executive::validate_transaction(
+                        sp_runtime::transaction_validity::TransactionSource::External,
+                        wallet.sign(too_early.clone()),
+                        System::parent_hash(),
+                    ),
+                )),
+                Err(expected_early_error)
+            );
+            System::set_block_number(7_199);
+            let before = System::account_nonce(&wallet.account);
+            let result = with_transaction_unchecked(|| {
+                TransactionOutcome::Rollback(Executive::apply_extrinsic(wallet.sign(too_early)))
+            });
+            assert_eq!(
+                result,
+                Err(expected_early_error),
+                "{mode:?}: premature association accepted"
+            );
+            assert_eq!(System::account_nonce(&wallet.account), before);
+            assert!(AssociatedEvmAddress::<Runtime>::get(netuid, uid).is_none());
+            assert!(AssociatedUidsByEvmAddress::<Runtime>::get(netuid, evm_key).is_empty());
+
+            // A parent at 7,199 admits the first valid inclusion at 7,200.
+            let (evm_key, call) = make_call(7_200);
+            assert_ok!(with_transaction_unchecked(|| TransactionOutcome::Rollback(
+                Executive::validate_transaction(
+                    sp_runtime::transaction_validity::TransactionSource::External,
+                    wallet.sign(call.clone()),
+                    System::parent_hash(),
+                ),
+            )));
+            System::set_block_number(7_200);
+            assert_ok!(Executive::apply_extrinsic(wallet.sign(call)).unwrap());
+            assert_eq!(
+                AssociatedEvmAddress::<Runtime>::get(netuid, uid),
+                Some((evm_key, 7_200))
+            );
+            assert_eq!(
+                AssociatedUidsByEvmAddress::<Runtime>::get(netuid, evm_key).as_slice(),
+                &[(uid, 7_200)]
+            );
+            assert_eq!(System::account_nonce(&wallet.account), before + 1);
+        });
+    }
+}
+
+#[test]
 fn queried_nonce_executes_and_advances_independently_for_every_wallet_mode() {
     for mode in MODES {
         super::mldsa::with_profiles(|| {
@@ -372,11 +479,12 @@ fn reverted_and_invalid_evm_calls_keep_authorization_fees_and_reject_replays() {
 
 #[test]
 fn alias_nonce_survives_balance_reaping_and_native_transactions_when_disabled() {
-    for mode in [Mode::HashedSr, Mode::HashedEd] {
+    for mode in [Mode::HashedSr, Mode::HashedEd, Mode::MlDsa] {
         super::mldsa::with_profiles(|| {
             let wallet = Wallet::new(mode);
+            assert_eq!(EVM::account_basic(&wallet.source()).0.nonce, U256::one());
             assert_ok!(
-                Executive::apply_extrinsic(wallet.sign(evm_call(&wallet, Some(U256::zero()))))
+                Executive::apply_extrinsic(wallet.sign(evm_call(&wallet, Some(U256::one()))))
                     .unwrap()
             );
             let backing =
@@ -384,23 +492,83 @@ fn alias_nonce_survives_balance_reaping_and_native_transactions_when_disabled() 
             assert_ne!(backing, wallet.account);
             let _ = Balances::make_free_balance_be(&backing, TaoBalance::new(1_000_000_000));
             let _ = Balances::make_free_balance_be(&backing, TaoBalance::ZERO);
-            assert_eq!(System::account_nonce(&backing), 1);
+            assert_eq!(System::account_nonce(&backing), 2);
             assert_eq!(System::account(&backing).sufficients, 1);
             pallet_admin_utils::HashedAccountsEnabled::<Runtime>::put(false);
-            assert_eq!(EVM::account_basic(&wallet.source()).0.nonce, U256::one());
-            simulate_call(&wallet, Some(U256::one()));
+            assert_eq!(EVM::account_basic(&wallet.source()).0.nonce, U256::from(2));
+            simulate_call(&wallet, Some(U256::from(2)));
             assert!(Executive::apply_extrinsic(wallet.sign(call())).is_err());
             pallet_admin_utils::HashedAccountsEnabled::<Runtime>::put(true);
             assert_ok!(Executive::apply_extrinsic(wallet.sign(call())).unwrap());
-            assert_eq!(EVM::account_basic(&wallet.source()).0.nonce, U256::one());
-            simulate_call(&wallet, Some(U256::one()));
+            assert_eq!(EVM::account_basic(&wallet.source()).0.nonce, U256::from(2));
+            simulate_call(&wallet, Some(U256::from(2)));
             assert_ok!(
-                Executive::apply_extrinsic(wallet.sign(evm_call(&wallet, Some(U256::one()))))
+                Executive::apply_extrinsic(wallet.sign(evm_call(&wallet, Some(U256::from(2)))))
                     .unwrap()
             );
-            assert_eq!(EVM::account_basic(&wallet.source()).0.nonce, U256::from(2));
+            assert_eq!(EVM::account_basic(&wallet.source()).0.nonce, U256::from(3));
         });
     }
+}
+
+#[test]
+fn protected_alias_rejects_create2_collision_before_any_native_evm_transaction() {
+    ext().execute_with(|| {
+        System::set_block_number(1);
+        pallet_evm::DisableWhitelistCheck::<Runtime>::put(true);
+        let source = H160::repeat_byte(0x42);
+        let backing = evm_origin::HashedAddressMapping::into_account_id(source);
+        let _ = Balances::make_free_balance_be(&backing, TaoBalance::new(1_000_000_000_000));
+        let salt = H256::repeat_byte(0x17);
+        let init = hex::decode("6001600c60003960016000f300").unwrap();
+        let mut preimage = vec![0xff];
+        preimage.extend_from_slice(source.as_bytes());
+        preimage.extend_from_slice(salt.as_bytes());
+        preimage.extend_from_slice(&sp_io::hashing::keccak_256(&init));
+        let expected = H160::from_slice(&sp_io::hashing::keccak_256(&preimage)[12..]);
+        let create = || {
+            hashed_evm_runner::HashedEvmRunner::create2(
+                source,
+                init.clone(),
+                salt,
+                U256::zero(),
+                200_000,
+                Some(gas_price()),
+                None,
+                None,
+                vec![],
+                vec![],
+                true,
+                vec![],
+                false,
+                true,
+                None,
+                None,
+                <Runtime as pallet_evm::Config>::config(),
+            )
+        };
+        let before = with_transaction_unchecked(|| TransactionOutcome::Rollback(create())).unwrap();
+        assert!(before.exit_reason.is_succeed());
+        assert_eq!(before.value, expected);
+
+        // Construct the collision directly: discovering one cryptographically
+        // is outside this regression. The alias must remain creation-ineligible
+        // regardless of the destination derivation or the owner's balance.
+        let mut owner_bytes = [0x73; 32];
+        owner_bytes[..20].copy_from_slice(expected.as_bytes());
+        let owner = AccountId::new(owner_bytes);
+        assert_ok!(evm_origin::prepare_hashed_alias(&owner));
+        pallet_hashed_accounts::EvmAliases::<Runtime>::insert(expected.0, &owner);
+        assert_eq!(EVM::account_basic(&expected).0.nonce, U256::one());
+        assert_eq!(System::account_nonce(&owner), 0);
+        let after = create().unwrap();
+        assert_eq!(
+            after.exit_reason,
+            pallet_evm::ExitReason::Error(pallet_evm::ExitError::CreateCollision)
+        );
+        assert!(!pallet_evm::AccountCodes::<Runtime>::contains_key(expected));
+        assert_eq!(EVM::account_basic(&expected).0.nonce, U256::one());
+    });
 }
 
 #[test]
