@@ -26,7 +26,7 @@
     "runtime/tests/mldsa_reference_fees.rs": "ef647197fe2c0f7e8daa407417e8426a80e8a6c966ab5b8ebc56a19e51990cea"
   },
   "files": {
-    "fees.csv": "f58558f053e1352c9fdd689e81a979704f3d68565bc8b66cbd9080b93efc49e8",
+    "fees.csv": "04db5713ce3476dbc84e01149ee0fc997942986db3221a9775d15bcd594c1305",
     "benchmark-summary.txt": "46e039400f9ce7b05ddcc0b7ecc636f7230160cbbea1f7931f0490c51bf706ca",
     "preflight.log.gz": "62291c9d2c7c629c53df695bfd4194c9dedb4f6bc52de3cabd44041861c75a77",
     "selection.json": "36178c5819d5f76571f5215890c4b260adacab76f906752182f2ef9f251dca73",
