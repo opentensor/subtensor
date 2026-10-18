@@ -25,7 +25,15 @@ static PENDING_JOBS: AtomicUsize = AtomicUsize::new(0);
 struct PendingWork {
 	deadline: Instant,
 	// Counts even rejected admission attempts, never reset by overlay rollback.
-	work: Mutex<(usize, usize)>,
+	work: Mutex<WorkState>,
+}
+
+#[derive(Default)]
+struct WorkState {
+	attempts: usize,
+	bytes: usize,
+	// A rate token buys one bounded reconstruction, not one replayed extrinsic.
+	admitted: bool,
 }
 
 impl Drop for PendingWork {
@@ -52,7 +60,7 @@ impl PendingExecution {
 			.map_err(|_| fp_rpc::LOCAL_EXECUTION_CAPACITY_ERROR)?;
 		Ok(Self(Arc::new(PendingWork {
 			deadline: deadline.min(Instant::now() + PENDING_TIMEOUT),
-			work: Mutex::new((0, 0)),
+			work: Mutex::new(WorkState::default()),
 		})))
 	}
 
@@ -73,13 +81,33 @@ impl PendingExecution {
 	pub fn charge(&self, bytes: usize) -> Result<(), &'static str> {
 		self.check()?;
 		let mut work = self.0.work.lock().map_err(|_| PENDING_LIMIT_ERROR)?;
-		work.0 = work.0.saturating_add(1);
-		work.1 = work.1.saturating_add(bytes);
-		if work.0 > MAX_PENDING_ATTEMPTS || work.1 > MAX_PENDING_ATTEMPT_BYTES {
+		work.attempts = work.attempts.saturating_add(1);
+		work.bytes = work.bytes.saturating_add(bytes);
+		if work.attempts > MAX_PENDING_ATTEMPTS || work.bytes > MAX_PENDING_ATTEMPT_BYTES {
 			Err(PENDING_LIMIT_ERROR)
 		} else {
 			Ok(())
 		}
+	}
+
+	/// Acquire an execution permit, charging the service's rate token only on
+	/// this job's first successful acquisition. Every acquisition must still
+	/// enforce concurrency and input limits. The callback must not reenter this
+	/// budget: its lock makes the first-token decision atomic across API clones.
+	/// Failed acquisitions never mark the job admitted, and neither rollback nor
+	/// cloning renews its deadline, work budget or paid rate token.
+	pub fn admit<T>(
+		&self,
+		acquire: impl FnOnce(bool) -> Result<T, &'static str>,
+	) -> Result<T, &'static str> {
+		let mut work = self.0.work.lock().map_err(|_| PENDING_LIMIT_ERROR)?;
+		self.check()?;
+		if work.attempts > MAX_PENDING_ATTEMPTS || work.bytes > MAX_PENDING_ATTEMPT_BYTES {
+			return Err(PENDING_LIMIT_ERROR);
+		}
+		let permit = acquire(!work.admitted)?;
+		work.admitted = true;
+		Ok(permit)
 	}
 }
 

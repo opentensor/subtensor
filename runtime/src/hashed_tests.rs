@@ -1203,6 +1203,46 @@ fn nested_first_funding_batch_is_filtered_without_registration_or_transfer() {
 }
 
 #[test]
+fn oversized_force_batch_registration_attempts_leave_no_account_or_deposit() {
+    use sp_runtime::traits::Dispatchable;
+    ext().execute_with(|| {
+        System::set_block_number(1);
+        pallet_admin_utils::HashedAccountsEnabled::<Runtime>::put(true);
+        let sponsor = pair(22);
+        let sponsor_id = AccountId::from(sponsor.public());
+        let initial = TaoBalance::new(1_000_000_000_000);
+        let _ = Balances::make_free_balance_be(&sponsor_id, initial);
+        let registration = RuntimeCall::HashedAccounts(pallet_hashed_accounts::Call::register {
+            descriptor: descriptor().into(),
+        });
+        let mut calls = alloc::vec![registration; 2_000];
+        calls.push(RuntimeCall::System(SystemCall::remark {
+            remark: alloc::vec![0; 7 * 1024 * 1024],
+        }));
+        let batch = RuntimeCall::Utility(pallet_utility::Call::force_batch { calls });
+        let encoded = legacy(&sponsor, batch.clone()).encode();
+        let len = encoded.len();
+        System::note_extrinsic(encoded);
+        frame_support::assert_ok!(hashed_auth::with_registration_extrinsic_length(len, || {
+            batch.dispatch(RuntimeOrigin::signed(sponsor_id.clone()))
+        }));
+        assert_eq!(
+            System::events()
+                .iter()
+                .filter(|event| matches!(
+                    event.event,
+                    RuntimeEvent::Utility(pallet_utility::Event::ItemFailed { .. })
+                ))
+                .count(),
+            2_000
+        );
+        assert_no_received_account(&account());
+        assert_eq!(Balances::reserved_balance(&sponsor_id), TaoBalance::new(0));
+        assert_eq!(Balances::free_balance(&sponsor_id), initial);
+    });
+}
+
+#[test]
 fn proxied_first_funding_cannot_leave_a_partial_registration_or_transfer() {
     ext().execute_with(|| {
         System::set_block_number(1);

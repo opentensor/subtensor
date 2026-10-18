@@ -183,7 +183,8 @@ fn needs_admission(method: &str, data: &[u8], context: CallContext) -> bool {
 /// Each service retains its own bounded concurrency, bytes and token bucket;
 /// no idle quota is borrowed across services. Pending and Other each receive
 /// half of one original reservation, preserving the total ceiling of eight
-/// executions, 64 MiB of input, 64 burst tokens and 32 refills per second.
+/// simultaneous executions and 64 MiB of input. Pending rate tokens admit
+/// entire bounded reconstruction jobs; other services charge each execution.
 #[derive(Clone, Copy)]
 enum Service {
     Validation = 0,
@@ -253,6 +254,15 @@ impl State {
     }
 
     fn acquire(&mut self, bytes: usize, now: Instant) -> Result<(), error::Error> {
+        self.acquire_with_rate(bytes, now, true)
+    }
+
+    fn acquire_with_rate(
+        &mut self,
+        bytes: usize,
+        now: Instant,
+        charge_rate: bool,
+    ) -> Result<(), error::Error> {
         let next_bytes = self.bytes.checked_add(bytes).ok_or_else(busy)?;
         if self.active >= self.max_active || bytes > MAX_INPUT_BYTES || next_bytes > self.max_bytes
         {
@@ -272,10 +282,12 @@ impl State {
                 self.refilled = now;
             }
         }
-        if self.tokens == 0 {
+        if charge_rate && self.tokens == 0 {
             return Err(busy());
         }
-        self.tokens = self.tokens.saturating_sub(1);
+        if charge_rate {
+            self.tokens = self.tokens.saturating_sub(1);
+        }
         self.active = self.active.saturating_add(1);
         self.bytes = next_bytes;
         Ok(())
@@ -333,6 +345,27 @@ impl<E> AdmissionExecutor<E> {
             bytes,
         })
     }
+
+    fn acquire_pending(
+        &self,
+        budget: &fc_rpc::execution_admission::PendingExecution,
+        bytes: usize,
+    ) -> Result<Permit, error::Error> {
+        budget
+            .admit(|charge_rate| {
+                let [_, _, _, _, state] = &self.states;
+                state
+                    .lock()
+                    .map_err(|_| fp_rpc::LOCAL_EXECUTION_CAPACITY_ERROR)?
+                    .acquire_with_rate(bytes, Instant::now(), charge_rate)
+                    .map_err(|_| fp_rpc::LOCAL_EXECUTION_CAPACITY_ERROR)?;
+                Ok(Permit {
+                    state: state.clone(),
+                    bytes,
+                })
+            })
+            .map_err(|message| error::Error::Other(message.into()))
+    }
 }
 
 impl<E: CodeExecutor<Error = error::Error>> CodeExecutor for AdmissionExecutor<E> {
@@ -351,20 +384,20 @@ impl<E: CodeExecutor<Error = error::Error>> CodeExecutor for AdmissionExecutor<E
                 if let Err(message) = budget.charge(data.len()) {
                     return (Err(error::Error::Other(message.into())), false);
                 }
-                pending_method(method)
+                pending_method(method).then(|| budget.clone())
             } else {
-                false
+                None
             }
         } else {
-            false
+            None
         };
         let _permit = if needs_admission(method, data, context) {
-            let service = if pending {
-                Service::Pending
+            let permit = if let Some(budget) = pending {
+                self.acquire_pending(&budget, data.len())
             } else {
-                service(method)
+                self.acquire(service(method), data.len())
             };
-            match self.acquire(service, data.len()) {
+            match permit {
                 Ok(permit) => Some(permit),
                 Err(error) => return (Err(error), false),
             }
@@ -760,6 +793,7 @@ mod tests {
             64 * 1024 * 1024
         );
         assert_eq!(states.iter().map(|state| state.burst).sum::<u32>(), 64);
+        // Pending's bucket counts whole jobs; the other buckets count calls.
         assert_eq!(
             states
                 .iter()
@@ -767,6 +801,171 @@ mod tests {
                 .sum::<u128>(),
             32
         );
+    }
+
+    fn execute_pending(
+        executor: &AdmissionExecutor<MockExecutor>,
+        budget: &fc_rpc::execution_admission::PendingExecution,
+        method: &str,
+        data: &[u8],
+    ) -> Result<Vec<u8>, error::Error> {
+        let mut ext = sp_io::TestExternalities::default();
+        ext.register_extension(budget.clone());
+        executor
+            .call(
+                &mut ext.ext(),
+                &RuntimeCode::empty(),
+                method,
+                data,
+                CallContext::Offchain,
+            )
+            .0
+    }
+
+    fn assert_bounded_pending_replay(extrinsics: usize) {
+        use fc_rpc::execution_admission::{
+            MAX_PENDING_EXTRINSICS, PENDING_TIMEOUT, PendingExecution,
+        };
+        let _serial = PENDING_TEST_LOCK.lock().unwrap();
+        assert!(extrinsics <= MAX_PENDING_EXTRINSICS);
+        let (executor, _) = executor();
+        let [_, _, _, _, pending] = &executor.states;
+        {
+            let mut state = pending.lock().unwrap();
+            // No refill can hide per-step charging. One token must cover the
+            // entire snapshot (including inherents), initialization and reads.
+            state.tokens = 1;
+            state.refilled = Instant::now() + Duration::from_secs(60);
+        }
+        let budget = PendingExecution::try_new(Instant::now() + PENDING_TIMEOUT).unwrap();
+        execute_pending(
+            &executor,
+            &budget,
+            "EthereumRuntimeRPCApi_initialize_pending_block",
+            &[],
+        )
+        .unwrap();
+        execute_pending(&executor, &budget, "BlockBuilder_inherent_extrinsics", &[]).unwrap();
+        for index in 0..extrinsics {
+            execute_pending(
+                &executor.clone(),
+                &budget,
+                "BlockBuilder_apply_extrinsic",
+                &index.to_le_bytes(),
+            )
+            .unwrap();
+        }
+        execute_pending(
+            &executor,
+            &budget,
+            "EthereumRuntimeRPCApi_account_basic",
+            &[],
+        )
+        .unwrap();
+        assert_eq!(executor.inner.calls.load(Ordering::SeqCst), extrinsics + 3);
+        assert_eq!(pending.lock().unwrap().tokens, 0);
+    }
+
+    #[test]
+    fn pending_replay_of_80_extrinsics_completes_without_rate_refill() {
+        assert_bounded_pending_replay(80);
+    }
+
+    #[test]
+    fn pending_replay_of_100_extrinsics_completes_without_rate_refill() {
+        assert_bounded_pending_replay(100);
+    }
+
+    #[test]
+    fn pending_replay_of_256_extrinsics_completes_without_rate_refill() {
+        assert_bounded_pending_replay(256);
+    }
+
+    #[test]
+    fn pending_job_rate_overload_does_not_strand_admitted_replays() {
+        use fc_rpc::execution_admission::{PENDING_TIMEOUT, PendingExecution};
+        let _serial = PENDING_TEST_LOCK.lock().unwrap();
+        let (executor, _) = executor();
+        let [_, evm, _, _, pending] = &executor.states;
+        let frozen_refill = Instant::now() + Duration::from_secs(60);
+        pending.lock().unwrap().refilled = frozen_refill;
+        evm.lock().unwrap().refilled = frozen_refill;
+        let first = PendingExecution::try_new(Instant::now() + PENDING_TIMEOUT).unwrap();
+        execute_pending(&executor, &first, "Core_initialize_block", &[]).unwrap();
+        for _ in 1..BURST / 2 {
+            let job = PendingExecution::try_new(Instant::now() + PENDING_TIMEOUT).unwrap();
+            execute_pending(&executor, &job, "Core_initialize_block", &[]).unwrap();
+        }
+        let waiting = PendingExecution::try_new(Instant::now() + PENDING_TIMEOUT).unwrap();
+        let calls = executor.inner.calls.load(Ordering::SeqCst);
+        for _ in 0..2 {
+            let error =
+                execute_pending(&executor, &waiting, "Core_initialize_block", &[]).unwrap_err();
+            assert!(
+                error
+                    .to_string()
+                    .contains(fp_rpc::LOCAL_EXECUTION_CAPACITY_ERROR)
+            );
+        }
+        assert_eq!(executor.inner.calls.load(Ordering::SeqCst), calls);
+        // An admitted job finishes even when new jobs exhaust the bucket.
+        for _ in 0..256 {
+            execute_pending(&executor, &first, "BlockBuilder_apply_extrinsic", &[]).unwrap();
+        }
+        // The independent EVM simulation bucket is still charged per call.
+        for _ in 0..BURST {
+            execute_pending(&executor, &first, "EthereumRuntimeRPCApi_call", &[]).unwrap();
+        }
+        assert!(execute_pending(&executor, &first, "EthereumRuntimeRPCApi_call", &[]).is_err());
+        // Refill exactly one job token. Failed admission did not give waiting
+        // a free pass, and its retry spends the newly available token.
+        {
+            let mut state = pending.lock().unwrap();
+            state.refilled = Instant::now() - state.refill;
+        }
+        execute_pending(&executor, &waiting, "Core_initialize_block", &[]).unwrap();
+        assert_eq!(pending.lock().unwrap().tokens, 0);
+    }
+
+    #[test]
+    fn paid_pending_jobs_still_enforce_concurrency_bytes_and_work_limits() {
+        use fc_rpc::execution_admission::{PENDING_LIMIT_ERROR, PENDING_TIMEOUT, PendingExecution};
+        let _serial = PENDING_TEST_LOCK.lock().unwrap();
+        let (executor, _) = executor();
+        let [_, _, _, _, pending] = &executor.states;
+        pending.lock().unwrap().refilled = Instant::now() + Duration::from_secs(60);
+        let budget = PendingExecution::try_new(Instant::now() + PENDING_TIMEOUT).unwrap();
+        let held = executor.acquire(Service::Pending, 0).unwrap();
+        assert!(execute_pending(&executor, &budget, "Core_initialize_block", &[]).is_err());
+        drop(held);
+        execute_pending(&executor, &budget, "Core_initialize_block", &[]).unwrap();
+        assert_eq!(pending.lock().unwrap().tokens, BURST / 2 - 2);
+        let held = executor.acquire(Service::Pending, 0).unwrap();
+        assert!(execute_pending(&executor, &budget, "BlockBuilder_apply_extrinsic", &[]).is_err());
+        drop(held);
+        assert!(
+            execute_pending(
+                &executor,
+                &budget,
+                "BlockBuilder_apply_extrinsic",
+                &vec![0; MAX_ACTIVE_BYTES / 2 + 1]
+            )
+            .is_err()
+        );
+        // All four attempts above count, including pre-execution rejections.
+        for _ in 4..1024 {
+            execute_pending(&executor, &budget, "BlockBuilder_apply_extrinsic", &[]).unwrap();
+        }
+        let calls = executor.inner.calls.load(Ordering::SeqCst);
+        for method in [
+            "BlockBuilder_apply_extrinsic",
+            "EthereumRuntimeRPCApi_account_basic",
+        ] {
+            let error = execute_pending(&executor, &budget, method, &[]).unwrap_err();
+            assert!(error.to_string().contains(PENDING_LIMIT_ERROR));
+        }
+        assert_eq!(executor.inner.calls.load(Ordering::SeqCst), calls);
+        assert_eq!(pending.lock().unwrap().tokens, BURST / 2 - 3);
     }
 
     #[test]

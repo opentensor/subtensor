@@ -104,6 +104,9 @@ where
 	) -> Result<(B::Hash, ApiRef<'_, C::Api>), Error> {
 		let budget = PendingExecution::try_new(deadline).map_err(pending_limit_error)?;
 		let mut api = self.client.runtime_api();
+		// The executor charges one reconstruction rate token through this shared
+		// capability. Every replay step still needs a concurrency/input permit
+		// and spends this job's cumulative work budget; retries never restart it.
 		api.register_extension(budget.clone());
 
 		// Bound and pin the pool once, before awaiting or executing any runtime

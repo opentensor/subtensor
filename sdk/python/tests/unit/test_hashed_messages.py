@@ -252,3 +252,114 @@ def test_cli_never_uses_a_companion_accounts_retired_generation(tmp_path, monkey
     )
     assert result.exit_code != 0
     assert "generation zero" in result.output
+
+
+@pytest.mark.parametrize("crypto_type", [CRYPTO_HASHED, CRYPTO_HASHED_ED25519])
+async def test_disk_hotkey_http_signer_preparation_uses_finalized_retirement(tmp_path, crypto_type):
+    from bittensor import Client, http_auth
+    from tests.harness.fake_substrate import FakeSubstrate
+
+    wallet = Wallet("sender", path=str(tmp_path))
+    wallet.regenerate_hotkey(mnemonic=MNEMONIC, crypto_type=crypto_type, suppress=True)
+    # Reload from disk, as documented applications do; no manual generation.
+    wallet = Wallet("sender", path=str(tmp_path))
+    with pytest.raises(ValueError, match="generation zero"):
+        http_auth.sign(wallet, method="POST", path="/generate")
+    key = wallet.hotkey
+    chain = FakeSubstrate()
+    chain.finalized = 77
+    finalized = await chain.block_hash(77)
+    chain.query = AsyncMock(
+        return_value={"descriptor": descriptor_value(bytes(key.hashed_descriptor)), "generation": 9}
+    )
+    client = Client(substrate=chain)
+    prepared = await http_auth.prepare_signer(wallet, client=client)
+    chain.query.assert_awaited_once_with(
+        "HashedAccounts", "Accounts", [key.ss58_address], block_hash=finalized
+    )
+    receiver = Keypair.create_from_uri("//Bob")
+    nonce = 1_752_076_800_000_000_000
+    headers = http_auth.sign(
+        prepared,
+        method="POST",
+        path="/generate",
+        body=b"body",
+        receiver_ss58=receiver.ss58_address,
+        nonce_ns=nonce,
+    )
+    caller = http_auth.verify(
+        headers,
+        b"body",
+        method="POST",
+        path="/generate",
+        self_hotkey_ss58=receiver.ss58_address,
+        expected_crypto_type=crypto_type,
+        now_ns=nonce,
+        nonce_store=http_auth.InMemoryNonceStore(),
+    )
+    assert caller.hotkey_ss58 == key.ss58_address
+    assert caller.crypto_type == crypto_type
+    # Preparation does not mutate a wallet's untrusted generation on disk.
+    with pytest.raises(ValueError, match="generation zero"):
+        http_auth.sign(Wallet("sender", path=str(tmp_path)), method="POST", path="/generate")
+
+
+@pytest.mark.parametrize("crypto_type", [CRYPTO_HASHED, CRYPTO_HASHED_ED25519])
+@pytest.mark.parametrize("state", ["missing", "active", "mismatch", "no_finality", "unavailable"])
+async def test_hashed_http_preparation_fails_closed(tmp_path, crypto_type, state):
+    from bittensor import Client, http_auth
+    from tests.harness.fake_substrate import FakeSubstrate
+
+    wallet = Wallet("sender", path=str(tmp_path))
+    wallet.regenerate_hotkey(mnemonic=MNEMONIC, crypto_type=crypto_type, suppress=True)
+    key = wallet.hotkey
+    chain = FakeSubstrate()
+    record = {"descriptor": descriptor_value(bytes(key.hashed_descriptor)), "generation": 2}
+    if state == "missing":
+        record = None
+    elif state == "active":
+        record["generation"] = 0
+    elif state == "mismatch":
+        other = Keypair.create_from_seed(bytes([95]) * 32, crypto_type)
+        record["descriptor"] = descriptor_value(bytes(other.hashed_descriptor))
+    chain.query = AsyncMock(return_value=record)
+    if state == "no_finality":
+        chain.block_hash = AsyncMock(return_value=None)
+    elif state == "unavailable":
+        chain.query.side_effect = RuntimeError("finalized state unavailable")
+    with pytest.raises((ValueError, RuntimeError)):
+        await http_auth.prepare_signer(wallet, client=Client(substrate=chain))
+    if state == "no_finality":
+        chain.query.assert_not_awaited()
+
+
+@pytest.mark.parametrize("crypto_type", [CRYPTO_HASHED, CRYPTO_HASHED_ED25519])
+async def test_http_preparation_uses_actual_hotkey_not_stale_companion(tmp_path, crypto_type):
+    from bittensor import Client, http_auth
+    from tests.harness.fake_substrate import FakeSubstrate
+
+    wallet = Wallet("sender", path=str(tmp_path))
+    wallet.regenerate_hotkey(mnemonic=MNEMONIC, crypto_type=crypto_type, suppress=True)
+    actual = wallet.hotkey
+    unrelated = Keypair.create_from_seed(bytes([95]) * 32, crypto_type)
+    wallet.hotkeypub_file.set_keypair(unrelated.public_only(), encrypt=False, overwrite=True)
+    wallet = Wallet("sender", path=str(tmp_path))
+    chain = FakeSubstrate()
+
+    async def query(module, storage, params, *, block_hash):
+        assert params == [actual.ss58_address]
+        return {"descriptor": descriptor_value(bytes(actual.hashed_descriptor)), "generation": 0}
+
+    chain.query = query
+    with pytest.raises(ValueError, match="generation zero"):
+        await http_auth.prepare_signer(wallet, client=Client(substrate=chain))
+
+
+@pytest.mark.parametrize("crypto_type", [CRYPTO_SR25519, CRYPTO_ED25519])
+async def test_classical_http_preparation_does_not_access_chain(crypto_type):
+    from bittensor import http_auth
+
+    key = Keypair.create_from_mnemonic(MNEMONIC, crypto_type)
+    client = AsyncMock()
+    assert await http_auth.prepare_signer(key, client=client) is key
+    assert not client.mock_calls

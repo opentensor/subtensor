@@ -209,8 +209,9 @@ class MultisigThreshold1(Intent):
         view = _account_view(
             substrate, self.coldkey_address(wallet), 1, self.other_signatories, wallet=wallet
         )
-        inner = await _compose_inner(substrate, view, self.call)
-        return await self._build_with_inner(substrate, wallet, inner)
+        inner, extras = await _compose_inner(substrate, view, self.call)
+        composed = await self._build_with_inner(substrate, wallet, inner)
+        return BuiltCall(composed, extras) if extras else composed
 
     async def _build_with_inner(self, substrate, wallet: Any, inner):
         return await substrate.compose(
@@ -257,8 +258,9 @@ class MultisigExecute(Intent):
             self.other_signatories,
             wallet=wallet,
         )
-        inner = await _compose_inner(substrate, view, self.call)
-        return await self._build_with_inner(substrate, wallet, inner)
+        inner, extras = await _compose_inner(substrate, view, self.call)
+        built = await self._build_with_inner(substrate, wallet, inner)
+        return BuiltCall(built.call, {**extras, **built.extras})
 
     async def _build_with_inner(self, substrate, wallet: Any, inner):
         _validate_multisig(self.threshold, self.other_signatories, self.coldkey_address(wallet))
@@ -466,7 +468,8 @@ class MultisigApprove(Intent):
 
     async def build(self, substrate, wallet: Any):
         _validate_multisig(self.threshold, self.other_signatories, self.coldkey_address(wallet))
-        inner = await _compose_inner(
+        # This intent records approval without dispatching the inner call.
+        inner, _ = await _compose_inner(
             substrate,
             _account_view(
                 substrate,
@@ -560,7 +563,7 @@ class MultisigCancel(Intent):
     )
 
     async def build(self, substrate, wallet: Any):
-        inner = await _compose_inner(
+        inner, _ = await _compose_inner(
             substrate,
             _account_view(
                 substrate,

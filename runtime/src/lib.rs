@@ -3045,3 +3045,6 @@ fn test_into_evm_balance_overflow() {
     let result = SubtensorEvmBalanceConverter::into_evm_balance(substrate_balance);
     assert_eq!(result, Some(expected_evm_balance)); // Should return the scaled value
 }
+
+#[cfg(test)]
+mod evm_mapping_meter_tests;

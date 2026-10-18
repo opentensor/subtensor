@@ -1495,7 +1495,9 @@ where
 	}
 
 	fn record_external_operation(&mut self, op: evm::ExternalOperation) -> Result<(), ExitError> {
-		if matches!(op, ExternalOperation::Write(_)) {
+		// IsEmpty runs during dynamic-gas calculation, before the opcode charge
+		// can fail. Prepay its mapping lookup before the executor reads storage.
+		if matches!(op, ExternalOperation::Write(_) | ExternalOperation::IsEmpty) {
 			self.record_mapping_reads(1)?;
 		}
 		let size_limit: u64 = self
@@ -1517,7 +1519,11 @@ where
 				}
 				ExternalOperation::IsEmpty => {
 					Self::record_nonce_access(weight_info)?;
-					weight_info.try_record_proof_size_or_fail(IS_EMPTY_CHECK_PROOF_SIZE)?;
+					// The patched gasometer also uses this pre-read hook for
+					// SELFDESTRUCT's source balance; cover either account proof.
+					weight_info.try_record_proof_size_or_fail(
+						IS_EMPTY_CHECK_PROOF_SIZE.max(ACCOUNT_BASIC_PROOF_SIZE),
+					)?;
 				}
 				ExternalOperation::Write(len) => {
 					weight_info.try_record_proof_size_or_fail(WRITE_PROOF_SIZE)?;
@@ -1550,13 +1556,13 @@ where
 			Opcode::BALANCE | Opcode::SELFBALANCE | Opcode::EXTCODEHASH => 1,
 			// Charge both transfer mappings before allocating the callee's gas,
 			// even for zero value (the executor still calls transfer).
-			Opcode::CALL | Opcode::CALLCODE => 3,
-			Opcode::DELEGATECALL | Opcode::STATICCALL => 1,
+			// Target existence is already charged by the early IsEmpty hook.
+			Opcode::CALL | Opcode::CALLCODE => 2,
 			// Three basic reads, two nonce updates and two transfer mappings.
 			Opcode::CREATE | Opcode::CREATE2 => 7,
-			// Target emptiness, two source balance reads, deferred deletion and
-			// two transfer mappings.
-			Opcode::SUICIDE => 6,
+			// Source balance and target existence were charged before dynamic gas;
+			// prepay the remaining balance read, deletion and two transfer mappings.
+			Opcode::SUICIDE => 4,
 			_ => 0,
 		};
 		self.record_mapping_reads(reads)?;

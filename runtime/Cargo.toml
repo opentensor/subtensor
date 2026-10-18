@@ -162,6 +162,7 @@ stp-shield.workspace = true
 ethereum.workspace = true
 
 [dev-dependencies]
+evm = "0.43.4"
 sp-keystore = { workspace = true, features = ["std"] }
 frame-metadata.workspace = true
 sp-tracing.workspace = true

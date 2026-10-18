@@ -199,14 +199,18 @@ class _OriginView:
 
 
 async def _compose_nested_intent_call(substrate, intent, wallet, *, wrapper: str):
-    """Preserve recipient guards inside a call executed by another dispatch."""
+    """Return the guarded call and safety metadata for its enclosing dispatch.
+
+    Dispatch wrappers must propagate the metadata: an outer atomic batch must
+    reject an inner guarded batch before a proxy or multisig consumes approval.
+    """
     call, extras = await _compose_intent_call(substrate, intent, wallet)
     if extras.get("hashed_registration"):
         raise ValueError(
             "register the hashed recipient first using a direct sponsor wallet; "
             f"initial registration cannot be wrapped in {wrapper}"
         )
-    return call
+    return call, extras
 
 
 async def _compose_intent_call(

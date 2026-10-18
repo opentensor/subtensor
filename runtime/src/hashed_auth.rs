@@ -351,6 +351,177 @@ fn prepare_pq_authority(account: &AccountId) -> DispatchResult {
     crate::evm_origin::prepare_hashed_alias(account)
 }
 
+/// An application-scoped bound supplied by Executive through CheckedExtrinsic.
+/// Do not infer this from a storage read: even a zero-output `storage::read`
+/// clones the complete value in the host's overlay before returning its length.
+#[derive(Clone, Copy)]
+struct AppliedExtrinsicLength(usize);
+
+struct AppliedExtrinsicLengthGuard(Option<AppliedExtrinsicLength>);
+impl Drop for AppliedExtrinsicLengthGuard {
+    fn drop(&mut self) {
+        frame_support::dispatch_context::with_context::<AppliedExtrinsicLength, _>(|value| {
+            if let Some(previous) = self.0 {
+                value.set(previous);
+            } else {
+                value.clear();
+            }
+        });
+    }
+}
+
+/// Nested application (including a Shield inner transaction) restores its
+/// caller's bound. Ordinary nested pallet dispatch inherits the outer bound.
+pub(crate) fn with_registration_extrinsic_length<R>(len: usize, apply: impl FnOnce() -> R) -> R {
+    use frame_support::dispatch_context::{run_in_context, with_context};
+    run_in_context(|| {
+        let previous = with_context::<AppliedExtrinsicLength, _>(|value| {
+            let previous = value.get().copied();
+            value.set(AppliedExtrinsicLength(len));
+            previous
+        })
+        .flatten();
+        let _guard = AppliedExtrinsicLengthGuard(previous);
+        apply()
+    })
+}
+
+// Direct benchmark dispatch lacks CheckedExtrinsic::apply. Cache its synthetic
+// storage length once per FRAME dispatch so even a malformed oversized fixture
+// cannot force repeated host copies through a nested force_batch.
+#[cfg(any(test, feature = "runtime-benchmarks"))]
+#[derive(Clone, Copy)]
+struct FixtureExtrinsicLength {
+    index: u32,
+    stored_len: Option<u32>,
+}
+
+/// Reject an oversized applied extrinsic before any host storage access. The
+/// Executive passes the exact length of the bytes it stores in ExtrinsicData,
+/// so an admissible registration needs only the original single value read.
+fn bounded_registration_extrinsic(max_len: u32) -> Option<Vec<u8>> {
+    let applied_len =
+        frame_support::dispatch_context::with_context::<AppliedExtrinsicLength, _>(|value| {
+            value.get().map(|value| value.0)
+        })
+        .flatten();
+    if let Some(len) = applied_len {
+        if len > max_len as usize {
+            return None;
+        }
+        let encoded =
+            crate::System::extrinsic_data(crate::System::extrinsic_index().unwrap_or_default());
+        return (encoded.len() == len).then_some(encoded);
+    }
+    // Benchmarks and runtime unit fixtures call pallet functions directly after
+    // installing a synthetic outer extrinsic. Real external extrinsics always
+    // enter the applied context, including on nodes compiled with benchmarks.
+    // Production fails closed for direct dispatch without that context.
+    #[cfg(any(test, feature = "runtime-benchmarks"))]
+    {
+        bounded_fixture_registration_extrinsic(max_len)
+    }
+    #[cfg(not(any(test, feature = "runtime-benchmarks")))]
+    {
+        None
+    }
+}
+
+#[cfg(any(test, feature = "runtime-benchmarks"))]
+fn bounded_fixture_registration_extrinsic(max_len: u32) -> Option<Vec<u8>> {
+    use frame_support::{StorageHasher, traits::PalletInfoAccess};
+    let index = crate::System::extrinsic_index().unwrap_or_default();
+    let mut key =
+        frame_support::storage::storage_prefix(crate::System::name().as_bytes(), b"ExtrinsicData")
+            .to_vec();
+    key.extend_from_slice(&frame_support::Twox64Concat::hash(&index.encode()));
+    // The SCALE Vec prefix is included in storage length, but not max_len.
+    let max_stored_len = max_len.checked_add(codec::Compact(max_len).encoded_size() as u32)?;
+    let read_length = || sp_io::storage::read(&key, &mut [], 0);
+    let stored_len =
+        frame_support::dispatch_context::with_context::<FixtureExtrinsicLength, _>(|value| {
+            if let Some(cached) = value.get().filter(|cached| cached.index == index) {
+                return cached.stored_len;
+            }
+            let stored_len = read_length();
+            value.set(FixtureExtrinsicLength { index, stored_len });
+            stored_len
+        })
+        .unwrap_or_else(read_length)?;
+    if stored_len > max_stored_len {
+        return None;
+    }
+    let encoded = crate::System::extrinsic_data(index);
+    (encoded.len() <= max_len as usize).then_some(encoded)
+}
+
+#[cfg(test)]
+#[test]
+fn registration_outer_size_limits_include_scale_prefix() {
+    sp_io::TestExternalities::default().execute_with(|| {
+        assert!(bounded_registration_extrinsic(16 * 1024).is_none());
+        for limit in [16 * 1024, 64 * 1024] {
+            for len in [limit - 1, limit, limit + 1, 7 * 1024 * 1024] {
+                crate::System::note_extrinsic(alloc::vec![0; len as usize]);
+                let result = with_registration_extrinsic_length(len as usize, || {
+                    bounded_registration_extrinsic(limit)
+                });
+                assert_eq!(result.is_some(), len <= limit);
+                if let Some(bytes) = result {
+                    assert_eq!(bytes.len(), len as usize);
+                }
+            }
+        }
+    });
+}
+
+#[cfg(test)]
+#[test]
+fn oversized_registration_bounds_need_no_externalities_or_extrinsic_copy() {
+    // This test deliberately has no TestExternalities. Any storage access,
+    // including a length-only read that clones the host value, would panic.
+    with_registration_extrinsic_length(7 * 1024 * 1024, || {
+        for _ in 0..2_000 {
+            assert!(bounded_registration_extrinsic(16 * 1024).is_none());
+            assert!(bounded_registration_extrinsic(64 * 1024).is_none());
+        }
+    });
+}
+
+#[cfg(test)]
+#[test]
+fn registration_extrinsic_length_context_restores_nested_and_finished_scopes() {
+    let current = || {
+        frame_support::dispatch_context::with_context::<AppliedExtrinsicLength, _>(|value| {
+            value.get().map(|value| value.0)
+        })
+        .flatten()
+    };
+    assert_eq!(current(), None);
+    with_registration_extrinsic_length(7 * 1024 * 1024, || {
+        assert_eq!(current(), Some(7 * 1024 * 1024));
+        with_registration_extrinsic_length(128, || assert_eq!(current(), Some(128)));
+        assert_eq!(current(), Some(7 * 1024 * 1024));
+        assert!(bounded_registration_extrinsic(16 * 1024).is_none());
+    });
+    assert_eq!(current(), None);
+    frame_support::dispatch_context::run_in_context(|| {
+        let result = std::panic::catch_unwind(|| {
+            with_registration_extrinsic_length(999, || panic!("test unwind"));
+        });
+        assert!(result.is_err());
+        assert_eq!(current(), None);
+        with_registration_extrinsic_length(7 * 1024 * 1024, || {
+            let result = std::panic::catch_unwind(|| {
+                with_registration_extrinsic_length(123, || panic!("nested test unwind"));
+            });
+            assert!(result.is_err());
+            assert_eq!(current(), Some(7 * 1024 * 1024));
+        });
+        assert_eq!(current(), None);
+    });
+}
+
 impl pallet_hashed_accounts::OnRegister for OnHashedRegistered {
     fn on_sponsored_deposit(
         account: &AccountId,
@@ -359,22 +530,7 @@ impl pallet_hashed_accounts::OnRegister for OnHashedRegistered {
     ) -> DispatchResult {
         use sp_runtime::generic::Preamble;
         let invalid = DispatchError::Other("InvalidDerivedDepositConsent");
-        let index = crate::System::extrinsic_index().unwrap_or_default();
-        // Check the encoded storage length before allocating a caller's entire
-        // extrinsic. Sponsored setup has a separate, bounded consent envelope.
-        use frame_support::{StorageHasher, traits::PalletInfoAccess};
-        let mut key = frame_support::storage::storage_prefix(
-            crate::System::name().as_bytes(),
-            b"ExtrinsicData",
-        )
-        .to_vec();
-        key.extend_from_slice(&frame_support::Twox64Concat::hash(&index.encode()));
-        ensure!(
-            sp_io::storage::read(&key, &mut [], 0).is_some_and(|len| len <= 64 * 1024 + 4),
-            invalid
-        );
-        let encoded = crate::System::extrinsic_data(index);
-        ensure!(encoded.len() <= 64 * 1024, invalid);
+        let encoded = bounded_registration_extrinsic(64 * 1024).ok_or(invalid)?;
         let mut input = encoded.as_slice();
         let outer = crate::UncheckedExtrinsic::decode(&mut input).map_err(|_| invalid)?;
         ensure!(input.is_empty(), invalid);
@@ -551,9 +707,7 @@ impl pallet_hashed_accounts::OnRegister for OnHashedRegistered {
         use sp_runtime::generic::Preamble;
         let invalid = DispatchError::Other("InvalidHashedRegistrationContext");
         ensure!(account != sponsor, invalid);
-        let encoded =
-            crate::System::extrinsic_data(crate::System::extrinsic_index().unwrap_or_default());
-        ensure!(encoded.len() <= 16 * 1024, invalid);
+        let encoded = bounded_registration_extrinsic(16 * 1024).ok_or(invalid)?;
         let mut bytes = encoded.as_slice();
         let outer = crate::UncheckedExtrinsic::decode(&mut bytes).map_err(|_| invalid)?;
         ensure!(bytes.is_empty(), invalid);

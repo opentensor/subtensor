@@ -529,7 +529,9 @@ def root_claim(
 
     if hotkey_ss58 is not None:
         hotkey = app_ctx.resolve_address("hotkey_ss58", hotkey_ss58)
-        owner = app_ctx.resolve_address("coldkey_ss58", coldkey_ss58)
+        wallet_name, owner = resolve_position_wallet(app_ctx, coldkey_ss58)
+        app_ctx.wallet_name = wallet_name
+        app_ctx.wallet_given = True
         _claim_position(app_ctx, hotkey=hotkey, owner=owner)
         return
 

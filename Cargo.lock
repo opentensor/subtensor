@@ -4570,8 +4570,6 @@ dependencies = [
 [[package]]
 name = "evm-gasometer"
 version = "0.43.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54aa0327b242bad8dd83ba524effd1d798e9102ff592910dfdded79c6bde4ff3"
 dependencies = [
  "environmental",
  "evm-core",
@@ -8795,6 +8793,7 @@ version = "4.0.0-dev"
 dependencies = [
  "ark-serialize 0.4.2",
  "ethereum",
+ "evm",
  "fp-account",
  "fp-evm",
  "fp-rpc",

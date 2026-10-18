@@ -17,8 +17,10 @@ from .._generated import storage
 from ..balance import Balance
 from ..basket_index import staker_yield
 from ..client import Client
+from ..keyfiles import KeyfileError
 from ..receiving import is_receiving_address, parse_recipient
-from ..wallets import is_bittensor_address
+from ..sp_core import ss58_decode
+from ..wallets import is_bittensor_address, open_wallet
 from .context import AppContext, address_cli_name
 from .helpers import (
     DUST_VALUE_TAO,
@@ -156,11 +158,44 @@ def resolve_position_wallet(app_ctx: AppContext, coldkey_ss58: Optional[str]) ->
     position, which put the query spinner ahead of the wallet question; the
     validator picker that follows still filters to non-dust positions.)
     """
-    owner = app_ctx.resolve_address("coldkey_ss58", coldkey_ss58)
-    for name, ss58 in list_coldkeys(app_ctx.wallet_path):
-        if ss58 == owner:
+    proxy = app_ctx.resolve_dispatch_proxy()
+    owner = (
+        proxy
+        if coldkey_ss58 is None and proxy is not None
+        else app_ctx.resolve_address("coldkey_ss58", coldkey_ss58)
+    )
+    owner_id = bytes(ss58_decode(parse_recipient(owner).account))
+    if proxy is not None:
+        if bytes(ss58_decode(parse_recipient(proxy).account)) == owner_id:
+            return app_ctx.wallet_name, owner
+        app_ctx.output.error("the selected coldkey does not match the proxy dispatch account")
+        raise typer.Exit(2)
+    for name in (coldkey_ss58, app_ctx.multisig_wallet_name, app_ctx.wallet_name):
+        if name:
+            account = app_ctx._saved_multisig_address(name)
+            if account and bytes(ss58_decode(account)) == owner_id:
+                return name, owner
+    if app_ctx.uses_external_signer():
+        signer = app_ctx.external_signer_address()
+        if signer and bytes(ss58_decode(parse_recipient(signer).account)) == owner_id:
+            # Keep the later device/browser approval on the account whose
+            # positions were selected, even when it came from saved config.
+            app_ctx.signer_address = parse_recipient(signer).account
+            return app_ctx.wallet_name, owner
+        app_ctx.output.error("select the position owner's account with --signer-address")
+        raise typer.Exit(2)
+    for name, _ in list_coldkeys(app_ctx.wallet_path):
+        try:
+            # The wallet list reads display-only JSON headers. Select against
+            # the validated public key, not a stale or malformed ss58Address.
+            ss58 = open_wallet(name=name, path=app_ctx.wallet_path).coldkeypub.ss58_address
+            matches = bytes(ss58_decode(ss58)) == owner_id
+        except (KeyfileError, OSError, ValueError):
+            continue
+        if matches:
             return name, ss58
-    return app_ctx.wallet_name, owner
+    app_ctx.output.error("no local signing wallet matches the selected coldkey")
+    raise typer.Exit(2)
 
 
 def resolve_validator_selector(app_ctx: AppContext, value: str) -> str:

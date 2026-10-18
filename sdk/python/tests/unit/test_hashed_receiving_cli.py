@@ -714,7 +714,6 @@ def test_explicit_root_claim_matches_receiving_identity(
     from bittensor import Balance
     from bittensor.cli.commands import root
     from bittensor.cli.root_helpers import RootPosition
-    from tests.harness.samples import ALICE
 
     wallet = Wallet("recipient", path=str(wallet_path))
     wallet.regenerate_coldkey(seed=bytes([10]) * 32, use_password=False, suppress=True)
@@ -742,7 +741,9 @@ def test_explicit_root_claim_matches_receiving_identity(
     monkeypatch.setattr(
         AppContext, "submit", lambda self, intent, **kwargs: submitted.append(intent)
     )
-    result = _invoke("root", "claim", "--hotkey", selected, "--coldkey", ALICE)
+    result = _invoke(
+        "root", "claim", "--hotkey", selected, "--coldkey", wallet.coldkeypub.ss58_address
+    )
     assert result.exit_code == 0, (result.output, result.exception)
     assert len(submitted) == 1
     assert submitted[0].hotkey_ss58 == key.ss58_address
@@ -758,12 +759,10 @@ def test_root_move_matches_identity_and_preserves_receiving_descriptors(
 
     from bittensor import Balance
     from bittensor.cli.root_helpers import RootPosition
-    from tests.harness.samples import ALICE
 
     move = importlib.import_module("bittensor.cli.commands.root_move")
     wallet = Wallet("recipient", path=str(wallet_path))
-    if selector == "local":
-        wallet.regenerate_coldkey(seed=bytes([20]) * 32, use_password=False, suppress=True)
+    wallet.regenerate_coldkey(seed=bytes([20]) * 32, use_password=False, suppress=True)
     wallet.regenerate_hotkey(seed=bytes([21]) * 32, crypto_type=crypto_type, suppress=True)
     key = wallet.hotkeypub
     source = receiving_address(key)
@@ -798,7 +797,7 @@ def test_root_move_matches_identity_and_preserves_receiving_descriptors(
     monkeypatch.setattr(
         AppContext, "submit", lambda self, intent, **kwargs: submitted.append(intent)
     )
-    args = ["root", "move", "--coldkey", ALICE, "--from", selected]
+    args = ["root", "move", "--coldkey", wallet.coldkeypub.ss58_address, "--from", selected]
     if not pick_destination:
         args.extend(["--to", "destination-contact"])
     result = _invoke(*args)
@@ -861,6 +860,9 @@ def test_root_move_rejects_same_validator_in_different_encodings(
 
     move = importlib.import_module("bittensor.cli.commands.root_move")
     key = Keypair.create_from_seed(bytes([23]) * 32, crypto_type)
+    Wallet("recipient", path=str(wallet_path)).coldkeypub_file.set_keypair(
+        Keypair(ss58_address=ALICE), encrypt=False
+    )
 
     async def positions(*args):
         return [RootPosition(key.ss58_address, Balance.from_tao(10), Balance.from_tao(1))]
@@ -912,3 +914,177 @@ def test_root_list_receiving_selector_matches_position(wallet_path, monkeypatch,
     result = _invoke("root", "list", receiving_address(key), "--coldkey", ALICE)
     assert result.exit_code == 0, (result.output, result.exception)
     assert rendered == [position]
+
+
+@pytest.mark.parametrize("crypto_type", [4, 6, 7, 8])
+@pytest.mark.parametrize("selector", ["local", "receiving", "canonical"])
+@pytest.mark.parametrize("operation", ["claim", "move"])
+@pytest.mark.parametrize("interactive", [False, True])
+def test_root_operations_select_position_owner_not_configured_wallet(
+    wallet_path, monkeypatch, crypto_type, selector, operation, interactive
+):
+    import importlib
+
+    from bittensor import Balance
+    from bittensor.cli.commands import root
+    from bittensor.cli.root_helpers import RootPosition
+    from bittensor.sp_core import ss58_decode
+    from tests.harness.samples import BOB
+
+    configured = Wallet("recipient", path=str(wallet_path))
+    configured.regenerate_coldkey(seed=bytes([31]) * 32, use_password=False, suppress=True)
+    target = Wallet("position-owner", path=str(wallet_path))
+    target.regenerate_coldkey(
+        seed=bytes([32]) * 32, crypto_type=crypto_type, use_password=False, suppress=True
+    )
+    address = target.coldkeypub.ss58_address
+    selected = {
+        "local": "position-owner",
+        "receiving": receiving_address(target.coldkeypub),
+        "canonical": address,
+    }[selector]
+    source = BOB
+    destination = Keypair.create_from_uri("//Charlie").ss58_address
+    move = importlib.import_module("bittensor.cli.commands.root_move")
+    command = root if operation == "claim" else move
+    position = RootPosition(source, Balance.from_tao(10), Balance.from_tao(1))
+
+    async def positions(client, owner):
+        # Both wallets could own this validator's stake. The read and signature
+        # must refer to B, regardless of the configured default A.
+        assert bytes(ss58_decode(parse_recipient(owner).account)) == bytes(ss58_decode(address))
+        return [position]
+
+    class ReadClient:
+        async def read(self, name, **kwargs):
+            assert name == "validator_basket_summary"
+            return {"beta_price_tao": 1.0}
+
+    monkeypatch.setattr(command, "interactive", lambda _: interactive)
+    monkeypatch.setattr(command, "fetch_root_positions", positions)
+    monkeypatch.setattr(command, "pick_claim_hotkey", lambda *a, **kw: position)
+    monkeypatch.setattr(
+        command, "local_address_names", lambda _: {source: "source", destination: "dest"}
+    )
+    monkeypatch.setattr(AppContext, "run", lambda self, fn: asyncio.run(fn(ReadClient())))
+    submitted = []
+
+    def submit(context, intent, **kwargs):
+        assert context.wallet_name == "position-owner"
+        assert context.wallet().coldkeypub.ss58_address == address
+        submitted.append(intent)
+
+    monkeypatch.setattr(AppContext, "submit", submit)
+    args = ["root", operation, "--coldkey", selected]
+    if operation == "claim":
+        if not interactive:
+            args.extend(["--hotkey", source])
+    else:
+        args.extend(["--to", destination])
+        if not interactive:
+            args.extend(["--from", source])
+    result = _invoke(*args)
+    assert result.exit_code == 0, (result.output, result.exception)
+    assert len(submitted) == 1
+
+
+def test_root_position_wallet_never_falls_back_to_unrelated_local_wallet(wallet_path):
+    from bittensor.cli.root_helpers import resolve_position_wallet
+    from tests.harness.samples import BOB
+
+    wallet = Wallet("recipient", path=str(wallet_path))
+    wallet.regenerate_coldkey(seed=bytes([33]) * 32, use_password=False, suppress=True)
+    with pytest.raises(typer.Exit) as error:
+        resolve_position_wallet(_context(wallet_path), BOB)
+    assert error.value.exit_code == 2
+
+
+@pytest.mark.parametrize("route", ["proxy", "multisig", "external"])
+@pytest.mark.parametrize("matches", [False, True])
+def test_root_position_wallet_checks_explicit_dispatch_routes(
+    wallet_path, monkeypatch, route, matches
+):
+    from bittensor.cli.root_helpers import resolve_position_wallet
+    from tests.harness.samples import ALICE, BOB
+
+    context = _context(wallet_path)
+    context.resolve_address = lambda *_: BOB
+    routed = BOB if matches else ALICE
+    if route == "proxy":
+        context.resolve_dispatch_proxy = lambda: routed
+    elif route == "multisig":
+        context.wallet_name = "shared"
+        context._saved_multisig_address = lambda name: routed if name == "shared" else None
+    else:
+        context.uses_external_signer = lambda: True
+        context.external_signer_address = lambda: routed
+    if matches:
+        assert resolve_position_wallet(context, BOB) == (context.wallet_name, BOB)
+        if route == "external":
+            assert context.signer_address == BOB
+    else:
+        with pytest.raises(typer.Exit):
+            resolve_position_wallet(context, BOB)
+
+
+def test_root_proxy_positions_default_to_dispatch_account(wallet_path):
+    from bittensor.cli.root_helpers import resolve_position_wallet
+    from tests.harness.samples import BOB
+
+    context = _context(wallet_path)
+    context.resolve_dispatch_proxy = lambda: BOB
+    context.resolve_address = lambda *_: pytest.fail("must not select the delegate's positions")
+    assert resolve_position_wallet(context, None) == (context.wallet_name, BOB)
+
+
+def test_root_position_wallet_matches_account_id_across_ss58_prefixes(wallet_path):
+    from bittensor.cli.root_helpers import resolve_position_wallet
+    from bittensor.sp_core import ss58_decode, ss58_encode
+
+    wallet = Wallet("position-owner", path=str(wallet_path))
+    wallet.regenerate_coldkey(
+        seed=bytes([34]) * 32, crypto_type=CRYPTO_HASHED, use_password=False, suppress=True
+    )
+    account = wallet.coldkeypub.ss58_address
+    context = _context(wallet_path)
+    context.resolve_address = lambda *_: ss58_encode(bytes(ss58_decode(account)), 0)
+    assert resolve_position_wallet(context, None) == ("position-owner", account)
+
+
+def test_root_wallet_selection_ignores_unrelated_malformed_display_metadata(wallet_path):
+    from bittensor.cli.root_helpers import resolve_position_wallet
+
+    wallet = Wallet("position-owner", path=str(wallet_path))
+    wallet.regenerate_coldkey(
+        seed=bytes([35]) * 32, crypto_type=CRYPTO_HASHED, use_password=False, suppress=True
+    )
+    broken = wallet_path / "aaa-broken" / "coldkeypub.txt"
+    broken.parent.mkdir(parents=True)
+    broken.write_text(json.dumps({"ss58Address": "invalid", "cryptoType": 1}))
+    context = _context(wallet_path)
+    assert resolve_position_wallet(context, "position-owner") == (
+        "position-owner",
+        wallet.coldkeypub.ss58_address,
+    )
+
+
+def test_root_wallet_selection_does_not_trust_stale_display_address(wallet_path):
+    from bittensor.cli.root_helpers import resolve_position_wallet
+
+    wallet = Wallet("position-owner", path=str(wallet_path))
+    wallet.regenerate_coldkey(
+        seed=bytes([36]) * 32, crypto_type=CRYPTO_HASHED, use_password=False, suppress=True
+    )
+    other = Wallet("aaa-other", path=str(wallet_path))
+    other.regenerate_coldkey(
+        seed=bytes([37]) * 32, crypto_type=CRYPTO_HASHED, use_password=False, suppress=True
+    )
+    keyfile = wallet_path / "aaa-other" / "coldkeypub.txt"
+    data = json.loads(keyfile.read_text())
+    data["ss58Address"] = wallet.coldkeypub.ss58_address
+    keyfile.write_text(json.dumps(data))
+    context = _context(wallet_path)
+    assert resolve_position_wallet(context, "position-owner") == (
+        "position-owner",
+        wallet.coldkeypub.ss58_address,
+    )

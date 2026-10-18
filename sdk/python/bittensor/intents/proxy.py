@@ -13,7 +13,7 @@ from enum import Enum
 from typing import Any, Optional
 
 from .._generated import calls
-from .base import Intent
+from .base import BuiltCall, Intent
 from .registry import build as build_intent
 from .registry import register
 
@@ -317,13 +317,13 @@ class ExecuteProxyAnnounced(Intent):
 
         origin = _OriginView(await account_for_read(substrate, self.real_ss58))
         origin._wallet = getattr(wallet, "_wallet", wallet)
-        inner_call = await _compose_nested_intent_call(
+        inner_call, extras = await _compose_nested_intent_call(
             substrate,
             build_intent(self.inner_op, self.inner_args),
             origin,
             wrapper="announced proxy",
         )
-        return await substrate.compose(
+        composed = await substrate.compose(
             calls.Proxy.proxy_announced(
                 delegate=self.delegate_ss58,
                 real=self.real_ss58,
@@ -331,6 +331,7 @@ class ExecuteProxyAnnounced(Intent):
                 call=inner_call,
             )
         )
+        return BuiltCall(composed, extras) if extras else composed
 
     def summary(self) -> str:
         return f"execute announced {self.inner_op} as {self.real_ss58} via {self.delegate_ss58}"

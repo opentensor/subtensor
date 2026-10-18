@@ -144,6 +144,20 @@ pub struct Client {
     ss58_format: u16,
 }
 
+/// One immutable authority/nonce selection for an ordinary signature or both
+/// signatures of a Shield submission. Authority is never reloaded between the
+/// encrypted inner proof and its carrier proof.
+struct SigningContext {
+    runtime: Arc<Runtime>,
+    params: TxParams,
+    registered: Option<RegisteredSigningAuthority>,
+}
+
+struct RegisteredSigningAuthority {
+    key: Keypair,
+    generation: u64,
+}
+
 impl Client {
     /// Connect to a Substrate JSON-RPC endpoint. Websocket URLs are accepted for
     /// compatibility and are mapped to HTTP on the same host/port.
@@ -404,11 +418,27 @@ impl Client {
         params: &[Value],
         block_hash: Option<&str>,
     ) -> Result<Value, CoreError> {
-        let runtime = self.runtime()?;
-        let info = storage_info(&runtime, pallet, storage)?;
+        self.query_with_runtime(
+            self.runtime()?.as_ref(),
+            pallet,
+            storage,
+            params,
+            block_hash,
+        )
+    }
+
+    fn query_with_runtime(
+        &self,
+        runtime: &Runtime,
+        pallet: &str,
+        storage: &str,
+        params: &[Value],
+        block_hash: Option<&str>,
+    ) -> Result<Value, CoreError> {
+        let info = storage_info(runtime, pallet, storage)?;
         let key = runtime.storage_key(&info, params)?;
         let raw = self.storage_raw(&key, block_hash)?;
-        decode_storage(&runtime, &info, raw.as_deref())
+        decode_storage(runtime, &info, raw.as_deref())
     }
 
     pub fn query_batch(
@@ -504,6 +534,8 @@ impl Client {
     }
 
     /// Sign without submitting. Returns `(encoded extrinsic, 0x hash)`.
+    /// Registered accounts require the current confirmed nonce and no pending
+    /// transaction. ML-DSA authority is selected from finalized state.
     pub fn sign_extrinsic(
         &self,
         call_data: &[u8],
@@ -511,49 +543,45 @@ impl Client {
         nonce: u64,
         period: Option<u64>,
     ) -> Result<(Vec<u8>, String), CoreError> {
-        self.sign_extrinsic_with_generation_offset(call_data, signer, nonce, period, 0)
+        let context = self.prepare_signing(signer, Some(nonce), period, false)?;
+        self.sign_prepared(call_data, signer, &context, 0)
     }
 
-    /// Only the encrypted inner transaction may use offset one: its carrier
-    /// consumes the active generation before the inner transaction executes.
-    fn sign_extrinsic_with_generation_offset(
+    fn prepare_signing(
         &self,
-        call_data: &[u8],
         signer: &Keypair,
-        nonce: u64,
+        requested_nonce: Option<u64>,
         period: Option<u64>,
-        generation_offset: u64,
-    ) -> Result<(Vec<u8>, String), CoreError> {
+        shielded: bool,
+    ) -> Result<SigningContext, CoreError> {
         let runtime = self.runtime()?;
-        let params = self.transaction_params(nonce, period)?;
-        let signature = if is_registered_crypto(signer.crypto_type()) {
+        let mut registered = None;
+        let mut authority_block = None;
+        let nonce = if is_registered_crypto(signer.crypto_type()) {
             let mldsa = is_mldsa_crypto(signer.crypto_type());
             if mldsa && !runtime.supports_mldsa_profile(signer.mldsa_descriptor()?[1]) {
                 return Err(CoreError::Policy(
                     "runtime does not support ML-DSA accounts".into(),
                 ));
             }
-            let state_hash = if mldsa {
+            let state_hash = if shielded || mldsa {
                 self.finalized_head()?
             } else {
                 self.block_hash(None)?
             };
-            if self.query(
-                "AdminUtils",
-                "HashedAccountsEnabled",
-                &[],
-                Some(&state_hash),
-            )? != Value::Bool(true)
-            {
+            let query = |pallet, storage, params: &[Value]| {
+                self.query_with_runtime(&runtime, pallet, storage, params, Some(&state_hash))
+            };
+            if query("AdminUtils", "HashedAccountsEnabled", &[])? != Value::Bool(true) {
                 return Err(CoreError::Policy(
                     "hashed account authorization is not active".into(),
                 ));
             }
-            let record = self.query(
+            let address = [Value::str(signer.ss58_address())];
+            let record = query(
                 "HashedAccounts",
                 if mldsa { "MlDsaAccounts" } else { "Accounts" },
-                &[Value::str(signer.ss58_address())],
-                Some(&state_hash),
+                &address,
             )?;
             if mldsa {
                 let descriptor = field(&record, "descriptor")
@@ -587,10 +615,96 @@ impl Client {
                     "hashed account commitment does not match this mnemonic".into(),
                 ));
             }
-            let generation = generation
+            // Nonce and authority must come from the same state. A pool nonce
+            // cannot be combined with an older finalized signing generation.
+            let account = query("System", "Account", &address)?;
+            let confirmed_nonce = field(&account, "nonce")
+                .and_then(as_u128)
+                .and_then(|value| u64::try_from(value).ok())
+                .ok_or_else(|| CoreError::Codec("System.Account.nonce is missing".into()))?;
+            self.ensure_registered_nonce(signer, confirmed_nonce)?;
+            if requested_nonce.is_some_and(|nonce| nonce != confirmed_nonce) {
+                return Err(CoreError::Policy(
+                    "hashed accounts must use the current on-chain nonce; refresh and sign again"
+                        .into(),
+                ));
+            }
+            registered = Some(RegisteredSigningAuthority {
+                key: active,
+                generation,
+            });
+            authority_block = Some(state_hash);
+            confirmed_nonce
+        } else {
+            match requested_nonce {
+                Some(nonce) => nonce,
+                None => self.account_next_index(&signer.ss58_address())?,
+            }
+        };
+        let params = match authority_block {
+            Some(hash) => {
+                let current = self.header(Some(&hash))?.number;
+                self.transaction_params_at(nonce, period, current)?
+            }
+            None => self.transaction_params(nonce, period)?,
+        };
+        Ok(SigningContext {
+            runtime,
+            params,
+            registered,
+        })
+    }
+
+    fn ensure_registered_nonce(
+        &self,
+        signer: &Keypair,
+        confirmed_nonce: u64,
+    ) -> Result<(), CoreError> {
+        if self.account_next_index(&signer.ss58_address())? != confirmed_nonce {
+            return Err(CoreError::Policy(
+                "hashed account has a pending transaction; wait for finalization before signing again"
+                    .into(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Only the encrypted inner transaction may use offset one: its carrier
+    /// consumes the selected generation and nonce before the inner executes.
+    fn sign_prepared(
+        &self,
+        call_data: &[u8],
+        signer: &Keypair,
+        context: &SigningContext,
+        generation_offset: u64,
+    ) -> Result<(Vec<u8>, String), CoreError> {
+        if generation_offset > 1 {
+            return Err(CoreError::Policy("invalid Shield generation offset".into()));
+        }
+        let params = TxParams {
+            era: context.params.era.clone(),
+            nonce: context
+                .params
+                .nonce
+                .checked_add(generation_offset)
+                .ok_or_else(|| CoreError::Policy("account nonce exhausted".into()))?,
+            tip: context.params.tip,
+            tip_asset_id: context.params.tip_asset_id,
+            genesis_hash: context.params.genesis_hash,
+            era_block_hash: context.params.era_block_hash,
+            metadata_hash: context.params.metadata_hash,
+        };
+        let runtime = &context.runtime;
+        let signature = if let Some(authority) = &context.registered {
+            // Also check immediately before each proof. A concurrent pending or
+            // newly finalized transaction invalidates the whole prepared pair;
+            // never refresh only the carrier to a newer generation.
+            self.ensure_registered_nonce(signer, context.params.nonce)?;
+            let generation = authority
+                .generation
                 .checked_add(generation_offset)
                 .ok_or_else(|| CoreError::Policy("hashed signing generation exhausted".into()))?;
-            let selected = active.at_generation(generation)?;
+            let selected = authority.key.at_generation(generation)?;
             let (extra, additional) = runtime.signature_payload_parts(&params)?;
             let mut payload = call_data.to_vec();
             payload.extend_from_slice(&extra);
@@ -612,6 +726,15 @@ impl Client {
 
     fn transaction_params(&self, nonce: u64, period: Option<u64>) -> Result<TxParams, CoreError> {
         let current = self.block_number()?;
+        self.transaction_params_at(nonce, period, current)
+    }
+
+    fn transaction_params_at(
+        &self,
+        nonce: u64,
+        period: Option<u64>,
+        current: u64,
+    ) -> Result<TxParams, CoreError> {
         let (era, era_block_hash) = match period {
             Some(period) if period > 0 => {
                 let birth = era_birth(period, current);
@@ -705,11 +828,8 @@ impl Client {
         period: Option<u64>,
         wait_for_finalization: bool,
     ) -> Result<TxOutcome, CoreError> {
-        let nonce = match nonce {
-            Some(nonce) => nonce,
-            None => self.account_next_index(&signer.ss58_address())?,
-        };
-        let (extrinsic, hash) = self.sign_extrinsic(call_data, signer, nonce, period)?;
+        let context = self.prepare_signing(signer, nonce, period, false)?;
+        let (extrinsic, hash) = self.sign_prepared(call_data, signer, &context, 0)?;
         self.submit_encoded(&extrinsic, hash, wait_for_finalization)
     }
 
@@ -750,30 +870,16 @@ impl Client {
         let next_key = self.query("MevShield", "NextKey", &[], None)?;
         let public_key = value_bytes(&next_key)
             .ok_or_else(|| CoreError::Rpc("MevShield.NextKey is unavailable".into()))?;
-        let nonce = self.account_next_index(&signer.ss58_address())?;
-        let inner_nonce = nonce
-            .checked_add(1)
-            .ok_or_else(|| CoreError::Policy("account nonce exhausted".into()))?;
-        let (inner, inner_hash) = self.sign_extrinsic_with_generation_offset(
-            call_data,
-            signer,
-            inner_nonce,
-            Some(DEFAULT_ERA_PERIOD),
-            1,
-        )?;
+        let context = self.prepare_signing(signer, None, Some(DEFAULT_ERA_PERIOD), true)?;
+        let (inner, inner_hash) = self.sign_prepared(call_data, signer, &context, 1)?;
         let ciphertext = mlkem::seal(&public_key, &inner, true)?;
-        let outer = self.compose_call(
+        let outer = context.runtime.compose_call(
             "MevShield",
             "submit_encrypted",
             &Value::record(vec![("ciphertext".into(), Value::Bytes(ciphertext))]),
         )?;
-        let mut result = self.submit(
-            &outer,
-            signer,
-            Some(nonce),
-            Some(DEFAULT_ERA_PERIOD),
-            wait_for_finalization,
-        )?;
+        let (extrinsic, hash) = self.sign_prepared(&outer, signer, &context, 0)?;
+        let mut result = self.submit_encoded(&extrinsic, hash, wait_for_finalization)?;
         if result.success {
             result.data.insert("shielded".into(), Value::Bool(true));
             result
@@ -2077,6 +2183,591 @@ mod fee_quote_tests {
                 .unwrap()
                 .decode_extrinsic(&quotes[0], true)
                 .is_ok());
+        }
+    }
+}
+
+#[cfg(test)]
+mod registered_signing_tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
+    use super::*;
+    use chacha20poly1305::{aead::Aead, KeyInit, XChaCha20Poly1305, XNonce};
+    use ml_kem::{kem::Decapsulate, EncodedSizeUser, KemCore, MlKem768};
+    use scale_info::{Field, Path, PortableType, Type, TypeDef, TypeDefArray, TypeDefComposite};
+    use std::io::{BufRead, BufReader, Read, Write};
+    use std::net::TcpListener;
+    use std::sync::atomic::AtomicBool;
+    use std::sync::Mutex;
+
+    const GENERATION: u64 = 12;
+    const NONCE: u64 = 63;
+    const PINNED_HASH: [u8; 32] = [8; 32];
+    const ADVANCED_HASH: [u8; 32] = [9; 32];
+
+    fn add_type(runtime: &mut Runtime, type_def: TypeDef<scale_info::form::PortableForm>) -> u32 {
+        let id = runtime.types.types.len() as u32;
+        runtime.types.types.push(PortableType {
+            id,
+            ty: Type {
+                path: Path::default(),
+                type_params: vec![],
+                type_def,
+                docs: vec![],
+            },
+        });
+        id
+    }
+
+    fn record_type(runtime: &mut Runtime, fields: &[(&str, u32)]) -> u32 {
+        add_type(
+            runtime,
+            TypeDef::Composite(TypeDefComposite {
+                fields: fields
+                    .iter()
+                    .map(|(name, ty)| Field {
+                        name: Some((*name).into()),
+                        ty: (*ty).into(),
+                        type_name: None,
+                        docs: vec![],
+                    })
+                    .collect(),
+            }),
+        )
+    }
+
+    /// Add the account records to the legacy codec fixture. Calls, extensions,
+    /// signing envelopes, and System.Account keys retain the real metadata.
+    fn runtime(crypto: u8) -> Runtime {
+        let mut runtime = crate::codec::extrinsic::hashed_tests::runtime_mldsa();
+        let u8_ty = add_type(
+            &mut runtime,
+            TypeDef::Primitive(scale_info::TypeDefPrimitive::U8),
+        );
+        let u64_ty = add_type(
+            &mut runtime,
+            TypeDef::Primitive(scale_info::TypeDefPrimitive::U64),
+        );
+        let bool_ty = add_type(
+            &mut runtime,
+            TypeDef::Primitive(scale_info::TypeDefPrimitive::Bool),
+        );
+        let commitment_len = if is_mldsa_crypto(crypto) { 64 } else { 32 };
+        let commitment_ty = add_type(
+            &mut runtime,
+            TypeDef::Array(TypeDefArray {
+                len: commitment_len,
+                type_param: u8_ty.into(),
+            }),
+        );
+        let descriptor_ty = record_type(
+            &mut runtime,
+            &[
+                ("version", u8_ty),
+                ("algorithm", u8_ty),
+                ("initial_commitment", commitment_ty),
+            ],
+        );
+        let authority_ty = record_type(
+            &mut runtime,
+            &[
+                ("descriptor", descriptor_ty),
+                ("generation", u64_ty),
+                ("commitment", commitment_ty),
+            ],
+        );
+        let account_ty = record_type(&mut runtime, &[("nonce", u64_ty)]);
+        let system = runtime
+            .pallets
+            .iter_mut()
+            .find(|p| p.name == "System")
+            .unwrap();
+        let account = system
+            .storage
+            .iter_mut()
+            .find(|s| s.name == "Account")
+            .unwrap();
+        account.value_type = account_ty;
+        let mut authority = account.clone();
+        authority.prefix = "HashedAccounts".into();
+        authority.name = if is_mldsa_crypto(crypto) {
+            "MlDsaAccounts"
+        } else {
+            "Accounts"
+        }
+        .into();
+        authority.value_type = authority_ty;
+        runtime
+            .pallets
+            .iter_mut()
+            .find(|p| p.name == "HashedAccounts")
+            .unwrap()
+            .storage = vec![authority];
+        runtime
+            .pallets
+            .iter_mut()
+            .find(|p| p.name == "AdminUtils")
+            .unwrap()
+            .storage
+            .push(StorageInfo {
+                name: "HashedAccountsEnabled".into(),
+                prefix: "AdminUtils".into(),
+                modifier: "Default".into(),
+                hashers: vec![],
+                key_types: vec![],
+                value_type: bool_ty,
+                default_bytes: vec![0],
+            });
+        runtime
+    }
+
+    #[derive(Default)]
+    struct NodeState {
+        advanced: bool,
+        pending: bool,
+        advance_after_inner: bool,
+        consume_nonce_on_advance: bool,
+        nonce_reads: usize,
+        finalized_reads: usize,
+        authority_reads: Vec<String>,
+        account_reads: Vec<String>,
+        submitted: Vec<Vec<u8>>,
+    }
+
+    struct MockNode {
+        client: Client,
+        state: Arc<Mutex<NodeState>>,
+        stop: Arc<AtomicBool>,
+        server: Option<thread::JoinHandle<()>>,
+        decrypt_key: <MlKem768 as KemCore>::DecapsulationKey,
+    }
+
+    impl Drop for MockNode {
+        fn drop(&mut self) {
+            self.stop.store(true, Ordering::Relaxed);
+            if let Some(server) = self.server.take() {
+                server.join().unwrap();
+            }
+        }
+    }
+
+    impl MockNode {
+        fn new(signer: &Keypair) -> Self {
+            let crypto = signer.crypto_type();
+            let runtime = runtime(crypto);
+            let address = [Value::str(signer.ss58_address())];
+            let storage_key = |pallet, storage, params: &[Value]| {
+                hex_prefixed(
+                    &runtime
+                        .storage_key(&storage_info(&runtime, pallet, storage).unwrap(), params)
+                        .unwrap(),
+                )
+            };
+            let enabled_key = storage_key("AdminUtils", "HashedAccountsEnabled", &[]);
+            let authority_key = storage_key(
+                "HashedAccounts",
+                if is_mldsa_crypto(crypto) {
+                    "MlDsaAccounts"
+                } else {
+                    "Accounts"
+                },
+                &address,
+            );
+            let account_key = storage_key("System", "Account", &address);
+            let next_key = storage_key("MevShield", "NextKey", &[]);
+            let descriptor = if is_mldsa_crypto(crypto) {
+                signer.mldsa_descriptor().unwrap()
+            } else {
+                signer.hashed_descriptor().unwrap()
+            };
+            let authority = |generation: u64| {
+                let mut encoded = descriptor.clone();
+                encoded.extend(generation.encode());
+                encoded.extend(
+                    signer
+                        .at_generation(generation)
+                        .unwrap()
+                        .authorization_current_commitment()
+                        .unwrap(),
+                );
+                encoded
+            };
+            let old_authority = authority(GENERATION);
+            let new_authority = authority(GENERATION + 1);
+            let (decrypt_key, encrypt_key) = MlKem768::generate(&mut rand_core::OsRng);
+            let key_info = storage_info(&runtime, "MevShield", "NextKey").unwrap();
+            let mut encoded_key = Vec::new();
+            runtime
+                .encode_id(
+                    key_info.value_type,
+                    &Value::Bytes(encrypt_key.as_bytes().to_vec()),
+                    &mut encoded_key,
+                )
+                .unwrap();
+            let state = Arc::new(Mutex::new(NodeState::default()));
+            let server_state = Arc::clone(&state);
+            let stop = Arc::new(AtomicBool::new(false));
+            let server_stop = Arc::clone(&stop);
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            listener.set_nonblocking(true).unwrap();
+            let endpoint = format!("http://{}", listener.local_addr().unwrap());
+            let server = thread::spawn(move || {
+                while !server_stop.load(Ordering::Relaxed) {
+                    let (mut stream, _) = match listener.accept() {
+                        Ok(value) => value,
+                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                            thread::sleep(Duration::from_millis(1));
+                            continue;
+                        }
+                        Err(error) => panic!("mock accept failed: {error}"),
+                    };
+                    stream
+                        .set_read_timeout(Some(Duration::from_secs(5)))
+                        .unwrap();
+                    let mut reader = BufReader::new(&mut stream);
+                    let mut length = 0;
+                    loop {
+                        let mut line = String::new();
+                        assert_ne!(reader.read_line(&mut line).unwrap(), 0);
+                        if line == "\r\n" {
+                            break;
+                        }
+                        if let Some(value) = line.to_lowercase().strip_prefix("content-length:") {
+                            length = value.trim().parse::<usize>().unwrap();
+                        }
+                    }
+                    let mut body = vec![0; length];
+                    reader.read_exact(&mut body).unwrap();
+                    let request: JsonValue = serde_json::from_slice(&body).unwrap();
+                    let mut state = server_state.lock().unwrap();
+                    let hash = if state.advanced {
+                        ADVANCED_HASH
+                    } else {
+                        PINNED_HASH
+                    };
+                    let result = match request["method"].as_str().unwrap() {
+                        "chain_getFinalizedHead" => {
+                            state.finalized_reads += 1;
+                            json!(hex_prefixed(&hash))
+                        }
+                        "chain_getBlockHash" => json!(hex_prefixed(&hash)),
+                        "chain_getHeader" => {
+                            json!({"number":"0xa", "parentHash":hex_prefixed(&PINNED_HASH)})
+                        }
+                        "system_accountNextIndex" => {
+                            state.nonce_reads += 1;
+                            // Preparation and the inner proof already checked
+                            // the nonce. Advance finality just before the
+                            // carrier's check, after encryption has completed.
+                            if state.advance_after_inner && state.nonce_reads == 3 {
+                                state.advanced = true;
+                            }
+                            let nonce = NONCE
+                                + u64::from(
+                                    state.pending
+                                        || (state.advanced && state.consume_nonce_on_advance),
+                                );
+                            json!(nonce)
+                        }
+                        "state_getStorage" => {
+                            let key = request["params"][0].as_str().unwrap();
+                            let block = request["params"].get(1).and_then(JsonValue::as_str);
+                            if key == next_key {
+                                json!(hex_prefixed(&encoded_key))
+                            } else {
+                                let block = block.expect("authority reads must specify a block");
+                                let new = block == hex_prefixed(&ADVANCED_HASH);
+                                assert!(new || block == hex_prefixed(&PINNED_HASH));
+                                if key == enabled_key {
+                                    json!("0x01")
+                                } else if key == authority_key {
+                                    state.authority_reads.push(block.into());
+                                    json!(hex_prefixed(if new && state.consume_nonce_on_advance {
+                                        &new_authority
+                                    } else {
+                                        &old_authority
+                                    }))
+                                } else if key == account_key {
+                                    state.account_reads.push(block.into());
+                                    json!(hex_prefixed(
+                                        &(NONCE + u64::from(new && state.consume_nonce_on_advance))
+                                            .encode()
+                                    ))
+                                } else {
+                                    panic!("unexpected storage key {key}")
+                                }
+                            }
+                        }
+                        "author_submitExtrinsic" => {
+                            state
+                                .submitted
+                                .push(decode_hex(request["params"][0].as_str().unwrap()).unwrap());
+                            JsonValue::Null
+                        }
+                        method => panic!("unexpected RPC {method}"),
+                    };
+                    let response = if request["method"] == "author_submitExtrinsic" {
+                        // Capture signing output without simulating block execution.
+                        json!({"jsonrpc":"2.0", "id":request["id"], "error":{"code":1010,"message":"captured by signing test"}})
+                    } else { json!({"jsonrpc":"2.0", "id":request["id"], "result":result}) }.to_string();
+                    write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", response.len(), response).unwrap();
+                }
+            });
+            Self {
+                client: Client {
+                    endpoint,
+                    http: HttpClient::builder()
+                        .no_proxy()
+                        .timeout(Duration::from_secs(5))
+                        .build()
+                        .unwrap(),
+                    next_id: AtomicU64::new(1),
+                    runtime: RwLock::new(Arc::new(runtime)),
+                    genesis_hash: PINNED_HASH,
+                    ss58_format: 42,
+                },
+                state,
+                stop,
+                server: Some(server),
+                decrypt_key,
+            }
+        }
+
+        fn call(&self) -> Vec<u8> {
+            self.client
+                .compose_call(
+                    "System",
+                    "remark",
+                    &Value::record(vec![("remark".into(), Value::Bytes(vec![42]))]),
+                )
+                .unwrap()
+        }
+
+        fn decrypt(&self, ciphertext: &[u8]) -> Vec<u8> {
+            let blob = &ciphertext[16..];
+            let kem_len = usize::from(u16::from_le_bytes([blob[0], blob[1]]));
+            let kem = ml_kem::Ciphertext::<MlKem768>::try_from(&blob[2..2 + kem_len]).unwrap();
+            let shared = self.decrypt_key.decapsulate(&kem).unwrap();
+            let nonce = &blob[2 + kem_len..2 + kem_len + 24];
+            XChaCha20Poly1305::new_from_slice(shared.as_ref())
+                .unwrap()
+                .decrypt(XNonce::from_slice(nonce), &blob[2 + kem_len + 24..])
+                .unwrap()
+        }
+    }
+
+    fn assert_proof(
+        node: &MockNode,
+        signer: &Keypair,
+        extrinsic: &[u8],
+        call: &[u8],
+        generation: u64,
+        nonce: u64,
+    ) {
+        use sp_core::Pair;
+        let runtime = node.client.runtime().unwrap();
+        let decoded = runtime.decode_extrinsic(extrinsic, true).unwrap();
+        assert_eq!(
+            field(&decoded, "nonce").and_then(as_u128),
+            Some(u128::from(nonce))
+        );
+        let era = match field(&decoded, "era").unwrap() {
+            Value::List(parts) | Value::Tuple(parts) => Value::record(vec![
+                ("period".into(), parts[0].clone()),
+                ("phase".into(), parts[1].clone()),
+            ]),
+            value => value.clone(),
+        };
+        let params = TxParams {
+            era,
+            nonce,
+            tip: 0,
+            tip_asset_id: None,
+            genesis_hash: PINNED_HASH,
+            era_block_hash: PINNED_HASH,
+            metadata_hash: None,
+        };
+        let (extra, additional) = runtime.signature_payload_parts(&params).unwrap();
+        let mut payload = call.to_vec();
+        payload.extend(extra);
+        payload.extend(additional);
+        let mut bytes = extrinsic;
+        let _ = codec::Compact::<u32>::decode(&mut bytes).unwrap();
+        assert_eq!(u8::decode(&mut bytes).unwrap(), 0x84);
+        assert_eq!(u8::decode(&mut bytes).unwrap(), 2);
+        let address = Vec::<u8>::decode(&mut bytes).unwrap();
+        if is_mldsa_crypto(signer.crypto_type()) {
+            let proof =
+                subtensor_hashed::mldsa::SignerAddress::decode(&mut address.as_slice()).unwrap();
+            assert_eq!(proof.generation, generation);
+            assert_eq!(proof.account, signer.public_key_bytes());
+            assert!(proof.verify(&payload));
+        } else {
+            let proof = subtensor_hashed::SignerAddress::decode(&mut address.as_slice()).unwrap();
+            assert_eq!(proof.generation, generation);
+            assert_eq!(proof.account, signer.public_key_bytes());
+            let scheme = u8::decode(&mut bytes).unwrap();
+            let signature = <[u8; 64]>::decode(&mut bytes).unwrap();
+            let payload = proof.signing_hash(&payload);
+            let valid = if scheme == 1 {
+                sp_core::sr25519::Pair::verify(
+                    &sp_core::sr25519::Signature::from_raw(signature),
+                    payload,
+                    &sp_core::sr25519::Public::from_raw(proof.public_key),
+                )
+            } else {
+                assert_eq!(scheme, 0);
+                sp_core::ed25519::Pair::verify(
+                    &sp_core::ed25519::Signature::from_raw(signature),
+                    payload,
+                    &sp_core::ed25519::Public::from_raw(proof.public_key),
+                )
+            };
+            assert!(valid);
+        }
+    }
+
+    fn wallet_modes() -> [u8; 4] {
+        [
+            crate::keys::CRYPTO_HASHED,
+            crate::keys::CRYPTO_HASHED_ED25519,
+            crate::keys::CRYPTO_MLDSA65,
+            crate::keys::CRYPTO_MLDSA65_FIXED,
+        ]
+    }
+
+    #[test]
+    fn standard_keys_keep_explicit_nonce_signing_without_registered_authority() {
+        for crypto in [crate::keys::CRYPTO_ED25519, crate::keys::CRYPTO_SR25519] {
+            let signer = Keypair::from_seed(&[26; 32], crypto).unwrap();
+            let fixture = Keypair::from_seed(&[26; 32], crate::keys::CRYPTO_HASHED).unwrap();
+            let node = MockNode::new(&fixture);
+            let (encoded, _) = node
+                .client
+                .sign_extrinsic(&node.call(), &signer, NONCE + 7, None)
+                .unwrap();
+            let decoded = node
+                .client
+                .runtime()
+                .unwrap()
+                .decode_extrinsic(&encoded, true)
+                .unwrap();
+            assert_eq!(
+                field(&decoded, "nonce").and_then(as_u128),
+                Some(u128::from(NONCE + 7))
+            );
+            let state = node.state.lock().unwrap();
+            assert_eq!(state.finalized_reads, 0);
+            assert_eq!(state.nonce_reads, 0);
+            assert!(state.authority_reads.is_empty());
+            assert!(state.account_reads.is_empty());
+        }
+    }
+
+    #[test]
+    fn shield_pair_pins_authority_and_nonce_when_finality_advances() {
+        for crypto in wallet_modes() {
+            let signer = Keypair::from_seed(&[27; 32], crypto).unwrap();
+            let node = MockNode::new(&signer);
+            node.state.lock().unwrap().advance_after_inner = true;
+            let call = node.call();
+            let outcome = node.client.submit_shielded(&call, &signer, false).unwrap();
+            assert!(!outcome.success); // Mock node only captures the signed carrier.
+            let state = node.state.lock().unwrap();
+            assert!(state.advanced);
+            assert_eq!(state.finalized_reads, 1);
+            assert_eq!(state.authority_reads, [hex_prefixed(&PINNED_HASH)]);
+            assert_eq!(state.account_reads, [hex_prefixed(&PINNED_HASH)]);
+            assert_eq!(state.submitted.len(), 1);
+            let outer = &state.submitted[0];
+            let decoded = node
+                .client
+                .runtime()
+                .unwrap()
+                .decode_extrinsic(outer, true)
+                .unwrap();
+            let outer_call = field(&decoded, "call").unwrap();
+            let args = field(outer_call, "call_args").unwrap();
+            let Value::List(args) = args else {
+                panic!("decoded call arguments")
+            };
+            let ciphertext = args
+                .iter()
+                .find_map(|arg| {
+                    (field(arg, "name") == Some(&Value::str("ciphertext")))
+                        .then(|| value_bytes(field(arg, "value").unwrap()).unwrap())
+                })
+                .unwrap();
+            let inner = node.decrypt(&ciphertext);
+            let encoded_outer = node
+                .client
+                .compose_call(
+                    "MevShield",
+                    "submit_encrypted",
+                    &Value::record(vec![("ciphertext".into(), Value::Bytes(ciphertext))]),
+                )
+                .unwrap();
+            assert_proof(&node, &signer, outer, &encoded_outer, GENERATION, NONCE);
+            assert_proof(&node, &signer, &inner, &call, GENERATION + 1, NONCE + 1);
+        }
+    }
+
+    #[test]
+    fn shield_rejects_nonce_consumed_between_inner_and_carrier() {
+        for crypto in wallet_modes() {
+            let signer = Keypair::from_seed(&[28; 32], crypto).unwrap();
+            let node = MockNode::new(&signer);
+            {
+                let mut state = node.state.lock().unwrap();
+                state.advance_after_inner = true;
+                state.consume_nonce_on_advance = true;
+            }
+            let error = node
+                .client
+                .submit_shielded(&node.call(), &signer, false)
+                .unwrap_err();
+            assert!(error.to_string().contains("pending transaction"));
+            let state = node.state.lock().unwrap();
+            assert!(state.advanced);
+            assert_eq!(state.authority_reads, [hex_prefixed(&PINNED_HASH)]);
+            assert!(state.submitted.is_empty());
+        }
+    }
+
+    #[test]
+    fn registered_submissions_reject_pending_and_explicit_future_nonces_then_refresh() {
+        for crypto in wallet_modes() {
+            let signer = Keypair::from_seed(&[29; 32], crypto).unwrap();
+            let node = MockNode::new(&signer);
+            let call = node.call();
+            node.state.lock().unwrap().pending = true;
+            let error = node
+                .client
+                .submit(&call, &signer, None, Some(DEFAULT_ERA_PERIOD), false)
+                .unwrap_err();
+            assert!(error.to_string().contains("pending transaction"));
+            node.state.lock().unwrap().pending = false;
+            let error = node
+                .client
+                .sign_extrinsic(&call, &signer, NONCE + 1, Some(DEFAULT_ERA_PERIOD))
+                .unwrap_err();
+            assert!(error.to_string().contains("current on-chain nonce"));
+            let (first, _) = node
+                .client
+                .sign_extrinsic(&call, &signer, NONCE, Some(DEFAULT_ERA_PERIOD))
+                .unwrap();
+            assert_proof(&node, &signer, &first, &call, GENERATION, NONCE);
+            {
+                let mut state = node.state.lock().unwrap();
+                state.advanced = true;
+                state.consume_nonce_on_advance = true;
+            }
+            let (next, _) = node
+                .client
+                .sign_extrinsic(&call, &signer, NONCE + 1, None)
+                .unwrap();
+            assert_proof(&node, &signer, &next, &call, GENERATION + 1, NONCE + 1);
+            assert!(node.state.lock().unwrap().submitted.is_empty());
         }
     }
 }

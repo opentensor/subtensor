@@ -164,7 +164,9 @@ def root_move(
             dest_hotkey = resolve_validator_selector(app_ctx, dest)
             dest_name = None
     else:
-        owner = app_ctx.resolve_address("coldkey_ss58", coldkey_ss58)
+        wallet_name, owner = resolve_position_wallet(app_ctx, coldkey_ss58)
+        app_ctx.wallet_name = wallet_name
+        app_ctx.wallet_given = True
         origin_hotkey = resolve_validator_selector(app_ctx, origin)
         origin_account = parse_recipient(origin_hotkey).account
         dest_hotkey = resolve_validator_selector(app_ctx, dest)

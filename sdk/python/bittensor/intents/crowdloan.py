@@ -100,7 +100,9 @@ class CreateCrowdloan(Intent):
 
             origin = _OriginView(await account_for_read(substrate, self.coldkey_address(wallet)))
             origin._wallet = getattr(wallet, "_wallet", wallet)
-            inner = await _compose_nested_intent_call(
+            # Creation stores this call; it does not dispatch it under the
+            # current origin's batch filter. Its guards execute on finalization.
+            inner, _ = await _compose_nested_intent_call(
                 substrate, build_intent(op, args), origin, wrapper="crowdloan"
             )
         return await substrate.compose(

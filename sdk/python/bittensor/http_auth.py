@@ -54,7 +54,7 @@ from typing import Optional, Protocol
 from .mldsa import PROOF_LENGTH, MessageCapability, sign_payload, verify_payload
 from .result import BittensorError
 from .signing import WalletLike, resolve_signer
-from .sp_core import CRYPTO_MLDSA65
+from .sp_core import CLASSICAL_HASHED_CRYPTO_TYPES, CRYPTO_MLDSA65
 from .sp_core import verify as _sp_core_verify
 from .wallets import CRYPTO_TYPE_NAMES, parse_crypto_type
 
@@ -346,6 +346,47 @@ def build_payload(
     return "\n".join(lines).encode()
 
 
+async def prepare_signer(wallet: WalletLike, *, client):
+    """Prepare a hotkey for synchronous HTTP signing using finalized chain state.
+
+    Hashed SR/ED signatures reveal their original identity key, so generation
+    zero must already be retired by a finalized on-chain transaction. Keyfiles
+    intentionally do not persist a trusted generation. This checks the actual
+    signing key's descriptor and returns a prepared signer for :func:`sign`;
+    ordinary SR/ED signers require no chain access. The returned hashed signer
+    can be reused: normal spending-key rotations never reactivate generation zero.
+
+    ``client`` is a connected :class:`bittensor.Client`. ML-DSA requests use
+    :func:`sign_mldsa` and a finalized message capability instead.
+    """
+    from .hashed import descriptor_bytes
+
+    signer = resolve_signer(wallet, role="hotkey")
+    if signer.crypto_type not in CLASSICAL_HASHED_CRYPTO_TYPES:
+        return signer
+    derive = getattr(signer, "at_generation", None)
+    if not callable(derive):
+        raise ValueError("hashed HTTP signing requires a generation-aware signer")
+    # Resolve the private signer before any query: a stale public companion
+    # must not lend another account's retired generation to an active key.
+    signer = derive(0)
+    finalized = await client._substrate.block_hash(await client.finalized_block())
+    if not finalized:
+        raise ValueError("could not verify finalized hashed hotkey registration")
+    state = await client._substrate.query(
+        "HashedAccounts", "Accounts", [signer.ss58_address], block_hash=finalized
+    )
+    if state is None or descriptor_bytes(state["descriptor"]) != bytes(signer.hashed_descriptor):
+        raise ValueError("hashed hotkey is not registered on the selected chain")
+    generation = int(state["generation"])
+    if generation < 1:
+        raise ValueError(
+            "hashed HTTP signing requires generation zero to be retired by a finalized "
+            "on-chain transaction first"
+        )
+    return signer.at_generation(generation)
+
+
 def sign(
     wallet: WalletLike,
     *,
@@ -366,6 +407,10 @@ def sign(
     The signature scheme follows the signer's ``crypto_type``; the
     ``X-Bittensor-Crypto`` header is emitted only for non-default schemes
     (absent means sr25519).
+
+    For a disk-backed hashed SR/ED hotkey, first obtain a signer with
+    ``await prepare_signer(wallet, client=client)``. Do not manually advance
+    its generation to bypass the finalized-state check.
     """
     signer = resolve_signer(wallet, role="hotkey")
     scheme = CRYPTO_TYPE_NAMES.get(signer.crypto_type)

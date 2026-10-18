@@ -1115,3 +1115,49 @@ async def test_association_checks_proxy_origin_instead_of_delegate(setup):
     with pytest.raises(ValueError, match="registered hashed coldkey owner"):
         await _compose_intent_call(chain, AssociateHotkey(address), wallet, proxy_for=ALICE)
     assert not chain.submissions
+
+
+@pytest.mark.parametrize("wrapper", ["proxy", "threshold_1", "multisig", "multisig_proxy"])
+@pytest.mark.parametrize("typed", [False, True])
+async def test_batch_rejects_nested_recipient_guard_before_signing(
+    setup, monkeypatch, wrapper, typed
+):
+    chain, wallet, key, address = setup
+    registered(chain, key)
+    transfer = Transfer(
+        address if typed else key.ss58_address,
+        1,
+        hashed_descriptor=None if typed else bytes(key.hashed_descriptor),
+    )
+    if wrapper in ("proxy", "multisig_proxy"):
+        child = _nested_recipient_intent("proxy", transfer)
+    else:
+        child = transfer
+    if wrapper in ("threshold_1", "multisig_proxy"):
+        child = MultisigThreshold1(other_signatories=[BOB], call=child.to_dict())
+    elif wrapper == "multisig":
+        child = MultisigExecute(
+            threshold=2,
+            other_signatories=[BOB],
+            call=child.to_dict(),
+            timepoint={"height": 10, "index": 0},
+        )
+    # A later child must never commit after the proxy consumes its announcement
+    # or multisig consumes its approvals but the nested batch is filtered out.
+    intent = Batch([child, Transfer(BOB, 1)])
+    chain.sign = AsyncMock(side_effect=AssertionError("must reject before signing"))
+    with pytest.raises(ValueError, match=r"guarded account payment.*directly"):
+        await Executor(chain).execute(intent, wallet, shielded=False)
+    chain.sign.assert_not_awaited()
+    assert not chain.submissions
+
+
+async def test_batch_allows_announced_proxy_without_recipient_guard(setup):
+    chain, wallet, _, _ = setup
+    child = _nested_recipient_intent("proxy", Transfer(BOB, 1))
+    call, _ = await _compose_intent_call(chain, Batch([child, Transfer(BOB, 1)]), wallet)
+    assert call.function == "batch_all"
+    assert [child.function for child in call.params["calls"]] == [
+        "proxy_announced",
+        "transfer_keep_alive",
+    ]

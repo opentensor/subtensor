@@ -340,20 +340,22 @@ impl Applyable for CheckedExtrinsic {
         info: &DispatchInfoOf<RuntimeCall>,
         len: usize,
     ) -> sp_runtime::ApplyExtrinsicResultWithInfo<PostDispatchInfoOf<RuntimeCall>> {
-        let authorized = matches!(&self.0.signed,
-            fp_self_contained::CheckedSignature::GenericDelegated(ExtrinsicFormat::Signed(_, extension)) if extension.1.is_some());
-        if !authorized {
-            return self.0.apply::<U>(info, len);
-        }
-        frame_support::storage::transactional::with_transaction_opaque_err(|| {
-            let result = self.0.apply::<U>(info, len);
-            if result.is_ok() {
-                frame_support::storage::TransactionOutcome::Commit(result)
-            } else {
-                frame_support::storage::TransactionOutcome::Rollback(result)
+        crate::hashed_auth::with_registration_extrinsic_length(len, || {
+            let authorized = matches!(&self.0.signed,
+                fp_self_contained::CheckedSignature::GenericDelegated(ExtrinsicFormat::Signed(_, extension)) if extension.1.is_some());
+            if !authorized {
+                return self.0.apply::<U>(info, len);
             }
+            frame_support::storage::transactional::with_transaction_opaque_err(|| {
+                let result = self.0.apply::<U>(info, len);
+                if result.is_ok() {
+                    frame_support::storage::TransactionOutcome::Commit(result)
+                } else {
+                    frame_support::storage::TransactionOutcome::Rollback(result)
+                }
+            })
+            .map_err(|_| InvalidTransaction::ExhaustsResources)?
         })
-        .map_err(|_| InvalidTransaction::ExhaustsResources)?
     }
     fn call(&self) -> &RuntimeCall {
         &self.0.function

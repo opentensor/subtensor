@@ -40,6 +40,33 @@ address does not encode its scheme. Verification rejects a conflicting header
 before checking the signature. This pin is required for every scheme, including
 hashed accounts; the wire format and existing signature bytes are unchanged.
 
+## Hashed SR/ED hotkeys
+
+Before a hashed hotkey can sign HTTP requests, its first on-chain transaction
+must finalize, retiring generation zero. HTTP signatures use that retired
+identity key, never the active rotating spending key. Registration alone does
+not retire it.
+
+Keyfiles reload at generation zero rather than trusting saved chain state.
+Prepare the signer once against the connected chain, then use it for requests:
+
+```python
+async with bt.Client(network="finney") as client:
+    http_signer = await bt.http_auth.prepare_signer(wallet, client=client)
+
+headers = bt.http_auth.sign(
+    http_signer, method="POST", path="/generate", body=body_bytes,
+    receiver_ss58=miner_hotkey,
+)
+```
+
+Preparation verifies the actual hotkey's descriptor and retired generation at
+one finalized block. It fails if registration or retirement is not finalized;
+do not bypass it by manually selecting a generation. The prepared signer can
+be reused across requests and later spending-key rotations. Ordinary SR/ED
+hotkeys need no preparation. ML-DSA hotkeys use `sign_mldsa` with an approved
+message capability.
+
 ## The wire format (btauth/1)
 
 This section is normative; everything needed to implement the protocol in any
