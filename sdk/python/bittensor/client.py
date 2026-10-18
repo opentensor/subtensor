@@ -486,6 +486,8 @@ class Client:
         ``Balance`` cap (``max_registration_deposit``) or an approving
         ``on_registration_sponsorship(quote)`` callback. The deposit is
         permanently reserved separately from the payment and transaction fees.
+        Account registration defaults to Shield when available. Pass
+        ``shielded=False`` to opt out or ``shielded=True`` to require Shield.
         """
         return await self._executor.execute(intent, wallet, **kwargs)
 
@@ -510,8 +512,8 @@ class Client:
 
         No intent, no preview — an active :class:`Policy` refuses this unless it
         sets ``allow_raw_calls=True``. Pass ``signer="hotkey"`` for hotkey-signed
-        extrinsics. ``shielded=True`` encrypts the composed call like
-        :meth:`submit_shielded`.
+        extrinsics. Account registration defaults to Shield when available;
+        ``shielded=False`` opts out and ``shielded=True`` requires encryption.
         """
         return await self._executor.submit_call(call, wallet, **kwargs)
 

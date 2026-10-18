@@ -50,14 +50,18 @@ Authenticated order weight uses `n = max(actual order count, 8)` and authenticat
 
 **Deposits are separate**
 
+The amounts below reflect the current flat **0.2 TAO registration policy**,
+updated after the benchmark snapshot; USD uses the dated conversion rate above.
+The original evidence files retain the deposits from their runtime snapshot.
+
 | New account / first-time operation | Reserved TAO | USD equivalent |
 |---|---:|---:|
 | Classical hashed account | 0.200 | $54.39 |
-| MS account (fixed or rotating) | 1.144 | $311.09 |
-| Protected derived account | 8.312 | $2260.32 |
-| Protected pure proxy, total first-time reserve | 8.405 | $2285.61 |
+| MS account (fixed or rotating) | 0.200 | $54.39 |
+| Protected derived account | 0.200 | $54.39 |
+| Protected pure proxy, total first-time reserve | 0.293 | $79.68 |
 
-These values come from runtime constants, not the benchmark. Descriptor registration reserves its permanent deposit from the sponsor; it is not a transaction fee. Protected pure creation adds the ordinary 0.093 TAO proxy reserve to the 8.312 TAO permanent derived-registration deposit. Protected derivative creation reserves the derived deposit on first registration; checking/reusing an existing registration does not reserve it again. Multisig also has its normal temporary deposit, released on completion/cancellation, separate from these permanent registration deposits. Order economic fees, transferred value, stake and tips are not included in the transaction-fee chart.
+These values come from runtime constants, not the benchmark. Descriptor registration reserves its permanent deposit from the sponsor; it is not a transaction fee. Protected pure creation adds the ordinary 0.093 TAO proxy reserve to the 0.2 TAO permanent derived-registration deposit. Protected derivative creation reserves the derived deposit on first registration; checking/reusing an existing registration does not reserve it again. Multisig also has its normal temporary deposit, released on completion/cancellation, separate from these permanent registration deposits. Order economic fees, transferred value, stake and tips are not included in the transaction-fee chart.
 
 **Validation**
 

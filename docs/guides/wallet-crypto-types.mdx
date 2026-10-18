@@ -92,12 +92,27 @@ to the payment and transaction fees. The amount comes from that chain's
 runtime, not from a fixed CLI price. Declining submits nothing. An already
 registered recipient requires no new deposit or sponsorship prompt.
 
+The candidate runtime uses one **0.2 TAO registration deposit** for hashed
+Sr25519/Ed25519, both ML-DSA modes, and protected derived accounts. Normal
+multisig and proxy deposits remain separate. Changing the registration price
+does not refund deposits already reserved on an earlier runtime.
+
+Account registration defaults to MEV Shield, including registration added to
+a transfer. The CLI respects `--no-mev-shield` and the `mev_shield` setting;
+`--mev-shield` requires encrypted submission. In the SDK, `execute` and
+`submit_call` accept `shielded=False` to opt out or `shielded=True` to require
+Shield. As with staking, the default can fall back to public submission with a
+warning if Shield is unavailable; the CLI also allows fallback when the carrier
+fee is unaffordable. Explicitly requiring Shield prevents either fallback.
+This does not replace registration sponsorship consent or the need to
+confirm finalized registration before sharing a new address.
+
 `--yes` does not authorize this extra deposit. For non-interactive commands,
 explicitly set `--max-registration-deposit` to the maximum TAO you accept:
 
 ```bash
 btcli wallet transfer --wallet sender --dest <receiving-address> --amount 1 \
-  --yes --max-registration-deposit 1.144
+  --yes --max-registration-deposit 0.2
 ```
 
 The command refuses a deposit above that limit. `--dry-run` shows the reserve
@@ -112,7 +127,7 @@ native TAO `Balance` limit to `client.execute` or `client.submit_shielded`:
 await client.execute(
     intent,
     sender,
-    max_registration_deposit=bt.Balance.from_tao("1.144"),
+    max_registration_deposit=bt.Balance.from_tao("0.2"),
 )
 ```
 

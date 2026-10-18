@@ -29,7 +29,7 @@ def recipient(request, fake):
     fake.seed("AdminUtils", "HashedAccountsEnabled", [], True)
     fake.seed_constant("HashedAccounts", "MldsaAccountProfiles", "0x0405")
     fake.seed_constant("HashedAccounts", "RegistrationDeposit", 200_000_000)
-    fake.seed_constant("HashedAccounts", "MlDsaRegistrationDeposit", 1_144_000_000)
+    fake.seed_constant("HashedAccounts", "MlDsaRegistrationDeposit", 200_000_000)
     fake.seed_default("System", "Account", {"data": {"free": 10**13, "frozen": 0}})
     return key
 
@@ -52,7 +52,7 @@ def command(recipient, *extra, json_output=True):
 
 
 def amount(recipient):
-    return "1.144" if recipient.crypto_type in (7, 8) else "0.2"
+    return "0.2"
 
 
 def test_yes_alone_does_not_consent(recipient, fake):

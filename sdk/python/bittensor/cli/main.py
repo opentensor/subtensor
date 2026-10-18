@@ -239,7 +239,7 @@ def main_callback(
         None,
         "--mev-shield/--no-mev-shield",
         help="Encrypt extrinsics via the MevShield pallet so the mempool can't "
-        "front-run them. Stake-trading commands shield by default; pass "
+        "front-run them. Stake trading and account registration shield by default; pass "
         "--no-mev-shield to submit in the clear.",
         rich_help_panel=g.PANEL_EXECUTION,
     ),

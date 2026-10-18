@@ -175,15 +175,16 @@ impl pallet_shield::Config for Runtime {
 }
 
 parameter_types! {
-    /// Permanent descriptor plus account record. This uses the chain's existing
-    /// storage-price function; it is separate from unmeasured verification cost.
-    pub const HashedRegistrationDeposit: Balance = deposit(2, 160);
-    /// Descriptor, rotating commitment, alias and two bounded purpose-key grants
-    /// with permanent epoch tombstones. Storage pricing is not a verifier weight.
-    pub const MlDsaRegistrationDeposit: Balance = deposit(6, 1024);
-    /// Maximum immutable multisig membership plus the same bounded capabilities.
-    pub const DerivedRegistrationDeposit: Balance = deposit(6, 8192);
+    /// Flat permanent reserve for each new descriptor-based or protected derived
+    /// account: 0.2 TAO. Transaction fees are charged separately.
+    pub const AccountRegistrationDeposit: Balance = TaoBalance::new(200_000_000);
 }
+
+// Preserve the existing runtime names and pallet metadata constants while every
+// account registration uses the same configured amount. Existing reserves stay put.
+pub type HashedRegistrationDeposit = AccountRegistrationDeposit;
+pub type MlDsaRegistrationDeposit = AccountRegistrationDeposit;
+pub type DerivedRegistrationDeposit = AccountRegistrationDeposit;
 
 parameter_types! {
     pub HashedEnabled: bool = pallet_admin_utils::HashedAccountsEnabled::<Runtime>::get();

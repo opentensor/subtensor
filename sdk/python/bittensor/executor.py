@@ -54,6 +54,7 @@ from .result import (
     chain_error_from_dispatch,
 )
 from .settings import DEFAULT_ERA_PERIOD, MEV_SHIELD_ERA_PERIOD
+from .shielding import contains_account_registration, registration_shield_default
 from .signing import (
     WalletLike,
     as_wallet,
@@ -792,6 +793,7 @@ class Executor:
         preview.registration_sponsorship = registration_sponsorship_quote(
             extras or {}, dispatch_origin
         )
+        preview.account_registration = await contains_account_registration(self.substrate, call)
         for recipient in recipients.values():
             preview.effects = [
                 effect.replace(recipient.account, recipient.address) for effect in preview.effects
@@ -937,6 +939,7 @@ class Executor:
         on_progress: Any = None,
         max_registration_deposit: Balance | None = None,
         on_registration_sponsorship: RegistrationSponsorshipCallback | None = None,
+        shielded: bool | None = None,
     ) -> ExtrinsicResult:
         """Plan, then sign and submit. Raises ``PolicyError`` if the plan violates
         policy. (To preview without submitting, call ``plan`` instead.)
@@ -952,6 +955,9 @@ class Executor:
 
         Intents with ``mev_shield_required`` (collateral AMM buys) are redirected
         to :meth:`submit_shielded`; they cannot be submitted in the clear.
+        Account registration defaults to Shield when the network provides it.
+        ``shielded=False`` opts out; ``shielded=True`` requires Shield without
+        public fallback. Other intents retain their existing SDK defaults.
 
         ``register_subnet`` has a second completion boundary: when subnet
         capacity is full the successful extrinsic queues behind multi-block
@@ -969,13 +975,16 @@ class Executor:
         """
         validate_registration_deposit_limit(max_registration_deposit)
         proxy_for = await account_for_read(self.substrate, proxy_for)
-        if intent.semantic_intent().mev_shield_required:
+        if intent.semantic_intent().mev_shield_required or shielded is True:
             return await self.submit_shielded(
                 intent,
                 wallet,
                 policy=policy,
                 proxy_for=proxy_for,
                 proxy_type=proxy_type,
+                period=MEV_SHIELD_ERA_PERIOD
+                if period in (None, DEFAULT_ERA_PERIOD)
+                else int(period),
                 wait_for_inclusion=wait_for_inclusion,
                 wait_for_finalization=wait_for_finalization,
                 wait_for_registration=wait_for_registration,
@@ -989,6 +998,26 @@ class Executor:
         )
         if not plan.ok:
             raise PolicyError(plan.violations)
+
+        if shielded is None and await registration_shield_default(self.substrate, plan.call):
+            return await self._submit_shielded_prepared(
+                intent,
+                as_wallet(wallet),
+                plan.call,
+                plan.extras,
+                policy=policy,
+                proxy_for=proxy_for,
+                period=MEV_SHIELD_ERA_PERIOD
+                if period in (None, DEFAULT_ERA_PERIOD)
+                else int(period),
+                wait_for_inclusion=wait_for_inclusion,
+                wait_for_finalization=wait_for_finalization,
+                wait_for_registration=wait_for_registration,
+                registration_timeout=registration_timeout,
+                on_progress=on_progress,
+                max_registration_deposit=max_registration_deposit,
+                on_registration_sponsorship=on_registration_sponsorship,
+            )
 
         await authorize_registration_sponsorship(
             plan.extras,
@@ -1106,10 +1135,46 @@ class Executor:
         wallet = as_wallet(wallet)
         proxy_for = await account_for_read(self.substrate, proxy_for)
         intent = await _coerce_addresses(self.substrate, intent)
-        semantic_intent = await _coerce_addresses(self.substrate, intent.semantic_intent())
         call, extras = await _compose_intent_call(
             self.substrate, intent, wallet, proxy_for=proxy_for, proxy_type=proxy_type
         )
+        return await self._submit_shielded_prepared(
+            intent,
+            wallet,
+            call,
+            extras,
+            policy=policy,
+            proxy_for=proxy_for,
+            period=period,
+            wait_for_inclusion=wait_for_inclusion,
+            wait_for_finalization=wait_for_finalization,
+            wait_for_registration=wait_for_registration,
+            registration_timeout=registration_timeout,
+            on_progress=on_progress,
+            max_registration_deposit=max_registration_deposit,
+            on_registration_sponsorship=on_registration_sponsorship,
+        )
+
+    async def _submit_shielded_prepared(
+        self,
+        intent,
+        wallet,
+        call,
+        extras,
+        *,
+        policy,
+        proxy_for,
+        period,
+        wait_for_inclusion,
+        wait_for_finalization,
+        wait_for_registration,
+        registration_timeout,
+        on_progress,
+        max_registration_deposit,
+        on_registration_sponsorship,
+    ) -> ExtrinsicResult:
+        """Submit the already selected call; never rebuild after selecting its route."""
+        semantic_intent = await _coerce_addresses(self.substrate, intent.semantic_intent())
         dispatch_origin, fee_payer = _intent_accounts(self.substrate, intent, wallet, proxy_for)
         preflight = await self._preflight(
             intent,
@@ -1437,7 +1502,7 @@ class Executor:
         period: Optional[int] = DEFAULT_ERA_PERIOD,
         wait_for_inclusion: bool = True,
         wait_for_finalization: bool = True,
-        shielded: bool = False,
+        shielded: bool | None = None,
     ) -> ExtrinsicResult:
         """Escape hatch: sign and submit a generated raw call with no intent wrapper.
 
@@ -1445,11 +1510,14 @@ class Executor:
         exposes, including ones no intent wraps). There is no plan/preview, so an
         active policy cannot bound the spend — raw calls are refused unless the
         policy sets ``allow_raw_calls=True``. No policy means no restriction,
-        exactly as for intents. ``shielded=True`` encrypts the composed call
-        the same way :meth:`submit_shielded` does for intents.
+        exactly as for intents. Account registration defaults to Shield when
+        available. ``shielded=False`` opts out; ``shielded=True`` requires it
+        without public fallback, like :meth:`submit_shielded`.
         """
         self._enforce_raw_call(policy)
         composed = await self.substrate.compose(call)
+        if shielded is None:
+            shielded = await registration_shield_default(self.substrate, composed)
         keypair = resolve_signer(wallet, signer)
         if shielded:
             era = MEV_SHIELD_ERA_PERIOD if period in (None, DEFAULT_ERA_PERIOD) else int(period)

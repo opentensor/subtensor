@@ -256,7 +256,7 @@ class Multisig:
         signer: str = "coldkey",
         wait_for_inclusion: bool = True,
         wait_for_finalization: bool = False,
-        shielded: bool = False,
+        shielded: bool | None = None,
     ):
         """Approve ``call`` as one signatory; executes it once the threshold is met.
 
@@ -268,12 +268,17 @@ class Multisig:
 
         ``shielded=True`` encrypts this signer's ``as_multi`` the same way
         :meth:`Executor.submit_shielded` encrypts an intent — the inner call
-        hash is unchanged, so later approvals still chain.
+        hash is unchanged, so later approvals still chain. Account registration
+        defaults to Shield when available; ``shielded=False`` opts out.
         """
         member = bytes(ss58_decode(public_view(wallet, signer).ss58_address))
         if member not in {bytes(ss58_decode(address)) for address in self.signatories}:
             raise ValueError("the selected signer is not a member of this multisig")
         composed = await self._client.compose(call)
+        if shielded is None:
+            from .shielding import registration_shield_default
+
+            shielded = await registration_shield_default(self._client._substrate, composed)
         await self._preflight_funds(composed, wallet, signer)
         keypair = resolve_signer(wallet, signer)
         if not shielded:

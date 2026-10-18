@@ -22,7 +22,7 @@ from tests.harness.fake_substrate import FakeSubstrate, success_result
 from tests.harness.samples import ALICE, BOB, dev_wallet
 
 CLASSICAL_DEPOSIT = 200_000_000
-MLDSA_DEPOSIT = 1_144_000_000
+MLDSA_DEPOSIT = 200_000_000
 
 
 @pytest.fixture(params=[4, 6, 7, 8])

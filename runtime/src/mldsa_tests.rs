@@ -464,9 +464,14 @@ fn sponsor_registration_and_funding_are_atomic_under_normal_signed_v4() {
         );
         assert!(MlDsaAccounts::<Runtime>::get(&account).is_none());
         assert_eq!(System::account_nonce(&account), 0);
+        assert_eq!(Balances::reserved_balance(&sponsor_id), TaoBalance::new(0));
         assert_ok!(
             Executive::apply_extrinsic(legacy(&sponsor, register_and_fund(10_000_000_000)))
                 .unwrap()
+        );
+        assert_eq!(
+            Balances::reserved_balance(&sponsor_id),
+            TaoBalance::new(200_000_000)
         );
         assert_ok!(Executive::apply_extrinsic(sign(45, call())).unwrap());
     });
@@ -534,8 +539,13 @@ fn mixed_and_all_pq_multisig_execute_under_the_unchanged_account_and_call_hash()
             } else {
                 legacy(&ordinary, execute_protection)
             };
+            let sponsor_reserve = Balances::reserved_balance(&second);
             assert_ok!(Executive::apply_extrinsic(registration).unwrap());
             assert!(HashedAccounts::is_protected(&composite));
+            assert_eq!(
+                Balances::reserved_balance(&second),
+                sponsor_reserve + TaoBalance::new(200_000_000)
+            );
             let _ = Balances::make_free_balance_be(&composite, TaoBalance::new(10_000_000_000));
             let recipient = AccountId::new([98; 32]);
             let transfer = RuntimeCall::Balances(BalancesCall::transfer_keep_alive {
@@ -803,6 +813,10 @@ fn protected_derivatives_and_pure_proxies_preserve_their_floor_through_lifecycle
             &derivative,
             pallet_hashed_accounts::SecurityFloor::PqRequired
         ));
+        assert_eq!(
+            Balances::reserved_balance(&parent),
+            TaoBalance::new(200_000_000)
+        );
         let failed_child = Utility::derivative_account_id(parent.clone(), 8).unwrap();
         let before = MlDsaAccounts::<Runtime>::get(&parent).unwrap().generation;
         let fail = RuntimeCall::Balances(BalancesCall::transfer_keep_alive {
@@ -821,6 +835,10 @@ fn protected_derivatives_and_pure_proxies_preserve_their_floor_through_lifecycle
             .is_err()
         );
         assert!(!HashedAccounts::is_protected(&failed_child));
+        assert_eq!(
+            Balances::reserved_balance(&parent),
+            TaoBalance::new(200_000_000)
+        );
         assert_eq!(
             MlDsaAccounts::<Runtime>::get(&parent).unwrap().generation,
             before + 1
@@ -865,6 +883,12 @@ fn protected_derivatives_and_pure_proxies_preserve_their_floor_through_lifecycle
         assert!(Proxy::proxies(pure.clone()).0.is_empty());
         assert!(HashedAccounts::is_protected(&pure));
         assert!(HashedAccounts::is_protected(&derivative));
+        // Removing a pure proxy releases its proxy deposit, but both account
+        // registration reserves remain permanent.
+        assert_eq!(
+            Balances::reserved_balance(&parent),
+            TaoBalance::new(400_000_000)
+        );
     });
 }
 

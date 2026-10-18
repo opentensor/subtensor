@@ -139,6 +139,8 @@ class IntentPreflight:
     # Explicit approval is required if execution adds recipient registration.
     # Planning itself never prompts or authorizes a future composition.
     registration_sponsorship: RegistrationSponsorship | None = None
+    # The composed call establishes a protected account, including derived accounts.
+    account_registration: bool = False
 
 
 @dataclass

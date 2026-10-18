@@ -54,6 +54,7 @@ import typer
 
 from .. import calls
 from ..executor import nest_origin_wrappers
+from ..shielding import ACCOUNT_REGISTRATION_CALLS, contains_account_registration
 from . import multisig_helpers as ms_helpers
 from .call_names import resolve_builder_params
 from .context import ctx_of
@@ -76,7 +77,7 @@ def _shield_policy_for_target(target: str) -> tuple[bool, bool]:
     from ..intents import REGISTRY
 
     pair = (pallet, function)
-    default = False
+    default = pair in ACCOUNT_REGISTRATION_CALLS
     for cls in REGISTRY.values():
         if pair not in cls.wraps:
             continue
@@ -216,10 +217,6 @@ def call(
             "must be 'coldkey', 'hotkey', or a signing backend (wallet, vault, ledger, extension)",
             param_hint="--signer",
         )
-    shield_default, shield_required = _shield_policy_for_target(target)
-    shield, shield_forced = app_ctx.resolve_mev_shield(
-        default=shield_default, required=shield_required, op=target
-    )
     proxy_for = app_ctx.resolve_dispatch_proxy()
     force_proxy_type = app_ctx.force_proxy_type
     if force_proxy_type is not None and proxy_for is None:
@@ -235,6 +232,15 @@ def call(
     )
     builder = _resolve_builder(target)
     params = resolve_builder_params(app_ctx, target, _load_params(args, args_file))
+    shield_default, shield_required = _shield_policy_for_target(target)
+
+    async def _registration_default(client):
+        return await contains_account_registration(client._substrate, builder(**params))
+
+    shield_default = shield_default or app_ctx.run(_registration_default)
+    shield, shield_forced = app_ctx.resolve_mev_shield(
+        default=shield_default, required=shield_required, op=target
+    )
     proxy_type_value = (
         str(getattr(force_proxy_type, "value", force_proxy_type)) if force_proxy_type else None
     )

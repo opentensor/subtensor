@@ -204,7 +204,7 @@ _TX_FLOW = [
             None,
             "--mev-shield/--no-mev-shield",
             help="Encrypt the extrinsic via the MevShield pallet so the mempool can't "
-            "front-run it. Stake-trading commands shield by default; pass "
+            "front-run it. Stake trading and account registration shield by default; pass "
             "--no-mev-shield to submit in the clear, or persist the choice with "
             "`btcli config set mev_shield false`.",
             rich_help_panel=PANEL_EXECUTION,

@@ -147,7 +147,7 @@ class AppContext:
     output: Output
     # Tri-state MEV shielding override (--mev-shield/--no-mev-shield). None
     # falls through to the persistent `mev_shield` config value, then to the
-    # intent's own default (stake-trading intents shield, the rest don't).
+    # intent's own default, extended by any composed account registration.
     mev_shield: Optional[bool] = None
     # Global --proxy-for / --force-proxy-type (tx-tier). None falls through to
     # the persistent `proxy_for` config value, then to a direct signature.
@@ -300,7 +300,7 @@ class AppContext:
         Order: required intents cannot opt out; then ``--mev-shield`` /
         ``--no-mev-shield``; then ``btcli config set mev_shield``; then
         ``default`` (True for stake add/remove/move/transfer and other
-        pool-trading ops). Returns ``(shield, forced)``. ``forced`` is True
+        pool-trading ops and account registration). Returns ``(shield, forced)``. ``forced`` is True
         when the user or a required intent demanded shielding — those paths
         fail instead of falling back to clear submission.
         """
@@ -1006,7 +1006,7 @@ class AppContext:
         ``on_result`` receives the receipt before rendering can exit on failure.
         Neither callback runs during a dry-run.
 
-        Stake-trading intents (``mev_shield_default``) are submitted
+        Stake-trading intents and account registrations are submitted
         MEV-shielded via ``client.submit_shielded`` unless the user opts out
         with ``--no-mev-shield`` or ``btcli config set mev_shield false``;
         ``--mev-shield`` (or config true) opts any mutation in. Shield wraps
@@ -1113,47 +1113,6 @@ class AppContext:
                 semantic_intent = intent.semantic_intent()
         wallet = self.wallet()
         self._register_local_names(wallet)
-        # Outer MevShield.submit_encrypted has no netuid, so fees_in_alpha cannot
-        # route — free TAO must cover the carrier. Bare remove_stake (etc.) can
-        # pay in alpha; downgrade the stake default before confirm so the summary
-        # is honest and α-only coldkeys still unstake. External signers resolve
-        # the fee payer later; _execute repeats this check for them.
-        if shield and not self.uses_external_signer():
-            try:
-                fee_payer = public_view(wallet, intent.signer).ss58_address
-            except Exception:
-                fee_payer = None
-            if fee_payer is not None:
-
-                async def _shield_fee_preflight(client):
-                    return await self._shield_outer_fee_shortfall(
-                        client,
-                        fee_payer,
-                        intent=intent,
-                        wallet=wallet,
-                        proxy_for=proxy_for,
-                        proxy_type=force_proxy_type,
-                    )
-
-                shortfall = self.run(_shield_fee_preflight)
-                if shortfall is not None:
-                    if shield_forced or semantic_intent.mev_shield_required:
-                        self.output.error(
-                            "MEV-shielded submission needs free TAO for the outer carrier fee",
-                            help=(
-                                f"{semantic_intent.op} cannot submit unshielded"
-                                if semantic_intent.mev_shield_required
-                                else "pass --no-mev-shield to submit unshielded "
-                                "(alpha fees work on the bare call), or fund the "
-                                "signing account with free TAO"
-                            ),
-                        )
-                        raise typer.Exit(2)
-                    shield = False
-                    shield_note = (
-                        "free TAO cannot cover the outer carrier fee "
-                        "(alpha fees only work on the unshielded call)"
-                    )
         options = {"proxy_for": proxy_for, "proxy_type": force_proxy_type}
         approved_registration_quotes: set[tuple[str, str, int]] = set()
 
@@ -1253,9 +1212,6 @@ class AppContext:
                 lock_line,
             ]
         summary += f" [as {proxy_for} via proxy]" if proxy_for else ""
-        if shield:
-            summary += " [MEV-shielded]"
-
         # Privileged intents say up front which key the chain will accept, so
         # nobody signs (or approves a multisig) before learning the call needs
         # a different origin.
@@ -1281,6 +1237,16 @@ class AppContext:
 
         if self.dry_run:
             plan = self.run(_plan)
+            from ..shielding import contains_account_registration
+
+            async def _registration_default(client):
+                return await contains_account_registration(client._substrate, plan.call)
+
+            shield, shield_forced = self.resolve_mev_shield(
+                default=semantic_intent.mev_shield_default or self.run(_registration_default),
+                required=semantic_intent.mev_shield_required,
+                op=semantic_intent.op,
+            )
             if base_summary != intent_summary:
                 plan.summary = base_summary
                 plan.effects = [
@@ -1310,75 +1276,136 @@ class AppContext:
         # Surface intent warnings before the user confirms (dry-run already
         # prints them via ``output.plan``). Root-claim also computes the fee
         # preview and refuses when free TAO cannot cover the reserved
-        # inclusion fee. Skip when an external signer still needs its
-        # account picker — those paths resolve the origin later.
+        # inclusion fee. Pick an external signer's public account here too so
+        # registration and shielding are shown before the transaction review.
         fee_facts: list[tuple[str, str]] = []
         facts_title = "Fees"
         estimated_fee = None
         sponsorship_quote = None
-        if not self.uses_external_signer():
 
-            async def _preflight(client):
-                try:
-                    preview = await client.preflight(
-                        intent,
-                        wallet,
+        async def _preflight(client):
+            preview_wallet = (
+                await self.resolve_signing_wallet(intent.signer, pick_account=True)
+                if self.uses_external_signer()
+                else wallet
+            )
+            try:
+                preview = await client.preflight(
+                    intent,
+                    preview_wallet,
+                    proxy_for=proxy_for,
+                    proxy_type=force_proxy_type,
+                )
+            except Exception:
+                # Optional fee previews may fail, but an unknown recipient
+                # setup cost must not fall through to unlocking a wallet.
+                from ..hashed import has_receiving_setup_inputs
+
+                if await has_receiving_setup_inputs(client._substrate, preview_wallet, intent):
+                    raise
+                return [], [], [], [], "Fees", None, None, False
+            finally:
+                if self.uses_extension_signer() and hasattr(preview_wallet, "close"):
+                    await preview_wallet.close()
+            warnings = list(preview.warnings)
+            if semantic_intent.op in ("claim_root", "claim_root_with_hotkey"):
+                effects = list(preview.effects)
+            else:
+                effects = []
+            return (
+                effects,
+                warnings,
+                list(preview.blocks),
+                list(preview.facts),
+                preview.facts_title,
+                preview.estimated_fee,
+                getattr(preview, "registration_sponsorship", None),
+                preview.account_registration,
+            )
+
+        (
+            effects,
+            warnings,
+            blocks,
+            fee_facts,
+            facts_title,
+            estimated_fee,
+            sponsorship_quote,
+            account_registration,
+        ) = self.run(_preflight)
+        shield, shield_forced = self.resolve_mev_shield(
+            default=semantic_intent.mev_shield_default or account_registration,
+            required=semantic_intent.mev_shield_required,
+            op=semantic_intent.op,
+        )
+        summary_line = intent.summary()
+        # Structured facts render as the review card's "Fees" stage; the
+        # prose effect lines only print where the card cannot (quiet/json
+        # sessions, or intents with no structured preview).
+        if fee_facts and not (self.output.quiet or self.output.json_mode):
+            effects = []
+        for effect in effects:
+            if effect == summary_line:
+                continue
+            rendered = self.output.with_subnets(self.output.with_names(effect))
+            self.output.message(f"[dim]{rendered}[/dim]")
+        for warning in warnings:
+            rendered = self.output.with_subnets(self.output.with_names(warning))
+            self.output.message(f"[{STYLE_WARNING}]warning:[/{STYLE_WARNING}] {rendered}")
+        if blocks:
+            for block in blocks:
+                self.output.error(
+                    block,
+                    help="resolve this hard stop before submitting",
+                )
+            raise typer.Exit(1)
+
+        # Outer MevShield.submit_encrypted has no netuid, so fees_in_alpha cannot
+        # route — free TAO must cover the carrier. Bare remove_stake (etc.) can
+        # pay in alpha; downgrade the stake default before confirm so the summary
+        # is honest and α-only coldkeys still unstake. External signers resolve
+        # the fee payer later; _execute repeats this check for them.
+        if shield and not self.uses_external_signer():
+            try:
+                fee_payer = public_view(wallet, intent.signer).ss58_address
+            except Exception:
+                fee_payer = None
+            if fee_payer is not None:
+
+                async def _shield_fee_preflight(client):
+                    return await self._shield_outer_fee_shortfall(
+                        client,
+                        fee_payer,
+                        intent=intent,
+                        wallet=wallet,
                         proxy_for=proxy_for,
                         proxy_type=force_proxy_type,
                     )
-                except Exception:
-                    # Optional fee previews may fail, but an unknown recipient
-                    # setup cost must not fall through to unlocking a wallet.
-                    from ..hashed import has_receiving_setup_inputs
 
-                    if await has_receiving_setup_inputs(client._substrate, wallet, intent):
-                        raise
-                    return [], [], [], [], "Fees", None, None
-                warnings = list(preview.warnings)
-                if semantic_intent.op in ("claim_root", "claim_root_with_hotkey"):
-                    effects = list(preview.effects)
-                else:
-                    effects = []
-                return (
-                    effects,
-                    warnings,
-                    list(preview.blocks),
-                    list(preview.facts),
-                    preview.facts_title,
-                    preview.estimated_fee,
-                    getattr(preview, "registration_sponsorship", None),
-                )
-
-            (
-                effects,
-                warnings,
-                blocks,
-                fee_facts,
-                facts_title,
-                estimated_fee,
-                sponsorship_quote,
-            ) = self.run(_preflight)
-            summary_line = intent.summary()
-            # Structured facts render as the review card's "Fees" stage; the
-            # prose effect lines only print where the card cannot (quiet/json
-            # sessions, or intents with no structured preview).
-            if fee_facts and not (self.output.quiet or self.output.json_mode):
-                effects = []
-            for effect in effects:
-                if effect == summary_line:
-                    continue
-                rendered = self.output.with_subnets(self.output.with_names(effect))
-                self.output.message(f"[dim]{rendered}[/dim]")
-            for warning in warnings:
-                rendered = self.output.with_subnets(self.output.with_names(warning))
-                self.output.message(f"[{STYLE_WARNING}]warning:[/{STYLE_WARNING}] {rendered}")
-            if blocks:
-                for block in blocks:
-                    self.output.error(
-                        block,
-                        help="resolve this hard stop before submitting",
+                shortfall = self.run(_shield_fee_preflight)
+                if shortfall is not None:
+                    if shield_forced or semantic_intent.mev_shield_required:
+                        self.output.error(
+                            "MEV-shielded submission needs free TAO for the outer carrier fee",
+                            help=(
+                                f"{semantic_intent.op} cannot submit unshielded"
+                                if semantic_intent.mev_shield_required
+                                else "pass --no-mev-shield to submit unshielded "
+                                "(alpha fees work on the bare call), or fund the "
+                                "signing account with free TAO"
+                            ),
+                        )
+                        raise typer.Exit(2)
+                    shield = False
+                    shield_note = (
+                        "free TAO cannot cover the outer carrier fee "
+                        "(alpha fees only work on the unshielded call)"
                     )
-                raise typer.Exit(1)
+
+        if shield:
+            summary += " [MEV-shielded]"
+        if self.uses_vault_signer():
+            self.vault_signer().summary = summary
 
         def _print_registration_notes() -> None:
             if self.assume_yes:
@@ -1412,12 +1439,8 @@ class AppContext:
             card_extras.append(("cost", neuron_reg_cost))
 
         if self.uses_extension_signer():
-
-            async def _prepare(_client):
-                signer = await self.extension_signer(pick_account=True)
-                await signer.close()
-
-            self.run(_prepare)
+            # Preflight selected the account and closed only its signer handle.
+            # Reopen that selection at execution; never repick after quoting it.
             _print_registration_notes()
             # The extension popup is the approval surface: it shows this same
             # transaction and requires an explicit approve/reject there, so a
@@ -1637,7 +1660,13 @@ class AppContext:
                         **shield_options,
                     )
                 else:
+                    registration_default_allowed, _ = self.resolve_mev_shield(default=True)
                     execute_options = {
+                        "shielded": (
+                            None
+                            if registration_default_allowed and not shield_note and not shield
+                            else False
+                        ),
                         "wait_for_finalization": finalize,
                         **options,
                         **sponsorship_options,

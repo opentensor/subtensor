@@ -932,6 +932,87 @@ fn assert_no_received_account(recipient: &AccountId) {
 }
 
 #[test]
+fn all_registration_profiles_reserve_the_same_flat_deposit_once() {
+    use frame_support::traits::ReservableCurrency;
+    use subtensor_hashed::{RegistrationDescriptor, mldsa};
+
+    let commitment = mldsa::commitment(&mldsa::public_key_from_seed(&[71; 32]).unwrap());
+    let profiles = [
+        Descriptor {
+            scheme: Scheme::Sr25519,
+            ..descriptor()
+        }
+        .into(),
+        Descriptor {
+            scheme: Scheme::Ed25519,
+            ..descriptor()
+        }
+        .into(),
+        mldsa::Descriptor {
+            version: mldsa::VERSION,
+            algorithm: mldsa::ALGORITHM,
+            initial_commitment: commitment,
+        }
+        .into(),
+        mldsa::Descriptor {
+            version: mldsa::VERSION,
+            algorithm: mldsa::FIXED_ALGORITHM,
+            initial_commitment: commitment,
+        }
+        .into(),
+    ];
+    for descriptor in profiles {
+        ext().execute_with(|| {
+            System::set_block_number(1);
+            pallet_admin_utils::HashedAccountsEnabled::<Runtime>::put(true);
+            hashed_auth::TestVerificationWeight::set(Weight::zero());
+            let recipient = AccountId::new(match descriptor {
+                RegistrationDescriptor::Classical(value) => subtensor_hashed::account_id(&value),
+                RegistrationDescriptor::MlDsa65(value) => mldsa::account_id(&value),
+            });
+            let sponsor = AccountId::from(pair(72).public());
+            let registration =
+                RuntimeCall::HashedAccounts(pallet_hashed_accounts::Call::register { descriptor });
+            let deposit = TaoBalance::new(200_000_000);
+            let _ = Balances::make_free_balance_be(&sponsor, deposit - TaoBalance::new(1));
+            assert!(
+                Executive::apply_extrinsic(legacy(&pair(72), registration.clone()))
+                    .unwrap()
+                    .is_err()
+            );
+            assert_no_received_account(&recipient);
+            assert_eq!(Balances::reserved_balance(&sponsor), TaoBalance::new(0));
+
+            let initial = TaoBalance::new(10_000_000_000);
+            let existing_reserve = TaoBalance::new(1_144_000_000);
+            let _ = Balances::make_free_balance_be(&sponsor, initial);
+            frame_support::assert_ok!(Balances::reserve(&sponsor, existing_reserve));
+            frame_support::assert_ok!(
+                Executive::apply_extrinsic(legacy(&pair(72), registration.clone())).unwrap()
+            );
+            assert!(HashedAccounts::is_protected(&recipient));
+            assert_eq!(
+                Balances::reserved_balance(&sponsor),
+                existing_reserve + deposit
+            );
+            assert!(Balances::free_balance(&sponsor) < initial - existing_reserve - deposit);
+            // Repeating registration, even through another sponsor, neither
+            // charges again nor releases any previously reserved balance.
+            let other = AccountId::from(pair(73).public());
+            let _ = Balances::make_free_balance_be(&other, TaoBalance::new(1_000_000_000));
+            frame_support::assert_ok!(
+                Executive::apply_extrinsic(legacy(&pair(73), registration)).unwrap()
+            );
+            assert_eq!(
+                Balances::reserved_balance(&sponsor),
+                existing_reserve + deposit
+            );
+            assert_eq!(Balances::reserved_balance(&other), TaoBalance::new(0));
+        });
+    }
+}
+
+#[test]
 fn competing_first_funding_sponsors_preserve_the_recipients_rotated_authority() {
     ext().execute_with(|| {
         System::set_block_number(1);

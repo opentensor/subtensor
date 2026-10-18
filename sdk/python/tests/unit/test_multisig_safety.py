@@ -135,7 +135,10 @@ async def test_saved_multisig_preserves_inner_policy_and_mev_contract(monkeypatc
 
 
 @pytest.mark.asyncio
-async def test_required_mev_shield_survives_multisig_dispatch():
+@pytest.mark.parametrize(
+    "options,expected_period", [({}, 8), ({"period": None}, 8), ({"period": 16}, 16)]
+)
+async def test_required_mev_shield_survives_multisig_dispatch(options, expected_period):
     semantic = BurnedRegister(netuid=7, hotkey_ss58=ALICE_HOT)
     dispatch = MultisigThreshold1(
         other_signatories=[BOB],
@@ -147,7 +150,7 @@ async def test_required_mev_shield_survives_multisig_dispatch():
     executor.submit_shielded = AsyncMock(return_value=expected)
     wallet = Mock()
 
-    result = await executor.execute(wrapped, wallet)
+    result = await executor.execute(wrapped, wallet, **options)
 
     assert result is expected
     executor.submit_shielded.assert_awaited_once_with(
@@ -156,6 +159,7 @@ async def test_required_mev_shield_survives_multisig_dispatch():
         policy=None,
         proxy_for=None,
         proxy_type=None,
+        period=expected_period,
         wait_for_inclusion=True,
         wait_for_finalization=True,
         wait_for_registration=True,
@@ -167,7 +171,10 @@ async def test_required_mev_shield_survives_multisig_dispatch():
 
 
 @pytest.mark.asyncio
-async def test_required_mev_shield_passes_proxy_for():
+@pytest.mark.parametrize(
+    "options,expected_period", [({}, 8), ({"period": None}, 8), ({"period": 16}, 16)]
+)
+async def test_required_mev_shield_passes_proxy_for(options, expected_period):
     semantic = BurnedRegister(netuid=7, hotkey_ss58=ALICE_HOT)
     dispatch = MultisigThreshold1(
         other_signatories=[BOB],
@@ -188,6 +195,7 @@ async def test_required_mev_shield_passes_proxy_for():
         proxy_type="Staking",
         max_registration_deposit=max_deposit,
         on_registration_sponsorship=on_sponsorship,
+        **options,
     )
 
     assert result is expected
@@ -197,6 +205,7 @@ async def test_required_mev_shield_passes_proxy_for():
         policy=None,
         proxy_for=BOB,
         proxy_type="Staking",
+        period=expected_period,
         wait_for_inclusion=True,
         wait_for_finalization=True,
         wait_for_registration=True,
