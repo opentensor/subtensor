@@ -1,0 +1,6 @@
+{
+  "initial_wrong_receiver_fixture": "Rejected test fixture: dev_wallet(//Bob) and dev_wallet(//Charlie) both default to //Alice//hot, so receiver identities were equal; preserved under rejected-wrong-receiver-fixture.",
+  "first_ms_api_shape_assertion": "Rejected test assertion in results.json: prepare_signer correctly returns WalletSigner for ML-DSA, which has no hashed_generation property. resume_ms.py reuses these funded/rotated wallets and checks crypto type/address, then resolves an independent finalized message capability.",
+  "native_mortality_rejection": "Confirmed production behavior, not rejected evidence: exact release-native Client::submit_shielded signs period64; production runtime accepts at most8. Also present at merge base6a972693ae9580541225bd37696ac2fee26b8ae9.",
+  "source_overlay": "Parent/peer local Python executor fee-payer fix and local e2e test improvements are present; exact native binary/runtime unchanged and hashes pinned. No native success or failed-inner execution inferred from carrier rejection."
+}

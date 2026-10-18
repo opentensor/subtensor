@@ -1,0 +1,112 @@
+[
+  {
+    "step": "fund-and-register",
+    "receipt": {
+      "success": true,
+      "message": "Success",
+      "block_hash": "0xf7e80dd9019440cf8e36716b10e13746f61897bc41b138f9a35bc622f8e9c49d",
+      "extrinsic_id": "8-0007",
+      "fee_tao": 0.000969015,
+      "data": {
+        "hashed_registration_guards": [
+          "5G1m48NQhHvZoNUFKd8pLh51kB7v1rMuKz7o5F3AYK4y3JWW"
+        ],
+        "hashed_registration_max_deposit_rao": 200000000,
+        "hashed_registration": "5G1m48NQhHvZoNUFKd8pLh51kB7v1rMuKz7o5F3AYK4y3JWW",
+        "hashed_registration_deposit_rao": 200000000,
+        "shielded": true,
+        "inner_extrinsic_hash": "0xcbf7f48497a99a526bad218e9088afd70de6c4a95e9bff995ff5cfa6cf2ac430"
+      }
+    }
+  },
+  {
+    "step": "fund-and-register",
+    "receipt": {
+      "success": true,
+      "message": "Success",
+      "block_hash": "0xf1679549307560633f3e213e03619f3ebc6a60923039407929e78780595bf6f8",
+      "extrinsic_id": "12-0007",
+      "fee_tao": 0.000969015,
+      "data": {
+        "hashed_registration_guards": [
+          "5GmCdnLKendHaj2cx6SPs42UPdFFarCPCBR35NJGhXCd96xE"
+        ],
+        "hashed_registration_max_deposit_rao": 200000000,
+        "hashed_registration": "5GmCdnLKendHaj2cx6SPs42UPdFFarCPCBR35NJGhXCd96xE",
+        "hashed_registration_deposit_rao": 200000000,
+        "shielded": true,
+        "inner_extrinsic_hash": "0x685e504826968d4939d545ffc2336d7c48d20eda81fc9e4d1efdd1a8c8501dcd"
+      }
+    }
+  },
+  {
+    "step": "fund-and-register",
+    "receipt": {
+      "success": true,
+      "message": "Success",
+      "block_hash": "0x09bde2fe3d6cc5e9db1b0debdcff873e3966e451f95f8bca20585762d67bf711",
+      "extrinsic_id": "16-0007",
+      "fee_tao": 0.000969015,
+      "data": {
+        "hashed_registration_guards": [
+          "5G57ptq1NND3kUzgh7QjKGJUBhumkxfsz8iH4XTJAy7y9iG3"
+        ],
+        "hashed_registration_max_deposit_rao": 200000000,
+        "hashed_registration": "5G57ptq1NND3kUzgh7QjKGJUBhumkxfsz8iH4XTJAy7y9iG3",
+        "hashed_registration_deposit_rao": 200000000,
+        "shielded": true,
+        "inner_extrinsic_hash": "0xf933a489329a1cc81289c46d7c3a8752ac1ccc1aec88a478619588d99352eebb"
+      }
+    }
+  },
+  {
+    "step": "fund-and-register",
+    "receipt": {
+      "success": true,
+      "message": "Success",
+      "block_hash": "0x798bdc028234112b25171d5b88e765be43a1b6bee8de9f6deb113be9562f1b92",
+      "extrinsic_id": "20-0007",
+      "fee_tao": 0.000969015,
+      "data": {
+        "hashed_registration_guards": [
+          "5FUoQeZuisvraf7aP2RJxvV4j6igcQpiwgq2edPEbJNPd3uD"
+        ],
+        "hashed_registration_max_deposit_rao": 200000000,
+        "hashed_registration": "5FUoQeZuisvraf7aP2RJxvV4j6igcQpiwgq2edPEbJNPd3uD",
+        "hashed_registration_deposit_rao": 200000000,
+        "shielded": true,
+        "inner_extrinsic_hash": "0xedb53eb21cd932a9d8c5aa1a6e2ab030f4c30b6c18189fed53f3f6a9bba31822"
+      }
+    }
+  },
+  {
+    "step": "protect-group",
+    "member": "5G1m48NQhHvZoNUFKd8pLh51kB7v1rMuKz7o5F3AYK4y3JWW",
+    "receipt": {
+      "success": true,
+      "message": "Success",
+      "block_hash": "0x5b61a04c2a87ec3588c6fc13b7411eebd9965b9dfce9b8cd59a084345cb328f7",
+      "extrinsic_id": "24-0007",
+      "fee_tao": 0.000315284,
+      "data": {
+        "shielded": true,
+        "inner_extrinsic_hash": "0x2ebf44e3f5b7ef66fede4e8db9fa4261926e45977f8c87200205853b17e62a0d"
+      }
+    }
+  },
+  {
+    "step": "protect-group",
+    "member": "5GmCdnLKendHaj2cx6SPs42UPdFFarCPCBR35NJGhXCd96xE",
+    "receipt": {
+      "success": true,
+      "message": "Success",
+      "block_hash": "0x0bc047f8028b132e404ec2b6d9acad0ee4ea424cd81391dc56415dcf59976c64",
+      "extrinsic_id": "28-0007",
+      "fee_tao": 0.009169547,
+      "data": {
+        "shielded": true,
+        "inner_extrinsic_hash": "0xfba90ba8099952628fd00600f3d6b7fc57e715a7d97e397ec2c71b261278624a"
+      }
+    }
+  }
+]

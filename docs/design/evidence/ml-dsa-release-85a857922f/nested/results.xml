@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="287.613" timestamp="2026-10-18T10:28:49.578351-07:00" hostname="pop-os"><testcase classname="tests.e2e.test_mldsa_nested_authority" name="test_protected_multisig_as_proxy_and_proxy_for_multisig" time="287.497"><failure message="assert 3 == (1 + 1)">tests/e2e/test_mldsa_nested_authority.py:63: in test_protected_multisig_as_proxy_and_proxy_for_multisig
+    await quorum(
+tests/e2e/test_mldsa_nested_authority.py:56: in quorum
+    assert new["account"]["nonce"] == old["account"]["nonce"] + 1
+E   assert 3 == (1 + 1)</failure></testcase></testsuite></testsuites>

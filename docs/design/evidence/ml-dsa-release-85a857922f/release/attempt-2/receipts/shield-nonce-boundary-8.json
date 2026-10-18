@@ -1,0 +1,18 @@
+{
+  "quoted_sizes": [
+    8193,
+    8192,
+    8192
+  ],
+  "result": {
+    "success": true,
+    "message": "Success",
+    "block_hash": "0xda04688fde5386107900df383c93905fea4d695e39f7f4212fca1587e6871652",
+    "extrinsic_id": "258-0007",
+    "fee_tao": 0.000297767,
+    "data": {
+      "shielded": true,
+      "inner_extrinsic_hash": "0x990c54e9551a5b7c01714e65eebdb62259ce920c72bd7f650e3c60de3134d630"
+    }
+  }
+}

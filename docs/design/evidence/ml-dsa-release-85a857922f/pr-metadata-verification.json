@@ -1,0 +1,12 @@
+{
+  "url": "https://github.com/RaoFoundation/subtensor/pull/3220",
+  "head": "85a857922f70c218d499d2485b899fa9ef261a05",
+  "base": "6a972693ae9580541225bd37696ac2fee26b8ae9",
+  "state": "open",
+  "title": "Add quantum-resistant wallets and key rotation",
+  "description_stale_items": [
+    "MS registration is still described as 1.144 TAO; current runtime and live validation use 0.2 TAO for every protected account.",
+    "Validation section describes an earlier head and must not be read as current-head evidence."
+  ],
+  "recorded_at": "2026-10-18T18:12:24.095670+00:00"
+}

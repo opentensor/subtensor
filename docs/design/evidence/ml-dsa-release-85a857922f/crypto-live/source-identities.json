@@ -1,0 +1,23 @@
+{
+  "head": "85a857922f70c218d499d2485b899fa9ef261a05",
+  "files": {
+    "sdk/python/bittensor/http_auth.py": "5addf13b1faba48e2552c577e81cb6794011d1307638de1d7bad9de76f280d22",
+    "sdk/python/bittensor/signing.py": "60f2844f4db8a52c4132cdbf6e8d9b7861146e3e551a2b11e7ef3660092573e2",
+    "sdk/python/bittensor/mldsa.py": "5019b2437dc5a9e823fed6a1c22232fcb2c4e4aae094c4de6a34a019801f1433",
+    "sdk/python/bittensor/wallet.py": "37fcf71a73e432469f7c018bd9d290331883def5e806c80716ef2fc833624128",
+    "sdk/python/bittensor/executor.py": "ea8a90ddd735f742850b72ca8ebe381d5b2d1f5d42139a55f90fac50ee3502e8",
+    "sdk/python/bittensor/receiving.py": "9e99d6f957bdd7fafbd7d928d53bab86f88a1e2a5b0abafa09d9ba2c7b6c254b",
+    "sdk/bittensor-core/src/client.rs": "00ca7e3dbb15fb5cd8c380c785469b8e6f1f3e4fcfde122193e0eb4a1e4165d6",
+    "sdk/bittensor-core/tests/e2e.rs": "7f16960e95e0d6361d5348aa8aa0d34bb04643ecef3f7b888d39b0e6f2d97713",
+    "runtime/src/check_mortality.rs": "49400692259e4a3679ffc236ab820accbf1b3d412847f10c700010cce259be71"
+  },
+  "local_overlay_files": [
+    "sdk/python/bittensor/executor.py",
+    "sdk/python/tests/e2e/test_mldsa_extended.py",
+    "sdk/python/tests/e2e/test_mldsa_localnet.py",
+    "sdk/python/tests/e2e/test_mldsa_nested_authority.py",
+    "sdk/python/tests/e2e/test_mldsa_release.py",
+    "sdk/python/tests/e2e/test_mldsa_sponsorship_live.py",
+    "sdk/python/tests/unit/test_submission_costs.py"
+  ]
+}

@@ -269,7 +269,8 @@ async def test_offline_replay_capabilities_native_evm_and_derived_accounts(code)
             )
             is None
         )
-        assert (await record(client, key))["generation"] == before["generation"] + 1
+        signed_count = 2 if result.data.get("shielded") else 1
+        assert (await record(client, key))["generation"] == before["generation"] + signed_count
         result = await submit(
             bt.calls.Proxy.create_protected_pure(proxy_type="Any", delay=0, index=9)
         )

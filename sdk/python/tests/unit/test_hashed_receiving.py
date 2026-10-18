@@ -283,6 +283,10 @@ async def test_direct_multisig_rejects_unregistered_receiving_recipient(setup, t
 async def test_pinned_bytes_cannot_hide_receiving_inputs_inside_multisig(setup, threshold):
     chain, wallet, key, address = setup
     registered(chain, key)
+    # The enclosing threshold-one group must afford its nested opening
+    # approval so the test reaches the imported-byte/recipient guard.
+    origin = chain.multisig_account([ALICE, BOB], 1).ss58_address
+    chain.seed("System", "Account", [origin], {"data": {"free": 10**9}})
     kwargs = {"other_signatories": [BOB], "call": Transfer(address, 1).to_dict()}
     semantic = (
         MultisigThreshold1(**kwargs) if threshold == 1 else MultisigExecute(threshold=2, **kwargs)

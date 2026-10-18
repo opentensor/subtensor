@@ -2,7 +2,7 @@
 
 Run serially: the activation test temporarily changes the global activation switch, and the
 Shield boundary test uses sudo to set a disposable account's nonce to 63.
-Development weights permit execution; these tests do not measure capacity.
+The chain may use production weights; these tests do not measure capacity.
 """
 
 from __future__ import annotations
@@ -166,8 +166,9 @@ async def test_failed_registration_payment_batch_preserves_funds_and_next_author
         assert (await account(client, destination))["data"]["free"] == 0
         after = await record(client, sender)
         sender_after = await account(client, sender)
-        assert after["generation"] == before["generation"] + 1
-        assert sender_after["nonce"] == sender_before["nonce"] + 1
+        signed_count = 2 if result.data.get("shielded") else 1
+        assert after["generation"] == before["generation"] + signed_count
+        assert sender_after["nonce"] == sender_before["nonce"] + signed_count
         assert sender_after["data"]["reserved"] == sender_before["data"]["reserved"]
         # A freshly restored key must recover the consumed generation from chain.
         restored = Keypair.create_from_seed(seed, code)

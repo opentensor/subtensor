@@ -1,0 +1,485 @@
+{
+  "completed_at": "2026-10-18T18:52:17.321277+00:00",
+  "status": "LOCAL_PR_VALIDATION_PASSED_WITH_LOCAL_SDK_REPAIRS_AND_DOCUMENTED_PREEXISTING_LIMITS",
+  "head": "85a857922f70c218d499d2485b899fa9ef261a05",
+  "base": "6a972693ae9580541225bd37696ac2fee26b8ae9",
+  "scope": "Current-head runtime and weights plus the four local SDK production files in final-repair-sources.json. Earlier live suites retained their recorded source timing; final regressions and all offline SDK checks use the final repaired source.",
+  "local_repairs": [
+    "Aggregate distinct reserve and fee payers by AccountId and include Shield carrier affordability",
+    "Combine multisig approval reserve with immediate inner/carrier fees in all three approval APIs and nested planning"
+  ],
+  "lockfiles_unchanged": true,
+  "runtime_and_weights_unchanged": true,
+  "production_source_hashes": {
+    "sdk/python/bittensor/executor.py": "d363719f7d885d5cd67258fe8ba9534f815fe88fd737e0f4a52a4faee2bb11dc",
+    "sdk/python/bittensor/intents/batch.py": "18ba43f1dc82f03ca71fdec39597c6bd4f001271221a57c7bcc7a7fbe3dd73f3",
+    "sdk/python/bittensor/intents/multisig.py": "bbd6d233bf54744291ad1f535ac6a1f7d981ef0d33b8cbe4dac3656b6c467846",
+    "sdk/python/bittensor/multisig.py": "96904e9d97528052bcad04134f0172d49290d643ca3e9b7a1216325efa203975"
+  },
+  "offline_sdk": {
+    "passed": 3880,
+    "failed": 0,
+    "skipped": 0
+  },
+  "rust_workspace": {
+    "passed": 3610,
+    "failed": 0,
+    "ignored": 47
+  },
+  "live_unique_pytest_cases": {
+    "passed": 119,
+    "failed": 0,
+    "skipped": 0,
+    "evidence": "live-case-summary.json"
+  },
+  "full_preflight": {
+    "exit": 0,
+    "runtime_path_workaround": "preflight-path-workaround.json"
+  },
+  "typecheck": {
+    "exit": 0,
+    "nonfatal_diagnostics": 250
+  },
+  "dispatch_matrix": {
+    "call_variants": 323,
+    "cases": 1292,
+    "unresolved": []
+  },
+  "cryptographic_crosschecks": {
+    "head": "85a857922f70c218d499d2485b899fa9ef261a05",
+    "status": "PASS_WITH_DOCUMENTED_EXISTING_CONDITION_AND_ASSURANCE_LIMITS",
+    "new_confirmed_critical_high_medium_crypto_findings": 0,
+    "fresh_independent_checks": 8003,
+    "existing_condition": "Disclosed unregistered bare MS AccountId can be weak-hotkey-associated before registration; finalized registration before disclosure/funding remains prerequisite.",
+    "cargo_tests_run_by_this_subtask": false,
+    "production_edits": false,
+    "report": "audit.md"
+  },
+  "canonical_receipts": {
+    "finished_utc": "2026-10-18T18:22:03.285688+00:00",
+    "raw_receipt_references": 932,
+    "unique_receipts": 932,
+    "verified_receipts": 932,
+    "deduplicated_references": 0,
+    "status_counts": {
+      "success": 861,
+      "outer_success_inner_failure": 19,
+      "system_failure": 52
+    },
+    "all_recorded_receipts_verified": true,
+    "suites_without_receipt_evidence": []
+  },
+  "mainnet_upgrade": {
+    "passed": true,
+    "source": {
+      "endpoint": "wss://archive.dev.opentensor.ai:443",
+      "genesis_hash": "0x2f0555cc76fc2840a25a6ea3b9637146806f1f44b090c175ffde2a7e5ab36c03",
+      "finalized_block_hash": "0x3523e203f1f0e35cf1d2cd0e8072d1178a7fd780a72e3f6ff313550add6506e3",
+      "finalized_block_number": 9311818,
+      "state_root": "0xc9c1eecab8b94a99ec9734e097bfe075e1194bff29adb70bd99a8cfec1b3ebaa",
+      "source_spec_name": "node-subtensor",
+      "source_spec_version": 479,
+      "queried_at": "2026-10-18T17:27:39.531065+00:00",
+      "acquisition": {
+        "mode": "fresh read-only archive snapshot",
+        "rpc_clients": 4,
+        "all_top_level_keys": true,
+        "child_tries": true
+      }
+    },
+    "snapshot_sha256": "ee8defcbc0a181021e3953ee272d06fd93876f2fb0bda0b27a7163e0f02254dc",
+    "runtime_wasm_sha256": "ed779a4a7d080eb0f2d8580bfbe1895eb12febeb2e6ea2c44f31d11e436caa73",
+    "post_upgrade_blocks": 10
+  },
+  "evidence": {
+    "pending_rpc": "rpc/pending-capacity-results.json",
+    "mixed_finalized_state": "mixed/cli-state-verification.json",
+    "direct_mixed_finalized_state": "mixed/direct-sdk-state-verification.json",
+    "codecs": "codecs/javascript.json",
+    "native_transfers": "crypto-native-basic/report.md",
+    "new_live_regressions": "costs/new-regressions-summary.json"
+  },
+  "boundaries": [
+    "Exact native Rust Shield uses an unsupported 64-block era and is rejected; also present at PR base",
+    "Registration before public disclosure/funding remains required",
+    "Recorded tests do not prove all inputs, side-channel resistance, production saturation, physical Vault compatibility or positive-yield root-claim payout"
+  ],
+  "shutdown": {
+    "verified_at": "2026-10-18T18:52:15.496202+00:00",
+    "recorded_owned_process_count": 19,
+    "all_owned_processes_stopped": true,
+    "remaining_owned_processes": [],
+    "all_validation_ports_closed": true,
+    "ports": [
+      {
+        "port": 26044,
+        "closed": true
+      },
+      {
+        "port": 26045,
+        "closed": true
+      },
+      {
+        "port": 26046,
+        "closed": true
+      },
+      {
+        "port": 36034,
+        "closed": true
+      },
+      {
+        "port": 36035,
+        "closed": true
+      },
+      {
+        "port": 36036,
+        "closed": true
+      },
+      {
+        "port": 26144,
+        "closed": true
+      },
+      {
+        "port": 26145,
+        "closed": true
+      },
+      {
+        "port": 26146,
+        "closed": true
+      },
+      {
+        "port": 36134,
+        "closed": true
+      },
+      {
+        "port": 36135,
+        "closed": true
+      },
+      {
+        "port": 36136,
+        "closed": true
+      },
+      {
+        "port": 26244,
+        "closed": true
+      },
+      {
+        "port": 26245,
+        "closed": true
+      },
+      {
+        "port": 26246,
+        "closed": true
+      },
+      {
+        "port": 36234,
+        "closed": true
+      },
+      {
+        "port": 36235,
+        "closed": true
+      },
+      {
+        "port": 36236,
+        "closed": true
+      },
+      {
+        "port": 26344,
+        "closed": true
+      },
+      {
+        "port": 26345,
+        "closed": true
+      },
+      {
+        "port": 26346,
+        "closed": true
+      },
+      {
+        "port": 36334,
+        "closed": true
+      },
+      {
+        "port": 36335,
+        "closed": true
+      },
+      {
+        "port": 36336,
+        "closed": true
+      },
+      {
+        "port": 26444,
+        "closed": true
+      },
+      {
+        "port": 26445,
+        "closed": true
+      },
+      {
+        "port": 26446,
+        "closed": true
+      },
+      {
+        "port": 36434,
+        "closed": true
+      },
+      {
+        "port": 36435,
+        "closed": true
+      },
+      {
+        "port": 36436,
+        "closed": true
+      },
+      {
+        "port": 26544,
+        "closed": true
+      },
+      {
+        "port": 26545,
+        "closed": true
+      },
+      {
+        "port": 26546,
+        "closed": true
+      },
+      {
+        "port": 36534,
+        "closed": true
+      },
+      {
+        "port": 36535,
+        "closed": true
+      },
+      {
+        "port": 36536,
+        "closed": true
+      },
+      {
+        "port": 26644,
+        "closed": true
+      },
+      {
+        "port": 26645,
+        "closed": true
+      },
+      {
+        "port": 26646,
+        "closed": true
+      },
+      {
+        "port": 36634,
+        "closed": true
+      },
+      {
+        "port": 36635,
+        "closed": true
+      },
+      {
+        "port": 36636,
+        "closed": true
+      },
+      {
+        "port": 26744,
+        "closed": true
+      },
+      {
+        "port": 26745,
+        "closed": true
+      },
+      {
+        "port": 26746,
+        "closed": true
+      },
+      {
+        "port": 36734,
+        "closed": true
+      },
+      {
+        "port": 36735,
+        "closed": true
+      },
+      {
+        "port": 36736,
+        "closed": true
+      },
+      {
+        "port": 26844,
+        "closed": true
+      },
+      {
+        "port": 26845,
+        "closed": true
+      },
+      {
+        "port": 26846,
+        "closed": true
+      },
+      {
+        "port": 36834,
+        "closed": true
+      },
+      {
+        "port": 36835,
+        "closed": true
+      },
+      {
+        "port": 36836,
+        "closed": true
+      },
+      {
+        "port": 26944,
+        "closed": true
+      },
+      {
+        "port": 26945,
+        "closed": true
+      },
+      {
+        "port": 26946,
+        "closed": true
+      },
+      {
+        "port": 36934,
+        "closed": true
+      },
+      {
+        "port": 36935,
+        "closed": true
+      },
+      {
+        "port": 36936,
+        "closed": true
+      },
+      {
+        "port": 27044,
+        "closed": true
+      },
+      {
+        "port": 27045,
+        "closed": true
+      },
+      {
+        "port": 27046,
+        "closed": true
+      },
+      {
+        "port": 37034,
+        "closed": true
+      },
+      {
+        "port": 37035,
+        "closed": true
+      },
+      {
+        "port": 37036,
+        "closed": true
+      },
+      {
+        "port": 27144,
+        "closed": true
+      },
+      {
+        "port": 27145,
+        "closed": true
+      },
+      {
+        "port": 27146,
+        "closed": true
+      },
+      {
+        "port": 37134,
+        "closed": true
+      },
+      {
+        "port": 37135,
+        "closed": true
+      },
+      {
+        "port": 37136,
+        "closed": true
+      },
+      {
+        "port": 27244,
+        "closed": true
+      },
+      {
+        "port": 27245,
+        "closed": true
+      },
+      {
+        "port": 27246,
+        "closed": true
+      },
+      {
+        "port": 37234,
+        "closed": true
+      },
+      {
+        "port": 37235,
+        "closed": true
+      },
+      {
+        "port": 37236,
+        "closed": true
+      },
+      {
+        "port": 27344,
+        "closed": true
+      },
+      {
+        "port": 27345,
+        "closed": true
+      },
+      {
+        "port": 27346,
+        "closed": true
+      },
+      {
+        "port": 37334,
+        "closed": true
+      },
+      {
+        "port": 37335,
+        "closed": true
+      },
+      {
+        "port": 37336,
+        "closed": true
+      },
+      {
+        "port": 27444,
+        "closed": true
+      },
+      {
+        "port": 27445,
+        "closed": true
+      },
+      {
+        "port": 27446,
+        "closed": true
+      },
+      {
+        "port": 37434,
+        "closed": true
+      },
+      {
+        "port": 37435,
+        "closed": true
+      },
+      {
+        "port": 37436,
+        "closed": true
+      },
+      {
+        "port": 9977,
+        "closed": true
+      }
+    ],
+    "remaining_node_subtensor_pids": [],
+    "remaining_owned_test_processes": [],
+    "scope": "All recorded launchers/driver and the final three validator PIDs, plus a global process scan for node-subtensor, 90 validation ports and the temporary metadata gate port. Completed launchers removed their PID files during shutdown. No unrelated process was stopped."
+  },
+  "committed": false,
+  "pushed": false
+}

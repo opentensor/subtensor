@@ -105,6 +105,10 @@ class Batch(Intent):
                 for payer, reserve in built.extras.get("pure_proxy_reserves", {}).items():
                     reserves = extras.setdefault("pure_proxy_reserves", {})
                     reserves[payer] = reserves.get(payer, 0) + reserve
+                if built.extras.get("multisig_approvals"):
+                    extras.setdefault("multisig_approvals", []).extend(
+                        built.extras["multisig_approvals"]
+                    )
             else:
                 child_call = built
             child_calls, registration = await with_recipient_registration(

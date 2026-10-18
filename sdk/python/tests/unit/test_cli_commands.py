@@ -186,6 +186,9 @@ def test_help_exits_zero(path: tuple[str, ...]):
 @pytest.mark.parametrize("op", sorted(INTENT_REGISTRY))
 def test_tx_dry_run_from_sample(op: str, fake: FakeSubstrate, wallet_dir):
     sample = deepcopy(INTENT_SAMPLES[op])
+    if op in ("multisig_approve", "multisig_execute"):
+        address = wallets.open_wallet(name=_WALLET_NAME, path=wallet_dir).coldkeypub.ss58_address
+        fake.seed("System", "Account", [address], {"data": {"free": 10**9}})
     if op in ("authorize_order", "cancel_order"):
         sample["order"]["V1"]["signer"] = wallets.open_wallet(
             name=_WALLET_NAME, path=wallet_dir

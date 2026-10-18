@@ -23,7 +23,7 @@ from typing import Any, Optional
 
 from .._generated import calls
 from .._transport.contract import CallBytes
-from ..multisig import check_multisig_funds, multisig_opening_shortfall
+from ..multisig import check_multisig_funds, merge_approval_metadata, multisig_opening_shortfall
 from ..receiving import parse_recipient
 from ..signing import public_view
 from ..sp_core import ss58_decode, ss58_encode
@@ -266,7 +266,7 @@ class MultisigExecute(Intent):
         )
         inner, extras = await _compose_inner(substrate, view, self.call)
         built = await self._build_with_inner(substrate, wallet, inner)
-        return BuiltCall(built.call, {**extras, **built.extras})
+        return BuiltCall(built.call, merge_approval_metadata(extras, built.extras))
 
     async def _build_with_inner(self, substrate, wallet: Any, inner):
         _validate_multisig(self.threshold, self.other_signatories, self.coldkey_address(wallet))
@@ -281,19 +281,30 @@ class MultisigExecute(Intent):
                 max_weight=max_weight,
             )
         )
-        # Opening (no timepoint) reserves the deposit from the signer; fail
-        # here, before anything signs, instead of on-chain with a bare
-        # "cannot cover the transaction fee".
+        # The approval origin reserves the opening deposit. The executor
+        # combines this obligation with fees paid by the actual outer signer,
+        # which can differ when a proxy dispatches this call.
         await check_multisig_funds(
             substrate,
             signer_ss58=view.ss58_address,
             threshold=self.threshold,
             opening=self.timepoint is None,
-            outer_call=composed,
-            fee_keypair=view,
             signer_label=getattr(wallet, "name", None),
         )
-        return BuiltCall(composed, _inner_call_extras(inner))
+        return BuiltCall(
+            composed,
+            {
+                **_inner_call_extras(inner),
+                "multisig_defers_inner": self.timepoint is None,
+                "multisig_approvals": [
+                    {
+                        "payer": view.ss58_address,
+                        "threshold": self.threshold,
+                        "opening": self.timepoint is None,
+                    }
+                ],
+            },
+        )
 
     async def warnings(self, substrate, signer_address: str) -> list[str]:
         if self.timepoint is not None:
@@ -513,18 +524,29 @@ class MultisigApprove(Intent):
                     max_weight=max_weight,
                 )
             )
-        # Same funding preflight as multisig_execute: the opening approval
-        # (no timepoint) reserves the deposit, later ones only pay the fee.
+        # Preserve the approval origin's deposit check; outer fee routing is
+        # resolved by the executor after all proxy/multisig wrappers exist.
         await check_multisig_funds(
             substrate,
             signer_ss58=view.ss58_address,
             threshold=self.threshold,
             opening=self.timepoint is None,
-            outer_call=composed,
-            fee_keypair=view,
             signer_label=getattr(wallet, "name", None),
         )
-        return BuiltCall(composed, _inner_call_extras(inner))
+        return BuiltCall(
+            composed,
+            {
+                **_inner_call_extras(inner),
+                "multisig_defers_inner": True,
+                "multisig_approvals": [
+                    {
+                        "payer": view.ss58_address,
+                        "threshold": self.threshold,
+                        "opening": self.timepoint is None,
+                    }
+                ],
+            },
+        )
 
     async def warnings(self, substrate, signer_address: str) -> list[str]:
         if self.timepoint is not None:

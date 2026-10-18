@@ -1,0 +1,35 @@
+{
+  "native_fingerprint": "/home/johnreed/Desktop/work/subtensor/target/release/.fingerprint/bittensor-core-py-11b2a6d28bf263ca/lib-bittensor_core.json",
+  "libraries": {
+    "bittensor_core": {
+      "path": "/home/johnreed/Desktop/work/subtensor/target/release/deps/libbittensor_core-de7c02042f435492.rlib",
+      "sha256": "40a9313aeb6e98d9f6ff8f8f5d401fd07eddc1b5f9dcb4b2c83b9aec5ab1e966"
+    },
+    "serde_json": {
+      "path": "/home/johnreed/Desktop/work/subtensor/target/release/deps/libserde_json-5b4f841320b72ca0.rlib",
+      "sha256": "c46288402bb46337531282f16477fd81ee95b9f6c498265831d6d1310859eee3"
+    },
+    "hex": {
+      "path": "/home/johnreed/Desktop/work/subtensor/target/release/deps/libhex-d9f97d45c228789e.rlib",
+      "sha256": "69b53f42ebfc1e5496b684ea2e3626c807aba01da6b2f51989655e5b57c7159c"
+    }
+  },
+  "source_sha256": "bd7a8c7dfa7510e3bf714e1a66c685cb3d7fde472b41bd455a5d51d0b49c2635",
+  "binary_sha256": "8c1515d8e590d01d0fa71f9583570b2999166160490c47ecd618aa5fad32b3ee",
+  "command": [
+    "/home/johnreed/.cargo/bin/rustc",
+    "--edition=2021",
+    "-O",
+    "/tmp/ms-release-85a857922f/crypto-live/native_shield.rs",
+    "-o",
+    "/tmp/ms-release-85a857922f/crypto-live/native_shield",
+    "-L",
+    "dependency=/home/johnreed/Desktop/work/subtensor/target/release/deps",
+    "--extern",
+    "bittensor_core=/home/johnreed/Desktop/work/subtensor/target/release/deps/libbittensor_core-de7c02042f435492.rlib",
+    "--extern",
+    "serde_json=/home/johnreed/Desktop/work/subtensor/target/release/deps/libserde_json-5b4f841320b72ca0.rlib",
+    "--extern",
+    "hex=/home/johnreed/Desktop/work/subtensor/target/release/deps/libhex-d9f97d45c228789e.rlib"
+  ]
+}

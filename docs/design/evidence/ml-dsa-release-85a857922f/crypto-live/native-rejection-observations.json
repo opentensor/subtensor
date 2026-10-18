@@ -1,0 +1,119 @@
+{
+  "status": "PASS",
+  "cases": [
+    {
+      "code": 4,
+      "account": "5Cs9d65gjnBauXPtX3EituMQqajZbKUWdAdhsLiiune5EJmS",
+      "pool_rejection": "rpc error: author_submitExtrinsic: {\"code\":1010,\"data\":\"Transaction is outdated\",\"message\":\"Invalid Transaction\"}",
+      "registry_unchanged": true,
+      "system_account_unchanged": true,
+      "account_after": {
+        "nonce": 2,
+        "consumers": 0,
+        "providers": 2,
+        "sufficients": 0,
+        "data": {
+          "free": 49999752594,
+          "reserved": 0,
+          "frozen": 0,
+          "flags": 170141183460469231731687303715884105728
+        }
+      },
+      "registry_after": {
+        "descriptor": {
+          "version": 1,
+          "scheme": "Sr25519",
+          "initial_commitment": "0xfba75e745000677aa433228aeb34a746418135eae3782191993870678ec8a75e"
+        },
+        "generation": 1,
+        "commitment": "0x316e86f7dd95613e67809cdd05322c615cf0453719d8bdd13a949a4ec19ddfae"
+      }
+    },
+    {
+      "code": 6,
+      "account": "5Gjn5QED4cZZWFJ7T51SwnWcbU7rVgcatG4zmL4ZFBzUMwn9",
+      "pool_rejection": "rpc error: author_submitExtrinsic: {\"code\":1010,\"data\":\"Transaction is outdated\",\"message\":\"Invalid Transaction\"}",
+      "registry_unchanged": true,
+      "system_account_unchanged": true,
+      "account_after": {
+        "nonce": 2,
+        "consumers": 0,
+        "providers": 2,
+        "sufficients": 0,
+        "data": {
+          "free": 49999752299,
+          "reserved": 0,
+          "frozen": 0,
+          "flags": 170141183460469231731687303715884105728
+        }
+      },
+      "registry_after": {
+        "descriptor": {
+          "version": 1,
+          "scheme": "Ed25519",
+          "initial_commitment": "0x12041409b73f98433bd759c76e016a2476c133abc95ef15d7b17a17784163107"
+        },
+        "generation": 1,
+        "commitment": "0x3efc2782d0ae4d4636688d79378cce6139176c4428d34a5b6c24ec49df997d01"
+      }
+    },
+    {
+      "code": 7,
+      "account": "5GYkoMQJTVAu2WoMgrj6vTksetyDqAgauHNVDri9WEGzvgt6",
+      "pool_rejection": "rpc error: author_submitExtrinsic: {\"code\":1010,\"data\":\"Transaction is outdated\",\"message\":\"Invalid Transaction\"}",
+      "registry_unchanged": true,
+      "system_account_unchanged": true,
+      "account_after": {
+        "nonce": 4,
+        "consumers": 0,
+        "providers": 2,
+        "sufficients": 0,
+        "data": {
+          "free": 49998961337,
+          "reserved": 0,
+          "frozen": 0,
+          "flags": 170141183460469231731687303715884105728
+        }
+      },
+      "registry_after": {
+        "descriptor": {
+          "version": 2,
+          "algorithm": 4,
+          "initial_commitment": "0x4b16503c0fa3aa36784e9cfec150a45eec9c57d4f7bcd71282d8987dd9aba1760d94f5ad42beb437678a5cf33ea72a360a82e865f08fc1fcd2bf986ec31efc43"
+        },
+        "generation": 3,
+        "commitment": "0x28694e7e84ca5751119f35154ba9d99bfff8b931255bcdf85d896db1f9d65d57702828fed17aed31e8af4944fffe88519ea339466daae92580c2871497c62728"
+      }
+    },
+    {
+      "code": 8,
+      "account": "5FC8wE7uUTKB3wXGXULyxfsWRTGvzAem4UxSkm3CV8URGx5d",
+      "pool_rejection": "rpc error: author_submitExtrinsic: {\"code\":1010,\"data\":\"Transaction is outdated\",\"message\":\"Invalid Transaction\"}",
+      "registry_unchanged": true,
+      "system_account_unchanged": true,
+      "account_after": {
+        "nonce": 4,
+        "consumers": 0,
+        "providers": 2,
+        "sufficients": 0,
+        "data": {
+          "free": 49998961337,
+          "reserved": 0,
+          "frozen": 0,
+          "flags": 170141183460469231731687303715884105728
+        }
+      },
+      "registry_after": {
+        "descriptor": {
+          "version": 2,
+          "algorithm": 5,
+          "initial_commitment": "0x96488065b1aac68c10ccb5f1066260cb6d9dcefdf490d3a753a070c207e1f58d121b4c58c5f9d5e5029929e492b9fcbe23b35a018928d0f6c2cb122cc3d27764"
+        },
+        "generation": 3,
+        "commitment": "0x96488065b1aac68c10ccb5f1066260cb6d9dcefdf490d3a753a070c207e1f58d121b4c58c5f9d5e5029929e492b9fcbe23b35a018928d0f6c2cb122cc3d27764"
+      }
+    }
+  ],
+  "height": 66,
+  "hash": "0xe3072b1db3f1c8a0e139811f061ab23070e2f76967f248d784f44468b89ef925"
+}

@@ -47,14 +47,16 @@ async def test_protected_multisig_as_proxy_and_proxy_for_multisig():
 
         async def quorum(call, label, *, success=True):
             before = [await snapshot(client, key) for key in members]
+            signed_counts = []
             for index, key in enumerate(members):
                 result = await group.approve(call, key, wait_for_finalization=True)
+                signed_counts.append(2 if result.data.get("shielded") else 1)
                 trace.add(label, member=key.ss58_address, receipt=result.to_dict())
                 assert result.success == (True if index == 0 else success), result.to_dict()
             after = [await snapshot(client, key) for key in members]
-            for old, new in zip(before, after):
-                assert new["account"]["nonce"] == old["account"]["nonce"] + 1
-                assert new["authority"]["generation"] == old["authority"]["generation"] + 1
+            for old, new, count in zip(before, after, signed_counts):
+                assert new["account"]["nonce"] == old["account"]["nonce"] + count
+                assert new["authority"]["generation"] == old["authority"]["generation"] + count
             assert (
                 after[0]["account"]["data"]["reserved"] == before[0]["account"]["data"]["reserved"]
             )

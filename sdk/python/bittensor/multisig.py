@@ -73,6 +73,24 @@ async def multisig_deposit_rao(substrate, threshold: int) -> int:
     return int(base) + int(threshold) * int(factor)
 
 
+def merge_approval_metadata(*parts: dict) -> dict:
+    """Merge composed-call metadata without losing nested approval obligations."""
+    merged: dict = {}
+    approvals = []
+    for part in parts:
+        merged.update(part)
+        if part.get("multisig_defers_inner"):
+            approvals = []
+            # Keep the eventual permanent spend in policy/preview metadata,
+            # but this approval does not dispatch the inner pure creation.
+            if "pure_proxy_reserves" in merged:
+                merged["pure_proxy_reserves"] = {}
+        approvals.extend(part.get("multisig_approvals", []))
+    if approvals:
+        merged["multisig_approvals"] = approvals
+    return merged
+
+
 async def _free_balance_rao(substrate, ss58: str) -> int:
     account = await substrate.query(*generated_storage.System.Account, [ss58])
     if not account:
@@ -93,11 +111,12 @@ def _funding_error(
     free_rao: int,
     fee_rao: int,
     deposit_rao: int,
+    retained_rao: int = 0,
 ) -> MultisigFundingError:
     display = _signer_display(signer_ss58, signer_label)
     # Suggest the deposit plus twice the estimated fee so fee-estimate drift
     # cannot leave the account short a second time.
-    amount = _tao_ceil(max(deposit_rao + 2 * fee_rao - free_rao, 0))
+    amount = _tao_ceil(max(deposit_rao + retained_rao + 2 * fee_rao - free_rao, 0))
     # The message carries the bare ss58 (the CLI decorates known addresses
     # with local names itself); the help line spells out ``ss58 (name)``.
     if deposit_rao:
@@ -115,6 +134,8 @@ def _funding_error(
             f"costs a ~{_tao(fee_rao)} fee"
         )
         fund_help = f"fund {display} with ≥ {amount}"
+    if retained_rao:
+        message += f"; {_tao(retained_rao)} must remain free for the existential deposit or freeze"
     return MultisigFundingError(message, fund_help=fund_help)
 
 
@@ -127,13 +148,14 @@ async def check_multisig_funds(
     outer_call: Any = None,
     fee_keypair: Any = None,
     signer_label: Optional[str] = None,
+    shielded: bool = False,
 ) -> None:
     """Fail early when the signer cannot pay for a multisig approval.
 
     An opening approval reserves the multisig deposit from the signer on top
-    of the fee; later approvals only pay the fee. Best-effort: any failure
-    reading chain state skips the check (the chain stays the authority), so
-    this can never block an otherwise submittable call.
+    of the fee; later approvals only pay the fee. Plain submissions keep the
+    legacy best-effort check. Shield must quote the deposit, both fees and
+    retained balance before signing, or refuse to risk a post-carrier shortfall.
     """
     try:
         deposit = 0
@@ -142,12 +164,27 @@ async def check_multisig_funds(
         fee = 0
         if outer_call is not None and fee_keypair is not None:
             fee = int((await substrate.estimate_fee(outer_call, fee_keypair)).rao)
+        if shielded:
+            from .executor import estimate_shielded_carrier_fee
+
+            fee += (await estimate_shielded_carrier_fee(substrate, signer_ss58, outer_call)).rao
+            account = await substrate.query(*generated_storage.System.Account, [signer_ss58])
+            data = (account or {}).get("data") or {}
+            minimum = int(await substrate.constant("Balances", "ExistentialDeposit"))
+            retained = max(minimum, int(data.get("frozen", 0)))
+            free = int(data.get("free", 0))
+        else:
+            retained = 0
+            free = await _free_balance_rao(substrate, signer_ss58)
         if deposit == 0 and fee == 0:
             return
-        free = await _free_balance_rao(substrate, signer_ss58)
-    except Exception:
+    except Exception as error:
+        if shielded:
+            raise ChainError(
+                f"could not quote complete shielded multisig approval: {error}"
+            ) from error
         return
-    if free >= deposit + fee:
+    if free >= deposit + fee + retained:
         return
     raise _funding_error(
         signer_ss58=signer_ss58,
@@ -155,6 +192,7 @@ async def check_multisig_funds(
         free_rao=free,
         fee_rao=fee,
         deposit_rao=deposit,
+        retained_rao=retained,
     )
 
 
@@ -279,7 +317,7 @@ class Multisig:
             from .shielding import registration_shield_default
 
             shielded = await registration_shield_default(self._client._substrate, composed)
-        await self._preflight_funds(composed, wallet, signer)
+        as_multi = await self._preflight_funds(composed, wallet, signer, shielded=bool(shielded))
         keypair = resolve_signer(wallet, signer)
         if not shielded:
             return await self._client._substrate.submit_multisig(
@@ -289,7 +327,6 @@ class Multisig:
                 wait_for_inclusion=wait_for_inclusion,
                 wait_for_finalization=wait_for_finalization,
             )
-        as_multi = await self._compose_as_multi(composed, keypair)
         return await self._client._executor._submit_encrypted_call(
             as_multi,
             keypair,
@@ -299,17 +336,26 @@ class Multisig:
             wait_for_finalization=wait_for_finalization,
         )
 
-    async def _compose_as_multi(self, composed, keypair):
+    async def _compose_as_multi(self, composed, keypair, *, pending=...):
         """Build the same ``Multisig.as_multi`` the clear approve path signs."""
         substrate = self._client._substrate
         call_hash = "0x" + bytes(composed.call_hash).hex()
-        pending = await substrate.query(
-            *generated_storage.Multisig.Multisigs, [self.address, call_hash]
-        )
+        if pending is ...:
+            pending = await substrate.query(
+                *generated_storage.Multisig.Multisigs, [self.address, call_hash]
+            )
         maybe_timepoint = pending["when"] if pending else None
         others = [
-            address for address in self._account.signatories if address != keypair.ss58_address
+            address
+            for address in self._account.signatories
+            if bytes(ss58_decode(address)) != bytes(ss58_decode(keypair.ss58_address))
         ]
+        if self.threshold == 1:
+            return await self._client.compose(
+                generated_calls.Multisig.as_multi_threshold_1(
+                    other_signatories=others, call=composed
+                )
+            )
         max_weight = await substrate.estimate_weight(composed, keypair)
         return await self._client.compose(
             generated_calls.Multisig.as_multi(
@@ -321,14 +367,15 @@ class Multisig:
             )
         )
 
-    async def _preflight_funds(self, composed, wallet: WalletLike, signer: str) -> None:
+    async def _preflight_funds(self, composed, wallet: WalletLike, signer: str, *, shielded=False):
         """Refuse an approval whose signer cannot pay, before anything signs.
 
         Whether this approval *opens* the operation (and so reserves the
         deposit) is read from pending state: no entry for this call hash means
         the signer is the opener. The fee is estimated against the same
         ``as_multi`` wrapper the transport will submit. Everything up to the
-        comparison is best-effort — a failure here must not block submission.
+        comparison is best-effort for plain submissions. Shield reuses this
+        exact public-only wrapper after checking its complete fee requirement.
         """
         substrate = self._client._substrate
         try:
@@ -337,23 +384,12 @@ class Multisig:
             pending = await substrate.query(
                 *generated_storage.Multisig.Multisigs, [self.address, call_hash]
             )
-            outer = None
-            if self.threshold >= 2:
-                others = sorted(
-                    (s for s in self.signatories if s != pub.ss58_address),
-                    key=lambda s: bytes(ss58_decode(s)),
-                )
-                max_weight = await substrate.estimate_weight(composed, pub)
-                outer = await self._client.compose(
-                    generated_calls.Multisig.as_multi(
-                        threshold=self.threshold,
-                        other_signatories=others,
-                        maybe_timepoint=None,
-                        call=composed,
-                        max_weight=max_weight,
-                    )
-                )
-        except Exception:
+            outer = await self._compose_as_multi(composed, pub, pending=pending)
+        except Exception as error:
+            if shielded:
+                raise ChainError(
+                    f"could not prepare shielded multisig approval: {error}"
+                ) from error
             return
         await check_multisig_funds(
             substrate,
@@ -363,7 +399,9 @@ class Multisig:
             outer_call=outer,
             fee_keypair=pub,
             signer_label=getattr(wallet, "name", None),
+            shielded=shielded,
         )
+        return outer
 
     def __repr__(self) -> str:
         return (

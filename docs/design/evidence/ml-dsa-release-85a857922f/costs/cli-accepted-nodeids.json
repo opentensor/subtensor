@@ -1,0 +1,10 @@
+{
+  "source": "/tmp/ms-release-85a857922f/costs/cli-pytest.log",
+  "exit_code": 0,
+  "accepted_nodeids": [
+    "tests/e2e/test_mldsa_cli_regressions.py::test_encrypted_cli_sender_retains_local_ms_registration[True-7]",
+    "tests/e2e/test_mldsa_cli_regressions.py::test_encrypted_cli_sender_retains_local_ms_registration[False-7]",
+    "tests/e2e/test_mldsa_cli_regressions.py::test_encrypted_cli_sender_retains_local_ms_registration[False-8]",
+    "tests/e2e/test_mldsa_cli_regressions.py::test_encrypted_cli_sender_retains_local_ms_registration[True-8]"
+  ]
+}

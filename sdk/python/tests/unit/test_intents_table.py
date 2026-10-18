@@ -105,7 +105,7 @@ def test_rejects_unknown_argument(op: str):
 async def test_composes_and_plans_offline(
     op: str, client: Client, substrate: FakeSubstrate, wallet
 ):
-    if op in ("claim_root", "claim_root_with_hotkey"):
+    if op in ("claim_root", "claim_root_with_hotkey", "multisig_approve", "multisig_execute"):
         substrate.seed(
             "System",
             "Account",
@@ -125,6 +125,10 @@ async def test_composes_and_plans_offline(
 @pytest.mark.parametrize("op", sorted(REGISTRY))
 @pytest.mark.asyncio
 async def test_build_returns_composed_call(op: str, substrate: FakeSubstrate, wallet):
+    if op in ("multisig_approve", "multisig_execute"):
+        substrate.seed(
+            "System", "Account", [wallet.coldkey.ss58_address], {"data": {"free": 10**9}}
+        )
     built = await build(op, INTENT_SAMPLES[op]).build(substrate, wallet)
     call = built.call if isinstance(built, BuiltCall) else built
     module, function, params = call

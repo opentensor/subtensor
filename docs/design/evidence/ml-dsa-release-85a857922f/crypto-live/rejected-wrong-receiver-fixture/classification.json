@@ -1,0 +1,5 @@
+{
+  "status": "SUPERSEDED_FIXTURE_ERROR",
+  "reason": "dev_wallet coldkey argument does not change its default hotkey; the alleged wrong receiver matched the correct receiver. Distinct directly constructed keys now asserted.",
+  "production_change": false
+}

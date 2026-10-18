@@ -61,6 +61,8 @@ DEFAULT_STORAGE: dict[tuple[str, str], Any] = {
 DEFAULT_CONSTANTS: dict[tuple[str, str], Any] = {
     ("Aura", "SlotDuration"): 12_000,
     ("Balances", "ExistentialDeposit"): 500,
+    ("Multisig", "DepositBase"): 132_000_000,
+    ("Multisig", "DepositFactor"): 32_000_000,
     ("SubtensorModule", "InitialStartCallDelay"): 100,
 }
 

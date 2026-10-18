@@ -40,6 +40,7 @@ from .intents import build as build_intent
 from .intents._money import UNBOUNDED
 from .intents.base import BuiltCall, IntentPreflight
 from .intents.proxy import check_proxy_type
+from .multisig import merge_approval_metadata, multisig_deposit_rao
 from .receiving import account_for_read, coerce_payment_address
 from .registration_sponsorship import (
     RegistrationSponsorshipCallback,
@@ -239,7 +240,7 @@ async def _compose_intent_call(
         # throw before wrap_call can apply the pin.
         wrapped = await intent.wrap_call(substrate, wallet, None)
         if isinstance(wrapped, BuiltCall):
-            return wrapped.call, {**extras, **wrapped.extras}
+            return wrapped.call, merge_approval_metadata(extras, wrapped.extras)
         return wrapped, extras
 
     # Proxy is the dispatch origin of the inner call. The multisig adapter's
@@ -253,7 +254,7 @@ async def _compose_intent_call(
     ):
         built = await prepared.build(substrate, origin)
     if isinstance(built, BuiltCall):
-        call, extras = built.call, {**extras, **built.extras}
+        call, extras = built.call, merge_approval_metadata(extras, built.extras)
     else:
         call = built
 
@@ -287,7 +288,7 @@ async def _compose_intent_call(
         )
     wrapped = await intent.wrap_call(substrate, wallet, call)
     if isinstance(wrapped, BuiltCall):
-        return wrapped.call, {**extras, **wrapped.extras}
+        return wrapped.call, merge_approval_metadata(extras, wrapped.extras)
     return wrapped, extras
 
 
@@ -946,15 +947,19 @@ class Executor:
             deposit = Balance.from_rao(extras["protected_pure_registration_deposit_rao"])
             refundable = Balance.from_rao(extras["pure_proxy_deposit_rao"])
             preview.effects.append(
-                f"permanently reserve {deposit} for protected pure-proxy registration; "
+                f"authorize a permanent reserve of {deposit} when protected pure-proxy "
+                "creation executes; "
                 "killing the proxy does not refund this registration reserve"
             )
             preview.facts.extend(
                 [
-                    ("Pure-proxy registration reserve (permanent)", str(deposit)),
-                    ("Pure-proxy deposit (refundable on kill)", str(refundable)),
+                    ("Authorized pure-proxy registration reserve (permanent)", str(deposit)),
+                    ("Authorized pure-proxy deposit (refundable on kill)", str(refundable)),
                 ]
             )
+        if extras and (
+            "protected_pure_registration_deposit_rao" in extras or extras.get("multisig_approvals")
+        ):
             try:
                 fee = await self.substrate.estimate_fee(
                     call, self._public_keypair(wallet, intent.signer)
@@ -962,30 +967,66 @@ class Executor:
                 minimum = int(await self.substrate.constant("Balances", "ExistentialDeposit") or 0)
                 spend = intent.semantic_intent().spend()
                 preview.estimated_fee = fee
-                for payer, reserve in extras["pure_proxy_reserves"].items():
+                # Proxy and multisig origins pay their reserves, while the
+                # outer signer pays transaction fees even if it owes no reserve.
+                # Aggregate by AccountId so SS58 prefixes cannot split one
+                # account's balance obligations into separate checks.
+                fee_payer_id = bytes(ss58_decode(fee_payer))
+                dispatch_origin_id = bytes(ss58_decode(dispatch_origin))
+                reserves: dict[bytes, int] = {}
+                payers: dict[bytes, str] = {}
+                for payer, reserve in extras.get("pure_proxy_reserves", {}).items():
+                    payer_id = bytes(ss58_decode(payer))
+                    reserves[payer_id] = reserves.get(payer_id, 0) + int(reserve)
+                    payers[payer_id] = payer
+                approval_deposit = 0
+                for approval in extras.get("multisig_approvals", []):
+                    payer = approval["payer"]
+                    payer_id = bytes(ss58_decode(payer))
+                    reserve = (
+                        await multisig_deposit_rao(self.substrate, approval["threshold"])
+                        if approval["opening"] and approval["threshold"] >= 2
+                        else 0
+                    )
+                    approval_deposit += reserve
+                    reserves[payer_id] = reserves.get(payer_id, 0) + reserve
+                    payers[payer_id] = payer
+                if approval_deposit:
+                    preview.facts.append(
+                        (
+                            "Multisig approval reserve (refundable)",
+                            str(Balance.from_rao(approval_deposit)),
+                        )
+                    )
+                reserves.setdefault(fee_payer_id, 0)
+                payers[fee_payer_id] = fee_payer
+                for payer_id, reserve in reserves.items():
+                    payer = payers[payer_id]
                     account = await self.substrate.query("System", "Account", [payer])
                     data = (account or {}).get("data") or {}
                     free = Balance.from_rao(int(data.get("free", 0)))
                     required = Balance.from_rao(
-                        int(reserve)
+                        reserve
                         + max(int(data.get("frozen", 0)), minimum)
-                        + (fee.rao if payer == fee_payer else 0)
+                        + (fee.rao if payer_id == fee_payer_id else 0)
                         + (
                             (spend.rao if isinstance(spend, Balance) else 0) + maximum.rao
-                            if payer == dispatch_origin
+                            if payer_id == dispatch_origin_id
                             else 0
                         )
                     )
-                    if payer == fee_payer:
+                    if payer_id == fee_payer_id:
                         preview.required_free = max(preview.required_free or required, required)
                         preview.available_free = free
                     if free < required:
                         preview.blocks.append(
-                            "insufficient spendable balance for protected pure-proxy registration, "
-                            "proxy deposit, payment and transaction fee"
+                            "insufficient spendable balance for account reserves, "
+                            "payment and transaction fee"
                         )
             except Exception as error:
-                preview.blocks.append(f"could not quote protected pure-proxy setup: {error}")
+                preview.blocks.append(
+                    f"could not quote account reserves and transaction fee: {error}"
+                )
         return preview
 
     async def plan(
@@ -1271,8 +1312,8 @@ class Executor:
         ``MevShield.submit_encrypted`` (signed at nonce). It stays encrypted in the
         pool until the block author decrypts and executes it, so the mempool can't
         front-run it. Policy is enforced on the intent before anything is signed;
-        ``max_fee_tao`` is checked against the inner call's estimated fee (the
-        outer carrier extrinsic pays its own small fee on top).
+        ``max_fee_tao`` is checked against the total estimated fee of the inner
+        call and its outer carrier before either transaction is signed.
 
         ``proxy_for`` / ``proxy_type`` are the same as on :meth:`plan` and
         :meth:`execute`: the inner signed extrinsic is the already-composed

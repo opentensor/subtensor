@@ -71,10 +71,11 @@ def free(state):
     return int(state["account"]["data"]["free"])
 
 
-def assert_signed_once(signer, before, after):
-    assert int(after["account"]["nonce"]) == int(before["account"]["nonce"]) + 1
+def assert_signing_advance(signer, before, after, result):
+    count = 2 if result.data.get("shielded") else 1
+    assert int(after["account"]["nonce"]) == int(before["account"]["nonce"]) + count
     if signer.crypto_type in MLDSA_CRYPTO_TYPES:
-        assert after["authority"]["generation"] == before["authority"]["generation"] + 1
+        assert after["authority"]["generation"] == before["authority"]["generation"] + count
         assert after["authority"]["descriptor"] == before["authority"]["descriptor"]
         assert (after["authority"]["commitment"] == before["authority"]["commitment"]) == (
             signer.crypto_type == 8
@@ -115,7 +116,7 @@ async def observe(client, signer, operation, evidence, label, *, success=True):
         signer_after=after,
     )
     assert result.success == success and result.block_hash, result.to_dict()
-    assert_signed_once(signer, before, after)
+    assert_signing_advance(signer, before, after, result)
     return result
 
 
@@ -563,7 +564,12 @@ async def test_three_of_four_sr_ed_ms_hashed_ms_receiving_and_all_member_cancell
         # Only the member that signs an included outer transaction advances.
         # These totals also catch a peer's inner composite dispatch accidentally
         # consuming a member's authority or a second approval deposit.
-        for index, (signer, included) in enumerate(zip(members, (5, 7, 4, 4))):
+        for index, (signer, operations) in enumerate(zip(members, (5, 7, 4, 4))):
+            receipts = [
+                item["receipt"] for item in trace.items if item.get("signer") == signer.ss58_address
+            ]
+            assert len(receipts) == operations
+            included = sum(2 if row.get("data", {}).get("shielded") else 1 for row in receipts)
             initial = before_protection[signer.ss58_address]
             final_state = await snapshot(client, signer)
             assert (

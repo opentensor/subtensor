@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="179.381" timestamp="2026-10-18T10:28:50.548740-07:00" hostname="pop-os"><testcase classname="tests.e2e.test_mldsa_extended" name="test_proxy_receiving_sponsorship_denial_and_revocation[7-8]" time="179.253"><failure message="assert 4 == (2 + 1)&#10; +  where 4 = int(4)&#10; +  and   2 = int(2)">tests/e2e/test_mldsa_extended.py:195: in test_proxy_receiving_sponsorship_denial_and_revocation
+    await observe(
+tests/e2e/test_mldsa_extended.py:118: in observe
+    assert_signed_once(signer, before, after)
+tests/e2e/test_mldsa_extended.py:75: in assert_signed_once
+    assert int(after["account"]["nonce"]) == int(before["account"]["nonce"]) + 1
+E   assert 4 == (2 + 1)
+E    +  where 4 = int(4)
+E    +  and   2 = int(2)</failure></testcase></testsuite></testsuites>

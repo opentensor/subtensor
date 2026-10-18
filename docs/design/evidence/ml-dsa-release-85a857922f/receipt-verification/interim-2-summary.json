@@ -1,0 +1,14 @@
+{
+  "finished_utc": "2026-10-18T18:14:26.715689+00:00",
+  "raw_receipt_references": 892,
+  "unique_receipts": 892,
+  "verified_receipts": 892,
+  "deduplicated_references": 0,
+  "status_counts": {
+    "success": 827,
+    "outer_success_inner_failure": 19,
+    "system_failure": 46
+  },
+  "all_recorded_receipts_verified": true,
+  "suites_without_receipt_evidence": []
+}

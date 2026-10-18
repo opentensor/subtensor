@@ -1,0 +1,32 @@
+{
+  "status": "HTTP_PASS_NATIVE_SHIELD_BLOCKED_PREEXISTING",
+  "http_cases_passed": 4,
+  "native_pool_rejections": 4,
+  "native_success_or_failed_inner_cases_executed": 0,
+  "cases": [
+    {
+      "code": 4,
+      "http": "PASS",
+      "native": "PREEXISTING_MORTALITY_REJECTION",
+      "native_rejection_no_state_change": true
+    },
+    {
+      "code": 6,
+      "http": "PASS",
+      "native": "PREEXISTING_MORTALITY_REJECTION",
+      "native_rejection_no_state_change": true
+    },
+    {
+      "code": 7,
+      "http": "PASS",
+      "native": "PREEXISTING_MORTALITY_REJECTION",
+      "native_rejection_no_state_change": true
+    },
+    {
+      "code": 8,
+      "http": "PASS",
+      "native": "PREEXISTING_MORTALITY_REJECTION",
+      "native_rejection_no_state_change": true
+    }
+  ]
+}

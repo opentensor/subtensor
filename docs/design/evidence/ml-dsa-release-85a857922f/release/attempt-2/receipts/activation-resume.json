@@ -1,0 +1,153 @@
+{
+  "receipts": [
+    {
+      "success": true,
+      "message": "Success",
+      "block_hash": "0x6c19ff9232c312eb57f06b2e4e7147b054d590379ea1d1f250d00b5562d420db",
+      "extrinsic_id": "137-0006",
+      "fee_tao": 0.0
+    },
+    {
+      "success": false,
+      "message": "Hashed account registration or authorization is disabled in this runtime.",
+      "block_hash": "0xd593e39797e5aab54a72f8723862bac78aa4fabbaa8e9339daae549c29effa38",
+      "extrinsic_id": "147-0007",
+      "error": {
+        "message": "Hashed account registration or authorization is disabled in this runtime.",
+        "name": "Disabled",
+        "code": "disabled",
+        "remediation": "this call or feature is switched off on this network",
+        "description": "Hashed accounts are not enabled on this chain. Check AdminUtils.HashedAccountsEnabled; creating a wallet locally does not activate runtime support.",
+        "docs_url": "https://www.bittensor.com/docs/errors/chain/Disabled"
+      },
+      "data": {
+        "shielded": true,
+        "inner_extrinsic_hash": "0x6c3c18839ec1a686375d84b1ee40ac83999e31401c9cb96ee323f9c09193a15c"
+      }
+    },
+    {
+      "success": false,
+      "message": "Hashed account registration or authorization is disabled in this runtime.",
+      "block_hash": "0x3d42b071d2fc92cefcd7d0a54b58eec7d9df82b9b8166a819f111413ebc3dff4",
+      "extrinsic_id": "151-0007",
+      "error": {
+        "message": "Hashed account registration or authorization is disabled in this runtime.",
+        "name": "Disabled",
+        "code": "disabled",
+        "remediation": "this call or feature is switched off on this network",
+        "description": "Hashed accounts are not enabled on this chain. Check AdminUtils.HashedAccountsEnabled; creating a wallet locally does not activate runtime support.",
+        "docs_url": "https://www.bittensor.com/docs/errors/chain/Disabled"
+      },
+      "data": {
+        "shielded": true,
+        "inner_extrinsic_hash": "0x6199628bffb6b51f30550d9c73e6e513bb2757223b1b14d3633546ff5494a47a"
+      }
+    },
+    {
+      "success": false,
+      "message": "Hashed account registration or authorization is disabled in this runtime.",
+      "block_hash": "0x610a3e2aefe10f33b4acfe9e11313c6e4a500e87809726114bd06bb6443890eb",
+      "extrinsic_id": "155-0007",
+      "error": {
+        "message": "Hashed account registration or authorization is disabled in this runtime.",
+        "name": "Disabled",
+        "code": "disabled",
+        "remediation": "this call or feature is switched off on this network",
+        "description": "Hashed accounts are not enabled on this chain. Check AdminUtils.HashedAccountsEnabled; creating a wallet locally does not activate runtime support.",
+        "docs_url": "https://www.bittensor.com/docs/errors/chain/Disabled"
+      },
+      "data": {
+        "shielded": true,
+        "inner_extrinsic_hash": "0xbcb6be68c41f045582f12beddbcd756ad86dd224440efdfee6d470b067d6cf8d"
+      }
+    },
+    {
+      "success": false,
+      "message": "Hashed account registration or authorization is disabled in this runtime.",
+      "block_hash": "0xe8a52103b61b5367f7531db95e73b976aa47bfa7b9a25d23b8ea3e15b75ae3c0",
+      "extrinsic_id": "159-0007",
+      "error": {
+        "message": "Hashed account registration or authorization is disabled in this runtime.",
+        "name": "Disabled",
+        "code": "disabled",
+        "remediation": "this call or feature is switched off on this network",
+        "description": "Hashed accounts are not enabled on this chain. Check AdminUtils.HashedAccountsEnabled; creating a wallet locally does not activate runtime support.",
+        "docs_url": "https://www.bittensor.com/docs/errors/chain/Disabled"
+      },
+      "data": {
+        "shielded": true,
+        "inner_extrinsic_hash": "0x5815222c2d4f846fe33d666dd07853d7195369c5b6da1a3924beacb14fcd07d8"
+      }
+    },
+    {
+      "success": true,
+      "message": "Success",
+      "block_hash": "0x7f6081ff41f490458afc55a5004842b8abbf4a39c84fa23fea51826a4b76bee6",
+      "extrinsic_id": "165-0006",
+      "fee_tao": 0.000247391
+    },
+    {
+      "success": true,
+      "message": "Success",
+      "block_hash": "0x18ea8da82633e1bf463c692e40822d3202ff286336d7059f1ae69686073879a6",
+      "extrinsic_id": "168-0006",
+      "fee_tao": 0.000247685
+    },
+    {
+      "success": true,
+      "message": "Success",
+      "block_hash": "0xe0ace3bf37dcb6967c071b49fd607c1a0771771b190c04e5b85f396c68c35786",
+      "extrinsic_id": "171-0006",
+      "fee_tao": 0.000291705
+    },
+    {
+      "success": true,
+      "message": "Success",
+      "block_hash": "0xa89c3a38a68a9601cb162fdc9ec81ee5a4ccb029c6bb92fd81328522fe39d091",
+      "extrinsic_id": "174-0006",
+      "fee_tao": 0.000291705
+    }
+  ],
+  "rejections": [
+    {
+      "message": "Invalid Transaction: Transaction has a bad signature",
+      "payload": {
+        "error": {
+          "code": 1010,
+          "message": "Invalid Transaction",
+          "data": "Transaction has a bad signature"
+        }
+      }
+    },
+    {
+      "message": "Invalid Transaction: Transaction has a bad signature",
+      "payload": {
+        "error": {
+          "code": 1010,
+          "message": "Invalid Transaction",
+          "data": "Transaction has a bad signature"
+        }
+      }
+    },
+    {
+      "message": "Invalid Transaction: Transaction has a bad signature",
+      "payload": {
+        "error": {
+          "code": 1010,
+          "message": "Invalid Transaction",
+          "data": "Transaction has a bad signature"
+        }
+      }
+    },
+    {
+      "message": "Invalid Transaction: Transaction has a bad signature",
+      "payload": {
+        "error": {
+          "code": 1010,
+          "message": "Invalid Transaction",
+          "data": "Transaction has a bad signature"
+        }
+      }
+    }
+  ]
+}

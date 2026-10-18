@@ -1,0 +1,8 @@
+{
+  "source": "/tmp/ms-release-85a857922f/costs/root-cli-pytest.log",
+  "exit_code": 0,
+  "accepted_nodeids": [
+    "tests/e2e/test_mldsa_root_cli.py::test_root_cli_moves_selected_ms_wallet_without_touching_configured_wallet[8-receiving]",
+    "tests/e2e/test_mldsa_root_cli.py::test_root_cli_moves_selected_ms_wallet_without_touching_configured_wallet[7-local]"
+  ]
+}

@@ -1,0 +1,122 @@
+[
+  {
+    "name": "release",
+    "directory": "/tmp/ms-release-85a857922f/release",
+    "rpc_port": 26044,
+    "p2p_port": 36034,
+    "normal_block_seconds": 12,
+    "archive": true
+  },
+  {
+    "name": "authority",
+    "directory": "/tmp/ms-release-85a857922f/authority",
+    "rpc_port": 26144,
+    "p2p_port": 36134,
+    "normal_block_seconds": 12,
+    "archive": true
+  },
+  {
+    "name": "operations",
+    "directory": "/tmp/ms-release-85a857922f/operations",
+    "rpc_port": 26244,
+    "p2p_port": 36234,
+    "normal_block_seconds": 12,
+    "archive": true
+  },
+  {
+    "name": "validators",
+    "directory": "/tmp/ms-release-85a857922f/validators",
+    "rpc_port": 26344,
+    "p2p_port": 36334,
+    "normal_block_seconds": 12,
+    "archive": true
+  },
+  {
+    "name": "costs",
+    "directory": "/tmp/ms-release-85a857922f/costs",
+    "rpc_port": 26444,
+    "p2p_port": 36434,
+    "normal_block_seconds": 12,
+    "archive": true
+  },
+  {
+    "name": "lifecycle",
+    "directory": "/tmp/ms-release-85a857922f/lifecycle",
+    "rpc_port": 26544,
+    "p2p_port": 36534,
+    "normal_block_seconds": 12,
+    "archive": true
+  },
+  {
+    "name": "parity",
+    "directory": "/tmp/ms-release-85a857922f/parity",
+    "rpc_port": 26644,
+    "p2p_port": 36634,
+    "normal_block_seconds": 12,
+    "archive": true
+  },
+  {
+    "name": "extended",
+    "directory": "/tmp/ms-release-85a857922f/extended",
+    "rpc_port": 26744,
+    "p2p_port": 36734,
+    "normal_block_seconds": 12,
+    "archive": true
+  },
+  {
+    "name": "proxy-boundaries",
+    "directory": "/tmp/ms-release-85a857922f/proxy-boundaries",
+    "rpc_port": 26844,
+    "p2p_port": 36834,
+    "normal_block_seconds": 12,
+    "archive": true
+  },
+  {
+    "name": "sponsorship",
+    "directory": "/tmp/ms-release-85a857922f/sponsorship",
+    "rpc_port": 26944,
+    "p2p_port": 36934,
+    "normal_block_seconds": 12,
+    "archive": true
+  },
+  {
+    "name": "nested",
+    "directory": "/tmp/ms-release-85a857922f/nested",
+    "rpc_port": 27044,
+    "p2p_port": 37034,
+    "normal_block_seconds": 12,
+    "archive": true
+  },
+  {
+    "name": "validator-proxy",
+    "directory": "/tmp/ms-release-85a857922f/validator-proxy",
+    "rpc_port": 27144,
+    "p2p_port": 37134,
+    "normal_block_seconds": 12,
+    "archive": true
+  },
+  {
+    "name": "mixed",
+    "directory": "/tmp/ms-release-85a857922f/mixed",
+    "rpc_port": 27244,
+    "p2p_port": 37234,
+    "normal_block_seconds": 12,
+    "archive": true
+  },
+  {
+    "name": "shield",
+    "directory": "/tmp/ms-release-85a857922f/shield",
+    "rpc_port": 27344,
+    "p2p_port": 37334,
+    "normal_block_seconds": 12,
+    "archive": true
+  },
+  {
+    "name": "rpc",
+    "directory": "/tmp/ms-release-85a857922f/rpc",
+    "rpc_port": 27444,
+    "p2p_port": 37434,
+    "normal_block_seconds": 12,
+    "archive": true
+  }
+]

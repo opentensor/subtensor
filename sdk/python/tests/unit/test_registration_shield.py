@@ -165,6 +165,7 @@ async def test_execute_explicit_shield_preserves_custom_period():
 @pytest.mark.parametrize("override,expected", [(None, True), (False, False), (True, True)])
 async def test_multisig_sdk_registration_default(override, expected):
     chain = FakeSubstrate()
+    chain.seed("System", "Account", [ALICE], {"data": {"free": 10**9}})
     chain.mev_key = bytes(1184)
     client = Client(substrate=chain)
     group = await client.multisig([ALICE, BOB], 2)

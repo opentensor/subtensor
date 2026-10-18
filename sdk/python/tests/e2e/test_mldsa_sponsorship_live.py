@@ -35,7 +35,8 @@ def attributes(events, module, name):
 
 
 @pytest.mark.parametrize("code", [4, 6, 7, 8])
-async def test_sponsored_transfer_all_reserve_boundaries_and_seed_recovery(code):
+@pytest.mark.parametrize("shielded", [False, True])
+async def test_sponsored_transfer_all_reserve_boundaries_and_seed_recovery(code, shielded):
     seeds = [os.urandom(32) for _ in range(4)]
     sender, poor, recipient, failed_recipient = [
         Keypair.create_from_seed(seed, code) for seed in seeds
@@ -44,6 +45,7 @@ async def test_sponsored_transfer_all_reserve_boundaries_and_seed_recovery(code)
     sponsor = dev_wallet("//Dave")
     report = {
         "crypto_type": code,
+        "shielded": shielded,
         "accounts": {
             "sender": sender.ss58_address,
             "poor_sender": poor.ss58_address,
@@ -56,7 +58,7 @@ async def test_sponsored_transfer_all_reserve_boundaries_and_seed_recovery(code)
     }
 
     def save():
-        evidence(f"sponsorship-sweep-recovery-{code}", report)
+        evidence(f"sponsorship-sweep-recovery-{code}-{shielded}", report)
 
     async with (
         asyncio.timeout(1200),
@@ -118,6 +120,31 @@ async def test_sponsored_transfer_all_reserve_boundaries_and_seed_recovery(code)
             assert len(paid) == 1, paid
             return int(paid[0]["actual_fee"])
 
+        async def all_fees_since(signer, start, result):
+            """Account for the carrier and inner fees from canonical events."""
+            end = int(result.extrinsic_id.split("-")[0])
+            fees = []
+            for number in range(start, end + 1):
+                block_hash = await raw._session.request("chain_getBlockHash", [number])
+                for event in await raw.get_events(block_hash):
+                    if (event["event"]["module_id"], event["event"]["event_id"]) != (
+                        "TransactionPayment",
+                        "TransactionFeePaid",
+                    ):
+                        continue
+                    item = event["event"]["attributes"]
+                    if item["who"] == signer.ss58_address:
+                        fees.append(
+                            {
+                                "block_hash": block_hash,
+                                "index": event["extrinsic_idx"],
+                                "actual_fee": int(item["actual_fee"]),
+                            }
+                        )
+            assert len(fees) == 1 + int(shielded), fees
+            report.setdefault("fee_evidence", []).append(fees)
+            return sum(fee["actual_fee"] for fee in fees)
+
         def refunds(events, signer):
             return sum(
                 int(item["amount"])
@@ -176,22 +203,32 @@ async def test_sponsored_transfer_all_reserve_boundaries_and_seed_recovery(code)
                 ),
             ]
         )
-        failed = await client.submit_call(raw_batch, poor, wait_for_finalization=True)
-        failed_events = await receipt(
-            "underfunded reserve fails atomically on chain", failed, success=False
+        fee_start = await client.finalized_block()
+        failed = await client.submit_call(
+            raw_batch, poor, wait_for_finalization=True, shielded=shielded
         )
+        await receipt("underfunded reserve fails atomically on chain", failed, success=False)
         assert failed.error is not None and failed.error.name == "InsufficientBalance", (
             failed.to_dict()
         )
         assert await unregistered_snapshot(failed_recipient) == failed_before
         poor_after = await state(poor)
         assert poor_after["data"]["reserved"] == poor_before["data"]["reserved"]
-        assert poor_after["data"]["free"] == poor_before["data"]["free"] - fee_rao(failed_events)
-        assert (await authority(poor))["generation"] == poor_authority["generation"] + 1
+        assert poor_after["data"]["free"] == poor_before["data"]["free"] - await all_fees_since(
+            poor, fee_start, failed
+        )
+        assert (await authority(poor))["generation"] == poor_authority["generation"] + 1 + int(
+            shielded
+        )
         report["insufficient_reserve_preserved_recipient"] = True
 
+        fee_start = await client.finalized_block()
         result = await client.execute(
-            sweep, sender, wait_for_finalization=True, max_registration_deposit=cap
+            sweep,
+            sender,
+            wait_for_finalization=True,
+            max_registration_deposit=cap,
+            shielded=shielded,
         )
         events = await receipt("first-payment sweep with exact reserve allowance", result)
         sender_after, recipient_after = await state(sender), await state(recipient)
@@ -200,9 +237,14 @@ async def test_sponsored_transfer_all_reserve_boundaries_and_seed_recovery(code)
         assert sender_after["data"]["free"] == minimum + refunds(events, sender)
         assert recipient_after["data"]["free"] == amount
         assert before_sender["data"]["free"] == (
-            sender_after["data"]["free"] + deposit + amount + fee_rao(events)
+            sender_after["data"]["free"]
+            + deposit
+            + amount
+            + await all_fees_since(sender, fee_start, result)
         )
-        assert (await authority(sender))["generation"] == before_authority["generation"] + 1
+        assert (await authority(sender))["generation"] == before_authority["generation"] + 1 + int(
+            shielded
+        )
         recipient_authority = await authority(recipient)
         assert recipient_authority is not None
         report["first_sweep"] = {
