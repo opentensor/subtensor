@@ -1240,10 +1240,10 @@ class AppContext:
             self.vault_signer().summary = summary
 
         async def _plan(client):
-            signer = await self.resolve_signing_wallet(intent.signer, pick_account=True)
+            signer = await self.resolve_signing_wallet(intent.signer)
             plan_target = signer if self.uses_external_signer() else wallet
             try:
-                return await client.plan(intent, plan_target, **options)
+                return await client.plan(intent, plan_target, shielded=shield, **options)
             finally:
                 if self.uses_extension_signer() and hasattr(signer, "close"):
                     await signer.close()
@@ -1260,6 +1260,8 @@ class AppContext:
                 required=semantic_intent.mev_shield_required,
                 op=semantic_intent.op,
             )
+            if shield != plan.shielded:
+                plan = self.run(_plan)
             if base_summary != intent_summary:
                 plan.summary = base_summary
                 plan.effects = [
@@ -1295,8 +1297,10 @@ class AppContext:
         facts_title = "Fees"
         estimated_fee = None
         sponsorship_quote = None
+        preview_wallet = None
 
         async def _preflight(client):
+            nonlocal preview_wallet
             preview_wallet = (
                 await self.resolve_signing_wallet(intent.signer, pick_account=True)
                 if self.uses_external_signer()
@@ -1308,6 +1312,7 @@ class AppContext:
                     preview_wallet,
                     proxy_for=proxy_for,
                     proxy_type=force_proxy_type,
+                    shielded=False,
                 )
             except Exception:
                 # Optional fee previews may fail, but an unknown recipient
@@ -1416,6 +1421,25 @@ class AppContext:
                     )
 
         if shield:
+
+            async def _shielded_preview(client):
+                # Reuse the selected public account. Reopening an extension
+                # here can change the approval identity or prompt twice.
+                return await client.preflight(
+                    intent,
+                    preview_wallet,
+                    proxy_for=proxy_for,
+                    proxy_type=force_proxy_type,
+                    shielded=True,
+                )
+
+            shield_preview = self.run(_shielded_preview)
+            estimated_fee = shield_preview.estimated_fee
+            fee_facts = list(shield_preview.facts)
+            for block in shield_preview.blocks:
+                self.output.error(block, help="resolve this hard stop before submitting")
+            if shield_preview.blocks:
+                raise typer.Exit(1)
             summary += " [MEV-shielded]"
         if self.uses_vault_signer():
             self.vault_signer().summary = summary

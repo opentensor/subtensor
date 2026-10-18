@@ -38,6 +38,9 @@ class Batch(Intent):
     op = "batch"
     wraps = (("Utility", "batch_all"),)
 
+    def requires_build_for_policy(self) -> bool:
+        return any(child.requires_build_for_policy() for child in self._children)
+
     intents: list = field(
         metadata={
             "help": "The calls to execute, in order, as a JSON list of objects "
@@ -94,6 +97,14 @@ class Batch(Intent):
                 extras.update(
                     {f"{index}:{child.op}.{key}": value for key, value in built.extras.items()}
                 )
+                # Each pure account needs its own reserve, even when all
+                # creations share a sponsor. Do not deduplicate by payer.
+                for key in ("protected_pure_registration_deposit_rao", "pure_proxy_deposit_rao"):
+                    if key in built.extras:
+                        extras[key] = extras.get(key, 0) + built.extras[key]
+                for payer, reserve in built.extras.get("pure_proxy_reserves", {}).items():
+                    reserves = extras.setdefault("pure_proxy_reserves", {})
+                    reserves[payer] = reserves.get(payer, 0) + reserve
             else:
                 child_call = built
             child_calls, registration = await with_recipient_registration(

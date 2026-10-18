@@ -210,16 +210,39 @@ class CreatePureProxy(Intent):
     def __post_init__(self):
         check_proxy_type(self.proxy_type)
 
+    def requires_build_for_policy(self) -> bool:
+        return True
+
     async def build(self, substrate, wallet: Any):
         from ..hashed import is_pq_required
 
-        protected = await is_pq_required(substrate, self.coldkey_address(wallet))
-        return await substrate.compose(
+        payer = self.coldkey_address(wallet)
+        protected = await is_pq_required(substrate, payer)
+        call = await substrate.compose(
             calls.Call(
                 "Proxy",
                 "create_protected_pure" if protected else "create_pure",
                 {"proxy_type": self.proxy_type, "delay": self.delay, "index": self.index},
             )
+        )
+        if not protected:
+            return call
+        deposit = await substrate.constant("HashedAccounts", "DerivedRegistrationDeposit")
+        if deposit is None:
+            raise ValueError("could not quote protected pure-proxy registration reserve")
+        proxy_deposit = 0
+        for name in ("ProxyDepositBase", "ProxyDepositFactor"):
+            value = await substrate.constant("Proxy", name)
+            if value is None:
+                raise ValueError("could not quote refundable pure-proxy deposit")
+            proxy_deposit += int(value)
+        return BuiltCall(
+            call,
+            {
+                "protected_pure_registration_deposit_rao": int(deposit),
+                "pure_proxy_deposit_rao": proxy_deposit,
+                "pure_proxy_reserves": {payer: int(deposit) + proxy_deposit},
+            },
         )
 
     def summary(self) -> str:
@@ -310,6 +333,9 @@ class ExecuteProxyAnnounced(Intent):
             "accepting any type that covers the call."
         },
     )
+
+    def requires_build_for_policy(self) -> bool:
+        return build_intent(self.inner_op, self.inner_args).requires_build_for_policy()
 
     async def build(self, substrate, wallet: Any):
         from ..executor import _compose_nested_intent_call, _OriginView

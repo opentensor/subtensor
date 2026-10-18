@@ -205,6 +205,9 @@ class MultisigThreshold1(Intent):
     other_signatories: list = field(metadata={"help": OTHER_SIGNATORIES_HELP})
     call: dict = field(metadata={"help": CALL_HELP})
 
+    def requires_build_for_policy(self) -> bool:
+        return build_intent(self.call["op"], self.call).requires_build_for_policy()
+
     async def build(self, substrate, wallet: Any):
         view = _account_view(
             substrate, self.coldkey_address(wallet), 1, self.other_signatories, wallet=wallet
@@ -249,6 +252,9 @@ class MultisigExecute(Intent):
     other_signatories: list = field(metadata={"help": OTHER_SIGNATORIES_HELP})
     call: dict = field(metadata={"help": CALL_HELP})
     timepoint: Optional[dict] = field(default=None, metadata={"help": TIMEPOINT_HELP})
+
+    def requires_build_for_policy(self) -> bool:
+        return build_intent(self.call["op"], self.call).requires_build_for_policy()
 
     async def build(self, substrate, wallet: Any):
         view = _account_view(

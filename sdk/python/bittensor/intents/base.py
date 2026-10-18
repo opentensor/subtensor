@@ -330,6 +330,10 @@ class Intent(ABC):
         """True if the intent acts across every subnet (so any allowlist must fail it)."""
         return False
 
+    def requires_build_for_policy(self) -> bool:
+        """Whether pinned approvals must rebuild dynamic spending metadata."""
+        return False
+
     def semantic_intent(self) -> "Intent":
         """Intent whose safety contract governs this submission.
 

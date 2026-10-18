@@ -51,6 +51,7 @@ from .namespaces import (
 )
 from .result import BittensorError, ChainError, ExtrinsicResult
 from .settings import (
+    DEFAULT_ERA_PERIOD,
     DEFAULT_NETWORK,
     MEV_SHIELD_ERA_PERIOD,
     default_archive_endpoints,
@@ -455,13 +456,17 @@ class Client:
         *,
         proxy_for: Optional[str] = None,
         proxy_type: Optional[str] = None,
+        shielded: bool | None = None,
+        period: Optional[int] = DEFAULT_ERA_PERIOD,
     ) -> IntentPreflight:
-        """Preview context-sensitive effects and hard stops without fee planning."""
+        """Preview effects, hard stops, and the selected route's total fee."""
         return await self._executor.preflight(
             intent,
             wallet,
             proxy_for=proxy_for,
             proxy_type=proxy_type,
+            shielded=shielded,
+            period=period,
         )
 
     async def estimate_shielded_carrier_fee(

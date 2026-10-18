@@ -23,7 +23,7 @@ from ._substrate import Substrate
 from .client import BlockHeader, Client
 from .intents import Policy
 from .namespaces import NAMESPACES
-from .settings import DEFAULT_NETWORK, MEV_SHIELD_ERA_PERIOD
+from .settings import DEFAULT_ERA_PERIOD, DEFAULT_NETWORK, MEV_SHIELD_ERA_PERIOD
 from .snapshot import Snapshot
 
 _NAMESPACES = tuple(NAMESPACES)
@@ -451,13 +451,24 @@ class SyncClient:
         multi = self._call(self._client.multisig(signatories, threshold))
         return _SyncNamespace(multi, self._call)
 
-    def preflight(self, intent, wallet, *, proxy_for=None, proxy_type=None):
+    def preflight(
+        self,
+        intent,
+        wallet,
+        *,
+        proxy_for=None,
+        proxy_type=None,
+        shielded=None,
+        period=DEFAULT_ERA_PERIOD,
+    ):
         return self._call(
             self._client.preflight(
                 intent,
                 wallet,
                 proxy_for=proxy_for,
                 proxy_type=proxy_type,
+                shielded=shielded,
+                period=period,
             )
         )
 

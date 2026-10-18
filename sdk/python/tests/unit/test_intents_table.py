@@ -116,7 +116,9 @@ async def test_composes_and_plans_offline(
     assert plan.op == op
     assert plan.summary
     assert plan.signer in ("coldkey", "hotkey")
-    assert plan.fee == Balance.from_rao(124_414)
+    # Required Shield routes pay for both signed transactions.
+    required_shield = build(op, INTENT_SAMPLES[op]).semantic_intent().mev_shield_required
+    assert plan.fee == Balance.from_rao(248_828 if required_shield else 124_414)
     assert plan.ok, plan.violations
 
 

@@ -229,7 +229,10 @@ async def _compose_intent_call(
     pinned = getattr(intent, "inner_call_data", None)
     # Reconstruct recipient guards and origin wrappers, retaining approved
     # dynamic inputs instead of deriving fresh prices/amounts for later rounds.
-    verify_pinned = bool(pinned) and await has_receiving_setup_inputs(substrate, wallet, semantic)
+    verify_pinned = bool(pinned) and (
+        semantic.requires_build_for_policy()
+        or await has_receiving_setup_inputs(substrate, wallet, semantic)
+    )
     if pinned and not verify_pinned:
         # Later multisig rounds approve round 1's exact bytes. Rebuilds are
         # not always stable (timelock commits, ``--all`` balances) and would
@@ -278,7 +281,8 @@ async def _compose_intent_call(
 
     if verify_pinned and bytes(call.data) != bytes.fromhex(pinned.removeprefix("0x")):
         raise ValueError(
-            "imported multisig call bytes do not match the verified recipient payment and guards; "
+            "imported multisig call bytes do not match the verified recipient payment and guards "
+            "or account creation; "
             "use the same receiving address, amount and origin as the opening approval"
         )
     wrapped = await intent.wrap_call(substrate, wallet, call)
@@ -683,7 +687,84 @@ class Executor:
 
     @staticmethod
     def _setup_reserve(extras: Optional[dict]) -> Balance:
-        return Balance.from_rao(int((extras or {}).get("hashed_registration_max_deposit_rao", 0)))
+        extras = extras or {}
+        return Balance.from_rao(
+            int(extras.get("hashed_registration_max_deposit_rao", 0))
+            + int(extras.get("protected_pure_registration_deposit_rao", 0))
+        )
+
+    async def _use_shield(self, intent, call, shielded: bool | None) -> bool:
+        if intent.semantic_intent().mev_shield_required or shielded is True:
+            return True
+        return shielded is None and await registration_shield_default(self.substrate, call)
+
+    async def _quote_submission(self, preview, intent, wallet, call, *, shielded, period):
+        """Price both signed transactions before approval, without opening keys."""
+        inner_fee = preview.estimated_fee
+        if inner_fee is None:
+            try:
+                inner_fee = await self.substrate.estimate_fee(
+                    call, self._public_keypair(wallet, intent.signer)
+                )
+            except Exception as error:
+                preview.warnings.append(f"could not estimate fee: {error}")
+        carrier_fee = None
+        if shielded:
+            try:
+                carrier_fee = await estimate_shielded_carrier_fee(
+                    self.substrate,
+                    self._public_keypair(wallet, intent.signer).ss58_address,
+                    call,
+                    period=period,
+                )
+            except Exception as error:
+                preview.warnings.append(f"could not estimate MEV-shield carrier fee: {error}")
+                if preview.required_free is not None:
+                    preview.blocks.append(
+                        "could not verify free TAO for the shielded call plus its carrier fee; "
+                        f"refusing to risk a post-carrier reserve shortfall ({error})"
+                    )
+            else:
+                if preview.required_free is not None:
+                    if preview.available_free is None:
+                        payer = self._public_keypair(wallet, intent.signer).ss58_address
+                        account = await self.substrate.query("System", "Account", [payer])
+                        preview.available_free = Balance.from_rao(
+                            int(((account or {}).get("data") or {}).get("free") or 0)
+                        )
+                    combined = preview.required_free + carrier_fee
+                    if preview.required_free <= preview.available_free < combined:
+                        preview.blocks.append(
+                            f"free TAO ({preview.available_free}) covers the inner call "
+                            f"reserve ({preview.required_free}) but not that reserve plus the "
+                            f"MEV-shield carrier fee (~{combined})"
+                        )
+                    preview.required_free = combined
+            preview.estimated_fee = (
+                inner_fee + carrier_fee
+                if inner_fee is not None and carrier_fee is not None
+                else None
+            )
+            preview.facts.extend(
+                [
+                    (
+                        "Inner transaction fee (estimated)",
+                        str(inner_fee) if inner_fee is not None else "unavailable",
+                    ),
+                    (
+                        "Shield carrier fee (estimated)",
+                        str(carrier_fee) if carrier_fee is not None else "unavailable",
+                    ),
+                    (
+                        "Total transaction fee (estimated)",
+                        str(preview.estimated_fee)
+                        if preview.estimated_fee is not None
+                        else "unavailable",
+                    ),
+                ]
+            )
+        else:
+            preview.estimated_fee = inner_fee
 
     def _violations(
         self, intent: Intent, fee: Any, policy: Optional[Policy], extras: Optional[dict] = None
@@ -721,11 +802,14 @@ class Executor:
         *,
         proxy_for: Optional[str] = None,
         proxy_type: Optional[str] = None,
+        shielded: bool | None = None,
+        period: Optional[int] = DEFAULT_ERA_PERIOD,
     ) -> IntentPreflight:
         """Preview intent state against its actual dispatch origin and fee payer.
 
-        ``estimated_fee`` is always filled in when possible: intents with their
-        own fee model (root claim, registration) supply it from their preflight;
+        ``estimated_fee`` covers the selected route, including both the inner
+        transaction and carrier when Shield is selected. Intents with their
+        own fee model (root claim, registration) supply the inner quote;
         for everything else the composed call is priced via payment info
         (best-effort — a failed estimate leaves the field None).
         """
@@ -747,12 +831,15 @@ class Executor:
             call=call,
             extras=extras,
         )
-        if preview.estimated_fee is None:
-            # Fee estimation is best-effort; the preview stands without it.
-            with contextlib.suppress(Exception):
-                preview.estimated_fee = await self.substrate.estimate_fee(
-                    call, self._public_keypair(wallet, intent.signer)
-                )
+        route = await self._use_shield(intent, call, shielded)
+        await self._quote_submission(
+            preview,
+            intent,
+            wallet,
+            call,
+            shielded=route,
+            period=MEV_SHIELD_ERA_PERIOD if period in (None, DEFAULT_ERA_PERIOD) else int(period),
+        )
         return preview
 
     async def _preflight(
@@ -802,7 +889,9 @@ class Executor:
             preview.effects = [
                 effect.replace(recipient.account, recipient.address) for effect in preview.effects
             ]
-        maximum = self._setup_reserve(extras)
+        maximum = Balance.from_rao(
+            int((extras or {}).get("hashed_registration_max_deposit_rao", 0))
+        )
         if maximum.rao:
             preview.facts.append(
                 ("Account setup reserve (maximum, permanently locked if needed)", str(maximum))
@@ -853,6 +942,50 @@ class Executor:
                             "insufficient spendable balance for payment, account setup reserve "
                             "and transaction fee"
                         )
+        if extras and "protected_pure_registration_deposit_rao" in extras:
+            deposit = Balance.from_rao(extras["protected_pure_registration_deposit_rao"])
+            refundable = Balance.from_rao(extras["pure_proxy_deposit_rao"])
+            preview.effects.append(
+                f"permanently reserve {deposit} for protected pure-proxy registration; "
+                "killing the proxy does not refund this registration reserve"
+            )
+            preview.facts.extend(
+                [
+                    ("Pure-proxy registration reserve (permanent)", str(deposit)),
+                    ("Pure-proxy deposit (refundable on kill)", str(refundable)),
+                ]
+            )
+            try:
+                fee = await self.substrate.estimate_fee(
+                    call, self._public_keypair(wallet, intent.signer)
+                )
+                minimum = int(await self.substrate.constant("Balances", "ExistentialDeposit") or 0)
+                spend = intent.semantic_intent().spend()
+                preview.estimated_fee = fee
+                for payer, reserve in extras["pure_proxy_reserves"].items():
+                    account = await self.substrate.query("System", "Account", [payer])
+                    data = (account or {}).get("data") or {}
+                    free = Balance.from_rao(int(data.get("free", 0)))
+                    required = Balance.from_rao(
+                        int(reserve)
+                        + max(int(data.get("frozen", 0)), minimum)
+                        + (fee.rao if payer == fee_payer else 0)
+                        + (
+                            (spend.rao if isinstance(spend, Balance) else 0) + maximum.rao
+                            if payer == dispatch_origin
+                            else 0
+                        )
+                    )
+                    if payer == fee_payer:
+                        preview.required_free = max(preview.required_free or required, required)
+                        preview.available_free = free
+                    if free < required:
+                        preview.blocks.append(
+                            "insufficient spendable balance for protected pure-proxy registration, "
+                            "proxy deposit, payment and transaction fee"
+                        )
+            except Exception as error:
+                preview.blocks.append(f"could not quote protected pure-proxy setup: {error}")
         return preview
 
     async def plan(
@@ -863,8 +996,13 @@ class Executor:
         policy: Optional[Policy] = None,
         proxy_for: Optional[str] = None,
         proxy_type: Optional[str] = None,
+        shielded: bool | None = None,
+        period: Optional[int] = DEFAULT_ERA_PERIOD,
     ) -> Plan:
-        """Dry-run: build the call, simulate the fee, and check policy. No submit.
+        """Dry-run: select the route, quote its total fee, and check policy.
+
+        ``shielded`` and ``period`` follow :meth:`execute`; the fee includes
+        both transactions for Shield. No private keys are needed.
 
         ``proxy_for`` switches to proxy signing: the call is wrapped in
         ``Proxy.proxy(real=proxy_for)`` so it dispatches with that account's
@@ -882,8 +1020,8 @@ class Executor:
             proxy_for=proxy_for,
             proxy_type=proxy_type,
         )
-        pub = self._public_keypair(wallet, intent.signer)
         _origin, signer_address = _intent_accounts(self.substrate, intent, wallet, proxy_for)
+        route = await self._use_shield(intent, call, shielded)
         preflight = await self._preflight(
             intent,
             wallet,
@@ -891,15 +1029,18 @@ class Executor:
             call=call,
             extras=extras,
         )
+        await self._quote_submission(
+            preflight,
+            intent,
+            wallet,
+            call,
+            shielded=route,
+            period=MEV_SHIELD_ERA_PERIOD if period in (None, DEFAULT_ERA_PERIOD) else int(period),
+        )
         warnings: list[str] = list(preflight.warnings)
         if intent.signer == "hotkey" and proxy_for is None and charges_coldkey_fee(call):
             warnings.append(COLDKEY_FEE_WARNING)
         fee = preflight.estimated_fee
-        if fee is None:
-            try:
-                fee = await self.substrate.estimate_fee(call, pub)
-            except Exception as error:  # fee estimation is best-effort
-                warnings.append(f"could not estimate fee: {error}")
 
         effects = list(preflight.effects)
         if proxy_for is not None:
@@ -924,6 +1065,7 @@ class Executor:
             spend=spend,
             args={k: v for k, v in intent.to_dict().items() if k != "op"},
             preview=dict(preflight.preview),
+            shielded=route,
         )
 
     async def execute(
@@ -998,12 +1140,18 @@ class Executor:
                 on_registration_sponsorship=on_registration_sponsorship,
             )
         plan = await self.plan(
-            intent, wallet, policy=policy, proxy_for=proxy_for, proxy_type=proxy_type
+            intent,
+            wallet,
+            policy=policy,
+            proxy_for=proxy_for,
+            proxy_type=proxy_type,
+            shielded=shielded,
+            period=period,
         )
         if not plan.ok:
             raise PolicyError(plan.violations)
 
-        if shielded is None and await registration_shield_default(self.substrate, plan.call):
+        if plan.shielded:
             return await self._submit_shielded_prepared(
                 intent,
                 as_wallet(wallet),
@@ -1187,48 +1335,8 @@ class Executor:
             call=call,
             extras=extras,
         )
-        fee = preflight.estimated_fee
-        active = self._active_policy(policy)
-        if active is not None and active.max_fee_tao is not None and fee is None:
-            # A fee guardrail must not fail open: if the estimate is
-            # unavailable the submission is blocked, unlike ``plan`` where a
-            # failed estimate only warns.
-            try:
-                fee = await self.substrate.estimate_fee(
-                    call, self._public_keypair(wallet, intent.signer)
-                )
-            except Exception as error:
-                raise PolicyError(
-                    [f"could not estimate fee to enforce max_fee_tao: {error}"]
-                ) from error
-        blocks = list(preflight.blocks)
-        if preflight.required_free is not None:
-            try:
-                if preflight.available_free is None:
-                    account = await self.substrate.query("System", "Account", [fee_payer])
-                    free_rao = int(((account or {}).get("data") or {}).get("free") or 0)
-                else:
-                    free_rao = preflight.available_free.rao
-                carrier_fee = await estimate_shielded_carrier_fee(
-                    self.substrate,
-                    fee_payer,
-                    call,
-                    period=period,
-                )
-            except Exception as error:
-                blocks.append(
-                    "could not verify free TAO for the shielded call plus its carrier fee; "
-                    f"refusing to risk a post-carrier reserve shortfall ({error})"
-                )
-            else:
-                combined_rao = preflight.required_free.rao + carrier_fee.rao
-                if preflight.required_free.rao <= free_rao < combined_rao:
-                    blocks.append(
-                        f"free TAO ({Balance.from_rao(free_rao)}) covers the inner claim "
-                        f"reserve ({preflight.required_free}) but not that reserve plus the "
-                        f"MEV-shield carrier fee (~{Balance.from_rao(combined_rao)})"
-                    )
-        self._enforce(intent, fee, policy, blocks, extras)
+        await self._quote_submission(preflight, intent, wallet, call, shielded=True, period=period)
+        self._enforce(intent, preflight.estimated_fee, policy, preflight.blocks, extras)
 
         await authorize_registration_sponsorship(
             extras,

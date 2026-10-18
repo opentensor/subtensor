@@ -105,7 +105,7 @@ class Plan:
     summary: str
     signer: str
     signer_address: Optional[str]
-    fee: Optional[Balance]
+    fee: Optional[Balance]  # total estimate, including Shield's carrier when selected
     effects: list[str]
     warnings: list[str]
     violations: list[str] = field(default_factory=list)
@@ -119,6 +119,8 @@ class Plan:
     # preview has a fixed shape (e.g. a before/after vector). Empty when the
     # intent only produces prose.
     preview: dict[str, Any] = field(default_factory=dict)
+    # Route selected before quoting; execute must retain it.
+    shielded: bool = False
 
     @property
     def ok(self) -> bool:
@@ -133,6 +135,7 @@ class Plan:
             "signer_address": self.signer_address,
             "args": self.args,
             "fee_tao": self.fee.tao if self.fee is not None else None,
+            "shielded": self.shielded,
             "spend_tao": self.spend.tao if isinstance(self.spend, Balance) else None,
             "spend_unbounded": self.spend is UNBOUNDED,
             "effects": self.effects,

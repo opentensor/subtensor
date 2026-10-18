@@ -58,6 +58,9 @@ def chain():
     substrate.seed_constant("HashedAccounts", "MldsaAccountProfiles", "0x0405")
     substrate.seed_constant("HashedAccounts", "RegistrationDeposit", 100)
     substrate.seed_constant("HashedAccounts", "MlDsaRegistrationDeposit", 200)
+    substrate.seed_constant("HashedAccounts", "DerivedRegistrationDeposit", 200)
+    substrate.seed_constant("Proxy", "ProxyDepositBase", 30)
+    substrate.seed_constant("Proxy", "ProxyDepositFactor", 20)
     return substrate
 
 
@@ -324,7 +327,7 @@ async def test_protected_proxy_and_derivative_routes_preserve_exact_inner_call(w
     substrate = chain()
     substrate.seed("HashedAccounts", "MlDsaAccounts", [wallet.ss58_address], record(wallet))
     pure = await CreatePureProxy().build(substrate, wallet)
-    assert pure.function == "create_protected_pure"
+    assert pure.call.function == "create_protected_pure"
     inner = b"pinned exact economic call bytes"
     derivative = await compose_derivative(substrate, wallet.ss58_address, 17, inner)
     assert derivative.function == "as_protected_derivative"
