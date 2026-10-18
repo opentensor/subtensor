@@ -442,13 +442,12 @@ mod errors {
         /// `set_subnet_emission_weights`: the validator share (slot 3) may be at most 50% of
         /// emission.
         ValidatorEmissionAboveMaximum,
-        /// `set_subnet_emission_weights`: every set re-solves this subnet's effective TAO
-        /// weight so root's share of emission equals its baseline (what root earns here with
-        /// the default validator share and the global `TaoWeight`), and that weight is
-        /// capped at one (root TAO never counts more than 1:1). The requested validator
-        /// share (slot 3) is too low to reach the baseline under the cap: it must stay above
-        /// root's baseline share, by enough margin that the solved weight fits. Raise the
-        /// validator share and resubmit.
+        /// `set_subnet_emission_weights`: root is paid its baseline share of this subnet's
+        /// emission (what root earns here with the default validator share and the global
+        /// `TaoWeight`) off the top of the validator slot every block, and alpha validators
+        /// get the rest. The requested validator share (slot 3) is at or below root's
+        /// baseline share right now, so validators would receive nothing. Raise the
+        /// validator share above the baseline and resubmit.
         ValidatorEmissionTooLowToPreserveRoot,
         /// `set_subnet_emission_weights`: the miner share (slot 4) must be at least 33% of
         /// emission.

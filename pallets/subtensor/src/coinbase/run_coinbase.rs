@@ -337,17 +337,15 @@ impl<T: Config> Pallet<T> {
             log::debug!("total_validator_alpha: {total_validator_alpha:?}");
             log::debug!("pending_server_alpha: {pending_server_alpha:?}");
 
-            // The consensus-side root proportion uses the subnet's effective TAO weight
-            // `w_s`, solved at the last emission-weights set so root's share of emission
-            // matched its baseline. The pool-side `root_proportion` (injection cap) uses the global
-            // `TaoWeight`.
-            let root_proportion = Self::consensus_root_proportion(*netuid_i);
-            log::debug!("root_proportion: {root_proportion:?}");
-
-            // Root alpha is carved out of the validator slot; root_proportion < 1 keeps the
-            // remainder non-negative.
-            let root_alpha: U96F32 = root_proportion
-                .saturating_mul(total_validator_alpha)
+            // Root is paid off the top of the validator slot: its baseline share of the
+            // emission (default validator share × root proportion with the global
+            // `TaoWeight`, recomputed from live state every block), capped at the whole
+            // slot. This is what a subnet on the default split pays root, independent of
+            // the validator share the owner chose.
+            let root_share = Self::get_root_emission_share(*netuid_i);
+            log::debug!("root_share: {root_share:?}");
+            let root_alpha: U96F32 = alpha_out_i
+                .saturating_mul(root_share)
                 .min(total_validator_alpha);
             log::debug!("root_alpha: {root_alpha:?}");
             let pending_validator_alpha = total_validator_alpha.saturating_sub(root_alpha);
@@ -985,7 +983,7 @@ impl<T: Config> Pallet<T> {
             "Draining pending alpha emission for netuid {netuid:?}, pending_server_alpha: {pending_server_alpha:?}, pending_validator_alpha: {pending_validator_alpha:?}, pending_root_alpha: {pending_root_alpha:?}, pending_owner_cut: {pending_owner_cut:?}"
         );
 
-        let tao_weight = Self::get_subnet_tao_weight(netuid);
+        let tao_weight = Self::get_tao_weight();
 
         // Run the epoch, using the alpha going to both the servers and the validators.
         let hotkey_emission: Vec<(T::AccountId, AlphaBalance, AlphaBalance)> =
@@ -1061,8 +1059,8 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        // Get the subnet's effective TAO weight
-        let tao_weight: U96F32 = Self::get_subnet_tao_weight(netuid);
+        // Get the weights for root and alpha stakes in emission distribution
+        let tao_weight: U96F32 = Self::get_tao_weight();
 
         // Get the hotkey's stake including weight
         let root_stake: U96F32 =
@@ -1124,7 +1122,7 @@ impl<T: Config> Pallet<T> {
         let mut parent_contributions: Vec<(T::AccountId, U96F32)> = Vec::new();
 
         // Get the weights for root and alpha stakes in emission distribution
-        let tao_weight: U96F32 = Self::get_subnet_tao_weight(netuid);
+        let tao_weight: U96F32 = Self::get_tao_weight();
 
         // Get self contribution, removing any childkey proportions.
         let self_contribution = Self::get_self_contribution(hotkey, netuid);

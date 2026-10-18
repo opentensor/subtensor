@@ -177,7 +177,6 @@ class SubtensorModule:
     SubnetOwnerCut = Item('SubtensorModule', 'SubnetOwnerCut', 'u16')
     OwnerCutEnabled = Item('SubtensorModule', 'OwnerCutEnabled', 'bool')
     SubnetEmissionWeights = Item('SubtensorModule', 'SubnetEmissionWeights', 'BoundedVec')
-    SubnetTaoWeight = Item('SubtensorModule', 'SubnetTaoWeight', 'u64')
     SubnetCreatedViaLease = Item('SubtensorModule', 'SubnetCreatedViaLease', 'bool')
     NetworkRateLimit = Item('SubtensorModule', 'NetworkRateLimit', 'u64')
     NominatorMinRequiredStake = Item('SubtensorModule', 'NominatorMinRequiredStake', 'u64')

@@ -858,14 +858,14 @@ DESCRIPTIONS: dict[str, str] = {
         "dividends may draw at most 0.50 of block emission; lower the validator share."
     ),
     "ValidatorEmissionTooLowToPreserveRoot": (
-        "Slot 3 (validator) of the emission weight vector is too low to reach root's baseline "
-        "share. Every set makes the chain re-solve this subnet's effective TAO weight once, at "
-        "this block, so root holders earn what they would with the default validator share "
-        "and the global TaoWeight; that weight is capped at 1 (root TAO never counts more than "
-        "1:1). The requested share is at or below root's baseline share, or would need a "
-        "weight above 1. The floor is `r * (1 + alpha_issuance / root_tao)` where `r` is "
-        "root's baseline share; `btcli subnets emission show --netuid <n>` prints it for this "
-        "block. Raise the validator share and resubmit."
+        "Slot 3 (validator) of the emission weight vector is at or below root's baseline "
+        "share. Every block the chain pays root `min(V, r)` of the subnet's emission off the "
+        "top of the validator slot, where `r = V0 * x / (x + A)` is what root would earn with "
+        "the default validator share V0 (0.41) and the global TaoWeight (`x` = root TAO times "
+        "that weight, `A` = the subnet's alpha issuance), recomputed from live state; alpha "
+        "validators get `V - min(V, r)`. A set with `V <= r` would leave validators nothing, "
+        "so it is rejected. `btcli subnets emission show --netuid <n>` prints the baseline "
+        "and the floor for this block. Raise the validator share above it and resubmit."
     ),
     "MinerEmissionBelowMinimum": (
         "Slot 4 (miner) of the emission weight vector is below the 33% floor. Miner incentive "

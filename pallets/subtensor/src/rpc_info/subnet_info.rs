@@ -172,13 +172,16 @@ impl From<(&str, HyperparamValue)> for HyperparamEntry {
 /// clients should not rely on it for semantics.
 pub type SubnetHyperparamsV3 = Vec<HyperparamEntry>;
 
-/// A subnet's emission weight vector and its effective TAO weight.
+/// A subnet's emission weight vector and root's share of its emission.
 ///
 /// Every share is a `u64` part of `u64::MAX`. `weights` is the full
 /// `[burn, recycle, owner, validator, miner]` vector; the named fields repeat
-/// each slot for callers that want them by name. `effective_tao_weight` is the
-/// subnet's consensus-side TAO weight `w_s`, also scaled by `u64::MAX`.
-#[freeze_struct("97f2ad41cae64a61")]
+/// each slot for callers that want them by name. `root_baseline_share` is
+/// root's live baseline share `r = V0 · x_g / (x_g + A)` at this block (what
+/// root earns here on the default split); `root_share` is what root is paid
+/// off the top of the validator slot this block, `min(validator, r)`. Alpha
+/// validators receive `validator − root_share`.
+#[freeze_struct("4cd41617c4b67f55")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SubnetEmissionWeightsInfo {
     pub netuid: Compact<NetUid>,
@@ -188,7 +191,8 @@ pub struct SubnetEmissionWeightsInfo {
     pub owner: Compact<u64>,
     pub validator: Compact<u64>,
     pub miner: Compact<u64>,
-    pub effective_tao_weight: Compact<u64>,
+    pub root_baseline_share: Compact<u64>,
+    pub root_share: Compact<u64>,
     pub created_via_lease: bool,
 }
 
@@ -479,8 +483,9 @@ impl<T: Config> Pallet<T> {
         AutoStakeDestination::<T>::get(coldkey, netuid)
     }
 
-    /// The subnet's emission weight vector together with its effective TAO
-    /// weight, or `None` if the subnet does not exist.
+    /// The subnet's emission weight vector together with root's baseline and
+    /// paid share of its emission this block, or `None` if the subnet does not
+    /// exist.
     pub fn get_subnet_emission_weights_info(netuid: NetUid) -> Option<SubnetEmissionWeightsInfo> {
         if !Self::if_subnet_exist(netuid) {
             return None;
@@ -489,15 +494,19 @@ impl<T: Config> Pallet<T> {
         let slot = |index: EmissionIndex| -> Compact<u64> {
             Compact(view.weights.get(index.position()).copied().unwrap_or(0))
         };
+        let validator = slot(EmissionIndex::Validator);
+        let root_baseline_share =
+            emission_share_to_parts(Self::baseline_root_emission_share(netuid));
         Some(SubnetEmissionWeightsInfo {
             netuid: netuid.into(),
             weights: view.weights.iter().map(|w| Compact(*w)).collect(),
             burn: slot(EmissionIndex::Burn),
             recycle: slot(EmissionIndex::Recycle),
             owner: slot(EmissionIndex::Owner),
-            validator: slot(EmissionIndex::Validator),
+            validator,
             miner: slot(EmissionIndex::Miner),
-            effective_tao_weight: Compact(Self::get_subnet_tao_weight_parts(netuid)),
+            root_baseline_share: Compact(root_baseline_share),
+            root_share: Compact(root_baseline_share.min(validator.0)),
             created_via_lease: view.created_via_lease,
         })
     }

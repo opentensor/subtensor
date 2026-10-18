@@ -278,7 +278,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 480,
+    spec_version: 481,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1853,11 +1853,17 @@ type Migrations = (
     >,
     // Spec 480 (etao): seed every subnet's emission weight vector
     // `[burn, recycle, owner, validator, miner]` and its accrued owner cut from the legacy
-    // `SubnetOwnerCut` / `OwnerCutEnabled` state, leaving `SubnetTaoWeight` unset so the
-    // subnet keeps reading the global `TaoWeight` and the first post-upgrade block pays
-    // exactly what the last pre-upgrade block did. One-shot, stamped in HasMigrationRun;
-    // try-runtime checks every seeded vector and root-proportion parity.
+    // `SubnetOwnerCut` / `OwnerCutEnabled` state so the first post-upgrade block pays
+    // what the last pre-upgrade block did. One-shot, stamped in HasMigrationRun;
+    // try-runtime checks every seeded vector.
     pallet_subtensor::migrations::migrate_seed_subnet_emission_weights::seed_subnet_emission_weights::Migration<
+        Runtime,
+    >,
+    // Spec 481: root is paid its live baseline share off the top of the validator slot
+    // every block, so spec 480's per-subnet frozen `SubnetTaoWeight` has no reader. Clear
+    // any entries written while 480 ran (testnet). One-shot, stamped in HasMigrationRun;
+    // try-runtime checks the map is empty and reports subnets off the default split.
+    pallet_subtensor::migrations::migrate_remove_subnet_tao_weight::remove_subnet_tao_weight::Migration<
         Runtime,
     >,
 );

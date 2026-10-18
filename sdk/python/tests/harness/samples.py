@@ -25,9 +25,18 @@ _OWNER_18 = (11796 * _U64_MAX) // 65535
 _VALIDATOR_41 = (_U64_MAX - _OWNER_18) // 2
 # Mainnet ``SubtensorInitialTaoWeight`` (~5.27%).
 TAO_WEIGHT = 971_718_665_099_567_868
+# Root TAO and the sample subnet's alpha issuance (rao) the emission fixtures
+# are seeded with; root's baseline share ``V0 * x / (x + A)`` is derived from
+# them exactly as the chain's ``get_subnet_emission_weights`` reports it.
+EMISSION_ROOT_TAO = 5_443_000 * 10**9
+EMISSION_ALPHA_ISSUANCE = 6_457_000 * 10**9
+_ROOT_X = EMISSION_ROOT_TAO * TAO_WEIGHT // _U64_MAX
+ROOT_BASELINE_SHARE = _VALIDATOR_41 * _ROOT_X // (_ROOT_X + EMISSION_ALPHA_ISSUANCE)
 
 # The chain's default emission weight vector as ``get_subnet_emission_weights``
-# decodes it (mainnet: 18% owner, 41% validator, 41% miner, 5.27% TaoWeight).
+# decodes it (mainnet: 18% owner, 41% validator, 41% miner); root is paid its
+# baseline share off the top of the validator slot, so on the default vector
+# ``root_share == root_baseline_share``.
 EMISSION_WEIGHTS_INFO: dict = {
     "netuid": 1,
     "weights": [0, 0, _OWNER_18, _VALIDATOR_41, _U64_MAX - _OWNER_18 - _VALIDATOR_41],
@@ -36,7 +45,8 @@ EMISSION_WEIGHTS_INFO: dict = {
     "owner": _OWNER_18,
     "validator": _VALIDATOR_41,
     "miner": _U64_MAX - _OWNER_18 - _VALIDATOR_41,
-    "effective_tao_weight": TAO_WEIGHT,
+    "root_baseline_share": ROOT_BASELINE_SHARE,
+    "root_share": min(ROOT_BASELINE_SHARE, _VALIDATOR_41),
     "created_via_lease": False,
 }
 

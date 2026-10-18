@@ -34,9 +34,9 @@ SLOTS_HELP = (
 VALUES_HELP = (
     "New share for each slot, pairwise with `slots`: a 0..1 fraction (0.41), a percentage "
     '("41%"), or raw u64 parts of 2^64-1. Rules: burn = recycle = 0; owner <= 33% '
-    "(>= 18% on lease-created subnets); validator <= 50% and high enough that root's "
-    "baseline share of emission is reachable (see `btcli subnets emission show`); "
-    "miner >= 33%; all five sum to exactly 1."
+    "(>= 18% on lease-created subnets); validator <= 50% and above root's baseline "
+    "share of emission, which is paid off the top of the validator slot (see `btcli "
+    "subnets emission show`); miner >= 33%; all five sum to exactly 1."
 )
 RENORMALIZE_HELP = (
     "Keep the named slots as given and rescale the other owner/validator/miner slots "
@@ -67,29 +67,25 @@ def _pct(value: float, places: int = 2) -> str:
 
 
 def _root_line(root: dict[str, Any]) -> str:
-    """One sentence on what root earns here after the set and how the subnet's
-    TAO weight moves to make it so."""
-    before, after = root["tao_weight_before"], root["tao_weight_after"]
-    if root["root_tao"] <= 0 or root["alpha_issuance"] <= 0:
+    """One sentence on what root and alpha validators earn here after the set."""
+    baseline = _pct(root["baseline_share"], 4)
+    if root["share_after"] is None:
         return (
-            "no root stake or alpha issuance on this subnet yet: its TAO weight stays "
-            f"{_pct(before)}"
+            f"root's baseline share here is {baseline} of emission, paid off the top of the "
+            "validator slot; this validator share is at or below it, so validators would get "
+            "nothing (the chain rejects)"
         )
-    if after is None:
-        return (
-            f"root's baseline share here is {_pct(root['baseline_share'], 4)} of emission; no "
-            "TAO weight <= 100% reaches it with this validator share (the chain rejects)"
+    line = (
+        f"root keeps its baseline {baseline} of this subnet's emission (default validator "
+        f"share, global TaoWeight) before and after; alpha validators get "
+        f"{_pct(root['validators_before'], 4)} -> {_pct(root['validators_after'], 4)}"
+    )
+    if root["capped_after"]:
+        line += (
+            "; the baseline exceeds the validator slot right now, so root takes the whole slot "
+            "and validators get nothing until the share is raised"
         )
-    weight = (
-        f"stays {_pct(before)}" if after == before else f"moves {_pct(before)} -> {_pct(after)}"
-    )
-    if after == root["global_tao_weight"] and after != before:
-        weight += " (the global TaoWeight; the subnet follows it again)"
-    return (
-        f"root earns {_pct(root['share_before'], 4)} of this subnet's emission now and "
-        f"{_pct(root['share_after'], 4)} after (its baseline: default validator share, global "
-        f"TaoWeight); the subnet's TAO weight {weight}"
-    )
+    return line
 
 
 @register
@@ -101,13 +97,13 @@ class SetSubnetEmissionWeights(Intent):
     slots. The signer must be the subnet's owner coldkey (root may also call
     it). With ``renormalize`` the untouched owner/validator/miner slots are
     rescaled so the vector still sums to one; without it the merged vector is
-    submitted as given. Every accepted set makes the chain re-solve the
-    subnet's effective TAO weight so root stakers earn their baseline share of
-    emission (what they would earn with the default validator share and the
-    global TaoWeight) — the pre-sign plan shows that share and the resulting
-    weight, and lists every rule the chain would reject (including a validator
-    share too low to reach the baseline), so a bad vector is caught before
-    signing. Owners may change the vector once per week per subnet.
+    submitted as given. Root stakers are paid their baseline share of emission
+    (what they earn with the default validator share and the global TaoWeight)
+    off the top of the validator slot every block, whatever the subnet sets —
+    the pre-sign plan shows that share and what alpha validators are left
+    with, and lists every rule the chain would reject (including a validator
+    share at or below the baseline), so a bad vector is caught before signing.
+    Owners may change the vector once per week per subnet.
     """
 
     op = "set_subnet_emission_weights"
@@ -166,9 +162,9 @@ class SetSubnetEmissionWeights(Intent):
         )
 
     async def _inputs(self, substrate) -> Optional[dict]:
-        """Everything the preview needs, read once: the current vector, the
-        subnet's TAO weight, root TAO, alpha issuance and the owner's last
-        change block."""
+        """Everything the preview needs, read once: the current vector and
+        root's baseline share, root TAO, alpha issuance, the global TaoWeight
+        and the owner's last change block."""
         current = await self._current(substrate)
         if current is None:
             return None
@@ -190,7 +186,7 @@ class SetSubnetEmissionWeights(Intent):
         return {
             "current": current,
             "before": ew.normalize_weights(current["weights"]),
-            "tao_weight": ew.share_to_float(int(current["effective_tao_weight"])),
+            "baseline_parts": int(current["root_baseline_share"]),
             "global_tao_weight": global_tao_weight,
             "root_tao": root_tao,
             "alpha_issuance": alpha_issuance,
@@ -203,20 +199,15 @@ class SetSubnetEmissionWeights(Intent):
         return ew.preview(
             inputs["before"],
             after,
-            tao_weight=inputs["tao_weight"],
+            baseline_parts=inputs["baseline_parts"],
             global_tao_weight=inputs["global_tao_weight"],
             root_tao=inputs["root_tao"],
             alpha_issuance=inputs["alpha_issuance"],
         )
 
     def _rules(self, inputs: dict) -> ew.Rules:
-        floor = ew.validator_floor(
-            inputs["global_tao_weight"],
-            inputs["root_tao"],
-            inputs["alpha_issuance"],
-        )
         return ew.Rules(
-            min_validator=None if floor is None else int(floor * ew.ONE),
+            min_validator=ew.min_validator_parts(inputs["baseline_parts"]),
             min_owner=ew.DEFAULT_OWNER,
             created_via_lease=bool(inputs["current"]["created_via_lease"]),
         )

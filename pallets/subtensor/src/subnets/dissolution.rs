@@ -439,7 +439,6 @@ impl<T: Config> Pallet<T> {
         VotingPowerEmaAlpha::<T>::remove(netuid);
         TotalAlphaStaked::<T>::remove(netuid);
         SubnetEmissionWeights::<T>::remove(netuid);
-        SubnetTaoWeight::<T>::remove(netuid);
         SubnetCreatedViaLease::<T>::remove(netuid);
         SubnetOwnerCutAccrued::<T>::remove(netuid);
         Self::remove_rate_limited_last_block(&RateLimitKey::OwnerHyperparamUpdate(

@@ -412,10 +412,11 @@ HYPERPARAMS: dict[str, Hyperparam] = {
     "validator_emission": Hyperparam(
         "u64",
         "Validator slot of the emission weight vector: the share of block alpha emission "
-        "that becomes validator dividends (root alpha is carved from it). At most 0.50; "
-        "every change re-solves the subnet's effective TAO weight so root earns its baseline "
-        "share of emission (default validator share, global TaoWeight), and is rejected when "
-        "no weight <= 1 can. Set via `btcli subnets emission`.",
+        "that becomes validator dividends. At most 0.50. Root is paid its baseline share of "
+        "emission (what it earns with the default validator share and the global TaoWeight, "
+        "recomputed every block) off the top of this slot, capped at the slot; alpha "
+        "validators get the rest, so a change at or below the baseline is rejected. Set via "
+        "`btcli subnets emission`.",
         short="validator share of emission (slot 3)",
     ),
     "miner_emission": Hyperparam(
