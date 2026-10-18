@@ -210,6 +210,9 @@ class AppContext:
     _ledger_signer: Optional[object] = None
     _vault_signer: Optional[VaultSigner] = None
     _vault_crypto_type: int = 1
+    # Preserve the reference that supplied external signer metadata (e.g. an
+    # Ed25519 Vault public wallet) when an operation pins its selected account.
+    _external_signer_ref: Optional[str] = None
     # Multisig names currently being derived by ``resolve_address`` — breaks
     # the recursion when a saved multisig lists itself among its signatories.
     _resolving_multisigs: set = field(default_factory=set)
@@ -424,17 +427,25 @@ class AppContext:
         if not self.uses_external_signer():
             return None
         self._vault_crypto_type = 1
+        self._external_signer_ref = None
+
+        def resolve(ref):
+            address = self._resolve_signer_account_ref(ref)
+            if address:
+                self._external_signer_ref = ref
+            return address
+
         # An explicit --signer-address that does not resolve must not fall
         # through to --signatory or config: that would hide a typo.
         if self.signer_address:
-            return self._resolve_signer_account_ref(self.signer_address)
+            return resolve(self.signer_address)
         if self.signatory_wallet:
-            address = self._resolve_signer_account_ref(self.signatory_wallet)
+            address = resolve(self.signatory_wallet)
             if address:
                 return address
         configured = cfg.get("signer_address")
         if configured:
-            address = self._resolve_signer_account_ref(str(configured))
+            address = resolve(str(configured))
             if address:
                 return address
         if self.uses_vault_signer():
@@ -442,7 +453,9 @@ class AppContext:
                 public = self.wallet().coldkeypub
             except Exception:
                 return None
-            return self._vault_account_address(public)
+            address = self._vault_account_address(public)
+            self._external_signer_ref = self.wallet_name
+            return address
         return None
 
     def vault_signer(self) -> VaultSigner:
@@ -1524,8 +1537,10 @@ class AppContext:
                     hotkey = None  # coldkey-only wallet; intents needing it fail on use
             # Keep the wallet shape because intents may default their hotkey
             # from it, while replacing the signing side with the keypair that
-            # was already unlocked above.
+            # was already unlocked above. Retain the directory context too:
+            # submission must rediscover the same recipient setup as preflight.
             local_signer = SimpleNamespace(
+                _wallet=wallet,
                 coldkey=signing_key,
                 coldkeypub=wallet.coldkeypub,
                 hotkey=hotkey,
@@ -1545,6 +1560,7 @@ class AppContext:
             except FileNotFoundError:
                 coldkeypub = None  # hotkey-only wallet; intents needing it fail on use
             local_signer = SimpleNamespace(
+                _wallet=wallet,
                 coldkey=None,
                 coldkeypub=coldkeypub,
                 hotkey=hotkey_pair,

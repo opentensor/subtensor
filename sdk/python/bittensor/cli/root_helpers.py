@@ -180,7 +180,11 @@ def resolve_position_wallet(app_ctx: AppContext, coldkey_ss58: Optional[str]) ->
         if signer and bytes(ss58_decode(parse_recipient(signer).account)) == owner_id:
             # Keep the later device/browser approval on the account whose
             # positions were selected, even when it came from saved config.
-            app_ctx.signer_address = parse_recipient(signer).account
+            app_ctx.signer_address = (
+                app_ctx._external_signer_ref
+                if app_ctx.uses_vault_signer() and app_ctx._external_signer_ref
+                else parse_recipient(signer).account
+            )
             return app_ctx.wallet_name, owner
         app_ctx.output.error("select the position owner's account with --signer-address")
         raise typer.Exit(2)

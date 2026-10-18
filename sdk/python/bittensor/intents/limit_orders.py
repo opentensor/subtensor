@@ -35,6 +35,9 @@ class _OwnerOrder(Intent):
 
     signer = "coldkey"
 
+    def touches_netuids(self) -> list[int]:
+        return [order_terms(self.order)["netuid"]]
+
     def __post_init__(self):
         _u64(self.nonce, "order nonce")
         self.order = canonical_order(self.order)
@@ -172,6 +175,9 @@ class ExecuteOrders(Intent):
     def summary(self):
         return f"relay {len(self.orders)} authorized orders"
 
+    def touches_netuids(self) -> list[int]:
+        return sorted({order_terms(signed["order"])["netuid"] for signed in self.orders})
+
 
 @register
 @dataclass
@@ -270,6 +276,13 @@ class InstallOrderCapability(Intent):
 
     def spend(self):
         return UNBOUNDED
+
+    def touches_netuids(self) -> list[int]:
+        terms = self.scope.get("Trading")
+        return [terms["netuid"]] if terms is not None else []
+
+    def affects_all_subnets(self) -> bool:
+        return "UnrestrictedTrading" in self.scope
 
 
 @register

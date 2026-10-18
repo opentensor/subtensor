@@ -1223,55 +1223,53 @@ def list_wallets(
     app_ctx: AppContext = ctx_of(ctx)
     coldkeys = wallets.list_wallets_detailed(app_ctx.wallet_path)
 
-    def listed_key(name, key, hotkey=None):
+    def listed_key(name, hotkey=None):
         unavailable = {
             "ss58": None,
+            "crypto_type": "unknown",
+            "account_type": None,
+            "signing_scheme": None,
             "error": "public key unavailable: invalid, incompatible, or unreadable keyfile",
         }
-        if key.crypto_type not in wallets.REGISTERED_CRYPTO_TYPES:
-            if key.ss58:
-                return {"ss58": key.ss58}
-            key_path = Path(app_ctx.wallet_path).expanduser() / name
-            key_path = key_path / "hotkeys" / hotkey if hotkey else key_path / "coldkeypub.txt"
-            try:
-                if keyfile_data_is_encrypted(key_path.read_bytes()):
-                    return {
-                        "ss58": None,
-                        "crypto_type": "unknown",
-                        "account_type": None,
-                        "signing_scheme": None,
-                        "encrypted": True,
-                        "note": "encrypted key; public address unavailable",
-                    }
-            except OSError:
-                pass
-            return unavailable
         wallet = wallets.open_wallet(
             name=name, hotkey=hotkey or "default", path=app_ctx.wallet_path
         )
-        public_file = wallet.hotkeypub_file if hotkey else wallet.coldkeypub_file
+        public_path = Path((wallet.hotkeypub_file if hotkey else wallet.coldkeypub_file).path)
+        legacy_hotkey = hotkey is not None and not public_path.exists()
+        if legacy_hotkey:
+            public_path = Path(wallet.hotkey_file.path)
         try:
-            # Listing must never unlock a key or substitute a bare account address
-            # when the complete receiving descriptor cannot be validated.
-            public = wallet_addresses.public_key_from_file(public_file.path)
-            return _address_fields(app_ctx, public)
+            if keyfile_data_is_encrypted(public_path.read_bytes()):
+                if hotkey and not legacy_hotkey:
+                    return unavailable
+                return {
+                    **{key: value for key, value in unavailable.items() if key != "error"},
+                    "encrypted": True,
+                    "note": "encrypted key; public address unavailable",
+                }
+            # Classify only after public-key validation, including compatibility
+            # cryptoType strings. Display headers must never select a path that
+            # skips receiving-descriptor validation or registration status.
+            public = wallet_addresses.public_key_from_file(public_path)
+            if legacy_hotkey and public.crypto_type in wallets.REGISTERED_CRYPTO_TYPES:
+                return unavailable
+            return {
+                "crypto_type": wallets.format_crypto_type(public.crypto_type),
+                "account_type": wallets.account_type_name(public.crypto_type),
+                "signing_scheme": wallets.signing_scheme_name(public.crypto_type),
+                **_address_fields(app_ctx, public),
+            }
         except (KeyfileError, OSError, ValueError):
             return unavailable
 
     records = [
         {
             "coldkey": ck.name,
-            "crypto_type": wallets.format_crypto_type(ck.crypto_type),
-            "account_type": wallets.account_type_name(ck.crypto_type),
-            "signing_scheme": wallets.signing_scheme_name(ck.crypto_type),
-            **listed_key(ck.name, ck),
+            **listed_key(ck.name),
             "hotkeys": [
                 {
                     "name": hk.name,
-                    "crypto_type": wallets.format_crypto_type(hk.crypto_type),
-                    "account_type": wallets.account_type_name(hk.crypto_type),
-                    "signing_scheme": wallets.signing_scheme_name(hk.crypto_type),
-                    **listed_key(ck.name, hk, hk.name),
+                    **listed_key(ck.name, hk.name),
                 }
                 for hk in ck.hotkeys
             ],
