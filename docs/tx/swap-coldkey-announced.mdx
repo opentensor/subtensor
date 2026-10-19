@@ -16,7 +16,7 @@ future operations sign with the new coldkey.
 
 | Signer | Origin | Pallet | Wraps |
 | --- | --- | --- | --- |
-| `coldkey` | signed account (pallet role may apply) | SubtensorModule | [`SubtensorModule.swap_coldkey_announced`](/code/pallets/subtensor/src/macros/dispatches.rs#L2445-L2483) |
+| `coldkey` | signed account (pallet role may apply) | SubtensorModule | [`SubtensorModule.swap_coldkey_announced`](/code/pallets/subtensor/src/macros/dispatches.rs#L2445-L2488) |
 
 ## Parameters
 
@@ -65,7 +65,7 @@ result = sub.execute_tool("swap_coldkey_announced", {...}, wallet)
 
 ## On-chain implementation
 
-`SubtensorModule.swap_coldkey_announced` — [`pallets/subtensor/src/macros/dispatches.rs#L2447`](/code/pallets/subtensor/src/macros/dispatches.rs#L2445-L2483):
+`SubtensorModule.swap_coldkey_announced` — [`pallets/subtensor/src/macros/dispatches.rs#L2447`](/code/pallets/subtensor/src/macros/dispatches.rs#L2445-L2488):
 
 ```rust
 #[pallet::call_index(126)]
@@ -81,7 +81,10 @@ pub fn swap_coldkey_announced(
     // stake transfers.
     let base = <T as crate::pallet::Config>::WeightInfo::swap_coldkey_announced();
     let precheck = base.saturating_add(T::DbWeight::get().reads(1));
-    let (when, new_coldkey_hash) = ColdkeySwapAnnouncements::<T>::take(who.clone()).ok_or(
+    // Read (do not take) until the swap commits. A failed execute — e.g.
+    // destination opt-outs that appeared after announce — must leave the
+    // announcement intact so the fee is not silently burned.
+    let (when, new_coldkey_hash) = ColdkeySwapAnnouncements::<T>::get(who.clone()).ok_or(
         Self::fail_with_weight(Error::<T>::ColdkeySwapAnnouncementNotFound, precheck),
     )?;
 
@@ -101,6 +104,8 @@ pub fn swap_coldkey_announced(
             Self::fail_with_weight(error, base.saturating_add(done))
         })?;
 
+    ColdkeySwapAnnouncements::<T>::remove(who);
+
     Ok((
         Some(Self::swap_coldkey_announced_actual_weight(work)),
         Pays::Yes,
@@ -109,6 +114,6 @@ pub fn swap_coldkey_announced(
 }
 ```
 
-Delegates to [`fail_with_weight`](/code/pallets/subtensor/src/staking/stake_utils.rs#L1584), [`do_swap_coldkey_tracked`](/code/pallets/subtensor/src/swap/swap_coldkey.rs#L179), [`swap_coldkey_announced_actual_weight`](/code/pallets/subtensor/src/swap/swap_coldkey.rs#L78).
+Delegates to [`fail_with_weight`](/code/pallets/subtensor/src/staking/stake_utils.rs#L1584), [`do_swap_coldkey_tracked`](/code/pallets/subtensor/src/swap/swap_coldkey.rs#L221), [`swap_coldkey_announced_actual_weight`](/code/pallets/subtensor/src/swap/swap_coldkey.rs#L78).
 
 Every file is browsable under [/code](/code) exactly as built into the runtime, or as plain text under `/code/raw/<path>` (index: [`/code/index.json`](/code/index.json)).
