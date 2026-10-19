@@ -4,6 +4,12 @@
 //! force-sell borrowed alpha into escrowed TAO; longs force-buy with borrowed TAO
 //! into escrowed alpha. No free borrowed assets are delivered. Interest burns.
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(
+    clippy::too_many_arguments,
+    clippy::arithmetic_side_effects,
+    clippy::collapsible_if,
+    clippy::let_and_return
+)]
 
 extern crate alloc;
 pub use pallet::*;
