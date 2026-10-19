@@ -26,9 +26,9 @@ fn mul_div_floor(a: u64, b: u64, c: u64) -> u64 {
     if c == 0 {
         return 0;
     }
-    let product = (a as u128).saturating_mul(b as u128);
-    let quot = product / (c as u128);
-    quot.min(u64::MAX as u128) as u64
+    let product = u128::from(a).saturating_mul(u128::from(b));
+    let quot = product.checked_div(u128::from(c)).unwrap_or(0);
+    u64::try_from(quot).unwrap_or(u64::MAX)
 }
 
 impl<T: Config> Pallet<T> {
