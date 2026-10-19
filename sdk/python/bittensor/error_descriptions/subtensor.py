@@ -194,9 +194,10 @@ DESCRIPTIONS: dict[str, str] = {
         "overlap."
     ),
     "ColdKeyAlreadyAssociated": (
-        "The destination coldkey of a coldkey swap already has staking hotkeys associated with "
-        "it, so it cannot receive the swapped identity. Check the `StakingHotkeys` storage for "
-        "the new coldkey and swap to a fresh, unused coldkey instead."
+        "Retired error: coldkey swaps into an already-used destination now merge assets into "
+        "that coldkey. Current runtimes never return this code; if you still see it, you are "
+        "on a pre-merge runtime — upgrade, or use a destination without staking hotkeys on "
+        "the older chain."
     ),
     "ColdkeyCollateralIncomplete": (
         "A coldkey swap could not fully migrate miner collateral: after migrating every "
