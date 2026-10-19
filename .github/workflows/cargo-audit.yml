@@ -75,6 +75,15 @@ jobs:
           #   the runtime WASM; same pin as the wasmtime entries above.
           # RUSTSEC-2026-0316: wasmtime 8.0.1 is pinned by the polkadot-sdk
           # fork; this is covered by the existing wasmtime exceptions.
+          # RUSTSEC-2026-0338..0342: quinn-proto 0.11.15 via the fork's QUIC /
+          #   libp2p stack; fixes need >=0.11.17/0.11.18 — revisit on SDK bump.
+          # RUSTSEC-2026-0346..0349: rustls 0.23.45 via the fork networking /
+          #   RPC stack; fixes need >=0.23.46 — revisit on SDK bump.
+          # RUSTSEC-2026-0344: ruzstd 0.4/0.6 decompression bomb; both versions
+          #   are pulled by the lockfile (zstd helper paths). Fix needs >=0.9.1;
+          #   revisit when those consumers move.
+          # RUSTSEC-2026-0363: wasmtime 8.0.1 component-model handle tables;
+          #   same pin as the other wasmtime exceptions above.
           cargo audit --ignore RUSTSEC-2023-0091 \
                       --ignore RUSTSEC-2024-0438 \
                       --ignore RUSTSEC-2025-0009 \
@@ -108,4 +117,15 @@ jobs:
                       --ignore RUSTSEC-2026-0235 \
                       --ignore RUSTSEC-2026-0258 \
                       --ignore RUSTSEC-2026-0269 \
-                      --ignore RUSTSEC-2026-0316
+                      --ignore RUSTSEC-2026-0316 \
+                      --ignore RUSTSEC-2026-0338 \
+                      --ignore RUSTSEC-2026-0339 \
+                      --ignore RUSTSEC-2026-0340 \
+                      --ignore RUSTSEC-2026-0341 \
+                      --ignore RUSTSEC-2026-0342 \
+                      --ignore RUSTSEC-2026-0344 \
+                      --ignore RUSTSEC-2026-0346 \
+                      --ignore RUSTSEC-2026-0347 \
+                      --ignore RUSTSEC-2026-0348 \
+                      --ignore RUSTSEC-2026-0349 \
+                      --ignore RUSTSEC-2026-0363
