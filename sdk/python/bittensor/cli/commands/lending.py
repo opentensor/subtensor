@@ -9,7 +9,7 @@ from typing import Optional, cast
 import typer
 
 from ...balance import Balance
-from ...intents import CloseLoan, OpenLoan
+from ...intents import CloseLoan, OpenLoan, RaiseLoan
 from ...intents._money import alpha_amount, tao_amount
 from ...result import BittensorError
 from ...settings import DEFAULT_ERA_PERIOD, MEV_SHIELD_ERA_PERIOD, guide_docs_url
@@ -338,6 +338,126 @@ def close_loan(
                     ("maximum payment", str(intent.max_payment)),
                     ("quoted refund", str(quote["refund"])),
                     ("minimum refund", str(intent.min_refund)),
+                ],
+            )
+        ],
+    )
+
+
+@app.command("raise")
+@with_tx_globals
+def raise_loan(
+    ctx: typer.Context,
+    netuid: int = typer.Option(..., "--netuid", min=1, max=65535, help="Subnet to raise on."),
+    hotkey_ss58: Optional[str] = typer.Option(
+        None, address_cli_name("hotkey_ss58"), help=RaiseLoan.field_help("hotkey_ss58")
+    ),
+    collateral: Optional[str] = typer.Option(
+        None, "--collateral", help=RaiseLoan.field_help("collateral_alpha")
+    ),
+    amount: Optional[str] = typer.Option(
+        None, "--amount", help=RaiseLoan.field_help("borrow_tao")
+    ),
+    sell: Optional[str] = typer.Option(
+        None, "--sell", help=RaiseLoan.field_help("sell_alpha")
+    ),
+    min_tao_out: str = typer.Option(
+        "0", "--min-tao-out", help=RaiseLoan.field_help("min_tao_out")
+    ),
+    valid_until: Optional[int] = typer.Option(
+        None, "--valid-until", help=RaiseLoan.field_help("valid_until")
+    ),
+    max_slippage: float = typer.Option(
+        1.0,
+        "--max-slippage",
+        min=0.0,
+        max=99.0,
+        help="Quote tolerance (percent) for the raise sale floor when --min-tao-out is 0.",
+    ),
+):
+    """Atomic raise: escrowed long plus optional spot sale of unlocked alpha.
+
+    Pass --collateral (alpha) or --amount (TAO to borrow), not both. Optionally
+    sell unlocked alpha with --sell. Fails unless both legs clear.
+    """
+    context = ctx_of(ctx)
+    if amount is not None and collateral is not None:
+        context.output.error("--amount and --collateral are mutually exclusive; provide one")
+        raise typer.Exit(2)
+    if amount is None and collateral is None:
+        context.output.error("provide --amount (borrow TAO) or --collateral (alpha)")
+        raise typer.Exit(2)
+    confirm_wallet(context, help_text="Wallet whose coldkey owns this raise.")
+    proxy = context.resolve_dispatch_proxy()
+    owner = _loan_owner(context, proxy)
+    if owner is None:
+        context.output.error("select the account that owns this raise before submitting")
+        raise typer.Exit(2)
+    hotkey = context.resolve_address("hotkey_ss58", hotkey_ss58)
+
+    async def deadline(client):
+        if valid_until is not None:
+            return valid_until
+        header = await client.substrate.get_block_header()
+        number = header.get("header", {}).get("number") if isinstance(header, dict) else None
+        if not isinstance(number, int):
+            raise BittensorError("current block number is unavailable")
+        # Default: allow ~10 minutes of inclusion delay at 12s blocks.
+        return number + 50
+
+    with context.output.activity("resolving raise deadline…"):
+        until = context.run(deadline)
+
+    intent = RaiseLoan(
+        netuid=netuid,
+        hotkey_ss58=hotkey,
+        collateral_alpha=collateral,
+        borrow_tao=amount,
+        max_collateral_alpha=collateral or "0",
+        min_borrow_tao=amount or "0",
+        sell_alpha=sell,
+        min_tao_out=min_tao_out,
+        valid_until=until,
+    )
+    if sell is not None and cast(Balance, intent.min_tao_out).rao == 0 and max_slippage > 0:
+
+        async def floor(client):
+            view = await client.at()
+            quote = await view.read(
+                "lending_raise_quote",
+                netuid=netuid,
+                coldkey_ss58=owner,
+                hotkey_ss58=hotkey,
+                collateral_alpha=intent.collateral_alpha,
+                borrow_tao=intent.borrow_tao,
+                sell_alpha=intent.sell_alpha,
+            )
+            out = quote.get("free_tao_out") if isinstance(quote, dict) else None
+            if not isinstance(out, Balance) or out.rao <= 0:
+                raise BittensorError("raise sale quote is unavailable")
+            return _bound(out, max_slippage, ceiling=False)
+
+        try:
+            with context.output.activity("quoting raise sale floor…"):
+                intent.min_tao_out = context.run(floor)
+        except Exception:
+            pass
+
+    context.submit(
+        intent,
+        proxy_for=proxy or "self",
+        card_sections=[
+            (
+                "Raise",
+                [
+                    ("netuid", str(netuid)),
+                    ("owner", owner),
+                    ("hotkey", hotkey),
+                    ("collateral", str(intent.collateral_alpha)),
+                    ("borrow", str(intent.borrow_tao)),
+                    ("sell", str(intent.sell_alpha)),
+                    ("min tao out", str(intent.min_tao_out)),
+                    ("valid until", str(intent.valid_until)),
                 ],
             )
         ],

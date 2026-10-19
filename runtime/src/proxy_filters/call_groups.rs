@@ -13,6 +13,7 @@ use pallet_base_fee::Call as BaseFeeCall;
 use pallet_commitments::Call as CommitmentsCall;
 use pallet_contracts::Call as ContractsCall;
 use pallet_crowdloan::Call as CrowdloanCall;
+use pallet_lending::Call as LendingCall;
 use pallet_drand::Call as DrandCall;
 use pallet_ethereum::Call as EthereumCall;
 use pallet_evm::Call as EvmCall;
@@ -124,6 +125,18 @@ call_filter_group!(
         RuntimeCall::Crowdloan(CrowdloanCall::update_end),
         RuntimeCall::Crowdloan(CrowdloanCall::update_cap),
         RuntimeCall::Crowdloan(CrowdloanCall::set_max_contribution),
+    ]
+);
+
+call_filter_group!(
+    LendingCalls,
+    [
+        RuntimeCall::Lending(LendingCall::open),
+        RuntimeCall::Lending(LendingCall::open_exact),
+        RuntimeCall::Lending(LendingCall::open_long_and_sell),
+        RuntimeCall::Lending(LendingCall::close),
+        RuntimeCall::Lending(LendingCall::set_enabled),
+        RuntimeCall::Lending(LendingCall::set_lift_params),
     ]
 );
 

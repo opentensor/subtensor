@@ -4,8 +4,10 @@ use frame_support::weights::Weight;
 pub trait WeightInfo {
     fn open() -> Weight;
     fn open_exact() -> Weight;
+    fn open_long_and_sell() -> Weight;
     fn close() -> Weight;
     fn set_enabled() -> Weight;
+    fn set_lift_params() -> Weight;
     fn set_min_price_impact() -> Weight;
     fn collect() -> Weight;
     fn update_reference() -> Weight;
@@ -20,10 +22,16 @@ impl WeightInfo for () {
     fn open_exact() -> Weight {
         Weight::zero()
     }
+    fn open_long_and_sell() -> Weight {
+        Weight::zero()
+    }
     fn close() -> Weight {
         Weight::zero()
     }
     fn set_enabled() -> Weight {
+        Weight::zero()
+    }
+    fn set_lift_params() -> Weight {
         Weight::zero()
     }
     fn set_min_price_impact() -> Weight {

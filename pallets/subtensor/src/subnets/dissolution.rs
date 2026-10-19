@@ -73,6 +73,9 @@ pub enum DissolveCleanupPhase {
     /// that can recycle alpha has completed. Appended so existing in-flight cleanup
     /// discriminants remain stable.
     NetworkAlphaAssetCounters,
+    /// Phase 2.15: Jacob §13 lending settlement. Appended for codec stability.
+    /// Runs after alpha is counted and before stakers are paid.
+    LendingSettle,
 }
 
 impl Default for DissolveCleanupPhase {
@@ -91,6 +94,7 @@ impl DissolveCleanupPhase {
             | Self::SubnetRootDividendsRootClaimable
             | Self::SubnetRootDividendsRootClaimed
             | Self::AlphaInOutStakesGetTotalAlphaValue
+            | Self::LendingSettle
             | Self::AlphaInOutStakesSettleStakes
             | Self::AlphaInOutStakesAlpha
             | Self::AlphaInOutStakesHotkeyTotals
@@ -181,6 +185,12 @@ impl<T: Config> Pallet<T> {
             !dissolved_networks.contains(&netuid),
             Error::<T>::NetworkDissolveAlreadyQueued
         );
+
+        // §13: flag dissolving (blocks new opens) and re-add outstanding lift
+        // legs into reserves so the pot includes lent liquidity before TotalStake
+        // is debited by SubnetTAO.
+        T::Lending::start_dissolution(netuid)?;
+        T::Lending::readd_lifts_for_dissolution(netuid)?;
 
         // Basket holdings are converted to each fund's root slot in the metered
         // `SubnetBasketHoldingsToRoot` cleanup phase (before stake / AMM teardown).
@@ -783,11 +793,22 @@ impl<T: Config> Pallet<T> {
                     );
                     if done {
                         status.subnet_distributed_tao = Some(0);
-                        status.set_phase(DissolveCleanupPhase::AlphaInOutStakesSettleStakes);
+                        // §13: settle lending after count, before staker payout.
+                        status.set_phase(DissolveCleanupPhase::LendingSettle);
                         status.last_key = None;
                         weight_meter.consume(T::DbWeight::get().writes(2));
                     } else {
                         status.last_key = new_key;
+                    }
+                    done
+                }
+
+                DissolveCleanupPhase::LendingSettle => {
+                    let done = T::Lending::settle_lending(netuid, weight_meter);
+                    if done {
+                        let _ = T::Lending::finish_dissolution(netuid);
+                        status.set_phase(DissolveCleanupPhase::AlphaInOutStakesSettleStakes);
+                        status.last_key = None;
                     }
                     done
                 }

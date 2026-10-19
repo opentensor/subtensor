@@ -1058,6 +1058,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
     type InitialStartCallDelay = InitialStartCallDelay;
     type SwapInterface = Swap;
+    type Lending = Lending;
     type KeySwapOnSubnetCost = SubtensorInitialKeySwapOnSubnetCost;
     type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
     type ProxyInterface = Proxier;
@@ -1434,6 +1435,29 @@ impl pallet_crowdloan::Config for Runtime {
     type MaxContributors = MaxContributors;
 }
 
+// Lending (Jacob v5.1 lift / escrow)
+parameter_types! {
+    pub const LendingPalletId: PalletId = PalletId(*b"bt/lends");
+    pub const LendingMinimumLoanValue: u64 = 1_000_000; // 0.001 τ
+    pub const LendingInterestPeriod: BlockNumber = 100;
+    pub const LendingBlocksPerYear: u64 = 2_628_000; // ~12s blocks
+    pub const LendingReferenceWarmup: BlockNumber = 7_200; // ~24h
+    pub const LendingMaxPositionsPerSubnet: u32 = 10_000;
+    pub const LendingMaxTotalPositions: u32 = 1_000_000;
+}
+
+impl pallet_lending::Config for Runtime {
+    type Pool = SubtensorModule;
+    type PalletId = LendingPalletId;
+    type MinimumLoanValue = LendingMinimumLoanValue;
+    type InterestPeriod = LendingInterestPeriod;
+    type BlocksPerYear = LendingBlocksPerYear;
+    type ReferenceWarmup = LendingReferenceWarmup;
+    type MaxPositionsPerSubnet = LendingMaxPositionsPerSubnet;
+    type MaxTotalPositions = LendingMaxTotalPositions;
+    type WeightInfo = ();
+}
+
 // Limit Orders
 parameter_types! {
     pub const LimitOrdersPalletId: PalletId = PalletId(*b"bt/limit");
@@ -1632,6 +1656,7 @@ construct_runtime!(
         MevShield: pallet_shield = 30,
         AlphaAssets: pallet_alpha_assets = 31,
         LimitOrders: pallet_limit_orders = 32,
+        Lending: pallet_lending = 33,
     }
 );
 
@@ -2729,6 +2754,58 @@ impl_runtime_apis! {
             _key_owner_proof: sp_consensus_babe::OpaqueKeyOwnershipProof,
         ) -> Option<()> {
             None
+        }
+    }
+
+    impl pallet_lending_runtime_api::LendingRuntimeApi<Block, AccountId> for Runtime {
+        fn quote_open(
+            netuid: u16,
+            side: pallet_lending::Side,
+            collateral: u64,
+        ) -> Result<pallet_lending::OpeningQuote, sp_runtime::DispatchError> {
+            pallet_lending::Pallet::<Runtime>::quote_open(netuid.into(), side, collateral)
+        }
+
+        fn quote_open_for(
+            owner: AccountId,
+            netuid: u16,
+            side: pallet_lending::Side,
+            collateral: u64,
+            hotkey: AccountId,
+        ) -> Result<pallet_lending::OpeningQuote, sp_runtime::DispatchError> {
+            pallet_lending::Pallet::<Runtime>::quote_open_for(
+                &owner,
+                netuid.into(),
+                side,
+                collateral,
+                &hotkey,
+            )
+        }
+
+        fn quote_open_exact_for(
+            owner: AccountId,
+            netuid: u16,
+            side: pallet_lending::Side,
+            collateral: u64,
+            hotkey: AccountId,
+            principal: u64,
+        ) -> Result<pallet_lending::OpeningQuote, sp_runtime::DispatchError> {
+            pallet_lending::Pallet::<Runtime>::quote_open_exact_for(
+                &owner,
+                netuid.into(),
+                side,
+                collateral,
+                &hotkey,
+                principal,
+            )
+        }
+
+        fn quote_close(
+            owner: AccountId,
+            netuid: u16,
+            repay_from_wallet: bool,
+        ) -> Result<pallet_lending::ClosingQuote, sp_runtime::DispatchError> {
+            pallet_lending::Pallet::<Runtime>::quote_close(&owner, netuid.into(), repay_from_wallet)
         }
     }
 

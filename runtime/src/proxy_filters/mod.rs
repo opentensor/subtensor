@@ -31,7 +31,7 @@ type AdminAll = (SubnetManagementCalls, RootConfigCalls);
 type TransferAllowed = (BalanceTransferCalls, StakeTransferCalls);
 
 /// `Staking`: stake position management.
-type StakingAllowed = StakeManagementCalls;
+type StakingAllowed = (StakeManagementCalls, LendingCalls);
 
 /// `Registration`: acquire a slot (POW or by burn).
 type RegistrationAllowed = (PowRegistrationCalls, BurnedRegistrationCalls);
@@ -61,6 +61,7 @@ type NonTransferAllowed = (
     InfraCommonCalls,
     AdminAll,
     StakeManagementCalls,
+    LendingCalls,
     PowRegistrationCalls,
     BurnedRegistrationCalls,
     FaucetCalls,

@@ -764,6 +764,12 @@ impl<T: Config> Pallet<T> {
                     continue;
                 }
 
+                // §13: skip lending custody (collateral + long escrow) so those
+                // claims are not double-counted with lending settlement.
+                if T::Lending::is_lending_custody(&hot, &cold, netuid) {
+                    continue;
+                }
+
                 // Primary: actual α value via share pool.
                 let pool = Self::get_alpha_share_pool(hot.clone(), netuid);
                 let actual_val_u64 = pool.try_get_value(&cold).unwrap_or(0);
@@ -858,6 +864,12 @@ impl<T: Config> Pallet<T> {
                 // Rows left behind by a closed pool are worth nothing; never let the raw
                 // share fallback below revive them.
                 if Self::alpha_share_is_retired(&hot, &cold, netuid) {
+                    continue;
+                }
+
+                // §13: skip lending custody holdings (already settled, or never
+                // part of the ordinary staker pot).
+                if T::Lending::is_lending_custody(&hot, &cold, netuid) {
                     continue;
                 }
 

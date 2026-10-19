@@ -211,6 +211,25 @@ pub trait LendingPoolInterface<AccountId>: OrderSwapInterface<AccountId> {
     /// on every subnet (legacy and new). Must not omit `SubnetAlphaIn`. Typically
     /// `SubnetAlphaIn + SubnetAlphaOut` (u128). Used only for `r = pot / all_alpha`.
     fn all_alpha_for_lending_settlement(netuid: NetUid) -> u128;
+
+    /// Pay `amount` TAO from the dissolution pot (`SubnetTAO` + subnet account) to `to`.
+    fn pay_from_pot(
+        netuid: NetUid,
+        to: &AccountId,
+        amount: TaoBalance,
+    ) -> Result<TaoBalance, DispatchError>;
+
+    /// Burn `amount` TAO from the dissolution pot (pending long-interest conversion).
+    fn burn_from_pot(netuid: NetUid, amount: TaoBalance) -> DispatchResult;
+
+    /// Destroy custody alpha on dissolution without returning it to the pool
+    /// (claims are settled via `r`, not staker payout).
+    fn destroy_custody_alpha(
+        coldkey: &AccountId,
+        hotkey: &AccountId,
+        netuid: NetUid,
+        amount: AlphaBalance,
+    ) -> DispatchResult;
 }
 
 /// Subtensor dissolution / hotkey integration.
@@ -283,7 +302,7 @@ pub enum Side {
 }
 
 /// Root-settable capacity / LTV / interest / pacing parameters (bps where noted).
-#[freeze_struct("a1b2c3d4e5f60718")]
+#[freeze_struct("cd5acc0ce307b8a0")]
 #[derive(
     Encode,
     Decode,
@@ -351,7 +370,7 @@ impl Default for LiftParams {
     }
 }
 
-#[freeze_struct("b2c3d4e5f6071829")]
+#[freeze_struct("d323ee362fafacc9")]
 #[derive(
     Encode,
     Decode,
@@ -383,7 +402,7 @@ pub struct LiftBook {
     pub last: u64,
 }
 
-#[freeze_struct("c3d4e5f60718293a")]
+#[freeze_struct("ab8a32c31df02025")]
 #[derive(
     Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen, Clone, Debug, PartialEq, Eq,
 )]
@@ -406,7 +425,7 @@ pub struct Position<AccountId, BlockNumber> {
     pub due: BlockNumber,
 }
 
-#[freeze_struct("d4e5f60718293a4b")]
+#[freeze_struct("78138cda5aaf128")]
 #[derive(
     Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen, Clone, Debug, PartialEq, Eq,
 )]
@@ -416,7 +435,7 @@ pub struct LendingReference<BlockNumber> {
     pub valid_after: BlockNumber,
 }
 
-#[freeze_struct("e5f60718293a4b5c")]
+#[freeze_struct("f8bdd22c5917f62f")]
 #[derive(
     Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen, Clone, Debug, PartialEq, Eq,
 )]
@@ -428,7 +447,7 @@ pub struct Dissolution<BlockNumber> {
     pub rate: U64F64,
 }
 
-#[freeze_struct("f60718293a4b5c6d")]
+#[freeze_struct("5da4836dd626280e")]
 #[derive(
     Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen, Clone, Debug, PartialEq, Eq,
 )]
@@ -441,7 +460,7 @@ pub struct OpeningQuote {
     pub escrow_estimate: u64,
 }
 
-#[freeze_struct("0718293a4b5c6d7e")]
+#[freeze_struct("432492aae8580c0d")]
 #[derive(
     Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen, Clone, Debug, PartialEq, Eq,
 )]
@@ -451,7 +470,7 @@ pub struct ClosingQuote {
     pub escrow_return: u64,
 }
 
-#[freeze_struct("18293a4b5c6d7e8f")]
+#[freeze_struct("16dfaee81372751a")]
 #[derive(
     Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen, Clone, Debug, PartialEq, Eq,
 )]
@@ -667,6 +686,15 @@ pub mod pallet {
             frozen_at: BlockNumberFor<T>,
         },
         DissolutionSettled {
+            owner: T::AccountId,
+            netuid: NetUid,
+            side: Side,
+            principal_tao_equiv: u64,
+            tao_to_pot: u64,
+            tao_refund: u64,
+        },
+        /// Alias of [`Event::DissolutionSettled`] for Jacob §13 naming.
+        Settled {
             owner: T::AccountId,
             netuid: NetUid,
             side: Side,
@@ -1109,18 +1137,7 @@ pub mod pallet {
             };
             let w = T::Pool::quote_weight_parts(netuid);
             let a_ahead = Self::a_ahead(netuid, growing_owner)?;
-            // Sell A_ahead into pool'
-            let (y2, x2) = if a_ahead > 0 {
-                let out = T::Pool::quote_sell_on(y_prime.into(), x_prime.into(), w, a_ahead.into())
-                    .to_u64();
-                (
-                    y_prime.saturating_sub(out), // sell adds TAO? wait — sell alpha → TAO out of pool means y decreases for buyer; for AMM sell of alpha, alpha goes in, TAO comes out so y decreases
-                    x_prime.saturating_add(a_ahead),
-                )
-            } else {
-                (y_prime, x_prime)
-            };
-            // Correction: selling alpha into pool: x increases, y decreases by TAO out
+            // Sell A_ahead into pool': alpha in, TAO out → y decreases, x increases.
             let tao_out_ahead = if a_ahead > 0 {
                 T::Pool::quote_sell_on(y_prime.into(), x_prime.into(), w, a_ahead.into()).to_u64()
             } else {
@@ -2057,30 +2074,9 @@ pub mod pallet {
             )?;
             let position =
                 Positions::<T>::get(&owner, netuid).ok_or(Error::<T>::PositionMissing)?;
-            let a = position.escrow_alpha; // may include prior; for increase use incremental — simplified: sell S against latest A quote
-            let s = sell_alpha.unwrap_or({
-                // Match realised incremental escrow: for new positions A equals escrow_alpha.
-                let prior = position
-                    .escrow_alpha
-                    .saturating_sub(a_quote.min(position.escrow_alpha));
-                let _ = prior;
-                a_quote.min(position.escrow_alpha).max(1).min(a)
-            });
-            let s = if sell_alpha.is_none() {
-                // Prefer realised A from the just-opened increment ≈ a_quote; use position's last escrow add.
-                a.min(a_quote.max(a)) // realised A for fresh open equals position.escrow_alpha when new
-                    .max(0)
-            } else {
-                s
-            };
-            let s = sell_alpha.unwrap_or(
-                position
-                    .escrow_alpha
-                    .min(a_quote)
-                    .max(position.escrow_alpha),
-            );
-            // Cleaner: default S = current position escrow_alpha for brand-new, else a_quote.
-            let s = sell_alpha.unwrap_or(a_quote);
+            // Default S to realised escrow alpha from this open.
+            let realised_a = position.escrow_alpha;
+            let s = sell_alpha.unwrap_or(realised_a);
 
             let out =
                 T::Pool::unstake_for_raise(&hotkey, &owner, netuid, s.into(), min_tao_out.into())?;
@@ -2092,12 +2088,13 @@ pub mod pallet {
                 netuid,
                 collateral_alpha: collateral,
                 principal_tao: principal,
-                escrow_alpha: a_quote,
+                escrow_alpha: realised_a,
                 sell_alpha: s,
                 free_tao_out: out.to_u64(),
                 price_before,
                 price_after,
             });
+            let _ = a_quote;
             Ok(())
         }
 
@@ -2328,7 +2325,7 @@ pub mod pallet {
                 }
                 let keys: alloc::vec::Vec<_> = Due::<T>::iter_prefix(due).map(|(k, _)| k).collect();
                 if keys.is_empty() {
-                    Due::<T>::clear_prefix(due, u32::MAX, None);
+                    let _ = Due::<T>::clear_prefix(due, u32::MAX, None);
                 }
                 for (owner, netuid) in keys {
                     if meter.try_consume(T::WeightInfo::collect()).is_err() {
@@ -2364,7 +2361,6 @@ pub mod pallet {
                     });
                     Due::<T>::remove(due, (&owner, netuid));
                 }
-                due = due.saturating_add(1u32.into());
                 // Advance NextDue to the soonest remaining
                 let next = Due::<T>::iter_keys().map(|(d, _)| d).min();
                 NextDue::<T>::set(next);
@@ -2615,10 +2611,8 @@ pub mod pallet {
                 let tao = Self::tao_for_alpha(pending, dissolution.rate, false).unwrap_or(0);
                 LongInterestPending::<T>::remove(netuid);
                 if tao > 0 {
-                    let reserve = Self::reserve_account(netuid);
-                    // Pot already includes the alpha claim; burn the TAO value conceptually
-                    // by transferring from pot accounting — here we burn from recovery if funded.
-                    let _ = T::Pool::burn_interest_tao(&reserve, tao.into());
+                    // §13: pending long-interest alpha converts at r; burn the TAO from the pot.
+                    let _ = T::Pool::burn_from_pot(netuid, tao.into());
                     Self::deposit_event(Event::InterestBurned {
                         netuid,
                         side: Side::Long,
@@ -2633,28 +2627,28 @@ pub mod pallet {
         fn settle_position(
             netuid: NetUid,
             owner: &T::AccountId,
-            position: Position<T::AccountId, BlockNumberFor<T>>,
+            mut position: Position<T::AccountId, BlockNumberFor<T>>,
             dissolution: &Dissolution<BlockNumberFor<T>>,
         ) -> DispatchResult {
+            // Accrue and burn interest through the freeze cutoff before settlement.
+            Self::charge_interest(owner, netuid, &mut position, dissolution.frozen_at, true)?;
+            Positions::<T>::insert(owner, netuid, position.clone());
+
             let r = dissolution.rate;
             let escrow = Self::position_account(owner, netuid);
             let reserve = Self::reserve_account(netuid);
             let custody = Self::custody_hotkey()?;
-            let pot_account = T::Pool::pool_tao(netuid); // used only for events; transfers go to reserve→subnet via adapter
-            let _ = pot_account;
 
             match position.side {
                 Side::Short => {
-                    // debt = P * r TAO. Pay from E_S then C. Refund = max(0, E+C - P*r).
+                    // §13: pay min(P*r, E+C) into the pot; borrower gets E+C-P*r
+                    // (interest already burned from collateral above).
                     let debt = Self::tao_for_alpha(position.principal, r, true)?;
                     let available = Self::add(position.proceeds, position.collateral)?;
                     let to_pot = debt.min(available);
                     let refund = available.saturating_sub(to_pot);
-                    // Burn any due interest already reflected in reduced collateral.
                     if to_pot > 0 {
-                        // Move to reserve (counts toward pot once adapter credits SubnetTAO)
                         T::Pool::transfer_tao(&escrow, &reserve, to_pot.into())?;
-                        // Credit pot: treat as increasing SubnetTAO via readd tao-only
                         T::Pool::readd_and_credit(
                             netuid,
                             &reserve,
@@ -2688,46 +2682,53 @@ pub mod pallet {
                         tao_to_pot: to_pot,
                         tao_refund: refund,
                     });
+                    Self::deposit_event(Event::Settled {
+                        owner: owner.clone(),
+                        netuid,
+                        side: Side::Short,
+                        principal_tao_equiv: debt,
+                        tao_to_pot: to_pot,
+                        tao_refund: refund,
+                    });
                 }
                 Side::Long => {
-                    // payout = (A+C)*r. Repay P first; remainder to borrower. Shortfall reduces pot.
+                    // §13: (A+C)*r; repay P first; remainder to borrower; shortfall reduces pot.
                     let alpha = Self::add(position.escrow_alpha, position.collateral)?;
                     let payout = Self::tao_for_alpha(alpha, r, false)?;
                     let repay = payout.min(position.principal);
                     let remainder = payout.saturating_sub(repay);
                     let shortfall = position.principal.saturating_sub(repay);
-                    // Alpha claims are redeemed by destroying custody alpha (already in eligible
-                    // denominator). Pay borrower the remainder from pot (reserve).
                     if remainder > 0 {
-                        // Fund refund from reserve; adapter may pull from subnet account.
-                        let _ = T::Pool::refund_dissolution_tao(&reserve, owner, remainder.into());
+                        let _ = T::Pool::pay_from_pot(netuid, owner, remainder.into());
                     }
-                    // Destroy escrow+collateral alpha (no longer claims)
                     if alpha > 0 {
-                        // Transfer to recovery and drop from AlphaOut via adapter readd(0,0) path —
-                        // decrease stake without returning to pool (already counted in pot denom).
-                        let recovery = Self::recovery_account();
-                        let _ = T::Pool::transfer_dissolution_alpha(
+                        let _ = T::Pool::destroy_custody_alpha(
                             &escrow,
-                            &recovery,
                             &custody,
                             netuid,
                             alpha.into(),
                         );
                     }
-                    if shortfall > 0 {
-                        // Shortfall already reduces pot implicitly (P was in pool; unpaid).
-                    }
+                    let _ = shortfall;
                     Lifts::<T>::mutate(netuid, |book| {
                         book.l_l = book.l_l.saturating_sub(position.principal);
                         book.b_l = book.b_l.saturating_sub(position.principal);
-                        book.escrow_alpha = book.escrow_alpha.saturating_sub(position.escrow_alpha);
+                        book.escrow_alpha =
+                            book.escrow_alpha.saturating_sub(position.escrow_alpha);
                         book.long_collateral_alpha = book
                             .long_collateral_alpha
                             .saturating_sub(position.collateral);
                     });
                     Self::remove_position(owner, netuid, &position);
                     Self::deposit_event(Event::DissolutionSettled {
+                        owner: owner.clone(),
+                        netuid,
+                        side: Side::Long,
+                        principal_tao_equiv: position.principal,
+                        tao_to_pot: shortfall,
+                        tao_refund: remainder,
+                    });
+                    Self::deposit_event(Event::Settled {
                         owner: owner.clone(),
                         netuid,
                         side: Side::Long,
@@ -2883,7 +2884,7 @@ pub mod pallet {
         pub fn quote_raise(
             owner: &T::AccountId,
             netuid: NetUid,
-            hotkey: &T::AccountId,
+            _hotkey: &T::AccountId,
             amount: Option<u64>,
             collateral: Option<u64>,
             sell: Option<u64>,
@@ -2984,7 +2985,7 @@ pub mod pallet {
             }
             let mut moved = 0u32;
             for (owner, this_netuid, mut position) in Positions::<T>::iter() {
-                if position.hotkey == *old && netuid.is_none_or(|id| id == this_netuid) {
+                if *old == position.hotkey && netuid.is_none_or(|id| id == this_netuid) {
                     position.hotkey = new.clone();
                     Positions::<T>::insert(owner, this_netuid, position);
                     moved = moved.checked_add(1).ok_or(Error::<T>::Arithmetic)?;

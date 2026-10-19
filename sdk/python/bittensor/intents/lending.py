@@ -329,6 +329,110 @@ class OpenLoan(Intent):
 
 @register
 @dataclass
+class RaiseLoan(Intent):
+    """Atomic raise: escrowed long plus spot sale of unlocked alpha.
+
+    Opens (or sizes) a long against alpha collateral and, in the same
+    extrinsic, sells additional unlocked alpha for free TAO. Either both
+    legs succeed or the call rolls back. ``valid_until`` is a block deadline.
+    """
+
+    op = "raise_loan"
+    signer = "coldkey"
+    wraps = (("Lending", "open_long_and_sell"),)
+    mev_shield_default = True
+
+    netuid: int = field(metadata={"help": "Subnet to raise against."})
+    hotkey_ss58: Optional[str] = field(
+        default=None,
+        metadata={"help": "Hotkey holding collateral and sale alpha."},
+    )
+    collateral_alpha: Optional[Money] = field(
+        default=None,
+        metadata={"help": "Exact alpha collateral for the long; omit to size from borrow_tao."},
+    )
+    borrow_tao: Optional[Money] = field(
+        default=None,
+        metadata={"help": "Exact TAO principal to borrow; omit to size from collateral_alpha."},
+    )
+    max_collateral_alpha: Money = field(
+        default=0,
+        metadata={"help": "Ceiling on alpha collateral when sizing from borrow_tao."},
+    )
+    min_borrow_tao: Money = field(
+        default=0,
+        metadata={"help": "Floor on borrowed TAO principal."},
+    )
+    sell_alpha: Optional[Money] = field(
+        default=None,
+        metadata={"help": "Unlocked alpha to sell for free TAO; omit to sell none."},
+    )
+    min_tao_out: Money = field(
+        default=0,
+        metadata={"help": "Minimum free TAO from the raise sale leg."},
+    )
+    valid_until: int = field(
+        default=0,
+        metadata={"help": "Latest block number that may include this raise."},
+    )
+
+    def __post_init__(self):
+        _check_netuid(self.netuid)
+        if self.collateral_alpha is not None and self.borrow_tao is not None:
+            raise BittensorError("provide collateral_alpha or borrow_tao, not both")
+        if self.collateral_alpha is None and self.borrow_tao is None:
+            raise BittensorError("provide collateral_alpha or borrow_tao")
+        if self.collateral_alpha is not None:
+            self.collateral_alpha = alpha_amount(self.collateral_alpha, self.netuid)
+        if self.borrow_tao is not None:
+            self.borrow_tao = tao_amount(self.borrow_tao)
+        self.max_collateral_alpha = alpha_amount(self.max_collateral_alpha, self.netuid)
+        self.min_borrow_tao = tao_amount(self.min_borrow_tao)
+        if self.sell_alpha is not None:
+            self.sell_alpha = alpha_amount(self.sell_alpha, self.netuid)
+        self.min_tao_out = tao_amount(self.min_tao_out)
+        if not isinstance(self.valid_until, int) or isinstance(self.valid_until, bool):
+            raise BittensorError("valid_until must be a block number")
+        if self.valid_until < 0:
+            raise BittensorError("valid_until must be non-negative")
+
+    async def build(self, substrate, wallet: Any):
+        hotkey = self.hotkey_address(wallet, self.hotkey_ss58)
+        self._built_hotkey = hotkey
+        params = {
+            "netuid": self.netuid,
+            "hotkey": hotkey,
+            "collateral_alpha": (
+                None
+                if self.collateral_alpha is None
+                else cast(Balance, self.collateral_alpha).rao
+            ),
+            "borrow_tao": (
+                None if self.borrow_tao is None else cast(Balance, self.borrow_tao).rao
+            ),
+            "max_collateral_alpha": cast(Balance, self.max_collateral_alpha).rao,
+            "min_borrow_tao": cast(Balance, self.min_borrow_tao).rao,
+            "sell_alpha": (
+                None if self.sell_alpha is None else cast(Balance, self.sell_alpha).rao
+            ),
+            "min_tao_out": cast(Balance, self.min_tao_out).rao,
+            "valid_until": self.valid_until,
+        }
+        return await substrate.compose(Call("Lending", "open_long_and_sell", params))
+
+    def summary(self) -> str:
+        sell = self.sell_alpha if self.sell_alpha is not None else 0
+        return (
+            f"raise on netuid {self.netuid}: long + sell {sell} "
+            f"(min out {self.min_tao_out})"
+        )
+
+    def spend(self) -> Spend:
+        return None
+
+
+@register
+@dataclass
 class CloseLoan(Intent):
     """Repay total principal and return remaining collateral on a subnet.
 
