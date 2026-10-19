@@ -24,6 +24,21 @@ use sp_runtime::{
     transaction_validity::{InvalidTransaction, TransactionValidityError},
 };
 
+/// Deposit uses the same Balances keep-alive transfer implementation and adds
+/// the mapping read through the EVM call's account-cost surcharge.
+pub struct EvmWeights;
+
+impl pallet_evm::weights::WeightInfo for EvmWeights {
+    fn withdraw() -> Weight {
+        <pallet_evm::weights::SubstrateWeight<crate::Runtime> as pallet_evm::weights::WeightInfo>::withdraw()
+    }
+
+    fn deposit() -> Weight {
+        <<crate::Runtime as pallet_balances::Config>::WeightInfo as pallet_balances::WeightInfo>::transfer_keep_alive()
+            .max(<<crate::Runtime as pallet_balances::Config>::WeightInfo as pallet_balances::WeightInfo>::transfer_all())
+    }
+}
+
 /// The full account is authoritative; the truncated alias is only an EVM address.
 pub fn hashed_owner(address: &H160) -> Option<AccountId32> {
     // Bindings are permanent, including when new registrations are disabled.

@@ -53,6 +53,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod benchmarking;
+#[cfg(test)]
+mod safe_tests;
 mod tests;
 pub mod weights;
 
@@ -130,6 +132,8 @@ pub mod pallet {
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
         type DerivedAccountPolicy: DerivedAccountPolicy<Self::AccountId>;
+        /// Weight of the bounded off-curve account derivation.
+        type SafeDerivationWeight: Get<Weight>;
     }
 
     #[pallet::event]
@@ -194,6 +198,8 @@ pub mod pallet {
         TooManyCalls,
         /// Bad input data for derived account ID
         InvalidDerivedAccount,
+        /// No full-width off-curve account could be derived within the fixed bound.
+        SafeDerivationFailed,
     }
 
     #[pallet::call]
@@ -671,6 +677,42 @@ pub mod pallet {
                 })
                 .map(|_| Some(weight).into())
         }
+
+        /// Dispatch from a full-width off-curve derivative account.
+        ///
+        /// This uses a separate address domain and preserves the incoming origin's
+        /// call filters. It requires no registration or protection deposit; the
+        /// parent's authorization and explicit delegations remain authoritative.
+        #[pallet::call_index(9)]
+        #[pallet::weight({
+            let info = call.get_dispatch_info();
+            (T::WeightInfo::as_derivative()
+                .saturating_add(T::SafeDerivationWeight::get())
+                .saturating_add(T::DbWeight::get().reads_writes(1, 1))
+                .saturating_add(info.call_weight), DispatchClass::Normal)
+        })]
+        pub fn as_safe_derivative(
+            origin: OriginFor<T>,
+            index: u16,
+            call: Box<<T as Config>::RuntimeCall>,
+        ) -> DispatchResultWithPostInfo {
+            let mut origin = origin;
+            let who = ensure_signed(origin.clone())?;
+            let child = Self::safe_derivative_account_id(who, index)?;
+            origin.set_caller_from(frame_system::RawOrigin::Signed(child));
+            let info = call.get_dispatch_info();
+            let result = call.dispatch(origin);
+            let weight = T::WeightInfo::as_derivative()
+                .saturating_add(T::SafeDerivationWeight::get())
+                .saturating_add(T::DbWeight::get().reads_writes(1, 1))
+                .saturating_add(extract_actual_weight(&result, &info));
+            result
+                .map_err(|mut err| {
+                    err.post_info = Some(weight).into();
+                    err
+                })
+                .map(|_| Some(weight).into())
+        }
     }
 
     impl<T: Config> Pallet<T> {
@@ -703,6 +745,26 @@ impl TypeId for IndexedUtilityPalletId {
 }
 
 impl<T: Config> Pallet<T> {
+    /// Derive a full-width off-curve account in the safe derivative domain.
+    pub fn safe_derivative_account_id(
+        who: T::AccountId,
+        index: u16,
+    ) -> Result<T::AccountId, DispatchError> {
+        let bytes = subtensor_hashed::safe::safe_derived_account(
+            subtensor_hashed::safe::DERIVATIVE_DOMAIN,
+            &(who, index),
+        )
+        .ok_or(Error::<T>::SafeDerivationFailed)?;
+        let mut input = bytes.as_slice();
+        let account =
+            T::AccountId::decode(&mut input).map_err(|_| Error::<T>::SafeDerivationFailed)?;
+        frame_support::ensure!(
+            input.is_empty() && account.encode().as_slice() == bytes,
+            Error::<T>::SafeDerivationFailed
+        );
+        Ok(account)
+    }
+
     /// Derive a derivative account ID from the owner account and the sub-account index.
     pub fn derivative_account_id(
         who: T::AccountId,

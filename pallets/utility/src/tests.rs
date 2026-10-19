@@ -191,9 +191,26 @@ impl Config for Test {
     type PalletsOrigin = OriginCaller;
     type WeightInfo = ();
     type DerivedAccountPolicy = TestDerivedPolicy;
+    type SafeDerivationWeight = ();
 }
 
 type ExampleCall = example::Call<Test>;
+
+#[test]
+fn safe_derivative_rejects_truncated_account_type_before_dispatch() {
+    new_test_ext().execute_with(|| {
+        assert_noop!(
+            Utility::as_safe_derivative(
+                RuntimeOrigin::signed(1),
+                0,
+                Box::new(RuntimeCall::System(SystemCall::remark_with_event {
+                    remark: vec![1],
+                })),
+            ),
+            Error::<Test>::SafeDerivationFailed
+        );
+    });
+}
 type UtilityCall = crate::Call<Test>;
 
 use frame_system::Call as SystemCall;

@@ -7,8 +7,10 @@ Parallel workers must share E2E_WALLET_ALICE_LOCK for the dev sponsors.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
+import sys
 from copy import deepcopy
 from hashlib import blake2b
 from itertools import permutations
@@ -19,6 +21,7 @@ import pytest
 import bittensor as bt
 from bittensor._transport.contract import SignedExtrinsic
 from bittensor._transport.errors import SubstrateRequestException
+from bittensor.evm.addresses import h160_to_ss58
 from bittensor.mldsa import install_message_capability, message_capability
 from bittensor.mldsa_signing import PreparedMldsaExtrinsic, sign_prepared_mldsa
 from bittensor.receiving import receiving_address
@@ -49,6 +52,8 @@ async def fund_unlocked(client, key, amount=100):
         max_registration_deposit=bt.Balance.from_tao(2),
     )
     assert result.success, result.to_dict()
+    if key.crypto_type == 8:
+        assert await record(client, key) is None
 
 
 async def fund(client, key, amount=100):
@@ -85,6 +90,104 @@ def event(result, module, name):
 def derivative_account_id(parent: bytes, index: int) -> str:
     entropy = b"modlpy/utilisuba" + parent + index.to_bytes(2, "little")
     return ss58_encode(blake2b(entropy, digest_size=32).digest(), 42)
+
+
+async def test_standard_ms_bare_funding_spending_replay_and_shield():
+    """Fixed MS requires no setup, including after its balance reaches zero."""
+    key = Keypair.create_from_seed(os.urandom(32), 8)
+    destination = Keypair.create_from_seed(os.urandom(32), 1)
+    assert receiving_address(key) == key.ss58_address
+    async with bt.Client(ENDPOINT, fallback_endpoints=[], archive_endpoints=[]) as client:
+        await fund(client, key, 10)
+        assert await record(client, key) is None
+        raw = client._substrate.raw
+        call = await client.compose(bt.calls.System.remark(remark="0x" + "ab" * 400))
+        prepared = await raw.prepare_mldsa_unsigned(call, descriptor=bytes(key.hashed_descriptor))
+        assert prepared.authority.generation == 0
+        codec = await raw._runtimes.codec_at(prepared.authority.block_hash)
+        proof = sign_prepared_mldsa(
+            prepared, key, codec=codec, expected_genesis_hash=await raw.genesis_hash()
+        )
+        signed = await raw.attach_mldsa_proof(prepared, proof)
+        included = await raw.submit_extrinsic(signed, wait_for_finalization=True)
+        assert included.is_success and included.finalized
+        assert await record(client, key) is None
+        before = await account(client, key)
+        drained = await client.submit_call(
+            bt.calls.Balances.transfer_all(dest=destination.ss58_address, keep_alive=False),
+            key,
+            wait_for_finalization=True,
+        )
+        assert drained.success, drained.to_dict()
+        empty = await account(client, key)
+        assert empty["data"]["free"] == 0
+        assert empty["nonce"] == before["nonce"] + 1
+        await fund(client, key, 10)
+        with pytest.raises(
+            SubstrateRequestException, match=r"(?i)stale|outdated|already imported|banned"
+        ):
+            await raw.submit_extrinsic(signed)
+        before = await account(client, key)
+        shielded = await client.submit_call(call, key, shielded=True, wait_for_finalization=True)
+        assert shielded.success, shielded.to_dict()
+        assert (await account(client, key))["nonce"] == before["nonce"] + 2
+        assert await record(client, key) is None
+
+
+async def test_standard_ms_separate_evm_wallet_round_trip(tmp_path):
+    """Native MS funds a separate ECDSA key through the normal SDK/CLI routes."""
+    from bittensor.evm.keys import create_evm_key
+
+    wallet = bt.Wallet("evm-ms", path=str(tmp_path))
+    for role in ("coldkey", "hotkey"):
+        getattr(wallet, f"regenerate_{role}")(
+            seed=os.urandom(32), crypto_type=8, use_password=False, suppress=True
+        )
+    key = wallet.coldkey
+    password = tmp_path / "evm-password"
+    password.write_text("disposable-localnet-key")
+    evm = create_evm_key("default", wallet.name, str(tmp_path), password=password.read_text())
+    async with bt.Client(ENDPOINT, fallback_endpoints=[], archive_endpoints=[]) as client:
+        await fund(client, key, 20)
+        assert await client._substrate.constant("EVM", "NativeDepositSupported") is True
+        result = await client.execute(
+            bt.intents.FundEvmKey(evm.address, 5), wallet, wait_for_finalization=True
+        )
+        assert result.success, result.to_dict()
+        backing = await client.query(bt.storage.System.Account, [h160_to_ss58(evm.address)])
+        assert backing["data"]["free"] == 5_000_000_000
+        assert await client.query(("HashedAccounts", "EvmAliases"), [evm.address]) is None
+        before = await account(client, key)
+        process = await asyncio.create_subprocess_exec(
+            sys.executable,
+            "-m",
+            "bittensor.cli.main",
+            "--yes",
+            "--json",
+            "--network",
+            ENDPOINT,
+            "--wallet",
+            wallet.name,
+            "--wallet-path",
+            str(tmp_path),
+            "evm",
+            "send-to-ss58",
+            "--amount-tao",
+            "1",
+            "--wallet-password-file",
+            str(password),
+            env={**os.environ, "BTCLI_CONFIG": str(tmp_path / "config.json")},
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        out, err = await asyncio.wait_for(process.communicate(), 120)
+        assert process.returncode == 0, out.decode() + err.decode()
+        assert json.loads(out)["success"], out.decode()
+        after = await account(client, key)
+        assert after["data"]["free"] == before["data"]["free"] + 1_000_000_000
+        assert after["nonce"] == before["nonce"]
+        assert after["data"]["reserved"] == 0
+        assert await record(client, key) is None
 
 
 @pytest.mark.parametrize("code", [7, 8])
@@ -133,8 +236,12 @@ async def test_offline_replay_capabilities_native_evm_and_derived_accounts(code)
         receipts.append({"offline_block": included.block_hash, "extrinsic": signed.data_hex})
         after = await record(client, key)
         after_account = await account(client, key)
-        assert after["generation"] == before["generation"] + 1
-        assert (after["commitment"] == before["commitment"]) == (code == 8)
+        assert after_account["nonce"] == before_account["nonce"] + 1
+        if code == 7:
+            assert after["generation"] == before["generation"] + 1
+            assert after["commitment"] != before["commitment"]
+        else:
+            assert before is after is None
         with pytest.raises(
             SubstrateRequestException,
             match=(
@@ -145,7 +252,9 @@ async def test_offline_replay_capabilities_native_evm_and_derived_accounts(code)
             await raw.submit_extrinsic(signed)
         receipts.append({"replay_rejection": str(replayed.value)})
         assert await account(client, key) == after_account
-        with pytest.raises(SubstrateRequestException, match="changed since preparation"):
+        with pytest.raises(
+            SubstrateRequestException, match=r"changed since preparation|already been consumed"
+        ):
             await raw.attach_mldsa_proof(prepared, proof)
         assert await record(client, key) == after
         receipts.append(
@@ -181,9 +290,12 @@ async def test_offline_replay_capabilities_native_evm_and_derived_accounts(code)
         with pytest.raises(ValueError, match="no active"):
             await message_capability(client._substrate, key.ss58_address, b"\xff")
 
-        # Native EVM operations are authorized by the ML-DSA transaction, with
-        # the permanent H160 alias and an EVM nonce separate from native nonce.
+        # Fixed accounts use the ordinary EVM mirror balance. Registered rotating
+        # accounts bind their permanent H160 alias to their native balance.
         source = "0x" + bytes(key.public_key)[:20].hex()
+        if code == 8:
+            await fund_multisig(client, h160_to_ss58(source), 10)
+            assert await client.query(("HashedAccounts", "EvmAliases"), [source]) is None
         gas_price = int(await raw._session.request("eth_gasPrice", []), 16)
         common = dict(
             source=source,
@@ -230,17 +342,26 @@ async def test_offline_replay_capabilities_native_evm_and_derived_accounts(code)
             == initial_nonce + 3
         )
 
+        derivative_call = (
+            bt.calls.Utility.as_protected_derivative
+            if code == 7
+            else bt.calls.Utility.as_derivative
+        )
         result = await submit(
-            bt.calls.Utility.as_protected_derivative(
+            derivative_call(
                 index=7, call=await client.compose(bt.calls.System.remark(remark="0x07"))
             )
         )
-        derivative = event(result, "HashedAccounts", "DerivedProtected")["account"]
-        assert derivative == derivative_account_id(bytes(key.public_key), 7)
-        assert await client.query(("HashedAccounts", "DerivedAuthorities"), [derivative])
+        derivative = derivative_account_id(bytes(key.public_key), 7)
+        if code == 7:
+            assert event(result, "HashedAccounts", "DerivedProtected")["account"] == derivative
+        assert bool(await client.query(("HashedAccounts", "DerivedAuthorities"), [derivative])) == (
+            code == 7
+        )
         before = await record(client, key)
+        before_nonce = (await account(client, key))["nonce"]
         result = await submit(
-            bt.calls.Utility.as_protected_derivative(
+            derivative_call(
                 index=8,
                 call=await client.compose(
                     bt.calls.Balances.transfer_keep_alive(
@@ -270,9 +391,15 @@ async def test_offline_replay_capabilities_native_evm_and_derived_accounts(code)
             is None
         )
         signed_count = 2 if result.data.get("shielded") else 1
-        assert (await record(client, key))["generation"] == before["generation"] + signed_count
+        assert (await account(client, key))["nonce"] == before_nonce + signed_count
+        if code == 7:
+            assert (await record(client, key))["generation"] == before["generation"] + signed_count
+        else:
+            assert await record(client, key) is None
         result = await submit(
-            bt.calls.Proxy.create_protected_pure(proxy_type="Any", delay=0, index=9)
+            (bt.calls.Proxy.create_protected_pure if code == 7 else bt.calls.Proxy.create_pure)(
+                proxy_type="Any", delay=0, index=9
+            )
         )
         pure = event(result, "Proxy", "PureCreated")["pure"]
         height, index = map(int, result.extrinsic_id.split("-"))
@@ -291,7 +418,9 @@ async def test_offline_replay_capabilities_native_evm_and_derived_accounts(code)
                 ),
             )
         )
-        assert await client.query(("HashedAccounts", "DerivedAuthorities"), [pure])
+        assert bool(await client.query(("HashedAccounts", "DerivedAuthorities"), [pure])) == (
+            code == 7
+        )
         assert not (await client.query(bt.storage.Proxy.Proxies, [pure]))[0]
         evidence(f"mldsa-authority-{code}", receipts)
 
@@ -305,11 +434,12 @@ async def test_mixed_protected_multisig_cancellation_failure_and_quorum(codes):
         for key in keys:
             await fund(client, key)
         group = await client.multisig([receiving_address(key) for key in keys], 2)
-        protection = await group.protection_call(deposit_payer=keys[1].ss58_address)
-        for key in keys:
-            result = await group.approve(protection, key, wait_for_finalization=True)
-            assert result.success, result.to_dict()
-        assert (await group.protection_status())["registered"]
+        if 7 in codes:
+            protection = await group.protection_call(deposit_payer=keys[1].ss58_address)
+            for key in keys:
+                result = await group.approve(protection, key, wait_for_finalization=True)
+                assert result.success, result.to_dict()
+        assert (await group.protection_status())["registered"] == (7 in codes)
         await fund_multisig(client, group.address, 10)
         for value, success in ((10**9, True), (10**18, False), (10**9, True)):
             call = bt.calls.Balances.transfer_keep_alive(dest=recipient.ss58_address, value=value)
@@ -348,7 +478,7 @@ async def test_mixed_protected_multisig_cancellation_failure_and_quorum(codes):
 
 
 async def test_two_of_three_all_mixed_quorums_and_runtime_rejection_of_weak_quorum():
-    keys = [Keypair.create_from_seed(os.urandom(32), code) for code in (7, 8, 1)]
+    keys = [Keypair.create_from_seed(os.urandom(32), code) for code in (7, 7, 8)]
     recipient = Keypair.create_from_seed(os.urandom(32), 0)
     receipts = []
     async with bt.Client(ENDPOINT, fallback_endpoints=[], archive_endpoints=[]) as client:

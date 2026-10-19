@@ -19,111 +19,110 @@ fn fixture(byte: u8) -> (subtensor_hashed::mldsa::Descriptor, AccountId32, [u8; 
 }
 
 #[test]
-fn master_switch_gates_every_ms_profile_and_preserves_state_for_resume() {
-    for algorithm in [
-        subtensor_hashed::mldsa::ALGORITHM,
-        subtensor_hashed::mldsa::FIXED_ALGORITHM,
-    ] {
-        new_test_ext().execute_with(|| {
-            let (mut descriptor, _, public) = fixture(2);
-            descriptor.algorithm = algorithm;
-            let account = AccountId32::new(subtensor_hashed::mldsa::account_id(&descriptor));
-            let next = if algorithm == subtensor_hashed::mldsa::FIXED_ALGORITHM {
-                descriptor.initial_commitment
-            } else {
-                [9; 64]
-            };
-            let register =
-                || HashedAccounts::register(RuntimeOrigin::signed(sponsor()), descriptor.into());
-            crate::tests::Enabled::set(false);
-            assert_noop!(register(), Error::<Test>::Disabled);
-            assert!(!MlDsaAccounts::<Test>::contains_key(&account));
-            crate::tests::Enabled::set(true);
-            assert_ok!(register());
-            let derived = DerivedDescriptor::Derivative {
-                parent: account.clone(),
-                index: 1,
-            };
-            assert_ok!(HashedAccounts::register_derived_with_sponsor(
+fn master_switch_preserves_registered_ms_state_for_resume() {
+    new_test_ext().execute_with(|| {
+        let (descriptor, account, public) = fixture(2);
+        let next = [9; 64];
+        let register =
+            || HashedAccounts::register(RuntimeOrigin::signed(sponsor()), descriptor.into());
+        crate::tests::Enabled::set(false);
+        assert_noop!(register(), Error::<Test>::Disabled);
+        assert!(!MlDsaAccounts::<Test>::contains_key(&account));
+        crate::tests::Enabled::set(true);
+        assert_ok!(register());
+        let derived = DerivedDescriptor::Derivative {
+            parent: account.clone(),
+            index: 1,
+        };
+        assert_ok!(HashedAccounts::register_derived_with_sponsor(
+            &sponsor(),
+            derived.clone()
+        ));
+        let authorize = || {
+            HashedAccounts::check_mldsa_authorization(
+                &account,
+                descriptor.algorithm,
+                &public,
+                0,
+                next,
+            )
+        };
+        let ticket = authorize().unwrap();
+        assert_ok!(HashedAccounts::do_install_capability(
+            &account,
+            1,
+            descriptor.initial_commitment,
+            10,
+            trading_scope()
+        ));
+        let before = MlDsaAccounts::<Test>::get(&account);
+        let derived_before = DerivedAuthorities::<Test>::get(derived.account_id());
+        crate::tests::Enabled::set(false);
+        assert_noop!(register(), Error::<Test>::Disabled);
+        assert_noop!(authorize(), Error::<Test>::Disabled);
+        // A ticket validated before a toggle must fail during preparation.
+        assert_noop!(
+            HashedAccounts::advance_mldsa(&ticket),
+            Error::<Test>::Disabled
+        );
+        assert_noop!(
+            HashedAccounts::check_registered(RuntimeOrigin::signed(sponsor()), descriptor.into()),
+            Error::<Test>::Disabled
+        );
+        assert_noop!(
+            HashedAccounts::register_derived_with_sponsor(&sponsor(), derived.clone()),
+            Error::<Test>::Disabled
+        );
+        assert_noop!(
+            HashedAccounts::register_derived_with_sponsor(
                 &sponsor(),
-                derived.clone()
-            ));
-            let authorize =
-                || HashedAccounts::check_mldsa_authorization(&account, algorithm, &public, 0, next);
-            let ticket = authorize().unwrap();
-            assert_ok!(HashedAccounts::do_install_capability(
-                &account,
-                1,
-                descriptor.initial_commitment,
-                10,
-                trading_scope()
-            ));
-            let before = MlDsaAccounts::<Test>::get(&account);
-            let derived_before = DerivedAuthorities::<Test>::get(derived.account_id());
-            crate::tests::Enabled::set(false);
-            assert_noop!(register(), Error::<Test>::Disabled);
-            assert_noop!(authorize(), Error::<Test>::Disabled);
-            // A ticket validated before a toggle must fail during preparation.
-            assert_noop!(
-                HashedAccounts::advance_mldsa(&ticket),
-                Error::<Test>::Disabled
-            );
-            assert_noop!(
-                HashedAccounts::check_registered(
-                    RuntimeOrigin::signed(sponsor()),
-                    descriptor.into()
-                ),
-                Error::<Test>::Disabled
-            );
-            assert_noop!(
-                HashedAccounts::register_derived_with_sponsor(&sponsor(), derived.clone()),
-                Error::<Test>::Disabled
-            );
-            assert_noop!(
-                HashedAccounts::register_derived_with_sponsor(
-                    &sponsor(),
-                    DerivedDescriptor::Derivative {
-                        parent: account.clone(),
-                        index: 2
-                    }
-                ),
-                Error::<Test>::Disabled
-            );
-            assert_noop!(
-                HashedAccounts::check_derived(RuntimeOrigin::signed(sponsor()), derived.clone()),
-                Error::<Test>::Disabled
-            );
-            assert_noop!(
-                HashedAccounts::do_install_capability(&account, 2, [5; 64], 10, trading_scope()),
-                Error::<Test>::Disabled
-            );
-            assert_noop!(
-                HashedAccounts::checked_capability(&account, CapabilityRole::Order, 1, &public),
-                Error::<Test>::Disabled
-            );
-            assert_eq!(MlDsaAccounts::<Test>::get(&account), before);
+                DerivedDescriptor::Derivative {
+                    parent: account.clone(),
+                    index: 2
+                }
+            ),
+            Error::<Test>::Disabled
+        );
+        assert_noop!(
+            HashedAccounts::check_derived(RuntimeOrigin::signed(sponsor()), derived.clone()),
+            Error::<Test>::Disabled
+        );
+        assert_noop!(
+            HashedAccounts::do_install_capability(&account, 2, [5; 64], 10, trading_scope()),
+            Error::<Test>::Disabled
+        );
+        assert_noop!(
+            HashedAccounts::checked_capability(&account, CapabilityRole::Order, 1, &public),
+            Error::<Test>::Disabled
+        );
+        assert_eq!(MlDsaAccounts::<Test>::get(&account), before);
+        assert_eq!(
+            DerivedAuthorities::<Test>::get(derived.account_id()),
+            derived_before
+        );
+        for protected in [&account, &derived.account_id()] {
+            assert!(HashedAccounts::is_protected(protected));
             assert_eq!(
-                DerivedAuthorities::<Test>::get(derived.account_id()),
-                derived_before
+                EvmAliases::<Test>::get(HashedAccounts::evm_alias(protected)),
+                Some(protected.clone())
             );
-            for protected in [&account, &derived.account_id()] {
-                assert!(HashedAccounts::is_protected(protected));
-                assert_eq!(
-                    EvmAliases::<Test>::get(HashedAccounts::evm_alias(protected)),
-                    Some(protected.clone())
-                );
-            }
-            // Revocation only removes authority and remains available during a pause.
-            assert_ok!(HashedAccounts::do_revoke_capability(
-                &account,
-                CapabilityRole::Order
-            ));
-            crate::tests::Enabled::set(true);
-            assert_ok!(authorize());
-            assert_ok!(HashedAccounts::advance_mldsa(&ticket));
-            assert_eq!(MlDsaAccounts::<Test>::get(&account).unwrap().generation, 1);
-        });
-    }
+        }
+        // Revocation only removes authority and remains available during a pause.
+        assert_ok!(HashedAccounts::do_revoke_capability(
+            &account,
+            CapabilityRole::Order
+        ));
+        crate::tests::Enabled::set(true);
+        assert_ok!(authorize());
+        let events = System::events();
+        assert_ok!(HashedAccounts::advance_mldsa(&ticket));
+        assert_eq!(MlDsaAccounts::<Test>::get(&account).unwrap().generation, 1);
+        assert_eq!(
+            MlDsaAccounts::<Test>::get(&account).unwrap().commitment,
+            next
+        );
+        assert_eq!(System::events(), events);
+    });
 }
 
 fn register(byte: u8) -> AccountId32 {
@@ -412,28 +411,36 @@ fn trading_scope() -> CapabilityScope {
 }
 
 #[test]
-fn capabilities_require_protected_owner_and_have_independent_monotonic_epochs() {
+fn capabilities_bind_signed_owners_and_have_independent_monotonic_epochs() {
     new_test_ext().execute_with(|| {
         let owner = register(2);
         let public = [22; 1952];
         let commitment = subtensor_hashed::mldsa::commitment(&public);
         assert_noop!(
             HashedAccounts::install_capability(
-                RuntimeOrigin::signed(sponsor()),
+                RuntimeOrigin::none(),
                 1,
                 commitment,
                 10,
                 trading_scope()
             ),
-            Error::<Test>::NotRegistered
+            sp_runtime::DispatchError::BadOrigin
         );
-        assert_noop!(
-            HashedAccounts::revoke_capability(
-                RuntimeOrigin::signed(sponsor()),
-                CapabilityRole::Order
-            ),
-            Error::<Test>::NotRegistered
+        assert_ok!(HashedAccounts::install_capability(
+            RuntimeOrigin::signed(sponsor()),
+            1,
+            commitment,
+            10,
+            trading_scope()
+        ));
+        assert!(
+            HashedAccounts::checked_capability(&sponsor(), CapabilityRole::Order, 1, &public)
+                .is_ok()
         );
+        assert_ok!(HashedAccounts::revoke_capability(
+            RuntimeOrigin::signed(sponsor()),
+            CapabilityRole::Order
+        ));
 
         assert_ok!(HashedAccounts::install_capability(
             RuntimeOrigin::signed(owner.clone()),
@@ -748,49 +755,59 @@ fn later_weak_member_protection_cannot_expand_an_existing_security_proof() {
 }
 
 #[test]
-fn fixed_profile_preserves_key_but_consumes_counter_and_forbids_policy_changes() {
+fn fixed_profile_authenticates_without_registration_or_authority_state() {
     new_test_ext().execute_with(|| {
-        let (mut descriptor, rotating, public) = fixture(31);
-        descriptor.algorithm = subtensor_hashed::mldsa::FIXED_ALGORITHM;
-        let account = AccountId32::new(subtensor_hashed::mldsa::account_id(&descriptor));
-        assert_ne!(account, rotating);
-        assert_ok!(HashedAccounts::register(
-            RuntimeOrigin::signed(sponsor()),
-            descriptor.into()
-        ));
-        assert!(HashedAccounts::authority_meets(
+        let (descriptor, account, public) = (0u8..=u8::MAX)
+            .find_map(|seed| {
+                let public = subtensor_hashed::mldsa::public_key_from_seed(&[seed; 32]).unwrap();
+                let descriptor = subtensor_hashed::mldsa::Descriptor {
+                    version: 2,
+                    algorithm: subtensor_hashed::mldsa::FIXED_ALGORITHM,
+                    initial_commitment: subtensor_hashed::mldsa::key_commitment(&public),
+                };
+                let account = subtensor_hashed::mldsa::account_id(&descriptor);
+                subtensor_hashed::mldsa::rejects_legacy_public_keys(&account).then_some((
+                    descriptor,
+                    AccountId32::new(account),
+                    public,
+                ))
+            })
+            .unwrap();
+        let deposit_before = Balances::reserved_balance(sponsor());
+        assert_noop!(
+            HashedAccounts::register(RuntimeOrigin::signed(sponsor()), descriptor.into()),
+            Error::<Test>::UnsupportedDescriptor
+        );
+        assert_eq!(Balances::reserved_balance(sponsor()), deposit_before);
+        assert!(!HashedAccounts::authority_meets(
             &account,
             SecurityFloor::PqRequired
         ));
         let initial = descriptor.initial_commitment;
-        for generation in 0..3 {
-            let before = MlDsaAccounts::<Test>::get(&account).unwrap();
-            for (profile, next) in [(4, initial), (5, [9; 64]), (5, [0; 64])] {
-                assert!(
-                    HashedAccounts::check_mldsa_authorization(
-                        &account, profile, &public, generation, next
-                    )
-                    .is_err()
-                );
-                assert_eq!(MlDsaAccounts::<Test>::get(&account).unwrap(), before);
-            }
-            let proof = HashedAccounts::check_mldsa_authorization(
-                &account, 5, &public, generation, initial,
-            )
-            .unwrap();
-            assert_ok!(HashedAccounts::advance_mldsa(&proof));
-            assert!(HashedAccounts::advance_mldsa(&proof).is_err());
-            let after = MlDsaAccounts::<Test>::get(&account).unwrap();
-            assert_eq!(after.generation, generation + 1);
-            assert_eq!(after.commitment, initial);
-            assert_eq!(after.descriptor, descriptor);
-            System::assert_last_event(
-                Event::AuthorizedFixed {
-                    account: account.clone(),
-                    generation: generation + 1,
-                }
-                .into(),
+        for (profile, generation, next) in [(4, 0, initial), (5, 0, [9; 64]), (5, 1, initial)] {
+            assert!(
+                HashedAccounts::check_mldsa_authorization(
+                    &account, profile, &public, generation, next
+                )
+                .is_err()
             );
         }
+        let proof =
+            HashedAccounts::check_mldsa_authorization(&account, 5, &public, 0, initial).unwrap();
+        crate::tests::Enabled::set(false);
+        assert_noop!(
+            HashedAccounts::check_mldsa_authorization(&account, 5, &public, 0, initial),
+            Error::<Test>::Disabled
+        );
+        assert_noop!(
+            HashedAccounts::advance_mldsa(&proof),
+            Error::<Test>::Disabled
+        );
+        crate::tests::Enabled::set(true);
+        assert_ok!(HashedAccounts::advance_mldsa(&proof));
+        System::inc_account_nonce(&account);
+        assert_ok!(HashedAccounts::advance_mldsa(&proof));
+        assert_eq!(System::account(&account).sufficients, 1);
+        assert!(!MlDsaAccounts::<Test>::contains_key(&account));
     });
 }

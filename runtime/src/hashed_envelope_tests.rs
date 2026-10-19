@@ -230,13 +230,10 @@ fn account_metadata_uses_scheme_names_and_preserves_event_and_call_indices() {
                         .collect::<Vec<_>>(),
                     vec![
                         (0, "Registered"),
-                        (1, "Rotated"),
                         (2, "RegisteredMlDsa"),
-                        (3, "RotatedMlDsa"),
                         (4, "DerivedProtected"),
                         (5, "CapabilityInstalled"),
                         (6, "CapabilityRevoked"),
-                        (8, "AuthorizedFixed"),
                     ]
                 );
                 let scale_info::TypeDef::Variant(calls) = &data

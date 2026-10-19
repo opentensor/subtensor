@@ -112,9 +112,9 @@
         "pallet": "Proxy",
         "call": "add_proxy",
         "path": "pallets/proxy/src/lib.rs",
-        "line": 329,
-        "end_line": 338,
-        "url": "/code/pallets/proxy/src/lib.rs#L327-L338",
+        "line": 334,
+        "end_line": 343,
+        "url": "/code/pallets/proxy/src/lib.rs#L332-L343",
         "raw_url": "/code/raw/pallets/proxy/src/lib.rs"
       }
     ]
@@ -512,9 +512,9 @@
         "pallet": "Utility",
         "call": "batch_all",
         "path": "pallets/utility/src/lib.rs",
-        "line": 345,
-        "end_line": 393,
-        "url": "/code/pallets/utility/src/lib.rs#L339-L393",
+        "line": 351,
+        "end_line": 399,
+        "url": "/code/pallets/utility/src/lib.rs#L345-L399",
         "raw_url": "/code/raw/pallets/utility/src/lib.rs"
       }
     ]
@@ -977,6 +977,10 @@
       [
         "Proxy",
         "create_protected_pure"
+      ],
+      [
+        "Proxy",
+        "create_safe_pure"
       ]
     ],
     "docs_url": "/docs/tx/create-pure-proxy",
@@ -994,6 +998,10 @@
         "index": {
           "type": "integer",
           "description": "Disambiguator so one signer can create several pure proxies in one block; also part of the derived address. Keep 0 unless batching."
+        },
+        "account_mode": {
+          "type": "string",
+          "description": "Account derivation: legacy or safe; MS wallets default to safe."
         }
       },
       "required": [],
@@ -1007,18 +1015,27 @@
         "pallet": "Proxy",
         "call": "create_pure",
         "path": "pallets/proxy/src/lib.rs",
-        "line": 394,
-        "end_line": 406,
-        "url": "/code/pallets/proxy/src/lib.rs#L392-L406",
+        "line": 399,
+        "end_line": 411,
+        "url": "/code/pallets/proxy/src/lib.rs#L397-L411",
         "raw_url": "/code/raw/pallets/proxy/src/lib.rs"
       },
       {
         "pallet": "Proxy",
         "call": "create_protected_pure",
         "path": "pallets/proxy/src/lib.rs",
-        "line": 766,
-        "end_line": 778,
-        "url": "/code/pallets/proxy/src/lib.rs#L763-L778",
+        "line": 771,
+        "end_line": 783,
+        "url": "/code/pallets/proxy/src/lib.rs#L768-L783",
+        "raw_url": "/code/raw/pallets/proxy/src/lib.rs"
+      },
+      {
+        "pallet": "Proxy",
+        "call": "create_safe_pure",
+        "path": "pallets/proxy/src/lib.rs",
+        "line": 792,
+        "end_line": 800,
+        "url": "/code/pallets/proxy/src/lib.rs#L789-L800",
         "raw_url": "/code/raw/pallets/proxy/src/lib.rs"
       }
     ]
@@ -1346,9 +1363,9 @@
         "pallet": "Proxy",
         "call": "proxy_announced",
         "path": "pallets/proxy/src/lib.rs",
-        "line": 591,
-        "end_line": 618,
-        "url": "/code/pallets/proxy/src/lib.rs#L582-L618",
+        "line": 596,
+        "end_line": 623,
+        "url": "/code/pallets/proxy/src/lib.rs#L587-L623",
         "raw_url": "/code/raw/pallets/proxy/src/lib.rs"
       }
     ]
@@ -1398,7 +1415,7 @@
   {
     "name": "fund_evm_key",
     "summary": "Fund an EVM (h160) address with TAO from the signing coldkey.",
-    "description": "Fund an EVM (h160) address with TAO from the signing coldkey.\n\nAn ordinary EVM account's native balance lives at its legacy ss58 mirror.\nRegistered hashed aliases instead share their full native account's balance.\nThis intent resolves the chain's active mapping and transfers TAO to it;\nthe funds then appear as the EVM account's balance\nin MetaMask or any Ethereum tool (displayed with 18 decimals there:\n1 TAO = 1e18). Like any transfer this is irreversible, so double-check\nthe address. Protected aliases require their native hashed authorization.\nWhen hashed aliases are enabled, native funding of unprotected aliases is\nrefused: their mapping cannot be guarded against a concurrent registration.\nSend to those H160 addresses from an EVM wallet instead.",
+    "description": "Fund an EVM (h160) address with TAO from the signing coldkey.\n\nAn ordinary EVM account's native balance lives at its legacy ss58 mirror.\nRegistered hashed aliases instead share their full native account's balance.\nOn supported runtimes the transaction resolves the active mapping during\nexecution, so an alias change cannot redirect funds to an obsolete mirror;\nthe funds then appear as the EVM account's balance\nin MetaMask or any Ethereum tool (displayed with 18 decimals there:\n1 TAO = 1e18). Like any transfer this is irreversible, so double-check\nthe address. Protected aliases require their native hashed authorization.\nOn older runtimes, when hashed aliases are enabled, native funding of unprotected aliases is\nrefused: their mapping cannot be guarded against a concurrent registration.\nSend to those H160 addresses from an EVM wallet instead.",
     "signer": "coldkey",
     "origin": "signed",
     "verify": null,
@@ -1406,6 +1423,10 @@
       [
         "Balances",
         "transfer_keep_alive"
+      ],
+      [
+        "EVM",
+        "deposit"
       ]
     ],
     "docs_url": "/docs/tx/fund-evm-key",
@@ -1546,9 +1567,9 @@
         "pallet": "HashedAccounts",
         "call": "install_capability",
         "path": "pallets/hashed-accounts/src/lib.rs",
-        "line": 314,
-        "end_line": 323,
-        "url": "/code/pallets/hashed-accounts/src/lib.rs#L311-L323",
+        "line": 306,
+        "end_line": 315,
+        "url": "/code/pallets/hashed-accounts/src/lib.rs#L303-L315",
         "raw_url": "/code/raw/pallets/hashed-accounts/src/lib.rs"
       }
     ]
@@ -1564,6 +1585,10 @@
       [
         "Proxy",
         "kill_pure"
+      ],
+      [
+        "Proxy",
+        "kill_safe_pure"
       ]
     ],
     "docs_url": "/docs/tx/kill-pure-proxy",
@@ -1589,6 +1614,10 @@
         "ext_index": {
           "type": "integer",
           "description": "Extrinsic index of the creating call within that block."
+        },
+        "account_mode": {
+          "type": "string",
+          "description": "Derivation mode used when the pure proxy was created."
         }
       },
       "required": [
@@ -1604,9 +1633,18 @@
         "pallet": "Proxy",
         "call": "kill_pure",
         "path": "pallets/proxy/src/lib.rs",
-        "line": 426,
-        "end_line": 452,
-        "url": "/code/pallets/proxy/src/lib.rs#L424-L452",
+        "line": 431,
+        "end_line": 457,
+        "url": "/code/pallets/proxy/src/lib.rs#L429-L457",
+        "raw_url": "/code/raw/pallets/proxy/src/lib.rs"
+      },
+      {
+        "pallet": "Proxy",
+        "call": "kill_safe_pure",
+        "path": "pallets/proxy/src/lib.rs",
+        "line": 809,
+        "end_line": 831,
+        "url": "/code/pallets/proxy/src/lib.rs#L806-L831",
         "raw_url": "/code/raw/pallets/proxy/src/lib.rs"
       }
     ]
@@ -1845,9 +1883,9 @@
         "pallet": "Utility",
         "call": "batch_all",
         "path": "pallets/utility/src/lib.rs",
-        "line": 345,
-        "end_line": 393,
-        "url": "/code/pallets/utility/src/lib.rs#L339-L393",
+        "line": 351,
+        "end_line": 399,
+        "url": "/code/pallets/utility/src/lib.rs#L345-L399",
         "raw_url": "/code/raw/pallets/utility/src/lib.rs"
       }
     ]
@@ -1969,9 +2007,9 @@
         "pallet": "Utility",
         "call": "batch_all",
         "path": "pallets/utility/src/lib.rs",
-        "line": 345,
-        "end_line": 393,
-        "url": "/code/pallets/utility/src/lib.rs#L339-L393",
+        "line": 351,
+        "end_line": 399,
+        "url": "/code/pallets/utility/src/lib.rs#L345-L399",
         "raw_url": "/code/raw/pallets/utility/src/lib.rs"
       }
     ]
@@ -1990,7 +2028,15 @@
       ],
       [
         "Multisig",
+        "as_multi_safe"
+      ],
+      [
+        "Multisig",
         "approve_as_multi"
+      ],
+      [
+        "Multisig",
+        "approve_as_multi_safe"
       ]
     ],
     "docs_url": "/docs/tx/multisig-approve",
@@ -2008,6 +2054,10 @@
         "call": {
           "type": "object",
           "description": "The inner call to dispatch from the multisig account, as a JSON object {\"op\": <intent name>, ...args}. All approvals must describe the identical call \u2014 it is matched by hash. Its arguments must be fully explicit, since it runs as the multisig account, not the signer's wallet."
+        },
+        "account_mode": {
+          "type": "string",
+          "description": "Account derivation mode: legacy or safe; must match every approval."
         },
         "timepoint": {
           "type": "object",
@@ -2036,6 +2086,10 @@
       [
         "Multisig",
         "cancel_as_multi"
+      ],
+      [
+        "Multisig",
+        "cancel_as_multi_safe"
       ]
     ],
     "docs_url": "/docs/tx/multisig-cancel",
@@ -2053,6 +2107,10 @@
         "call": {
           "type": "object",
           "description": "The inner call to dispatch from the multisig account, as a JSON object {\"op\": <intent name>, ...args}. All approvals must describe the identical call \u2014 it is matched by hash. Its arguments must be fully explicit, since it runs as the multisig account, not the signer's wallet."
+        },
+        "account_mode": {
+          "type": "string",
+          "description": "Account derivation mode: legacy or safe; must match every approval."
         },
         "timepoint": {
           "type": "object",
@@ -2082,6 +2140,10 @@
       [
         "Multisig",
         "as_multi"
+      ],
+      [
+        "Multisig",
+        "as_multi_safe"
       ]
     ],
     "docs_url": "/docs/tx/multisig-execute",
@@ -2099,6 +2161,10 @@
         "call": {
           "type": "object",
           "description": "The inner call to dispatch from the multisig account, as a JSON object {\"op\": <intent name>, ...args}. All approvals must describe the identical call \u2014 it is matched by hash. Its arguments must be fully explicit, since it runs as the multisig account, not the signer's wallet."
+        },
+        "account_mode": {
+          "type": "string",
+          "description": "Account derivation mode: legacy or safe; must match every approval."
         },
         "timepoint": {
           "type": "object",
@@ -2127,6 +2193,10 @@
       [
         "Multisig",
         "as_multi_threshold_1"
+      ],
+      [
+        "Multisig",
+        "as_multi_threshold_1_safe"
       ]
     ],
     "docs_url": "/docs/tx/multisig-threshold-1",
@@ -2140,6 +2210,10 @@
         "call": {
           "type": "object",
           "description": "The inner call to dispatch from the multisig account, as a JSON object {\"op\": <intent name>, ...args}. All approvals must describe the identical call \u2014 it is matched by hash. Its arguments must be fully explicit, since it runs as the multisig account, not the signer's wallet."
+        },
+        "account_mode": {
+          "type": "string",
+          "description": "Account derivation mode: legacy or safe; must match every approval."
         }
       },
       "required": [
@@ -2388,9 +2462,9 @@
         "pallet": "Proxy",
         "call": "remove_proxies",
         "path": "pallets/proxy/src/lib.rs",
-        "line": 368,
-        "end_line": 372,
-        "url": "/code/pallets/proxy/src/lib.rs#L366-L372",
+        "line": 373,
+        "end_line": 377,
+        "url": "/code/pallets/proxy/src/lib.rs#L371-L377",
         "raw_url": "/code/raw/pallets/proxy/src/lib.rs"
       }
     ]
@@ -2438,9 +2512,9 @@
         "pallet": "Proxy",
         "call": "remove_proxy",
         "path": "pallets/proxy/src/lib.rs",
-        "line": 349,
-        "end_line": 358,
-        "url": "/code/pallets/proxy/src/lib.rs#L347-L358",
+        "line": 354,
+        "end_line": 363,
+        "url": "/code/pallets/proxy/src/lib.rs#L352-L363",
         "raw_url": "/code/raw/pallets/proxy/src/lib.rs"
       }
     ]
@@ -2556,9 +2630,9 @@
         "pallet": "Utility",
         "call": "batch_all",
         "path": "pallets/utility/src/lib.rs",
-        "line": 345,
-        "end_line": 393,
-        "url": "/code/pallets/utility/src/lib.rs#L339-L393",
+        "line": 351,
+        "end_line": 399,
+        "url": "/code/pallets/utility/src/lib.rs#L345-L399",
         "raw_url": "/code/raw/pallets/utility/src/lib.rs"
       }
     ]
@@ -2675,9 +2749,9 @@
         "pallet": "Utility",
         "call": "batch_all",
         "path": "pallets/utility/src/lib.rs",
-        "line": 345,
-        "end_line": 393,
-        "url": "/code/pallets/utility/src/lib.rs#L339-L393",
+        "line": 351,
+        "end_line": 399,
+        "url": "/code/pallets/utility/src/lib.rs#L345-L399",
         "raw_url": "/code/raw/pallets/utility/src/lib.rs"
       }
     ]
@@ -2822,9 +2896,9 @@
         "pallet": "HashedAccounts",
         "call": "revoke_capability",
         "path": "pallets/hashed-accounts/src/lib.rs",
-        "line": 328,
-        "end_line": 331,
-        "url": "/code/pallets/hashed-accounts/src/lib.rs#L325-L331",
+        "line": 320,
+        "end_line": 323,
+        "url": "/code/pallets/hashed-accounts/src/lib.rs#L317-L323",
         "raw_url": "/code/raw/pallets/hashed-accounts/src/lib.rs"
       }
     ]
@@ -5314,9 +5388,9 @@
         "pallet": "Utility",
         "call": "batch_all",
         "path": "pallets/utility/src/lib.rs",
-        "line": 345,
-        "end_line": 393,
-        "url": "/code/pallets/utility/src/lib.rs#L339-L393",
+        "line": 351,
+        "end_line": 399,
+        "url": "/code/pallets/utility/src/lib.rs#L345-L399",
         "raw_url": "/code/raw/pallets/utility/src/lib.rs"
       }
     ]

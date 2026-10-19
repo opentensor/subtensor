@@ -199,7 +199,10 @@ impl<T: Config> Pallet<T> {
         descriptor: subtensor_hashed::mldsa::Descriptor,
     ) -> DispatchResult {
         ensure!(T::Enabled::get(), Error::<T>::Disabled);
-        ensure!(descriptor.is_supported(), Error::<T>::UnsupportedDescriptor);
+        ensure!(
+            descriptor.is_supported() && !descriptor.is_stateless(),
+            Error::<T>::UnsupportedDescriptor
+        );
         let account = AccountId32::new(subtensor_hashed::mldsa::account_id(&descriptor));
         if let Some(record) = MlDsaAccounts::<T>::get(&account) {
             ensure!(
@@ -412,6 +415,24 @@ impl<T: Config> Pallet<T> {
         next_commitment: [u8; 64],
     ) -> Result<ValidatedMlDsaProof, DispatchError> {
         ensure!(T::Enabled::get(), Error::<T>::Disabled);
+        if profile == subtensor_hashed::mldsa::FIXED_ALGORITHM {
+            let header = subtensor_hashed::mldsa::Header {
+                account: account.clone().into(),
+                version: subtensor_hashed::mldsa::VERSION,
+                algorithm: profile,
+                generation,
+                public_key: *public_key,
+                next_commitment,
+            };
+            ensure!(header.is_valid_stateless(), Error::<T>::WrongCommitment);
+            return Ok(ValidatedMlDsaProof {
+                account: account.clone(),
+                profile,
+                generation,
+                commitment: next_commitment,
+                next_commitment,
+            });
+        }
         let record = MlDsaAccounts::<T>::get(account).ok_or(Error::<T>::NotRegistered)?;
         ensure!(
             record.descriptor.is_supported() && record.descriptor.algorithm == profile,
@@ -444,6 +465,16 @@ impl<T: Config> Pallet<T> {
     /// Consume in transaction-extension preparation, outside inner-call rollback.
     pub fn advance_mldsa(validated: &ValidatedMlDsaProof) -> DispatchResult {
         ensure!(T::Enabled::get(), Error::<T>::Disabled);
+        if validated.profile == subtensor_hashed::mldsa::FIXED_ALGORITHM {
+            // Only a valid first signature can acquire this reference. Keep the
+            // native nonce even after all funds are spent so old signatures
+            // cannot become valid again on refund. No identity registry is needed:
+            // every later signature proves the same immutable account binding.
+            if frame_system::Pallet::<T>::account_nonce(&validated.account) == Default::default() {
+                frame_system::Pallet::<T>::inc_sufficients(&validated.account);
+            }
+            return Ok(());
+        }
         let generation = validated
             .generation
             .checked_add(1)
@@ -469,17 +500,6 @@ impl<T: Config> Pallet<T> {
             record.commitment = validated.next_commitment;
             Ok(())
         })?;
-        Self::deposit_event(if validated.profile == subtensor_hashed::mldsa::ALGORITHM {
-            Event::RotatedMlDsa {
-                account: validated.account.clone(),
-                generation,
-            }
-        } else {
-            Event::AuthorizedFixed {
-                account: validated.account.clone(),
-                generation,
-            }
-        });
         Ok(())
     }
 }

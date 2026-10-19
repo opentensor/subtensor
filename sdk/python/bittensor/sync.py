@@ -447,8 +447,8 @@ class SyncClient:
     def estimate_weight(self, call, *, address):
         return self._call(self._client.estimate_weight(call, address=address))
 
-    def multisig(self, signatories, threshold):
-        multi = self._call(self._client.multisig(signatories, threshold))
+    def multisig(self, signatories, threshold, *, account_mode="legacy"):
+        multi = self._call(self._client.multisig(signatories, threshold, account_mode=account_mode))
         return _SyncNamespace(multi, self._call)
 
     def preflight(

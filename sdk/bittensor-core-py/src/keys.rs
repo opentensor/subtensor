@@ -288,6 +288,14 @@ impl Keypair {
         })
     }
 
+    /// Recorded descriptor profile (4 rotates; 5 is registration-free fixed).
+    /// An address-only watch view has no descriptor and cannot infer this value
+    /// from its account hash.
+    #[getter]
+    fn mldsa_profile(&self) -> PyResult<u8> {
+        self.inner.mldsa_profile().map_err(to_py_err)
+    }
+
     #[getter]
     fn mldsa_descriptor<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
         Ok(PyBytes::new(
@@ -337,8 +345,12 @@ impl Keypair {
         ))
     }
     fn mldsa_receiving_address(&self) -> PyResult<String> {
-        keys::encode_mldsa_receiving_address(&self.inner.mldsa_descriptor().map_err(to_py_err)?)
-            .map_err(to_py_err)
+        if !keys::is_mldsa_crypto(self.inner.crypto_type()) {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "operation requires an ML-DSA account",
+            ));
+        }
+        self.inner.hashed_receiving_address().map_err(to_py_err)
     }
     fn mldsa_capability_public_key<'py>(
         &self,

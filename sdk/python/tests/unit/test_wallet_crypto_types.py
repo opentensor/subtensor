@@ -186,7 +186,8 @@ def test_cli_recovers_exported_private_key(wallet_path, scheme, code, role):
     assert restored.ss58_address == original.ss58_address
     if code in REGISTERED_CRYPTO_TYPES:
         assert restored.hashed_descriptor == original.hashed_descriptor
-        restored, original = restored.at_generation(1), original.at_generation(1)
+        generation = 0 if code == 8 else 1
+        restored, original = restored.at_generation(generation), original.at_generation(generation)
     if code in MLDSA_CRYPTO_TYPES:
         assert restored.mldsa_current_commitment == original.mldsa_current_commitment
         assert restored.mldsa_capability_commitment(2, 4) == original.mldsa_capability_commitment(

@@ -1277,7 +1277,7 @@ class AppContext:
 
                 async def _shield_fee_warning(client):
                     return await self._shield_outer_fee_shortfall(
-                        client, plan.signer_address, call=plan.call
+                        client, plan.signer_address, call=plan.call, intent=intent, wallet=wallet
                     )
 
                 shortfall = self.run(_shield_fee_warning)
@@ -1642,11 +1642,10 @@ class AppContext:
             signer = local_signer or await self.resolve_signing_wallet(intent.signer)
             # Registered accounts sign only from finalized authority. Return a
             # finalized receipt so the next ordinary CLI command can safely use
-            # the next generation, including fixed ML-DSA's replay counter.
+            # the next rotating key generation.
             finalize = wait_for_finalization or (
                 not self.uses_external_signer()
-                and resolve_signer(signer, intent.signer).crypto_type
-                in wallets.REGISTERED_CRYPTO_TYPES
+                and wallets.requires_registration(resolve_signer(signer, intent.signer))
             )
             if use_shield and self.uses_external_signer():
                 # Local wallets already preflighted before confirm; external
@@ -2095,7 +2094,12 @@ class AppContext:
             if call is None:
                 plan = await client.plan(intent, wallet, proxy_for=proxy_for, proxy_type=proxy_type)
                 call = plan.call
-            fee = await client.estimate_shielded_carrier_fee(fee_payer_ss58, call)
+            fee_public = (
+                public_view(wallet, intent.signer)
+                if wallet is not None and intent is not None
+                else fee_payer_ss58
+            )
+            fee = await client.estimate_shielded_carrier_fee(fee_public, call)
         except Exception:
             # Best-effort: if we only know free is zero, that is enough to warn.
             try:

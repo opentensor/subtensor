@@ -23,15 +23,19 @@ wallet_dir = test_cli.wallet_dir
 runner = CliRunner()
 
 
-@pytest.fixture(params=[4, 6, 7, 8])
-def recipient(request, fake):
-    key = Keypair.create_from_seed(bytes([67]) * 32, request.param)
+def make_recipient(fake, code):
+    key = Keypair.create_from_seed(bytes([67]) * 32, code)
     fake.seed("AdminUtils", "HashedAccountsEnabled", [], True)
     fake.seed_constant("HashedAccounts", "MldsaAccountProfiles", "0x0405")
     fake.seed_constant("HashedAccounts", "RegistrationDeposit", 200_000_000)
     fake.seed_constant("HashedAccounts", "MlDsaRegistrationDeposit", 200_000_000)
     fake.seed_default("System", "Account", {"data": {"free": 10**13, "frozen": 0}})
     return key
+
+
+@pytest.fixture(params=[4, 6, 7])
+def recipient(request, fake):
+    return make_recipient(fake, request.param)
 
 
 def command(recipient, *extra, json_output=True):
@@ -53,6 +57,20 @@ def command(recipient, *extra, json_output=True):
 
 def amount(recipient):
     return "0.2"
+
+
+@pytest.mark.parametrize("dry_run", [False, True])
+def test_standard_ms_transfer_needs_no_sponsorship_prompt(fake, monkeypatch, dry_run):
+    key = make_recipient(fake, 8)
+    monkeypatch.setattr(Output, "confirm", lambda *a, **k: pytest.fail("must not prompt"))
+    result = runner.invoke(app, command(key, *(["--dry-run"] if dry_run else [])))
+    assert result.exit_code == 0, result.output
+    assert "permanently" not in result.output
+    if dry_run:
+        assert not fake.submissions
+    else:
+        assert fake.last_call.module == "Balances"
+        assert fake.last_call.params["dest"] == key.ss58_address
 
 
 def test_yes_alone_does_not_consent(recipient, fake):

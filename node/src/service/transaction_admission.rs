@@ -22,7 +22,7 @@ use sp_runtime::{
     codec::{Compact, Decode, Encode, Output},
 };
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet, VecDeque},
     future::Future,
     pin::Pin,
     sync::{Arc, Mutex},
@@ -36,6 +36,7 @@ const MAX_PENDING: usize = 64;
 const MAX_MLDSA_PENDING: usize = 2;
 const MLDSA_BURST: u32 = 16;
 const MLDSA_REFILL: Duration = Duration::from_millis(125);
+const MAX_QUEUE_WAIT: Duration = Duration::from_secs(15);
 const MLDSA_ADDRESS_BYTES: u32 = 5367;
 
 type Pool = TransactionPoolHandle<Block, FullClient>;
@@ -44,9 +45,9 @@ type PoolTransaction = <Pool as TransactionPool>::InPoolTransaction;
 type Ready = Box<dyn ReadyTransactions<Item = Arc<PoolTransaction>> + Send>;
 
 fn busy() -> PoolError {
-    // The pinned network adapter penalizes peers for *every* pool error. Local
-    // overload is not evidence of an invalid transaction, so keep this outside
-    // IntoPoolError's consensus-invalid branch and let the sender retry later.
+    // Local overload is not evidence of an invalid transaction. Keep it outside
+    // IntoPoolError's consensus-invalid branch to avoid penalizing peers. The
+    // network does not retry these failures; bounded queueing handles bursts.
     PoolError::RuntimeApi("Local transaction admission capacity reached; retry later".into())
 }
 
@@ -206,6 +207,7 @@ impl State {
 struct Permit {
     state: Arc<Mutex<State>>,
     request: Request,
+    _reservation: Reservation,
 }
 
 impl Drop for Permit {
@@ -214,6 +216,104 @@ impl Drop for Permit {
             state.release(&self.request);
         }
         // Poisoned state stays fail-closed; admission also refuses its lock.
+    }
+}
+
+/// Bound retained requests before waiting for a verification slot. In particular,
+/// the network imports concurrently and does not retry local admission failures:
+/// rejecting overlapping nonces from one account can strand a valid transaction.
+#[derive(Default)]
+struct Queue {
+    count: usize,
+    bytes: usize,
+    next_ticket: u64,
+    waiting: VecDeque<u64>,
+}
+
+struct Reservation {
+    queue: Arc<Mutex<Queue>>,
+    ticket: u64,
+    count: usize,
+    bytes: usize,
+}
+
+impl Reservation {
+    fn new(queue: Arc<Mutex<Queue>>, request: &Request) -> Result<Self, PoolError> {
+        let mut budget = queue.lock().map_err(|_| busy())?;
+        let count = budget.count.checked_add(request.count).ok_or_else(busy)?;
+        let bytes = budget.bytes.checked_add(request.bytes).ok_or_else(busy)?;
+        if count > MAX_PENDING || bytes > MAX_PENDING_BYTES {
+            return Err(busy());
+        }
+        // A single batch cannot verify the same account concurrently. Preserve
+        // its fail-fast behavior instead of occupying a queue entry until timeout.
+        let unique: HashSet<_> = request.accounts.iter().collect();
+        if unique.len() != request.accounts.len() {
+            return Err(busy());
+        }
+        let ticket = budget.next_ticket;
+        budget.next_ticket = ticket.checked_add(1).ok_or_else(busy)?;
+        budget.count = count;
+        budget.bytes = bytes;
+        budget.waiting.push_back(ticket);
+        drop(budget);
+        Ok(Self {
+            queue,
+            ticket,
+            count: request.count,
+            bytes: request.bytes,
+        })
+    }
+
+    fn start(&self, state: &Mutex<State>, request: &Request) -> Result<bool, PoolError> {
+        let mut queue = self.queue.lock().map_err(|_| busy())?;
+        if queue.waiting.front() != Some(&self.ticket) {
+            return Ok(false);
+        }
+        if state
+            .lock()
+            .map_err(|_| busy())?
+            .admit(request, Instant::now())
+            .is_err()
+        {
+            return Ok(false);
+        }
+        queue.waiting.pop_front();
+        Ok(true)
+    }
+}
+
+impl Drop for Reservation {
+    fn drop(&mut self) {
+        if let Ok(mut queue) = self.queue.lock() {
+            queue.count = queue.count.saturating_sub(self.count);
+            queue.bytes = queue.bytes.saturating_sub(self.bytes);
+            queue.waiting.retain(|ticket| *ticket != self.ticket);
+        }
+    }
+}
+
+async fn admit_queued(
+    state: Arc<Mutex<State>>,
+    queue: Arc<Mutex<Queue>>,
+    request: Request,
+) -> Result<Permit, PoolError> {
+    let reservation = Reservation::new(queue, &request)?;
+    let started = Instant::now();
+    loop {
+        if started.elapsed() >= MAX_QUEUE_WAIT {
+            return Err(busy());
+        }
+        if reservation.start(&state, &request)? {
+            return Ok(Permit {
+                state,
+                request,
+                _reservation: reservation,
+            });
+        }
+        // FIFO admission prevents new requests stealing a released slot. Polling
+        // at the token refill interval also bounds wakeups for a saturated queue.
+        tokio::time::sleep(MLDSA_REFILL).await;
     }
 }
 
@@ -235,6 +335,7 @@ async fn finish_admitted<R: Send + 'static>(
 struct AdmissionPool {
     inner: Arc<Pool>,
     state: Arc<Mutex<State>>,
+    queue: Arc<Mutex<Queue>>,
 }
 
 impl AdmissionPool {
@@ -242,14 +343,24 @@ impl AdmissionPool {
         let Some(request) = Request::from_transactions(xts)? else {
             return Ok(None);
         };
-        self.state
-            .lock()
-            .map_err(|_| busy())?
-            .admit(&request, Instant::now())?;
+        let reservation = Reservation::new(self.queue.clone(), &request)?;
+        if !reservation.start(&self.state, &request)? {
+            return Err(busy());
+        }
         Ok(Some(Permit {
             state: self.state.clone(),
             request,
+            _reservation: reservation,
         }))
+    }
+
+    async fn admit_async(&self, xts: &[OpaqueExtrinsic]) -> Result<Option<Permit>, PoolError> {
+        let Some(request) = Request::from_transactions(xts)? else {
+            return Ok(None);
+        };
+        admit_queued(self.state.clone(), self.queue.clone(), request)
+            .await
+            .map(Some)
     }
 }
 
@@ -257,6 +368,7 @@ pub(super) fn wrap(inner: Pool) -> Pool {
     TransactionPoolWrapper(Box::new(AdmissionPool {
         inner: Arc::new(inner),
         state: Arc::new(Mutex::new(State::new(Instant::now()))),
+        queue: Arc::new(Mutex::new(Queue::default())),
     }))
 }
 
@@ -273,7 +385,7 @@ impl TransactionPool for AdmissionPool {
         source: TransactionSource,
         xts: Vec<OpaqueExtrinsic>,
     ) -> Result<Vec<Result<H256, PoolError>>, PoolError> {
-        let Some(permit) = self.admit(&xts)? else {
+        let Some(permit) = self.admit_async(&xts).await? else {
             return self.inner.submit_at(at, source, xts).await;
         };
         let inner = self.inner.clone();
@@ -290,7 +402,7 @@ impl TransactionPool for AdmissionPool {
         source: TransactionSource,
         xt: OpaqueExtrinsic,
     ) -> Result<H256, PoolError> {
-        let Some(permit) = self.admit(std::slice::from_ref(&xt))? else {
+        let Some(permit) = self.admit_async(std::slice::from_ref(&xt)).await? else {
             return self.inner.submit_one(at, source, xt).await;
         };
         let inner = self.inner.clone();
@@ -307,7 +419,7 @@ impl TransactionPool for AdmissionPool {
         source: TransactionSource,
         xt: OpaqueExtrinsic,
     ) -> Result<Pin<Box<TransactionStatusStreamFor<Self>>>, PoolError> {
-        let Some(permit) = self.admit(std::slice::from_ref(&xt))? else {
+        let Some(permit) = self.admit_async(std::slice::from_ref(&xt)).await? else {
             return self.inner.submit_and_watch(at, source, xt).await;
         };
         let inner = self.inner.clone();
@@ -473,6 +585,131 @@ mod tests {
     }
 
     #[test]
+    fn queued_requests_share_count_and_byte_limits_with_active_verification() {
+        let queue = Arc::new(Mutex::new(Queue::default()));
+        let mut reservations = Vec::new();
+        for _ in 0..MAX_PENDING {
+            reservations.push(Reservation::new(queue.clone(), &request(1)).unwrap());
+        }
+        assert!(Reservation::new(queue.clone(), &request(2)).is_err());
+        reservations.pop();
+        assert!(Reservation::new(queue.clone(), &request(2)).is_ok());
+        drop(reservations);
+        assert_eq!(queue.lock().unwrap().count, 0);
+        assert_eq!(queue.lock().unwrap().bytes, 0);
+        let full = Reservation::new(
+            queue.clone(),
+            &Request {
+                bytes: MAX_PENDING_BYTES,
+                ..request(1)
+            },
+        )
+        .unwrap();
+        assert!(Reservation::new(queue.clone(), &request(2)).is_err());
+        drop(full);
+        assert!(Reservation::new(queue.clone(), &request(2)).is_ok());
+    }
+
+    #[test]
+    fn queued_same_account_nonces_are_serialized_instead_of_dropped() {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(async {
+                let state = Arc::new(Mutex::new(State::new(Instant::now())));
+                let queue = Arc::new(Mutex::new(Queue::default()));
+                let first = admit_queued(state.clone(), queue.clone(), request(1))
+                    .await
+                    .unwrap();
+                let second = tokio::spawn(admit_queued(state.clone(), queue.clone(), request(1)));
+                tokio::task::yield_now().await;
+                let third = tokio::spawn(admit_queued(state.clone(), queue.clone(), request(1)));
+                tokio::task::yield_now().await;
+                assert_eq!(queue.lock().unwrap().count, 3);
+                assert_eq!(state.lock().unwrap().count, 1);
+                assert!(!second.is_finished() && !third.is_finished());
+                drop(first);
+                let second = tokio::time::timeout(Duration::from_secs(2), second)
+                    .await
+                    .unwrap()
+                    .unwrap()
+                    .unwrap();
+                assert!(!third.is_finished());
+                drop(second);
+                let third = tokio::time::timeout(Duration::from_secs(2), third)
+                    .await
+                    .unwrap()
+                    .unwrap()
+                    .unwrap();
+                drop(third);
+                assert_eq!(state.lock().unwrap().count, 0);
+                assert_eq!(queue.lock().unwrap().count, 0);
+                assert_eq!(queue.lock().unwrap().bytes, 0);
+                assert!(queue.lock().unwrap().waiting.is_empty());
+            });
+    }
+
+    #[test]
+    fn cancelled_queued_request_releases_budget_and_does_not_block_followers() {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(async {
+                let state = Arc::new(Mutex::new(State::new(Instant::now())));
+                let queue = Arc::new(Mutex::new(Queue::default()));
+                let first = admit_queued(state.clone(), queue.clone(), request(1))
+                    .await
+                    .unwrap();
+                let cancelled =
+                    tokio::spawn(admit_queued(state.clone(), queue.clone(), request(1)));
+                tokio::task::yield_now().await;
+                let follower = tokio::spawn(admit_queued(state.clone(), queue.clone(), request(2)));
+                tokio::task::yield_now().await;
+                assert!(!follower.is_finished());
+                cancelled.abort();
+                assert!(matches!(cancelled.await, Err(error) if error.is_cancelled()));
+                let follower = tokio::time::timeout(Duration::from_secs(2), follower)
+                    .await
+                    .unwrap()
+                    .unwrap()
+                    .unwrap();
+                assert_eq!(state.lock().unwrap().count, 2);
+                assert_eq!(queue.lock().unwrap().count, 2);
+                drop(first);
+                drop(follower);
+                assert_eq!(queue.lock().unwrap().count, 0);
+            });
+    }
+
+    #[test]
+    fn token_exhaustion_delays_queued_work_until_refill() {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(async {
+                let state = Arc::new(Mutex::new(State::new(Instant::now())));
+                let queue = Arc::new(Mutex::new(Queue::default()));
+                state.lock().unwrap().tokens = 0;
+                let waiting = tokio::spawn(admit_queued(state.clone(), queue.clone(), request(1)));
+                tokio::task::yield_now().await;
+                assert!(!waiting.is_finished());
+                assert_eq!(state.lock().unwrap().count, 0);
+                assert_eq!(queue.lock().unwrap().count, 1);
+                let permit = tokio::time::timeout(Duration::from_secs(2), waiting)
+                    .await
+                    .unwrap()
+                    .unwrap()
+                    .unwrap();
+                assert_eq!(state.lock().unwrap().count, 1);
+                drop(permit);
+                assert_eq!(queue.lock().unwrap().count, 0);
+            });
+    }
+
+    #[test]
     fn cancelled_request_holds_admission_until_validation_finishes() {
         tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -481,6 +718,7 @@ mod tests {
             .block_on(async {
                 let state = Arc::new(Mutex::new(State::new(Instant::now())));
                 let admitted = request(1);
+                let queue = Arc::new(Mutex::new(Queue::default()));
                 state
                     .lock()
                     .unwrap()
@@ -488,6 +726,7 @@ mod tests {
                     .unwrap();
                 let permit = Permit {
                     state: state.clone(),
+                    _reservation: Reservation::new(queue.clone(), &admitted).unwrap(),
                     request: admitted,
                 };
                 let (started_tx, started_rx) = futures::channel::oneshot::channel();
@@ -499,6 +738,8 @@ mod tests {
                 }));
                 started_rx.await.unwrap();
                 waiting.abort();
+                assert_eq!(queue.lock().unwrap().count, 1);
+                assert_eq!(queue.lock().unwrap().bytes, request(1).bytes);
                 assert!(
                     state
                         .lock()
@@ -509,6 +750,8 @@ mod tests {
                 finish_tx.send(()).unwrap();
                 tokio::task::yield_now().await;
                 assert_eq!(state.lock().unwrap().count, 0);
+                assert_eq!(queue.lock().unwrap().count, 0);
+                assert_eq!(queue.lock().unwrap().bytes, 0);
                 state
                     .lock()
                     .unwrap()

@@ -5,40 +5,22 @@ use pallet_hashed_accounts::{DerivedDescriptor, MlDsaAccounts};
 use sp_runtime::{generic::Preamble, traits::TransactionExtension};
 use subtensor_hashed::mldsa;
 
-frame_support::parameter_types! {
-    static TestAccountProfiles: (u8, u8) = (mldsa::ALGORITHM, mldsa::ALGORITHM);
-}
+#[path = "mldsa_stateless_tests.rs"]
+pub(super) mod stateless;
 
-fn profile(identity: u8) -> u8 {
-    let profiles = TestAccountProfiles::get();
-    if identity % 2 == 0 {
-        profiles.0
-    } else {
-        profiles.1
-    }
-}
-
-// Exercise identical operations with rotating, fixed and mixed PQ authorities.
+// Registered rotation and protected authority graphs use profile 4. Fixed
+// profile 5 follows ordinary authority policy and is exercised by `stateless`.
 pub(super) fn with_profiles(test: impl Fn()) {
-    for profiles in [(4, 4), (5, 5), (4, 5)] {
-        TestAccountProfiles::set(profiles);
-        ext().execute_with(|| {
-            assert_ok!(AdminUtils::sudo_set_hashed_accounts_enabled(
-                RuntimeOrigin::root(),
-                true
-            ));
-            test();
-        });
-    }
-    TestAccountProfiles::set((4, 4));
+    ext().execute_with(|| {
+        assert_ok!(AdminUtils::sudo_set_hashed_accounts_enabled(
+            RuntimeOrigin::root(),
+            true
+        ));
+        test();
+    });
 }
 
 pub(super) fn seed(identity: u8, generation: u64) -> [u8; 32] {
-    let generation = if profile(identity) == mldsa::FIXED_ALGORITHM {
-        0
-    } else {
-        generation
-    };
     let mut seed = [identity; 32];
     seed[..8].copy_from_slice(&generation.to_le_bytes());
     seed
@@ -47,7 +29,7 @@ pub(super) fn seed(identity: u8, generation: u64) -> [u8; 32] {
 pub(super) fn descriptor(identity: u8) -> mldsa::Descriptor {
     mldsa::Descriptor {
         version: mldsa::VERSION,
-        algorithm: profile(identity),
+        algorithm: mldsa::ALGORITHM,
         initial_commitment: mldsa::commitment(
             &mldsa::public_key_from_seed(&seed(identity, 0)).unwrap(),
         ),
@@ -198,6 +180,8 @@ fn malformed_markers_and_transcript_mutations_never_rotate_or_charge() {
 fn included_dispatch_error_rotates_but_disabled_and_overweight_do_not() {
     with_profiles(|| {
         let account = register(44);
+        let nonce = System::account_nonce(&account);
+        System::reset_events();
         let fail = RuntimeCall::Balances(BalancesCall::transfer_keep_alive {
             dest: AccountId::new([99; 32]).into(),
             value: TaoBalance::new(u64::MAX),
@@ -219,10 +203,25 @@ fn included_dispatch_error_rotates_but_disabled_and_overweight_do_not() {
             0
         );
         hashed_auth::TestVerificationWeight::set(Weight::from_parts(10_000_000, 0));
-        assert!(Executive::apply_extrinsic(tx).unwrap().is_err());
+        assert!(Executive::apply_extrinsic(tx.clone()).unwrap().is_err());
+        let record = MlDsaAccounts::<Runtime>::get(&account).unwrap();
+        assert_eq!(record.generation, 1);
         assert_eq!(
-            MlDsaAccounts::<Runtime>::get(account).unwrap().generation,
-            1
+            record.commitment,
+            mldsa::commitment(&mldsa::public_key_from_seed(&seed(44, 1)).unwrap())
+        );
+        assert_eq!(System::account_nonce(&account), nonce + 1);
+        assert!(Executive::apply_extrinsic(tx).is_err());
+        assert_ok!(Executive::apply_extrinsic(sign(44, call())).unwrap());
+        assert_eq!(
+            MlDsaAccounts::<Runtime>::get(&account).unwrap().generation,
+            2
+        );
+        assert_eq!(System::account_nonce(&account), nonce + 2);
+        assert!(
+            !System::events()
+                .iter()
+                .any(|record| matches!(record.event, RuntimeEvent::HashedAccounts(_)))
         );
     });
 }
@@ -232,7 +231,7 @@ fn single_admin_toggle_controls_all_hashed_schemes_and_preserves_authority() {
     use pallet_hashed_accounts::{CapabilityEpochs, CapabilityRole, CapabilityScope, EvmAliases};
 
     with_profiles(|| {
-        // with_profiles covers fixed and rotating ML-DSA using only AdminUtils.
+        // Registered rotating ML-DSA is gated through the same AdminUtils flag.
         let account = register(44);
         let tx = sign(44, call());
         let before = MlDsaAccounts::<Runtime>::get(&account);

@@ -546,6 +546,7 @@ impl pallet_scheduler::Config for Test {
 }
 
 impl pallet_utility::Config for Test {
+    type SafeDerivationWeight = ();
     type DerivedAccountPolicy = ();
     type RuntimeCall = RuntimeCall;
     type PalletsOrigin = OriginCaller;
@@ -667,6 +668,7 @@ parameter_types! {
 }
 
 impl pallet_proxy::Config for Test {
+    type SafeDerivationWeight = ();
     type AccountPolicy = frame_support::traits::Everything;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;

@@ -15,9 +15,9 @@ from ..hashed import descriptor_bytes, descriptor_storage
 from ..receiving import parse_recipient, receiving_address
 from ..settings import resolve_endpoint
 from ..sp_core import (
-    REGISTERED_CRYPTO_TYPES,
     deserialize_keypair_from_keyfile_data,
     keyfile_data_is_encrypted,
+    requires_registration,
 )
 
 REGISTRATION_TIMEOUT = 5.0
@@ -58,7 +58,7 @@ def public_key_from_file(path):
 def address_fields(public, *, network: str, role: str = "") -> dict[str, Any]:
     """Both public forms, with the complete receiving address always primary."""
     fields: dict[str, Any] = {"ss58": public.ss58_address}
-    if public.crypto_type in REGISTERED_CRYPTO_TYPES:
+    if requires_registration(public):
         address = receiving_address(public)
         recipient = parse_recipient(address)
         if recipient.account != public.ss58_address:

@@ -546,6 +546,7 @@ impl frame_support::traits::InstanceFilter<RuntimeCall> for ProxyType {
 }
 
 impl pallet_subtensor_proxy::Config for Runtime {
+    type SafeDerivationWeight = ();
     type AccountPolicy = frame_support::traits::Everything;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;

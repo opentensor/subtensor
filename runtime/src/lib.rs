@@ -279,7 +279,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 481,
+    spec_version: 482,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -461,6 +461,7 @@ impl pallet_timestamp::Config for Runtime {
 impl pallet_utility::Config for Runtime {
     type RuntimeCall = RuntimeCall;
     type DerivedAccountPolicy = hashed_auth::HashedDerivedPolicy;
+    type SafeDerivationWeight = SafeDerivationWeight;
     type PalletsOrigin = OriginCaller;
     #[cfg(not(test))]
     type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
@@ -605,7 +606,7 @@ parameter_types! {
     pub const DepositBase: Balance = deposit(1, 112);
     // Additional storage item size of 32 bytes.
     pub const DepositFactor: Balance = deposit(0, 32);
-    pub const MaxSignatories: u32 = 100;
+    pub const MaxSignatories: u32 = subtensor_hashed::safe::MAX_MULTISIG_SIGNATORIES;
 }
 
 impl pallet_multisig::Config for Runtime {
@@ -617,6 +618,22 @@ impl pallet_multisig::Config for Runtime {
     type MaxSignatories = MaxSignatories;
     type WeightInfo = pallet_multisig::weights::SubstrateWeight<Runtime>;
     type BlockNumberProvider = System;
+    type SafeDerivationWeight = SafeDerivationWeight;
+}
+
+/// Weight for bounded off-curve composite account derivation.
+pub struct SafeDerivationWeight;
+impl Get<Weight> for SafeDerivationWeight {
+    fn get() -> Weight {
+        #[cfg(test)]
+        {
+            hashed_auth::TestVerificationWeight::get()
+        }
+        #[cfg(not(test))]
+        {
+            Weight::from_parts(298_264_000, 0)
+        }
+    }
 }
 
 // Proxy Pallet config
@@ -637,6 +654,7 @@ impl pallet_proxy::Config for Runtime {
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type AccountPolicy = hashed_auth::HashedProxyPolicy;
+    type SafeDerivationWeight = SafeDerivationWeight;
     type ProxyType = ProxyType;
     type ProxyDepositBase = ProxyDepositBase;
     type ProxyDepositFactor = ProxyDepositFactor;
@@ -1321,7 +1339,7 @@ impl pallet_evm::Config for Runtime {
     type FindAuthor = FindAuthorTruncated<Aura>;
     type GasLimitPovSizeRatio = GasLimitPovSizeRatio;
     type Timestamp = Timestamp;
-    type WeightInfo = pallet_evm::weights::SubstrateWeight<Self>;
+    type WeightInfo = evm_origin::EvmWeights;
     type BalanceConverter = SubtensorEvmBalanceConverter;
     type AccountProvider = pallet_evm::NoncePreservingAccountProvider<Self>;
     type GasLimitStorageGrowthRatio = ();

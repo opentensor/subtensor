@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+from hashlib import blake2b
 
 import pytest
 
@@ -16,6 +17,7 @@ import bittensor as bt
 from bittensor.hashed import registration_descriptor_value
 from bittensor.receiving import receiving_address
 from bittensor.result import chain_error_from_dispatch
+from bittensor.sp_core import requires_registration, ss58_encode
 from tests.e2e.test_mldsa_release import evidence, key
 from tests.e2e.test_wallet_types import alice_submission
 from tests.harness.samples import dev_wallet
@@ -74,14 +76,22 @@ class ProxyRun:
         return await self.record(label, result, success=success, error=error)
 
     async def fund(self, signer):
+        register = requires_registration(signer)
         async with alice_submission():
             result = await self.client.execute(
-                bt.intents.Transfer(receiving_address(signer), 100),
+                bt.intents.Transfer(
+                    receiving_address(signer) if register else signer.ss58_address, 100
+                ),
                 dev_wallet(),
                 wait_for_finalization=True,
-                max_registration_deposit=bt.Balance.from_tao(2),
+                max_registration_deposit=bt.Balance.from_tao(2) if register else None,
             )
-        await self.record("Alice explicitly sponsors and funds account", result)
+        await self.record(
+            "Alice sponsors rotating account" if register else "Alice funds ordinary SS58 account",
+            result,
+        )
+        if not register:
+            assert await self.query("HashedAccounts", "MlDsaAccounts", signer) is None
 
     async def query(self, pallet, storage, signer):
         return await self.client.query((pallet, storage), [signer.ss58_address])
@@ -89,29 +99,31 @@ class ProxyRun:
     async def setup(self, owner, delegate, recipient, *, proxy_type, delay):
         for signer in (owner, delegate):
             await self.fund(signer)
-        # This is explicitly authored registration, not automatic sponsorship.
-        # The owner signs the reserve and grant in one atomic transaction.
+        grant = bt.calls.Proxy.add_proxy(
+            delegate=delegate.ss58_address, proxy_type=proxy_type, delay=delay
+        )
+        register_recipient = requires_registration(recipient)
+        calls = []
+        if register_recipient:
+            calls.append(
+                await self.client.compose(
+                    bt.calls.HashedAccounts.register(
+                        descriptor=registration_descriptor_value(bytes(recipient.hashed_descriptor))
+                    )
+                )
+            )
+        calls.append(await self.client.compose(grant))
         await self.submit(
-            "owner registers recipient and grants proxy",
-            bt.calls.Utility.batch_all(
-                calls=[
-                    await self.client.compose(
-                        bt.calls.HashedAccounts.register(
-                            descriptor=registration_descriptor_value(
-                                bytes(recipient.hashed_descriptor)
-                            )
-                        )
-                    ),
-                    await self.client.compose(
-                        bt.calls.Proxy.add_proxy(
-                            delegate=delegate.ss58_address, proxy_type=proxy_type, delay=delay
-                        )
-                    ),
-                ]
-            ),
+            "owner registers recipient and grants proxy"
+            if register_recipient
+            else "owner grants ordinary proxy",
+            bt.calls.Utility.batch_all(calls=calls) if register_recipient else grant,
             owner,
         )
-        assert await self.query("HashedAccounts", "MlDsaAccounts", recipient)
+        assert (
+            bool(await self.query("HashedAccounts", "MlDsaAccounts", recipient))
+            is register_recipient
+        )
 
     async def finalized_height(self, height):
         async with asyncio.timeout(120):
@@ -136,6 +148,16 @@ async def test_restricted_ms_proxy_cannot_escalate_through_evm_dispatch(code):
         )
         await run.setup(owner, delegate, recipient, proxy_type="NonCritical", delay=0)
         source = "0x" + bytes(owner.public_key)[:20].hex()
+        evm_account = owner.ss58_address
+        if code == 8:
+            evm_account = ss58_encode(
+                blake2b(b"evm:" + bytes(owner.public_key)[:20], digest_size=32).digest(), 42
+            )
+            await run.submit(
+                "fixed MS owner funds its separate EVM backing account",
+                bt.calls.Balances.transfer_keep_alive(dest=evm_account, value=10 * 10**9),
+                owner,
+            )
         raw = client._substrate.raw
         gas_price = int(await raw._session.request("eth_gasPrice", []), 16)
         escalation = await client.compose(
@@ -213,14 +235,19 @@ async def test_restricted_ms_proxy_cannot_escalate_through_evm_dispatch(code):
         assert events_named(events, "EVM", "Executed")
         assert any(
             grant["delegate"] == recipient.ss58_address and grant["proxy_type"] == "Any"
-            for grant in (await run.query("Proxy", "Proxies", owner))[0]
+            for grant in (await client.query(("Proxy", "Proxies"), [evm_account]))[0]
         )
+        if code == 8:
+            assert not any(
+                grant["delegate"] == recipient.ss58_address
+                for grant in (await run.query("Proxy", "Proxies", owner))[0]
+            )
         run.report["successful"] = True
         run.save()
 
 
 @pytest.mark.parametrize("code", [7, 8])
-async def test_ms_delayed_proxy_regrant_invalidates_previous_announcement(code):
+async def test_ms_delayed_proxy_regrant_preserves_the_accounts_policy(code):
     owner, delegate, recipient = [key(code) for _ in range(3)]
     delay = 2
     async with (
@@ -237,7 +264,10 @@ async def test_ms_delayed_proxy_regrant_invalidates_previous_announcement(code):
         )
         await run.setup(owner, delegate, recipient, proxy_type="Any", delay=delay)
         plan = await client.plan(bt.intents.Transfer(receiving_address(recipient), 1), owner)
-        assert plan.ok and plan.extras["hashed_registration_guards"] == [recipient.ss58_address]
+        assert plan.ok
+        assert plan.extras.get("hashed_registration_guards", []) == (
+            [recipient.ss58_address] if code == 7 else []
+        )
         call = plan.call
         call_hash = "0x" + bytes(call.call_hash).hex()
         announce = bt.calls.Proxy.announce(real=owner.ss58_address, call_hash=call_hash)
@@ -294,22 +324,71 @@ async def test_ms_delayed_proxy_regrant_invalidates_previous_announcement(code):
             owner,
         )
         assert await run.query("Proxy", "Proxies", owner) == grants
-        assert not (await run.query("Proxy", "Announcements", delegate))[0]
-        assert (await run.query("System", "Account", delegate))["data"]["reserved"] == reserve
-        await run.submit(
-            "old announcement cannot execute after regrant",
-            execute,
-            delegate,
-            success=False,
-            error="Unannounced",
-        )
-        assert (await run.query("System", "Account", recipient))["data"]["free"] == 10**9
+        if code == 7:
+            assert not (await run.query("Proxy", "Announcements", delegate))[0]
+            assert (await run.query("System", "Account", delegate))["data"]["reserved"] == reserve
+            await run.submit(
+                "protected regrant invalidates the old announcement",
+                execute,
+                delegate,
+                success=False,
+                error="Unannounced",
+            )
+        else:
+            pending = (await run.query("Proxy", "Announcements", delegate))[0]
+            assert len(pending) == 1
+            await run.finalized_height(pending[0]["height"] + delay)
+            await run.submit("ordinary regrant preserves the valid announcement", execute, delegate)
+        completed = 1 if code == 7 else 2
+        assert (await run.query("System", "Account", recipient))["data"][
+            "free"
+        ] == completed * 10**9
         assert not (await run.query("Proxy", "Announcements", delegate))[0]
         fresh, _ = await run.submit("fresh announcement after regrant", announce, delegate)
         await run.finalized_height(int(fresh.extrinsic_id.split("-")[0]) + delay)
         await run.submit("fresh guarded transfer after regrant and delay", execute, delegate)
-        assert (await run.query("System", "Account", recipient))["data"]["free"] == 2 * 10**9
+        assert (await run.query("System", "Account", recipient))["data"]["free"] == (
+            completed + 1
+        ) * 10**9
         assert not (await run.query("Proxy", "Announcements", delegate))[0]
         assert (await run.query("System", "Account", delegate))["data"]["reserved"] == reserve
+        run.report["successful"] = True
+        run.save()
+
+
+@pytest.mark.parametrize("code", [7, 8])
+async def test_ms_classical_delegation_matches_the_account_policy(code):
+    owner, delegate, recipient = key(code), key(1), key(1)
+    async with bt.Client(ENDPOINT, fallback_endpoints=[], archive_endpoints=[]) as client:
+        run = ProxyRun(
+            client, f"ms-classical-delegation-{code}", code, owner=owner, delegate=delegate
+        )
+        await run.fund(owner)
+        await run.fund(delegate)
+        await run.submit(
+            "grant classical delegate under the account policy",
+            bt.calls.Proxy.add_proxy(delegate=delegate.ss58_address, proxy_type="Any", delay=0),
+            owner,
+            success=code == 8,
+            error=None if code == 8 else "AccountPolicyViolation",
+        )
+        if code == 8:
+            await run.submit(
+                "classical delegate spends from an ordinary fixed MS account",
+                bt.calls.Proxy.proxy(
+                    real=owner.ss58_address,
+                    force_proxy_type="Any",
+                    call=await client.compose(
+                        bt.calls.Balances.transfer_keep_alive(
+                            dest=recipient.ss58_address, value=10**9
+                        )
+                    ),
+                ),
+                delegate,
+            )
+            assert (await run.query("System", "Account", recipient))["data"]["free"] == 10**9
+            assert await run.query("HashedAccounts", "MlDsaAccounts", owner) is None
+        else:
+            assert not (await run.query("Proxy", "Proxies", owner))[0]
         run.report["successful"] = True
         run.save()

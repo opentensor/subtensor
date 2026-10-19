@@ -130,7 +130,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// Account info provider.
 		#[pallet::no_default]
-		type AccountProvider: AccountProvider;
+		type AccountProvider: AccountProvider<AccountId = Self::AccountId>;
 
 		/// Calculator for current gas price.
 		type FeeCalculator: FeeCalculator;
@@ -167,7 +167,8 @@ pub mod pallet {
 
 		/// Currency type for withdraw and balance storage.
 		#[pallet::no_default]
-		type Currency: Currency<AccountIdOf<Self>> + Inspect<AccountIdOf<Self>>;
+		type Currency: Currency<AccountIdOf<Self>>
+			+ Inspect<AccountIdOf<Self>, Balance = BalanceOf<Self>>;
 
 		/// Precompiles associated with this EVM engine.
 		type PrecompilesType: PrecompileSet;
@@ -315,10 +316,13 @@ pub mod pallet {
 		}
 
 		/// Issue an EVM call operation. This is similar to a message call transaction in Ethereum.
+		/// The native origin lookup precedes gas admission, so charge it independently
+		/// of gas on call/create/create2, including every error and weight refund.
 		#[pallet::call_index(1)]
 		#[pallet::weight({
 			let without_base_extrinsic_weight = true;
 			T::GasWeightMapping::gas_to_weight(*gas_limit, without_base_extrinsic_weight)
+				.saturating_add(crate::account_cost::weight::<T>(1))
 		})]
 		pub fn call(
 			origin: OriginFor<T>,
@@ -358,7 +362,9 @@ pub mod pallet {
 				Err(e) => {
 					return Err(DispatchErrorWithPostInfo {
 						post_info: PostDispatchInfo {
-							actual_weight: Some(e.weight),
+							actual_weight: Some(
+								e.weight.saturating_add(crate::account_cost::weight::<T>(1)),
+							),
 							pays_fee: Pays::Yes,
 						},
 						error: e.error.into(),
@@ -386,7 +392,7 @@ pub mod pallet {
 							*gas_to_weight.proof_size_mut() = proof_size_usage;
 						}
 					}
-					Some(gas_to_weight)
+					Some(gas_to_weight.saturating_add(crate::account_cost::weight::<T>(1)))
 				},
 				pays_fee: Pays::No,
 			})
@@ -398,6 +404,7 @@ pub mod pallet {
 		#[pallet::weight({
 			let without_base_extrinsic_weight = true;
 			T::GasWeightMapping::gas_to_weight(*gas_limit, without_base_extrinsic_weight)
+				.saturating_add(crate::account_cost::weight::<T>(1))
 		})]
 		pub fn create(
 			origin: OriginFor<T>,
@@ -439,7 +446,9 @@ pub mod pallet {
 				Err(e) => {
 					return Err(DispatchErrorWithPostInfo {
 						post_info: PostDispatchInfo {
-							actual_weight: Some(e.weight),
+							actual_weight: Some(
+								e.weight.saturating_add(crate::account_cost::weight::<T>(1)),
+							),
 							pays_fee: Pays::Yes,
 						},
 						error: e.error.into(),
@@ -479,7 +488,7 @@ pub mod pallet {
 							*gas_to_weight.proof_size_mut() = proof_size_usage;
 						}
 					}
-					Some(gas_to_weight)
+					Some(gas_to_weight.saturating_add(crate::account_cost::weight::<T>(1)))
 				},
 				pays_fee: Pays::No,
 			})
@@ -490,6 +499,7 @@ pub mod pallet {
 		#[pallet::weight({
 			let without_base_extrinsic_weight = true;
 			T::GasWeightMapping::gas_to_weight(*gas_limit, without_base_extrinsic_weight)
+				.saturating_add(crate::account_cost::weight::<T>(1))
 		})]
 		pub fn create2(
 			origin: OriginFor<T>,
@@ -533,7 +543,9 @@ pub mod pallet {
 				Err(e) => {
 					return Err(DispatchErrorWithPostInfo {
 						post_info: PostDispatchInfo {
-							actual_weight: Some(e.weight),
+							actual_weight: Some(
+								e.weight.saturating_add(crate::account_cost::weight::<T>(1)),
+							),
 							pays_fee: Pays::Yes,
 						},
 						error: e.error.into(),
@@ -573,7 +585,7 @@ pub mod pallet {
 							*gas_to_weight.proof_size_mut() = proof_size_usage;
 						}
 					}
-					Some(gas_to_weight)
+					Some(gas_to_weight.saturating_add(crate::account_cost::weight::<T>(1)))
 				},
 				pays_fee: Pays::No,
 			})
@@ -597,6 +609,38 @@ pub mod pallet {
 			<DisableWhitelistCheck<T>>::put(disabled);
 
 			Ok(())
+		}
+
+		/// Transfer native currency to an EVM address using its mapping at execution.
+		/// A missing value transfers all spendable currency while keeping the account alive.
+		/// Resolving the address here avoids funding an obsolete backing account if
+		/// a protected alias is established after transaction construction.
+		#[pallet::call_index(6)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::deposit().saturating_add(crate::account_cost::weight::<T>(1)))]
+		pub fn deposit(
+			origin: OriginFor<T>,
+			address: H160,
+			value: Option<BalanceOf<T>>,
+		) -> DispatchResult {
+			let source = ensure_signed(origin)?;
+			let destination = T::AddressMapping::into_account_id(address);
+			let value = value.unwrap_or_else(|| {
+				T::Currency::reducible_balance(&source, Preservation::Preserve, Fortitude::Polite)
+			});
+			T::Currency::transfer(
+				&source,
+				&destination,
+				value,
+				ExistenceRequirement::KeepAlive,
+			)
+		}
+	}
+
+	#[pallet::extra_constants]
+	impl<T: Config> Pallet<T> {
+		#[pallet::constant_name(NativeDepositSupported)]
+		fn native_deposit_supported() -> bool {
+			true
 		}
 	}
 
@@ -751,7 +795,7 @@ pub mod pallet {
 }
 
 /// Utility alias for easy access to the [`AccountProvider::AccountId`] type from a given config.
-pub type AccountIdOf<T> = <<T as Config>::AccountProvider as AccountProvider>::AccountId;
+pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
 /// Type alias for currency balance.
 pub type BalanceOf<T> = <<T as Config>::Currency as Currency<AccountIdOf<T>>>::Balance;

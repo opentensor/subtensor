@@ -292,6 +292,9 @@ NAME_TO_CODE: dict[str, ErrorCode] = {
     "MinimumThreshold": _C.INVALID_ARGUMENT,
     "AlreadyApproved": _C.ALREADY_EXISTS,
     "NoApprovalsNeeded": _C.INVALID_ARGUMENT,
+    "SafeDerivationFailed": _C.INVALID_ARGUMENT,  # also Utility and Proxy
+    "InvalidSafeAccountId": _C.INVALID_ARGUMENT,
+    "ThresholdTooHigh": _C.INVALID_ARGUMENT,
     "TooFewSignatories": _C.INVALID_ARGUMENT,
     "TooManySignatories": _C.LIMIT_EXCEEDED,
     "SignatoriesOutOfOrder": _C.INVALID_ARGUMENT,

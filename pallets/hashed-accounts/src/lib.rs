@@ -218,50 +218,42 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
+        // Leave removed rotation-event indices 1 and 3 unused.
+        #[codec(index = 0)]
         Registered {
             account: AccountId32,
             sponsor: AccountId32,
             deposit: BalanceOf<T>,
         },
-        Rotated {
-            account: AccountId32,
-            generation: u64,
-        },
+        #[codec(index = 2)]
         RegisteredMlDsa {
             account: AccountId32,
             sponsor: AccountId32,
             deposit: BalanceOf<T>,
         },
-        RotatedMlDsa {
-            account: AccountId32,
-            generation: u64,
-        },
+        #[codec(index = 4)]
         DerivedProtected {
             account: AccountId32,
             sponsor: AccountId32,
             deposit: BalanceOf<T>,
         },
+        #[codec(index = 5)]
         CapabilityInstalled {
             owner: AccountId32,
             role: CapabilityRole,
             epoch: u64,
         },
+        #[codec(index = 6)]
         CapabilityRevoked {
             owner: AccountId32,
             role: CapabilityRole,
             epoch: u64,
         },
-        /// A fixed-key ML-DSA authorization consumed its replay counter.
-        #[codec(index = 8)]
-        AuthorizedFixed {
-            account: AccountId32,
-            generation: u64,
-        },
     }
 
     #[pallet::extra_constants]
     impl<T: Config> Pallet<T> {
-        /// Supported ML-DSA account profiles: rotating and fixed-key.
+        /// Supported ML-DSA profiles: registered rotating and registration-free fixed.
         #[pallet::constant_name(MldsaAccountProfiles)]
         pub fn mldsa_account_profiles() -> [u8; 2] {
             [
@@ -570,10 +562,6 @@ pub mod pallet {
                 record.commitment = validated.next_commitment;
                 Ok(())
             })?;
-            Self::deposit_event(Event::Rotated {
-                account: validated.account.clone(),
-                generation,
-            });
             Ok(())
         }
     }

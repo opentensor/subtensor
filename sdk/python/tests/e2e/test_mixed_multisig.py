@@ -135,9 +135,12 @@ async def test_cli_mixed_two_of_three_all_pairs_and_orders(tmp_path, modes):
         for key in keys.values():
             await fund(client, key)
         await fund_multisig(client, address, 20)
+        # Preserve the CLI's safe mode when reconstructing its account in the SDK.
         # Both spellings and all member permutations derive the same account.
         for names in permutations(keys):
-            multi = await client.multisig([receiving_address(keys[name]) for name in names], 2)
+            multi = await client.multisig(
+                [receiving_address(keys[name]) for name in names], 2, account_mode="safe"
+            )
             assert multi.address == address
         # Registration is deliberately direct-only in this runtime. The CLI
         # must refuse an unregistered destination before taking a deposit.
@@ -169,7 +172,9 @@ async def test_cli_mixed_two_of_three_all_pairs_and_orders(tmp_path, modes):
                 == reserved
             )
         # Every member has signed repeatedly; rotating identities stay stable.
-        again = await client.multisig([receiving_address(key) for key in keys.values()], 2)
+        again = await client.multisig(
+            [receiving_address(key) for key in keys.values()], 2, account_mode="safe"
+        )
         assert again.address == address
         # A single invocation can collect approvals from different local modes.
         await cli("team", *args, "--signatory", "rotating=wallet", "--signatory", "sr=wallet")
@@ -187,7 +192,7 @@ async def test_cli_mixed_two_of_three_all_pairs_and_orders(tmp_path, modes):
         assert pending
         others = [member for member in again.signatories if member != opener.ss58_address]
         result = await client.submit_call(
-            bt.calls.Multisig.cancel_as_multi(
+            bt.calls.Multisig.cancel_as_multi_safe(
                 threshold=2,
                 other_signatories=others,
                 timepoint=pending["when"],
@@ -280,7 +285,9 @@ async def test_vault_adapter_co_signs_hashed_both_orders(vault_code, hashed_code
         for key in (rotating, vault_key, third):
             await fund(client, key)
         multi = await client.multisig(
-            [receiving_address(rotating), vault.ss58_address, third.ss58_address], 2
+            [receiving_address(rotating), vault.ss58_address, third.ss58_address],
+            2,
+            account_mode="safe",
         )
         await fund_multisig(client, multi.address, 10)
         call = bt.calls.Balances.transfer_keep_alive(dest=destination, value=10**9)

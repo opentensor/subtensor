@@ -382,6 +382,7 @@ fn admin_switch_defaults_off_requires_root_and_preserves_authority() {
 fn included_failure_advances_generation_but_invalid_proof_does_not() {
     ext().execute_with(|| {
         setup();
+        System::reset_events();
         let failing = RuntimeCall::Balances(BalancesCall::transfer_keep_alive {
             dest: AccountId::new([25; 32]).into(),
             value: TaoBalance::new(u64::MAX),
@@ -406,6 +407,11 @@ fn included_failure_advances_generation_but_invalid_proof_does_not() {
         );
         assert_eq!(HashedAccounts::accounts(account()).unwrap().generation, 2);
         assert_eq!(System::account_nonce(account()), 2);
+        assert!(
+            !System::events()
+                .iter()
+                .any(|record| matches!(record.event, RuntimeEvent::HashedAccounts(_)))
+        );
     });
 }
 #[test]
@@ -954,12 +960,6 @@ fn all_registration_profiles_reserve_the_same_flat_deposit_once() {
             initial_commitment: commitment,
         }
         .into(),
-        mldsa::Descriptor {
-            version: mldsa::VERSION,
-            algorithm: mldsa::FIXED_ALGORITHM,
-            initial_commitment: commitment,
-        }
-        .into(),
     ];
     for descriptor in profiles {
         ext().execute_with(|| {
@@ -1010,6 +1010,34 @@ fn all_registration_profiles_reserve_the_same_flat_deposit_once() {
             assert_eq!(Balances::reserved_balance(&other), TaoBalance::new(0));
         });
     }
+}
+
+#[test]
+fn fixed_ms_registration_cannot_create_policy_or_reserve_a_deposit() {
+    ext().execute_with(|| {
+        System::set_block_number(1);
+        pallet_admin_utils::HashedAccountsEnabled::<Runtime>::put(true);
+        hashed_auth::TestVerificationWeight::set(Weight::zero());
+        let wallet = mldsa::stateless::Wallet::new(71);
+        let sponsor = pair(72);
+        let sponsor_account = AccountId::from(sponsor.public());
+        let _ = Balances::make_free_balance_be(&sponsor_account, TaoBalance::new(10_000_000_000));
+        assert_eq!(
+            Executive::apply_extrinsic(legacy(
+                &sponsor,
+                RuntimeCall::HashedAccounts(pallet_hashed_accounts::Call::register {
+                    descriptor: wallet.descriptor.into(),
+                }),
+            ))
+            .unwrap(),
+            Err(pallet_hashed_accounts::Error::<Runtime>::UnsupportedDescriptor.into())
+        );
+        assert_no_received_account(&wallet.account);
+        assert_eq!(
+            Balances::reserved_balance(&sponsor_account),
+            TaoBalance::new(0)
+        );
+    });
 }
 
 #[test]
@@ -1395,6 +1423,7 @@ mod composable_accounts {
                 ),
             };
             let account = register(descriptor);
+            System::reset_events();
             let call = call();
             let extra = extra(1);
             let next_commitment =
@@ -1433,6 +1462,11 @@ mod composable_accounts {
             assert_eq!(System::account_nonce(&account), 2);
             assert!(Executive::apply_extrinsic(xt).is_err());
             assert_eq!(HashedAccounts::accounts(&account).unwrap(), record);
+            assert!(
+                !System::events()
+                    .iter()
+                    .any(|record| matches!(record.event, RuntimeEvent::HashedAccounts(_)))
+            );
         });
     }
 }

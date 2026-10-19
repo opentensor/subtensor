@@ -1,4 +1,4 @@
-"""Versioned offline/device signing requests for registered ML-DSA accounts.
+"""Versioned offline/device signing requests for ML-DSA accounts.
 
 Devices must explicitly implement this protocol. It carries the full native
 payload and authority snapshot; legacy Polkadot signer payloads and their
@@ -14,6 +14,7 @@ from .mldsa import supports_fixed_profile
 from .sp_core import (
     MLDSA_CRYPTO_TYPES,
     Keypair,
+    is_stateless_mldsa_descriptor,
     ss58_decode,
     verify_mldsa_authorization,
 )
@@ -56,6 +57,14 @@ class PreparedMldsaExtrinsic:
             or bytes(ss58_decode(unsigned.address)) != unsigned.public_key
             or bytes(ss58_decode(authority.address)) != unsigned.public_key
             or not authority.block_hash
+            or (
+                is_stateless_mldsa_descriptor(authority.descriptor)
+                and (
+                    authority.generation != 0
+                    or authority.commitment != authority.descriptor[2:]
+                    or not 0 <= authority.nonce < 2**32 - 1
+                )
+            )
             or not 0 <= authority.generation < 2**64 - 1
             or len(authority.commitment) != 64
             or not any(authority.commitment)

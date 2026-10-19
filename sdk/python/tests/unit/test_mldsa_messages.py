@@ -219,13 +219,14 @@ def test_receiving_message_verification_binds_wallet_mode(key, capability):
     assert wallets.verify_message(
         "mode binding", signed["signature"], address, key.crypto_type, message_capability=capability
     )
-    assert not wallets.verify_message(
+    # Bare SS58 carries no account mode; the finalized capability binds its owner.
+    assert wallets.verify_message(
         "mode binding",
         signed["signature"],
         address,
         8 if key.crypto_type == 7 else 7,
         message_capability=capability,
-    )
+    ) is (key.crypto_type == 8)
 
 
 def test_cli_ms_verification_infers_descriptor_mode_and_rejects_override(
@@ -258,4 +259,4 @@ def test_cli_ms_verification_infers_descriptor_mode_and_rejects_override(
     assert CliRunner().invoke(app, args).exit_code == 0
     wrong = "standard" if key.crypto_type == 7 else "hashed"
     result = CliRunner().invoke(app, [*args, "--type", wrong])
-    assert result.exit_code == 1, result.output
+    assert result.exit_code == (0 if key.crypto_type == 8 else 1), result.output

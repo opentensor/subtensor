@@ -65,6 +65,8 @@ async def fund(client, signer, amount=100):
         max_registration_deposit=bt.Balance.from_tao(2),
     )
     assert result.success, result.to_dict()
+    if signer.crypto_type == 8:
+        assert await record(client, signer) is None
 
 
 async def root(client, call):
@@ -105,22 +107,25 @@ async def test_prefunded_bare_account_can_register_and_spend_recovered_balance(c
         receipts.append(sent.to_dict())
         assert await record(client, recipient) is None
         assert (await account(client, recipient))["data"]["free"] == 10**10
-        registration = bt.calls.HashedAccounts.register(
-            descriptor=registration_descriptor_value(bytes(recipient.hashed_descriptor))
-        )
-        registered = await client.submit_call(
-            registration, dev_wallet(), wait_for_finalization=True
-        )
-        assert registered.success, registered.to_dict()
-        receipts.append(registered.to_dict())
-        assert (await account(client, recipient))["data"]["free"] == 10**10
-        before = await account(client, dev_wallet().coldkey)
-        repeated = await client.submit_call(registration, dev_wallet(), wait_for_finalization=True)
-        assert repeated.success, repeated.to_dict()
-        receipts.append(repeated.to_dict())
-        assert (await account(client, dev_wallet().coldkey))["data"]["reserved"] == before["data"][
-            "reserved"
-        ]
+        if code != 8:
+            registration = bt.calls.HashedAccounts.register(
+                descriptor=registration_descriptor_value(bytes(recipient.hashed_descriptor))
+            )
+            registered = await client.submit_call(
+                registration, dev_wallet(), wait_for_finalization=True
+            )
+            assert registered.success, registered.to_dict()
+            receipts.append(registered.to_dict())
+            assert (await account(client, recipient))["data"]["free"] == 10**10
+            before = await account(client, dev_wallet().coldkey)
+            repeated = await client.submit_call(
+                registration, dev_wallet(), wait_for_finalization=True
+            )
+            assert repeated.success, repeated.to_dict()
+            receipts.append(repeated.to_dict())
+            assert (await account(client, dev_wallet().coldkey))["data"]["reserved"] == before[
+                "data"
+            ]["reserved"]
         state = await record(client, recipient)
         restored = Keypair.create_from_seed(seed, code)
         assert restored.ss58_address == recipient.ss58_address
@@ -131,7 +136,10 @@ async def test_prefunded_bare_account_can_register_and_spend_recovered_balance(c
         )
         assert spent.success, spent.to_dict()
         assert (await account(client, destination))["data"]["free"] == 10**9
-        assert (await record(client, recipient))["generation"] == state["generation"] + 1
+        if code == 8:
+            assert state is None and await record(client, recipient) is None
+        else:
+            assert (await record(client, recipient))["generation"] == state["generation"] + 1
         receipts.append(spent.to_dict())
         evidence(f"late-registration-{code}", receipts)
 
@@ -156,7 +164,9 @@ async def test_failed_registration_payment_batch_preserves_funds_and_next_author
             bt.calls.Balances.transfer_keep_alive(dest=destination.ss58_address, value=10**18)
         )
         result = await client.submit_call(
-            bt.calls.Utility.batch_all(calls=[registration, transfer, fail]),
+            bt.calls.Utility.batch_all(
+                calls=([registration] if code != 8 else []) + [transfer, fail]
+            ),
             sender,
             wait_for_finalization=True,
         )
@@ -167,10 +177,13 @@ async def test_failed_registration_payment_batch_preserves_funds_and_next_author
         after = await record(client, sender)
         sender_after = await account(client, sender)
         signed_count = 2 if result.data.get("shielded") else 1
-        assert after["generation"] == before["generation"] + signed_count
+        if code == 8:
+            assert before is after is None
+        else:
+            assert after["generation"] == before["generation"] + signed_count
         assert sender_after["nonce"] == sender_before["nonce"] + signed_count
         assert sender_after["data"]["reserved"] == sender_before["data"]["reserved"]
-        # A freshly restored key must recover the consumed generation from chain.
+        # A restored key recovers the ordinary nonce and, for rotating keys, generation.
         restored = Keypair.create_from_seed(seed, code)
         recovered = await client.submit_call(
             bt.calls.Balances.transfer_keep_alive(dest=destination.ss58_address, value=10**9),
@@ -195,9 +208,13 @@ async def test_master_gate_preserves_funds_and_resumes_all_registered_authoritie
         assert initial_master is True
         raw = client._substrate.raw
         call = await client.compose(bt.calls.System.remark(remark="0x1234"))
-        signed = [await raw.create_signed_extrinsic(call, signer) for signer in protected]
         states = [await record(client, signer) for signer in protected]
         balances = [await account(client, signer) for signer in protected]
+        # Rejected probes must not reserve nonces needed after reactivation.
+        signed = [
+            await raw.sign_without_nonce_tracking(call, signer, nonce=balance["nonce"])
+            for signer, balance in zip(protected, balances)
+        ]
         try:
             receipts.append(
                 (
@@ -213,7 +230,7 @@ async def test_master_gate_preserves_funds_and_resumes_all_registered_authoritie
             for signer in classical:
                 result = await client.submit_call(call, signer, wait_for_finalization=True)
                 assert result.success, result.to_dict()
-            for code in (4, 6, 7, 8):
+            for code in (4, 6, 7):
                 fresh = key(code)
                 before = await account(client, dev_wallet().coldkey)
                 with pytest.raises(ValueError, match="not supported"):
@@ -421,7 +438,10 @@ async def test_shield_nonce_boundary_quote_matches_real_carrier_and_executes(cod
         result = await client.submit_call(call, signer, shielded=True, wait_for_finalization=True)
         assert result.success, result.to_dict()
         assert (await account(client, signer))["nonce"] == 65
-        assert (await record(client, signer))["generation"] == before["generation"] + 2
+        if code == 8:
+            assert before is None and await record(client, signer) is None
+        else:
+            assert (await record(client, signer))["generation"] == before["generation"] + 2
         evidence(
             f"shield-nonce-boundary-{code}", {"quoted_sizes": sizes, "result": result.to_dict()}
         )

@@ -232,9 +232,15 @@ impl TransactionExtension<RuntimeCall> for AccountTxExtension {
                 frame_system::ensure_signed(origin.clone()).ok().as_ref() == Some(&account),
                 InvalidTransaction::BadSigner
             );
-            valid
-                .provides
-                .push((b"hashed-generation", &account, address.generation()).encode());
+            // Fixed stateless keys use the ordinary account nonce, including
+            // queued consecutive transactions. Their proof generation is always zero.
+            if !matches!(address, AccountAuthorization::MlDsa(header)
+                if header.algorithm == subtensor_hashed::mldsa::FIXED_ALGORITHM)
+            {
+                valid
+                    .provides
+                    .push((b"hashed-generation", &account, address.generation()).encode());
+            }
             Ok((valid, (val, Some(ticket)), origin))
         } else {
             if let Ok(signer) = frame_system::ensure_signed(origin.clone()) {
@@ -840,6 +846,7 @@ fn commits_sponsored_registration(
         ) => calls.iter().any(nested),
         RuntimeCall::Utility(
             crate::pallet_utility::Call::as_derivative { call, .. }
+            | crate::pallet_utility::Call::as_safe_derivative { call, .. }
             | crate::pallet_utility::Call::as_protected_derivative { call, .. },
         ) => nested(call),
         RuntimeCall::Proxy(
@@ -848,10 +855,74 @@ fn commits_sponsored_registration(
         ) => nested(call),
         RuntimeCall::Multisig(
             pallet_multisig::Call::as_multi { call, .. }
-            | pallet_multisig::Call::as_multi_threshold_1 { call, .. },
+            | pallet_multisig::Call::as_multi_threshold_1 { call, .. }
+            | pallet_multisig::Call::as_multi_safe { call, .. }
+            | pallet_multisig::Call::as_multi_threshold_1_safe { call, .. },
         ) => nested(call),
         _ => false,
     }
+}
+
+#[cfg(test)]
+#[test]
+fn sponsored_registration_consent_traverses_safe_wrappers_without_changing_its_commitment() {
+    let payer = AccountId::new([1; 32]);
+    let descriptor = pallet_hashed_accounts::DerivedDescriptor::Derivative {
+        parent: payer.clone(),
+        index: 7,
+    };
+    let inner =
+        RuntimeCall::HashedAccounts(pallet_hashed_accounts::Call::register_derived_sponsored {
+            descriptor: descriptor.clone(),
+            deposit_payer: payer.clone(),
+        });
+    let wrappers = [
+        RuntimeCall::Utility(crate::pallet_utility::Call::as_safe_derivative {
+            index: 3,
+            call: Box::new(inner.clone()),
+        }),
+        RuntimeCall::Multisig(pallet_multisig::Call::as_multi_safe {
+            threshold: 2,
+            other_signatories: alloc::vec![AccountId::new([2; 32])],
+            maybe_timepoint: None,
+            call: Box::new(inner.clone()),
+            max_weight: Weight::zero(),
+        }),
+        RuntimeCall::Multisig(pallet_multisig::Call::as_multi_threshold_1_safe {
+            other_signatories: alloc::vec![AccountId::new([2; 32])],
+            call: Box::new(inner),
+        }),
+    ];
+    for call in wrappers {
+        assert!(commits_sponsored_registration(
+            &call,
+            &payer,
+            &descriptor,
+            0
+        ));
+        assert!(!commits_sponsored_registration(
+            &call,
+            &AccountId::new([3; 32]),
+            &descriptor,
+            0
+        ));
+        assert!(!commits_sponsored_registration(
+            &call,
+            &payer,
+            &descriptor,
+            7
+        ));
+    }
+    let deposit = RuntimeCall::EVM(pallet_evm::Call::deposit {
+        address: sp_core::H160::repeat_byte(1),
+        value: None,
+    });
+    assert!(!commits_sponsored_registration(
+        &deposit,
+        &payer,
+        &descriptor,
+        0
+    ));
 }
 
 /// Alternative authorities must also use committed, rotating keys.

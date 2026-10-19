@@ -17,17 +17,21 @@ from bittensor.client import Client
 from bittensor.hashed import registration_descriptor_value
 from bittensor.keyfiles import Keyfile
 from bittensor.receiving import receiving_address
-from bittensor.sp_core import Keypair
+from bittensor.sp_core import Keypair, requires_registration
 from bittensor.wallet import Wallet
 from tests.harness.samples import ALICE_HOT, BOB_HOT
 from tests.unit import test_hashed_receiving_cli, test_registration_sponsorship_cli
 
 wallet_path = test_hashed_receiving_cli.wallet_path
 fake = test_registration_sponsorship_cli.fake
-recipient = test_registration_sponsorship_cli.recipient
 wallet_dir = test_registration_sponsorship_cli.wallet_dir
 
 runner = CliRunner()
+
+
+@pytest.fixture(params=[4, 6, 7, 8])
+def recipient(request, fake):
+    return test_registration_sponsorship_cli.make_recipient(fake, request.param)
 
 
 @pytest.mark.parametrize("code", [0, 1, 4, 6, 7, 8])
@@ -68,10 +72,15 @@ def test_listing_validates_compatibility_crypto_strings(
         assert not row.get("receiving_address")
     else:
         assert row["ss58"] == public.ss58_address
-        if code in (4, 6, 7, 8):
+        if requires_registration(public):
             assert row["primary_address"] == receiving_address(public)
             assert row["registration"] == "not_checked"
             assert row in checked
+        elif code == 8:
+            assert row["crypto_type"] == "ms"
+            assert "receiving_address" not in row
+            assert "registration" not in row
+            assert row not in checked
         else:
             assert row["crypto_type"] == ("ed25519" if code == 0 else "sr25519")
     assert before == {p: p.read_bytes() for p in wallet_path.rglob("*") if p.is_file()}
@@ -136,18 +145,24 @@ def test_encrypted_cli_sender_keeps_local_registration_after_unlock(
         ],
     )
     assert result.exit_code == 0, (result.output, result.exception)
-    assert any(plan.registration_sponsorship is not None for plan in previews)
+    assert any(
+        plan.registration_sponsorship is not None for plan in previews
+    ) == requires_registration(recipient)
     if shielded:
         assert fake.last_call.module == "MevShield"
         call = signed[0]
     else:
         call = fake.last_call
-    assert (call.module, call.function) == ("Utility", "batch_all")
-    registration, transfer = call.params["calls"]
-    assert registration.function == "register"
-    assert registration.params["descriptor"] == registration_descriptor_value(
-        bytes(recipient.hashed_descriptor)
-    )
+    if requires_registration(recipient):
+        assert (call.module, call.function) == ("Utility", "batch_all")
+        registration, transfer = call.params["calls"]
+        assert registration.function == "register"
+        assert registration.params["descriptor"] == registration_descriptor_value(
+            bytes(recipient.hashed_descriptor)
+        )
+    else:
+        transfer = call
+        assert transfer.module == "Balances"
     assert transfer.params["dest"] == recipient.ss58_address
     assert len(fake.submissions) == 1
     assert fake.submissions[0][1] == sender.coldkeypub.ss58_address

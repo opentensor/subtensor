@@ -11,7 +11,7 @@ import pytest
 
 import bittensor as bt
 from bittensor.receiving import receiving_address
-from bittensor.sp_core import MLDSA_CRYPTO_TYPES, REGISTERED_CRYPTO_TYPES, Keypair
+from bittensor.sp_core import MLDSA_CRYPTO_TYPES, Keypair, is_stateless_mldsa, requires_registration
 from tests.harness.samples import dev_wallet
 
 PEERS = os.getenv("E2E_WALLET_PEERS", "").split(",")
@@ -82,7 +82,7 @@ async def test_cross_validator_shield_and_external_nonce_advancement(code, spons
         for client in clients:
             account = await client.query(bt.storage.System.Account, [key.ss58_address])
             assert account["nonce"] == initial["nonce"] + 8
-            if code in REGISTERED_CRYPTO_TYPES:
+            if requires_registration(key):
                 record = await client.query(
                     (
                         "HashedAccounts",
@@ -91,3 +91,8 @@ async def test_cross_validator_shield_and_external_nonce_advancement(code, spons
                     [key.ss58_address],
                 )
                 assert record["generation"] == 8
+            elif is_stateless_mldsa(key):
+                assert (
+                    await client.query(("HashedAccounts", "MlDsaAccounts"), [key.ss58_address])
+                    is None
+                )

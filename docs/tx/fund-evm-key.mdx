@@ -7,18 +7,19 @@ description: "Fund an EVM (h160) address with TAO from the signing coldkey."
 
 An ordinary EVM account's native balance lives at its legacy ss58 mirror.
 Registered hashed aliases instead share their full native account's balance.
-This intent resolves the chain's active mapping and transfers TAO to it;
+On supported runtimes the transaction resolves the active mapping during
+execution, so an alias change cannot redirect funds to an obsolete mirror;
 the funds then appear as the EVM account's balance
 in MetaMask or any Ethereum tool (displayed with 18 decimals there:
 1 TAO = 1e18). Like any transfer this is irreversible, so double-check
 the address. Protected aliases require their native hashed authorization.
-When hashed aliases are enabled, native funding of unprotected aliases is
+On older runtimes, when hashed aliases are enabled, native funding of unprotected aliases is
 refused: their mapping cannot be guarded against a concurrent registration.
 Send to those H160 addresses from an EVM wallet instead.
 
 | Signer | Origin | Pallet | Wraps |
 | --- | --- | --- | --- |
-| `coldkey` | signed account (pallet role may apply) | Balances | `Balances.transfer_keep_alive` |
+| `coldkey` | signed account (pallet role may apply) | Balances | `Balances.transfer_keep_alive`, `EVM.deposit` |
 
 ## Parameters
 
@@ -71,5 +72,7 @@ result = sub.execute_tool("fund_evm_key", {...}, wallet)
 ## On-chain implementation
 
 `Balances.transfer_keep_alive` is implemented by Substrate's `pallet_balances`, outside this repository's pallets.
+
+`EVM.deposit` is implemented by Frontier's `pallet_evm` (vendored under `vendor/frontier`), outside this repository's pallets.
 
 Every file is browsable under [/code](/code) exactly as built into the runtime, or as plain text under `/code/raw/<path>` (index: [`/code/index.json`](/code/index.json)).

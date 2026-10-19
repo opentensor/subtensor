@@ -267,19 +267,22 @@ impl Runtime {
         params: &TxParams,
     ) -> Result<(Vec<u8>, [u8; 32]), CoreError> {
         let mldsa = if crate::keys::is_mldsa_crypto(signature_version) {
-            let profile = if signature_version == crate::keys::CRYPTO_MLDSA65 {
-                subtensor_hashed::mldsa::ALGORITHM
-            } else {
-                subtensor_hashed::mldsa::FIXED_ALGORITHM
-            };
-            if !self.supports_mldsa_profile(profile) {
-                return Err(CoreError::Codec(
-                    "runtime does not advertise ML-DSA ML-DSA accounts".into(),
-                ));
-            }
             let address = subtensor_hashed::mldsa::SignerAddress::from_bytes(signature)
                 .map_err(|_| CoreError::Codec("invalid ML-DSA authorization envelope".into()))?;
-            if address.account != public_key || address.algorithm != profile {
+            let profile = address.algorithm;
+            if !self.supports_mldsa_profile(profile) {
+                return Err(CoreError::Codec(
+                    "runtime does not advertise this ML-DSA account profile".into(),
+                ));
+            }
+            let matching_profile = match signature_version {
+                crate::keys::CRYPTO_MLDSA65 => profile == subtensor_hashed::mldsa::ALGORITHM,
+                crate::keys::CRYPTO_MLDSA65_FIXED => {
+                    profile == subtensor_hashed::mldsa::FIXED_ALGORITHM
+                }
+                _ => false,
+            };
+            if address.account != public_key || !matching_profile {
                 return Err(CoreError::Codec(
                     "ML-DSA proof account does not match signer".into(),
                 ));
@@ -400,13 +403,7 @@ impl Runtime {
                 subtensor_hashed::mldsa::ALGORITHM => true,
                 subtensor_hashed::mldsa::FIXED_ALGORITHM => self
                     .constant("HashedAccounts", "MldsaAccountProfiles")
-                    .is_some_and(|constant| {
-                        constant.value.as_slice()
-                            == [
-                                subtensor_hashed::mldsa::ALGORITHM,
-                                subtensor_hashed::mldsa::FIXED_ALGORITHM,
-                            ]
-                    }),
+                    .is_some_and(|constant| constant.value.contains(&profile)),
                 _ => false,
             }
     }
@@ -576,9 +573,109 @@ pub fn multisig_account_id(
     Ok((blake2_256(&data), sorted))
 }
 
+/// Derive an opt-in multisig account that cannot be a raw Ed25519/Sr25519 key.
+/// The ordinary multisig helper remains unchanged for existing accounts.
+pub fn safe_multisig_account_id(
+    signatories: &[[u8; 32]],
+    threshold: u16,
+) -> Result<([u8; 32], Vec<[u8; 32]>), CoreError> {
+    let max_signatories = subtensor_hashed::safe::MAX_MULTISIG_SIGNATORIES as usize;
+    if !(2..=max_signatories).contains(&signatories.len()) {
+        return Err(CoreError::Codec(format!(
+            "safe multisig requires 2 to {max_signatories} signatories"
+        )));
+    }
+    if threshold == 0 || usize::from(threshold) > signatories.len() {
+        return Err(CoreError::Codec("invalid multisig threshold".into()));
+    }
+    let mut sorted = signatories.to_vec();
+    sorted.sort_unstable();
+    if sorted.windows(2).any(|pair| pair[0] == pair[1]) {
+        return Err(CoreError::Codec("duplicate multisig signatory".into()));
+    }
+    let account = subtensor_hashed::safe::safe_derived_account(
+        subtensor_hashed::safe::MULTISIG_DOMAIN,
+        &(sorted.as_slice(), threshold),
+    )
+    .ok_or_else(|| CoreError::Codec("safe multisig derivation exhausted its search".into()))?;
+    Ok((account, sorted))
+}
+
 /// ss58 rendering for a derived multisig account (convenience for bindings).
 pub fn multisig_ss58(account_id: [u8; 32], ss58_format: u16) -> String {
     ss58_from_public(account_id, ss58_format)
+}
+
+#[cfg(test)]
+mod safe_multisig_tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
+    use super::{multisig_account_id, safe_multisig_account_id};
+
+    #[test]
+    fn safe_mode_is_order_independent_and_separate_from_legacy() {
+        let members = [[2; 32], [1; 32], [3; 32]];
+        let (account, sorted) = safe_multisig_account_id(&members, 2).expect("valid group");
+        assert_eq!(sorted, vec![[1; 32], [2; 32], [3; 32]]);
+        assert_eq!(
+            safe_multisig_account_id(&sorted, 2)
+                .expect("sorted group")
+                .0,
+            account
+        );
+        assert!(subtensor_hashed::mldsa::rejects_legacy_public_keys(
+            &account
+        ));
+        assert_ne!(
+            multisig_account_id(&members, 2).expect("legacy group").0,
+            account
+        );
+        assert_ne!(
+            safe_multisig_account_id(&members, 1)
+                .expect("other threshold")
+                .0,
+            account
+        );
+    }
+
+    #[test]
+    fn safe_mode_rejects_invalid_member_manifests() {
+        assert!(safe_multisig_account_id(&[], 1).is_err());
+        assert!(safe_multisig_account_id(&[[1; 32]], 1).is_err());
+        assert!(safe_multisig_account_id(&[[1; 32], [1; 32]], 2).is_err());
+        assert!(safe_multisig_account_id(&[[1; 32], [2; 32]], 0).is_err());
+        assert!(safe_multisig_account_id(&[[1; 32], [2; 32]], 3).is_err());
+    }
+
+    #[test]
+    fn safe_mode_enforces_runtime_signer_count_boundaries() {
+        let max = subtensor_hashed::safe::MAX_MULTISIG_SIGNATORIES as usize;
+        let members: Vec<_> = (0..=max)
+            .map(|index| {
+                let mut account = [0u8; 32];
+                account[..8].copy_from_slice(&(index as u64).to_le_bytes());
+                account
+            })
+            .collect();
+        for count in [0, 1, max + 1] {
+            assert!(safe_multisig_account_id(&members[..count], 1).is_err());
+        }
+        for count in [2, max] {
+            for threshold in [1, count as u16] {
+                let (account, sorted) =
+                    safe_multisig_account_id(&members[..count], threshold).expect("valid group");
+                assert_eq!(sorted.len(), count);
+                assert!(subtensor_hashed::mldsa::rejects_legacy_public_keys(
+                    &account
+                ));
+                assert_eq!(
+                    safe_multisig_account_id(&sorted, threshold)
+                        .expect("sorted group")
+                        .0,
+                    account
+                );
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -857,7 +954,11 @@ pub(crate) mod hashed_tests {
                 .unwrap();
             let wallet = Keypair::from_seed(&[7; 32], crypto)
                 .unwrap()
-                .at_generation(3)
+                .at_generation(if crypto == crate::keys::CRYPTO_MLDSA65 {
+                    3
+                } else {
+                    0
+                })
                 .unwrap();
             let (extra, additional) = runtime.signature_payload_parts(&params()).unwrap();
             let payload = [call.clone(), extra.clone(), additional].concat();

@@ -13,6 +13,8 @@ import typer
 
 from ... import config as cfg
 from ... import storage, wallets
+from ..._transport.codec import multisig_account
+from ...account_mode import validate_account_mode
 from ...settings import guide_docs_url
 from .. import multisig_helpers as ms_helpers
 from .. import upgrade_helpers as uh
@@ -77,6 +79,11 @@ def multisig_add(
     name: Optional[str] = typer.Argument(
         None, help="Name to save the multisig under (defaults to the -w wallet name)."
     ),
+    account_mode: Optional[str] = typer.Option(
+        None,
+        "--account-mode",
+        help="Account derivation: safe for a new group, legacy for an existing standard group.",
+    ),
     threshold: int = typer.Option(
         ...,
         "--threshold",
@@ -110,6 +117,10 @@ def multisig_add(
             app_ctx, help_text="Name to save the multisig under (-w name).", must_exist=False
         )
         name = app_ctx.wallet_name
+    existing = cfg.get_multisig(name)
+    account_mode = validate_account_mode(
+        account_mode or ((existing or {}).get("account_mode", "legacy") if existing else "safe")
+    )
     refs = ms_helpers.collect_signatory_refs(signatories, signatory)
     if not refs:
         refs = _prompt_signatory_refs(app_ctx)
@@ -118,22 +129,30 @@ def multisig_add(
     if threshold > len(resolved):
         app_ctx.output.error(f"threshold {threshold} exceeds {len(resolved)} signatories")
         raise typer.Exit(1)
-    if cfg.get_multisig(name) and not overwrite:
+    if existing and not overwrite:
         app_ctx.output.error(
             f"multisig {name!r} already exists",
             help="pass `--overwrite` to replace it",
         )
         raise typer.Exit(1)
     try:
+        # Reject unusable signer sets before saving or overwriting a funding target.
+        multisig_account(resolved, threshold, account_mode=account_mode)
         entry = cfg.add_multisig(
-            {"name": name, "threshold": threshold, "signatories": refs, "note": note}
+            {
+                "name": name,
+                "threshold": threshold,
+                "signatories": refs,
+                "note": note,
+                "account_mode": account_mode,
+            }
         )
     except ValueError as error:
         app_ctx.output.error(str(error))
         raise typer.Exit(1)
 
     async def derive(client):
-        ms = await client.multisig(resolved, threshold)
+        ms = await client.multisig(resolved, threshold, account_mode=account_mode)
         sudo_key = await client.query(storage.Sudo.Key)
         protection = await ms.protection_status()
         return ms.address, sudo_key, protection
@@ -195,7 +214,9 @@ def multisig_show(
     signatories = list(dict.fromkeys(signatories))
 
     async def derive(client):
-        ms = await client.multisig(signatories, entry["threshold"])
+        ms = await client.multisig(
+            signatories, entry["threshold"], account_mode=entry.get("account_mode", "legacy")
+        )
         sudo_key = await client.query(storage.Sudo.Key)
         protection = await ms.protection_status()
         return ms.address, sudo_key, protection
@@ -239,6 +260,11 @@ def multisig_pending(
         "--multisig",
         help="Named multisig (same name as -w); defaults to -w when saved.",
     ),
+    account_mode: Optional[str] = typer.Option(
+        None,
+        "--multisig-account-mode",
+        help="Account derivation: legacy or safe; saved groups retain their mode.",
+    ),
     multisig_threshold: Optional[int] = typer.Option(
         None,
         "--multisig-threshold",
@@ -281,6 +307,7 @@ def multisig_pending(
         threshold, signatories_resolved, preset, signatory_refs = ms_helpers.resolve_multisig(
             app_ctx,
             multisig_name=multisig,
+            account_mode=account_mode,
             threshold=multisig_threshold,
             signatories=signatories,
             other_signatories=other_signatories,
@@ -321,7 +348,11 @@ def multisig_pending(
     label = preset or f"{threshold}-of-{len(signatories_resolved)}"
 
     async def _load(client):
-        ms = await client.multisig(signatories_resolved, threshold)
+        ms = await client.multisig(
+            signatories_resolved,
+            threshold,
+            account_mode=getattr(app_ctx, "multisig_account_mode", "legacy"),
+        )
         records = await ms_helpers.list_pending_with_commands(
             client,
             app_ctx,

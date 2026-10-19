@@ -15,6 +15,8 @@ use crate::error::CoreError;
 
 const DERIVATION_SALT: &[u8] = b"bittensor/ms/v2/derive";
 const CAPABILITY_DOMAIN: &[u8] = b"bittensor/ms/v2/capability";
+/// Bound wallet key generation independently of runtime transaction validation.
+const STATELESS_KEY_SEARCH_LIMIT: u64 = 256;
 pub const ROLE_TRANSACTION: u8 = 0;
 pub const ROLE_ORDER: u8 = 1;
 pub const ROLE_MESSAGE: u8 = 2;
@@ -22,31 +24,68 @@ pub const ROLE_MESSAGE: u8 = 2;
 pub struct MldsaKeypair {
     pub(super) descriptor: mldsa::Descriptor,
     master_seed: Option<Zeroizing<[u8; 32]>>,
+    /// Recomputed from the master seed on recovery; never a mutable key counter.
+    transaction_index: u64,
     pub(super) generation: u64,
 }
 
 impl MldsaKeypair {
     pub(super) fn from_seed(seed: &[u8], crypto_type: u8) -> Result<Self, CoreError> {
-        let master = Zeroizing::new(
-            <[u8; 32]>::try_from(seed)
-                .map_err(|_| crypto_err("ML-DSA master seed must be exactly 32 bytes"))?,
-        );
         let profile = match crypto_type {
             CRYPTO_MLDSA65 => mldsa::ALGORITHM,
             CRYPTO_MLDSA65_FIXED => mldsa::FIXED_ALGORITHM,
             _ => return Err(crypto_err("unsupported ML-DSA account profile")),
         };
-        let initial = Self::derive_seed_for_profile(&master, profile, ROLE_TRANSACTION, 0)?;
-        let public = mldsa::public_key_from_seed(&initial).map_err(crypto_err)?;
+        let master = Zeroizing::new(
+            <[u8; 32]>::try_from(seed)
+                .map_err(|_| crypto_err("ML-DSA master seed must be exactly 32 bytes"))?,
+        );
+        let (transaction_index, initial_commitment) = if profile == mldsa::FIXED_ALGORITHM {
+            Self::stateless_transaction_key(&master, STATELESS_KEY_SEARCH_LIMIT)?
+        } else {
+            let initial = Self::derive_seed_for_profile(&master, profile, ROLE_TRANSACTION, 0)?;
+            let public = mldsa::public_key_from_seed(&initial).map_err(crypto_err)?;
+            (0, mldsa::commitment(&public))
+        };
         Ok(Self {
             descriptor: mldsa::Descriptor {
                 version: mldsa::VERSION,
                 algorithm: profile,
-                initial_commitment: mldsa::commitment(&public),
+                initial_commitment,
             },
             master_seed: Some(master),
+            transaction_index,
             generation: 0,
         })
+    }
+
+    fn stateless_transaction_key(
+        master: &[u8; 32],
+        limit: u64,
+    ) -> Result<(u64, mldsa::Commitment), CoreError> {
+        for index in 0..limit {
+            let seed = Self::derive_seed_for_profile(
+                master,
+                mldsa::FIXED_ALGORITHM,
+                ROLE_TRANSACTION,
+                index,
+            )?;
+            let public = mldsa::public_key_from_seed(&seed).map_err(crypto_err)?;
+            let initial_commitment = mldsa::commitment(&public);
+            let descriptor = mldsa::Descriptor {
+                version: mldsa::VERSION,
+                algorithm: mldsa::FIXED_ALGORITHM,
+                initial_commitment,
+            };
+            if initial_commitment != [0; mldsa::COMMITMENT_LEN]
+                && mldsa::rejects_legacy_public_keys(&mldsa::account_id(&descriptor))
+            {
+                return Ok((index, initial_commitment));
+            }
+        }
+        Err(crypto_err(
+            "ML-DSA account derivation exhausted its bounded key search",
+        ))
     }
 
     #[cfg(test)]
@@ -84,7 +123,7 @@ impl MldsaKeypair {
             self.descriptor.algorithm,
             role,
             if role == ROLE_TRANSACTION && !self.descriptor.is_rotating() {
-                0
+                self.transaction_index
             } else {
                 index
             },
@@ -166,6 +205,7 @@ pub fn verify_mldsa_authorization(
         return Ok(false);
     };
     Ok(generation != u64::MAX
+        && (!descriptor.is_stateless() || generation == 0)
         && proof.account == mldsa::account_id(&descriptor)
         && proof.algorithm == descriptor.algorithm
         && proof.generation == generation
@@ -230,6 +270,7 @@ impl Keypair {
             inner: KeypairInner::Mldsa(MldsaKeypair {
                 descriptor,
                 master_seed: None,
+                transaction_index: 0,
                 generation: 0,
             }),
             ss58_format,
@@ -244,6 +285,7 @@ impl Keypair {
             inner: KeypairInner::Mldsa(MldsaKeypair {
                 descriptor: key.descriptor,
                 master_seed: None,
+                transaction_index: key.transaction_index,
                 generation: key.generation,
             }),
             ss58_format: self.ss58_format,
@@ -254,6 +296,11 @@ impl Keypair {
 
     pub(super) fn mldsa_at_generation(&self, generation: u64) -> Result<Self, CoreError> {
         let key = self.mldsa()?;
+        if key.descriptor.is_stateless() && generation != 0 {
+            return Err(crypto_err(
+                "registration-free ML-DSA accounts have no signing generation",
+            ));
+        }
         if key.master_seed.is_none() {
             return Err(crypto_err(
                 "ML-DSA generation selection requires a private wallet",
@@ -263,6 +310,7 @@ impl Keypair {
             inner: KeypairInner::Mldsa(MldsaKeypair {
                 descriptor: key.descriptor,
                 master_seed: key.master_seed.clone(),
+                transaction_index: key.transaction_index,
                 generation,
             }),
             ss58_format: self.ss58_format,
@@ -273,6 +321,9 @@ impl Keypair {
 
     pub fn mldsa_descriptor(&self) -> Result<Vec<u8>, CoreError> {
         Ok(self.mldsa()?.descriptor.encode())
+    }
+    pub fn mldsa_profile(&self) -> Result<u8, CoreError> {
+        Ok(self.mldsa()?.descriptor.algorithm)
     }
     pub fn mldsa_generation(&self) -> Result<u64, CoreError> {
         Ok(self.mldsa()?.generation)
@@ -762,155 +813,161 @@ mod tests {
 
     #[test]
     fn capability_proofs_require_trusted_owner_role_epoch_and_commitment() {
-        let wallet = Keypair::from_seed(&[7; 32], CRYPTO_MLDSA65).unwrap();
-        let commitment = wallet.mldsa_capability_commitment(ROLE_MESSAGE, 3).unwrap();
-        assert_ne!(commitment, wallet.mldsa_commitment(3).unwrap());
-        assert_ne!(
-            commitment,
-            wallet.mldsa_capability_commitment(ROLE_ORDER, 3).unwrap()
-        );
-        let proof = wallet
-            .sign_mldsa_capability(ROLE_MESSAGE, 3, [9; 32], b"audience/nonce/expiry/body")
-            .unwrap();
-        let verify = |role, epoch, owner, genesis, commitment| {
-            verify_mldsa_capability(
-                &proof,
-                b"audience/nonce/expiry/body",
-                &owner,
-                &genesis,
-                role,
-                epoch,
-                &commitment,
-            )
-            .unwrap()
-        };
-        assert!(verify(
-            ROLE_MESSAGE,
-            3,
-            wallet.public_key_bytes(),
-            [9; 32],
-            commitment
-        ));
-        assert!(!verify(
-            ROLE_MESSAGE,
-            4,
-            wallet.public_key_bytes(),
-            [9; 32],
-            commitment
-        ));
-        assert!(!verify(
-            ROLE_ORDER,
-            3,
-            wallet.public_key_bytes(),
-            [9; 32],
-            commitment
-        ));
-        assert!(!verify(ROLE_MESSAGE, 3, [0; 32], [9; 32], commitment));
-        assert!(!verify(
-            ROLE_MESSAGE,
-            3,
-            wallet.public_key_bytes(),
-            [8; 32],
-            commitment
-        ));
-        assert!(!verify(
-            ROLE_MESSAGE,
-            3,
-            wallet.public_key_bytes(),
-            [9; 32],
-            [0; 64]
-        ));
-        assert!(wallet
-            .sign_mldsa_capability(ROLE_TRANSACTION, 0, [9; 32], b"transaction")
-            .is_err());
+        for crypto in [CRYPTO_MLDSA65, CRYPTO_MLDSA65_FIXED] {
+            let wallet = Keypair::from_seed(&[7; 32], crypto).unwrap();
+            let commitment = wallet.mldsa_capability_commitment(ROLE_MESSAGE, 3).unwrap();
+            assert_ne!(commitment, wallet.mldsa_commitment(3).unwrap());
+            assert_ne!(
+                commitment,
+                wallet.mldsa_capability_commitment(ROLE_ORDER, 3).unwrap()
+            );
+            let proof = wallet
+                .sign_mldsa_capability(ROLE_MESSAGE, 3, [9; 32], b"audience/nonce/expiry/body")
+                .unwrap();
+            let verify = |role, epoch, owner, genesis, commitment| {
+                verify_mldsa_capability(
+                    &proof,
+                    b"audience/nonce/expiry/body",
+                    &owner,
+                    &genesis,
+                    role,
+                    epoch,
+                    &commitment,
+                )
+                .unwrap()
+            };
+            assert!(verify(
+                ROLE_MESSAGE,
+                3,
+                wallet.public_key_bytes(),
+                [9; 32],
+                commitment
+            ));
+            assert!(!verify(
+                ROLE_MESSAGE,
+                4,
+                wallet.public_key_bytes(),
+                [9; 32],
+                commitment
+            ));
+            assert!(!verify(
+                ROLE_ORDER,
+                3,
+                wallet.public_key_bytes(),
+                [9; 32],
+                commitment
+            ));
+            assert!(!verify(ROLE_MESSAGE, 3, [0; 32], [9; 32], commitment));
+            assert!(!verify(
+                ROLE_MESSAGE,
+                3,
+                wallet.public_key_bytes(),
+                [8; 32],
+                commitment
+            ));
+            assert!(!verify(
+                ROLE_MESSAGE,
+                3,
+                wallet.public_key_bytes(),
+                [9; 32],
+                [0; 64]
+            ));
+            assert!(wallet
+                .sign_mldsa_capability(ROLE_TRANSACTION, 0, [9; 32], b"transaction")
+                .is_err());
+        }
     }
 
     #[test]
     fn order_signature_binds_runtime_transcript_and_never_uses_transaction_key() {
-        let wallet = Keypair::from_seed(&[7; 32], CRYPTO_MLDSA65).unwrap();
-        let public = wallet.mldsa_capability_public_key(ROLE_ORDER, 3).unwrap();
-        let order = b"canonical SCALE VersionedOrder";
-        let signature = wallet.sign_mldsa_order(3, 11, [9; 32], order).unwrap();
-        let mut transcript = b"bittensor/ms/v2/order".to_vec();
-        ([9_u8; 32], wallet.public_key_bytes(), 3_u64, 11_u64).encode_to(&mut transcript);
-        transcript.extend_from_slice(order);
-        assert!(mldsa::verify_message(
-            &public,
-            &transcript,
-            b"bittensor/ms/v2/order",
-            &signature
-        ));
-        assert!(!mldsa::verify_message(
-            &wallet.mldsa_public_key().unwrap(),
-            &transcript,
-            b"bittensor/ms/v2/order",
-            &signature
-        ));
-        assert!(!mldsa::verify_message(
-            &public,
-            &transcript,
-            b"bittensor/ms/v2/message",
-            &signature
-        ));
-        transcript[21 + 32 + 32 + 8] ^= 1;
-        assert!(!mldsa::verify_message(
-            &public,
-            &transcript,
-            b"bittensor/ms/v2/order",
-            &signature
-        ));
-        assert!(wallet
-            .sign_mldsa_capability(ROLE_ORDER, 3, [9; 32], order)
-            .is_err());
+        for crypto in [CRYPTO_MLDSA65, CRYPTO_MLDSA65_FIXED] {
+            let wallet = Keypair::from_seed(&[7; 32], crypto).unwrap();
+            let public = wallet.mldsa_capability_public_key(ROLE_ORDER, 3).unwrap();
+            let order = b"canonical SCALE VersionedOrder";
+            let signature = wallet.sign_mldsa_order(3, 11, [9; 32], order).unwrap();
+            let mut transcript = b"bittensor/ms/v2/order".to_vec();
+            ([9_u8; 32], wallet.public_key_bytes(), 3_u64, 11_u64).encode_to(&mut transcript);
+            transcript.extend_from_slice(order);
+            assert!(mldsa::verify_message(
+                &public,
+                &transcript,
+                b"bittensor/ms/v2/order",
+                &signature
+            ));
+            assert!(!mldsa::verify_message(
+                &wallet.mldsa_public_key().unwrap(),
+                &transcript,
+                b"bittensor/ms/v2/order",
+                &signature
+            ));
+            assert!(!mldsa::verify_message(
+                &public,
+                &transcript,
+                b"bittensor/ms/v2/message",
+                &signature
+            ));
+            transcript[21 + 32 + 32 + 8] ^= 1;
+            assert!(!mldsa::verify_message(
+                &public,
+                &transcript,
+                b"bittensor/ms/v2/order",
+                &signature
+            ));
+            assert!(wallet
+                .sign_mldsa_capability(ROLE_ORDER, 3, [9; 32], order)
+                .is_err());
+        }
     }
 
     #[test]
     fn delegated_purpose_keys_bind_the_explicit_composite_owner() {
-        let wallet = Keypair::from_seed(&[7; 32], CRYPTO_MLDSA65).unwrap();
-        let composite = [23; 32];
-        let proof = wallet
-            .sign_mldsa_capability_for(composite, ROLE_MESSAGE, 3, [9; 32], b"body")
-            .unwrap();
-        let commitment = wallet.mldsa_capability_commitment(ROLE_MESSAGE, 3).unwrap();
-        assert!(verify_mldsa_capability(
-            &proof,
-            b"body",
-            &composite,
-            &[9; 32],
-            ROLE_MESSAGE,
-            3,
-            &commitment
-        )
-        .unwrap());
-        assert!(!verify_mldsa_capability(
-            &proof,
-            b"body",
-            &wallet.public_key_bytes(),
-            &[9; 32],
-            ROLE_MESSAGE,
-            3,
-            &commitment
-        )
-        .unwrap());
-        let signature = wallet
-            .sign_mldsa_order_for(composite, 3, 11, [9; 32], b"order")
-            .unwrap();
-        let mut transcript = b"bittensor/ms/v2/order".to_vec();
-        ([9_u8; 32], composite, 3_u64, 11_u64).encode_to(&mut transcript);
-        transcript.extend_from_slice(b"order");
-        assert!(mldsa::verify_message(
-            &wallet.mldsa_capability_public_key(ROLE_ORDER, 3).unwrap(),
-            &transcript,
-            b"bittensor/ms/v2/order",
-            &signature
-        ));
-        transcript[21] ^= 1;
-        assert!(!mldsa::verify_message(
-            &wallet.mldsa_capability_public_key(ROLE_ORDER, 3).unwrap(),
-            &transcript,
-            b"bittensor/ms/v2/order",
-            &signature
-        ));
+        for crypto in [CRYPTO_MLDSA65, CRYPTO_MLDSA65_FIXED] {
+            let wallet = Keypair::from_seed(&[7; 32], crypto).unwrap();
+            let composite = [23; 32];
+            let proof = wallet
+                .sign_mldsa_capability_for(composite, ROLE_MESSAGE, 3, [9; 32], b"body")
+                .unwrap();
+            let commitment = wallet.mldsa_capability_commitment(ROLE_MESSAGE, 3).unwrap();
+            assert!(verify_mldsa_capability(
+                &proof,
+                b"body",
+                &composite,
+                &[9; 32],
+                ROLE_MESSAGE,
+                3,
+                &commitment
+            )
+            .unwrap());
+            assert!(!verify_mldsa_capability(
+                &proof,
+                b"body",
+                &wallet.public_key_bytes(),
+                &[9; 32],
+                ROLE_MESSAGE,
+                3,
+                &commitment
+            )
+            .unwrap());
+            let signature = wallet
+                .sign_mldsa_order_for(composite, 3, 11, [9; 32], b"order")
+                .unwrap();
+            let mut transcript = b"bittensor/ms/v2/order".to_vec();
+            ([9_u8; 32], composite, 3_u64, 11_u64).encode_to(&mut transcript);
+            transcript.extend_from_slice(b"order");
+            assert!(mldsa::verify_message(
+                &wallet.mldsa_capability_public_key(ROLE_ORDER, 3).unwrap(),
+                &transcript,
+                b"bittensor/ms/v2/order",
+                &signature
+            ));
+            transcript[21] ^= 1;
+            assert!(!mldsa::verify_message(
+                &wallet.mldsa_capability_public_key(ROLE_ORDER, 3).unwrap(),
+                &transcript,
+                b"bittensor/ms/v2/order",
+                &signature
+            ));
+        }
     }
 
     #[test]
@@ -966,89 +1023,247 @@ mod tests {
         }
     }
     #[test]
-    fn fixed_profile_is_separate_replay_safe_and_cannot_rotate_or_downgrade() {
-        let fixed = Keypair::from_seed(&[19; 32], CRYPTO_MLDSA65_FIXED).unwrap();
-        let rotating = Keypair::from_seed(&[19; 32], CRYPTO_MLDSA65).unwrap();
-        assert_eq!(fixed.account_type(), "standard");
-        assert_ne!(fixed.public_key_bytes(), rotating.public_key_bytes());
-        assert_ne!(
-            fixed.mldsa_public_key().unwrap(),
-            rotating.mldsa_public_key().unwrap()
-        );
-        assert_ne!(
-            fixed.mldsa_capability_public_key(ROLE_MESSAGE, 0).unwrap(),
-            rotating
-                .mldsa_capability_public_key(ROLE_MESSAGE, 0)
-                .unwrap()
-        );
-        let initial = fixed.mldsa_current_commitment().unwrap();
-        let public = fixed.mldsa_public_key().unwrap();
-        for generation in [0, 1, 9, u64::MAX - 1] {
-            let key = fixed.at_generation(generation).unwrap();
-            assert_eq!(key.mldsa_public_key().unwrap(), public);
-            assert_eq!(key.mldsa_next_commitment().unwrap(), initial);
-            let proof = key.sign_mldsa(b"full call and extensions").unwrap();
+    fn standard_mldsa_creation_uses_a_recoverable_stateless_key_and_ordinary_address() {
+        for value in [0, 1, 7, 19, 42, 255] {
+            let seed = [value; 32];
+            let key = Keypair::from_seed(&seed, CRYPTO_MLDSA65_FIXED).unwrap();
+            assert_eq!(key.mldsa_profile().unwrap(), mldsa::FIXED_ALGORITHM);
+            assert!(mldsa::rejects_legacy_public_keys(&key.public_key_bytes()));
+            assert_eq!(key.hashed_receiving_address().unwrap(), key.ss58_address());
+            assert_eq!(
+                encode_hashed_receiving_address(&key.mldsa_descriptor().unwrap()).unwrap(),
+                key.ss58_address()
+            );
+            let restored = Keypair::from_seed(&seed, CRYPTO_MLDSA65_FIXED).unwrap();
+            assert_eq!(
+                restored.mldsa_descriptor().unwrap(),
+                key.mldsa_descriptor().unwrap()
+            );
+            assert_eq!(
+                restored.mldsa_public_key().unwrap(),
+                key.mldsa_public_key().unwrap()
+            );
+            assert_eq!(key.mldsa_generation().unwrap(), 0);
+            assert!(key.at_generation(1).is_err());
+            assert!(key.at_generation(u64::MAX).is_err());
+            let proof = key
+                .sign_mldsa_with_randomness(b"call/nonce/era/genesis", &[0; 32])
+                .unwrap();
+            let commitment = key.mldsa_current_commitment().unwrap();
+            assert_eq!(key.authorization_next_commitment().unwrap(), commitment);
             assert!(verify_mldsa_authorization(
                 &proof,
-                b"full call and extensions",
-                &fixed.mldsa_descriptor().unwrap(),
-                generation,
-                &initial
-            )
-            .unwrap());
-            assert!(!verify_mldsa_authorization(
-                &proof,
-                b"full call and extensions",
-                &fixed.mldsa_descriptor().unwrap(),
-                generation + 1,
-                &initial
-            )
-            .unwrap());
-            assert!(!verify_mldsa_authorization(
-                &proof,
-                b"full call and extensions",
-                &rotating.mldsa_descriptor().unwrap(),
-                generation,
-                &initial
-            )
-            .unwrap());
-        }
-        assert_ne!(
-            rotating
-                .at_generation(1)
-                .unwrap()
-                .mldsa_public_key()
-                .unwrap(),
-            rotating.mldsa_public_key().unwrap()
-        );
-        let private = fixed.mldsa().unwrap().seed_at(ROLE_TRANSACTION, 0).unwrap();
-        for next_commitment in [[0; 64], [9; 64]] {
-            let header = mldsa::Header {
-                account: fixed.public_key_bytes(),
-                version: 2,
-                algorithm: mldsa::FIXED_ALGORITHM,
-                generation: 0,
-                public_key: public,
-                next_commitment,
-            };
-            let proof = header.sign(&private, b"call", &[0; 32]).unwrap();
-            assert!(proof.verify(b"call"));
-            assert!(!verify_mldsa_authorization(
-                &proof.encode(),
-                b"call",
-                &fixed.mldsa_descriptor().unwrap(),
+                b"call/nonce/era/genesis",
+                &key.mldsa_descriptor().unwrap(),
                 0,
-                &initial
+                &commitment
             )
             .unwrap());
+            assert!(!verify_mldsa_authorization(
+                &proof,
+                b"call/nonce/era/genesis",
+                &key.mldsa_descriptor().unwrap(),
+                1,
+                &commitment
+            )
+            .unwrap());
+            assert!(!verify_mldsa_authorization(
+                &proof,
+                b"other call/nonce/era/genesis",
+                &key.mldsa_descriptor().unwrap(),
+                0,
+                &commitment
+            )
+            .unwrap());
+            let rotating = Keypair::from_seed(&seed, CRYPTO_MLDSA65).unwrap();
+            assert_ne!(key.public_key_bytes(), rotating.public_key_bytes());
+            assert!(!verify_mldsa_authorization(
+                &proof,
+                b"call/nonce/era/genesis",
+                &rotating.mldsa_descriptor().unwrap(),
+                0,
+                &commitment
+            )
+            .unwrap());
+            let watch =
+                Keypair::new(Some(&key.ss58_address()), None, CRYPTO_MLDSA65_FIXED, 42).unwrap();
+            assert_eq!(
+                watch.hashed_receiving_address().unwrap(),
+                key.ss58_address()
+            );
+            assert!(watch.mldsa_profile().is_err()); // Hash bytes cannot identify a profile.
+            assert!(watch.sign_mldsa(b"call").is_err());
+            let descriptor_watch = key.public_only().unwrap();
+            assert_eq!(
+                descriptor_watch.hashed_receiving_address().unwrap(),
+                key.ss58_address()
+            );
+            assert_eq!(
+                descriptor_watch.mldsa_profile().unwrap(),
+                mldsa::FIXED_ALGORITHM
+            );
+            assert!(descriptor_watch.sign_mldsa(b"call").is_err());
+            // Role/epoch derivation is independent of the transaction-key search.
+            assert_ne!(
+                key.mldsa_capability_public_key(ROLE_MESSAGE, 0).unwrap(),
+                key.mldsa_capability_public_key(ROLE_MESSAGE, 1).unwrap()
+            );
+            assert_ne!(
+                key.mldsa_capability_public_key(ROLE_MESSAGE, 0).unwrap(),
+                key.mldsa_public_key().unwrap()
+            );
         }
-        let watch = fixed.public_only().unwrap();
-        assert_eq!(watch.crypto_type(), CRYPTO_MLDSA65_FIXED);
-        assert_eq!(watch.mldsa_commitment(12).unwrap(), initial);
-        assert!(watch.sign_mldsa(b"call").is_err());
-        let receiving =
-            encode_hashed_receiving_address(&fixed.mldsa_descriptor().unwrap()).unwrap();
-        let decoded = decode_hashed_receiving_address(&receiving).unwrap();
-        assert_eq!(decoded, fixed.mldsa_descriptor().unwrap());
+        assert!(MldsaKeypair::stateless_transaction_key(&[7; 32], 0).is_err());
+    }
+
+    #[test]
+    fn fixed_account_derivation_and_recovery_vector_is_stable() {
+        let key = Keypair::from_seed(&[7; 32], CRYPTO_MLDSA65_FIXED).unwrap();
+        assert_eq!(
+            hex::encode(key.public_key_bytes()),
+            "aa4018475de4922453c911cc9b469f6c5b0c85135e77a3db98d8f6fe325064ef"
+        );
+        assert_eq!(hex::encode(key.mldsa_descriptor().unwrap()), "020553f8916ec9b0b73b929d66357198a2ca70b33070e3b740e00c35cfb310c1c03e7c6ec79aaa8fad9714f94504759de1bbe3bf504f81725e0c348466b05996f49b");
+        assert_eq!(
+            key.ss58_address(),
+            "5Fuw396EmC877oPz39aopWXWdEwdJ3KkmYVzpWsDcPTsoy8d"
+        );
+        let index = key.mldsa().unwrap().transaction_index;
+        assert!(index < STATELESS_KEY_SEARCH_LIMIT);
+        // Exhausting before the chosen index must fail closed, rather than
+        // selecting a different identity or returning an unsafe candidate.
+        assert!(MldsaKeypair::stateless_transaction_key(&[7; 32], index).is_err());
+        assert_eq!(
+            MldsaKeypair::stateless_transaction_key(&[7; 32], index + 1).unwrap(),
+            (index, key.mldsa_current_commitment().unwrap())
+        );
+    }
+
+    #[cfg(feature = "host")]
+    #[test]
+    fn every_mldsa_profile_restores_its_recorded_identity_from_seed_and_mnemonic_keyfiles() {
+        use crate::keyfiles::{
+            deserialize_keypair_from_keyfile_data, serialized_keypair_to_keyfile_data,
+        };
+        let phrase = [vec!["abandon"; 23], vec!["art"]].concat().join(" ");
+        for (profile, crypto) in [
+            (mldsa::ALGORITHM, CRYPTO_MLDSA65),
+            (mldsa::FIXED_ALGORITHM, CRYPTO_MLDSA65_FIXED),
+        ] {
+            for key in [
+                Keypair::from_seed(&[7; 32], crypto).unwrap(),
+                Keypair::from_mnemonic(&phrase, crypto, None).unwrap(),
+            ] {
+                for original in [key.public_only().unwrap(), key] {
+                    let serialized = serialized_keypair_to_keyfile_data(&original).unwrap();
+                    let restored = deserialize_keypair_from_keyfile_data(&serialized).unwrap();
+                    assert_eq!(restored.mldsa_profile().unwrap(), profile);
+                    assert_eq!(
+                        restored.mldsa_descriptor().unwrap(),
+                        original.mldsa_descriptor().unwrap()
+                    );
+                    assert_eq!(restored.ss58_address(), original.ss58_address());
+                    if original.private_key_bytes().is_some() {
+                        assert_eq!(
+                            restored.mldsa_public_key().unwrap(),
+                            original.mldsa_public_key().unwrap()
+                        );
+                    }
+                    let mut corrupt: serde_json::Value =
+                        serde_json::from_slice(&serialized).unwrap();
+                    let mut descriptor = original.mldsa_descriptor().unwrap();
+                    descriptor[1] = if profile == mldsa::FIXED_ALGORITHM {
+                        mldsa::ALGORITHM
+                    } else {
+                        mldsa::FIXED_ALGORITHM
+                    };
+                    corrupt["mldsaDescriptor"] =
+                        serde_json::json!(format!("0x{}", hex::encode(descriptor)));
+                    assert!(deserialize_keypair_from_keyfile_data(
+                        &serde_json::to_vec(&corrupt).unwrap()
+                    )
+                    .is_err());
+                }
+            }
+        }
+    }
+
+    #[cfg(feature = "host")]
+    #[test]
+    fn fixed_address_only_watch_keyfiles_restore_without_claiming_private_authority() {
+        use crate::keyfiles::{
+            deserialize_keypair_from_keyfile_data, serialized_keypair_to_keyfile_data,
+        };
+        let wallet = Keypair::from_seed(&[7; 32], CRYPTO_MLDSA65_FIXED).unwrap();
+        let watch =
+            Keypair::new(Some(&wallet.ss58_address()), None, CRYPTO_MLDSA65_FIXED, 42).unwrap();
+        let serialized = serialized_keypair_to_keyfile_data(&watch).unwrap();
+        let mut json: serde_json::Value = serde_json::from_slice(&serialized).unwrap();
+        assert_eq!(json["walletVersion"], 2);
+        assert!(json.get("mldsaDescriptor").is_none());
+        let restored = deserialize_keypair_from_keyfile_data(&serialized).unwrap();
+        assert_eq!(restored.ss58_address(), wallet.ss58_address());
+        assert_eq!(restored.crypto_type(), CRYPTO_MLDSA65_FIXED);
+        assert_eq!(restored.account_type(), "standard");
+        assert_eq!(
+            restored.hashed_receiving_address().unwrap(),
+            wallet.ss58_address()
+        );
+        assert!(restored.private_key_bytes().is_none());
+        assert!(restored.mldsa_descriptor().is_err());
+        assert!(restored.mldsa_profile().is_err());
+        assert!(restored.sign_mldsa(b"call").is_err());
+        json["secretSeed"] = serde_json::json!(format!("0x{}", hex::encode([7; 32])));
+        assert!(
+            deserialize_keypair_from_keyfile_data(&serde_json::to_vec(&json).unwrap()).is_err()
+        );
+    }
+
+    #[cfg(feature = "host")]
+    #[test]
+    fn unsafe_pre_release_fixed_descriptor_cannot_be_reinterpreted_during_recovery() {
+        use crate::keyfiles::{
+            deserialize_keypair_from_keyfile_data, serialized_keypair_to_keyfile_data,
+        };
+        for value in 0u8..=16 {
+            let master = [value; 32];
+            let original_seed = MldsaKeypair::derive_seed_for_profile(
+                &master,
+                mldsa::FIXED_ALGORITHM,
+                ROLE_TRANSACTION,
+                0,
+            )
+            .unwrap();
+            let public_key = mldsa::public_key_from_seed(&original_seed).unwrap();
+            let descriptor = mldsa::Descriptor {
+                version: mldsa::VERSION,
+                algorithm: mldsa::FIXED_ALGORITHM,
+                initial_commitment: mldsa::commitment(&public_key),
+            };
+            let unsafe_account = mldsa::account_id(&descriptor);
+            if mldsa::rejects_legacy_public_keys(&unsafe_account) {
+                continue;
+            }
+            let current = Keypair::from_seed(&master, CRYPTO_MLDSA65_FIXED).unwrap();
+            assert_ne!(current.public_key_bytes(), unsafe_account);
+            assert!(Keypair::from_mldsa_descriptor(&descriptor.encode(), 42).is_err());
+            for key in [current.public_only().unwrap(), current] {
+                let encoded = serialized_keypair_to_keyfile_data(&key).unwrap();
+                let mut json: serde_json::Value = serde_json::from_slice(&encoded).unwrap();
+                json["mldsaDescriptor"] =
+                    serde_json::json!(format!("0x{}", hex::encode(descriptor.encode())));
+                json["ss58Address"] =
+                    serde_json::json!(super::super::ss58_from_public(unsafe_account, 42));
+                for field in ["accountId", "publicKey"] {
+                    json[field] = serde_json::json!(format!("0x{}", hex::encode(unsafe_account)));
+                }
+                assert!(
+                    deserialize_keypair_from_keyfile_data(&serde_json::to_vec(&json).unwrap())
+                        .is_err()
+                );
+            }
+            return;
+        }
+        panic!("test seeds did not contain a legacy-curve account");
     }
 }

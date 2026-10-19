@@ -18,7 +18,7 @@ import pytest
 
 import bittensor as bt
 from bittensor.receiving import receiving_address
-from bittensor.sp_core import MLDSA_CRYPTO_TYPES, Keypair, ss58_decode
+from bittensor.sp_core import Keypair, ss58_decode
 from tests.e2e.test_wallet_types import alice_submission
 from tests.harness.samples import dev_wallet
 
@@ -74,12 +74,10 @@ def free(state):
 def assert_signing_advance(signer, before, after, result):
     count = 2 if result.data.get("shielded") else 1
     assert int(after["account"]["nonce"]) == int(before["account"]["nonce"]) + count
-    if signer.crypto_type in MLDSA_CRYPTO_TYPES:
+    if signer.crypto_type == 7:
         assert after["authority"]["generation"] == before["authority"]["generation"] + count
         assert after["authority"]["descriptor"] == before["authority"]["descriptor"]
-        assert (after["authority"]["commitment"] == before["authority"]["commitment"]) == (
-            signer.crypto_type == 8
-        )
+        assert after["authority"]["commitment"] != before["authority"]["commitment"]
     else:
         assert before["authority"] is after["authority"] is None
 
@@ -134,13 +132,13 @@ async def fund(client, signer, evidence):
     assert result.success and result.block_hash, result.to_dict()
 
 
-@pytest.mark.parametrize("owner_code,delegate_code", [(7, 8), (8, 7)])
+@pytest.mark.parametrize("owner_code,delegate_code", [(7, 7), (8, 7), (8, 8)])
 async def test_proxy_receiving_sponsorship_denial_and_revocation(owner_code, delegate_code):
     """A restricted or revoked delegate cannot move principal funds or reserve setup."""
     owner, delegate, recipient = (
         fresh_key(owner_code),
         fresh_key(delegate_code),
-        fresh_key(delegate_code),
+        fresh_key(7),
     )
     trace = Evidence(f"mldsa-extended-proxy-{owner_code}-{delegate_code}")
     async with bt.Client(ENDPOINT, fallback_endpoints=[], archive_endpoints=[]) as client:
@@ -332,7 +330,7 @@ async def test_proxy_receiving_sponsorship_denial_and_revocation(owner_code, del
 async def test_three_of_four_sr_ed_ms_hashed_ms_receiving_and_all_member_cancellations():
     """Both ML profiles complete a 3-of-4 quorum; all four schemes recover deposits."""
     members = [fresh_key(code) for code in (1, 0, 8, 7)]
-    recipient = fresh_key(8)
+    recipient = fresh_key(7)
     trace = Evidence("mldsa-extended-three-of-four")
     async with bt.Client(ENDPOINT, fallback_endpoints=[], archive_endpoints=[]) as client:
         for signer in members:
@@ -341,28 +339,12 @@ async def test_three_of_four_sr_ed_ms_hashed_ms_receiving_and_all_member_cancell
         canonical = await client.multisig([key.ss58_address for key in members], 3)
         assert group.address == canonical.address
         status = await group.protection_status()
-        assert status["eligible"] and not status["registered"]
-        protection = await group.protection_call(deposit_payer=members[3].ss58_address)
+        # Fixed MS has ordinary, voluntarily delegable authority. One permanently
+        # protected member cannot impose a floor on every 3-of-4 quorum.
+        assert not status["eligible"] and not status["registered"]
         before_protection = await snapshots(client, members)
-        for index in (0, 1, 3):
-            await observe(
-                client,
-                members[index],
-                group.approve(protection, members[index], wait_for_finalization=True),
-                trace,
-                f"protect-composite-approval-{index}",
-            )
-        assert (await group.protection_status())["registered"]
-        protection_record = await client.query(
-            ("HashedAccounts", "DerivedAuthorities"), [group.address]
-        )
-        derived_deposit = int(
-            await client.constant(bt.constants.HashedAccounts.DerivedRegistrationDeposit)
-        )
-        for index, signer in enumerate(members):
-            assert reserved(await snapshot(client, signer)) == reserved(
-                before_protection[signer.ss58_address]
-            ) + (derived_deposit if index == 3 else 0)
+        protection_record = None
+        derived_deposit = 0
         async with alice_submission():
             funded = await client.submit_call(
                 await group.funding_call(10 * 10**9),
@@ -564,7 +546,7 @@ async def test_three_of_four_sr_ed_ms_hashed_ms_receiving_and_all_member_cancell
         # Only the member that signs an included outer transaction advances.
         # These totals also catch a peer's inner composite dispatch accidentally
         # consuming a member's authority or a second approval deposit.
-        for index, (signer, operations) in enumerate(zip(members, (5, 7, 4, 4))):
+        for index, (signer, operations) in enumerate(zip(members, (4, 6, 4, 3))):
             receipts = [
                 item["receipt"] for item in trace.items if item.get("signer") == signer.ss58_address
             ]
@@ -578,7 +560,7 @@ async def test_three_of_four_sr_ed_ms_hashed_ms_receiving_and_all_member_cancell
             assert reserved(final_state) == reserved(initial) + (
                 derived_deposit if index == 3 else deposit if index == 2 else 0
             )
-            if signer.crypto_type in MLDSA_CRYPTO_TYPES:
+            if signer.crypto_type == 7:
                 assert (
                     final_state["authority"]["generation"]
                     == initial["authority"]["generation"] + included

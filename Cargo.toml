@@ -158,7 +158,7 @@ pallet-aura = { git = "https://github.com/RaoFoundation/polkadot-sdk.git", rev =
 pallet-balances = { git = "https://github.com/RaoFoundation/polkadot-sdk.git", rev = "cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a", default-features = false }
 pallet-grandpa = { git = "https://github.com/RaoFoundation/polkadot-sdk.git", rev = "cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a", default-features = false }
 pallet-insecure-randomness-collective-flip = { git = "https://github.com/RaoFoundation/polkadot-sdk.git", rev = "cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a", default-features = false }
-pallet-multisig = { git = "https://github.com/RaoFoundation/polkadot-sdk.git", rev = "cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a", default-features = false }
+pallet-multisig = { path = "pallets/multisig", default-features = false }
 pallet-preimage = { git = "https://github.com/RaoFoundation/polkadot-sdk.git", rev = "cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a", default-features = false }
 pallet-safe-mode = { git = "https://github.com/RaoFoundation/polkadot-sdk.git", rev = "cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a", default-features = false }
 pallet-scheduler = { git = "https://github.com/RaoFoundation/polkadot-sdk.git", rev = "cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a", default-features = false }

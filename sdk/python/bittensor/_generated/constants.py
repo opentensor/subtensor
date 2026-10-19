@@ -146,6 +146,9 @@ class SafeMode:
     ExtendDepositAmount = Item('SafeMode', 'ExtendDepositAmount')
     ReleaseDelay = Item('SafeMode', 'ReleaseDelay')
 
+class EVM:
+    NativeDepositSupported = Item('EVM', 'NativeDepositSupported')
+
 class Drand:
     UnsignedPriority = Item('Drand', 'UnsignedPriority')
     HttpFetchTimeout = Item('Drand', 'HttpFetchTimeout')

@@ -20,7 +20,7 @@ from bittensor.client import Client
 from bittensor.evm.precompiles import encode_call, get_precompile
 from bittensor.hashed import descriptor_storage, descriptor_value
 from bittensor.receiving import account_for_registered_write, receiving_address
-from bittensor.sp_core import REGISTERED_CRYPTO_TYPES, Keypair
+from bittensor.sp_core import Keypair, requires_registration
 from bittensor.wallet import Wallet
 from tests.harness.fake_substrate import FakeSubstrate
 from tests.harness.receiving import descriptor_receiving_address
@@ -46,7 +46,7 @@ def wallet_case(request, tmp_path, monkeypatch):
     substrate.seed_constant("HashedAccounts", "RegistrationDeposit", 200_000_000)
     for role in ("coldkey", "hotkey"):
         key = getattr(wallet, role)
-        if request.param in REGISTERED_CRYPTO_TYPES:
+        if requires_registration(key):
             substrate.seed(
                 "HashedAccounts",
                 descriptor_storage(bytes(key.hashed_descriptor)),
@@ -98,9 +98,7 @@ def test_evm_commands_encode_all_wallet_types(wallet_case, command, reference):
         "contact": "friend",
         "address": address,
         "independent": (
-            descriptor_receiving_address(key)
-            if key.crypto_type in REGISTERED_CRYPTO_TYPES
-            else address
+            descriptor_receiving_address(key) if requires_registration(key) else address
         ),
     }
     if reference != "default":
@@ -118,7 +116,7 @@ def test_evm_commands_encode_all_wallet_types(wallet_case, command, reference):
         if c.args[:2]
         == ("HashedAccounts", "MlDsaAccounts" if key.crypto_type in (7, 8) else "Accounts")
     ]
-    if key.crypto_type in REGISTERED_CRYPTO_TYPES:
+    if requires_registration(key):
         assert len(queries) == 1
         assert queries[0].kwargs["block_hash"] == f"0x{substrate.finalized:064x}"
     else:
@@ -127,7 +125,7 @@ def test_evm_commands_encode_all_wallet_types(wallet_case, command, reference):
 
 @pytest.mark.parametrize("command", COMMANDS)
 @pytest.mark.parametrize(
-    "wallet_case", [4, 6, 7, 8], indirect=True, ids=["hashed", "hashed-ed", "hashed-ms", "ms"]
+    "wallet_case", [4, 6, 7], indirect=True, ids=["hashed", "hashed-ed", "hashed-ms"]
 )
 @pytest.mark.parametrize("failure", ["unfinalized", "mismatch", "rpc_override", "no_finality"])
 def test_protected_commands_fail_before_evm_submission(wallet_case, command, failure):
@@ -212,7 +210,7 @@ def test_generic_views_resolve_descriptor_addresses_without_registration(wallet_
     assert _native_arguments(ctx, fn, [json.dumps([address])], None) == [
         [wallet.hotkey.ss58_address]
     ]
-    if wallet.hotkey.crypto_type in REGISTERED_CRYPTO_TYPES:
+    if requires_registration(wallet.hotkey):
         assert _native_arguments(
             ctx,
             fn,
@@ -223,7 +221,7 @@ def test_generic_views_resolve_descriptor_addresses_without_registration(wallet_
 
 
 @pytest.mark.parametrize(
-    "wallet_case", [4, 6, 7, 8], indirect=True, ids=["hashed", "hashed-ed", "hashed-ms", "ms"]
+    "wallet_case", [4, 6, 7], indirect=True, ids=["hashed", "hashed-ed", "hashed-ms"]
 )
 def test_generic_writes_require_registration_for_every_array_member(wallet_case):
     wallet, substrate, _, _ = wallet_case
@@ -246,7 +244,7 @@ def test_generic_writes_require_registration_for_every_array_member(wallet_case)
 
 
 @pytest.mark.parametrize(
-    "wallet_case", [4, 6, 7, 8], indirect=True, ids=["hashed", "hashed-ed", "hashed-ms", "ms"]
+    "wallet_case", [4, 6, 7], indirect=True, ids=["hashed", "hashed-ed", "hashed-ms"]
 )
 def test_generic_precompile_write_rejects_unregistered_recipient(wallet_case):
     wallet, substrate, captured, prefix = wallet_case
@@ -263,6 +261,19 @@ def test_generic_precompile_write_rejects_unregistered_recipient(wallet_case):
     assert result.exit_code != 0
     assert "not finalized" in result.output
     assert not captured
+
+
+@pytest.mark.parametrize("wallet_case", [8], indirect=True)
+def test_fixed_ss58_evm_write_needs_no_registration_or_runtime_query(wallet_case):
+    wallet, substrate, _, _ = wallet_case
+    ctx = AppContext(
+        "local", "recipient", "default", str(wallet.path), True, False, Output(json_mode=True)
+    )
+    fn = {"inputs": [{"type": "bytes32[]"}], "stateMutability": "nonpayable"}
+    assert _native_arguments(
+        ctx, fn, [json.dumps([wallet.hotkey.ss58_address])], "http://127.0.0.1:9999"
+    ) == [[wallet.hotkey.ss58_address]]
+    substrate.query.assert_not_called()
 
 
 def test_pubkey_command_accepts_complete_receiving_address(wallet_case):

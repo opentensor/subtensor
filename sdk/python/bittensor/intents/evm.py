@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from typing import Any, ClassVar
 
 from .._generated import storage as st
+from .._generated.calls import Call
 from .._pinned import approved_amount, compose_pinned_call
 from ..evm.addresses import (
     h160_to_ss58,
@@ -33,19 +34,20 @@ class FundEvmKey(Intent):
 
     An ordinary EVM account's native balance lives at its legacy ss58 mirror.
     Registered hashed aliases instead share their full native account's balance.
-    This intent resolves the chain's active mapping and transfers TAO to it;
+    On supported runtimes the transaction resolves the active mapping during
+    execution, so an alias change cannot redirect funds to an obsolete mirror;
     the funds then appear as the EVM account's balance
     in MetaMask or any Ethereum tool (displayed with 18 decimals there:
     1 TAO = 1e18). Like any transfer this is irreversible, so double-check
     the address. Protected aliases require their native hashed authorization.
-    When hashed aliases are enabled, native funding of unprotected aliases is
+    On older runtimes, when hashed aliases are enabled, native funding of unprotected aliases is
     refused: their mapping cannot be guarded against a concurrent registration.
     Send to those H160 addresses from an EVM wallet instead.
     """
 
     op = "fund_evm_key"
     signer = "coldkey"
-    wraps = (("Balances", "transfer_keep_alive"),)
+    wraps = (("Balances", "transfer_keep_alive"), ("EVM", "deposit"))
     all_amount_fields: ClassVar[tuple[str, ...]] = ("amount_tao",)
 
     evm_address: str = field(metadata={"help": "EVM address to fund, as 0x-prefixed h160 hex."})
@@ -64,6 +66,17 @@ class FundEvmKey(Intent):
         from ..hashed import prepare_recipient_intent, with_recipient_registration
         from .transfer import Transfer
 
+        if await substrate.constant("EVM", "NativeDepositSupported") is True:
+            return await substrate.compose(
+                Call(
+                    "EVM",
+                    "deposit",
+                    {
+                        "address": self.evm_address,
+                        "value": None if self.amount_tao == ALL else self.amount_tao.rao,
+                    },
+                )
+            )
         recipient = await resolve_evm_funding_recipient(substrate, self.evm_address)
         transfer = Transfer(dest_ss58=recipient.address, amount_tao=self.amount_tao)
         prepared, recipients = await prepare_recipient_intent(substrate, transfer)
@@ -78,6 +91,8 @@ class FundEvmKey(Intent):
         return f"fund EVM address {self.evm_address} with {amount}"
 
     async def effects(self, substrate, signer_address: str) -> list[str]:
+        if await substrate.constant("EVM", "NativeDepositSupported") is True:
+            return [self.summary()]
         recipient = await resolve_evm_funding_recipient(substrate, self.evm_address)
         return [f"{self.summary()} (native receiving address {recipient.address})"]
 

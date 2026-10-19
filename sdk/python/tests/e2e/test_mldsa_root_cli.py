@@ -151,6 +151,12 @@ async def test_root_cli_moves_selected_ms_wallet_without_touching_configured_wal
         result = json.loads(output)
         assert result["success"] and result["block_hash"] and result["extrinsic_id"], result
         height, index = map(int, result["extrinsic_id"].split("-"))
+        # Rotating signers wait for finalized authority; fixed MS follows the
+        # ordinary wallet CLI behavior and returns once its call is included.
+        if code == 8:
+            async with asyncio.timeout(120):
+                while await client._substrate.finalized_block_number() < height:
+                    await asyncio.sleep(1)
         assert await client._substrate.finalized_block_number() >= height
         assert await client._substrate.block_hash(height) == result["block_hash"]
         events = [
@@ -165,10 +171,13 @@ async def test_root_cli_moves_selected_ms_wallet_without_touching_configured_wal
         assert after["configured_stake"] == before["configured_stake"]
         assert after["selected_stake"] == {destination.ss58_address: 7 * 10**9}
         assert after["selected"]["account"]["nonce"] == before["selected"]["account"]["nonce"] + 1
-        assert (
-            after["selected"]["authority"]["generation"]
-            == before["selected"]["authority"]["generation"] + 1
-        )
+        if code == 7:
+            assert (
+                after["selected"]["authority"]["generation"]
+                == before["selected"]["authority"]["generation"] + 1
+            )
+        else:
+            assert before["selected"]["authority"] is after["selected"]["authority"] is None
         report.add(
             "claim and move ALL use selected B and preserve configured A",
             selector=selector,

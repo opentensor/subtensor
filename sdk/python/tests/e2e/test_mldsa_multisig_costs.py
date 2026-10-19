@@ -1,4 +1,4 @@
-"""Opening a protected multisig must budget its deposit plus both Shield fees."""
+"""Opening an MS multisig must budget its deposit plus both Shield fees."""
 
 from __future__ import annotations
 
@@ -34,8 +34,8 @@ pytestmark = [
 
 
 @pytest.mark.parametrize("code", [7, 8])
-async def test_protected_multisig_opening_budgets_deposit_and_both_shield_fees(code):
-    opener, peer = fresh_key(code), fresh_key(8 if code == 7 else 7)
+async def test_ms_multisig_opening_budgets_deposit_and_both_shield_fees(code):
+    opener, peer = fresh_key(code), fresh_key(code)
     report = Evidence(f"release-multisig-combined-opening-cost-{code}")
     async with (
         asyncio.timeout(1500),
@@ -45,18 +45,24 @@ async def test_protected_multisig_opening_budgets_deposit_and_both_shield_fees(c
         for signer in (opener, peer):
             await fund(client, report, signer)
         group = await client.multisig([opener.ss58_address, peer.ss58_address], 2)
-        protection = await group.protection_call(deposit_payer=peer.ss58_address)
-        for signer in (opener, peer):
-            result = await group.approve(
-                protection, signer, shielded=False, wait_for_finalization=True
-            )
-            await observe(client, report, "quorum establishes protected multisig", result)
-        assert (await group.protection_status())["registered"]
+        if code == 7:
+            protection = await group.protection_call(deposit_payer=peer.ss58_address)
+            for signer in (opener, peer):
+                result = await group.approve(
+                    protection, signer, shielded=False, wait_for_finalization=True
+                )
+                await observe(client, report, "quorum establishes protected multisig", result)
+            assert (await group.protection_status())["registered"]
+        else:
+            status = await group.protection_status()
+            assert not status["eligible"] and not status["registered"]
+            for signer in (opener, peer):
+                assert (await snapshot(client, signer))["authority"] is None
         async with alice_submission():
             result = await client.submit_call(
                 await group.funding_call(5 * 10**9), dev_wallet(), wait_for_finalization=True
             )
-        await observe(client, report, "fund protected multisig", result)
+        await observe(client, report, "fund multisig under its authority policy", result)
         destination = dev_wallet().coldkey.ss58_address
         transfer = bt.intents.Transfer(destination, 1)
         intent = bt.intents.MultisigExecute(
@@ -182,4 +188,4 @@ async def test_protected_multisig_opening_budgets_deposit_and_both_shield_fees(c
         assert final["group"] == before["group"]
         assert final["peer"] == before["peer"]
         assert final["protection"] == before["protection"]
-        report.add("no inner payment executed; permanent group protection retained", state=final)
+        report.add("no inner payment executed; group authority policy unchanged", state=final)

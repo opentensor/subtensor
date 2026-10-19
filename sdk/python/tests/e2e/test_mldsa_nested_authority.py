@@ -1,4 +1,4 @@
-"""Protected multisig and proxy composition on an activated disposable chain."""
+"""Ordinary and protected multisig/proxy composition on a disposable chain."""
 
 from __future__ import annotations
 
@@ -8,7 +8,9 @@ import pytest
 
 import bittensor as bt
 from bittensor.receiving import receiving_address
+from bittensor.sp_core import requires_registration
 from tests.e2e.test_mldsa_extended import Evidence, account, fresh_key, snapshot
+from tests.e2e.test_wallet_types import alice_submission
 from tests.harness.samples import dev_wallet
 
 ENDPOINT = os.getenv("E2E_WALLET_ENDPOINT")
@@ -18,10 +20,11 @@ pytestmark = [
 ]
 
 
-async def test_protected_multisig_as_proxy_and_proxy_for_multisig():
-    members = [fresh_key(code) for code in (7, 8)]
-    principal, recipient = fresh_key(8), fresh_key(7)
-    trace = Evidence("mldsa-nested-multisig-proxy")
+@pytest.mark.parametrize("protected", [True, False], ids=["rotating-protected", "fixed-ordinary"])
+async def test_multisig_as_proxy_and_proxy_for_multisig(protected):
+    members = [fresh_key(code) for code in ((7, 8) if protected else (8, 1))]
+    principal, recipient = [fresh_key(7 if protected else 8) for _ in range(2)]
+    trace = Evidence(f"mldsa-nested-multisig-proxy-{protected}")
     async with bt.Client(ENDPOINT, fallback_endpoints=[], archive_endpoints=[]) as client:
         cap = bt.Balance.from_rao(
             int(await client.constant(bt.constants.HashedAccounts.MlDsaRegistrationDeposit))
@@ -34,15 +37,21 @@ async def test_protected_multisig_as_proxy_and_proxy_for_multisig():
             return result
 
         for signer in (*members, principal, recipient):
-            await accepted(
-                client.execute(
-                    bt.intents.Transfer(receiving_address(signer), 100),
-                    dev_wallet("//Eve"),
-                    max_registration_deposit=cap,
-                    wait_for_finalization=True,
-                ),
-                "fund-and-register",
-            )
+            register = requires_registration(signer)
+            async with alice_submission():
+                await accepted(
+                    client.execute(
+                        bt.intents.Transfer(
+                            receiving_address(signer) if register else signer.ss58_address, 100
+                        ),
+                        dev_wallet(),
+                        max_registration_deposit=cap if register else None,
+                        wait_for_finalization=True,
+                    ),
+                    "fund-and-register" if register else "fund-ordinary-ss58",
+                )
+            if not register:
+                assert (await snapshot(client, signer))["authority"] is None
         group = await client.multisig([receiving_address(key) for key in members], 2)
 
         async def quorum(call, label, *, success=True):
@@ -56,34 +65,43 @@ async def test_protected_multisig_as_proxy_and_proxy_for_multisig():
             after = [await snapshot(client, key) for key in members]
             for old, new, count in zip(before, after, signed_counts):
                 assert new["account"]["nonce"] == old["account"]["nonce"] + count
-                assert new["authority"]["generation"] == old["authority"]["generation"] + count
+                if old["authority"] is None:
+                    assert new["authority"] is None
+                else:
+                    assert new["authority"]["generation"] == old["authority"]["generation"] + count
             assert (
                 after[0]["account"]["data"]["reserved"] == before[0]["account"]["data"]["reserved"]
             )
             return result
 
-        await quorum(
-            await group.protection_call(deposit_payer=members[1].ss58_address), "protect-group"
-        )
-        assert (await group.protection_status())["registered"]
-        protected = await client.query(("HashedAccounts", "DerivedAuthorities"), [group.address])
-        await accepted(
-            client.execute(
-                bt.intents.Transfer(group.address, 20),
-                dev_wallet("//Eve"),
-                wait_for_finalization=True,
-            ),
-            "fund-group",
-        )
+        if protected:
+            await quorum(
+                await group.protection_call(deposit_payer=members[1].ss58_address), "protect-group"
+            )
+            assert (await group.protection_status())["registered"]
+        else:
+            status = await group.protection_status()
+            assert not status["eligible"] and not status["registered"]
+        authority = await client.query(("HashedAccounts", "DerivedAuthorities"), [group.address])
+        assert bool(authority) is protected
+        async with alice_submission():
+            await accepted(
+                client.execute(
+                    bt.intents.Transfer(group.address, 20),
+                    dev_wallet(),
+                    wait_for_finalization=True,
+                ),
+                "fund-group",
+            )
 
-        # The PQ multisig is itself the proxy delegate of a fixed MS principal.
+        # Both an opted-in PQ group and an ordinary mixed group can be delegates.
         await accepted(
             client.submit_call(
                 bt.calls.Proxy.add_proxy(delegate=group.address, proxy_type="Any", delay=0),
                 principal,
                 wait_for_finalization=True,
             ),
-            "grant-protected-group-proxy",
+            "grant-group-proxy",
         )
         transfer = await client.compose(
             bt.calls.Balances.transfer_keep_alive(dest=recipient.ss58_address, value=10**9)
@@ -104,7 +122,7 @@ async def test_protected_multisig_as_proxy_and_proxy_for_multisig():
             before_recipient["account"]["data"]["free"] + 10**9
         )
 
-        # Conversely, an MS delegate can spend from the protected multisig.
+        # Conversely, an MS delegate can spend under the group's authority policy.
         await quorum(
             bt.calls.Proxy.add_proxy(delegate=principal.ss58_address, proxy_type="Any", delay=0),
             "group-grants-ms-delegate",
@@ -118,7 +136,7 @@ async def test_protected_multisig_as_proxy_and_proxy_for_multisig():
                 proxy_type="Any",
                 wait_for_finalization=True,
             ),
-            "ms-proxies-for-protected-group",
+            "ms-proxies-for-group",
         )
         after_group = await account(client, group.address)
         assert after_group["data"]["free"] == before_group["data"]["free"] - 10**9
@@ -140,5 +158,5 @@ async def test_protected_multisig_as_proxy_and_proxy_for_multisig():
         assert await snapshot(client, principal) == before_principal
         assert await snapshot(client, recipient) == before_recipient
         assert await client.query(("HashedAccounts", "DerivedAuthorities"), [group.address]) == (
-            protected
+            authority
         )

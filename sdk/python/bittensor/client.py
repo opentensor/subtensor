@@ -470,9 +470,11 @@ class Client:
         )
 
     async def estimate_shielded_carrier_fee(
-        self, fee_payer: str, call: Any, *, period: int = MEV_SHIELD_ERA_PERIOD
+        self, fee_payer: Any, call: Any, *, period: int = MEV_SHIELD_ERA_PERIOD
     ) -> Balance:
-        """Quote a carrier for a composed call (for example, ``plan.call``), without signing."""
+        """Quote a carrier without signing. Pass a public keypair for standard MS;
+        a bare SS58 cannot identify its signing scheme and uses the classical fallback.
+        """
         return await estimate_shielded_carrier_fee(self._substrate, fee_payer, call, period=period)
 
     async def plan(self, intent: Intent, wallet: WalletLike, **kwargs) -> Plan:
@@ -589,21 +591,27 @@ class Client:
         view = _AddressView(address)
         return await self._substrate.estimate_weight(call, view)
 
-    async def multisig(self, signatories: list[str], threshold: int) -> Multisig:
+    async def multisig(
+        self, signatories: list[str], threshold: int, *, account_mode="legacy"
+    ) -> Multisig:
         """A handle to the M-of-N multisig account for a signer set.
 
-        The address is derived deterministically from the signatory *set* and
-        ``threshold`` against the connected runtime. Have each signatory call
+        ``account_mode="legacy"`` preserves existing Substrate addresses.
+        Choose ``"safe"`` for a new off-curve composite account; its quorum
+        determines the signing security. Have each signatory call
         ``approve(call, wallet)`` on the returned object; the one that reaches the
         threshold executes the call.
         """
-        account = self._substrate.multisig_account(signatories, threshold)
+        account = self._substrate.multisig_account(
+            signatories, threshold, account_mode=account_mode
+        )
         return Multisig(
             signatories=list(account.signatories),
             threshold=threshold,
             address=account.ss58_address,
             _client=self,
             _account=account,
+            account_mode=account_mode,
         )
 
     def tools(self) -> list[dict]:

@@ -18,7 +18,7 @@ use zeroize::{Zeroize, Zeroizing};
 
 use crate::error::CoreError;
 use crate::keys::{
-    ensure_sodium, is_mldsa_crypto, is_registered_crypto, Keypair, CRYPTO_ED25519, CRYPTO_SR25519,
+    ensure_sodium, is_hashed_crypto, is_mldsa_crypto, Keypair, CRYPTO_ED25519, CRYPTO_SR25519,
 };
 
 const NACL_SALT: &[u8] = b"\x13q\x83\xdf\xf1Z\t\xbc\x9c\x90\xb5Q\x879\xe9\xb1";
@@ -206,7 +206,7 @@ pub fn serialized_keypair_to_keyfile_data(keypair: &Keypair) -> Result<Vec<u8>, 
     data.insert("cryptoType", json!(keypair.crypto_type()));
     data.insert("accountType", json!(keypair.account_type()));
     data.insert("signingScheme", json!(keypair.signing_scheme()));
-    if is_registered_crypto(keypair.crypto_type()) {
+    if is_hashed_crypto(keypair.crypto_type()) || is_mldsa_crypto(keypair.crypto_type()) {
         let field = if is_mldsa_crypto(keypair.crypto_type()) {
             data.insert("walletVersion", json!(2));
             "mldsaDescriptor"
@@ -216,8 +216,8 @@ pub fn serialized_keypair_to_keyfile_data(keypair: &Keypair) -> Result<Vec<u8>, 
         if let Ok(descriptor) = keypair.authorization_descriptor() {
             data.insert(field, json!(format!("0x{}", hex::encode(descriptor))));
         }
-        // A persisted generation would be stale after use on another machine.
-        // Restore the genesis identity here; always select state from chain.
+        // A persisted rotating generation would be stale after use on another
+        // machine. Restore the identity; select rotating authority from chain.
     }
 
     serde_json::to_string(&data)
@@ -442,14 +442,14 @@ pub fn deserialize_keypair_from_keyfile_data(keyfile_data: &[u8]) -> Result<Keyp
         })
         .unwrap_or(CRYPTO_SR25519);
 
-    if is_registered_crypto(crypto_type) {
+    if is_hashed_crypto(crypto_type) || is_mldsa_crypto(crypto_type) {
         return deserialize_hashed(&keyfile_dict, crypto_type);
     }
     if keyfile_dict.get("hashedDescriptor").is_some()
         || keyfile_dict.get("mldsaDescriptor").is_some()
     {
         return Err(key_err(
-            "hashedDescriptor requires a registered-account cryptoType",
+            "wallet descriptors require a hashed or ML-DSA cryptoType",
         ));
     }
 

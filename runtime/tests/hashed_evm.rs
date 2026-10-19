@@ -1155,3 +1155,235 @@ mod precompile_mapping_budget {
         });
     }
 }
+
+mod native_origin_metering {
+    use super::*;
+    use frame_support::{
+        dispatch::{DispatchExtension, Pays, extract_actual_weight},
+        storage::{TransactionOutcome, with_transaction_unchecked},
+        weights::Weight,
+    };
+    use pallet_evm::GasWeightMapping;
+    use sp_runtime::traits::Dispatchable;
+
+    fn call(kind: u8, source: H160, gas_limit: u64) -> RuntimeCall {
+        let max_fee_per_gas = <Runtime as pallet_evm::Config>::FeeCalculator::min_gas_price().0;
+        RuntimeCall::EVM(match kind {
+            0 => pallet_evm::Call::call {
+                source,
+                target: H160::repeat_byte(211),
+                input: Vec::new(),
+                value: U256::zero(),
+                gas_limit,
+                max_fee_per_gas,
+                max_priority_fee_per_gas: None,
+                nonce: None,
+                access_list: Vec::new(),
+                authorization_list: Vec::new(),
+            },
+            1 => pallet_evm::Call::create {
+                source,
+                init: Vec::new(),
+                value: U256::zero(),
+                gas_limit,
+                max_fee_per_gas,
+                max_priority_fee_per_gas: None,
+                nonce: None,
+                access_list: Vec::new(),
+                authorization_list: Vec::new(),
+            },
+            _ => pallet_evm::Call::create2 {
+                source,
+                init: Vec::new(),
+                salt: H256::zero(),
+                value: U256::zero(),
+                gas_limit,
+                max_fee_per_gas,
+                max_priority_fee_per_gas: None,
+                nonce: None,
+                access_list: Vec::new(),
+                authorization_list: Vec::new(),
+            },
+        })
+    }
+
+    #[test]
+    fn zero_gas_bad_origins_and_force_batch_retain_every_alias_read() {
+        ext().execute_with(|| {
+            let signer = AccountId32::new([210; 32]);
+            let cost = Mapping::extra_read_weight();
+            assert!(cost.ref_time() > 0 && cost.proof_size() > 0);
+            let mut calls = Vec::new();
+            let mut child_weight = Weight::zero();
+            for byte in 1..=8 {
+                let source = H160::repeat_byte(byte);
+                // Both existing and absent aliases require the lookup, with new
+                // registrations disabled in this production-runtime fixture.
+                if byte % 2 == 0 {
+                    bind(source);
+                }
+                for kind in 0..3 {
+                    let call = call(kind, source, 0);
+                    let info = call.get_dispatch_info();
+                    let RuntimeCall::EVM(inner) = &call else { unreachable!() };
+                    assert_eq!(inner.get_dispatch_info().call_weight, cost);
+                    let extension = <<Runtime as frame_system::Config>::DispatchExtension as DispatchExtension<RuntimeCall>>::weight(&call);
+                    let expected = cost.saturating_add(extension);
+                    assert_eq!(info.call_weight, expected);
+                    let result = call.clone().dispatch(RuntimeOrigin::signed(signer.clone()));
+                    assert_eq!(result.unwrap_err().error, DispatchError::BadOrigin);
+                    assert_eq!(extract_actual_weight(&result, &info), expected);
+                    child_weight = child_weight.saturating_add(expected);
+                    calls.push(call);
+                }
+            }
+            let count = calls.len() as u32;
+            let batch = RuntimeCall::Utility(pallet_subtensor_utility::Call::force_batch { calls });
+            let info = batch.get_dispatch_info();
+            let overhead = <<Runtime as pallet_subtensor_utility::Config>::WeightInfo as pallet_subtensor_utility::weights::WeightInfo>::force_batch(count);
+            let expected = overhead.saturating_add(child_weight);
+            let extension = <<Runtime as frame_system::Config>::DispatchExtension as DispatchExtension<RuntimeCall>>::weight(&batch);
+            assert_eq!(info.call_weight, expected.saturating_add(extension));
+            let result = batch.dispatch(RuntimeOrigin::signed(signer));
+            assert_ok!(result);
+            assert_eq!(extract_actual_weight(&result, &info), expected);
+            let rejected = System::events()
+                .iter()
+                .filter(|record| matches!(record.event,
+                    node_subtensor_runtime::RuntimeEvent::Utility(pallet_subtensor_utility::Event::ItemFailed { error: DispatchError::BadOrigin })
+                ))
+                .count();
+            assert_eq!(rejected, count as usize);
+        });
+    }
+
+    #[test]
+    fn zero_gas_valid_origins_keep_the_read_when_runner_rejects() {
+        ext().execute_with(|| {
+            let signer = AccountId32::new([212; 32]);
+            let source = H160::repeat_byte(212);
+            let cost = Mapping::extra_read_weight();
+            for kind in 0..3 {
+                let call = call(kind, source, 0);
+                let info = call.get_dispatch_info();
+                let error = call
+                    .dispatch(RuntimeOrigin::signed(signer.clone()))
+                    .unwrap_err();
+                assert_eq!(
+                    error.error,
+                    pallet_evm::Error::<Runtime>::GasLimitTooLow.into()
+                );
+                assert_eq!(error.post_info.pays_fee, Pays::Yes);
+                // The runner's zero-weight admission error must not refund
+                // the preceding native origin read.
+                assert_eq!(error.post_info.actual_weight, Some(cost));
+                assert_eq!(extract_actual_weight(&Err(error), &info), cost);
+            }
+        });
+    }
+
+    fn runner_weight<R>(info: fp_evm::ExecutionInfoV2<R>) -> Weight {
+        assert!(info.exit_reason.is_succeed());
+        let mut weight = <Runtime as pallet_evm::Config>::GasWeightMapping::gas_to_weight(
+            info.used_gas.effective.low_u64(),
+            true,
+        );
+        if let Some(proof) = info.weight_info.and_then(|weight| weight.proof_size_usage) {
+            *weight.proof_size_mut() = proof;
+        }
+        weight
+    }
+
+    #[test]
+    fn successful_native_calls_retain_origin_weight_after_gas_refunds() {
+        for kind in 0..3 {
+            ext().execute_with(|| {
+                let signer = AccountId32::new([213; 32]);
+                let source = H160::repeat_byte(213);
+                fund(&Mapping::into_account_id(source));
+                pallet_evm::DisableWhitelistCheck::<Runtime>::put(true);
+                let gas = 1_000_000;
+                let price = Some(<Runtime as pallet_evm::Config>::FeeCalculator::min_gas_price().0);
+                let config = <Runtime as pallet_evm::Config>::config();
+                // Run the same EVM operation without the native origin adapter,
+                // then roll back its effects before testing native dispatch.
+                let baseline = with_transaction_unchecked(|| {
+                    let weight = match kind {
+                        0 => runner_weight(
+                            EvmRunner::call(
+                                source,
+                                H160::repeat_byte(211),
+                                Vec::new(),
+                                U256::zero(),
+                                gas,
+                                price,
+                                None,
+                                None,
+                                Vec::new(),
+                                Vec::new(),
+                                true,
+                                true,
+                                None,
+                                None,
+                                config,
+                            )
+                            .unwrap(),
+                        ),
+                        1 => runner_weight(
+                            EvmRunner::create(
+                                source,
+                                Vec::new(),
+                                U256::zero(),
+                                gas,
+                                price,
+                                None,
+                                None,
+                                Vec::new(),
+                                Vec::new(),
+                                true,
+                                Vec::new(),
+                                true,
+                                true,
+                                None,
+                                None,
+                                config,
+                            )
+                            .unwrap(),
+                        ),
+                        _ => runner_weight(
+                            EvmRunner::create2(
+                                source,
+                                Vec::new(),
+                                H256::zero(),
+                                U256::zero(),
+                                gas,
+                                price,
+                                None,
+                                None,
+                                Vec::new(),
+                                Vec::new(),
+                                true,
+                                Vec::new(),
+                                true,
+                                true,
+                                None,
+                                None,
+                                config,
+                            )
+                            .unwrap(),
+                        ),
+                    };
+                    TransactionOutcome::Rollback(weight)
+                });
+                let call = call(kind, source, gas);
+                let declared = call.get_dispatch_info().call_weight;
+                let result = call.dispatch(RuntimeOrigin::signed(signer)).unwrap();
+                let expected = baseline.saturating_add(Mapping::extra_read_weight());
+                assert_eq!(result.actual_weight, Some(expected));
+                assert!(expected.all_lte(declared));
+                assert!(expected.ref_time() < declared.ref_time());
+                assert_eq!(result.pays_fee, Pays::No);
+            });
+        }
+    }
+}

@@ -242,6 +242,7 @@ call_filter_group!(
     [
         RuntimeCall::Utility(UtilityCall::batch),
         RuntimeCall::Utility(UtilityCall::as_derivative),
+        RuntimeCall::Utility(UtilityCall::as_safe_derivative),
         RuntimeCall::Utility(UtilityCall::batch_all),
         RuntimeCall::Utility(UtilityCall::dispatch_as),
         RuntimeCall::Utility(UtilityCall::force_batch),
@@ -270,6 +271,11 @@ call_filter_group!(
         RuntimeCall::Multisig(MultisigCall::approve_as_multi),
         RuntimeCall::Multisig(MultisigCall::cancel_as_multi),
         RuntimeCall::Multisig(MultisigCall::poke_deposit),
+        RuntimeCall::Multisig(MultisigCall::as_multi_threshold_1_safe),
+        RuntimeCall::Multisig(MultisigCall::as_multi_safe),
+        RuntimeCall::Multisig(MultisigCall::approve_as_multi_safe),
+        RuntimeCall::Multisig(MultisigCall::cancel_as_multi_safe),
+        RuntimeCall::Multisig(MultisigCall::poke_deposit_safe),
     ]
 );
 
@@ -309,6 +315,8 @@ call_filter_group!(
         RuntimeCall::Proxy(ProxyCall::remove_proxies),
         RuntimeCall::Proxy(ProxyCall::create_pure),
         RuntimeCall::Proxy(ProxyCall::kill_pure),
+        RuntimeCall::Proxy(ProxyCall::create_safe_pure),
+        RuntimeCall::Proxy(ProxyCall::kill_safe_pure),
         RuntimeCall::Proxy(ProxyCall::announce),
         RuntimeCall::Proxy(ProxyCall::remove_announcement),
         RuntimeCall::Proxy(ProxyCall::reject_announcement),
@@ -326,13 +334,14 @@ call_filter_group!(
     ]
 );
 
-// Ordinary balance transfers — moving your own free balance.
+// Ordinary balance transfers, including funding an EVM address without executing code.
 call_filter_group!(
     BalanceTransferCalls,
     [
         RuntimeCall::Balances(BalancesCall::transfer_keep_alive),
         RuntimeCall::Balances(BalancesCall::transfer_allow_death),
         RuntimeCall::Balances(BalancesCall::transfer_all),
+        RuntimeCall::EVM(EvmCall::deposit),
     ]
 );
 

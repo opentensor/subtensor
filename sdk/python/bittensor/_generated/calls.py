@@ -649,6 +649,11 @@ class Utility:
         return Call('Utility', 'as_protected_derivative', {'index': index, 'call': call})
 
     @staticmethod
+    def as_safe_derivative(index: 'u16', call: 'RuntimeCall') -> Call:
+        "Dispatch from a full-width off-curve derivative account.  This uses a separate address domain and preserves the incoming origin's call filters. It requires no registration or protection deposit; the parent's authorization and explicit delegations remain authoritative."
+        return Call('Utility', 'as_safe_derivative', {'index': index, 'call': call})
+
+    @staticmethod
     def batch(calls: 'Any') -> Call:
         'Send a batch of dispatch calls.  May be called from any origin except `None`.  - `calls`: The calls to be dispatched from the same origin. The number of call must not exceed the constant: `batched_calls_limit` (available in constant metadata).  If origin is root then the calls are dispatched without checking origin filter. (This includes bypassing `frame_system::Config::BaseCallFilter`).  ## Complexity - O(C) where C is the number of calls to be batched.  This will return `Ok` in all circumstances. To determine the success of the batch, an event is deposited. If a call failed and the batch was interrupted, then the `BatchInterrupted` event is deposited, along with the number of successful calls made and the error of the failed call. If all were successful, then the `BatchCompleted` event is deposited.'
         return Call('Utility', 'batch', {'calls': calls})
@@ -722,9 +727,19 @@ class Multisig:
         return Call('Multisig', 'approve_as_multi', {'threshold': threshold, 'other_signatories': other_signatories, 'maybe_timepoint': maybe_timepoint, 'call_hash': call_hash, 'max_weight': max_weight})
 
     @staticmethod
+    def approve_as_multi_safe(threshold: 'u16', other_signatories: 'Any', maybe_timepoint: 'Any', call_hash: 'Any', max_weight: 'Weight') -> Call:
+        'Approve a call hash for the same off-curve composite used by `as_multi_safe`.'
+        return Call('Multisig', 'approve_as_multi_safe', {'threshold': threshold, 'other_signatories': other_signatories, 'maybe_timepoint': maybe_timepoint, 'call_hash': call_hash, 'max_weight': max_weight})
+
+    @staticmethod
     def as_multi(threshold: 'u16', other_signatories: 'Any', maybe_timepoint: 'Any', call: 'RuntimeCall', max_weight: 'Weight') -> Call:
         'Register approval for a dispatch to be made from a deterministic composite account if approved by a total of `threshold - 1` of `other_signatories`.  If there are enough, then dispatch the call.  Payment: `DepositBase` will be reserved if this is the first approval, plus `threshold` times `DepositFactor`. It is returned once this dispatch happens or is cancelled.  The dispatch origin for this call must be _Signed_.  - `threshold`: The total number of approvals for this dispatch before it is executed. - `other_signatories`: The accounts (other than the sender) who can approve this dispatch. May not be empty. - `maybe_timepoint`: If this is the first approval, then this must be `None`. If it is not the first approval, then it must be `Some`, with the timepoint (block number and transaction index) of the first approval transaction. - `call`: The call to be executed.  NOTE: Unless this is the final approval, you will generally want to use `approve_as_multi` instead, since it only requires a hash of the call.  Result is equivalent to the dispatched result if `threshold` is exactly `1`. Otherwise on success, result is `Ok` and the result from the interior call, if it was executed, may be found in the deposited `MultisigExecuted` event.  ## Complexity - `O(S + Z + Call)`. - Up to one balance-reserve or unreserve operation. - One passthrough operation, one insert, both `O(S)` where `S` is the number of signatories. `S` is capped by `MaxSignatories`, with weight being proportional. - One call encode & hash, both of complexity `O(Z)` where `Z` is tx-len. - One encode & hash, both of complexity `O(S)`. - Up to one binary search and insert (`O(logS + S)`). - I/O: 1 read `O(S)`, up to 1 mutate `O(S)`. Up to one remove. - One event. - The weight of the `call`. - Storage: inserts one item, value size bounded by `MaxSignatories`, with a deposit taken for its lifetime of `DepositBase + threshold * DepositFactor`.'
         return Call('Multisig', 'as_multi', {'threshold': threshold, 'other_signatories': other_signatories, 'maybe_timepoint': maybe_timepoint, 'call': call, 'max_weight': max_weight})
+
+    @staticmethod
+    def as_multi_safe(threshold: 'u16', other_signatories: 'Any', maybe_timepoint: 'Any', call: 'RuntimeCall', max_weight: 'Weight') -> Call:
+        'Approve or execute a call using the registration-free off-curve derivation.'
+        return Call('Multisig', 'as_multi_safe', {'threshold': threshold, 'other_signatories': other_signatories, 'maybe_timepoint': maybe_timepoint, 'call': call, 'max_weight': max_weight})
 
     @staticmethod
     def as_multi_threshold_1(other_signatories: 'Any', call: 'RuntimeCall') -> Call:
@@ -732,14 +747,29 @@ class Multisig:
         return Call('Multisig', 'as_multi_threshold_1', {'other_signatories': other_signatories, 'call': call})
 
     @staticmethod
+    def as_multi_threshold_1_safe(other_signatories: 'Any', call: 'RuntimeCall') -> Call:
+        'Dispatch from a full-width off-curve composite. Delegation remains ordinary.'
+        return Call('Multisig', 'as_multi_threshold_1_safe', {'other_signatories': other_signatories, 'call': call})
+
+    @staticmethod
     def cancel_as_multi(threshold: 'u16', other_signatories: 'Any', timepoint: 'Timepoint', call_hash: 'Any') -> Call:
         'Cancel a pre-existing, on-going multisig transaction. Any deposit reserved previously for this operation will be unreserved on success.  The dispatch origin for this call must be _Signed_.  - `threshold`: The total number of approvals for this dispatch before it is executed. - `other_signatories`: The accounts (other than the sender) who can approve this dispatch. May not be empty. - `timepoint`: The timepoint (block number and transaction index) of the first approval transaction for this dispatch. - `call_hash`: The hash of the call to be executed.  ## Complexity - `O(S)`. - Up to one balance-reserve or unreserve operation. - One passthrough operation, one insert, both `O(S)` where `S` is the number of signatories. `S` is capped by `MaxSignatories`, with weight being proportional. - One encode & hash, both of complexity `O(S)`. - One event. - I/O: 1 read `O(S)`, one remove. - Storage: removes one item.'
         return Call('Multisig', 'cancel_as_multi', {'threshold': threshold, 'other_signatories': other_signatories, 'timepoint': timepoint, 'call_hash': call_hash})
 
     @staticmethod
+    def cancel_as_multi_safe(threshold: 'u16', other_signatories: 'Any', timepoint: 'Timepoint', call_hash: 'Any') -> Call:
+        'Cancel only an operation created with the off-curve derivation.'
+        return Call('Multisig', 'cancel_as_multi_safe', {'threshold': threshold, 'other_signatories': other_signatories, 'timepoint': timepoint, 'call_hash': call_hash})
+
+    @staticmethod
     def poke_deposit(threshold: 'u16', other_signatories: 'Any', call_hash: 'Any') -> Call:
         'Poke the deposit reserved for an existing multisig operation.  The dispatch origin for this call must be _Signed_ and must be the original depositor of the multisig operation.  The transaction fee is waived if the deposit amount has changed.  - `threshold`: The total number of approvals needed for this multisig. - `other_signatories`: The accounts (other than the sender) who are part of the multisig. - `call_hash`: The hash of the call this deposit is reserved for.  Emits `DepositPoked` if successful.'
         return Call('Multisig', 'poke_deposit', {'threshold': threshold, 'other_signatories': other_signatories, 'call_hash': call_hash})
+
+    @staticmethod
+    def poke_deposit_safe(threshold: 'u16', other_signatories: 'Any', call_hash: 'Any') -> Call:
+        "Adjust an existing off-curve operation's ordinary multisig deposit."
+        return Call('Multisig', 'poke_deposit_safe', {'threshold': threshold, 'other_signatories': other_signatories, 'call_hash': call_hash})
 
 
 class Preimage:
@@ -849,9 +879,19 @@ class Proxy:
         return Call('Proxy', 'create_pure', {'proxy_type': proxy_type, 'delay': delay, 'index': index})
 
     @staticmethod
+    def create_safe_pure(proxy_type: 'ProxyType', delay: 'u32', index: 'u16') -> Call:
+        'Create a pure proxy with a full-width off-curve account identifier.  The ordinary proxy deposit applies. No account registration or protection deposit is created, and normal proxy permissions apply.'
+        return Call('Proxy', 'create_safe_pure', {'proxy_type': proxy_type, 'delay': delay, 'index': index})
+
+    @staticmethod
     def kill_pure(spawner: 'MultiAddress', proxy_type: 'ProxyType', index: 'u16', height: 'Any', ext_index: 'Any') -> Call:
         'Removes a previously spawned pure proxy.  WARNING: **All access to this account will be lost.** Any funds held in it will be inaccessible.  Requires a `Signed` origin, and the sender account must have been created by a call to `create_pure` with corresponding parameters.  - `spawner`: The account that originally called `create_pure` to create this account. - `index`: The disambiguation index originally passed to `create_pure`. Probably `0`. - `proxy_type`: The proxy type originally passed to `create_pure`. - `height`: The height of the chain when the call to `create_pure` was processed. - `ext_index`: The extrinsic index in which the call to `create_pure` was processed.  Fails with `NoPermission` in case the caller is not a previously created pure account whose `create_pure` call has corresponding parameters.'
         return Call('Proxy', 'kill_pure', {'spawner': spawner, 'proxy_type': proxy_type, 'index': index, 'height': height, 'ext_index': ext_index})
+
+    @staticmethod
+    def kill_safe_pure(spawner: 'MultiAddress', proxy_type: 'ProxyType', index: 'u16', height: 'Any', ext_index: 'Any') -> Call:
+        'Remove a safe pure proxy and refund its ordinary proxy deposit.  The supplied creation parameters must reconstruct the signed account. As with `kill_pure`, remaining funds become inaccessible after removal.'
+        return Call('Proxy', 'kill_safe_pure', {'spawner': spawner, 'proxy_type': proxy_type, 'index': index, 'height': height, 'ext_index': ext_index})
 
     @staticmethod
     def poke_deposit() -> Call:
@@ -1465,7 +1505,7 @@ class EVM:
 
     @staticmethod
     def call(source: 'H160', target: 'H160', input: 'Any', value: 'U256', gas_limit: 'u64', max_fee_per_gas: 'U256', max_priority_fee_per_gas: 'Any', nonce: 'Any', access_list: 'Any', authorization_list: 'Any') -> Call:
-        'Issue an EVM call operation. This is similar to a message call transaction in Ethereum.'
+        'Issue an EVM call operation. This is similar to a message call transaction in Ethereum. The native origin lookup precedes gas admission, so charge it independently of gas on call/create/create2, including every error and weight refund.'
         return Call('EVM', 'call', {'source': source, 'target': target, 'input': input, 'value': value, 'gas_limit': gas_limit, 'max_fee_per_gas': max_fee_per_gas, 'max_priority_fee_per_gas': max_priority_fee_per_gas, 'nonce': nonce, 'access_list': access_list, 'authorization_list': authorization_list})
 
     @staticmethod
@@ -1477,6 +1517,11 @@ class EVM:
     def create2(source: 'H160', init: 'Any', salt: 'H256', value: 'U256', gas_limit: 'u64', max_fee_per_gas: 'U256', max_priority_fee_per_gas: 'Any', nonce: 'Any', access_list: 'Any', authorization_list: 'Any') -> Call:
         'Issue an EVM create2 operation.'
         return Call('EVM', 'create2', {'source': source, 'init': init, 'salt': salt, 'value': value, 'gas_limit': gas_limit, 'max_fee_per_gas': max_fee_per_gas, 'max_priority_fee_per_gas': max_priority_fee_per_gas, 'nonce': nonce, 'access_list': access_list, 'authorization_list': authorization_list})
+
+    @staticmethod
+    def deposit(address: 'H160', value: 'Any') -> Call:
+        'Transfer native currency to an EVM address using its mapping at execution. A missing value transfers all spendable currency while keeping the account alive. Resolving the address here avoids funding an obsolete backing account if a protected alias is established after transaction construction.'
+        return Call('EVM', 'deposit', {'address': address, 'value': value})
 
     @staticmethod
     def disable_whitelist(disabled: 'bool') -> Call:

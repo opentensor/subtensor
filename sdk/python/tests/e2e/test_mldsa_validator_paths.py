@@ -1,8 +1,9 @@
 """Successful MS validator and commitment paths on an activated local chain.
 
-Uses normal block timing and supported subnet-local controls. Every Alice
+Uses normal block timing and supported admin controls. Every Alice
 submission holds the shared sponsor lock through finalization. No global
 activation switch, sudo owner, storage fixture or runtime weight is changed.
+The disposable chain's admin freeze window is disabled for consensus changes.
 """
 
 from __future__ import annotations
@@ -101,24 +102,27 @@ async def test_ms_validator_weights_and_commitments(code):
                     dev_wallet(),
                     wait_for_finalization=True,
                 )
-            return receipt("Alice subnet-local setup", result)
+            return receipt("Alice validator setup", result)
 
         async def finalized(item, params):
             block = await client._substrate.raw.rpc_request("chain_getFinalizedHead", [])
             value = await client._substrate.query(item[0], item[1], params, block_hash=block)
             return block, value
 
-        # Register and fund all three fresh descriptors atomically. Sudo is used
-        # only for disposable balances; the operation under test uses MS keys.
+        # Only rotating keys register. Fixed keys receive ordinary SS58 funding;
+        # Sudo sets disposable balances while the tested operations use MS keys.
         funding = []
         for signer in (cold, hot, miner):
-            funding.append(
-                await client.compose(
-                    bt.calls.HashedAccounts.register(
-                        descriptor=registration_descriptor_value(bytes(signer.hashed_descriptor))
+            if code == 7:
+                funding.append(
+                    await client.compose(
+                        bt.calls.HashedAccounts.register(
+                            descriptor=registration_descriptor_value(
+                                bytes(signer.hashed_descriptor)
+                            )
+                        )
                     )
                 )
-            )
             funding.append(
                 await client.compose(
                     bt.calls.Sudo.sudo(
@@ -137,12 +141,24 @@ async def test_ms_validator_weights_and_commitments(code):
                 dev_wallet(),
                 wait_for_finalization=True,
             )
-        receipt("Alice atomic descriptor registration and funding", funded)
+        receipt(
+            "Alice funds fixed SS58 accounts"
+            if code == 8
+            else "Alice registers and funds rotating accounts",
+            funded,
+        )
+        if code == 8:
+            for signer in (cold, hot, miner):
+                _, authority = await finalized(
+                    ("HashedAccounts", "MlDsaAccounts"), [signer.ss58_address]
+                )
+                assert authority is None
         registered = await execute(bt.intents.RegisterSubnet(hotkey_ss58=hot.ss58_address))
         netuid = int(registered.data["netuid"])
         report["netuid"] = netuid
         await root_batch(
             [
+                bt.calls.AdminUtils.sudo_set_admin_freeze_window(window=0),
                 bt.calls.AdminUtils.sudo_set_max_allowed_uids(netuid=netuid, max_allowed_uids=64),
                 bt.calls.AdminUtils.sudo_set_max_registrations_per_block(
                     netuid=netuid, max_registrations_per_block=10

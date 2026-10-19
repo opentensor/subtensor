@@ -15,6 +15,7 @@ enum Mode {
     HashedSr,
     HashedEd,
     MlDsa,
+    FixedMlDsa,
 }
 const MODES: [Mode; 5] = [
     Mode::Sr,
@@ -31,6 +32,7 @@ impl Wallet {
     fn new(mode: Mode) -> Self {
         let account = match mode {
             Mode::MlDsa => super::mldsa::register(62),
+            Mode::FixedMlDsa => super::mldsa::stateless::Wallet::new(62).account,
             Mode::Sr => AccountId::from(pair(10).public()),
             Mode::Ed => AccountId::new(ed25519::Pair::from_seed(&[10; 32]).public().0),
             _ => composable_accounts::register(Descriptor {
@@ -75,6 +77,9 @@ impl Wallet {
     fn sign(&self, call: RuntimeCall) -> UncheckedExtrinsic {
         if matches!(self.mode, Mode::MlDsa) {
             return super::mldsa::sign(62, call);
+        }
+        if matches!(self.mode, Mode::FixedMlDsa) {
+            return super::mldsa::stateless::Wallet::new(62).sign(call);
         }
         let extra = extra(System::account_nonce(&self.account));
         if matches!(self.mode, Mode::Sr | Mode::Ed) {
@@ -156,6 +161,40 @@ fn simulate_call(wallet: &Wallet, nonce: Option<U256>) {
     assert!(info.exit_reason.is_succeed());
 }
 
+fn association_call(
+    account: &AccountId,
+    evm_pair: &sp_core::ecdsa::Pair,
+    netuid: subtensor_runtime_common::NetUid,
+    block_number: u64,
+) -> (H160, RuntimeCall) {
+    let message = [
+        account.encode(),
+        sp_core::keccak_256(&block_number.encode()).to_vec(),
+    ]
+    .concat();
+    let digest = sp_core::keccak_256(
+        &[
+            b"\x19Ethereum Signed Message:\n64".as_slice(),
+            message.as_slice(),
+        ]
+        .concat(),
+    );
+    let mut signature = evm_pair.sign_prehashed(&digest);
+    let public = sp_io::crypto::secp256k1_ecdsa_recover(&signature.0, &digest)
+        .unwrap_or_else(|_| panic!("valid ECDSA association proof must recover"));
+    let evm_key = H160::from_slice(&sp_core::keccak_256(&public)[12..]);
+    signature.0[64] += 27;
+    (
+        evm_key,
+        RuntimeCall::SubtensorModule(pallet_subtensor::Call::associate_evm_key {
+            netuid,
+            evm_key,
+            block_number,
+            signature,
+        }),
+    )
+}
+
 #[test]
 #[cfg(not(feature = "fast-runtime"))]
 fn neuron_evm_association_honors_production_cooldown_for_every_wallet_mode() {
@@ -163,7 +202,7 @@ fn neuron_evm_association_honors_production_cooldown_for_every_wallet_mode() {
     use subtensor_runtime_common::{CustomTransactionError, NetUid};
 
     assert_eq!(EvmKeyAssociateRateLimit::get(), 7_200);
-    for mode in MODES {
+    for mode in MODES.into_iter().chain([Mode::FixedMlDsa]) {
         super::mldsa::with_profiles(|| {
             let wallet = Wallet::new(mode);
             let netuid = NetUid::from(1);
@@ -179,32 +218,7 @@ fn neuron_evm_association_honors_production_cooldown_for_every_wallet_mode() {
 
             let evm_pair = sp_core::ecdsa::Pair::from_seed(&[73; 32]);
             let make_call = |block_number: u64| {
-                let message = [
-                    wallet.account.encode(),
-                    sp_core::keccak_256(&block_number.encode()).to_vec(),
-                ]
-                .concat();
-                let digest = sp_core::keccak_256(
-                    &[
-                        b"\x19Ethereum Signed Message:\n64".as_slice(),
-                        message.as_slice(),
-                    ]
-                    .concat(),
-                );
-                let mut signature = evm_pair.sign_prehashed(&digest);
-                let public = sp_io::crypto::secp256k1_ecdsa_recover(&signature.0, &digest)
-                    .unwrap_or_else(|_| panic!("valid ECDSA association proof must recover"));
-                let evm_key = H160::from_slice(&sp_core::keccak_256(&public)[12..]);
-                signature.0[64] += 27;
-                (
-                    evm_key,
-                    RuntimeCall::SubtensorModule(pallet_subtensor::Call::associate_evm_key {
-                        netuid,
-                        evm_key,
-                        block_number,
-                        signature,
-                    }),
-                )
+                association_call(&wallet.account, &evm_pair, netuid, block_number)
             };
 
             // Pool validation prepares the next block, so a parent at 7,198
@@ -261,6 +275,206 @@ fn neuron_evm_association_honors_production_cooldown_for_every_wallet_mode() {
             assert_eq!(System::account_nonce(&wallet.account), before + 1);
         });
     }
+}
+
+#[test]
+fn native_evm_deposit_resolves_the_mapping_at_execution_for_every_wallet() {
+    for mode in MODES.into_iter().chain([Mode::FixedMlDsa]) {
+        super::mldsa::with_profiles(|| {
+            let wallet = Wallet::new(mode);
+            let target_descriptor = super::mldsa::descriptor(119);
+            let target = AccountId::new(subtensor_hashed::mldsa::account_id(&target_descriptor));
+            let address = H160::from_slice(&AsRef::<[u8; 32]>::as_ref(&target)[..20]);
+            let obsolete = evm_origin::HashedAddressMapping::into_account_id(address);
+            assert_ne!(obsolete, target);
+            let deposit = wallet.sign(RuntimeCall::EVM(pallet_evm::Call::deposit {
+                address,
+                value: Some(TaoBalance::new(1_000_000_000)),
+            }));
+            // The sender has already signed when a new alias becomes active.
+            assert_eq!(super::mldsa::register(119), target);
+            let before = Balances::free_balance(&target);
+            assert_ok!(Executive::apply_extrinsic(deposit).unwrap());
+            assert_eq!(
+                Balances::free_balance(&target),
+                before + TaoBalance::new(1_000_000_000)
+            );
+            assert_eq!(Balances::free_balance(&obsolete), TaoBalance::new(0));
+        });
+    }
+}
+
+#[test]
+fn native_evm_deposit_all_preserves_frozen_balance_and_batch_rollback() {
+    use frame_support::traits::{LockableCurrency, WithdrawReasons};
+    super::mldsa::with_profiles(|| {
+        let wallet = Wallet::new(Mode::FixedMlDsa);
+        let address = H160::from_low_u64_be(119);
+        let destination = evm_origin::HashedAddressMapping::into_account_id(address);
+        let source_before = Balances::free_balance(&wallet.account);
+        let frozen = TaoBalance::new(2_000_000_000);
+        Balances::set_lock(
+            *b"evm-test",
+            &wallet.account,
+            frozen,
+            WithdrawReasons::all(),
+        );
+        assert_ok!(EVM::deposit(
+            RuntimeOrigin::signed(wallet.account.clone()),
+            address,
+            None
+        ));
+        assert_eq!(Balances::free_balance(&wallet.account), frozen);
+        assert_eq!(Balances::free_balance(&destination), source_before - frozen);
+        Balances::remove_lock(*b"evm-test", &wallet.account);
+        let before = Balances::free_balance(&destination);
+        let failing = RuntimeCall::Utility(pallet_utility::Call::batch_all {
+            calls: vec![
+                RuntimeCall::EVM(pallet_evm::Call::deposit {
+                    address,
+                    value: Some(TaoBalance::new(1_000_000)),
+                }),
+                RuntimeCall::Balances(BalancesCall::transfer_keep_alive {
+                    dest: destination.clone().into(),
+                    value: TaoBalance::new(u64::MAX),
+                }),
+            ],
+        });
+        assert!(
+            Executive::apply_extrinsic(wallet.sign(failing))
+                .unwrap()
+                .is_err()
+        );
+        assert_eq!(Balances::free_balance(&destination), before);
+        assert_eq!(
+            Balances::reserved_balance(&wallet.account),
+            TaoBalance::new(0)
+        );
+        assert!(!pallet_hashed_accounts::MlDsaAccounts::<Runtime>::contains_key(&wallet.account));
+    });
+}
+
+#[test]
+fn fixed_ms_association_keeps_evm_funds_and_signing_authority_separate() {
+    use fp_self_contained::SelfContainedCall;
+    use pallet_hashed_accounts::{EvmAliases, MlDsaAccounts};
+    use pallet_subtensor::{AssociatedEvmAddress, AssociatedUidsByEvmAddress};
+    use subtensor_runtime_common::NetUid;
+
+    super::mldsa::with_profiles(|| {
+        let wallet = Wallet::new(Mode::FixedMlDsa);
+        let netuid = NetUid::from(1);
+        pallet_subtensor::NetworksAdded::<Runtime>::insert(netuid, true);
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &wallet.account,
+            &wallet.account,
+        ));
+        pallet_subtensor::Uids::<Runtime>::insert(netuid, &wallet.account, 0u16);
+        pallet_subtensor::Keys::<Runtime>::insert(netuid, 0u16, &wallet.account);
+        System::set_block_number(7_200);
+        let evm_pair = sp_core::ecdsa::Pair::from_seed(&[74; 32]);
+        let (evm_key, association) = association_call(&wallet.account, &evm_pair, netuid, 7_200);
+        assert_ne!(evm_key, wallet.source());
+        assert_ok!(Executive::apply_extrinsic(wallet.sign(association)).unwrap());
+        assert_eq!(
+            AssociatedEvmAddress::<Runtime>::get(netuid, 0u16),
+            Some((evm_key, 7_200))
+        );
+        assert_eq!(
+            AssociatedUidsByEvmAddress::<Runtime>::get(netuid, evm_key).as_slice(),
+            &[(0u16, 7_200)]
+        );
+        let backing = evm_origin::HashedAddressMapping::into_account_id(evm_key);
+        assert_ne!(backing, wallet.account);
+        assert!(EvmAliases::<Runtime>::get(evm_key.0).is_none());
+        assert!(MlDsaAccounts::<Runtime>::get(&wallet.account).is_none());
+
+        // Attribution must not turn the associated ECDSA key into an alternative
+        // signer for the full native account, even with a valid ECDSA signature.
+        let native_before = System::account(&wallet.account);
+        let call = super::call();
+        let extra = extra(native_before.nonce);
+        let payload = SignedPayload::new(call.clone(), extra.clone()).unwrap();
+        let signature = Signature::Ecdsa(payload.using_encoded(|m| evm_pair.sign(m)));
+        let forged =
+            UncheckedExtrinsic::new_signed(call, wallet.account.clone().into(), signature, extra);
+        assert_eq!(
+            Executive::apply_extrinsic(forged),
+            Err(InvalidTransaction::BadProof.into())
+        );
+        assert_eq!(System::account(&wallet.account), native_before);
+
+        // Native transfers fund the conventional EVM backing account. The
+        // association neither shares balances nor creates a protected alias.
+        let funding = RuntimeCall::EVM(pallet_evm::Call::deposit {
+            address: evm_key,
+            value: Some(TaoBalance::new(20_000_000_000)),
+        });
+        assert_ok!(Executive::apply_extrinsic(wallet.sign(funding)).unwrap());
+        assert_eq!(
+            Balances::free_balance(&backing),
+            TaoBalance::new(20_000_000_000)
+        );
+        let native_before_return = System::account(&wallet.account);
+        let evm_nonce = EVM::account_basic(&evm_key).0.nonce;
+        let mut input = sp_core::keccak_256(b"transfer(bytes32)")[..4].to_vec();
+        input.extend_from_slice(AsRef::<[u8; 32]>::as_ref(&wallet.account));
+        let destination = H160::from_low_u64_be(2048);
+        let message = ethereum::LegacyTransactionMessage {
+            nonce: evm_nonce,
+            gas_price: gas_price(),
+            gas_limit: U256::from(500_000),
+            action: ethereum::TransactionAction::Call(destination),
+            value: U256::from(1_000_000_000_000_000_000u64),
+            input,
+            chain_id: None,
+        };
+        let signature = evm_pair.sign_prehashed(message.hash().as_fixed_bytes());
+        let transaction = ethereum::LegacyTransaction {
+            nonce: message.nonce,
+            gas_price: message.gas_price,
+            gas_limit: message.gas_limit,
+            action: message.action,
+            value: message.value,
+            input: message.input,
+            signature: ethereum::legacy::TransactionSignature::new(
+                <u64 as From<u8>>::from(signature.0[64]) + 27,
+                H256::from_slice(&signature.0[..32]),
+                H256::from_slice(&signature.0[32..64]),
+            )
+            .unwrap(),
+        };
+        let call = RuntimeCall::Ethereum(pallet_ethereum::Call::transact {
+            transaction: ethereum::TransactionV3::Legacy(transaction),
+        });
+        assert_eq!(call.check_self_contained().unwrap().unwrap(), evm_key);
+        assert_ok!(Executive::apply_extrinsic(UncheckedExtrinsic::new_bare(call)).unwrap());
+        assert!(System::events().iter().any(|record| matches!(
+            record.event,
+            RuntimeEvent::Ethereum(pallet_ethereum::Event::Executed { from, to, ref exit_reason, .. })
+                if from == evm_key && to == destination && exit_reason.is_succeed()
+        )));
+        assert_eq!(
+            Balances::free_balance(&wallet.account),
+            native_before_return.data.free + TaoBalance::new(1_000_000_000)
+        );
+        assert_eq!(
+            System::account_nonce(&wallet.account),
+            native_before_return.nonce
+        );
+        assert_eq!(
+            EVM::account_basic(&evm_key).0.nonce,
+            evm_nonce + U256::one()
+        );
+        assert!(Balances::free_balance(&backing) < TaoBalance::new(19_000_000_000));
+        assert_eq!(
+            Balances::reserved_balance(&wallet.account),
+            TaoBalance::ZERO
+        );
+        assert!(MlDsaAccounts::<Runtime>::get(&wallet.account).is_none());
+        assert!(EvmAliases::<Runtime>::get(evm_key.0).is_none());
+        assert!(EvmAliases::<Runtime>::get(wallet.source().0).is_none());
+    });
 }
 
 #[test]

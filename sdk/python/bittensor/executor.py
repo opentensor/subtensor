@@ -13,7 +13,7 @@ import contextlib
 import inspect
 from dataclasses import fields as dataclass_fields
 from dataclasses import replace
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 # Module import + attribute access (not `from bittensor_core import ...`):
 # ty cannot see into the compiled extension, so named imports fail its check.
@@ -63,7 +63,7 @@ from .signing import (
     public_view,
     resolve_signer,
 )
-from .sp_core import REGISTERED_CRYPTO_TYPES, Keypair, ss58_decode
+from .sp_core import REGISTERED_CRYPTO_TYPES, Keypair, is_stateless_mldsa, ss58_decode
 
 # Transaction-pool rejections that resolve themselves within a block or so (a
 # competing extrinsic at the same nonce, or a race against pool state). Worth
@@ -90,12 +90,35 @@ class _FeeAddressView:
         self.public_key = bytes(ss58_decode(address))
 
 
+class _FeePeriodView:
+    """Keep intent-specific reserve quotes on the actual signer and signing era."""
+
+    def __init__(self, substrate: Substrate, period: Optional[int], signer):
+        self.substrate = substrate
+        self.period = period
+        self.signer = signer
+
+    def __getattr__(self, name):
+        return getattr(self.substrate, name)
+
+    async def estimate_fee(self, call, keypair) -> Balance:
+        # Address-only intent previews cannot infer an MS or hashed proof shape.
+        # Preserve a different payer rather than substituting this wallet for it.
+        if bytes(ss58_decode(keypair.ss58_address)) == bytes(ss58_decode(self.signer.ss58_address)):
+            keypair = self.signer
+        return await self.substrate.estimate_fee(call, keypair, period=self.period)
+
+
 async def estimate_shielded_carrier_fee(
-    substrate: Substrate, fee_payer: str, call: Any, *, period: int = MEV_SHIELD_ERA_PERIOD
+    substrate: Substrate, fee_payer: Any, call: Any, *, period: int = MEV_SHIELD_ERA_PERIOD
 ) -> Balance:
     """Estimate the outer fee from the actual inner call, without private-key access."""
-    public = _FeeAddressView(fee_payer)
-    if (
+    public = (
+        _FeeAddressView(fee_payer)
+        if isinstance(fee_payer, str)
+        else public_view(fee_payer, "coldkey")
+    )
+    if isinstance(fee_payer, str) and (
         await hashed_accounts_enabled(substrate) is True
         or await substrate.constant("HashedAccounts", "MlDsaRegistrationDeposit") is not None
     ):
@@ -705,7 +728,7 @@ class Executor:
         if inner_fee is None:
             try:
                 inner_fee = await self.substrate.estimate_fee(
-                    call, self._public_keypair(wallet, intent.signer)
+                    call, self._public_keypair(wallet, intent.signer), period=period
                 )
             except Exception as error:
                 preview.warnings.append(f"could not estimate fee: {error}")
@@ -714,7 +737,7 @@ class Executor:
             try:
                 carrier_fee = await estimate_shielded_carrier_fee(
                     self.substrate,
-                    self._public_keypair(wallet, intent.signer).ss58_address,
+                    self._public_keypair(wallet, intent.signer),
                     call,
                     period=period,
                 )
@@ -824,6 +847,10 @@ class Executor:
             proxy_for=proxy_for,
             proxy_type=proxy_type,
         )
+        route = await self._use_shield(intent, call, shielded)
+        signing_period = (
+            MEV_SHIELD_ERA_PERIOD if route and period in (None, DEFAULT_ERA_PERIOD) else period
+        )
         preview = await self._preflight(
             intent,
             wallet,
@@ -831,15 +858,15 @@ class Executor:
             proxy_type=proxy_type,
             call=call,
             extras=extras,
+            period=signing_period,
         )
-        route = await self._use_shield(intent, call, shielded)
         await self._quote_submission(
             preview,
             intent,
             wallet,
             call,
             shielded=route,
-            period=MEV_SHIELD_ERA_PERIOD if period in (None, DEFAULT_ERA_PERIOD) else int(period),
+            period=signing_period,
         )
         return preview
 
@@ -852,6 +879,7 @@ class Executor:
         proxy_type: Optional[str] = None,
         call: Any = None,
         extras: Optional[dict] = None,
+        period: Optional[int] = DEFAULT_ERA_PERIOD,
     ) -> IntentPreflight:
         wallet = as_wallet(wallet)
         proxy_for = await account_for_read(self.substrate, proxy_for)
@@ -877,7 +905,10 @@ class Executor:
         # addresses for state queries without changing the stored user input.
         preview_intent = prepared if intent.semantic_intent() is intent else intent
         preview = await preview_intent.preflight(
-            self.substrate,
+            cast(
+                Substrate,
+                _FeePeriodView(self.substrate, period, self._public_keypair(wallet, intent.signer)),
+            ),
             dispatch_origin,
             fee_payer,
             call=call,
@@ -925,7 +956,7 @@ class Executor:
                 minimum = int(await self.substrate.constant("Balances", "ExistentialDeposit") or 0)
                 try:
                     fee = await self.substrate.estimate_fee(
-                        call, self._public_keypair(wallet, intent.signer)
+                        call, self._public_keypair(wallet, intent.signer), period=period
                     )
                 except Exception as error:
                     preview.blocks.append(
@@ -962,7 +993,7 @@ class Executor:
         ):
             try:
                 fee = await self.substrate.estimate_fee(
-                    call, self._public_keypair(wallet, intent.signer)
+                    call, self._public_keypair(wallet, intent.signer), period=period
                 )
                 minimum = int(await self.substrate.constant("Balances", "ExistentialDeposit") or 0)
                 spend = intent.semantic_intent().spend()
@@ -1063,12 +1094,16 @@ class Executor:
         )
         _origin, signer_address = _intent_accounts(self.substrate, intent, wallet, proxy_for)
         route = await self._use_shield(intent, call, shielded)
+        signing_period = (
+            MEV_SHIELD_ERA_PERIOD if route and period in (None, DEFAULT_ERA_PERIOD) else period
+        )
         preflight = await self._preflight(
             intent,
             wallet,
             proxy_for=proxy_for,
             call=call,
             extras=extras,
+            period=signing_period,
         )
         await self._quote_submission(
             preflight,
@@ -1076,7 +1111,7 @@ class Executor:
             wallet,
             call,
             shielded=route,
-            period=MEV_SHIELD_ERA_PERIOD if period in (None, DEFAULT_ERA_PERIOD) else int(period),
+            period=signing_period,
         )
         warnings: list[str] = list(preflight.warnings)
         if intent.signer == "hotkey" and proxy_for is None and charges_coldkey_fee(call):
@@ -1375,6 +1410,7 @@ class Executor:
             proxy_for=proxy_for,
             call=call,
             extras=extras,
+            period=period,
         )
         await self._quote_submission(preflight, intent, wallet, call, shielded=True, period=period)
         self._enforce(intent, preflight.estimated_fee, policy, preflight.blocks, extras)
@@ -1395,6 +1431,8 @@ class Executor:
             wait_for_inclusion=wait_for_inclusion,
             wait_for_finalization=wait_for_finalization,
         )
+        if result.success and semantic_intent.op == "create_pure_proxy":
+            result = replace(result, data={**result.data, **_pure_created_data(result)})
         if (
             result.success
             and semantic_intent.op == "register_subnet"
@@ -1444,7 +1482,9 @@ class Executor:
 
         await _prepare_shielded_signer(keypair)
         snapshot = (
-            await self.substrate.prepare_hashed_snapshot(keypair)
+            await self.substrate.prepare_hashed_snapshot(
+                keypair, **({"reserve_nonces": True} if is_stateless_mldsa(keypair) else {})
+            )
             if keypair.crypto_type in REGISTERED_CRYPTO_TYPES
             else None
         )
@@ -1455,24 +1495,29 @@ class Executor:
         )
         inner_options = {"nonce": nonce + 1, "period": period}
         if keypair.crypto_type in REGISTERED_CRYPTO_TYPES:
-            # The carrier consumes generation g and nonce n. Its encrypted
-            # inner call consumes g+1 and n+1 only after the carrier is accepted.
+            # The inner call consumes n+1 after its carrier. Rotating accounts
+            # also advance generation; standard MS always signs at generation zero.
             inner_options["hashed_generation_offset"] = 1
             inner_options["hashed_signing_snapshot"] = snapshot
-        inner_bytes, inner_hash = await self.substrate.sign_extrinsic(
-            call, keypair, **inner_options
-        )
-        ciphertext = _core.encrypt_mlkem768(pubkey, inner_bytes, include_key_hash=True)
-        limit = MAX_SHIELDED_CIPHERTEXT_BYTES
-        if len(ciphertext) > limit:
-            raise ValueError(f"encrypted transaction exceeds the {limit}-byte carrier limit")
-        outer = await self.substrate.compose(
-            generated_calls.Call(
-                "MevShield",
-                "submit_encrypted",
-                {"ciphertext": ciphertext},
+        try:
+            inner_bytes, inner_hash = await self.substrate.sign_extrinsic(
+                call, keypair, **inner_options
             )
-        )
+            ciphertext = _core.encrypt_mlkem768(pubkey, inner_bytes, include_key_hash=True)
+            limit = MAX_SHIELDED_CIPHERTEXT_BYTES
+            if len(ciphertext) > limit:
+                raise ValueError(f"encrypted transaction exceeds the {limit}-byte carrier limit")
+            outer = await self.substrate.compose(
+                generated_calls.Call(
+                    "MevShield",
+                    "submit_encrypted",
+                    {"ciphertext": ciphertext},
+                )
+            )
+        except BaseException:
+            if is_stateless_mldsa(keypair):
+                self.substrate.release_nonce_reservation(keypair.ss58_address, nonce, 2)
+            raise
         result = await self.substrate.submit(
             outer,
             keypair,
@@ -1482,6 +1527,7 @@ class Executor:
             wait_for_finalization=wait_for_finalization,
             **({"hashed_signing_snapshot": snapshot} if snapshot is not None else {}),
         )
+        release_reservation = not result.success
         if result.success:
             result = replace(
                 result,
@@ -1490,6 +1536,7 @@ class Executor:
                     **extras,
                     "shielded": True,
                     "inner_extrinsic_hash": inner_hash,
+                    "shield_carrier_fee_rao": result.fee.rao if result.fee is not None else None,
                 },
             )
         if result.success and (wait_for_inclusion or wait_for_finalization):
@@ -1500,6 +1547,11 @@ class Executor:
                 wait_for_finalization=wait_for_finalization,
             )
             result = _with_nested_dispatch_failure(result)
+            release_reservation = (
+                result.error is not None and result.error.name == "ShieldInnerExpired"
+            )
+        if release_reservation and is_stateless_mldsa(keypair):
+            self.substrate.release_nonce_reservation(keypair.ss58_address, nonce, 2)
         return result
 
     async def _resolve_shielded_inner(
@@ -1516,7 +1568,7 @@ class Executor:
         extrinsic as a regular extrinsic — normally in the carrier's own block.
         Scan from the carrier's block until the inner hash is found and return
         its receipt (success flag, block, extrinsic id, error) merged with the
-        carrier's shield metadata. If the inner extrinsic has not appeared by
+        carrier's shield metadata and both fees. If the inner extrinsic has not appeared by
         the end of its mortal era, report the submission failed rather than
         letting the carrier's success stand in for it.
         """
@@ -1632,8 +1684,31 @@ class Executor:
                         if inner is None:
                             block += 1
                             continue
-                return replace(inner, data={**inner.data, **outer.data})
+                return replace(
+                    inner,
+                    fee=(
+                        Balance.from_rao(inner.fee.rao + outer.fee.rao)
+                        if inner.fee is not None and outer.fee is not None
+                        else None
+                    ),
+                    data={
+                        **inner.data,
+                        **outer.data,
+                        "shield_carrier_fee_rao": outer.fee.rao if outer.fee is not None else None,
+                        "shield_inner_fee_rao": inner.fee.rao if inner.fee is not None else None,
+                    },
+                )
             block += 1
+        if block <= deadline:
+            raise ChainError("could not determine whether the shielded inner transaction expired")
+        try:
+            finalized = await self.substrate.finalized_block_number()
+        except Exception as error:
+            raise ChainError(
+                "could not verify shielded inner expiration against finalized state"
+            ) from error
+        if finalized < deadline:
+            raise ChainError("shielded inner expiration is not yet finalized")
         message = (
             "the MEV shield accepted the encrypted submission, but the decrypted "
             f"extrinsic ({inner_hash}) was not included before its era expired"
@@ -1642,7 +1717,12 @@ class Executor:
             outer,
             success=False,
             message=message,
-            error=ChainError(message),
+            error=ChainError(message, "ShieldInnerExpired"),
+            data={
+                **outer.data,
+                "shield_carrier_fee_rao": outer.fee.rao if outer.fee is not None else None,
+                "shield_inner_fee_rao": 0,
+            },
         )
 
     async def submit_call(

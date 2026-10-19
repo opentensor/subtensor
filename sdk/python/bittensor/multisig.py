@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from ._generated import calls as generated_calls
 from ._generated import constants as generated_constants
 from ._generated import storage as generated_storage
+from .account_mode import multisig_call, warn_legacy_mldsa
 from .result import ChainError, ErrorCode
 from .settings import MEV_SHIELD_ERA_PERIOD
 from .signing import WalletLike, public_view, resolve_signer
@@ -167,7 +168,11 @@ async def check_multisig_funds(
         if shielded:
             from .executor import estimate_shielded_carrier_fee
 
-            fee += (await estimate_shielded_carrier_fee(substrate, signer_ss58, outer_call)).rao
+            fee += (
+                await estimate_shielded_carrier_fee(
+                    substrate, fee_keypair or signer_ss58, outer_call
+                )
+            ).rao
             account = await substrate.query(*generated_storage.System.Account, [signer_ss58])
             data = (account or {}).get("data") or {}
             minimum = int(await substrate.constant("Balances", "ExistentialDeposit"))
@@ -240,6 +245,7 @@ class Multisig:
     address: str
     _client: "Client"
     _account: Any  # transport MultiAccountId, carries the derived id
+    account_mode: str = "legacy"
 
     async def protection_call(self, *, deposit_payer: str):
         """Build the permanent PQ authority registration/check for this account.
@@ -251,6 +257,8 @@ class Multisig:
         """
         from .hashed import multisig_protection_call
 
+        if self.account_mode == "safe":
+            raise ValueError("safe multisigs do not use permanent authority registration")
         return await multisig_protection_call(
             self._client._substrate, self.signatories, self.threshold, deposit_payer=deposit_payer
         )
@@ -259,6 +267,8 @@ class Multisig:
         """Read finalized eligibility and quorum-approved registration."""
         from .hashed import multisig_protection_status
 
+        if self.account_mode == "safe":
+            return {"eligible": False, "registered": False, "safe_derivation": True}
         return await multisig_protection_status(
             self._client._substrate, self.signatories, self.threshold
         )
@@ -266,8 +276,8 @@ class Multisig:
     async def funding_call(self, amount_rao: int):
         """Build funding with an atomic check for every eligible protected group.
 
-        Every unregistered group must first approve its protection_call() via
-        its own quorum and wait for finalization, including new empty accounts.
+        Eligible legacy groups must first approve protection_call() via their
+        own quorum and wait for finalization. Safe groups need no registration.
         """
         if isinstance(amount_rao, bool) or not isinstance(amount_rao, int) or amount_rao <= 0:
             raise ValueError("funding amount must be a positive integer number of rao")
@@ -309,7 +319,9 @@ class Multisig:
         hash is unchanged, so later approvals still chain. Account registration
         defaults to Shield when available; ``shielded=False`` opts out.
         """
-        member = bytes(ss58_decode(public_view(wallet, signer).ss58_address))
+        public = public_view(wallet, signer)
+        warn_legacy_mldsa(self.account_mode, public)
+        member = bytes(ss58_decode(public.ss58_address))
         if member not in {bytes(ss58_decode(address)) for address in self.signatories}:
             raise ValueError("the selected signer is not a member of this multisig")
         composed = await self._client.compose(call)
@@ -352,13 +364,18 @@ class Multisig:
         ]
         if self.threshold == 1:
             return await self._client.compose(
-                generated_calls.Multisig.as_multi_threshold_1(
-                    other_signatories=others, call=composed
+                multisig_call(
+                    "as_multi_threshold_1",
+                    account_mode=self.account_mode,
+                    other_signatories=others,
+                    call=composed,
                 )
             )
         max_weight = await substrate.estimate_weight(composed, keypair)
         return await self._client.compose(
-            generated_calls.Multisig.as_multi(
+            multisig_call(
+                "as_multi",
+                account_mode=self.account_mode,
                 threshold=self.threshold,
                 other_signatories=others,
                 maybe_timepoint=maybe_timepoint,

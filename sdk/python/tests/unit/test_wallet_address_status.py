@@ -25,7 +25,7 @@ from bittensor.receiving import receiving_address
 from bittensor.sp_core import Keypair, serialized_keypair_to_keyfile_data
 
 FINALIZED_HASH = "0x" + "ab" * 32
-REGISTERED_CODES = (4, 6, 7, 8)
+REGISTERED_CODES = (4, 6, 7)
 
 
 @cache
@@ -143,7 +143,7 @@ async def test_mixed_wallets_use_one_finalized_snapshot_and_each_correct_registr
 
     assert chain.calls.count(("finalized_block_number",)) == 1
     assert chain.calls.count(("block_hash", 37)) == 1
-    assert len([call for call in chain.calls if call[0] == "query"]) == 4
+    assert len([call for call in chain.calls if call[0] == "query"]) == len(REGISTERED_CODES)
     assert all(record["registration"] == "registered" for record in records)
     assert all(record["registration_block_hash"] == FINALIZED_HASH for record in records)
     assert ordinary == {"ss58": public_key(1).ss58_address}
@@ -176,7 +176,7 @@ async def test_different_registered_descriptor_keeps_receiving_address_primary(c
 
 @pytest.mark.parametrize("bad_record", ({}, {"descriptor": {}}, {"descriptor": None}, "invalid"))
 async def test_malformed_registry_result_is_unavailable_not_registered(bad_record):
-    public = public_key(8)
+    public = public_key(7)
     fields = address_fields(public, network="test")
     chain = RegistrationChain({registry_key(public): bad_record})
 
@@ -188,7 +188,7 @@ async def test_malformed_registry_result_is_unavailable_not_registered(bad_recor
 
 @pytest.mark.parametrize("error_at", ("finalized_block_number", "block_hash", "query"))
 async def test_rpc_failure_does_not_make_local_wallet_display_fail(error_at):
-    public = public_key(8)
+    public = public_key(7)
     fields = address_fields(public, network="ws://127.0.0.1:1")
     chain = RegistrationChain(error_at=error_at)
 
@@ -201,7 +201,7 @@ async def test_rpc_failure_does_not_make_local_wallet_display_fail(error_at):
 
 @pytest.mark.parametrize("missing_hash", (None, ""))
 async def test_missing_finalized_hash_never_reads_best_head_registration(missing_hash):
-    public = public_key(8)
+    public = public_key(7)
     fields = address_fields(public, network="test")
     chain = RegistrationChain(
         {registry_key(public): registry_record(public)}, block_hash=missing_hash
@@ -215,7 +215,7 @@ async def test_missing_finalized_hash_never_reads_best_head_registration(missing
 
 
 async def test_one_unavailable_registry_does_not_hide_other_wallet_registration():
-    keys = [public_key(4), public_key(8)]
+    keys = [public_key(4), public_key(7)]
     records = [address_fields(key, network="test") for key in keys]
     chain = RegistrationChain(
         {
@@ -234,7 +234,7 @@ async def test_one_unavailable_registry_does_not_hide_other_wallet_registration(
 
 @pytest.mark.parametrize("second_network", ("test", "ws://127.0.0.1:20644"))
 async def test_registration_is_rechecked_when_network_or_localnet_state_changes(second_network):
-    public = public_key(8)
+    public = public_key(7)
     first = address_fields(public, network="test")
     await query_registration(
         RegistrationChain({registry_key(public): registry_record(public)}), [first]
@@ -272,7 +272,7 @@ def display_context(network="ws://127.0.0.1:20644"):
 
 
 def test_offline_display_resets_previous_success_without_contacting_rpc(monkeypatch):
-    public = public_key(8)
+    public = public_key(7)
     fields = address_fields(public, network="test")
     fields.update(
         registration="registered",
@@ -336,7 +336,7 @@ class DisplayConnection(RegistrationChain):
 
 
 async def test_selected_endpoint_is_pinned_without_fallbacks(monkeypatch):
-    public = public_key(8)
+    public = public_key(7)
     fields = address_fields(public, network="test")
     chain = DisplayConnection({registry_key(public): registry_record(public)})
     opened = []
@@ -360,7 +360,7 @@ async def test_selected_endpoint_is_pinned_without_fallbacks(monkeypatch):
 
 @pytest.mark.parametrize("stall_at", ("initialize", "query"))
 async def test_registration_timeout_cancels_work_and_closes_connection(monkeypatch, stall_at):
-    public = public_key(8)
+    public = public_key(7)
     fields = address_fields(public, network="test")
     chain = DisplayConnection(stall_at=stall_at)
     monkeypatch.setattr(wallet_addresses, "SubstrateConnection", lambda *_a, **_k: chain)
@@ -377,7 +377,7 @@ async def test_registration_timeout_cancels_work_and_closes_connection(monkeypat
 
 
 async def test_failed_initialization_still_closes_connection_and_keeps_wallet_visible(monkeypatch):
-    public = public_key(8)
+    public = public_key(7)
     fields = address_fields(public, network="test")
     chain = DisplayConnection(initialize_error=ConnectionError("test connect failure"))
     monkeypatch.setattr(wallet_addresses, "SubstrateConnection", lambda *_a, **_k: chain)
@@ -391,7 +391,7 @@ async def test_failed_initialization_still_closes_connection_and_keeps_wallet_vi
 
 
 def test_later_failed_lookup_cannot_reuse_earlier_registration_success(monkeypatch):
-    public = public_key(8)
+    public = public_key(7)
     fields = address_fields(public, network="test")
 
     def run(command, *, input, **options):
@@ -421,7 +421,7 @@ def test_later_failed_lookup_cannot_reuse_earlier_registration_success(monkeypat
 
 
 def test_lookup_worker_gets_only_public_identities_and_hard_timeout(monkeypatch):
-    public = public_key(8)
+    public = public_key(7)
     fields = address_fields(public, network="test")
     fields.update(coldkey_mnemonic="must not leave parent", hotkeys=[{"seed": "private"}])
     seen = []
@@ -461,7 +461,7 @@ def test_lookup_worker_gets_only_public_identities_and_hard_timeout(monkeypatch)
 
 @pytest.mark.parametrize("failure", ("timeout", "exit", "invalid_json", "wrong_identity"))
 def test_failed_or_unrelated_worker_result_keeps_receiving_address_primary(monkeypatch, failure):
-    public = public_key(8)
+    public = public_key(7)
     fields = address_fields(public, network="test")
 
     def run(command, *, input, **options):

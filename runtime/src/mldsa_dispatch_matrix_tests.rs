@@ -71,6 +71,14 @@ enum Mode {
 }
 
 fn signed(call: RuntimeCall, mode: Mode) -> (AccountId, UncheckedExtrinsic) {
+    if matches!(mode, Mode::FixedMs) {
+        pallet_admin_utils::HashedAccountsEnabled::<Runtime>::put(true);
+        let wallet = super::mldsa::stateless::Wallet::new(91);
+        hashed_auth::TestVerificationWeight::set(Weight::from_parts(10_000_000, 0));
+        let _ =
+            Balances::make_free_balance_be(&wallet.account, TaoBalance::new(1_000_000_000_000_000));
+        return (wallet.account.clone(), wallet.sign(call));
+    }
     let key = [91; 32];
     let (account, ms) = match mode {
         Mode::Sr => (AccountId::from(pair(91).public()), None),
@@ -78,18 +86,15 @@ fn signed(call: RuntimeCall, mode: Mode) -> (AccountId, UncheckedExtrinsic) {
             AccountId::new(ed25519::Pair::from_seed(&key).public().0),
             None,
         ),
-        Mode::HashedMs | Mode::FixedMs => {
+        Mode::FixedMs => unreachable!("handled before registered signing modes"),
+        Mode::HashedMs => {
             pallet_admin_utils::HashedAccountsEnabled::<Runtime>::put(true);
 
             hashed_auth::TestVerificationWeight::set(Weight::from_parts(10_000_000, 0));
             let public_key = mldsa::public_key_from_seed(&key).unwrap();
             let descriptor = mldsa::Descriptor {
                 version: mldsa::VERSION,
-                algorithm: if matches!(mode, Mode::FixedMs) {
-                    mldsa::FIXED_ALGORITHM
-                } else {
-                    mldsa::ALGORITHM
-                },
+                algorithm: mldsa::ALGORITHM,
                 initial_commitment: mldsa::commitment(&public_key),
             };
             let account = AccountId::new(mldsa::account_id(&descriptor));
@@ -106,11 +111,7 @@ fn signed(call: RuntimeCall, mode: Mode) -> (AccountId, UncheckedExtrinsic) {
     let _ = Balances::make_free_balance_be(&account, TaoBalance::new(1_000_000_000_000_000));
     let extra = extra(System::account_nonce(&account));
     let xt = if let Some((descriptor, public_key)) = ms {
-        let next_commitment = if matches!(mode, Mode::FixedMs) {
-            descriptor.initial_commitment
-        } else {
-            mldsa::commitment(&mldsa::public_key_from_seed(&[92; 32]).unwrap())
-        };
+        let next_commitment = mldsa::commitment(&mldsa::public_key_from_seed(&[92; 32]).unwrap());
         let header = mldsa::Header {
             account: *account.as_ref(),
             version: mldsa::VERSION,
@@ -238,7 +239,7 @@ fn every_metadata_call_has_explicit_envelope_and_dispatch_coverage() {
                     pallet_admin_utils::HashedAccountsEnabled::<Runtime>::put(true);
 
                     let (account, tx) = signed(call.clone(), mode);
-                    let protected = matches!(mode, Mode::HashedMs | Mode::FixedMs);
+                    let protected = matches!(mode, Mode::HashedMs);
                     let checked = tx.clone().check(&ChainContext::default());
                     if ethereum {
                         assert!(
@@ -287,6 +288,14 @@ fn every_metadata_call_has_explicit_envelope_and_dispatch_coverage() {
                             "{name} {mode:?}"
                         );
                     }
+                    if matches!(mode, Mode::FixedMs) {
+                        assert!(HashedAccounts::mldsa_accounts(&account).is_none());
+                        assert_eq!(
+                            System::account_nonce(&account),
+                            before + <u32 as From<bool>>::from(result.is_ok()),
+                            "{name} {mode:?}"
+                        );
+                    }
                     println!("MS_MATRIX {name} {mode:?} {result:?} pool={validity:?}");
                     outcomes.push((result, validity.map(|_| ())));
                 });
@@ -296,7 +305,7 @@ fn every_metadata_call_has_explicit_envelope_and_dispatch_coverage() {
                     panic!("{name}: missing wallet result");
                 };
                 assert_eq!(sr, ed, "{name}: ordinary SR/ED outcome differs");
-                assert_eq!(hashed_ms, fixed_ms, "{name}: MS profile outcome differs");
+                assert_eq!(sr, fixed_ms, "{name}: registrationless MS outcome differs");
                 assert_eq!(sr.1, hashed_ms.1, "{name}: pool validity differs");
                 // These are the only expected dispatch differences for the
                 // common minimal fixture. Enforce their exact authority errors
@@ -332,14 +341,6 @@ fn every_metadata_call_has_explicit_envelope_and_dispatch_coverage() {
                                 crate::pallet_proxy::Error::<Runtime>::AccountPolicyViolation
                                     .into(),
                             ),
-                            Ok(()),
-                        )),
-                        "HashedAccounts.install_capability" => Some((
-                            Err(pallet_hashed_accounts::Error::<Runtime>::NotRegistered.into()),
-                            Err(pallet_hashed_accounts::Error::<Runtime>::CapabilityExpired.into()),
-                        )),
-                        "HashedAccounts.revoke_capability" => Some((
-                            Err(pallet_hashed_accounts::Error::<Runtime>::NotRegistered.into()),
                             Ok(()),
                         )),
                         _ => None,
@@ -391,7 +392,7 @@ fn malformed_faucet_work_is_a_dispatch_error_for_every_signing_mode() {
                     "{mode:?}: work length {len}"
                 );
                 assert_eq!(System::account_nonce(&account), before + 1);
-                if matches!(mode, Mode::HashedMs | Mode::FixedMs) {
+                if matches!(mode, Mode::HashedMs) {
                     assert_eq!(
                         HashedAccounts::mldsa_accounts(account).unwrap().generation,
                         1

@@ -55,6 +55,7 @@ impl pallet_aura::Config for Test {
 }
 
 impl pallet_subtensor_utility::Config for Test {
+    type SafeDerivationWeight = ();
     type DerivedAccountPolicy = ();
     type RuntimeCall = RuntimeCall;
     type PalletsOrigin = OriginCaller;

@@ -19,7 +19,7 @@ from .receiving import (
     is_receiving_address,
     parse_recipient,
 )
-from .sp_core import REGISTERED_CRYPTO_TYPES, Keypair
+from .sp_core import Keypair, is_stateless_mldsa_descriptor, requires_registration
 
 _REGISTRATION_TARGETS = {
     "transfer": "dest_ss58",
@@ -82,16 +82,33 @@ async def is_pq_required(substrate, account: str, *, block_hash=None) -> bool:
     return kind in ("mldsa", "derived")
 
 
-async def compose_derivative(substrate, parent: str, index: int, call):
-    """Wrap exact call bytes, protecting a PQ parent's derivative atomically.
+async def compose_derivative(substrate, parent, index: int, call, *, account_mode=None):
+    """Wrap exact call bytes using the actual parent's derivation mode.
 
-    ``parent`` is the actual dispatch origin, including a proxy or multisig
-    account when applicable. The runtime validates the authority again when
-    dispatching and reserves any new derived-registration deposit from it.
+    A fixed MS key/wallet or safe composite view defaults to safe derivation.
+    A bare SS58 needs explicit ``account_mode="safe"``; its key type cannot
+    be inferred. Legacy mode retains registered rotating-account protection.
     """
     if not 0 <= index <= 65535:
         raise ValueError("derivative index must fit u16")
+    from .account_mode import validate_account_mode, warn_legacy_mldsa
+    from .signing import public_view
+
+    if not isinstance(parent, str):
+        if account_mode is None:
+            account_mode = getattr(parent, "account_mode", None)
+        public = public_view(parent, "coldkey")
+        if account_mode is None and getattr(public, "crypto_type", None) == 8:
+            account_mode = "safe"
+        warn_legacy_mldsa(account_mode or "legacy", public, composite="derivative")
+        parent = public.ss58_address
+    if account_mode is not None:
+        validate_account_mode(account_mode)
     parent = parse_recipient(parent).account
+    if account_mode == "safe":
+        return await substrate.compose(
+            calls.Call("Utility", "as_safe_derivative", {"index": index, "call": call})
+        )
     protected = await is_pq_required(substrate, parent)
     return await substrate.compose(
         calls.Call(
@@ -171,12 +188,12 @@ async def multisig_protection_call(
 async def descriptor_registration_enabled(substrate, descriptor: bytes, *, block_hash=None):
     if descriptor_storage(descriptor) == "Accounts":
         return await hashed_accounts_enabled(substrate, block_hash=block_hash)
-    if await substrate.constant("HashedAccounts", "MlDsaRegistrationDeposit") is None:
-        return None
     if descriptor[1] == 5:
         profiles = await substrate.constant("HashedAccounts", "MldsaAccountProfiles")
         if not supports_fixed_profile(profiles):
             return None
+    elif await substrate.constant("HashedAccounts", "MlDsaRegistrationDeposit") is None:
+        return None
     return await hashed_accounts_enabled(substrate, block_hash=block_hash)
 
 
@@ -301,7 +318,7 @@ def _local_descriptor(wallet: Any, address: str) -> bytes | None:
                 key = public_file.get_keypair()
             except (OSError, ValueError, KeyfileError):
                 continue
-            if key.ss58_address == address and key.crypto_type in REGISTERED_CRYPTO_TYPES:
+            if key.ss58_address == address and requires_registration(key):
                 return bytes(key.hashed_descriptor)
     return None
 
@@ -318,7 +335,7 @@ def has_local_hashed_recipient(wallet: Any, intent: Any) -> bool:
     parameter = _DESCRIPTOR_TARGETS.get(intent.op)
     address = getattr(intent, parameter, None) if parameter else None
     if address is None and parameter == "hotkey_ss58":
-        return public_view(wallet, "hotkey").crypto_type in REGISTERED_CRYPTO_TYPES
+        return requires_registration(public_view(wallet, "hotkey"))
     return isinstance(address, str) and _local_descriptor(wallet, address) is not None
 
 
@@ -328,6 +345,8 @@ async def has_receiving_setup_inputs(substrate, wallet: Any, intent: Any, depth:
         raise ValueError("intent nesting is too deep to verify recipient setup")
     semantic = intent.semantic_intent()
     if semantic.op == "fund_evm_key":
+        if await substrate.constant("EVM", "NativeDepositSupported") is True:
+            return True
         # Its recipient is resolved dynamically from the alias registry, not an
         # address field. Imported bytes may encode the obsolete mirror instead.
         enabled = await hashed_accounts_enabled(substrate)
@@ -403,7 +422,7 @@ async def with_recipient_registration(
         if address is None and parameter == "hotkey_ss58":
             public = public_view(wallet, "hotkey")
             address = public.ss58_address
-            if public.crypto_type in REGISTERED_CRYPTO_TYPES:
+            if requires_registration(public):
                 default_descriptor = bytes(public.hashed_descriptor)
         if not isinstance(address, str):
             raise ValueError("recipient account address is missing")
@@ -422,7 +441,17 @@ async def with_recipient_registration(
             public = Keypair.from_hashed_descriptor(descriptor)
             if public.ss58_address != address or (typed and typed.descriptor != descriptor):
                 raise ValueError("hashed descriptor does not match the destination address")
-            recipients[parameter] = typed or Recipient(address, address, descriptor)
+            if is_stateless_mldsa_descriptor(descriptor):
+                await _require_receiving_support(substrate, descriptor)
+                recipients.pop(parameter, None)
+            else:
+                recipients[parameter] = typed or Recipient(address, address, descriptor)
+    for name, recipient in list(recipients.items()):
+        if recipient.descriptor is not None and is_stateless_mldsa_descriptor(recipient.descriptor):
+            public = Keypair.from_hashed_descriptor(recipient.descriptor)
+            if public.ss58_address != recipient.account:
+                raise ValueError("hashed descriptor does not match the destination address")
+            del recipients[name]
     if not recipients:
         return (await atomic_calls(substrate, call) if as_calls else call), {}
     descriptors: dict[str, bytes] = {}

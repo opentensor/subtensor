@@ -7,6 +7,7 @@ from typing import Any, Callable
 
 from .keyfiles import Keyfile, Keypair
 from .sp_core import (
+    CRYPTO_MLDSA65_FIXED,
     CRYPTO_SR25519,
     MLDSA_CRYPTO_TYPES,
     REGISTERED_CRYPTO_TYPES,
@@ -44,7 +45,7 @@ def _restore_public_key(address: str | None, public_key: str | None, crypto_type
             if encoded != bytes(keypair.public_key):
                 raise ValueError("public key does not match the receiving address")
         return keypair
-    if crypto_type in REGISTERED_CRYPTO_TYPES:
+    if crypto_type in REGISTERED_CRYPTO_TYPES and crypto_type != CRYPTO_MLDSA65_FIXED:
         raise ValueError(
             "hashed watch-only recovery requires the complete receiving address; "
             "copy it from `btcli wallet show`"

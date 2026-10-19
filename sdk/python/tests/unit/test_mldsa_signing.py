@@ -37,13 +37,14 @@ def signing_wallet(request):
 
 def prepared(wallet=None):
     wallet = wallet or key()
+    generation = 0 if wallet.crypto_type == 8 else 7
     authority = HashedSigningSnapshot(
         "0x" + "22" * 32,
         wallet.ss58_address,
         wallet.crypto_type,
         bytes(wallet.hashed_descriptor),
-        7,
-        bytes(wallet.at_generation(7).hashed_current_commitment),
+        generation,
+        bytes(wallet.at_generation(generation).hashed_current_commitment),
         13,
     )
     codec = OfflineCodec()
@@ -103,7 +104,7 @@ def test_offline_signer_rejects_wrong_wallet_or_authority(signing_wallet):
     other = Keypair.create_from_seed(bytes([8]) * 32, CRYPTO_MLDSA65)
     with pytest.raises(ValueError, match="another wallet"):
         sign_prepared_mldsa(request, other, codec=codec, expected_genesis_hash=GENESIS)
-    with pytest.raises(ValueError, match="commitment"):
+    with pytest.raises(ValueError, match=r"commitment|invalid versioned"):
         sign_prepared_mldsa(
             replace(request, authority=replace(request.authority, commitment=bytes([1]) * 64)),
             wallet,
@@ -158,10 +159,16 @@ async def test_connected_preparation_uses_public_descriptor_and_revalidates_fina
     request = await conn.prepare_mldsa_unsigned(
         b"full call" * 64, descriptor=wallet.hashed_descriptor, tip=11
     )
-    assert request.authority.generation == state["generation"] == 7
+    assert (
+        request.authority.generation == state["generation"] == (0 if wallet.crypto_type == 8 else 7)
+    )
     assert request.authority.block_hash == "0xfinalized"
     proof = sign_prepared_mldsa(request, wallet, codec=codec, expected_genesis_hash=GENESIS)
     assert (await conn.attach_signature(request, proof)).data.endswith(proof)
+    if wallet.crypto_type == 8:
+        state["generation"] = 99  # Registry contents cannot change fixed-key authority.
+        assert (await conn.attach_signature(request, proof)).data.endswith(proof)
+        return
     state["generation"] = 8
     state["commitment"] = bytes(wallet.at_generation(8).hashed_current_commitment)
     with pytest.raises(SubstrateRequestException, match="authority or chain changed"):
@@ -178,8 +185,11 @@ async def test_connected_attachment_rejects_pending_nonce_and_missing_finalized_
     request = await conn.prepare_mldsa_unsigned(b"call", descriptor=wallet.hashed_descriptor)
     proof = sign_prepared_mldsa(request, wallet, codec=codec, expected_genesis_hash=GENESIS)
     conn._nonces.next_for.return_value = 14
-    with pytest.raises(SubstrateRequestException, match="pending transaction"):
-        await conn.attach_signature(request, proof)
+    if wallet.crypto_type == 8:
+        assert (await conn.attach_signature(request, proof)).data.endswith(proof)
+    else:
+        with pytest.raises(SubstrateRequestException, match="pending transaction"):
+            await conn.attach_signature(request, proof)
     conn.get_chain_finalised_head.return_value = None
     with pytest.raises(SubstrateRequestException, match="finalized"):
         await conn.prepare_mldsa_unsigned(b"call", descriptor=wallet.hashed_descriptor)

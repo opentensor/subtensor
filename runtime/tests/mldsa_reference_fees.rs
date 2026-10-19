@@ -40,23 +40,46 @@ fn extra() -> TxExtension {
 }
 
 fn envelope(call: RuntimeCall, ms: bool, nonce: u32) -> UncheckedExtrinsic {
-    let mut extra = extra();
-    extra.0.5 = check_nonce::CheckNonce::from(nonce);
-    let (address, signature) = if ms {
-        let seed = [42; 32];
+    envelope_for_profile(call, ms.then_some(mldsa::ALGORITHM), nonce)
+}
+
+fn ms_key(profile: u8) -> ([u8; 32], mldsa::PublicKeyBytes, mldsa::Descriptor) {
+    for attempt in 0u32..256 {
+        let mut seed = [42; 32];
+        if profile == mldsa::FIXED_ALGORITHM {
+            seed[..4].copy_from_slice(&attempt.to_le_bytes());
+        }
         let public_key = mldsa::public_key_from_seed(&seed).expect("public key");
         let descriptor = mldsa::Descriptor {
             version: mldsa::VERSION,
-            algorithm: mldsa::ALGORITHM,
+            algorithm: profile,
             initial_commitment: mldsa::commitment(&public_key),
         };
+        if profile != mldsa::FIXED_ALGORITHM
+            || mldsa::rejects_legacy_public_keys(&mldsa::account_id(&descriptor))
+        {
+            return (seed, public_key, descriptor);
+        }
+    }
+    panic!("stateless fixture could not find an admissible account")
+}
+
+fn envelope_for_profile(call: RuntimeCall, profile: Option<u8>, nonce: u32) -> UncheckedExtrinsic {
+    let mut extra = extra();
+    extra.0.5 = check_nonce::CheckNonce::from(nonce);
+    let (address, signature) = if let Some(profile) = profile {
+        let (seed, public_key, descriptor) = ms_key(profile);
         let header = mldsa::Header {
             account: mldsa::account_id(&descriptor),
             version: mldsa::VERSION,
-            algorithm: mldsa::ALGORITHM,
+            algorithm: profile,
             generation: 0,
             public_key,
-            next_commitment: [43; 64],
+            next_commitment: if profile == mldsa::FIXED_ALGORITHM {
+                descriptor.initial_commitment
+            } else {
+                [43; 64]
+            },
         };
         let payload = (&call, &extra, extra.implicit().expect("implicit")).encode();
         let address = header.sign(&seed, &payload, &[0; 32]).expect("MS proof");
@@ -223,4 +246,183 @@ fn measured_production_weights_admit_and_execute_ms_transfer() {
         );
         assert!(Balances::free_balance(account).to_u64() < 9_000_000_000);
     });
+}
+
+#[test]
+fn configured_runtime_admits_fixed_ms_transfer_without_registration() {
+    use frame_support::{assert_ok, traits::Currency};
+    use node_subtensor_runtime::{AdminUtils, Balances, Executive, HashedAccounts, RuntimeOrigin};
+    let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig::default()
+        .build_storage()
+        .expect("genesis")
+        .into();
+    ext.execute_with(|| {
+        System::set_block_number(1);
+        assert_ok!(AdminUtils::sudo_set_hashed_accounts_enabled(
+            RuntimeOrigin::root(),
+            true
+        ));
+        let (_, _, descriptor) = ms_key(mldsa::FIXED_ALGORITHM);
+        let account = AccountId::new(mldsa::account_id(&descriptor));
+        let _ = Balances::make_free_balance_be(&account, TaoBalance::new(10_000_000_000));
+        let destination = AccountId::new([9; 32]);
+        let call = RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive {
+            dest: destination.clone().into(),
+            value: TaoBalance::new(1_000_000_000),
+        });
+        let tx = envelope_for_profile(call, Some(mldsa::FIXED_ALGORITHM), 0);
+        assert!(
+            tx.get_dispatch_info()
+                .total_weight()
+                .all_lt(BlockWeights::get().max_block)
+        );
+        assert_ok!(
+            Executive::apply_extrinsic(tx.clone()).expect("admitted with production weights")
+        );
+        assert_eq!(Balances::free_balance(destination).to_u64(), 1_000_000_000);
+        assert_eq!(System::account_nonce(&account), 1);
+        assert_eq!(Balances::reserved_balance(&account).to_u64(), 0);
+        assert!(!pallet_hashed_accounts::MlDsaAccounts::<Runtime>::contains_key(&account));
+        assert!(
+            !pallet_hashed_accounts::EvmAliases::<Runtime>::contains_key(
+                HashedAccounts::evm_alias(&account)
+            )
+        );
+        assert!(Balances::free_balance(&account).to_u64() < 9_000_000_000);
+        assert!(Executive::apply_extrinsic(tx).is_err());
+    });
+}
+
+#[test]
+fn configured_runtime_admits_every_safe_composite_call_with_fixed_ms_authority() {
+    use frame_support::{
+        assert_ok,
+        traits::{Currency, Get},
+    };
+    use node_subtensor_runtime::{
+        AdminUtils, Balances, Executive, Multisig, Proxy, RuntimeOrigin, SafeDerivationWeight,
+    };
+
+    // Integration tests link the production runtime, including its real weights.
+    // Unit mocks alone would not catch a MAX gate or an oversized MS envelope.
+    for operation in 0..8 {
+        let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig::default()
+            .build_storage()
+            .expect("genesis")
+            .into();
+        ext.execute_with(|| {
+            System::set_block_number(1);
+            System::set_extrinsic_index(0);
+            assert_ok!(AdminUtils::sudo_set_hashed_accounts_enabled(
+                RuntimeOrigin::root(),
+                true
+            ));
+            let (_, _, descriptor) = ms_key(mldsa::FIXED_ALGORITHM);
+            let account = AccountId::new(mldsa::account_id(&descriptor));
+            let _ = Balances::make_free_balance_be(&account, TaoBalance::new(100_000_000_000));
+            let others = vec![AccountId::new([7; 32])];
+            let inner = RuntimeCall::System(frame_system::Call::remark { remark: vec![1] });
+            let call_hash = sp_io::hashing::blake2_256(&inner.encode());
+            let max_weight = inner.get_dispatch_info().call_weight;
+            let when = Multisig::timepoint();
+            if matches!(operation, 3 | 4) {
+                assert_ok!(Multisig::as_multi_safe(
+                    RuntimeOrigin::signed(account.clone()),
+                    2,
+                    others.clone(),
+                    None,
+                    Box::new(inner.clone()),
+                    max_weight
+                ));
+            }
+            let pure = Proxy::safe_pure_account(&account, &ProxyType::Any, 0, Some((1, 0)))
+                .expect("safe pure account");
+            if operation == 6 {
+                assert_ok!(Proxy::create_safe_pure(
+                    RuntimeOrigin::signed(account.clone()),
+                    ProxyType::Any,
+                    0,
+                    0
+                ));
+            }
+            let call = match operation {
+                0 => RuntimeCall::Multisig(pallet_multisig::Call::as_multi_threshold_1_safe {
+                    other_signatories: others,
+                    call: Box::new(inner),
+                }),
+                1 => RuntimeCall::Multisig(pallet_multisig::Call::as_multi_safe {
+                    threshold: 2,
+                    other_signatories: others,
+                    maybe_timepoint: None,
+                    call: Box::new(inner),
+                    max_weight,
+                }),
+                2 => RuntimeCall::Multisig(pallet_multisig::Call::approve_as_multi_safe {
+                    threshold: 2,
+                    other_signatories: others,
+                    maybe_timepoint: None,
+                    call_hash,
+                    max_weight,
+                }),
+                3 => RuntimeCall::Multisig(pallet_multisig::Call::cancel_as_multi_safe {
+                    threshold: 2,
+                    other_signatories: others,
+                    timepoint: when,
+                    call_hash,
+                }),
+                4 => RuntimeCall::Multisig(pallet_multisig::Call::poke_deposit_safe {
+                    threshold: 2,
+                    other_signatories: others,
+                    call_hash,
+                }),
+                5 => RuntimeCall::Proxy(pallet_subtensor_proxy::Call::create_safe_pure {
+                    proxy_type: ProxyType::Any,
+                    delay: 0,
+                    index: 0,
+                }),
+                6 => RuntimeCall::Proxy(pallet_subtensor_proxy::Call::proxy {
+                    real: pure.clone().into(),
+                    force_proxy_type: Some(ProxyType::Any),
+                    call: Box::new(RuntimeCall::Proxy(
+                        pallet_subtensor_proxy::Call::kill_safe_pure {
+                            spawner: account.clone().into(),
+                            proxy_type: ProxyType::Any,
+                            index: 0,
+                            height: 1,
+                            ext_index: 0,
+                        },
+                    )),
+                }),
+                7 => RuntimeCall::Utility(pallet_subtensor_utility::Call::as_safe_derivative {
+                    index: 0,
+                    call: Box::new(inner),
+                }),
+                _ => unreachable!(),
+            };
+            let tx = envelope_for_profile(call.clone(), Some(mldsa::FIXED_ALGORITHM), 0);
+            let info = tx.get_dispatch_info();
+            assert!(info.call_weight.all_gte(SafeDerivationWeight::get()));
+            assert!(info.total_weight().all_lt(BlockWeights::get().max_block));
+            let quote = node_subtensor_runtime::staking_fee::query_fee_details(
+                &call,
+                &info,
+                tx.encoded_size().try_into().expect("encoded length"),
+                false,
+            );
+            assert!(quote.final_fee().to_u64() > 0);
+            assert_ok!(Executive::apply_extrinsic(tx).expect("production admission"));
+            assert_eq!(System::account_nonce(&account), 1);
+            assert!(!pallet_hashed_accounts::MlDsaAccounts::<Runtime>::contains_key(&account));
+            assert!(
+                pallet_hashed_accounts::DerivedAuthorities::<Runtime>::iter()
+                    .next()
+                    .is_none()
+            );
+            if operation == 6 {
+                // proxy() reports dispatch success even if its inner call fails.
+                assert!(Proxy::proxies(pure).0.is_empty());
+                assert_eq!(Balances::reserved_balance(&account).to_u64(), 0);
+            }
+        });
+    }
 }

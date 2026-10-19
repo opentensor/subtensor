@@ -105,10 +105,8 @@ impl<T: Config> Pallet<T> {
         scope: CapabilityScope,
     ) -> DispatchResult {
         ensure!(T::Enabled::get(), Error::<T>::Disabled);
-        ensure!(
-            Self::authority_meets(owner, SecurityFloor::PqRequired),
-            Error::<T>::NotRegistered
-        );
+        // The signed owner installs its own revocable application key. This
+        // does not require registering or changing the owner's authentication.
         ensure!(
             key_commitment != [0; 64] && scope.is_valid(),
             Error::<T>::CapabilityInvalid
@@ -145,10 +143,6 @@ impl<T: Config> Pallet<T> {
     /// counter is exhausted. The permanent tombstone is never removed/reset.
     #[transactional]
     pub fn do_revoke_capability(owner: &AccountId32, role: CapabilityRole) -> DispatchResult {
-        ensure!(
-            Self::authority_meets(owner, SecurityFloor::PqRequired),
-            Error::<T>::NotRegistered
-        );
         let epoch = CapabilityEpochs::<T>::get(owner, role).saturating_add(1);
         CapabilityEpochs::<T>::insert(owner, role, epoch);
         ActiveCapabilities::<T>::remove(owner, role);

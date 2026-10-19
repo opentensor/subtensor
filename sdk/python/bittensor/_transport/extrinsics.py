@@ -82,29 +82,58 @@ class NonceCache:
     Each reservation reconciles the node's ``account_nextIndex`` with local
     reservations so other clients and Shield inner transactions can advance
     the account while concurrent submissions get distinct consecutive nonces.
-    A failed submission must clear the account:
-    the chain never consumed that nonce.
+    A definitely abandoned submission releases its own reservation. Unknown
+    outcomes keep their reservation because the transaction may still be pending.
     """
 
     def __init__(self, session: RpcSession):
         self._session = session
         self._nonces: dict[str, int] = {}
+        self._released: dict[str, set[int]] = {}
         self._lock = asyncio.Lock()
 
     async def next_for(self, address: str, *, use_cache: bool = True) -> int:
         if not use_cache:
             return await self._session.request("account_nextIndex", [address])
+        return await self.reserve(address)
+
+    async def reserve(self, address: str, count: int = 1) -> int:
+        """Reserve consecutive nonces atomically, including a Shield pair."""
+        if count < 1:
+            raise ValueError("nonce reservation must contain at least one transaction")
         async with self._lock:
             observed = await self._session.request("account_nextIndex", [address])
-            self._nonces[address] = max(observed, self._nonces.get(address, -1) + 1)
-            return self._nonces[address]
+            released = self._released.get(address, set())
+            released.difference_update(nonce for nonce in tuple(released) if nonce < observed)
+            if released:
+                first = min(released)
+                last = self._nonces.get(address, -1)
+                if any(
+                    nonce not in released and nonce <= last for nonce in range(first, first + count)
+                ):
+                    raise ValueError(
+                        "cannot reserve a Shield pair across an abandoned nonce gap; "
+                        "submit one ordinary transaction first"
+                    )
+                released.difference_update(range(first, first + count))
+                self._nonces[address] = max(last, first + count - 1)
+                return first
+            first = max(observed, self._nonces.get(address, -1) + 1)
+            self._nonces[address] = first + count - 1
+            return first
 
     def pin(self, address: str, nonce: int) -> None:
         """Record an explicitly-chosen nonce as the account's latest."""
-        self._nonces[address] = nonce
+        self._nonces[address] = max(nonce, self._nonces.get(address, -1))
+        self._released.get(address, set()).discard(nonce)
+
+    def release(self, address: str, first: int, count: int) -> None:
+        """Return only an abandoned reservation, preserving concurrent signers."""
+        self._released.setdefault(address, set()).update(range(first, first + count))
 
     def clear(self, address: str) -> None:
         self._nonces.pop(address, None)
+        self._released.pop(address, None)
 
 
 def signer_payload_json(

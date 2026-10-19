@@ -22,7 +22,7 @@ use serde_json::{json, Value as JsonValue};
 use crate::codec::extrinsic::{era_birth, TxParams};
 use crate::codec::value::Value;
 use crate::error::CoreError;
-use crate::keys::{is_hashed_crypto, is_mldsa_crypto, is_registered_crypto, Keypair};
+use crate::keys::{is_hashed_crypto, is_mldsa_crypto, is_rotating_crypto, Keypair};
 use crate::mlkem;
 use crate::runtime::type_string::TypeSpec;
 use crate::runtime::{Runtime, RuntimeApiMethodInfo, StorageInfo};
@@ -30,6 +30,8 @@ use crate::runtime::{Runtime, RuntimeApiMethodInfo, StorageInfo};
 const DEFAULT_RPC_TIMEOUT: Duration = Duration::from_secs(30);
 const DEFAULT_RECEIPT_TIMEOUT: Duration = Duration::from_secs(120);
 const DEFAULT_ERA_PERIOD: u64 = 64;
+// Runtime CheckMortality limits encrypted carriers to eight blocks.
+const SHIELD_ERA_PERIOD: u64 = 8;
 const STORAGE_PAGE_SIZE: u64 = 1_000;
 const RAO_PER_TAO: u128 = 1_000_000_000;
 
@@ -557,7 +559,32 @@ impl Client {
         let runtime = self.runtime()?;
         let mut registered = None;
         let mut authority_block = None;
-        let nonce = if is_registered_crypto(signer.crypto_type()) {
+        let stateless = signer.crypto_type() == crate::keys::CRYPTO_MLDSA65_FIXED;
+        let nonce = if stateless {
+            if !runtime.supports_mldsa_profile(subtensor_hashed::mldsa::FIXED_ALGORITHM) {
+                return Err(CoreError::Policy(
+                    "runtime does not support registration-free ML-DSA accounts".into(),
+                ));
+            }
+            let state_hash = self.finalized_head()?;
+            if self.query_with_runtime(
+                &runtime,
+                "AdminUtils",
+                "HashedAccountsEnabled",
+                &[],
+                Some(&state_hash),
+            )? != Value::Bool(true)
+            {
+                return Err(CoreError::Policy(
+                    "ML-DSA authorization is not active".into(),
+                ));
+            }
+            authority_block = Some(state_hash);
+            match requested_nonce {
+                Some(nonce) => nonce,
+                None => self.account_next_index(&signer.ss58_address())?,
+            }
+        } else if is_rotating_crypto(signer.crypto_type()) {
             let mldsa = is_mldsa_crypto(signer.crypto_type());
             if mldsa && !runtime.supports_mldsa_profile(signer.mldsa_descriptor()?[1]) {
                 return Err(CoreError::Policy(
@@ -694,6 +721,11 @@ impl Client {
             era_block_hash: context.params.era_block_hash,
             metadata_hash: context.params.metadata_hash,
         };
+        if signer.crypto_type() == crate::keys::CRYPTO_MLDSA65_FIXED
+            && params.nonce >= u64::from(u32::MAX)
+        {
+            return Err(CoreError::Policy("account nonce exhausted".into()));
+        }
         let runtime = &context.runtime;
         let signature = if let Some(authority) = &context.registered {
             // Also check immediately before each proof. A concurrent pending or
@@ -710,6 +742,15 @@ impl Client {
             payload.extend_from_slice(&extra);
             payload.extend_from_slice(&additional);
             selected.sign_authorization(&payload)?
+        } else if signer.crypto_type() == crate::keys::CRYPTO_MLDSA65_FIXED {
+            // All account/chain/call/nonce fields are authenticated in the full
+            // transcript, including Shield's inner nonce offset. The fixed key
+            // has no on-chain generation to reload between the two signatures.
+            let (extra, additional) = runtime.signature_payload_parts(&params)?;
+            let mut payload = call_data.to_vec();
+            payload.extend_from_slice(&extra);
+            payload.extend_from_slice(&additional);
+            signer.sign_authorization(&payload)?
         } else {
             let payload = runtime.signature_payload(call_data, &params)?;
             signer.sign(&payload)?
@@ -860,7 +901,9 @@ impl Client {
     }
 
     /// Full MEV-shield pipeline: sign the inner call at nonce+1, seal it with
-    /// the current ML-KEM-768 key, then submit the carrier at nonce.
+    /// the current ML-KEM-768 key, then submit the carrier at nonce. The result
+    /// describes the decrypted call and sums both fees; `data` retains the
+    /// carrier hash and each reported fee separately.
     pub fn submit_shielded(
         &self,
         call_data: &[u8],
@@ -870,7 +913,7 @@ impl Client {
         let next_key = self.query("MevShield", "NextKey", &[], None)?;
         let public_key = value_bytes(&next_key)
             .ok_or_else(|| CoreError::Rpc("MevShield.NextKey is unavailable".into()))?;
-        let context = self.prepare_signing(signer, None, Some(DEFAULT_ERA_PERIOD), true)?;
+        let context = self.prepare_signing(signer, None, Some(SHIELD_ERA_PERIOD), true)?;
         let (inner, inner_hash) = self.sign_prepared(call_data, signer, &context, 1)?;
         let ciphertext = mlkem::seal(&public_key, &inner, true)?;
         let outer = context.runtime.compose_call(
@@ -879,12 +922,58 @@ impl Client {
             &Value::record(vec![("ciphertext".into(), Value::Bytes(ciphertext))]),
         )?;
         let (extrinsic, hash) = self.sign_prepared(&outer, signer, &context, 0)?;
-        let mut result = self.submit_encoded(&extrinsic, hash, wait_for_finalization)?;
-        if result.success {
-            result.data.insert("shielded".into(), Value::Bool(true));
+        let carrier = self.submit_encoded(&extrinsic, hash, wait_for_finalization)?;
+        self.resolve_shielded_inner(
+            &inner,
+            inner_hash,
+            carrier,
+            wait_for_finalization,
+            DEFAULT_RECEIPT_TIMEOUT,
+        )
+    }
+
+    fn resolve_shielded_inner(
+        &self,
+        inner: &[u8],
+        inner_hash: String,
+        carrier: TxOutcome,
+        wait_for_finalization: bool,
+        timeout: Duration,
+    ) -> Result<TxOutcome, CoreError> {
+        if !carrier.success {
+            return Ok(carrier);
+        }
+        let start_block = carrier
+            .block_number
+            .ok_or_else(|| CoreError::Rpc("successful Shield carrier omitted its block".into()))?;
+        // The carrier only accepts ciphertext. Report the requested call's
+        // dispatch result, including nested failures and missing inner inclusion.
+        let mut result = self.wait_for_inclusion(
+            inner,
+            inner_hash.clone(),
+            start_block,
+            wait_for_finalization,
+            timeout,
+        )?;
+        result.data.insert("shielded".into(), Value::Bool(true));
+        result
+            .data
+            .insert("inner_extrinsic_hash".into(), Value::str(inner_hash));
+        result.data.insert(
+            "carrier_extrinsic_hash".into(),
+            Value::str(carrier.extrinsic_hash),
+        );
+        if let Some(fee) = result.fee_rao {
+            result.data.insert("inner_fee_rao".into(), Value::Uint(fee));
+        }
+        if let Some(fee) = carrier.fee_rao {
             result
                 .data
-                .insert("inner_extrinsic_hash".into(), Value::str(inner_hash));
+                .insert("carrier_fee_rao".into(), Value::Uint(fee));
+            result.fee_rao = Some(
+                fee.checked_add(result.fee_rao.unwrap_or_default())
+                    .ok_or_else(|| CoreError::Codec("Shield total fee exceeds u128".into()))?,
+            );
         }
         Ok(result)
     }
@@ -2049,7 +2138,7 @@ mod fee_quote_tests {
                 era_block_hash: [8; 32],
                 metadata_hash: None,
             };
-            let proof = if is_registered_crypto(crypto) {
+            let proof = if is_hashed_crypto(crypto) || is_mldsa_crypto(crypto) {
                 full.sign_authorization(b"length control").unwrap()
             } else {
                 full.sign(b"length control").unwrap()
@@ -2323,6 +2412,7 @@ mod registered_signing_tests {
 
     #[derive(Default)]
     struct NodeState {
+        nonce_override: Option<u64>,
         advanced: bool,
         pending: bool,
         advance_after_inner: bool,
@@ -2332,6 +2422,9 @@ mod registered_signing_tests {
         authority_reads: Vec<String>,
         account_reads: Vec<String>,
         submitted: Vec<Vec<u8>>,
+        included: Vec<Vec<u8>>,
+        events: Vec<u8>,
+        block_reads: usize,
     }
 
     struct MockNode {
@@ -2375,6 +2468,7 @@ mod registered_signing_tests {
             );
             let account_key = storage_key("System", "Account", &address);
             let next_key = storage_key("MevShield", "NextKey", &[]);
+            let events_key = storage_key("System", "Events", &[]);
             let descriptor = if is_mldsa_crypto(crypto) {
                 signer.mldsa_descriptor().unwrap()
             } else {
@@ -2392,8 +2486,12 @@ mod registered_signing_tests {
                 );
                 encoded
             };
-            let old_authority = authority(GENERATION);
-            let new_authority = authority(GENERATION + 1);
+            let (old_authority, new_authority) = if crypto == crate::keys::CRYPTO_MLDSA65_FIXED {
+                // A fixed signer must never read this deliberately absent record.
+                (Vec::new(), Vec::new())
+            } else {
+                (authority(GENERATION), authority(GENERATION + 1))
+            };
             let (decrypt_key, encrypt_key) = MlKem768::generate(&mut rand_core::OsRng);
             let key_info = storage_info(&runtime, "MevShield", "NextKey").unwrap();
             let mut encoded_key = Vec::new();
@@ -2454,6 +2552,10 @@ mod registered_signing_tests {
                         "chain_getHeader" => {
                             json!({"number":"0xa", "parentHash":hex_prefixed(&PINNED_HASH)})
                         }
+                        "chain_getBlock" => {
+                            state.block_reads += 1;
+                            json!({"block":{"extrinsics":state.included.iter().map(|xt| hex_prefixed(xt)).collect::<Vec<_>>()}})
+                        }
                         "system_accountNextIndex" => {
                             state.nonce_reads += 1;
                             // Preparation and the inner proof already checked
@@ -2467,13 +2569,15 @@ mod registered_signing_tests {
                                     state.pending
                                         || (state.advanced && state.consume_nonce_on_advance),
                                 );
-                            json!(nonce)
+                            json!(state.nonce_override.unwrap_or(nonce))
                         }
                         "state_getStorage" => {
                             let key = request["params"][0].as_str().unwrap();
                             let block = request["params"].get(1).and_then(JsonValue::as_str);
                             if key == next_key {
                                 json!(hex_prefixed(&encoded_key))
+                            } else if key == events_key {
+                                json!(hex_prefixed(&state.events))
                             } else {
                                 let block = block.expect("authority reads must specify a block");
                                 let new = block == hex_prefixed(&ADVANCED_HASH);
@@ -2627,13 +2731,263 @@ mod registered_signing_tests {
         }
     }
 
-    fn wallet_modes() -> [u8; 4] {
+    fn wallet_modes() -> [u8; 3] {
         [
             crate::keys::CRYPTO_HASHED,
             crate::keys::CRYPTO_HASHED_ED25519,
             crate::keys::CRYPTO_MLDSA65,
-            crate::keys::CRYPTO_MLDSA65_FIXED,
         ]
+    }
+
+    fn shield_events(node: &MockNode, inner_success: bool) -> Vec<u8> {
+        let dispatch_info = Value::record(vec![
+            (
+                "weight".into(),
+                Value::record(vec![
+                    ("ref_time".into(), Value::Uint(1)),
+                    ("proof_size".into(), Value::Uint(0)),
+                ]),
+            ),
+            ("class".into(), Value::str("Normal")),
+            ("pays_fee".into(), Value::str("Yes")),
+        ]);
+        let event = |index, pallet: &str, name: &str, attributes| {
+            Value::record(vec![
+                (
+                    "phase".into(),
+                    Value::record(vec![("ApplyExtrinsic".into(), Value::Uint(index))]),
+                ),
+                (
+                    "event".into(),
+                    Value::record(vec![(
+                        pallet.into(),
+                        Value::record(vec![(name.into(), attributes)]),
+                    )]),
+                ),
+                ("topics".into(), Value::List(vec![])),
+            ])
+        };
+        let mut records = vec![event(
+            0,
+            "System",
+            "ExtrinsicSuccess",
+            Value::record(vec![("dispatch_info".into(), dispatch_info.clone())]),
+        )];
+        records.push(event(
+            1,
+            "System",
+            if inner_success {
+                "ExtrinsicSuccess"
+            } else {
+                "ExtrinsicFailed"
+            },
+            Value::record(if inner_success {
+                vec![("dispatch_info".into(), dispatch_info)]
+            } else {
+                vec![
+                    ("dispatch_error".into(), Value::str("BadOrigin")),
+                    ("dispatch_info".into(), dispatch_info),
+                ]
+            }),
+        ));
+        records.push(event(
+            1,
+            "TransactionPayment",
+            "TransactionFeePaid",
+            Value::record(vec![
+                ("who".into(), Value::Bytes(vec![42; 32])),
+                ("actual_fee".into(), Value::Uint(3)),
+                ("tip".into(), Value::Uint(0)),
+            ]),
+        ));
+        let runtime = node.client.runtime().unwrap();
+        let mut encoded = Vec::new();
+        runtime
+            .encode_id(
+                storage_info(&runtime, "System", "Events")
+                    .unwrap()
+                    .value_type,
+                &Value::List(records),
+                &mut encoded,
+            )
+            .unwrap();
+        encoded
+    }
+
+    fn successful_carrier() -> TxOutcome {
+        let mut carrier = TxOutcome::pool_rejection("carrier".into(), "success".into());
+        carrier.success = true;
+        carrier.block_number = Some(10);
+        carrier.fee_rao = Some(7);
+        carrier
+    }
+
+    #[test]
+    fn shield_reports_inner_dispatch_outcome_and_both_fees() {
+        for success in [false, true] {
+            let signer = Keypair::from_seed(&[34; 32], crate::keys::CRYPTO_MLDSA65_FIXED).unwrap();
+            let node = MockNode::new(&signer);
+            let inner = vec![42];
+            let events = shield_events(&node, success);
+            {
+                let mut state = node.state.lock().unwrap();
+                state.included = vec![vec![41], inner.clone()];
+                state.events = events;
+            }
+            let result = node
+                .client
+                .resolve_shielded_inner(
+                    &inner,
+                    "inner".into(),
+                    successful_carrier(),
+                    true,
+                    Duration::from_secs(5),
+                )
+                .unwrap();
+            assert_eq!(result.success, success);
+            assert_eq!(
+                result.error.as_ref().map(|error| error.name.as_str()),
+                if success { None } else { Some("BadOrigin") }
+            );
+            assert_eq!(result.extrinsic_hash, "inner");
+            assert_eq!(result.extrinsic_index, Some(1));
+            assert_eq!(result.fee_rao, Some(10));
+            assert_eq!(result.data["carrier_extrinsic_hash"], Value::str("carrier"));
+            assert_eq!(result.data["carrier_fee_rao"], Value::Uint(7));
+            assert_eq!(result.data["inner_fee_rao"], Value::Uint(3));
+        }
+    }
+
+    #[test]
+    fn shield_carrier_success_does_not_hide_missing_inner_inclusion() {
+        let signer = Keypair::from_seed(&[35; 32], crate::keys::CRYPTO_MLDSA65_FIXED).unwrap();
+        let node = MockNode::new(&signer);
+        node.state.lock().unwrap().included = vec![vec![41]];
+        let result = node
+            .client
+            .resolve_shielded_inner(
+                &[42],
+                "inner".into(),
+                successful_carrier(),
+                false,
+                Duration::from_millis(100),
+            )
+            .unwrap();
+        assert!(!result.success);
+        assert!(result.message.contains("not included"));
+        assert_eq!(result.extrinsic_hash, "inner");
+        assert_eq!(result.fee_rao, Some(7));
+        assert_eq!(result.data["carrier_extrinsic_hash"], Value::str("carrier"));
+        assert!(node.state.lock().unwrap().block_reads > 0);
+    }
+
+    #[test]
+    fn fixed_ms_signs_queued_nonces_without_authority_records() {
+        let signer = Keypair::from_seed(&[31; 32], crate::keys::CRYPTO_MLDSA65_FIXED).unwrap();
+        let node = MockNode::new(&signer);
+        let call = node.call();
+        node.state.lock().unwrap().pending = true;
+        for nonce in [NONCE, NONCE + 1, NONCE + 2] {
+            let (encoded, _) = node
+                .client
+                .sign_extrinsic(&call, &signer, nonce, None)
+                .unwrap();
+            assert_proof(&node, &signer, &encoded, &call, 0, nonce);
+        }
+        let state = node.state.lock().unwrap();
+        assert!(state.authority_reads.is_empty());
+        assert!(state.account_reads.is_empty());
+    }
+
+    #[test]
+    fn fixed_ms_shield_signs_both_nonces_with_the_same_key() {
+        let signer = Keypair::from_seed(&[32; 32], crate::keys::CRYPTO_MLDSA65_FIXED).unwrap();
+        let node = MockNode::new(&signer);
+        let call = node.call();
+        let outcome = node.client.submit_shielded(&call, &signer, false).unwrap();
+        assert!(!outcome.success); // The server captures, then rejects the carrier.
+        let state = node.state.lock().unwrap();
+        assert!(state.authority_reads.is_empty());
+        assert!(state.account_reads.is_empty());
+        assert_eq!(state.finalized_reads, 1);
+        let outer = &state.submitted[0];
+        let runtime = node.client.runtime().unwrap();
+        let decoded = runtime.decode_extrinsic(outer, true).unwrap();
+        let Value::List(args) = field(field(&decoded, "call").unwrap(), "call_args").unwrap()
+        else {
+            panic!("decoded call arguments")
+        };
+        let ciphertext = args
+            .iter()
+            .find_map(|arg| {
+                (field(arg, "name") == Some(&Value::str("ciphertext")))
+                    .then(|| value_bytes(field(arg, "value").unwrap()).unwrap())
+            })
+            .unwrap();
+        let inner = node.decrypt(&ciphertext);
+        let outer_call = runtime
+            .compose_call(
+                "MevShield",
+                "submit_encrypted",
+                &Value::record(vec![("ciphertext".into(), Value::Bytes(ciphertext))]),
+            )
+            .unwrap();
+        assert_proof(&node, &signer, outer, &outer_call, 0, NONCE);
+        assert_proof(&node, &signer, &inner, &call, 0, NONCE + 1);
+    }
+
+    #[test]
+    fn shield_uses_short_mortal_eras_for_every_wallet_mode() {
+        for crypto in [0, 1, 4, 6, 7, 8] {
+            let signer = Keypair::from_seed(&[36; 32], crypto).unwrap();
+            let fixture = Keypair::from_seed(&[36; 32], crate::keys::CRYPTO_HASHED).unwrap();
+            let node = MockNode::new(if crypto <= 1 { &fixture } else { &signer });
+            let call = node.call();
+            let outcome = node.client.submit_shielded(&call, &signer, false).unwrap();
+            assert!(!outcome.success); // The server captures, then rejects the carrier.
+            let outer = node.state.lock().unwrap().submitted[0].clone();
+            let runtime = node.client.runtime().unwrap();
+            let decoded = runtime.decode_extrinsic(&outer, true).unwrap();
+            let Value::List(args) = field(field(&decoded, "call").unwrap(), "call_args").unwrap()
+            else {
+                panic!("decoded call arguments")
+            };
+            let ciphertext = args
+                .iter()
+                .find_map(|arg| {
+                    (field(arg, "name") == Some(&Value::str("ciphertext")))
+                        .then(|| value_bytes(field(arg, "value").unwrap()).unwrap())
+                })
+                .unwrap();
+            let inner = node.decrypt(&ciphertext);
+            for extrinsic in [&outer, &inner] {
+                let decoded = runtime.decode_extrinsic(extrinsic, true).unwrap();
+                let era = field(&decoded, "era").unwrap();
+                assert_eq!(tuple_item(era, 0).and_then(as_u128), Some(8));
+            }
+            let (ordinary, _) = node
+                .client
+                .sign_extrinsic(&call, &signer, NONCE, Some(DEFAULT_ERA_PERIOD))
+                .unwrap();
+            let decoded = runtime.decode_extrinsic(&ordinary, true).unwrap();
+            assert_eq!(
+                tuple_item(field(&decoded, "era").unwrap(), 0).and_then(as_u128),
+                Some(64)
+            );
+        }
+    }
+
+    #[test]
+    fn fixed_ms_shield_rejects_exhausted_inner_nonce_before_submitting() {
+        let signer = Keypair::from_seed(&[33; 32], crate::keys::CRYPTO_MLDSA65_FIXED).unwrap();
+        let node = MockNode::new(&signer);
+        node.state.lock().unwrap().nonce_override = Some(u64::from(u32::MAX) - 1);
+        let error = node
+            .client
+            .submit_shielded(&node.call(), &signer, false)
+            .unwrap_err();
+        assert!(error.to_string().contains("nonce exhausted"));
+        assert!(node.state.lock().unwrap().submitted.is_empty());
     }
 
     #[test]

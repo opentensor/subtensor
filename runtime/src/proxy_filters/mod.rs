@@ -546,6 +546,17 @@ mod tests {
             }),
             RuntimeCall::Multisig(pallet_multisig::Call::as_multi {
                 threshold: 2,
+                other_signatories: vec![other.clone()],
+                maybe_timepoint: None,
+                call: alloc::boxed::Box::new(inner.clone()),
+                max_weight: frame_support::weights::Weight::from_parts(1, 1),
+            }),
+            RuntimeCall::Multisig(pallet_multisig::Call::as_multi_threshold_1_safe {
+                other_signatories: vec![other.clone()],
+                call: alloc::boxed::Box::new(inner.clone()),
+            }),
+            RuntimeCall::Multisig(pallet_multisig::Call::as_multi_safe {
+                threshold: 2,
                 other_signatories: vec![other],
                 maybe_timepoint: None,
                 call: alloc::boxed::Box::new(inner),
@@ -565,6 +576,64 @@ mod tests {
                 );
             }
             assert!(ProxyType::Any.filter(call));
+        }
+    }
+
+    #[test]
+    fn native_evm_deposit_has_transfer_permissions_without_evm_execution_authority() {
+        for value in [Some(subtensor_runtime_common::TaoBalance::new(1)), None] {
+            let call = RuntimeCall::EVM(pallet_evm::Call::deposit {
+                address: sp_core::H160::repeat_byte(1),
+                value,
+            });
+            for proxy_type in all_proxy_types() {
+                let expected = matches!(
+                    proxy_type,
+                    ProxyType::Any | ProxyType::Transfer | ProxyType::NonCritical
+                );
+                assert_eq!(proxy_type.filter(&call), expected, "{proxy_type:?}");
+                assert_eq!(allowed_calls(proxy_type).contains("EVM::deposit"), expected);
+            }
+        }
+    }
+
+    #[test]
+    fn safe_derivative_and_pure_calls_retain_ordinary_proxy_policy() {
+        use alloc::boxed::Box;
+        let calls = [
+            RuntimeCall::Utility(pallet_subtensor_utility::Call::as_safe_derivative {
+                index: 0,
+                call: Box::new(RuntimeCall::System(frame_system::Call::remark {
+                    remark: vec![],
+                })),
+            }),
+            RuntimeCall::Proxy(pallet_subtensor_proxy::Call::create_safe_pure {
+                proxy_type: ProxyType::Any,
+                delay: 0,
+                index: 0,
+            }),
+            RuntimeCall::Proxy(pallet_subtensor_proxy::Call::kill_safe_pure {
+                spawner: subtensor_runtime_common::AccountId::new([1; 32]).into(),
+                proxy_type: ProxyType::Any,
+                index: 0,
+                height: 1,
+                ext_index: 0,
+            }),
+        ];
+        for call in calls {
+            let metadata = call.get_call_metadata();
+            let name = format!("{}::{}", metadata.pallet_name, metadata.function_name);
+            for proxy_type in all_proxy_types() {
+                let expected = matches!(
+                    proxy_type,
+                    ProxyType::Any
+                        | ProxyType::NonTransfer
+                        | ProxyType::NonFungible
+                        | ProxyType::NonCritical
+                );
+                assert_eq!(proxy_type.filter(&call), expected, "{proxy_type:?}: {name}");
+                assert_eq!(allowed_calls(proxy_type).contains(&name), expected);
+            }
         }
     }
 
@@ -792,6 +861,7 @@ mod tests {
                 "Balances::transfer_keep_alive",
                 "Balances::transfer_allow_death",
                 "Balances::transfer_all",
+                "EVM::deposit",
                 "SubtensorModule::transfer_stake",
                 "SubtensorModule::transfer_stake_and_hotkey",
             ])
@@ -882,6 +952,8 @@ mod tests {
             assert!(!allowed.contains("SubtensorModule::schedule_swap_coldkey"));
             assert!(!allowed.contains("Multisig::as_multi_threshold_1"));
             assert!(!allowed.contains("Multisig::as_multi"));
+            assert!(!allowed.contains("Multisig::as_multi_threshold_1_safe"));
+            assert!(!allowed.contains("Multisig::as_multi_safe"));
             assert!(!allowed.contains("Crowdloan::finalize"));
             assert!(!allowed.contains("Sudo::sudo"));
             assert!(!allowed.contains("MevShield::store_encrypted"));

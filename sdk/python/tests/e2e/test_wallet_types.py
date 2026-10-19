@@ -23,7 +23,7 @@ from bittensor.evm.addresses import h160_to_ss58
 from bittensor.evm.keys import create_evm_key
 from bittensor.hashed import registration_descriptor_value
 from bittensor.receiving import receiving_address
-from bittensor.sp_core import MLDSA_CRYPTO_TYPES, REGISTERED_CRYPTO_TYPES
+from bittensor.sp_core import MLDSA_CRYPTO_TYPES, requires_registration
 from tests.harness.samples import dev_wallet
 
 ENDPOINT = os.getenv("E2E_WALLET_ENDPOINT")
@@ -108,7 +108,7 @@ async def test_composable_wallet_lifecycle(tmp_path, scheme, mode):
     wallet = bt.Wallet("six-types", path=wallet_path)
     code = bt.wallets.parse_crypto_type(scheme, mode)
     assert wallet.coldkey.crypto_type == wallet.hotkey.crypto_type == code
-    hashed = code in REGISTERED_CRYPTO_TYPES
+    hashed = requires_registration(wallet.coldkeypub)
     alice = dev_wallet()
     async with bt.Client(ENDPOINT, fallback_endpoints=[], archive_endpoints=[]) as client:
         assert await client.query(bt.storage.Sudo.Key) == alice.coldkey.ss58_address
@@ -156,6 +156,8 @@ async def test_composable_wallet_lifecycle(tmp_path, scheme, mode):
                 )
             record_receipt(result)
             assert result.success, result.to_dict()
+            if code == 8:
+                assert await record(key) is None
 
         # Storage registration has a sponsor; PoW admission itself remains fee-free.
         if hashed:
@@ -230,9 +232,10 @@ async def test_composable_wallet_lifecycle(tmp_path, scheme, mode):
         evm = create_evm_key("default", "six-types", wallet_path, password=password.read_text())
         evm_coldkey = h160_to_ss58(evm.address)
         await root_setup(
-            bt.calls.Balances.force_set_balance(who=evm_coldkey, new_free=50 * 10**9),
             bt.calls.AdminUtils.sudo_set_subtoken_enabled(netuid=netuid, subtoken_enabled=True),
         )
+        funding = await cli("evm", "fund", "--evm-key", evm.address, "--amount-tao", "50")
+        assert funding["success"], funding
 
         async def evm_cli(*args):
             result = await cli(*args, "--wallet-password-file", str(password))

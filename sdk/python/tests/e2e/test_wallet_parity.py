@@ -17,8 +17,9 @@ import bittensor as bt
 from bittensor.receiving import receiving_address
 from bittensor.sp_core import (
     MLDSA_CRYPTO_TYPES,
-    REGISTERED_CRYPTO_TYPES,
     Keypair,
+    is_stateless_mldsa,
+    requires_registration,
     serialized_keypair_to_keyfile_data,
 )
 from tests.e2e.test_wallet_types import alice_submission
@@ -103,7 +104,8 @@ async def test_cli_wallet_parity(tmp_path, scheme, mode):
     )
     original = bt.Wallet("original", path=wallet_path)
     code = bt.wallets.parse_crypto_type(scheme, mode)
-    protected = code in REGISTERED_CRYPTO_TYPES
+    protected = requires_registration(original.coldkeypub)
+    stateless = is_stateless_mldsa(original.coldkeypub)
     alice = dev_wallet()
     async with bt.Client(ENDPOINT, fallback_endpoints=[], archive_endpoints=[]) as client:
         assert await client.query(bt.storage.Sudo.Key) == alice.coldkey.ss58_address
@@ -119,6 +121,11 @@ async def test_cli_wallet_parity(tmp_path, scheme, mode):
                 )
             assert result.success, result.to_dict()
             receipts.append({"operation": "sponsor transfer", **result.to_dict()})
+            if is_stateless_mldsa(key):
+                assert (
+                    await client.query(("HashedAccounts", "MlDsaAccounts"), [key.ss58_address])
+                    is None
+                )
 
         async def balance(key):
             value = await client.query(bt.storage.System.Account, [key.ss58_address])
@@ -128,8 +135,8 @@ async def test_cli_wallet_parity(tmp_path, scheme, mode):
             value = await client.query(bt.storage.System.Account, [key.ss58_address])
             return int(value["nonce"])
 
-        # Funding via the ordinary receiving address must sponsor setup, not
-        # require a separate manual registration or a different transfer command.
+        # The ordinary receiving address sponsors setup only for rotating accounts;
+        # fixed MS uses its SS58 address without creating a registration record.
         for key in (original.coldkey, original.hotkey):
             await fund(key, 1000)
             assert await balance(key) == 1000 * 10**9
@@ -160,7 +167,7 @@ async def test_cli_wallet_parity(tmp_path, scheme, mode):
             await cli("original", "wallet", "transfer", "--dest", name, "--amount", "1")
             assert await balance(recipient.coldkeypub) == before + 10**9
             address = receiving_address(recipient.coldkeypub)
-            if recipient.coldkeypub.crypto_type in REGISTERED_CRYPTO_TYPES:
+            if requires_registration(recipient.coldkeypub):
                 address = descriptor_receiving_address(recipient.coldkeypub)
             await cli("original", "wallet", "transfer", "--dest", address, "--amount", "1")
             assert await balance(recipient.coldkeypub) == before + 2 * 10**9
@@ -226,16 +233,17 @@ async def test_cli_wallet_parity(tmp_path, scheme, mode):
                 role,
             )
 
-        # Read-only backups and message verification retain the descriptor scheme.
+        # Read-only backups retain the scheme for both descriptors and fixed MS SS58.
         for role in ("coldkey", "hotkey"):
             key = getattr(original, role)
-            if protected:
+            if protected or stateless:
                 await cli(
                     "watch-only",
                     "wallet",
                     f"regen-{role}pub",
                     "--address",
-                    descriptor_receiving_address(key),
+                    descriptor_receiving_address(key) if protected else key.ss58_address,
+                    *(["--crypto-type", "ms"] if stateless else []),
                 )
                 public = getattr(bt.Wallet("watch-only", path=wallet_path), role + "pub")
                 assert public.ss58_address == key.ss58_address
@@ -291,15 +299,16 @@ async def test_cli_wallet_parity(tmp_path, scheme, mode):
             "original,peer",
         )
         multi = saved["multisig_address"]
-        if code in MLDSA_CRYPTO_TYPES:
-            group = await client.multisig(
-                [original.coldkey.ss58_address, peer.coldkey.ss58_address], 2
-            )
-            protection = await group.protection_call(deposit_payer=peer.coldkey.ss58_address)
-            for member in (original, peer):
-                result = await group.approve(protection, member, wait_for_finalization=True)
-                assert result.success, result.to_dict()
-            assert (await group.protection_status())["registered"]
+        assert saved["entry"]["account_mode"] == "safe"
+        group = await client.multisig(
+            [original.coldkey.ss58_address, peer.coldkey.ss58_address],
+            2,
+            account_mode=saved["entry"]["account_mode"],
+        )
+        assert group.address == multi
+        status = await group.protection_status()
+        assert status["safe_derivation"] and not status["eligible"] and not status["registered"]
+        assert await client.query(("HashedAccounts", "DerivedAuthorities"), [multi]) is None
         await cli("original", "wallet", "transfer", "--dest", multi, "--amount", "20")
         dest = bt.Wallet("recipient-ed-hashed", path=wallet_path).coldkeypub
         before = await balance(dest)
@@ -413,6 +422,12 @@ async def test_cli_wallet_parity(tmp_path, scheme, mode):
             str(password),
         )
         assert await nonce(original.coldkey) == before + 1
+        if stateless:
+            for key in (original.coldkey, original.hotkey, peer.coldkey):
+                assert (
+                    await client.query(("HashedAccounts", "MlDsaAccounts"), [key.ss58_address])
+                    is None
+                )
         if directory := os.getenv("E2E_EVIDENCE_DIR"):
             evidence_path = Path(directory)
             evidence_path.mkdir(parents=True, exist_ok=True)

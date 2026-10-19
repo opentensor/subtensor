@@ -9,7 +9,7 @@ from threading import Barrier, Lock
 import pytest
 
 from bittensor.keyfiles import Keyfile, Keypair
-from bittensor.sp_core import serialized_keypair_to_keyfile_data
+from bittensor.sp_core import serialized_keypair_to_keyfile_data, verify_mldsa_authorization
 
 
 def test_short_writes_publish_only_the_complete_keyfile(tmp_path, monkeypatch):
@@ -150,8 +150,13 @@ def test_directory_sync_failure_reports_error_with_complete_published_wallet(tmp
     assert list(tmp_path.iterdir()) == [path]
     restored = keyfile.get_keypair()
     assert restored.ss58_address == keypair.ss58_address
-    assert bytes(restored.at_generation(63).hashed_public_key) == bytes(
-        keypair.at_generation(63).hashed_public_key
+    assert bytes(restored.hashed_public_key) == bytes(keypair.hashed_public_key)
+    assert verify_mldsa_authorization(
+        bytes(restored.sign_hashed(b"restored fixed account")),
+        b"restored fixed account",
+        bytes(keypair.hashed_descriptor),
+        0,
+        bytes(keypair.hashed_current_commitment),
     )
 
 

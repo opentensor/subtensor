@@ -9,6 +9,9 @@ extern crate alloc;
 /// Quantum-resistant account protocol, independent of the immutable v1 format.
 pub mod mldsa;
 
+/// Registration-free composite address derivation.
+pub mod safe;
+
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 

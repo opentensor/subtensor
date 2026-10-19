@@ -149,6 +149,7 @@ RAW_ONLY: dict[str, set[str]] = {
         # origin/dispatch plumbing — niche
         "as_derivative",
         "as_protected_derivative",
+        "as_safe_derivative",
         "dispatch_as",
         "dispatch_as_fallible",
         "if_else",
@@ -157,6 +158,7 @@ RAW_ONLY: dict[str, set[str]] = {
     "Multisig": {
         # deposit maintenance — niche; the four multisig operations are wrapped
         "poke_deposit",
+        "poke_deposit_safe",
     },
     "Swap": {
         # all user LP calls are DEPRECATED on-chain (per runtime metadata docs);

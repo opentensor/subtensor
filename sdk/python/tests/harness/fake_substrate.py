@@ -30,6 +30,7 @@ from bittensor._transport import codec as codec_mod
 from bittensor._transport.contract import HashedSigningSnapshot, MultisigAccount
 from bittensor.balance import Balance
 from bittensor.result import ExtrinsicResult
+from bittensor.settings import DEFAULT_ERA_PERIOD
 
 # Value returned for storage items not seeded by the test. Keyed by
 # (module, item); chosen so intent build/warnings pre-flight checks pass.
@@ -328,7 +329,7 @@ class FakeSubstrate:
         module, function, params = call
         return ComposedCall(module, function, params)
 
-    async def estimate_fee(self, call, keypair) -> Balance:
+    async def estimate_fee(self, call, keypair, *, period=DEFAULT_ERA_PERIOD) -> Balance:
         return self.fee
 
     async def estimate_shielded_carrier_fee(self, call, keypair, *, period: int) -> Balance:
@@ -354,9 +355,22 @@ class FakeSubstrate:
     async def mev_next_key(self) -> Optional[bytes]:
         return self.mev_key
 
-    async def prepare_hashed_snapshot(self, keypair) -> HashedSigningSnapshot:
+    async def prepare_hashed_snapshot(
+        self, keypair, *, reserve_nonces=False
+    ) -> HashedSigningSnapshot:
         from bittensor.hashed import descriptor_bytes, raw_bytes
 
+        if keypair.crypto_type == 8:
+            descriptor = bytes(keypair.hashed_descriptor)
+            return HashedSigningSnapshot(
+                await self.block_hash(self.finalized),
+                keypair.ss58_address,
+                8,
+                descriptor,
+                0,
+                descriptor[2:],
+                self._nonces[keypair.ss58_address],
+            )
         registry = "MlDsaAccounts" if keypair.crypto_type in (7, 8) else "Accounts"
         record = await self.query("HashedAccounts", registry, [keypair.ss58_address])
         generation = int(record["generation"]) if record else keypair.hashed_generation
@@ -369,6 +383,9 @@ class FakeSubstrate:
             raw_bytes(record["commitment"]) if record else bytes(keypair.hashed_current_commitment),
             self._nonces[keypair.ss58_address],
         )
+
+    def release_nonce_reservation(self, address: str, first: int, count: int) -> None:
+        pass
 
     async def sign_extrinsic(
         self,
@@ -438,9 +455,11 @@ class FakeSubstrate:
 
     # -- multisig -------------------------------------------------------------------
 
-    def multisig_account(self, signatories: list[str], threshold: int) -> MultisigAccount:
+    def multisig_account(
+        self, signatories: list[str], threshold: int, *, account_mode="legacy"
+    ) -> MultisigAccount:
         # Real derivation — pure local crypto, no chain involved.
-        return codec_mod.multisig_account(signatories, threshold)
+        return codec_mod.multisig_account(signatories, threshold, account_mode=account_mode)
 
     async def submit_multisig(
         self,

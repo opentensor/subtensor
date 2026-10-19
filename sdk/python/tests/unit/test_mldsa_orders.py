@@ -390,6 +390,10 @@ async def test_fee_descriptors_require_matching_finalized_registration(
         action = intent.build(chain, dev_wallet())
     else:
         action = prepare_order(chain, 1, value)
+    if crypto_type == 8:
+        assert await action is not None
+        chain.query.assert_not_awaited()
+        return
     if registration != "finalized":
         with pytest.raises(
             ValueError, match=r"(registration is not finalized|descriptor does not match)"
@@ -414,7 +418,7 @@ async def test_authorized_order_relays_preserve_fee_descriptors(route, proof):
     from bittensor.receiving import receiving_address
     from tests.harness.samples import dev_wallet
 
-    key = Keypair.create_from_seed(bytes([45]) * 32, 8)
+    key = Keypair.create_from_seed(bytes([45]) * 32, 7)
     value = order(BOB)
     value["V1"]["fee_recipient"] = receiving_address(key)
     signature = "AccountApproved"

@@ -30,6 +30,7 @@ from .sp_core import (
 )
 from .sp_core import HASHED_CRYPTO_TYPES as HASHED_CRYPTO_TYPES
 from .sp_core import REGISTERED_CRYPTO_TYPES as REGISTERED_CRYPTO_TYPES
+from .sp_core import requires_registration as requires_registration
 from .wallet import DEFAULT_WALLET_PATH, Wallet
 
 CRYPTO_TYPE_NAMES: dict[int, str] = {

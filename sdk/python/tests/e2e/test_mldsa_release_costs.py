@@ -8,7 +8,9 @@ sudo to exercise the exact fee-affordability boundary. Global settings stay put.
 from __future__ import annotations
 
 import asyncio
+import json
 import os
+import sys
 
 import pytest
 
@@ -59,8 +61,11 @@ def reserved(state):
 
 def assert_signed(before, after, count):
     assert after["account"]["nonce"] == before["account"]["nonce"] + count
-    assert after["authority"]["generation"] == before["authority"]["generation"] + count
-    assert after["authority"]["descriptor"] == before["authority"]["descriptor"]
+    if before["authority"] is None:
+        assert after["authority"] is None
+    else:
+        assert after["authority"]["generation"] == before["authority"]["generation"] + count
+        assert after["authority"]["descriptor"] == before["authority"]["descriptor"]
 
 
 def attributes(events, module, name):
@@ -105,7 +110,7 @@ async def fund(client, report, signer, amount=100 * 10**9):
             wait_for_finalization=True,
         )
     await observe(client, report, "Alice sponsors and funds fresh account", result)
-    assert (await snapshot(client, signer))["authority"] is not None
+    assert ((await snapshot(client, signer))["authority"] is not None) == (signer.crypto_type != 8)
 
 
 async def quote_pair(client, intent, signer, **kwargs):
@@ -116,7 +121,7 @@ async def quote_pair(client, intent, signer, **kwargs):
         plain = await client.plan(intent, signer, shielded=False, **kwargs)
         shielded = await client.plan(intent, signer, shielded=True, **kwargs)
         preview = await client.preflight(intent, signer, shielded=True, **kwargs)
-        carrier = await client.estimate_shielded_carrier_fee(signer.ss58_address, shielded.call)
+        carrier = await client.estimate_shielded_carrier_fee(signer.public_only(), shielded.call)
         if head == await request("chain_getBlockHash", []):
             break
     else:
@@ -133,6 +138,95 @@ async def quote_pair(client, intent, signer, **kwargs):
 
 
 @pytest.mark.parametrize("code", [7, 8])
+async def test_shield_actual_fees_match_cli_and_failed_transfer_balance_deltas(tmp_path, code):
+    """The public result includes both paid extrinsics, even if the inner call fails."""
+    wallet_path = str(tmp_path / "wallets")
+    wallet = bt.Wallet("shield-fees", path=wallet_path)
+    wallet.create_new_coldkey(crypto_type=code, use_password=False, suppress=True)
+    wallet.create_new_hotkey(crypto_type=code, suppress=True)
+    owner = wallet.coldkey
+    recipient = fresh_key(1)
+    report = Evidence(f"shield-actual-fees-{code}")
+
+    async with bt.Client(ENDPOINT, fallback_endpoints=[], archive_endpoints=[]) as client:
+        await fund(client, report, owner, amount=10 * 10**9)
+        before = await snapshot(client, owner)
+        recipient_before = int((await account(client, recipient))["data"]["free"])
+        process = await asyncio.create_subprocess_exec(
+            sys.executable,
+            "-m",
+            "bittensor.cli.main",
+            "--yes",
+            "--json",
+            "--mev-shield",
+            "--network",
+            ENDPOINT,
+            "--fallback-endpoints",
+            "none",
+            "--archive-endpoints",
+            "none",
+            "--wallet-path",
+            wallet_path,
+            "--wallet",
+            wallet.name,
+            "wallet",
+            "transfer",
+            "--dest",
+            recipient.ss58_address,
+            "--amount",
+            "1",
+            env={**os.environ, "BTCLI_CONFIG": str(tmp_path / "config.json")},
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            out, err = await asyncio.wait_for(process.communicate(), 180)
+        except BaseException:
+            process.kill()
+            await process.wait()
+            raise
+        assert process.returncode == 0, out.decode() + err.decode()
+        result = json.loads(out)
+        after = await snapshot(client, owner)
+        assert result["success"] and result["data"]["shielded"], result
+        data = result["data"]
+        total = data["shield_carrier_fee_rao"] + data["shield_inner_fee_rao"]
+        assert data["shield_carrier_fee_rao"] > 0 and data["shield_inner_fee_rao"] > 0
+        assert money(total).tao == result["fee_tao"]
+        assert free(before) - free(after) == 10**9 + total
+        assert int((await account(client, recipient))["data"]["free"]) - recipient_before == 10**9
+        assert_signed(before, after, 2)
+        report.add("CLI successful Shield transfer", result=result, before=before, after=after)
+
+        # Raw submission deliberately bypasses transfer preflight to include an
+        # unaffordable inner call. Both envelopes pay fees, but no value moves.
+        before = await snapshot(client, owner)
+        recipient_before = int((await account(client, recipient))["data"]["free"])
+        failed = await client.submit_call(
+            bt.calls.Balances.transfer_allow_death(dest=recipient.ss58_address, value=20 * 10**9),
+            wallet,
+            shielded=True,
+            wait_for_finalization=True,
+        )
+        after = await snapshot(client, owner)
+        assert not failed.success and failed.data["shielded"], failed.to_dict()
+        assert failed.error.name == "FundsUnavailable", failed.to_dict()
+        assert failed.fee.rao == free(before) - free(after)
+        assert failed.fee.rao == (
+            failed.data["shield_carrier_fee_rao"] + failed.data["shield_inner_fee_rao"]
+        )
+        assert all(
+            failed.data[name] > 0 for name in ("shield_carrier_fee_rao", "shield_inner_fee_rao")
+        )
+        assert attributes(failed.events, "System", "ExtrinsicFailed")
+        assert int((await account(client, recipient))["data"]["free"]) == recipient_before
+        assert_signed(before, after, 2)
+        report.add(
+            "included failed Shield transfer", result=failed.to_dict(), before=before, after=after
+        )
+
+
+@pytest.mark.parametrize("code", [7])
 @pytest.mark.parametrize("count", [1, 2])
 async def test_protected_pure_reserves_policy_and_kill_lifecycle(code, count):
     owner = fresh_key(code)
@@ -230,18 +324,21 @@ async def test_automatic_and_explicit_shield_total_fee_caps_and_receipts(code):
         bt.Client(ENDPOINT, fallback_endpoints=[], archive_endpoints=[]) as client,
     ):
         deposit = await setup(client)
+        if code == 8:
+            deposit = 0
         await fund(client, report, sender)
         intent = bt.intents.Transfer(receiving_address(recipient), 1)
         before, recipient_before = await snapshot(client, sender), await snapshot(client, recipient)
         plain, shield, _, carrier = await quote_pair(client, intent, sender)
         automatic = await client.plan(intent, sender)
-        assert automatic.shielded and automatic.fee == shield.fee
+        assert automatic.shielded == (code != 8)
+        assert automatic.fee == (shield.fee if code != 8 else plain.fee)
         cap = plain.fee + money(carrier.rao // 2)
         assert plain.fee <= cap < shield.fee
         policy = bt.Policy(max_fee_tao=cap)
         allowed_plain = await client.plan(intent, sender, shielded=False, policy=policy)
         assert allowed_plain.ok and not allowed_plain.shielded
-        for mode in (None, True):
+        for mode in (None, True) if code != 8 else (True,):
             blocked = await client.plan(intent, sender, shielded=mode, policy=policy)
             assert not blocked.ok and any("max_fee_tao" in v for v in blocked.violations)
             with pytest.raises(bt.PolicyError, match="max_fee_tao"):
@@ -264,6 +361,7 @@ async def test_automatic_and_explicit_shield_total_fee_caps_and_receipts(code):
         funded = await client.execute(
             intent,
             sender,
+            shielded=True if code == 8 else None,
             policy=bt.Policy(max_fee_tao=money(shield.fee.rao * 2)),
             max_registration_deposit=money(deposit),
             wait_for_finalization=True,
@@ -274,7 +372,8 @@ async def test_automatic_and_explicit_shield_total_fee_caps_and_receipts(code):
         assert_signed(before, after, 2)
         assert reserved(after) == reserved(before) + deposit
         received = await snapshot(client, recipient)
-        assert received["authority"] is not None and free(received) == 10**9
+        assert (received["authority"] is not None) == (code != 8)
+        assert free(received) == 10**9
         fee_events = attributes(events, "TransactionPayment", "TransactionFeePaid")
         assert len(fee_events) == 1
         actual_total = free(before) - free(after) - deposit - 10**9
@@ -301,7 +400,7 @@ async def test_automatic_and_explicit_shield_total_fee_caps_and_receipts(code):
         assert free(await snapshot(client, recipient)) == 2 * 10**9
 
 
-@pytest.mark.parametrize("code", [7, 8])
+@pytest.mark.parametrize("code", [7])
 async def test_proxy_delegate_must_afford_both_fees_independently_of_reserve_owner(code):
     owner, delegate = fresh_key(code), fresh_key(code)
     report = Evidence(f"release-pure-delegate-fees-{code}")

@@ -40,8 +40,12 @@ async def test_restricted_ms_proxy_sets_weights_and_revocation_invalidates_autho
             miner=miner,
             alternate=alternate,
         )
-        cap = bt.Balance.from_rao(
-            int(await client.constant(bt.constants.HashedAccounts.MlDsaRegistrationDeposit))
+        cap = (
+            bt.Balance.from_rao(
+                int(await client.constant(bt.constants.HashedAccounts.MlDsaRegistrationDeposit))
+            )
+            if code == 7
+            else None
         )
         assert await client.query(("AdminUtils", "HashedAccountsEnabled")) is True
         assert await client.query(bt.storage.SubtensorModule.NetworkRateLimit) == 0
@@ -59,24 +63,33 @@ async def test_restricted_ms_proxy_sets_weights_and_revocation_invalidates_autho
 
         def advanced_once(before, after):
             assert after["account"]["nonce"] == before["account"]["nonce"] + 1
-            assert after["authority"]["generation"] == before["authority"]["generation"] + 1
-            assert after["authority"]["descriptor"] == before["authority"]["descriptor"]
-            assert (after["authority"]["commitment"] == before["authority"]["commitment"]) == (
-                code == 8
-            )
+            if code == 8:
+                assert before["authority"] is None and after["authority"] is None
+            else:
+                assert after["authority"]["generation"] == before["authority"]["generation"] + 1
+                assert after["authority"]["descriptor"] == before["authority"]["descriptor"]
+                assert after["authority"]["commitment"] != before["authority"]["commitment"]
             assert after["account"]["data"]["reserved"] == before["account"]["data"]["reserved"]
 
         for signer in (cold, hot, delegate, miner, alternate):
             async with alice_submission():
                 result = await client.execute(
                     bt.intents.Transfer(
-                        receiving_address(signer), 20_000 if signer is cold else 100
+                        signer.ss58_address if code == 8 else receiving_address(signer),
+                        20_000 if signer is cold else 100,
                     ),
                     dev_wallet(),
                     max_registration_deposit=cap,
                     wait_for_finalization=True,
                 )
-            await run.record("Alice funds and explicitly sponsors fresh descriptor", result)
+            await run.record(
+                "Alice funds fixed SS58 account"
+                if code == 8
+                else "Alice funds and sponsors rotating descriptor",
+                result,
+            )
+            if code == 8:
+                assert (await finalized_state(signer))["authority"] is None
 
         result = await client.execute(
             bt.intents.RegisterSubnet(hotkey_ss58=hot.ss58_address),
@@ -206,10 +219,13 @@ async def test_restricted_ms_proxy_sets_weights_and_revocation_invalidates_autho
         assert (
             principal_after_revoke["account"]["nonce"] == principal_before["account"]["nonce"] + 1
         )
-        assert (
-            principal_after_revoke["authority"]["generation"]
-            == principal_before["authority"]["generation"] + 1
-        )
+        if code == 8:
+            assert principal_after_revoke["authority"] is None
+        else:
+            assert (
+                principal_after_revoke["authority"]["generation"]
+                == principal_before["authority"]["generation"] + 1
+            )
         assert not (await client.query(("Proxy", "Proxies"), [hot.ss58_address]))[0]
         delegate_before = await finalized_state(delegate)
         _, events = await run.submit(

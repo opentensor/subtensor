@@ -475,7 +475,7 @@ class TestTransactions:
         fake.seed("MevShield", "NextKey", [], fake.mev_key)
         sizes = []
 
-        async def estimate(call, keypair):
+        async def estimate(call, keypair, **kwargs):
             if call.module == "MevShield":
                 size = len(call.params["ciphertext"])
                 sizes.append(size)
@@ -1442,4 +1442,4 @@ def test_registered_cli_submission_waits_for_finalized_authority(
     intent.signer = role
     result = context.submit(intent)
     assert result.success, result.to_dict()
-    assert observed[-1] is (crypto in wallets.REGISTERED_CRYPTO_TYPES)
+    assert observed[-1] is (crypto in wallets.HASHED_CRYPTO_TYPES)

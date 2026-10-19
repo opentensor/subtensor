@@ -44,6 +44,7 @@ from .result import (
     chain_error_from_substrate_request,
 )
 from .settings import DEFAULT_ERA_PERIOD, SS58_FORMAT, explorer_extrinsic_url
+from .sp_core import is_stateless_mldsa
 
 T = TypeVar("T")
 
@@ -206,7 +207,9 @@ class Substrate(Protocol):
         """Compose a generated ``(module, function, params)`` call into a chain-ready call."""
         ...
 
-    async def estimate_fee(self, call, keypair) -> Balance:
+    async def estimate_fee(
+        self, call, keypair, *, period: Optional[int] = DEFAULT_ERA_PERIOD
+    ) -> Balance:
         """Estimate the fee for a call without submitting it (no signature needed)."""
         ...
 
@@ -228,8 +231,14 @@ class Substrate(Protocol):
         """The MEV Shield ML-KEM-768 public key from ``NextKey`` storage, if active."""
         ...
 
-    async def prepare_hashed_snapshot(self, keypair) -> HashedSigningSnapshot:
+    async def prepare_hashed_snapshot(
+        self, keypair, *, reserve_nonces=False
+    ) -> HashedSigningSnapshot:
         """A finalized authority snapshot for a paired Shield authorization."""
+        ...
+
+    def release_nonce_reservation(self, address: str, first: int, count: int) -> None:
+        """Release a known abandoned local reservation without clearing other signers."""
         ...
 
     async def sign_extrinsic(
@@ -316,7 +325,7 @@ class Substrate(Protocol):
 
     # Multisig ---------------------------------------------------------------------
 
-    def multisig_account(self, signatories: list[str], threshold: int):
+    def multisig_account(self, signatories: list[str], threshold: int, *, account_mode="legacy"):
         """Derive the deterministic multisig ``MultiAccountId`` for a signer set."""
         ...
 
@@ -601,9 +610,12 @@ class RpcSubstrate:
             )
         )
 
-    async def estimate_fee(self, call, keypair) -> Balance:
+    async def estimate_fee(
+        self, call, keypair, *, period: Optional[int] = DEFAULT_ERA_PERIOD
+    ) -> Balance:
         """Estimate the fee for a call without submitting it (no signature needed)."""
-        info = await self._read(lambda raw: raw.get_payment_info(call, keypair))
+        era = {"period": period} if period is not None else None
+        info = await self._read(lambda raw: raw.get_payment_info(call, keypair, era=era))
         fee = info.get("partial_fee", info.get("partialFee", 0))
         return Balance.from_rao(int(fee))
 
@@ -640,8 +652,15 @@ class RpcSubstrate:
             return bytes.fromhex(value.removeprefix("0x"))
         return bytes(value)
 
-    async def prepare_hashed_snapshot(self, keypair) -> HashedSigningSnapshot:
-        return await self._read(lambda raw: raw.prepare_hashed_snapshot(keypair))
+    async def prepare_hashed_snapshot(
+        self, keypair, *, reserve_nonces=False
+    ) -> HashedSigningSnapshot:
+        return await self._read(
+            lambda raw: raw.prepare_hashed_snapshot(keypair, reserve_nonces=reserve_nonces)
+        )
+
+    def release_nonce_reservation(self, address: str, first: int, count: int) -> None:
+        self.raw.release_nonce_reservation(address, first, count)
 
     async def sign_extrinsic(
         self,
@@ -707,12 +726,20 @@ class RpcSubstrate:
 
         The nonce is fetched via ``get_account_next_index`` (unless one is passed
         explicitly, as for MEV-shielded submission where the outer/inner nonces must
-        be pinned) so the outer/inner nonces of a call are deterministic. On any
-        submission failure the account's cached next-index is cleared, because a
-        failed submit does not consume the nonce on-chain and a stale cached value
-        would wedge every subsequent submit for that account into future-nonce limbo.
+        be pinned) so the outer/inner nonces of a call are deterministic. Standard
+        MS releases only its own nonce reservation on a definite failure, preserving
+        other pending submissions, including a Shield transaction's hidden inner.
         """
+        reservation = (
+            (hashed_signing_snapshot.nonce, 2)
+            if hashed_signing_snapshot is not None and is_stateless_mldsa(keypair)
+            else None
+        )
         try:
+            if is_stateless_mldsa(keypair) and reservation is None:
+                if nonce is None:
+                    nonce = await self.raw.get_account_next_index(keypair.ss58_address)
+                reservation = (nonce, 1)
             extrinsic = await self.raw.create_signed_extrinsic(
                 call,
                 keypair,
@@ -726,12 +753,18 @@ class RpcSubstrate:
             )
         except Exception as error:
             # Signing may already have consumed a cached nonce; see _failed_submit.
-            return self._failed_submit(error, keypair.ss58_address)
+            return self._failed_submit(
+                error,
+                keypair.ss58_address,
+                reservation=reservation,
+                reset_nonce_cache=not is_stateless_mldsa(keypair),
+            )
         return await self._submit_and_report(
             extrinsic,
             signer_address=keypair.ss58_address,
             wait_for_inclusion=wait_for_inclusion,
             wait_for_finalization=wait_for_finalization,
+            reservation=reservation,
         )
 
     async def prepare(
@@ -801,6 +834,7 @@ class RpcSubstrate:
             signer_address=unsigned.address,
             wait_for_inclusion=wait_for_inclusion,
             wait_for_finalization=wait_for_finalization,
+            reset_nonce_cache=not is_stateless_mldsa(getattr(unsigned, "unsigned", unsigned)),
         )
 
     async def submit_signed(
@@ -822,6 +856,7 @@ class RpcSubstrate:
             signer_address=keypair.ss58_address,
             wait_for_inclusion=wait_for_inclusion,
             wait_for_finalization=wait_for_finalization,
+            reset_nonce_cache=not is_stateless_mldsa(keypair),
         )
 
     async def _submit_and_report(
@@ -831,6 +866,8 @@ class RpcSubstrate:
         signer_address: str,
         wait_for_inclusion: bool,
         wait_for_finalization: bool,
+        reservation: Optional[tuple[int, int]] = None,
+        reset_nonce_cache: bool = True,
     ) -> ExtrinsicResult:
         """Submit a signed extrinsic and decode the outcome."""
         try:
@@ -840,19 +877,38 @@ class RpcSubstrate:
                 wait_for_finalization=wait_for_finalization,
             )
         except Exception as error:
-            return self._failed_submit(error, signer_address)
+            return self._failed_submit(
+                error,
+                signer_address,
+                reservation=reservation,
+                release_reservation=isinstance(error, SubstrateRequestException),
+                reset_nonce_cache=reset_nonce_cache,
+            )
         return self._result_from_report(report, wait_for_inclusion or wait_for_finalization)
 
-    def _failed_submit(self, error: Exception, signer_address: str) -> ExtrinsicResult:
+    def _failed_submit(
+        self,
+        error: Exception,
+        signer_address: str,
+        *,
+        reservation=None,
+        release_reservation=True,
+        reset_nonce_cache=True,
+    ) -> ExtrinsicResult:
         """Translate a failure between signing and inclusion into the write contract.
 
-        Any such failure (RPC rejection, dropped websocket, cancellation)
-        leaves the nonce unconsumed on-chain, so the signer's cached next-index
-        is cleared — a stale value would wedge every subsequent submit for
-        that account into future-nonce limbo. Chain-side rejections become a
-        failed :class:`ExtrinsicResult`; anything else raises :class:`ChainError`.
+        Standard MS failures release only their own reservation. A disconnected
+        submission has an unknown outcome, so it cannot release a potentially
+        pending nonce. Fixed submissions with no owned reservation also leave
+        the cache intact: a failed nonce lookup or external extrinsic cannot
+        abandon another caller's Shield pair. Other flows retain their cache reset.
+        Chain-side rejections become a failed result; other failures raise.
         """
-        self.raw.clear_nonce_cache_for_account(signer_address)
+        if reservation is None:
+            if reset_nonce_cache:
+                self.raw.clear_nonce_cache_for_account(signer_address)
+        elif release_reservation:
+            self.release_nonce_reservation(signer_address, *reservation)
         if isinstance(error, (RpcPolicyRejection, MaxRetriesExceeded)):
             raise _public_rpc_error(error) from error
         if not isinstance(error, SubstrateRequestException):
@@ -874,6 +930,11 @@ class RpcSubstrate:
             # Index zero-padded to 4 digits, as explorers render it.
             extrinsic_id = f"{report.block_number}-{report.extrinsic_idx:04d}"
         explorer = explorer_extrinsic_url(self.endpoint, extrinsic_id) if extrinsic_id else None
+        fee = (
+            Balance.from_rao(report.total_fee_amount)
+            if report.total_fee_amount is not None
+            else None
+        )
 
         if report.is_success:
             return ExtrinsicResult(
@@ -882,7 +943,7 @@ class RpcSubstrate:
                 block_hash=report.block_hash,
                 extrinsic_id=extrinsic_id,
                 explorer_url=explorer,
-                fee=Balance.from_rao(report.total_fee_amount or 0),
+                fee=fee,
                 events=list(report.triggered_events),
             )
 
@@ -900,14 +961,18 @@ class RpcSubstrate:
             block_hash=report.block_hash,
             extrinsic_id=extrinsic_id,
             explorer_url=explorer,
+            fee=fee,
+            events=list(report.triggered_events),
             error=ChainError(text, name),
         )
 
     # Multisig ---------------------------------------------------------------
 
-    def multisig_account(self, signatories: list[str], threshold: int) -> MultisigAccount:
+    def multisig_account(
+        self, signatories: list[str], threshold: int, *, account_mode="legacy"
+    ) -> MultisigAccount:
         """Derive the deterministic multisig account for a signer set."""
-        return self.raw.generate_multisig_account(signatories, threshold)
+        return self.raw.generate_multisig_account(signatories, threshold, account_mode=account_mode)
 
     async def submit_multisig(
         self,

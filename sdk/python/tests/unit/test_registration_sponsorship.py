@@ -25,19 +25,53 @@ CLASSICAL_DEPOSIT = 200_000_000
 MLDSA_DEPOSIT = 200_000_000
 
 
-@pytest.fixture(params=[4, 6, 7, 8])
-def setup(request):
+def make_setup(code):
     chain = FakeSubstrate()
     chain.seed("AdminUtils", "HashedAccountsEnabled", [], True)
     chain.seed_constant("HashedAccounts", "MldsaAccountProfiles", "0x0405")
     chain.seed_constant("HashedAccounts", "RegistrationDeposit", CLASSICAL_DEPOSIT)
     chain.seed_constant("HashedAccounts", "MlDsaRegistrationDeposit", MLDSA_DEPOSIT)
     chain.seed("System", "Account", [ALICE], {"data": {"free": 10**12, "frozen": 0}})
-    key = Keypair.create_from_seed(bytes([22]) * 32, request.param)
+    key = Keypair.create_from_seed(bytes([22]) * 32, code)
     executor = Executor(chain)
     executor._submit_encrypted_call = AsyncMock(return_value=success_result())
-    deposit = MLDSA_DEPOSIT if request.param in (7, 8) else CLASSICAL_DEPOSIT
+    deposit = MLDSA_DEPOSIT if code == 7 else CLASSICAL_DEPOSIT
     return chain, executor, key, Transfer(receiving_address(key), 1), deposit
+
+
+@pytest.fixture(params=[4, 6, 7])
+def setup(request):
+    return make_setup(request.param)
+
+
+@pytest.mark.parametrize("method", ["execute", "submit_shielded"])
+@pytest.mark.parametrize("batched", [False, True])
+async def test_standard_ms_recipient_never_requests_registration_sponsorship(method, batched):
+    chain, executor, key, transfer, _ = make_setup(8)
+    intent = Batch([transfer]) if batched else transfer
+    callback = Mock(side_effect=AssertionError("fixed accounts need no sponsorship"))
+    preview = await executor.preflight(intent, dev_wallet())
+    assert preview.registration_sponsorship is None
+    assert not preview.account_registration
+    assert (
+        await getattr(executor, method)(
+            intent,
+            dev_wallet(),
+            max_registration_deposit=Balance.from_rao(0),
+            on_registration_sponsorship=callback,
+        )
+    ).success
+    callback.assert_not_called()
+    call = (
+        executor._submit_encrypted_call.call_args.args[0]
+        if method == "submit_shielded"
+        else chain.last_call
+    )
+    if batched:
+        assert len(call.params["calls"]) == 1
+        call = call.params["calls"][0]
+    assert call.module == "Balances"
+    assert call.params["dest"] == key.ss58_address
 
 
 @pytest.mark.parametrize("method", ["execute", "submit_shielded"])

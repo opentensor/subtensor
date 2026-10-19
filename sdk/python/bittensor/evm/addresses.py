@@ -160,7 +160,8 @@ async def resolve_evm_funding_recipient(substrate: Any, evm_address: str) -> Rec
             return recipient
         raise ValueError(
             "native mirror funding is unavailable for an unprotected EVM address while hashed "
-            "aliases are enabled; send from an EVM wallet to the H160 address instead"
+            "aliases are enabled; use `btcli evm fund` on a runtime supporting native EVM "
+            "deposits, or send from an EVM wallet to the H160 address"
         )
     return recipient
 

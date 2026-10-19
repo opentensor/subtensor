@@ -30,6 +30,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod benchmarking;
+#[cfg(test)]
+mod safe_tests;
 mod tests;
 pub mod weights;
 
@@ -228,6 +230,9 @@ pub mod pallet {
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
 
+        /// Weight of the bounded off-curve account derivation.
+        type SafeDerivationWeight: Get<Weight>;
+
         /// The maximum amount of time-delayed announcements that are allowed to be pending.
         #[pallet::constant]
         type MaxPending: Get<u32>;
@@ -402,7 +407,7 @@ pub mod pallet {
                 !T::AccountPolicy::requires_protection(&who),
                 Error::<T>::AccountPolicyViolation
             );
-            Self::do_create_pure(who, proxy_type, delay, index, false)
+            Self::do_create_pure(who, proxy_type, delay, index, false, false)
         }
 
         /// Removes a previously spawned pure proxy.
@@ -774,7 +779,55 @@ pub mod pallet {
                 T::AccountPolicy::requires_protection(&who),
                 Error::<T>::AccountPolicyViolation
             );
-            Self::do_create_pure(who, proxy_type, delay, index, true)
+            Self::do_create_pure(who, proxy_type, delay, index, true, false)
+        }
+
+        /// Create a pure proxy with a full-width off-curve account identifier.
+        ///
+        /// The ordinary proxy deposit applies. No account registration or
+        /// protection deposit is created, and normal proxy permissions apply.
+        #[pallet::call_index(13)]
+        #[pallet::weight(T::WeightInfo::create_pure(T::MaxProxies::get())
+            .saturating_add(T::SafeDerivationWeight::get()))]
+        pub fn create_safe_pure(
+            origin: OriginFor<T>,
+            proxy_type: T::ProxyType,
+            delay: BlockNumberFor<T>,
+            index: u16,
+        ) -> DispatchResult {
+            let who = ensure_signed(origin)?;
+            Self::do_create_pure(who, proxy_type, delay, index, false, true)
+        }
+
+        /// Remove a safe pure proxy and refund its ordinary proxy deposit.
+        ///
+        /// The supplied creation parameters must reconstruct the signed account.
+        /// As with `kill_pure`, remaining funds become inaccessible after removal.
+        #[pallet::call_index(14)]
+        #[pallet::weight(T::WeightInfo::kill_pure(T::MaxProxies::get())
+            .saturating_add(T::SafeDerivationWeight::get()))]
+        pub fn kill_safe_pure(
+            origin: OriginFor<T>,
+            spawner: AccountIdLookupOf<T>,
+            proxy_type: T::ProxyType,
+            index: u16,
+            #[pallet::compact] height: BlockNumberFor<T>,
+            #[pallet::compact] ext_index: u32,
+        ) -> DispatchResult {
+            let who = ensure_signed(origin)?;
+            let spawner = T::Lookup::lookup(spawner)?;
+            let pure =
+                Self::safe_pure_account(&spawner, &proxy_type, index, Some((height, ext_index)))?;
+            ensure!(pure == who, Error::<T>::NoPermission);
+            let (_, deposit) = Proxies::<T>::take(&who);
+            T::Currency::unreserve(&spawner, deposit);
+            Self::deposit_event(Event::PureKilled {
+                pure: who,
+                spawner,
+                proxy_type,
+                disambiguation_index: index,
+            });
+            Ok(())
         }
     }
 
@@ -861,6 +914,8 @@ pub mod pallet {
         InvalidDerivedAccountId,
         /// This delegation would weaken the real account's authorization policy.
         AccountPolicyViolation,
+        /// No full-width off-curve account could be derived within the fixed bound.
+        SafeDerivationFailed,
     }
 
     #[pallet::hooks]
@@ -1001,16 +1056,49 @@ impl<T: Config> Pallet<T> {
             .map_err(|_| Error::<T>::InvalidDerivedAccountId.into())
     }
 
+    /// Derive the safe pure account using its original creation time and index.
+    pub fn safe_pure_account(
+        who: &T::AccountId,
+        proxy_type: &T::ProxyType,
+        index: u16,
+        maybe_when: Option<(BlockNumberFor<T>, u32)>,
+    ) -> Result<T::AccountId, DispatchError> {
+        let (height, ext_index) = maybe_when.unwrap_or_else(|| {
+            (
+                T::BlockNumberProvider::current_block_number(),
+                frame_system::Pallet::<T>::extrinsic_index().unwrap_or_default(),
+            )
+        });
+        let bytes = subtensor_hashed::safe::safe_derived_account(
+            subtensor_hashed::safe::PURE_PROXY_DOMAIN,
+            &(who, proxy_type, index, height, ext_index),
+        )
+        .ok_or(Error::<T>::SafeDerivationFailed)?;
+        let mut input = bytes.as_slice();
+        let account =
+            T::AccountId::decode(&mut input).map_err(|_| Error::<T>::SafeDerivationFailed)?;
+        ensure!(
+            input.is_empty() && account.encode().as_slice() == bytes,
+            Error::<T>::SafeDerivationFailed
+        );
+        Ok(account)
+    }
+
     fn do_create_pure(
         who: T::AccountId,
         proxy_type: T::ProxyType,
         delay: BlockNumberFor<T>,
         index: u16,
         protected: bool,
+        safe: bool,
     ) -> DispatchResult {
         let height = T::BlockNumberProvider::current_block_number();
         let ext_index = frame_system::Pallet::<T>::extrinsic_index().unwrap_or_default();
-        let pure = Self::pure_account(&who, &proxy_type, index, Some((height, ext_index)))?;
+        let pure = if safe {
+            Self::safe_pure_account(&who, &proxy_type, index, Some((height, ext_index)))?
+        } else {
+            Self::pure_account(&who, &proxy_type, index, Some((height, ext_index)))?
+        };
         ensure!(!Proxies::<T>::contains_key(&pure), Error::<T>::Duplicate);
         let proxy_def = ProxyDefinition {
             delegate: who.clone(),
@@ -1248,7 +1336,9 @@ impl<T: Config> Pallet<T> {
                 }
                 // Proxy call cannot remove all proxies or kill pure proxies unless it has full
                 // permissions.
-                Some(Call::remove_proxies { .. }) | Some(Call::kill_pure { .. })
+                Some(Call::remove_proxies { .. })
+                | Some(Call::kill_pure { .. })
+                | Some(Call::kill_safe_pure { .. })
                     if def.proxy_type != T::ProxyType::default() =>
                 {
                     false

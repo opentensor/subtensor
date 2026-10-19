@@ -155,6 +155,7 @@ class MultisigAccount:
     threshold: int
     public_key: bytes
     ss58_address: str
+    account_mode: str = "legacy"
 
 
 @dataclass

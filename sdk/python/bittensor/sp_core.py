@@ -21,7 +21,23 @@ except AttributeError as error:
 HASHED_CRYPTO_TYPES = (CRYPTO_HASHED, CRYPTO_HASHED_ED25519, CRYPTO_MLDSA65)
 CLASSICAL_HASHED_CRYPTO_TYPES = (CRYPTO_HASHED, CRYPTO_HASHED_ED25519)
 MLDSA_CRYPTO_TYPES = (CRYPTO_MLDSA65, CRYPTO_MLDSA65_FIXED)
+# Legacy name for the variable-proof wire family; use requires_registration()
+# for lifecycle decisions because fixed MS is included here but has no registry.
 REGISTERED_CRYPTO_TYPES = (*CLASSICAL_HASHED_CRYPTO_TYPES, *MLDSA_CRYPTO_TYPES)
+
+
+def is_stateless_mldsa_descriptor(descriptor: bytes) -> bool:
+    """Fixed MS authenticates its key without an authority registry."""
+    return len(descriptor) == 66 and descriptor[:2] == b"\x02\x05"
+
+
+def is_stateless_mldsa(keypair) -> bool:
+    return getattr(keypair, "crypto_type", None) == CRYPTO_MLDSA65_FIXED
+
+
+def requires_registration(keypair) -> bool:
+    """Only rotating hashed accounts require authority registration."""
+    return getattr(keypair, "crypto_type", None) in HASHED_CRYPTO_TYPES
 
 
 def account_crypto_type(crypto_type: int, account_type: str | None = None) -> int:

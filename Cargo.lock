@@ -8836,7 +8836,7 @@ dependencies = [
  "pallet-hotfix-sufficients",
  "pallet-insecure-randomness-collective-flip",
  "pallet-limit-orders",
- "pallet-multisig",
+ "pallet-multisig 41.0.0",
  "pallet-nomination-pools",
  "pallet-nomination-pools-runtime-api",
  "pallet-offences",
@@ -10564,6 +10564,18 @@ dependencies = [
 [[package]]
 name = "pallet-multisig"
 version = "41.0.0"
+dependencies = [
+ "log",
+ "pallet-balances",
+ "parity-scale-codec",
+ "polkadot-sdk-frame",
+ "scale-info",
+ "subtensor-hashed",
+]
+
+[[package]]
+name = "pallet-multisig"
+version = "41.0.0"
 source = "git+https://github.com/RaoFoundation/polkadot-sdk.git?rev=cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a#cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a"
 dependencies = [
  "log",
@@ -11336,6 +11348,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-sdk-frame",
  "scale-info",
+ "subtensor-hashed",
  "subtensor-macros",
 ]
 
@@ -11413,6 +11426,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
+ "subtensor-hashed",
  "subtensor-macros",
 ]
 
@@ -13144,7 +13158,7 @@ dependencies = [
  "pallet-migrations",
  "pallet-mixnet",
  "pallet-mmr",
- "pallet-multisig",
+ "pallet-multisig 41.0.0 (git+https://github.com/RaoFoundation/polkadot-sdk.git?rev=cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a)",
  "pallet-nft-fractionalization",
  "pallet-nfts",
  "pallet-nis",
@@ -14742,7 +14756,7 @@ dependencies = [
  "pallet-message-queue",
  "pallet-migrations",
  "pallet-mmr",
- "pallet-multisig",
+ "pallet-multisig 41.0.0 (git+https://github.com/RaoFoundation/polkadot-sdk.git?rev=cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a)",
  "pallet-nis",
  "pallet-offences",
  "pallet-parameters",
@@ -18988,6 +19002,7 @@ dependencies = [
 name = "subtensor-hashed"
 version = "0.1.0"
 dependencies = [
+ "curve25519-dalek",
  "fips204",
  "hex",
  "parity-scale-codec",
@@ -21065,7 +21080,7 @@ dependencies = [
  "pallet-meta-tx",
  "pallet-migrations",
  "pallet-mmr",
- "pallet-multisig",
+ "pallet-multisig 41.0.0 (git+https://github.com/RaoFoundation/polkadot-sdk.git?rev=cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a)",
  "pallet-nomination-pools",
  "pallet-nomination-pools-benchmarking",
  "pallet-nomination-pools-runtime-api",

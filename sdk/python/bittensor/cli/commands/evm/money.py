@@ -93,9 +93,9 @@ def fund(
 ):
     """Fund an EVM address with TAO from the coldkey.
 
-    Protected aliases credit their native account through a guarded transfer.
-    Other addresses use the legacy mirror when hashed aliases are disabled;
-    when enabled, use an EVM wallet to fund unprotected addresses instead.
+    Supporting runtimes resolve the H160 destination when the transaction
+    executes, including protected aliases. Older runtimes use a guarded native
+    transfer and reject destinations whose mapping could change before execution.
     """
     app_ctx = ctx_of(ctx)
     amount = resolve_all_amount(app_ctx, amount_tao, all_amount, flag="--amount-tao")

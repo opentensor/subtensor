@@ -154,6 +154,28 @@ async def test_enabled_absent_alias_native_funding_is_blocked_before_composition
         await FundEvmKey(alias, 1).build(substrate, object())
 
 
+@pytest.mark.parametrize("amount,value", [(1, 1_000_000_000), ("all", None)])
+@pytest.mark.parametrize("enabled", [True, False])
+@pytest.mark.parametrize("bound", [True, False])
+async def test_atomic_evm_funding_keeps_h160_until_runtime_dispatch(
+    protected, amount, value, enabled, bound
+):
+    substrate, _, alias = protected
+    substrate.seed_constant("EVM", "NativeDepositSupported", True)
+    substrate.seed("AdminUtils", "HashedAccountsEnabled", [], enabled)
+    if not bound:
+        substrate.seed("HashedAccounts", "EvmAliases", [alias], None)
+    intent = FundEvmKey(alias, amount)
+    # Neither construction nor imported-call verification needs an alias
+    # snapshot: the signed H160 resolves against the state at execution.
+    substrate.query = AsyncMock(side_effect=AssertionError("funding resolved before dispatch"))
+    call = await intent.build(substrate, object())
+    assert (call.module, call.function) == ("EVM", "deposit")
+    assert call.params == {"address": alias, "value": value}
+    assert await intent.effects(substrate, "") == [intent.summary()]
+    assert await has_receiving_setup_inputs(substrate, object(), intent)
+
+
 @pytest.mark.parametrize("amount", [1, "all"])
 async def test_protected_claim_is_blocked_before_balance_query_or_composition(protected, amount):
     substrate, key, _ = protected

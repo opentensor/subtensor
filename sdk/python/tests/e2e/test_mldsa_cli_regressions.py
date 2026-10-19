@@ -1,8 +1,8 @@
-"""Encrypted CLI unlock must retain local recipient-registration context.
+"""Encrypted CLI unlock must preserve the recipient's account mode.
 
 Only disposable wallets under pytest's temporary directory are used. The
-destination is deliberately bare SS58: its public descriptor exists beside the
-encrypted sender, so preflight and actual submission must discover the same setup.
+destination is deliberately bare SS58: rotating recipients need their local
+descriptor throughout submission; fixed MS recipients need no registration.
 """
 
 from __future__ import annotations
@@ -103,7 +103,7 @@ async def test_encrypted_cli_sender_retains_local_ms_registration(tmp_path, code
         asyncio.timeout(900),
         bt.Client(ENDPOINT, fallback_endpoints=[], archive_endpoints=[]) as client,
     ):
-        deposit = await setup(client)
+        deposit = await setup(client) if code == 7 else 0
         async with alice_submission():
             funded = await client.execute(
                 bt.intents.Transfer(sender.coldkeypub.ss58_address, 50),
@@ -119,18 +119,21 @@ async def test_encrypted_cli_sender_retains_local_ms_registration(tmp_path, code
         before_recipient = await snapshot(client, recipient)
         assert before_recipient["authority"] is None
         assert before_recipient["account"]["data"]["free"] == 0
-        denied_code, _, denied_text = await cli()
-        assert denied_code != 0, denied_text
-        assert "explicit registration sponsorship consent" in denied_text, denied_text
-        assert await sender_state() == before_sender
-        assert await snapshot(client, recipient) == before_recipient
-        report.add("no consent refuses before any transaction", output=denied_text)
+        if code == 7:
+            denied_code, _, denied_text = await cli()
+            assert denied_code != 0, denied_text
+            assert "explicit registration sponsorship consent" in denied_text, denied_text
+            assert await sender_state() == before_sender
+            assert await snapshot(client, recipient) == before_recipient
+            report.add("no consent refuses before any transaction", output=denied_text)
 
-        status, output, text = await cli("--max-registration-deposit", "0.2")
+        status, output, text = await cli(
+            *(["--max-registration-deposit", "0.2"] if code == 7 else [])
+        )
         assert status == 0, text
         result = json.loads(output)
         assert result["success"] and result["block_hash"] and result["extrinsic_id"], result
-        assert bool(result["data"].get("shielded")) is shielded
+        assert bool(result.get("data", {}).get("shielded")) is shielded
         height, index = map(int, result["extrinsic_id"].split("-"))
         async with asyncio.timeout(180):
             while await client._substrate.finalized_block_number() < height:
@@ -142,10 +145,13 @@ async def test_encrypted_cli_sender_retains_local_ms_registration(tmp_path, code
             if entry.get("extrinsic_idx") == index
         ]
         registrations = attributes(events, "HashedAccounts", "RegisteredMlDsa")
-        assert len(registrations) == 1
-        assert registrations[0]["account"] == recipient.ss58_address
-        assert registrations[0]["sponsor"] == sender.coldkeypub.ss58_address
-        assert int(registrations[0]["deposit"]) == deposit
+        if code == 7:
+            assert len(registrations) == 1
+            assert registrations[0]["account"] == recipient.ss58_address
+            assert registrations[0]["sponsor"] == sender.coldkeypub.ss58_address
+            assert int(registrations[0]["deposit"]) == deposit
+        else:
+            assert registrations == []
         transfers = attributes(events, "Balances", "Transfer")
         assert any(
             event["from"] == sender.coldkeypub.ss58_address
@@ -153,9 +159,9 @@ async def test_encrypted_cli_sender_retains_local_ms_registration(tmp_path, code
             and int(event["amount"]) == 2 * 10**9
             for event in transfers
         )
-        assert attributes(events, "Utility", "BatchCompleted")
+        assert bool(attributes(events, "Utility", "BatchCompleted")) == (code == 7)
         after_sender, after_recipient = await sender_state(), await snapshot(client, recipient)
-        assert after_recipient["authority"] is not None
+        assert (after_recipient["authority"] is not None) == (code == 7)
         assert after_recipient["account"]["data"]["free"] == 2 * 10**9
         assert after_sender["data"]["reserved"] == before_sender["data"]["reserved"] + deposit
         assert after_sender["nonce"] == before_sender["nonce"] + (2 if shielded else 1)
@@ -188,4 +194,5 @@ async def test_encrypted_cli_sender_retains_local_ms_registration(tmp_path, code
         )
         await observe(client, report, "recovered MS seed spends the received funds", returned)
         assert (await sender_state())["data"]["free"] == after_sender["data"]["free"] + 10**9
-        assert (await snapshot(client, recipient))["authority"]["generation"] == 1
+        authority = (await snapshot(client, recipient))["authority"]
+        assert authority["generation"] == 1 if code == 7 else authority is None

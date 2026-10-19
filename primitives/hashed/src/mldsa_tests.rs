@@ -43,7 +43,7 @@ fn exact_wire_layout_and_strict_version_dispatch() {
     let mut overlong = encoded.clone();
     overlong.push(0);
     assert!(SignerAddress::from_bytes(&overlong).is_err());
-    for (offset, value) in [(32, 1), (32, 3), (33, 1), (33, 3), (33, 255)] {
+    for (offset, value) in [(32, 1), (32, 3), (33, 1), (33, 3), (33, 6), (33, 255)] {
         let mut bad = encoded.clone();
         bad[offset] = value;
         assert!(SignerAddress::from_bytes(&bad).is_err());
@@ -86,6 +86,240 @@ fn descriptors_have_separate_domains_and_no_implicit_version_upgrade() {
     trailing.push(0);
     assert!(Descriptor::from_bytes(&trailing).is_err());
     assert_ne!(account_id(&descriptor), crate::account_id(&v1));
+}
+
+fn stateless_header() -> ([u8; 32], Header) {
+    for value in 0u8..=255 {
+        let seed = [value; 32];
+        let public_key = public_key_from_seed(&seed).unwrap();
+        let current = commitment(&public_key);
+        let descriptor = Descriptor {
+            version: VERSION,
+            algorithm: FIXED_ALGORITHM,
+            initial_commitment: current,
+        };
+        let account = account_id(&descriptor);
+        if rejects_legacy_public_keys(&account) {
+            return (
+                seed,
+                Header {
+                    account,
+                    version: VERSION,
+                    algorithm: FIXED_ALGORITHM,
+                    generation: 0,
+                    public_key,
+                    next_commitment: current,
+                },
+            );
+        }
+    }
+    panic!("test seed search exhausted");
+}
+
+#[test]
+fn stateless_authority_is_bound_to_the_key_profile_and_complete_payload() {
+    let (seed, header) = stateless_header();
+    assert!(header.is_valid_stateless());
+    let descriptor = Descriptor {
+        version: VERSION,
+        algorithm: FIXED_ALGORITHM,
+        initial_commitment: commitment(&header.public_key),
+    };
+    assert!(descriptor.is_stateless());
+    assert!(!descriptor.is_rotating());
+    assert_eq!(
+        Descriptor::from_bytes(&descriptor.encode()).unwrap(),
+        descriptor
+    );
+    let payload = (vec![17u8; 1024], 19u64, [23u8; 32]);
+    let signed = header.sign(&seed, &payload.encode(), &[0; 32]).unwrap();
+    assert!(signed.verify_encoded(&payload));
+    assert!(signed.verify(&payload.encode()));
+    assert_eq!(SignerAddress::from_bytes(&signed.encode()).unwrap(), signed);
+    assert_eq!(signed.encode().len(), SignerAddress::ENCODED_LEN);
+    // Actual signatures on invalid authority must fail, not merely corrupted
+    // signatures whose cryptographic check would have failed independently.
+    let mut invalid = Vec::new();
+    for generation in [1, u64::MAX] {
+        let mut changed = header.clone();
+        changed.generation = generation;
+        invalid.push(changed);
+    }
+    for next in [[0; COMMITMENT_LEN], [42; COMMITMENT_LEN]] {
+        let mut changed = header.clone();
+        changed.next_commitment = next;
+        invalid.push(changed);
+    }
+    for algorithm in [ALGORITHM, 6] {
+        let mut changed = header.clone();
+        changed.account = account_id(&Descriptor {
+            algorithm,
+            ..descriptor
+        });
+        invalid.push(changed);
+    }
+    let mut changed = header.clone();
+    changed.account = [0; 32];
+    invalid.push(changed);
+    for changed in invalid {
+        assert!(!changed.is_valid_stateless());
+        assert!(changed.sign(&seed, &payload.encode(), &[0; 32]).is_err());
+        let mut transcript = TRANSACTION_DOMAIN.to_vec();
+        changed.encode_to(&mut transcript);
+        transcript.extend_from_slice(&payload.encode());
+        let mut malformed = signed.clone();
+        malformed.account = changed.account;
+        malformed.generation = changed.generation;
+        malformed.next_commitment = changed.next_commitment;
+        malformed.signature =
+            sign_message(&seed, &transcript, TRANSACTION_CONTEXT, &[0; 32]).unwrap();
+        assert!(!malformed.verify_encoded(&payload));
+    }
+    for changed_payload in [
+        (vec![18u8; 1024], 19u64, [23u8; 32]),
+        (vec![17u8; 1024], 20u64, [23u8; 32]),
+        (vec![17u8; 1024], 19u64, [24u8; 32]),
+    ] {
+        assert!(!signed.verify_encoded(&changed_payload));
+    }
+    for algorithm in [ALGORITHM, 6] {
+        let mut changed = signed.clone();
+        changed.algorithm = algorithm;
+        assert!(!changed.verify_encoded(&payload));
+    }
+}
+
+#[test]
+fn stateless_matching_key_cannot_authorize_an_account_with_a_legacy_fallback() {
+    for value in 0u8..=255 {
+        let seed = [value; 32];
+        let public_key = public_key_from_seed(&seed).unwrap();
+        let current = commitment(&public_key);
+        let descriptor = Descriptor {
+            version: VERSION,
+            algorithm: FIXED_ALGORITHM,
+            initial_commitment: current,
+        };
+        let account = account_id(&descriptor);
+        if rejects_legacy_public_keys(&account) {
+            continue;
+        }
+        let header = Header {
+            account,
+            version: VERSION,
+            algorithm: FIXED_ALGORITHM,
+            generation: 0,
+            public_key,
+            next_commitment: current,
+        };
+        assert!(!header.is_valid_stateless());
+        assert!(Descriptor::from_bytes(&descriptor.encode()).is_err());
+        assert!(header.sign(&seed, b"payload", &[0; 32]).is_err());
+        let mut transcript = TRANSACTION_DOMAIN.to_vec();
+        header.encode_to(&mut transcript);
+        transcript.extend_from_slice(b"payload");
+        let signature = sign_message(&seed, &transcript, TRANSACTION_CONTEXT, &[0; 32]).unwrap();
+        assert!(verify_message(
+            &public_key,
+            &transcript,
+            TRANSACTION_CONTEXT,
+            &signature
+        ));
+        let proof = SignerAddress {
+            account,
+            version: VERSION,
+            algorithm: FIXED_ALGORITHM,
+            generation: 0,
+            public_key,
+            next_commitment: current,
+            signature,
+        };
+        assert!(!proof.verify(b"payload"));
+        return;
+    }
+    panic!("test seed search exhausted");
+}
+
+#[cfg(all(feature = "std", feature = "verify"))]
+#[test]
+fn stateless_accounts_fail_all_pinned_legacy_curve_host_verifiers() {
+    use sp_core::{Pair, ed25519, sr25519};
+
+    let message = b"legacy signature fallback";
+    let ed = ed25519::Pair::from_seed(&[17; 32]);
+    let sr = sr25519::Pair::from_seed(&[29; 32]);
+    let ed_signature = ed.sign(message);
+    let sr_signature = sr.sign(message);
+    assert!(!rejects_legacy_public_keys(&ed.public().0));
+    assert!(!rejects_legacy_public_keys(&sr.public().0));
+    assert!(sp_io::crypto::ed25519_verify(
+        &ed_signature,
+        message,
+        &ed.public()
+    ));
+    assert!(sp_io::crypto::sr25519_verify(
+        &sr_signature,
+        message,
+        &sr.public()
+    ));
+    let (_, header) = stateless_header();
+    let mut accounts = vec![header.account];
+    for value in 0u8..128 {
+        let account = sp_core::hashing::blake2_256(&[value]);
+        if rejects_legacy_public_keys(&account) {
+            accounts.push(account);
+        }
+    }
+    assert!(accounts.len() > 32);
+    for account in accounts {
+        let ed_public = ed25519::Public::from_raw(account);
+        let sr_public = sr25519::Public::from_raw(account);
+        assert!(!ed25519::Pair::verify(&ed_signature, message, &ed_public));
+        assert!(!sr25519::Pair::verify(&sr_signature, message, &sr_public));
+        assert!(!sr25519::Pair::verify_deprecated(
+            &sr_signature,
+            message,
+            &sr_public
+        ));
+        let mut externalities = sp_io::TestExternalities::default();
+        externalities.execute_with(|| {
+            assert!(!sp_io::crypto::ed25519_verify(
+                &ed_signature,
+                message,
+                &ed_public
+            ));
+            assert!(!sp_io::crypto::sr25519_verify(
+                &sr_signature,
+                message,
+                &sr_public
+            ));
+        });
+        externalities.register_extension(sp_io::UseDalekExt);
+        externalities.execute_with(|| {
+            assert!(!sp_io::crypto::ed25519_verify(
+                &ed_signature,
+                message,
+                &ed_public
+            ));
+        });
+    }
+    // ZIP-215 accepts unreduced Edwards encodings and small-order keys. They
+    // must never be mistaken for addresses that lack a legacy-key fallback.
+    for first in [0xed, 0xee] {
+        for sign in [0x7f, 0xff] {
+            let mut noncanonical = [0xff; 32];
+            noncanonical[0] = first;
+            noncanonical[31] = sign;
+            assert!(!rejects_legacy_public_keys(&noncanonical));
+            let mut signature = [0; 64];
+            signature[0] = 1; // R = identity, s = zero.
+            assert!(sp_io::crypto::ed25519_verify(
+                &ed25519::Signature::from_raw(signature),
+                message,
+                &ed25519::Public::from_raw(noncanonical),
+            ));
+        }
+    }
 }
 
 #[test]

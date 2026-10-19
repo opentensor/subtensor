@@ -56,7 +56,7 @@ def protected_wallet(substrate, crypto):
     return key
 
 
-@pytest.mark.parametrize("crypto", [7, 8])
+@pytest.mark.parametrize("crypto", [7])
 @pytest.mark.parametrize("count", [1, 2])
 @pytest.mark.parametrize("shielded", [False, True])
 async def test_pure_creation_reserve_is_quoted_aggregated_and_enforced(
@@ -116,7 +116,7 @@ async def test_classical_pure_creation_keeps_ordinary_route_and_no_registration_
 @pytest.mark.parametrize("shielded", [False, True])
 async def test_pure_insufficient_funds_includes_both_deposits_and_selected_fees(shielded):
     substrate = chain()
-    wallet = protected_wallet(substrate, 8)
+    wallet = protected_wallet(substrate, 7)
     substrate.seed(
         "System",
         "Account",
@@ -266,7 +266,7 @@ async def test_nested_pure_reserve_checks_distinct_fee_payer(route, monkeypatch)
 
     substrate = chain()
     if route == "announced":
-        owner = protected_wallet(substrate, 8)
+        owner = protected_wallet(substrate, 7)
         intent = Batch(
             [
                 ExecuteProxyAnnounced(

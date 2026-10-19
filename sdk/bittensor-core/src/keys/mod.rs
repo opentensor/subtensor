@@ -51,10 +51,6 @@ pub fn is_mldsa_crypto(crypto_type: u8) -> bool {
     matches!(crypto_type, CRYPTO_MLDSA65 | CRYPTO_MLDSA65_FIXED)
 }
 
-pub fn is_registered_crypto(crypto_type: u8) -> bool {
-    is_hashed_crypto(crypto_type) || is_mldsa_crypto(crypto_type)
-}
-
 pub fn is_hashed_crypto(crypto_type: u8) -> bool {
     matches!(crypto_type, CRYPTO_HASHED | CRYPTO_HASHED_ED25519)
 }
@@ -391,9 +387,9 @@ impl Keypair {
 
     /// Derive a keypair from a secret URI (e.g. "//Alice" or "<mnemonic>//hard/soft").
     pub fn from_uri(uri: &str, crypto_type: u8) -> Result<Self, CoreError> {
-        if is_registered_crypto(crypto_type) {
+        if is_hashed_crypto(crypto_type) || is_mldsa_crypto(crypto_type) {
             return Err(crypto_err(
-                "hashed wallets require a mnemonic or a 32-byte master seed; secret URIs are unsupported",
+                "hashed and ML-DSA wallets require a mnemonic or a 32-byte master seed; secret URIs are unsupported",
             ));
         }
         let inner = match crypto_type {
@@ -425,7 +421,7 @@ impl Keypair {
                 .map_err(|_| crypto_err("invalid private_key hex string"))?,
         );
 
-        if is_registered_crypto(crypto_type) {
+        if is_hashed_crypto(crypto_type) || is_mldsa_crypto(crypto_type) {
             return Self::from_seed(&private_key_vec, crypto_type);
         }
 

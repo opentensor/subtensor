@@ -151,6 +151,8 @@ def _public_recovery_type(
     recipient = parse_recipient(address)
     if recipient.descriptor is not None:
         return wallets.Keypair.from_hashed_descriptor(recipient.descriptor).crypto_type
+    if crypto_type == wallets.CRYPTO_MLDSA65_FIXED:
+        return crypto_type
     if crypto_type in wallets.REGISTERED_CRYPTO_TYPES:
         raise ValueError(
             "hashed watch-only recovery requires the complete receiving address; "

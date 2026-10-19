@@ -6,6 +6,7 @@ publish = false
 
 [dependencies]
 codec = { workspace = true, features = ["derive"] }
+curve25519-dalek = { version = "=4.1.3", default-features = false }
 scale-info = { workspace = true, features = ["derive"] }
 sp-core.workspace = true
 sp-io = { workspace = true, optional = true }

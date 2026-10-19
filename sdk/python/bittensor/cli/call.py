@@ -169,6 +169,11 @@ def call(
         "--multisig",
         help="Named multisig wallet (see `btcli multisig list`).",
     ),
+    account_mode: Optional[str] = typer.Option(
+        None,
+        "--multisig-account-mode",
+        help="Account derivation: legacy or safe; must match the existing group.",
+    ),
     multisig_threshold: Optional[int] = typer.Option(
         None,
         "--multisig-threshold",
@@ -224,12 +229,14 @@ def call(
     threshold, sigs, preset, _signatory_refs = _resolve_multisig(
         app_ctx,
         multisig_name=multisig,
+        account_mode=account_mode,
         threshold=multisig_threshold,
         signatories=signatories,
         other_signatories=other_signatories,
         signer=signer,
         wallet_default=app_ctx.wallet_name,
     )
+    account_mode = getattr(app_ctx, "multisig_account_mode", "legacy")
     builder = _resolve_builder(target)
     params = resolve_builder_params(app_ctx, target, _load_params(args, args_file))
     shield_default, shield_required = _shield_policy_for_target(target)
@@ -364,7 +371,7 @@ def call(
 
             async def _dry_run_multisig(client):
                 await _compose_only(client, prepare)
-                return await _multisig_address(client, sigs, threshold)
+                return await _multisig_address(client, sigs, threshold, account_mode=account_mode)
 
             ms_addr = app_ctx.run(_dry_run_multisig)
             fields["multisig_threshold"] = threshold
@@ -472,7 +479,9 @@ def call(
                             "skipping the remaining signatories[/green]"
                         )
                         return result
-                    await ms_helpers.await_pending_visible(client, sigs, threshold, call_hash)
+                    await ms_helpers.await_pending_visible(
+                        client, sigs, threshold, call_hash, account_mode=account_mode
+                    )
                 app_ctx.signatory_wallet = ss58
                 app_ctx.signer_backend = None if backend == "wallet" else backend
                 app_ctx.signer_address = (
@@ -497,7 +506,7 @@ def call(
             return result
 
         async def _submit_multisig(client):
-            ms = await client.multisig(sigs, threshold)
+            ms = await client.multisig(sigs, threshold, account_mode=account_mode)
             call = await prepare(client)
             composed = await client.compose(call)
             call_hash = ms_helpers.hex_bytes(composed.call_hash)
@@ -579,9 +588,9 @@ async def _compose_only(client, prepare):
     return await client.compose(await prepare(client))
 
 
-async def _multisig_address(client, signatories, threshold):
+async def _multisig_address(client, signatories, threshold, *, account_mode="legacy"):
     """Derive the on-chain multisig account address for a signer set."""
-    ms = await client.multisig(signatories, threshold)
+    ms = await client.multisig(signatories, threshold, account_mode=account_mode)
     return ms.address
 
 

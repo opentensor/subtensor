@@ -34,7 +34,7 @@ def attributes(events, module, name):
     ]
 
 
-@pytest.mark.parametrize("code", [4, 6, 7, 8])
+@pytest.mark.parametrize("code", [4, 6, 7])
 @pytest.mark.parametrize("shielded", [False, True])
 async def test_sponsored_transfer_all_reserve_boundaries_and_seed_recovery(code, shielded):
     seeds = [os.urandom(32) for _ in range(4)]

@@ -21,8 +21,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from typing import Any, Optional
 
-from .._generated import calls
 from .._transport.contract import CallBytes
+from ..account_mode import multisig_call, warn_legacy_mldsa
 from ..multisig import check_multisig_funds, merge_approval_metadata, multisig_opening_shortfall
 from ..receiving import parse_recipient
 from ..signing import public_view
@@ -65,7 +65,13 @@ def _validate_multisig(threshold: int, other_signatories: list, signer_ss58: str
 
 
 def _account_view(
-    substrate, signer_ss58: str, threshold: int, other_signatories: list, *, wallet: Any
+    substrate,
+    signer_ss58: str,
+    threshold: int,
+    other_signatories: list,
+    *,
+    wallet: Any,
+    account_mode="legacy",
 ):
     """The derived multisig account, shaped like a bare signer.
 
@@ -77,10 +83,12 @@ def _account_view(
     """
     from ..executor import _OriginView
 
+    warn_legacy_mldsa(account_mode, public_view(wallet, "coldkey"))
     account = substrate.multisig_account(
-        [signer_ss58, *_sorted_signatories(other_signatories)], threshold
+        [signer_ss58, *_sorted_signatories(other_signatories)], threshold, account_mode=account_mode
     )
     view = _OriginView(account.ss58_address)
+    view.account_mode = account_mode
     view._wallet = getattr(wallet, "_wallet", wallet)
     return view
 
@@ -141,7 +149,9 @@ async def _pending_timepoint(substrate, dispatch, wallet: Any, inner):
 
     signer = public_view(wallet, "coldkey").ss58_address
     signatories = [signer, *_sorted_signatories(dispatch.other_signatories)]
-    account = substrate.multisig_account(signatories, dispatch.threshold)
+    account = substrate.multisig_account(
+        signatories, dispatch.threshold, account_mode=dispatch.account_mode
+    )
     call_hash = bytes(inner.call_hash)
     pending = await substrate.query("Multisig", "Multisigs", [account.ss58_address, call_hash])
     if pending is None:
@@ -200,17 +210,30 @@ class MultisigThreshold1(Intent):
 
     op = "multisig_threshold_1"
     signer = "coldkey"
-    wraps = (("Multisig", "as_multi_threshold_1"),)
+    wraps = (
+        ("Multisig", "as_multi_threshold_1"),
+        ("Multisig", "as_multi_threshold_1_safe"),
+    )
 
     other_signatories: list = field(metadata={"help": OTHER_SIGNATORIES_HELP})
     call: dict = field(metadata={"help": CALL_HELP})
+    account_mode: str = field(
+        default="legacy",
+        kw_only=True,
+        metadata={"help": "Account derivation mode: legacy or safe; must match every approval."},
+    )
 
     def requires_build_for_policy(self) -> bool:
         return build_intent(self.call["op"], self.call).requires_build_for_policy()
 
     async def build(self, substrate, wallet: Any):
         view = _account_view(
-            substrate, self.coldkey_address(wallet), 1, self.other_signatories, wallet=wallet
+            substrate,
+            self.coldkey_address(wallet),
+            1,
+            self.other_signatories,
+            wallet=wallet,
+            account_mode=self.account_mode,
         )
         inner, extras = await _compose_inner(substrate, view, self.call)
         composed = await self._build_with_inner(substrate, wallet, inner)
@@ -218,8 +241,11 @@ class MultisigThreshold1(Intent):
 
     async def _build_with_inner(self, substrate, wallet: Any, inner):
         return await substrate.compose(
-            calls.Multisig.as_multi_threshold_1(
-                other_signatories=_sorted_signatories(self.other_signatories), call=inner
+            multisig_call(
+                "as_multi_threshold_1",
+                account_mode=self.account_mode,
+                other_signatories=_sorted_signatories(self.other_signatories),
+                call=inner,
             )
         )
 
@@ -246,11 +272,19 @@ class MultisigExecute(Intent):
 
     op = "multisig_execute"
     signer = "coldkey"
-    wraps = (("Multisig", "as_multi"),)
+    wraps = (
+        ("Multisig", "as_multi"),
+        ("Multisig", "as_multi_safe"),
+    )
 
     threshold: int = field(metadata={"help": THRESHOLD_HELP})
     other_signatories: list = field(metadata={"help": OTHER_SIGNATORIES_HELP})
     call: dict = field(metadata={"help": CALL_HELP})
+    account_mode: str = field(
+        default="legacy",
+        kw_only=True,
+        metadata={"help": "Account derivation mode: legacy or safe; must match every approval."},
+    )
     timepoint: Optional[dict] = field(default=None, metadata={"help": TIMEPOINT_HELP})
 
     def requires_build_for_policy(self) -> bool:
@@ -263,6 +297,7 @@ class MultisigExecute(Intent):
             self.threshold,
             self.other_signatories,
             wallet=wallet,
+            account_mode=self.account_mode,
         )
         inner, extras = await _compose_inner(substrate, view, self.call)
         built = await self._build_with_inner(substrate, wallet, inner)
@@ -273,7 +308,9 @@ class MultisigExecute(Intent):
         view = public_view(wallet, "coldkey")
         max_weight = await substrate.estimate_weight(inner, view)
         composed = await substrate.compose(
-            calls.Multisig.as_multi(
+            multisig_call(
+                "as_multi",
+                account_mode=self.account_mode,
                 threshold=self.threshold,
                 other_signatories=_sorted_signatories(self.other_signatories),
                 maybe_timepoint=_timepoint(self.timepoint),
@@ -351,6 +388,10 @@ class MultisigIntentAdapter(Intent):
         return int(getattr(self.dispatch, "threshold", 1))
 
     @property
+    def account_mode(self) -> str:
+        return self.dispatch.account_mode
+
+    @property
     def other_signatories(self) -> list:
         return self.dispatch.other_signatories
 
@@ -364,6 +405,7 @@ class MultisigIntentAdapter(Intent):
             self.threshold,
             self.other_signatories,
             wallet=wallet,
+            account_mode=self.account_mode,
         )
 
     async def wrap_call(self, substrate, wallet: Any, call):
@@ -476,11 +518,21 @@ class MultisigApprove(Intent):
 
     op = "multisig_approve"
     signer = "coldkey"
-    wraps = (("Multisig", "as_multi"), ("Multisig", "approve_as_multi"))
+    wraps = (
+        ("Multisig", "as_multi"),
+        ("Multisig", "as_multi_safe"),
+        ("Multisig", "approve_as_multi"),
+        ("Multisig", "approve_as_multi_safe"),
+    )
 
     threshold: int = field(metadata={"help": THRESHOLD_HELP})
     other_signatories: list = field(metadata={"help": OTHER_SIGNATORIES_HELP})
     call: dict = field(metadata={"help": CALL_HELP})
+    account_mode: str = field(
+        default="legacy",
+        kw_only=True,
+        metadata={"help": "Account derivation mode: legacy or safe; must match every approval."},
+    )
     timepoint: Optional[dict] = field(default=None, metadata={"help": TIMEPOINT_HELP})
 
     async def build(self, substrate, wallet: Any):
@@ -494,6 +546,7 @@ class MultisigApprove(Intent):
                 self.threshold,
                 self.other_signatories,
                 wallet=wallet,
+                account_mode=self.account_mode,
             ),
             self.call,
         )
@@ -506,7 +559,9 @@ class MultisigApprove(Intent):
             # `multisig pending` recovers them from the timepoint. The opener
             # pays the call's length fee once; later approvals are hash-only.
             composed = await substrate.compose(
-                calls.Multisig.as_multi(
+                multisig_call(
+                    "as_multi",
+                    account_mode=self.account_mode,
                     threshold=self.threshold,
                     other_signatories=_sorted_signatories(self.other_signatories),
                     maybe_timepoint=None,
@@ -516,7 +571,9 @@ class MultisigApprove(Intent):
             )
         else:
             composed = await substrate.compose(
-                calls.Multisig.approve_as_multi(
+                multisig_call(
+                    "approve_as_multi",
+                    account_mode=self.account_mode,
                     threshold=self.threshold,
                     other_signatories=_sorted_signatories(self.other_signatories),
                     maybe_timepoint=_timepoint(self.timepoint),
@@ -577,11 +634,19 @@ class MultisigCancel(Intent):
 
     op = "multisig_cancel"
     signer = "coldkey"
-    wraps = (("Multisig", "cancel_as_multi"),)
+    wraps = (
+        ("Multisig", "cancel_as_multi"),
+        ("Multisig", "cancel_as_multi_safe"),
+    )
 
     threshold: int = field(metadata={"help": THRESHOLD_HELP})
     other_signatories: list = field(metadata={"help": OTHER_SIGNATORIES_HELP})
     call: dict = field(metadata={"help": CALL_HELP})
+    account_mode: str = field(
+        default="legacy",
+        kw_only=True,
+        metadata={"help": "Account derivation mode: legacy or safe; must match every approval."},
+    )
     timepoint: dict = field(
         metadata={
             "help": "Block height and extrinsic index of the approval that opened the "
@@ -599,11 +664,14 @@ class MultisigCancel(Intent):
                 self.threshold,
                 self.other_signatories,
                 wallet=wallet,
+                account_mode=self.account_mode,
             ),
             self.call,
         )
         return await substrate.compose(
-            calls.Multisig.cancel_as_multi(
+            multisig_call(
+                "cancel_as_multi",
+                account_mode=self.account_mode,
                 threshold=self.threshold,
                 other_signatories=_sorted_signatories(self.other_signatories),
                 timepoint=_timepoint(self.timepoint),

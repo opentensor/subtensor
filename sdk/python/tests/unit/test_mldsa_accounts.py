@@ -39,12 +39,14 @@ def key(crypto=CRYPTO_MLDSA65):
     return Keypair.create_from_seed(bytes([7]) * 32, crypto)
 
 
-@pytest.fixture(params=[7, 8])
+@pytest.fixture(params=[7])
 def wallet(request):
     return key(request.param)
 
 
 def record(wallet, generation=7):
+    if wallet.crypto_type == 8:
+        generation = 0
     return {
         "descriptor": descriptor_value(bytes(wallet.hashed_descriptor)),
         "generation": generation,
@@ -388,7 +390,7 @@ async def test_pq_multisig_requires_quorum_registration_before_funding(wallet):
     assert transfer.params == {"dest": group.address, "value": 1_000_000}
 
 
-@pytest.mark.parametrize("crypto", [4, 6, 7, 8])
+@pytest.mark.parametrize("crypto", [4, 6, 7])
 async def test_shield_pair_uses_one_finalized_generation_snapshot_and_rejects_race(crypto):
     from dataclasses import replace
 
@@ -417,7 +419,7 @@ async def test_shield_pair_uses_one_finalized_generation_snapshot_and_rejects_ra
         )
 
 
-@pytest.mark.parametrize("crypto", [4, 6, 7, 8])
+@pytest.mark.parametrize("crypto", [4, 6, 7])
 async def test_executor_pairs_same_snapshot_and_refuses_intervening_acceptance(monkeypatch, crypto):
     from bittensor.executor import Executor
 
@@ -468,7 +470,7 @@ async def test_fixed_profile_rejects_old_runtime_before_private_key_use():
     private = Mock(wraps=fixed)
     private.crypto_type = fixed.crypto_type
     private.hashed_descriptor = fixed.hashed_descriptor
-    with pytest.raises(SubstrateRequestException, match="fixed-key"):
+    with pytest.raises(SubstrateRequestException, match="standard MS"):
         await conn.create_signed_extrinsic(b"call", private)
     private.at_generation.assert_not_called()
     assert not hasattr(codec, "proof")
@@ -490,7 +492,7 @@ def test_fixed_profile_rejects_absent_or_malformed_advertisements(profiles):
     assert not supports_fixed_profile(profiles)
 
 
-@pytest.mark.parametrize("crypto", [4, 6, 7, 8])
+@pytest.mark.parametrize("crypto", [4, 6, 7])
 @pytest.mark.parametrize("enabled", [False, None])
 async def test_master_switch_blocks_registered_signing_and_receiving(crypto, enabled):
     wallet = key(crypto)
@@ -523,7 +525,7 @@ async def test_master_switch_blocks_registered_signing_and_receiving(crypto, ena
         )
 
 
-@pytest.mark.parametrize("crypto", [4, 6, 7, 8])
+@pytest.mark.parametrize("crypto", [4, 6, 7])
 async def test_shield_quote_counts_complete_registered_envelope_without_signing(crypto):
     from bittensor._transport.extrinsics import SHIELD_ENCRYPTION_OVERHEAD
 
@@ -550,7 +552,7 @@ async def test_shield_quote_counts_complete_registered_envelope_without_signing(
     assert conn.get_payment_info.call_args.kwargs == {"nonce": 13, "era": {"period": 8}}
 
 
-@pytest.mark.parametrize("crypto", [4, 6, 7, 8])
+@pytest.mark.parametrize("crypto", [4, 6, 7])
 @pytest.mark.parametrize("nonce", [63, 16383, 2**30 - 1])
 @pytest.mark.parametrize("carrier_size", [8192, 8193, 32768, 32769])
 async def test_registered_shield_quote_preserves_compact_nonce_boundaries(

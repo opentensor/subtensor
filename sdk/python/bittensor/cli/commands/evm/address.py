@@ -26,8 +26,8 @@ def mirror(
 ):
     """The current native receiving address of an EVM account.
 
-    Protected aliases return their full receiving address. With hashed aliases
-    enabled, unprotected aliases must be funded through an EVM-side transfer.
+    Protected aliases return their full receiving address. Use `evm fund` to
+    fund an unprotected H160 safely when hashed aliases are enabled.
     """
     app_ctx = ctx_of(ctx)
     h160 = _address_of(app_ctx, address, param="ADDRESS")
@@ -102,13 +102,21 @@ def deposit_address(ctx: typer.Context):
         return
     enabled = app_ctx.run(lambda client: hashed_accounts_enabled(client._substrate))
     if enabled is True:
+        native_deposit = (
+            app_ctx.run(lambda client: client._substrate.constant("EVM", "NativeDepositSupported"))
+            is True
+        )
         app_ctx.output.detail(
             f"EVM deposit address for {app_ctx.wallet_name}",
             {
                 "coldkey": coldkey,
                 "evm_deposit_address": truncated,
                 "claim_required": True,
-                "native_mirror_funding": "unsupported; send from an EVM wallet to the H160 address",
+                "native_mirror_funding": (
+                    f"use `btcli evm fund --evm-key {truncated}`"
+                    if native_deposit
+                    else "unsupported; send from an EVM wallet to the H160 address"
+                ),
             },
         )
         return

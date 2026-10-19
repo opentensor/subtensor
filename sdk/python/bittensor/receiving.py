@@ -52,7 +52,7 @@ def receiving_address(keypair: Any) -> str:
     Register each new hashed account and wait for finalization before publicly
     sharing its address.
     """
-    if keypair.crypto_type not in sp_core.REGISTERED_CRYPTO_TYPES:
+    if not sp_core.requires_registration(keypair):
         return keypair.ss58_address
     return sp_core.encode_hashed_receiving_address(bytes(keypair.hashed_descriptor))
 

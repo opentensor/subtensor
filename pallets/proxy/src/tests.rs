@@ -59,6 +59,7 @@ impl pallet_utility::Config for Test {
     type PalletsOrigin = OriginCaller;
     type WeightInfo = ();
     type DerivedAccountPolicy = ();
+    type SafeDerivationWeight = ();
 }
 
 #[derive(
@@ -170,6 +171,7 @@ impl Config for Test {
     type MaxProxies = ConstU32<4>;
     type WeightInfo = ();
     type CallHasher = BlakeTwo256;
+    type SafeDerivationWeight = ();
     type MaxPending = ConstU32<2>;
     type AnnouncementDepositBase = AnnouncementDepositBase;
     type AnnouncementDepositFactor = AnnouncementDepositFactor;
@@ -199,6 +201,22 @@ pub fn new_test_ext() -> TestState {
     let mut ext = TestState::new(t);
     ext.execute_with(|| System::set_block_number(1));
     ext
+}
+
+#[test]
+fn safe_pure_rejects_truncated_account_type_without_reserving_or_writing() {
+    new_test_ext().execute_with(|| {
+        assert_noop!(
+            Proxy::create_safe_pure(RuntimeOrigin::signed(1), ProxyType::Any, 0, 7),
+            Error::<Test>::SafeDerivationFailed
+        );
+        assert_noop!(
+            Proxy::kill_safe_pure(RuntimeOrigin::signed(1), 1, ProxyType::Any, 7, 1, 0),
+            Error::<Test>::SafeDerivationFailed
+        );
+        assert_eq!(Balances::reserved_balance(1), 0);
+        assert!(!Proxies::<Test>::contains_key(1));
+    });
 }
 
 #[test]

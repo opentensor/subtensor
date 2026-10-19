@@ -184,8 +184,13 @@ def test_wallet_list_isolates_unreadable_public_keys(wallet_path, monkeypatch, c
         assert "error" not in affected
     else:
         assert "public key unavailable" in affected["error"]
-    assert healthy["receiving_address"].startswith(("bth1_", "tao_")) and "error" not in healthy
-    assert healthy["ss58"] == parse_recipient(healthy["receiving_address"]).account
+    assert "error" not in healthy
+    if code == 8:
+        assert healthy["ss58"]
+        assert "receiving_address" not in healthy
+    else:
+        assert healthy["receiving_address"].startswith(("bth1_", "tao_"))
+        assert healthy["ss58"] == parse_recipient(healthy["receiving_address"]).account
     assert records["healthy"]["ss58"] == other.coldkeypub.ss58_address
     assert "error" not in records["healthy"]
     for invalid_address in (bad_key.ss58_address, receiving_address(bad_key)):
@@ -252,8 +257,10 @@ def test_wallet_list_does_not_treat_encrypted_hotkeys_as_broken(
     assert "error" not in hotkey
     if has_public_file:
         assert hotkey["ss58"] == parse_recipient(expected_address).account
-        if code in (4, 6, 7, 8):
+        if code in (4, 6, 7):
             assert hotkey["receiving_address"] == expected_address
+        elif code == 8:
+            assert "receiving_address" not in hotkey
     else:
         assert hotkey["ss58"] is None
         assert hotkey["encrypted"] is True
@@ -346,15 +353,25 @@ def test_ms_address_prefixes_support_contacts_public_recovery_and_transfers(
 ):
     created = _invoke("wallet", "create", "--crypto-type", "ms", "--type", mode, "--no-password")
     assert created.exit_code == 0, created.output
-    address = json.loads(created.output)["coldkey_address"]
-    assert address.startswith("tao_")
+    fields = json.loads(created.output)
+    address = fields["coldkey_address" if mode == "hashed" else "coldkey_ss58"]
+    assert address.startswith("tao_") is (mode == "hashed")
     supplied = address.replace("tao_", "bth2_", 1) if legacy_prefix else address
     saved = _invoke("addr", "add", "friend", supplied)
     assert saved.exit_code == 0, saved.output
     assert config.get_address("friend") == supplied
     resolved = _context(wallet_path).resolve_address_ref("dest_ss58", "friend")
     assert resolved.account == Wallet("recipient", path=str(wallet_path)).coldkeypub.ss58_address
-    restored = _invoke("wallet", "regen-coldkeypub", "--wallet", "watch", "--address", supplied)
+    restored = _invoke(
+        "wallet",
+        "regen-coldkeypub",
+        "--wallet",
+        "watch",
+        "--address",
+        supplied,
+        "--crypto-type",
+        "ms",
+    )
     assert restored.exit_code == 0, restored.output
     assert receiving_address(Wallet("watch", path=str(wallet_path)).coldkeypub) == address
     submitted = []
@@ -431,7 +448,7 @@ def test_show_encrypted_legacy_hotkey_does_not_prompt_or_unlock(wallet_path, mon
     assert "encrypted key; public address unavailable" in json.loads(shown.output)["hotkey"]
 
 
-@pytest.mark.parametrize("code", [4, 6, 7, 8])
+@pytest.mark.parametrize("code", [4, 6, 7])
 @pytest.mark.parametrize("command", ["show", "list"])
 def test_cli_shows_finalized_coldkey_and_unregistered_hotkey(
     wallet_path, monkeypatch, code, command
@@ -626,7 +643,10 @@ def test_multisig_receiving_identity_accepts_descriptor_address(wallet_path, con
 
 
 @pytest.mark.parametrize("code", [4, 6])
-def test_cli_multisig_add_and_show_with_named_protected_member(wallet_path, monkeypatch, code):
+@pytest.mark.parametrize("account_mode", ["safe", "legacy"])
+def test_cli_multisig_add_and_show_with_named_protected_member(
+    wallet_path, monkeypatch, code, account_mode
+):
     from bittensor._transport.codec import multisig_account
     from tests.harness.samples import BOB
 
@@ -638,11 +658,21 @@ def test_cli_multisig_add_and_show_with_named_protected_member(wallet_path, monk
     monkeypatch.setattr(
         "bittensor.cli.context.Client", lambda network, **kw: Client(network, substrate=substrate)
     )
+    mode_options = [] if account_mode == "safe" else ["--account-mode", "legacy"]
     result = _invoke(
-        "multisig", "add", "team", "--threshold", "2", "--signatories", f"recipient,{BOB}"
+        "multisig",
+        "add",
+        "team",
+        "--threshold",
+        "2",
+        "--signatories",
+        f"recipient,{BOB}",
+        *mode_options,
     )
     assert result.exit_code == 0, result.output
-    expected = multisig_account([wallet.coldkeypub.ss58_address, BOB], 2).ss58_address
+    expected = multisig_account(
+        [wallet.coldkeypub.ss58_address, BOB], 2, account_mode=account_mode
+    ).ss58_address
     assert json.loads(result.output)["multisig_address"] == expected
     shown = _invoke("multisig", "show", "team")
     assert shown.exit_code == 0, shown.output

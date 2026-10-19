@@ -195,7 +195,11 @@ class CreatePureProxy(Intent):
 
     op = "create_pure_proxy"
     signer = "coldkey"
-    wraps = (("Proxy", "create_pure"), ("Proxy", "create_protected_pure"))
+    wraps = (
+        ("Proxy", "create_pure"),
+        ("Proxy", "create_protected_pure"),
+        ("Proxy", "create_safe_pure"),
+    )
 
     proxy_type: str = field(default="Staking", metadata={"help": PROXY_TYPE_HELP})
     delay: int = field(default=0, metadata={"help": DELAY_HELP})
@@ -206,6 +210,10 @@ class CreatePureProxy(Intent):
             "one block; also part of the derived address. Keep 0 unless batching."
         },
     )
+    account_mode: Optional[str] = field(
+        default=None,
+        metadata={"help": "Account derivation: legacy or safe; MS wallets default to safe."},
+    )
 
     def __post_init__(self):
         check_proxy_type(self.proxy_type)
@@ -214,9 +222,26 @@ class CreatePureProxy(Intent):
         return True
 
     async def build(self, substrate, wallet: Any):
+        from ..account_mode import validate_account_mode, warn_legacy_mldsa
         from ..hashed import is_pq_required
+        from ..signing import public_view
 
         payer = self.coldkey_address(wallet)
+        mode = self.account_mode or getattr(wallet, "account_mode", None)
+        if mode is None and getattr(public_view(wallet, "coldkey"), "crypto_type", None) == 8:
+            mode = "safe"
+        if mode is not None:
+            validate_account_mode(mode)
+        if mode == "safe":
+            call = await substrate.compose(
+                calls.Call(
+                    "Proxy",
+                    "create_safe_pure",
+                    {"proxy_type": self.proxy_type, "delay": self.delay, "index": self.index},
+                )
+            )
+            return BuiltCall(call, {"pure_proxy_account_mode": "safe"})
+        warn_legacy_mldsa("legacy", public_view(wallet, "coldkey"), composite="pure proxy")
         protected = await is_pq_required(substrate, payer)
         call = await substrate.compose(
             calls.Call(
@@ -263,7 +288,7 @@ class KillPureProxy(Intent):
 
     op = "kill_pure_proxy"
     signer = "coldkey"
-    wraps = (("Proxy", "kill_pure"),)
+    wraps = (("Proxy", "kill_pure"), ("Proxy", "kill_safe_pure"))
 
     spawner_ss58: str = field(metadata={"help": "Account that originally created the pure proxy."})
     proxy_type: str = field(
@@ -280,18 +305,30 @@ class KillPureProxy(Intent):
         default=0,
         metadata={"help": "Extrinsic index of the creating call within that block."},
     )
+    account_mode: str = field(
+        default="legacy", metadata={"help": "Derivation mode used when the pure proxy was created."}
+    )
 
     def __post_init__(self):
         check_proxy_type(self.proxy_type)
 
     async def build(self, substrate, wallet: Any):
+        from ..account_mode import validate_account_mode
+
+        function = (
+            "kill_safe_pure" if validate_account_mode(self.account_mode) == "safe" else "kill_pure"
+        )
         return await substrate.compose(
-            calls.Proxy.kill_pure(
-                spawner=self.spawner_ss58,
-                proxy_type=self.proxy_type,
-                index=self.index,
-                height=self.height,
-                ext_index=self.ext_index,
+            calls.Call(
+                "Proxy",
+                function,
+                dict(
+                    spawner=self.spawner_ss58,
+                    proxy_type=self.proxy_type,
+                    index=self.index,
+                    height=self.height,
+                    ext_index=self.ext_index,
+                ),
             )
         )
 

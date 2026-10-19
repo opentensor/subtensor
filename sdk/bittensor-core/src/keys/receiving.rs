@@ -6,10 +6,11 @@
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use codec::Decode;
+use sp_core::crypto::{AccountId32, Ss58AddressFormat, Ss58Codec};
 use sp_core::hashing::blake2_256;
 use subtensor_hashed::Descriptor;
 
-use super::{crypto_err, Keypair};
+use super::{crypto_err, Keypair, CRYPTO_MLDSA65_FIXED};
 use crate::error::CoreError;
 
 const PREFIX: &str = "bth1_";
@@ -90,9 +91,12 @@ pub fn decode_hashed_receiving_address(address: &str) -> Result<Vec<u8>, CoreErr
 }
 
 impl Keypair {
-    /// Share this account's initial descriptor without disclosing
-    /// its current signing key. Also works for descriptor-bearing public keys.
+    /// Return the ordinary SS58 address for fixed ML-DSA, or the receiving
+    /// descriptor for a registered account, without exposing a signing key.
     pub fn hashed_receiving_address(&self) -> Result<String, CoreError> {
+        if self.crypto_type() == CRYPTO_MLDSA65_FIXED {
+            return Ok(self.ss58_address());
+        }
         encode_hashed_receiving_address(&self.authorization_descriptor()?)
     }
 }
@@ -105,11 +109,17 @@ fn mldsa_checksum(descriptor: &[u8]) -> [u8; CHECKSUM_LEN] {
     checksum
 }
 
+/// Registered profiles retain their descriptor-bearing receiving address.
+/// Registration-free profiles use ordinary SS58; their descriptor cannot be
+/// recovered from the address and is unnecessary for receiving funds.
 pub fn encode_mldsa_receiving_address(descriptor: &[u8]) -> Result<String, CoreError> {
     let parsed = subtensor_hashed::mldsa::Descriptor::from_bytes(descriptor)
         .map_err(|_| crypto_err("invalid ML-DSA receiving descriptor"))?;
-    if !parsed.is_supported() {
-        return Err(crypto_err("unsupported ML-DSA receiving descriptor"));
+    if parsed.is_stateless() {
+        return Ok(
+            AccountId32::new(subtensor_hashed::mldsa::account_id(&parsed))
+                .to_ss58check_with_version(Ss58AddressFormat::custom(super::DEFAULT_SS58_FORMAT)),
+        );
     }
     let mut body = descriptor.to_vec();
     body.extend_from_slice(&mldsa_checksum(descriptor));
@@ -138,7 +148,7 @@ pub fn decode_mldsa_receiving_address(address: &str) -> Result<Vec<u8>, CoreErro
     }
     let parsed = subtensor_hashed::mldsa::Descriptor::from_bytes(descriptor)
         .map_err(|_| crypto_err("invalid ML-DSA receiving descriptor"))?;
-    if !parsed.is_supported() {
+    if parsed.is_stateless() {
         return Err(crypto_err("unsupported ML-DSA receiving descriptor"));
     }
     Ok(descriptor.to_vec())
@@ -187,6 +197,28 @@ mod tests {
             Keypair::from_hashed_descriptor(&decoded_descriptor, DEFAULT_SS58_FORMAT).unwrap();
         let parsed = Descriptor::decode(&mut &descriptor[..]).unwrap();
         assert_eq!(public.public_key_bytes(), account_id(&parsed));
+    }
+
+    #[test]
+    fn fixed_mldsa_has_only_an_ordinary_receiving_address() {
+        let key = Keypair::from_seed(&[7; 32], CRYPTO_MLDSA65_FIXED).unwrap();
+        let descriptor = key.mldsa_descriptor().unwrap();
+        assert_eq!(
+            encode_mldsa_receiving_address(&descriptor).unwrap(),
+            key.ss58_address()
+        );
+        let mut body = descriptor.clone();
+        body.extend_from_slice(&mldsa_checksum(&descriptor));
+        for prefix in [MLDSA_PREFIX, MLDSA_LEGACY_PREFIX] {
+            let raw = format!("{prefix}{}", URL_SAFE_NO_PAD.encode(&body));
+            assert!(decode_mldsa_receiving_address(&raw).is_err());
+        }
+        let public = Keypair::from_mldsa_descriptor(&descriptor, 0).unwrap();
+        assert_eq!(
+            public.hashed_receiving_address().unwrap(),
+            public.ss58_address()
+        );
+        assert_ne!(public.ss58_address(), key.ss58_address());
     }
 
     #[test]

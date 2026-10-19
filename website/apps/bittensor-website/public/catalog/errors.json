@@ -123,8 +123,8 @@
         {
           "pallet": "Proxy",
           "path": "pallets/proxy/src/lib.rs",
-          "line": 863,
-          "url": "/code/pallets/proxy/src/lib.rs#L863",
+          "line": 916,
+          "url": "/code/pallets/proxy/src/lib.rs#L916",
           "raw_url": "/code/raw/pallets/proxy/src/lib.rs"
         }
       ]
@@ -267,8 +267,8 @@
         {
           "pallet": "HashedAccounts",
           "path": "pallets/hashed-accounts/src/lib.rs",
-          "line": 295,
-          "url": "/code/pallets/hashed-accounts/src/lib.rs#L295",
+          "line": 287,
+          "url": "/code/pallets/hashed-accounts/src/lib.rs#L287",
           "raw_url": "/code/raw/pallets/hashed-accounts/src/lib.rs"
         }
       ]
@@ -447,8 +447,8 @@
         {
           "pallet": "Proxy",
           "path": "pallets/proxy/src/lib.rs",
-          "line": 859,
-          "url": "/code/pallets/proxy/src/lib.rs#L859",
+          "line": 912,
+          "url": "/code/pallets/proxy/src/lib.rs#L912",
           "raw_url": "/code/raw/pallets/proxy/src/lib.rs"
         }
       ]
@@ -483,8 +483,8 @@
         {
           "pallet": "HashedAccounts",
           "path": "pallets/hashed-accounts/src/lib.rs",
-          "line": 297,
-          "url": "/code/pallets/hashed-accounts/src/lib.rs#L297",
+          "line": 289,
+          "url": "/code/pallets/hashed-accounts/src/lib.rs#L289",
           "raw_url": "/code/raw/pallets/hashed-accounts/src/lib.rs"
         }
       ]
@@ -1068,8 +1068,8 @@
         {
           "pallet": "HashedAccounts",
           "path": "pallets/hashed-accounts/src/lib.rs",
-          "line": 303,
-          "url": "/code/pallets/hashed-accounts/src/lib.rs#L303",
+          "line": 295,
+          "url": "/code/pallets/hashed-accounts/src/lib.rs#L295",
           "raw_url": "/code/raw/pallets/hashed-accounts/src/lib.rs"
         }
       ]
@@ -1086,8 +1086,8 @@
         {
           "pallet": "HashedAccounts",
           "path": "pallets/hashed-accounts/src/lib.rs",
-          "line": 304,
-          "url": "/code/pallets/hashed-accounts/src/lib.rs#L304",
+          "line": 296,
+          "url": "/code/pallets/hashed-accounts/src/lib.rs#L296",
           "raw_url": "/code/raw/pallets/hashed-accounts/src/lib.rs"
         }
       ]
@@ -1104,8 +1104,8 @@
         {
           "pallet": "HashedAccounts",
           "path": "pallets/hashed-accounts/src/lib.rs",
-          "line": 302,
-          "url": "/code/pallets/hashed-accounts/src/lib.rs#L302",
+          "line": 294,
+          "url": "/code/pallets/hashed-accounts/src/lib.rs#L294",
           "raw_url": "/code/raw/pallets/hashed-accounts/src/lib.rs"
         }
       ]
@@ -1122,8 +1122,8 @@
         {
           "pallet": "HashedAccounts",
           "path": "pallets/hashed-accounts/src/lib.rs",
-          "line": 306,
-          "url": "/code/pallets/hashed-accounts/src/lib.rs#L306",
+          "line": 298,
+          "url": "/code/pallets/hashed-accounts/src/lib.rs#L298",
           "raw_url": "/code/raw/pallets/hashed-accounts/src/lib.rs"
         }
       ]
@@ -1140,8 +1140,8 @@
         {
           "pallet": "HashedAccounts",
           "path": "pallets/hashed-accounts/src/lib.rs",
-          "line": 305,
-          "url": "/code/pallets/hashed-accounts/src/lib.rs#L305",
+          "line": 297,
+          "url": "/code/pallets/hashed-accounts/src/lib.rs#L297",
           "raw_url": "/code/raw/pallets/hashed-accounts/src/lib.rs"
         }
       ]
@@ -1840,8 +1840,8 @@
         {
           "pallet": "HashedAccounts",
           "path": "pallets/hashed-accounts/src/lib.rs",
-          "line": 301,
-          "url": "/code/pallets/hashed-accounts/src/lib.rs#L301",
+          "line": 293,
+          "url": "/code/pallets/hashed-accounts/src/lib.rs#L293",
           "raw_url": "/code/raw/pallets/hashed-accounts/src/lib.rs"
         }
       ]
@@ -1858,8 +1858,8 @@
         {
           "pallet": "HashedAccounts",
           "path": "pallets/hashed-accounts/src/lib.rs",
-          "line": 281,
-          "url": "/code/pallets/hashed-accounts/src/lib.rs#L281",
+          "line": 273,
+          "url": "/code/pallets/hashed-accounts/src/lib.rs#L273",
           "raw_url": "/code/raw/pallets/hashed-accounts/src/lib.rs"
         }
       ]
@@ -1876,8 +1876,8 @@
         {
           "pallet": "HashedAccounts",
           "path": "pallets/hashed-accounts/src/lib.rs",
-          "line": 277,
-          "url": "/code/pallets/hashed-accounts/src/lib.rs#L277",
+          "line": 269,
+          "url": "/code/pallets/hashed-accounts/src/lib.rs#L269",
           "raw_url": "/code/raw/pallets/hashed-accounts/src/lib.rs"
         }
       ]
@@ -1930,8 +1930,8 @@
         {
           "pallet": "Proxy",
           "path": "pallets/proxy/src/lib.rs",
-          "line": 851,
-          "url": "/code/pallets/proxy/src/lib.rs#L851",
+          "line": 904,
+          "url": "/code/pallets/proxy/src/lib.rs#L904",
           "raw_url": "/code/raw/pallets/proxy/src/lib.rs"
         }
       ]
@@ -2389,8 +2389,8 @@
         {
           "pallet": "HashedAccounts",
           "path": "pallets/hashed-accounts/src/lib.rs",
-          "line": 291,
-          "url": "/code/pallets/hashed-accounts/src/lib.rs#L291",
+          "line": 283,
+          "url": "/code/pallets/hashed-accounts/src/lib.rs#L283",
           "raw_url": "/code/raw/pallets/hashed-accounts/src/lib.rs"
         }
       ]
@@ -2892,8 +2892,8 @@
         {
           "pallet": "Utility",
           "path": "pallets/utility/src/lib.rs",
-          "line": 196,
-          "url": "/code/pallets/utility/src/lib.rs#L196",
+          "line": 200,
+          "url": "/code/pallets/utility/src/lib.rs#L200",
           "raw_url": "/code/raw/pallets/utility/src/lib.rs"
         }
       ]
@@ -2910,8 +2910,8 @@
         {
           "pallet": "Proxy",
           "path": "pallets/proxy/src/lib.rs",
-          "line": 861,
-          "url": "/code/pallets/proxy/src/lib.rs#L861",
+          "line": 914,
+          "url": "/code/pallets/proxy/src/lib.rs#L914",
           "raw_url": "/code/raw/pallets/proxy/src/lib.rs"
         }
       ]
@@ -2928,8 +2928,8 @@
         {
           "pallet": "HashedAccounts",
           "path": "pallets/hashed-accounts/src/lib.rs",
-          "line": 299,
-          "url": "/code/pallets/hashed-accounts/src/lib.rs#L299",
+          "line": 291,
+          "url": "/code/pallets/hashed-accounts/src/lib.rs#L291",
           "raw_url": "/code/raw/pallets/hashed-accounts/src/lib.rs"
         }
       ]
@@ -3090,8 +3090,8 @@
         {
           "pallet": "HashedAccounts",
           "path": "pallets/hashed-accounts/src/lib.rs",
-          "line": 289,
-          "url": "/code/pallets/hashed-accounts/src/lib.rs#L289",
+          "line": 281,
+          "url": "/code/pallets/hashed-accounts/src/lib.rs#L281",
           "raw_url": "/code/raw/pallets/hashed-accounts/src/lib.rs"
         }
       ]
@@ -3231,6 +3231,15 @@
         }
       ]
     },
+    "InvalidSafeAccountId": {
+      "code": "invalid_argument",
+      "description": "The safe composite hash could not decode to the runtime account type without changing its 32-byte identity. This runtime account type is incompatible with safe composite derivation; the call made no account.",
+      "docs_url": "/docs/errors/chain/InvalidSafeAccountId",
+      "markdown_url": "/llms.mdx/docs/errors/chain/InvalidSafeAccountId/content.md",
+      "pallets": [
+        "Multisig"
+      ]
+    },
     "InvalidSchedule": {
       "code": "invalid_argument",
       "description": "The pallet's schedule is misconfigured, e.g. a zero weight or zero `ref_time_by_fuel` for a basic operation, making gas conversion impossible. This is a runtime configuration issue; inspect the `Schedule` constant rather than call arguments.",
@@ -3280,8 +3289,8 @@
         {
           "pallet": "HashedAccounts",
           "path": "pallets/hashed-accounts/src/lib.rs",
-          "line": 293,
-          "url": "/code/pallets/hashed-accounts/src/lib.rs#L293",
+          "line": 285,
+          "url": "/code/pallets/hashed-accounts/src/lib.rs#L285",
           "raw_url": "/code/raw/pallets/hashed-accounts/src/lib.rs"
         }
       ]
@@ -4268,8 +4277,8 @@
         {
           "pallet": "Proxy",
           "path": "pallets/proxy/src/lib.rs",
-          "line": 853,
-          "url": "/code/pallets/proxy/src/lib.rs#L853",
+          "line": 906,
+          "url": "/code/pallets/proxy/src/lib.rs#L906",
           "raw_url": "/code/raw/pallets/proxy/src/lib.rs"
         }
       ]
@@ -4286,8 +4295,8 @@
         {
           "pallet": "Proxy",
           "path": "pallets/proxy/src/lib.rs",
-          "line": 857,
-          "url": "/code/pallets/proxy/src/lib.rs#L857",
+          "line": 910,
+          "url": "/code/pallets/proxy/src/lib.rs#L910",
           "raw_url": "/code/raw/pallets/proxy/src/lib.rs"
         }
       ]
@@ -4558,8 +4567,8 @@
         {
           "pallet": "Proxy",
           "path": "pallets/proxy/src/lib.rs",
-          "line": 845,
-          "url": "/code/pallets/proxy/src/lib.rs#L845",
+          "line": 898,
+          "url": "/code/pallets/proxy/src/lib.rs#L898",
           "raw_url": "/code/raw/pallets/proxy/src/lib.rs"
         }
       ]
@@ -4612,8 +4621,8 @@
         {
           "pallet": "Proxy",
           "path": "pallets/proxy/src/lib.rs",
-          "line": 847,
-          "url": "/code/pallets/proxy/src/lib.rs#L847",
+          "line": 900,
+          "url": "/code/pallets/proxy/src/lib.rs#L900",
           "raw_url": "/code/raw/pallets/proxy/src/lib.rs"
         }
       ]
@@ -4648,8 +4657,8 @@
         {
           "pallet": "HashedAccounts",
           "path": "pallets/hashed-accounts/src/lib.rs",
-          "line": 283,
-          "url": "/code/pallets/hashed-accounts/src/lib.rs#L283",
+          "line": 275,
+          "url": "/code/pallets/hashed-accounts/src/lib.rs#L275",
           "raw_url": "/code/raw/pallets/hashed-accounts/src/lib.rs"
         }
       ]
@@ -5472,6 +5481,33 @@
         }
       ]
     },
+    "SafeDerivationFailed": {
+      "code": "invalid_argument",
+      "description": "The canonical bounded search could not derive an off-curve composite account. No fallback account was created. Choose a different signer manifest or derivation index for a new account; retain the original mode and parameters when restoring one.",
+      "docs_url": "/docs/errors/chain/SafeDerivationFailed",
+      "markdown_url": "/llms.mdx/docs/errors/chain/SafeDerivationFailed/content.md",
+      "pallets": [
+        "Utility",
+        "Multisig",
+        "Proxy"
+      ],
+      "sources": [
+        {
+          "pallet": "Utility",
+          "path": "pallets/utility/src/lib.rs",
+          "line": 202,
+          "url": "/code/pallets/utility/src/lib.rs#L202",
+          "raw_url": "/code/raw/pallets/utility/src/lib.rs"
+        },
+        {
+          "pallet": "Proxy",
+          "path": "pallets/proxy/src/lib.rs",
+          "line": 918,
+          "url": "/code/pallets/proxy/src/lib.rs#L918",
+          "raw_url": "/code/raw/pallets/proxy/src/lib.rs"
+        }
+      ]
+    },
     "SameAutoStakeHotkeyAlreadySet": {
       "code": "already_exists",
       "description": "The coldkey tried to set its auto-stake destination on a subnet to the hotkey that is already configured. Read `AutoStakeDestination` for the coldkey and netuid before calling; only a different hotkey is accepted.",
@@ -5957,6 +5993,15 @@
         "Contracts"
       ]
     },
+    "ThresholdTooHigh": {
+      "code": "invalid_argument",
+      "description": "The safe multisig threshold exceeds the full signatory count, including the sender. Use a threshold no greater than the number of distinct group members.",
+      "docs_url": "/docs/errors/chain/ThresholdTooHigh",
+      "markdown_url": "/llms.mdx/docs/errors/chain/ThresholdTooHigh/content.md",
+      "pallets": [
+        "Multisig"
+      ]
+    },
     "TimelockRevealFailedNotAllowed": {
       "code": "invalid_argument",
       "description": "The submitted commitment contains `TimelockRevealFailed`, a terminal audit state that only the runtime may create after an automatic reveal fails. Submit a `TimelockEncrypted` field instead.",
@@ -6015,8 +6060,8 @@
         {
           "pallet": "Proxy",
           "path": "pallets/proxy/src/lib.rs",
-          "line": 843,
-          "url": "/code/pallets/proxy/src/lib.rs#L843",
+          "line": 896,
+          "url": "/code/pallets/proxy/src/lib.rs#L896",
           "raw_url": "/code/raw/pallets/proxy/src/lib.rs"
         }
       ]
@@ -6033,8 +6078,8 @@
         {
           "pallet": "Utility",
           "path": "pallets/utility/src/lib.rs",
-          "line": 194,
-          "url": "/code/pallets/utility/src/lib.rs#L194",
+          "line": 198,
+          "url": "/code/pallets/utility/src/lib.rs#L198",
           "raw_url": "/code/raw/pallets/utility/src/lib.rs"
         }
       ]
@@ -6429,8 +6474,8 @@
         {
           "pallet": "Proxy",
           "path": "pallets/proxy/src/lib.rs",
-          "line": 855,
-          "url": "/code/pallets/proxy/src/lib.rs#L855",
+          "line": 908,
+          "url": "/code/pallets/proxy/src/lib.rs#L908",
           "raw_url": "/code/raw/pallets/proxy/src/lib.rs"
         }
       ]
@@ -6538,8 +6583,8 @@
         {
           "pallet": "Proxy",
           "path": "pallets/proxy/src/lib.rs",
-          "line": 849,
-          "url": "/code/pallets/proxy/src/lib.rs#L849",
+          "line": 902,
+          "url": "/code/pallets/proxy/src/lib.rs#L902",
           "raw_url": "/code/raw/pallets/proxy/src/lib.rs"
         }
       ]
@@ -6574,8 +6619,8 @@
         {
           "pallet": "HashedAccounts",
           "path": "pallets/hashed-accounts/src/lib.rs",
-          "line": 279,
-          "url": "/code/pallets/hashed-accounts/src/lib.rs#L279",
+          "line": 271,
+          "url": "/code/pallets/hashed-accounts/src/lib.rs#L271",
           "raw_url": "/code/raw/pallets/hashed-accounts/src/lib.rs"
         }
       ]
@@ -6781,8 +6826,8 @@
         {
           "pallet": "HashedAccounts",
           "path": "pallets/hashed-accounts/src/lib.rs",
-          "line": 287,
-          "url": "/code/pallets/hashed-accounts/src/lib.rs#L287",
+          "line": 279,
+          "url": "/code/pallets/hashed-accounts/src/lib.rs#L279",
           "raw_url": "/code/raw/pallets/hashed-accounts/src/lib.rs"
         }
       ]
@@ -6799,8 +6844,8 @@
         {
           "pallet": "HashedAccounts",
           "path": "pallets/hashed-accounts/src/lib.rs",
-          "line": 285,
-          "url": "/code/pallets/hashed-accounts/src/lib.rs#L285",
+          "line": 277,
+          "url": "/code/pallets/hashed-accounts/src/lib.rs#L277",
           "raw_url": "/code/raw/pallets/hashed-accounts/src/lib.rs"
         }
       ]

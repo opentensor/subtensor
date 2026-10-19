@@ -4,6 +4,7 @@
 //! field contains only [`CARRIER_SIGNATURE`]; it is never an authorization.
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen, Output};
+use curve25519_dalek::{edwards::CompressedEdwardsY, ristretto::CompressedRistretto};
 use fips204::{
     ml_dsa_65,
     traits::{KeyGen, SerDes, Signer, Verifier},
@@ -17,7 +18,8 @@ use sha3::{
 pub const VERSION: u8 = 2;
 /// Original rotating ML-DSA-65 authorization profile; its encoding is unchanged.
 pub const ALGORITHM: u8 = 4;
-/// Fixed-key ML-DSA-65 account profile. The descriptor and signed header bind it.
+/// Registration-free fixed-key ML-DSA-65 profile. Its derived account must not
+/// encode a legacy Ed25519 or Sr25519 public key.
 /// Capability proofs still use ALGORITHM: their independently revocable keys
 /// are scoped to their owner, purpose and epoch, not the account rotation mode.
 pub const FIXED_ALGORITHM: u8 = 5;
@@ -72,6 +74,10 @@ impl Descriptor {
         self.algorithm == ALGORITHM
     }
 
+    pub fn is_stateless(&self) -> bool {
+        self.algorithm == FIXED_ALGORITHM
+    }
+
     /// Rotation policy is immutable account identity, never supplied by a signer.
     pub fn accepts_next_commitment(&self, current: &Commitment, next: &Commitment) -> bool {
         self.is_supported()
@@ -89,7 +95,9 @@ impl Descriptor {
             return Err("Invalid ML-DSA descriptor length".into());
         }
         let descriptor = Self::decode(&mut &bytes[..])?;
-        if !descriptor.is_supported() {
+        if !descriptor.is_supported()
+            || (descriptor.is_stateless() && !rejects_legacy_public_keys(&account_id(&descriptor)))
+        {
             return Err("Unsupported ML-DSA descriptor".into());
         }
         Ok(descriptor)
@@ -115,6 +123,26 @@ impl Header {
         self.version == VERSION && is_account_profile(self.algorithm)
     }
 
+    /// Validate immutable, self-contained authority before doing ML-DSA work.
+    /// This does not consult account storage, and never accepts a legacy curve
+    /// public key as a registration-free account. Generation is reserved at zero;
+    /// transaction nonce, era and chain binding remain in the signed payload.
+    pub fn is_valid_stateless(&self) -> bool {
+        if self.version != VERSION || self.algorithm != FIXED_ALGORITHM || self.generation != 0 {
+            return false;
+        }
+        let current = commitment(&self.public_key);
+        let descriptor = Descriptor {
+            version: VERSION,
+            algorithm: FIXED_ALGORITHM,
+            initial_commitment: current,
+        };
+        current != [0; COMMITMENT_LEN]
+            && self.next_commitment == current
+            && self.account == account_id(&descriptor)
+            && rejects_legacy_public_keys(&self.account)
+    }
+
     /// SDK signing. `payload` is the full encoded `(call, extension, implicit)`
     /// tuple, without Substrate's 256-byte shortening rule.
     /// `randomness` is fresh CSPRNG output, or zero for deterministic signing.
@@ -124,7 +152,10 @@ impl Header {
         payload: &[u8],
         randomness: &[u8; 32],
     ) -> Result<SignerAddress, &'static str> {
-        if !self.is_supported() || payload.len() > MAX_PAYLOAD_LEN {
+        if !self.is_supported()
+            || (self.algorithm == FIXED_ALGORITHM && !self.is_valid_stateless())
+            || payload.len() > MAX_PAYLOAD_LEN
+        {
             return Err("Unsupported ML-DSA signing header or payload size");
         }
         if public_key_from_seed(seed)? != self.public_key {
@@ -222,7 +253,9 @@ impl SignerAddress {
     /// The caller must perform state/fee/resource admission before invoking it.
     pub fn verify_encoded(&self, payload: &impl Encode) -> bool {
         let header = self.header();
-        if !header.is_supported() {
+        if !header.is_supported()
+            || (header.algorithm == FIXED_ALGORITHM && !header.is_valid_stateless())
+        {
             return false;
         }
         let Some(mu) = header.representative(payload) else {
@@ -258,6 +291,18 @@ pub fn account_id(descriptor: &Descriptor) -> [u8; 32] {
     let mut encoded = ACCOUNT_DOMAIN.to_vec();
     descriptor.encode_to(&mut encoded);
     sp_core::hashing::blake2_256(&encoded)
+}
+
+/// True only when neither existing raw-key signature scheme can authorize the
+/// account. Ed25519 uses the permissive ZIP-215 point decoder: a noncanonical
+/// encoding alone is NOT sufficient. ECDSA identities are hashes of public keys
+/// and remain protected by their full-width target-preimage requirement.
+///
+/// This is an encoding property, not an account-type discriminator: existing
+/// ECDSA, multisig and proxy account hashes can satisfy it as well.
+pub fn rejects_legacy_public_keys(account: &[u8; 32]) -> bool {
+    CompressedEdwardsY(*account).decompress().is_none()
+        && CompressedRistretto(*account).decompress().is_none()
 }
 
 /// Derive the exact FIPS 204 public key from an independently derived key seed.

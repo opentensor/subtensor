@@ -273,7 +273,9 @@ fn registration_is_idempotent_and_sponsor_never_becomes_authority() {
         );
         let valid = proof(&pair, &account, 0, [9; 32]);
         let ticket = check_proof(&account, &valid, b"implication").unwrap();
+        let events = System::events();
         assert_ok!(HashedAccounts::advance(&ticket));
+        assert_eq!(System::events(), events);
         // A different sponsor can replay registration without payment or reset.
         assert_ok!(HashedAccounts::register(
             RuntimeOrigin::signed(AccountId32::new([6; 32])),
