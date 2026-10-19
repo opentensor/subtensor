@@ -2455,7 +2455,10 @@ mod dispatches {
             // stake transfers.
             let base = <T as crate::pallet::Config>::WeightInfo::swap_coldkey_announced();
             let precheck = base.saturating_add(T::DbWeight::get().reads(1));
-            let (when, new_coldkey_hash) = ColdkeySwapAnnouncements::<T>::take(who.clone()).ok_or(
+            // Read (do not take) until the swap commits. A failed execute — e.g.
+            // destination opt-outs that appeared after announce — must leave the
+            // announcement intact so the fee is not silently burned.
+            let (when, new_coldkey_hash) = ColdkeySwapAnnouncements::<T>::get(who.clone()).ok_or(
                 Self::fail_with_weight(Error::<T>::ColdkeySwapAnnouncementNotFound, precheck),
             )?;
 
@@ -2474,6 +2477,8 @@ mod dispatches {
                 Self::do_swap_coldkey_tracked(&who, &new_coldkey).map_err(|(done, error)| {
                     Self::fail_with_weight(error, base.saturating_add(done))
                 })?;
+
+            ColdkeySwapAnnouncements::<T>::remove(who);
 
             Ok((
                 Some(Self::swap_coldkey_announced_actual_weight(work)),

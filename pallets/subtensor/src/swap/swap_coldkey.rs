@@ -278,7 +278,7 @@ impl<T: Config> Pallet<T> {
 
                 // Move stake by the coldkey's actual positions (not every subnet × every
                 // hotkey), then the per-subnet ownership, auto-stake and collateral state.
-                Self::transfer_coldkey_positions(old_coldkey, new_coldkey);
+                Self::transfer_coldkey_positions(old_coldkey, new_coldkey)?;
                 for netuid in Self::get_all_subnet_netuids() {
                     Self::transfer_subnet_ownership(netuid, old_coldkey, new_coldkey);
                     Self::transfer_auto_stake_destination(netuid, old_coldkey, new_coldkey);
@@ -494,7 +494,10 @@ impl<T: Config> Pallet<T> {
     /// When the destination already holds a position on the same `(hotkey, netuid)`,
     /// `increase_stake_*` sums shares; `transfer_basket_claimed_for_new_coldkey` sums
     /// watermarks (anti double-claim, see GHSA-2026-010).
-    fn transfer_coldkey_positions(old_coldkey: &T::AccountId, new_coldkey: &T::AccountId) {
+    fn transfer_coldkey_positions(
+        old_coldkey: &T::AccountId,
+        new_coldkey: &T::AccountId,
+    ) -> DispatchResult {
         for hotkey in Self::coldkey_swap_hotkeys(old_coldkey) {
             let netuids: BTreeSet<NetUid> = Self::alpha_iter_prefix((&hotkey, old_coldkey))
                 .map(|(netuid, _)| netuid)
@@ -520,7 +523,7 @@ impl<T: Config> Pallet<T> {
                 );
             }
 
-            Self::transfer_basket_claimed_for_new_coldkey(&hotkey, old_coldkey, new_coldkey);
+            Self::transfer_basket_claimed_for_new_coldkey(&hotkey, old_coldkey, new_coldkey)?;
             Self::migrate_root_stake_age(old_coldkey, &hotkey, new_coldkey, &hotkey);
             if !Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, new_coldkey, NetUid::ROOT)
                 .is_zero()
@@ -531,6 +534,7 @@ impl<T: Config> Pallet<T> {
 
         // All root stake has left the old coldkey; drop its auto-claim index entry.
         Self::maybe_remove_coldkey_index(old_coldkey);
+        Ok(())
     }
 
     /// Transfer staking hotkeys from the old coldkey to the new coldkey (union).

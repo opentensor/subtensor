@@ -24,7 +24,7 @@ fn acct() -> AccountId {
 // ---- coldkey-swap lifecycle calls ----
 fn announce_coldkey_swap() -> RuntimeCall {
     RuntimeCall::SubtensorModule(pallet_subtensor::Call::announce_coldkey_swap {
-        new_coldkey: Default::default(),
+        new_coldkey: acct(),
     })
 }
 fn swap_coldkey_announced() -> RuntimeCall {

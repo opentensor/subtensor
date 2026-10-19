@@ -413,6 +413,8 @@ fn test_swap_coldkey_announced_with_mismatched_coldkey_hash_fails() {
             SubtensorModule::swap_coldkey_announced(RuntimeOrigin::signed(who), other_coldkey),
             Error::<Test>::AnnouncedColdkeyHashDoesNotMatch
         );
+        // Failed prechecks must not consume the announcement.
+        assert!(ColdkeySwapAnnouncements::<Test>::contains_key(who));
     })
 }
 
@@ -435,6 +437,7 @@ fn test_swap_coldkey_announced_too_early_fails() {
             ),
             Error::<Test>::ColdkeySwapTooEarly
         );
+        assert!(ColdkeySwapAnnouncements::<Test>::contains_key(who));
 
         // Now + delay - 1 case
         run_to_block(now + delay - 1);
@@ -446,6 +449,7 @@ fn test_swap_coldkey_announced_too_early_fails() {
             ),
             Error::<Test>::ColdkeySwapTooEarly
         );
+        assert!(ColdkeySwapAnnouncements::<Test>::contains_key(who));
     })
 }
 
@@ -518,6 +522,8 @@ fn test_swap_coldkey_announced_with_hotkey_fails() {
             ),
             Error::<Test>::NewColdKeyIsHotkey
         );
+        // Destination refusal after announce must leave the announcement in place.
+        assert!(ColdkeySwapAnnouncements::<Test>::contains_key(who));
     })
 }
 
@@ -2587,8 +2593,8 @@ fn test_merge_swap_sums_overlapping_alpha_and_unions_hotkeys() {
         );
 
         // Overlapping basket watermarks must sum (anti double-claim).
-        BasketClaimed::<Test>::insert(&shared_hotkey, &old, 40_i128);
-        BasketClaimed::<Test>::insert(&shared_hotkey, &dest, 25_i128);
+        BasketClaimed::<Test>::insert(shared_hotkey, old, 40_i128);
+        BasketClaimed::<Test>::insert(shared_hotkey, dest, 25_i128);
 
         assert_ok!(SubtensorModule::do_swap_coldkey(&old, &dest));
 
@@ -2616,8 +2622,8 @@ fn test_merge_swap_sums_overlapping_alpha_and_unions_hotkeys() {
             )
             .is_zero()
         );
-        assert_eq!(BasketClaimed::<Test>::get(&shared_hotkey, &dest), 65_i128);
-        assert_eq!(BasketClaimed::<Test>::get(&shared_hotkey, &old), 0_i128);
+        assert_eq!(BasketClaimed::<Test>::get(shared_hotkey, dest), 65_i128);
+        assert_eq!(BasketClaimed::<Test>::get(shared_hotkey, old), 0_i128);
 
         let staking = StakingHotkeys::<Test>::get(dest);
         assert!(staking.contains(&shared_hotkey));
@@ -2830,7 +2836,7 @@ fn test_merge_swap_root_stake_and_rate_limits() {
         );
 
         LastRateLimitedBlock::<Test>::insert(RateLimitKey::LastTxBlock(old), 40u64);
-        LastRateLimitedBlock::<Test>::insert(RateLimitKey::LastTxBlock(dest.clone()), 90u64);
+        LastRateLimitedBlock::<Test>::insert(RateLimitKey::LastTxBlock(dest), 90u64);
 
         assert_ok!(SubtensorModule::do_swap_coldkey(&old, &dest));
 
@@ -2843,7 +2849,7 @@ fn test_merge_swap_root_stake_and_rate_limits() {
                 .is_zero()
         );
         assert!(!LastRateLimitedBlock::<Test>::contains_key(
-            &RateLimitKey::LastTxBlock(old)
+            RateLimitKey::LastTxBlock(old)
         ));
         assert_eq!(
             LastRateLimitedBlock::<Test>::get(RateLimitKey::LastTxBlock(dest)),
@@ -2990,5 +2996,85 @@ fn test_fresh_destination_still_receives_source_locks() {
                 .locked_mass,
             locked
         );
+    });
+}
+
+#[test]
+fn test_announced_swap_preserves_announcement_when_dest_opts_out_after_announce() {
+    new_test_ext(1).execute_with(|| {
+        let who = U256::from(1);
+        let dest = U256::from(2);
+        let who_hot = U256::from(10);
+        let dest_hot = U256::from(11);
+
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &who, &who_hot
+        ));
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &dest, &dest_hot
+        ));
+
+        let swap_cost = SubtensorModule::get_key_swap_cost();
+        let ed = ExistentialDeposit::get();
+        add_balance_to_coldkey_account(&who, swap_cost + ed);
+
+        assert_ok!(SubtensorModule::announce_coldkey_swap(
+            RuntimeOrigin::signed(who),
+            dest,
+        ));
+        assert!(ColdkeySwapAnnouncements::<Test>::contains_key(who));
+
+        // Destination opts out after the fee was charged.
+        assert_ok!(SubtensorModule::set_reject_staking_hotkey_growth(
+            RuntimeOrigin::signed(dest),
+            true,
+        ));
+
+        let now = System::block_number();
+        let delay = ColdkeySwapAnnouncementDelay::<Test>::get() + 1;
+        run_to_block(now + delay);
+
+        crate::assert_noop_ignore_postinfo!(
+            SubtensorModule::swap_coldkey_announced(RuntimeOrigin::signed(who), dest),
+            Error::<Test>::AccountRejectsStakingHotkeyGrowth
+        );
+        // Announcement (and the paid fee) must remain usable for a later retry /
+        // clear, not silently burned by a destination grief.
+        assert!(ColdkeySwapAnnouncements::<Test>::contains_key(who));
+        assert_eq!(Owner::<Test>::get(who_hot), who);
+    });
+}
+
+#[test]
+fn test_merge_swap_basket_claimed_overflow_fails_closed() {
+    new_test_ext(1).execute_with(|| {
+        let old = U256::from(1);
+        let dest = U256::from(2);
+        let old_hot = U256::from(10);
+        let dest_hot = U256::from(11);
+        let fund_hot = U256::from(12);
+
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &old, &old_hot
+        ));
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &dest, &dest_hot
+        ));
+
+        // Claim-only associations so the swap visits the shared fund watermark.
+        HotkeySwapBasketCredits::<Test>::insert(old, fund_hot, ());
+        HotkeySwapBasketCredits::<Test>::insert(dest, fund_hot, ());
+        BasketClaimed::<Test>::insert(fund_hot, old, i128::MAX);
+        BasketClaimed::<Test>::insert(fund_hot, dest, 1_i128);
+
+        assert_err!(
+            SubtensorModule::do_swap_coldkey(&old, &dest),
+            DispatchError::Arithmetic(sp_runtime::ArithmeticError::Overflow)
+        );
+        // Rolled back: both watermarks remain, no silent saturate.
+        assert_eq!(BasketClaimed::<Test>::get(fund_hot, old), i128::MAX);
+        assert_eq!(BasketClaimed::<Test>::get(fund_hot, dest), 1_i128);
+        assert!(HotkeySwapBasketCredits::<Test>::contains_key(old, fund_hot));
+        assert_eq!(Owner::<Test>::get(old_hot), old);
     });
 }
