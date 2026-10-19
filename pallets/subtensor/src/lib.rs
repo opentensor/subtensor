@@ -1945,6 +1945,23 @@ pub mod pallet {
     pub type ColdkeySwapAnnouncements<T: Config> =
         StorageMap<_, Twox64Concat, T::AccountId, (BlockNumberFor<T>, T::Hash), OptionQuery>;
 
+    /// Destination account reserved by an in-flight coldkey-swap announcement.
+    ///
+    /// Announce takes the destination in cleartext so it can be validated before
+    /// the fee; without a reservation a third party could register that address
+    /// as their hotkey during the delay and force `NewColdKeyIsHotkey` at execute,
+    /// repeatedly delaying recovery while the source stays announcement-restricted.
+    #[pallet::storage]
+    pub type ColdkeySwapDestinationReservations<T: Config> =
+        StorageMap<_, Twox64Concat, T::AccountId, T::AccountId, OptionQuery>;
+
+    /// Reverse index of [`ColdkeySwapDestinationReservations`]: announcer → reserved
+    /// destination, so reannounce / clear / execute can free the prior reservation
+    /// without scanning.
+    #[pallet::storage]
+    pub type ColdkeySwapReservedDestination<T: Config> =
+        StorageMap<_, Twox64Concat, T::AccountId, T::AccountId, OptionQuery>;
+
     /// A map of the coldkey swap disputes from a coldkey to the
     /// block number the coldkey swap was disputed.
     #[pallet::storage]

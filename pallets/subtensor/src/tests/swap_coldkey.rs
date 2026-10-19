@@ -3225,3 +3225,70 @@ fn test_coldkey_swap_work_union_not_undercounted_by_overlap() {
         );
     });
 }
+
+/// Announce reveals the destination in call data. Without a reservation a third
+/// party could register that address as their hotkey during the delay and force
+/// `NewColdKeyIsHotkey` at execute — repeatedly delaying recovery.
+#[test]
+fn test_announce_reserves_destination_against_third_party_hotkey_registration() {
+    new_test_ext(1).execute_with(|| {
+        let who = U256::from(1);
+        let dest = U256::from(2);
+        let attacker = U256::from(3);
+        let attacker_cold = U256::from(4);
+        let ed = ExistentialDeposit::get();
+        let swap_cost = SubtensorModule::get_key_swap_cost();
+
+        add_balance_to_coldkey_account(&who, swap_cost + ed);
+        add_balance_to_coldkey_account(&attacker_cold, swap_cost + ed);
+        add_balance_to_coldkey_account(&attacker, swap_cost + ed);
+
+        assert_ok!(SubtensorModule::announce_coldkey_swap(
+            RuntimeOrigin::signed(who),
+            dest,
+        ));
+        assert_eq!(
+            ColdkeySwapDestinationReservations::<Test>::get(dest),
+            Some(who)
+        );
+        assert_eq!(ColdkeySwapReservedDestination::<Test>::get(who), Some(dest));
+
+        // Third party cannot claim the reserved destination as a hotkey.
+        assert_noop!(
+            SubtensorModule::create_account_if_non_existent(&attacker_cold, &dest),
+            Error::<Test>::ColdkeySwapDestinationReserved
+        );
+        assert!(!SubtensorModule::hotkey_account_exists(&dest));
+
+        // Another coldkey cannot announce to the same reserved destination
+        // (refused before the fee, so attacker's balance is untouched).
+        let attacker_before = SubtensorModule::get_coldkey_balance(&attacker);
+        assert_noop!(
+            SubtensorModule::announce_coldkey_swap(RuntimeOrigin::signed(attacker), dest,),
+            Error::<Test>::ColdkeySwapDestinationReserved
+        );
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&attacker),
+            attacker_before
+        );
+
+        // After the delay the owner can still execute the swap.
+        let delay = ColdkeySwapAnnouncementDelay::<Test>::get();
+        let now = System::block_number();
+        run_to_block(now + delay);
+        assert_ok!(SubtensorModule::swap_coldkey_announced(
+            RuntimeOrigin::signed(who),
+            dest,
+        ));
+        assert!(!ColdkeySwapDestinationReservations::<Test>::contains_key(
+            dest
+        ));
+        assert!(!ColdkeySwapReservedDestination::<Test>::contains_key(who));
+        // Reservation released — a later registration of an unrelated key works.
+        let free_hot = U256::from(99);
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &attacker_cold,
+            &free_hot
+        ));
+    });
+}

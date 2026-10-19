@@ -455,5 +455,10 @@ mod errors {
         MinerEmissionBelowMinimum,
         /// `set_subnet_emission_weights`: the root subnet has no emission vector.
         EmissionWeightsNotSettableOnRoot,
+        /// This account is reserved as the destination of an in-flight coldkey-swap
+        /// announcement, so it cannot be registered as a hotkey (and another coldkey
+        /// cannot announce to it) until that announcement is executed, cleared, or
+        /// reset. Prevents recovery-delay griefing after announce reveals the dest.
+        ColdkeySwapDestinationReserved,
     }
 }

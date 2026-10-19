@@ -938,7 +938,8 @@ mod dispatches {
                 |(done, error)| Self::fail_with_weight(error, base.saturating_add(done)),
             )?;
 
-            // We also clear any announcement or dispute for security reasons
+            // We also clear any announcement, destination reservation, or dispute.
+            Self::release_coldkey_swap_destination_reservation(&old_coldkey);
             ColdkeySwapAnnouncements::<T>::remove(&old_coldkey);
             ColdkeySwapDisputes::<T>::remove(old_coldkey);
 
@@ -2411,6 +2412,9 @@ mod dispatches {
 
             // Refuse destinations that execution would still reject, before the fee.
             let _ = Self::ensure_coldkey_swap_destination(&who, &new_coldkey)?;
+            // Also refuse a destination another announcer already reserved —
+            // before the fee, so a conflict cannot burn the swap cost.
+            Self::ensure_coldkey_swap_destination_reservable(&who, &new_coldkey)?;
 
             if let Some((when, _)) = ColdkeySwapAnnouncements::<T>::get(who.clone()) {
                 let reannouncement_delay = ColdkeySwapReannouncementDelay::<T>::get();
@@ -2421,6 +2425,10 @@ mod dispatches {
                 let swap_cost = Self::get_key_swap_cost();
                 Self::charge_swap_cost(&who, swap_cost)?;
             }
+
+            // Reserve the destination for the delay so a third party cannot
+            // register it as a hotkey and force NewColdKeyIsHotkey at execute.
+            Self::reserve_coldkey_swap_destination(&who, &new_coldkey)?;
 
             let new_coldkey_hash = T::Hashing::hash_of(&new_coldkey);
             let delay = ColdkeySwapAnnouncementDelay::<T>::get();
@@ -2478,6 +2486,7 @@ mod dispatches {
                     Self::fail_with_weight(error, base.saturating_add(done))
                 })?;
 
+            Self::release_coldkey_swap_destination_reservation(&who);
             ColdkeySwapAnnouncements::<T>::remove(who);
 
             Ok((
@@ -2526,6 +2535,7 @@ mod dispatches {
         pub fn reset_coldkey_swap(origin: OriginFor<T>, coldkey: T::AccountId) -> DispatchResult {
             ensure_root(origin)?;
 
+            Self::release_coldkey_swap_destination_reservation(&coldkey);
             ColdkeySwapAnnouncements::<T>::remove(&coldkey);
             ColdkeySwapDisputes::<T>::remove(&coldkey);
 
@@ -2637,6 +2647,7 @@ mod dispatches {
             let min_when = when.saturating_add(delay);
             ensure!(now >= min_when, Error::<T>::ColdkeySwapClearTooEarly);
 
+            Self::release_coldkey_swap_destination_reservation(&who);
             ColdkeySwapAnnouncements::<T>::remove(&who);
 
             Self::deposit_event(Event::ColdkeySwapCleared { who });

@@ -228,6 +228,7 @@ ERRORS: dict[tuple[int, int], ErrorInfo] = {
     (7, 185): ErrorInfo('SubtensorModule', 'ValidatorEmissionTooLowToPreserveRoot', "`set_subnet_emission_weights`: root is paid its baseline share of this subnet's emission (what root earns here with the default validator share and the global `TaoWeight`) off the top of the validator slot every block, and alpha validators get the rest. The requested validator share (slot 3) is at or below root's baseline share right now, so validators would receive nothing. Raise the validator share above the baseline and resubmit."),
     (7, 186): ErrorInfo('SubtensorModule', 'MinerEmissionBelowMinimum', '`set_subnet_emission_weights`: the miner share (slot 4) must be at least 33% of emission.'),
     (7, 187): ErrorInfo('SubtensorModule', 'EmissionWeightsNotSettableOnRoot', '`set_subnet_emission_weights`: the root subnet has no emission vector.'),
+    (7, 188): ErrorInfo('SubtensorModule', 'ColdkeySwapDestinationReserved', 'This account is reserved as the destination of an in-flight coldkey-swap announcement, so it cannot be registered as a hotkey (and another coldkey cannot announce to it) until that announcement is executed, cleared, or reset. Prevents recovery-delay griefing after announce reveals the dest.'),
     (11, 0): ErrorInfo('Utility', 'TooManyCalls', 'Too many calls batched.'),
     (11, 1): ErrorInfo('Utility', 'InvalidDerivedAccount', 'Bad input data for derived account ID'),
     (12, 0): ErrorInfo('Sudo', 'RequireSudo', 'Sender must be the Sudo account.'),

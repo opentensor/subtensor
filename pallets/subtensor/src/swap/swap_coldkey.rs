@@ -45,17 +45,70 @@ impl<T: Config> Pallet<T> {
         let max = Self::coldkey_swap_max_work();
         let hotkey_reads = u64::from(max.hotkeys).saturating_add(1).saturating_mul(2);
         let position_reads = u64::from(max.positions).saturating_add(1);
-        // Destination active-lock admission is also bounded by the position envelope.
-        let lock_reads = u64::from(max.positions).saturating_add(1);
+        // Dest lock walk at admission, plus source lock walk when an in-use dest
+        // rejects locked alpha — both stop at the position sentinel.
+        let lock_reads = u64::from(max.positions).saturating_add(1).saturating_mul(2);
+        // Opt-out growth check re-reads dest staking + up to sentinel source
+        // associations (contains_key per hotkey) after the bounded work scan.
+        let opt_out_reads = u64::from(max.hotkeys)
+            .saturating_add(1)
+            .saturating_mul(2)
+            .saturating_add(4);
+        // Destination reservation: conflict check + prior-release + dual-map write.
+        let reservation = T::DbWeight::get()
+            .reads(3)
+            .saturating_add(T::DbWeight::get().writes(4));
         <T as crate::pallet::Config>::WeightInfo::announce_coldkey_swap()
             .saturating_add(T::DbWeight::get().reads(4))
             .saturating_add(
                 T::DbWeight::get().reads(
                     hotkey_reads
                         .saturating_add(position_reads)
-                        .saturating_add(lock_reads),
+                        .saturating_add(lock_reads)
+                        .saturating_add(opt_out_reads),
                 ),
             )
+            .saturating_add(reservation)
+    }
+
+    /// Refuse if `dest` is already reserved by a different announcer.
+    ///
+    /// Called before the announce fee so a conflict cannot burn the swap cost.
+    pub(crate) fn ensure_coldkey_swap_destination_reservable(
+        announcer: &T::AccountId,
+        dest: &T::AccountId,
+    ) -> Result<(), Error<T>> {
+        if let Some(existing) = ColdkeySwapDestinationReservations::<T>::get(dest) {
+            ensure!(
+                existing == *announcer,
+                Error::<T>::ColdkeySwapDestinationReserved
+            );
+        }
+        Ok(())
+    }
+
+    /// Reserve `dest` for `announcer`'s in-flight coldkey-swap announcement.
+    ///
+    /// Frees any prior reservation held by `announcer` (reannounce to a new dest).
+    /// Refuses if another announcer already reserved `dest`.
+    pub(crate) fn reserve_coldkey_swap_destination(
+        announcer: &T::AccountId,
+        dest: &T::AccountId,
+    ) -> Result<(), Error<T>> {
+        Self::ensure_coldkey_swap_destination_reservable(announcer, dest)?;
+        Self::release_coldkey_swap_destination_reservation(announcer);
+        ColdkeySwapDestinationReservations::<T>::insert(dest, announcer.clone());
+        ColdkeySwapReservedDestination::<T>::insert(announcer, dest.clone());
+        Ok(())
+    }
+
+    /// Drop the destination reservation held by `announcer`, if any.
+    pub(crate) fn release_coldkey_swap_destination_reservation(announcer: &T::AccountId) {
+        if let Some(dest) = ColdkeySwapReservedDestination::<T>::take(announcer)
+            && ColdkeySwapDestinationReservations::<T>::get(&dest).as_ref() == Some(announcer)
+        {
+            ColdkeySwapDestinationReservations::<T>::remove(&dest);
+        }
     }
 
     /// Pre-dispatch weight of `swap_coldkey`, refunded to the actual work post-dispatch.
