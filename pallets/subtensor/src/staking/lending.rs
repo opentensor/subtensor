@@ -354,8 +354,7 @@ impl<T: Config> LendingPoolInterface<T::AccountId> for Pallet<T> {
         coldkey: &T::AccountId,
         netuid: NetUid,
     ) -> AlphaBalance {
-        let stake =
-            Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
+        let stake = Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
         let available = Self::available_to_unstake(coldkey, netuid);
         stake.min(available)
     }

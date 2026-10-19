@@ -21,7 +21,7 @@ Side = Enum("Side", [("short", "short"), ("long", "long")], type=str)
 
 app = typer.Typer(
     no_args_is_help=True,
-    help=f"Subnet reserve loans: open, close, list.\n\nGuide: {guide_docs_url('pool-lending')}",
+    help=f"Lift-based escrowed loans: open, close, raise, list.\n\nGuide: {guide_docs_url('pool-lending')}",
 )
 
 
@@ -182,8 +182,8 @@ def open_loan(
     1%) and the old coupon's conservative submission window. Use 0 to provide
     exactly the calculated minimum. Borrowed principal stays exact.
 
-    Shorts receive freely usable alpha on the selected hotkey; opening does
-    not sell it. Longs borrow transferable TAO against existing alpha stake.
+    Shorts force-sell borrowed alpha into escrowed TAO. Longs force-buy with
+    borrowed TAO into escrowed alpha. No free borrowed assets are delivered.
     An existing position must
     use the same side and hotkey. btcli quotes additional debt after checking
     the combined position and refuses to submit when a quote is unavailable.
@@ -355,15 +355,9 @@ def raise_loan(
     collateral: Optional[str] = typer.Option(
         None, "--collateral", help=RaiseLoan.field_help("collateral_alpha")
     ),
-    amount: Optional[str] = typer.Option(
-        None, "--amount", help=RaiseLoan.field_help("borrow_tao")
-    ),
-    sell: Optional[str] = typer.Option(
-        None, "--sell", help=RaiseLoan.field_help("sell_alpha")
-    ),
-    min_tao_out: str = typer.Option(
-        "0", "--min-tao-out", help=RaiseLoan.field_help("min_tao_out")
-    ),
+    amount: Optional[str] = typer.Option(None, "--amount", help=RaiseLoan.field_help("borrow_tao")),
+    sell: Optional[str] = typer.Option(None, "--sell", help=RaiseLoan.field_help("sell_alpha")),
+    min_tao_out: str = typer.Option("0", "--min-tao-out", help=RaiseLoan.field_help("min_tao_out")),
     valid_until: Optional[int] = typer.Option(
         None, "--valid-until", help=RaiseLoan.field_help("valid_until")
     ),

@@ -183,7 +183,10 @@ impl OrderSwapInterface<Account> for MockPool {
         _: bool,
     ) -> DispatchResult {
         let a = amount.to_u64();
-        ensure!(alpha(from_cold, from_hot, netuid) >= a, "insufficient alpha");
+        ensure!(
+            alpha(from_cold, from_hot, netuid) >= a,
+            "insufficient alpha"
+        );
         write(
             &key(b"test/alpha", (from_cold, from_hot, netuid)),
             alpha(from_cold, from_hot, netuid).saturating_sub(a),
@@ -307,7 +310,10 @@ impl LendingPoolInterface<Account> for MockPool {
             write(&key(b"test/pool_tao", netuid), pool_tao().saturating_add(t));
         }
         if a > 0 {
-            ensure!(alpha(custody_cold, custody_hot, netuid) >= a, "insufficient alpha");
+            ensure!(
+                alpha(custody_cold, custody_hot, netuid) >= a,
+                "insufficient alpha"
+            );
             write(
                 &key(b"test/alpha", (custody_cold, custody_hot, netuid)),
                 alpha(custody_cold, custody_hot, netuid) - a,
@@ -327,7 +333,14 @@ impl LendingPoolInterface<Account> for MockPool {
         netuid: NetUid,
         tao_in: TaoBalance,
     ) -> Result<AlphaBalance, DispatchError> {
-        Self::buy_alpha(custody_cold, custody_hot, netuid, tao_in, u64::MAX.into(), false)
+        Self::buy_alpha(
+            custody_cold,
+            custody_hot,
+            netuid,
+            tao_in,
+            u64::MAX.into(),
+            false,
+        )
     }
 
     fn forced_sell_into_escrow(
@@ -377,7 +390,11 @@ impl LendingPoolInterface<Account> for MockPool {
         u128::from(pool_alpha()).saturating_add(u128::from(alpha_out()))
     }
 
-    fn pay_from_pot(netuid: NetUid, to: &Account, amount: TaoBalance) -> Result<TaoBalance, DispatchError> {
+    fn pay_from_pot(
+        netuid: NetUid,
+        to: &Account,
+        amount: TaoBalance,
+    ) -> Result<TaoBalance, DispatchError> {
         let t = amount.to_u64();
         ensure!(pool_tao() >= t, "pot dry");
         write(&key(b"test/pool_tao", netuid), pool_tao() - t);
@@ -684,15 +701,17 @@ fn dissolving_blocks_new_opens_only_when_flagged() {
         mint_tao(&owner, 50_000_000_000_000);
         // Near-dereg is NOT modeled; only Dissolutions flag blocks opens.
         assert_ok!(Lending::start_dissolution(netuid()));
-        assert!(Lending::open(
-            RuntimeOrigin::signed(owner),
-            netuid(),
-            Side::Short,
-            1_000_000_000_000,
-            hotkey,
-            1,
-            1,
-        )
-        .is_err());
+        assert!(
+            Lending::open(
+                RuntimeOrigin::signed(owner),
+                netuid(),
+                Side::Short,
+                1_000_000_000_000,
+                hotkey,
+                1,
+                1,
+            )
+            .is_err()
+        );
     });
 }

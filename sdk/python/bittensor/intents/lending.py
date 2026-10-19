@@ -403,18 +403,12 @@ class RaiseLoan(Intent):
             "netuid": self.netuid,
             "hotkey": hotkey,
             "collateral_alpha": (
-                None
-                if self.collateral_alpha is None
-                else cast(Balance, self.collateral_alpha).rao
+                None if self.collateral_alpha is None else cast(Balance, self.collateral_alpha).rao
             ),
-            "borrow_tao": (
-                None if self.borrow_tao is None else cast(Balance, self.borrow_tao).rao
-            ),
+            "borrow_tao": (None if self.borrow_tao is None else cast(Balance, self.borrow_tao).rao),
             "max_collateral_alpha": cast(Balance, self.max_collateral_alpha).rao,
             "min_borrow_tao": cast(Balance, self.min_borrow_tao).rao,
-            "sell_alpha": (
-                None if self.sell_alpha is None else cast(Balance, self.sell_alpha).rao
-            ),
+            "sell_alpha": (None if self.sell_alpha is None else cast(Balance, self.sell_alpha).rao),
             "min_tao_out": cast(Balance, self.min_tao_out).rao,
             "valid_until": self.valid_until,
         }
@@ -422,10 +416,7 @@ class RaiseLoan(Intent):
 
     def summary(self) -> str:
         sell = self.sell_alpha if self.sell_alpha is not None else 0
-        return (
-            f"raise on netuid {self.netuid}: long + sell {sell} "
-            f"(min out {self.min_tao_out})"
-        )
+        return f"raise on netuid {self.netuid}: long + sell {sell} (min out {self.min_tao_out})"
 
     def spend(self) -> Spend:
         return None

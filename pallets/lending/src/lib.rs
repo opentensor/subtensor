@@ -2702,19 +2702,14 @@ pub mod pallet {
                         let _ = T::Pool::pay_from_pot(netuid, owner, remainder.into());
                     }
                     if alpha > 0 {
-                        let _ = T::Pool::destroy_custody_alpha(
-                            &escrow,
-                            &custody,
-                            netuid,
-                            alpha.into(),
-                        );
+                        let _ =
+                            T::Pool::destroy_custody_alpha(&escrow, &custody, netuid, alpha.into());
                     }
                     let _ = shortfall;
                     Lifts::<T>::mutate(netuid, |book| {
                         book.l_l = book.l_l.saturating_sub(position.principal);
                         book.b_l = book.b_l.saturating_sub(position.principal);
-                        book.escrow_alpha =
-                            book.escrow_alpha.saturating_sub(position.escrow_alpha);
+                        book.escrow_alpha = book.escrow_alpha.saturating_sub(position.escrow_alpha);
                         book.long_collateral_alpha = book
                             .long_collateral_alpha
                             .saturating_sub(position.collateral);

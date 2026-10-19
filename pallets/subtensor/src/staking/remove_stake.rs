@@ -4,6 +4,7 @@ use crate::subnets::dissolution::DissolveCleanupStatus;
 use crate::weights::WeightInfo;
 use frame_support::weights::{Weight, WeightMeter};
 use num_traits::ToPrimitive;
+use pallet_lending::LendingInterface;
 use sp_core::Get;
 use sp_runtime::DispatchError;
 use sp_std::collections::btree_map::BTreeMap;

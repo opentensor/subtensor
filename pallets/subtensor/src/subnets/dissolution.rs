@@ -2,6 +2,7 @@ use super::*;
 use crate::weights::WeightInfo;
 use frame_support::weights::WeightMeter;
 use pallet_alpha_assets::AlphaAssetsInterface;
+use pallet_lending::LendingInterface;
 use subtensor_runtime_common::{NetUid, clear_prefix_with_meter};
 use subtensor_swap_interface::SwapHandler;
 /// Enum for the dissolve cleanup phase.
