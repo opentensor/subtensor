@@ -22,7 +22,7 @@ use crate::error::CoreError;
 
 mod base58;
 mod hashed;
-pub use hashed::HashedKeypair;
+pub use hashed::{verify_hashed_authorization, HashedKeypair};
 mod mldsa;
 pub use mldsa::{
     verify_mldsa_authorization, verify_mldsa_capability, MldsaCapabilityProof, MldsaKeypair,

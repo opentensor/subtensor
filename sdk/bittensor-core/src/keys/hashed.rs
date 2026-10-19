@@ -14,6 +14,59 @@ use crate::error::CoreError;
 const VERSION: u8 = 1;
 const DERIVATION_SALT: &[u8] = b"bittensor/hashed/v1/derive";
 
+/// Verify a device's complete signing result against independently trusted
+/// authority. The proof itself never chooses the account, scheme or current
+/// commitment. `payload` must be the full call, extra and implicit bytes, not
+/// the ordinary Substrate payload hash used above 256 bytes.
+pub fn verify_hashed_authorization(
+    encoded: &[u8],
+    payload: &[u8],
+    descriptor: &[u8],
+    generation: u64,
+    expected_commitment: &[u8; 32],
+) -> Result<bool, CoreError> {
+    let mut input = descriptor;
+    let descriptor = Descriptor::decode(&mut input)
+        .map_err(|_| crypto_err("invalid hashed account descriptor"))?;
+    if !input.is_empty() || !descriptor.is_supported() {
+        return Err(crypto_err("invalid hashed account descriptor"));
+    }
+    // Fixed-size SDK proof: generation, current key, next commitment, signature.
+    if encoded.len() != 8 + 32 + 32 + 64 || generation == u64::MAX {
+        return Ok(false);
+    }
+    let proof = Proof::decode(&mut &encoded[..])
+        .map_err(|_| crypto_err("invalid hashed authorization proof"))?;
+    if proof.generation != generation
+        || key_commitment(descriptor.scheme, &proof.public_key) != *expected_commitment
+        || proof.next_commitment == [0; 32]
+        || proof.next_commitment == *expected_commitment
+    {
+        return Ok(false);
+    }
+    let address = SignerAddress {
+        account: account_id(&descriptor),
+        version: descriptor.version,
+        scheme: descriptor.scheme,
+        generation,
+        public_key: proof.public_key,
+        next_commitment: proof.next_commitment,
+    };
+    let message = address.signing_hash(payload);
+    Ok(match descriptor.scheme {
+        Scheme::Sr25519 => sr25519::Pair::verify(
+            &sr25519::Signature::from_raw(proof.signature),
+            &message,
+            &sr25519::Public::from_raw(proof.public_key),
+        ),
+        Scheme::Ed25519 => ed25519::Pair::verify(
+            &ed25519::Signature::from_raw(proof.signature),
+            &message,
+            &ed25519::Public::from_raw(proof.public_key),
+        ),
+    })
+}
+
 /// Public metadata is sufficient to preserve an address in a watch-only wallet.
 /// Signing additionally requires the original, independent master seed.
 pub struct HashedKeypair {

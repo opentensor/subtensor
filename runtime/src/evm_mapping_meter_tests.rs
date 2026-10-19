@@ -233,3 +233,453 @@ mod mapping_precharge_tests {
         });
     }
 }
+
+#[cfg(test)]
+mod external_oog_atomicity_tests {
+    use crate::{Balances, Runtime, RuntimeEvent, System};
+    use evm::ExitError;
+    use frame_support::{traits::Currency, weights::Weight};
+    use pallet_evm::{AddressMapping, FeeCalculator, GasWeightMapping, runner::Runner};
+    use sp_core::{H160, H256, U256};
+
+    type Mapping = <Runtime as pallet_evm::Config>::AddressMapping;
+    type EvmRunner = pallet_evm::runner::stack::Runner<Runtime>;
+
+    const GAS_LIMIT: u64 = 1_000_000;
+    const INITIAL_BALANCE: u64 = 1_000_000_000_000;
+    const VALUE: u64 = 1_000;
+
+    #[derive(Clone, Copy, Debug)]
+    enum Operation {
+        Call,
+        Create,
+        Create2,
+    }
+
+    fn source() -> H160 {
+        H160::repeat_byte(8)
+    }
+
+    fn child() -> H160 {
+        H160::repeat_byte(7)
+    }
+
+    fn target(operation: Operation, code: &[u8]) -> H160 {
+        use evm::{
+            CreateScheme,
+            executor::stack::{StackExecutor, StackSubstateMetadata},
+        };
+        use pallet_evm::runner::stack::SubstrateStackState;
+        let vicinity = fp_evm::Vicinity::default();
+        let config = <Runtime as pallet_evm::Config>::config();
+        let state = SubstrateStackState::<Runtime>::new(
+            &vicinity,
+            StackSubstateMetadata::new(GAS_LIMIT, config),
+            None,
+            None,
+        );
+        let executor = StackExecutor::new_with_precompiles(state, config, &());
+        match operation {
+            Operation::Call => H160::repeat_byte(9),
+            Operation::Create => executor.create_address(CreateScheme::Legacy { caller: source() }),
+            Operation::Create2 => executor.create_address(CreateScheme::Create2 {
+                caller: source(),
+                code_hash: sp_io::hashing::keccak_256(code).into(),
+                salt: H256::zero(),
+            }),
+        }
+    }
+
+    fn fund(address: H160, amount: u64) {
+        let _ = Balances::make_free_balance_be(&Mapping::into_account_id(address), amount.into());
+    }
+
+    fn balance(address: H160) -> u64 {
+        Balances::free_balance(Mapping::into_account_id(address)).into()
+    }
+
+    fn execute(
+        operation: Operation,
+        code: Vec<u8>,
+        limit: Weight,
+    ) -> (evm::ExitReason, fp_evm::UsedGas, Vec<fp_evm::Log>) {
+        let (price, _) = <Runtime as pallet_evm::Config>::FeeCalculator::min_gas_price();
+        let value = U256::from(VALUE) * U256::from(crate::EVM_TO_SUBSTRATE_DECIMALS);
+        let config = <Runtime as pallet_evm::Config>::config();
+        match operation {
+            Operation::Call => {
+                let target = target(operation, &code);
+                pallet_evm::AccountCodes::<Runtime>::insert(target, code);
+                let info = EvmRunner::call(
+                    source(),
+                    target,
+                    Vec::new(),
+                    value,
+                    GAS_LIMIT,
+                    Some(price),
+                    None,
+                    None,
+                    Vec::new(),
+                    Vec::new(),
+                    true,
+                    false,
+                    Some(limit),
+                    None,
+                    config,
+                )
+                .unwrap();
+                (info.exit_reason, info.used_gas, info.logs)
+            }
+            Operation::Create | Operation::Create2 => {
+                let info = if matches!(operation, Operation::Create) {
+                    EvmRunner::create(
+                        source(),
+                        code,
+                        value,
+                        GAS_LIMIT,
+                        Some(price),
+                        None,
+                        None,
+                        Vec::new(),
+                        Vec::new(),
+                        true,
+                        Vec::new(),
+                        true,
+                        false,
+                        Some(limit),
+                        None,
+                        config,
+                    )
+                } else {
+                    EvmRunner::create2(
+                        source(),
+                        code,
+                        H256::zero(),
+                        value,
+                        GAS_LIMIT,
+                        Some(price),
+                        None,
+                        None,
+                        Vec::new(),
+                        Vec::new(),
+                        true,
+                        Vec::new(),
+                        true,
+                        false,
+                        Some(limit),
+                        None,
+                        config,
+                    )
+                }
+                .unwrap();
+                (info.exit_reason, info.used_gas, info.logs)
+            }
+        }
+    }
+
+    fn assert_fee_and_nonce(gas: U256, transferred: u64) {
+        let (price, _) = <Runtime as pallet_evm::Config>::FeeCalculator::min_gas_price();
+        let fee = (gas * price / U256::from(crate::EVM_TO_SUBSTRATE_DECIMALS)).as_u64();
+        assert!(fee > 0);
+        assert_eq!(balance(source()), INITIAL_BALANCE - fee - transferred);
+        assert_eq!(
+            pallet_evm::Pallet::<Runtime>::account_basic(&source())
+                .0
+                .nonce,
+            U256::one()
+        );
+        assert_eq!(
+            pallet_evm::AccountNonces::<Runtime>::get(Mapping::into_account_id(source())),
+            1
+        );
+    }
+
+    fn call_empty(code: &mut Vec<u8>, value: u32) {
+        code.extend_from_slice(&[0x60, 0, 0x60, 0, 0x60, 0, 0x60, 0, 0x63]);
+        code.extend_from_slice(&value.to_be_bytes());
+        code.push(0x73);
+        code.extend_from_slice(H160::repeat_byte(7).as_bytes());
+        code.extend_from_slice(&[0x60, 0, 0xf1, 0x50]);
+    }
+
+    #[test]
+    fn caught_external_oog_cannot_commit_parent_storage() {
+        sp_io::TestExternalities::default().execute_with(|| {
+            let source = H160::repeat_byte(8);
+            let target = H160::repeat_byte(9);
+            let _ = Balances::make_free_balance_be(
+                &Mapping::into_account_id(source),
+                1_000_000_000_000u64.into(),
+            );
+            System::set_block_number(1);
+            let mut code = vec![0x60, 1, 0x60, 0, 0x55];
+            for _ in 0..24 {
+                call_empty(&mut code, 0);
+            }
+            code.push(0);
+            pallet_evm::AccountCodes::<Runtime>::insert(target, code);
+            let (price, _) = <Runtime as pallet_evm::Config>::FeeCalculator::min_gas_price();
+            let result = EvmRunner::call(
+                source,
+                target,
+                Vec::new(),
+                U256::zero(),
+                100_000,
+                Some(price),
+                None,
+                None,
+                Vec::new(),
+                Vec::new(),
+                true,
+                false,
+                None,
+                None,
+                <Runtime as pallet_evm::Config>::config(),
+            )
+            .unwrap();
+            assert_eq!(result.exit_reason, ExitError::OutOfGas.into());
+            assert_eq!(
+                pallet_evm::AccountStorages::<Runtime>::get(target, H256::zero()),
+                H256::zero()
+            );
+        });
+    }
+
+    #[test]
+    fn global_exhaustion_reverts_call_create_and_create2_effects() {
+        for operation in [Operation::Call, Operation::Create, Operation::Create2] {
+            for succeeds in [false, true] {
+                let mut ext = sp_io::TestExternalities::default();
+                ext.execute_with(|| {
+                    System::set_block_number(1);
+                    fund(source(), INITIAL_BALANCE);
+                    fund(child(), VALUE);
+                    let mut code = vec![0x60, 1, 0x60, 0, 0x55]; // SSTORE(0, 1)
+                    code.extend_from_slice(&[0x60, 0, 0x60, 0, 0xa0]); // LOG0
+                    call_empty(&mut code, 1_000_000_000); // transfer one rao
+                    for _ in 0..24 {
+                        call_empty(&mut code, 0);
+                    }
+                    // CREATE must return nonempty code: its cleanup tries to
+                    // install this even when the execution-frame commit fails.
+                    code.extend_from_slice(&[0x60, 1, 0x60, 0, 0xf3]);
+                    let target = target(operation, &code);
+                    fund(target, VALUE);
+                    System::reset_events();
+                    let limit = <Runtime as pallet_evm::Config>::GasWeightMapping::gas_to_weight(
+                        if succeeds { GAS_LIMIT } else { 100_000 },
+                        false,
+                    );
+                    let (reason, gas, logs) = execute(operation, code, limit);
+                    assert_eq!(reason.is_succeed(), succeeds, "{operation:?}: {reason:?}");
+                    assert_eq!(
+                        pallet_evm::AccountStorages::<Runtime>::get(target, H256::zero()),
+                        if succeeds {
+                            H256::from_low_u64_be(1)
+                        } else {
+                            H256::zero()
+                        }
+                    );
+                    assert_eq!(balance(child()), VALUE + u64::from(succeeds));
+                    assert_eq!(
+                        balance(target),
+                        VALUE + if succeeds { VALUE - 1 } else { 0 }
+                    );
+                    assert_eq!(logs.len(), usize::from(succeeds));
+                    let events = System::events();
+                    assert_eq!(
+                        events
+                            .iter()
+                            .filter(|event| matches!(
+                                event.event,
+                                RuntimeEvent::EVM(pallet_evm::Event::Log { .. })
+                            ))
+                            .count(),
+                        usize::from(succeeds)
+                    );
+                    assert_eq!(
+                        events
+                            .iter()
+                            .filter(|event| matches!(
+                                event.event,
+                                RuntimeEvent::Balances(pallet_balances::Event::Transfer { .. })
+                            ))
+                            .count(),
+                        if succeeds { 2 } else { 0 }
+                    );
+                    assert_fee_and_nonce(gas.effective, if succeeds { VALUE } else { 0 });
+                    if !succeeds {
+                        assert_eq!(reason, ExitError::OutOfGas.into());
+                        assert_eq!(gas.effective, U256::from(GAS_LIMIT));
+                    }
+                    if !matches!(operation, Operation::Call) {
+                        assert_eq!(
+                            pallet_evm::AccountCodes::<Runtime>::get(target),
+                            if succeeds { vec![0] } else { Vec::new() }
+                        );
+                        assert_eq!(
+                            pallet_evm::AccountCodesMetadata::<Runtime>::contains_key(target),
+                            succeeds
+                        );
+                        assert_eq!(
+                            pallet_evm::AccountNonces::<Runtime>::get(Mapping::into_account_id(
+                                target
+                            )),
+                            u32::from(succeeds)
+                        );
+                    }
+                });
+                assert_eq!(
+                    ext.overlayed_changes().transaction_depth(),
+                    0,
+                    "{operation:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn created_nonce_exhaustion_closes_its_frame_before_fee_settlement() {
+        for operation in [Operation::Create, Operation::Create2] {
+            let mut ext = sp_io::TestExternalities::default();
+            ext.execute_with(|| {
+                System::set_block_number(1);
+                fund(source(), INITIAL_BALANCE);
+                let code = vec![0];
+                let target = target(operation, &code);
+                fund(target, VALUE);
+                // Pay the root nonce and the three retained-nonce reads, but
+                // exhaust the budget at the created account's nonce update.
+                let limit = pallet_evm::account_cost::transaction_weight::<Runtime>(true, 0)
+                    .saturating_add(<Runtime as frame_system::Config>::DbWeight::get().reads(3))
+                    .saturating_add(
+                        <Runtime as frame_system::Config>::DbWeight::get().reads_writes(1, 1),
+                    );
+                let (reason, gas, logs) = execute(operation, code, limit);
+                assert_eq!(reason, ExitError::OutOfGas.into());
+                assert_eq!(gas.effective, U256::from(GAS_LIMIT));
+                assert_eq!(balance(target), VALUE);
+                assert!(logs.is_empty());
+                assert!(!pallet_evm::AccountCodes::<Runtime>::contains_key(target));
+                assert_eq!(
+                    pallet_evm::AccountNonces::<Runtime>::get(Mapping::into_account_id(target)),
+                    0
+                );
+                assert_fee_and_nonce(gas.effective, 0);
+            });
+            assert_eq!(
+                ext.overlayed_changes().transaction_depth(),
+                0,
+                "{operation:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn create_cleanup_cannot_install_code_after_a_rejected_commit() {
+        use evm::executor::stack::{StackExecutor, StackSubstateMetadata};
+        use pallet_evm::runner::stack::SubstrateStackState;
+
+        for operation in [Operation::Create, Operation::Create2] {
+            let mut ext = sp_io::TestExternalities::default();
+            ext.execute_with(|| {
+                fund(source(), INITIAL_BALANCE);
+                // Store a value, then return one byte of runtime code.
+                let init = vec![0x60, 1, 0x60, 0, 0x55, 0x60, 1, 0x60, 0, 0xf3];
+                let target = target(operation, &init);
+                let vicinity = fp_evm::Vicinity::default();
+                let config = <Runtime as pallet_evm::Config>::config();
+                let state = SubstrateStackState::<Runtime>::new(
+                    &vicinity,
+                    StackSubstateMetadata::new(GAS_LIMIT, config),
+                    None,
+                    None,
+                );
+                let mut executor = StackExecutor::new_with_precompiles(state, config, &());
+                let (reason, _, _, _) = fp_evm::handle_storage_oog(GAS_LIMIT, || {
+                    // A nested runner can exhaust the shared budget while this
+                    // executor still has local gas/weight. Force that condition
+                    // so cleanup reaches set_code after the rejected commit.
+                    let mut other_budget =
+                        fp_evm::WeightInfo::new_from_weight_limit(Some(Weight::zero()), None)
+                            .unwrap()
+                            .unwrap();
+                    assert_eq!(
+                        other_budget.try_record_ref_time_or_fail(1),
+                        Err(ExitError::OutOfGas)
+                    );
+                    let (reason, _) = if matches!(operation, Operation::Create) {
+                        executor.transact_create(
+                            source(),
+                            U256::zero(),
+                            init,
+                            GAS_LIMIT,
+                            Vec::new(),
+                            Vec::new(),
+                        )
+                    } else {
+                        executor.transact_create2(
+                            source(),
+                            U256::zero(),
+                            init,
+                            H256::zero(),
+                            GAS_LIMIT,
+                            Vec::new(),
+                            Vec::new(),
+                        )
+                    };
+                    (
+                        reason,
+                        (),
+                        executor.used_gas(),
+                        U256::from(executor.used_gas()),
+                    )
+                });
+                assert_eq!(reason, ExitError::OutOfGas.into());
+                assert!(!pallet_evm::AccountCodes::<Runtime>::contains_key(target));
+                assert!(!pallet_evm::AccountCodesMetadata::<Runtime>::contains_key(
+                    target
+                ));
+                assert_eq!(
+                    pallet_evm::AccountStorages::<Runtime>::get(target, H256::zero()),
+                    H256::zero()
+                );
+                assert_eq!(
+                    pallet_evm::Pallet::<Runtime>::account_basic(&source())
+                        .0
+                        .nonce,
+                    U256::one()
+                );
+            });
+            assert_eq!(ext.overlayed_changes().transaction_depth(), 0);
+        }
+    }
+
+    #[test]
+    fn ordinary_child_gas_failure_remains_catchable() {
+        sp_io::TestExternalities::default().execute_with(|| {
+            System::set_block_number(1);
+            fund(source(), INITIAL_BALANCE);
+            // The child cannot SSTORE with zero forwarded gas. Its parent must
+            // still be able to complete and commit its own storage and transfer.
+            pallet_evm::AccountCodes::<Runtime>::insert(child(), vec![0x60, 1, 0x60, 0, 0x55, 0]);
+            let mut code = Vec::new();
+            call_empty(&mut code, 0);
+            code.extend_from_slice(&[0x60, 1, 0x60, 0, 0x55, 0]);
+            let target = target(Operation::Call, &code);
+            fund(target, VALUE);
+            let (reason, gas, _) = execute(Operation::Call, code, Weight::MAX);
+            assert!(reason.is_succeed());
+            assert_eq!(
+                pallet_evm::AccountStorages::<Runtime>::get(target, H256::zero()),
+                H256::from_low_u64_be(1)
+            );
+            assert_eq!(
+                pallet_evm::AccountStorages::<Runtime>::get(child(), H256::zero()),
+                H256::zero()
+            );
+            assert_eq!(balance(target), VALUE * 2);
+            assert_fee_and_nonce(gas.effective, VALUE);
+        });
+    }
+}

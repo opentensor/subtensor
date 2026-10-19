@@ -369,6 +369,14 @@ where
 		let (reason, retv, used_gas, effective_gas) =
 			fp_evm::handle_storage_oog::<R, _>(gas_limit, || {
 				let (reason, retv) = f(&mut executor);
+				if fp_evm::is_storage_oog() {
+					// The pinned executor can return from CREATE's nonce update
+					// without exiting its frame. Unwind only this executor's frames;
+					// root nonce/authorization changes and fee withdrawal must survive.
+					while executor.state().substate.parent.is_some() {
+						let _ = executor.state_mut().substate.exit_discard();
+					}
+				}
 
 				// Compute the storage gas cost based on the storage growth.
 				let storage_gas = match &executor.state().storage_meter {
@@ -1016,6 +1024,13 @@ impl<'config> SubstrateStackSubstate<'config> {
 	}
 
 	pub fn exit_commit(&mut self) -> Result<(), ExitError> {
+		// A child may catch an ordinary gas failure, but cannot recover from
+		// exhaustion of a transaction-wide resource budget. Discard before
+		// merging storage, logs or deletions into the parent.
+		if fp_evm::is_storage_oog() {
+			self.exit_discard()?;
+			return Err(ExitError::OutOfGas);
+		}
 		let mut exited = *self.parent.take().expect("Cannot commit on root substate");
 		mem::swap(&mut exited, self);
 
@@ -1429,6 +1444,11 @@ where
 		code: Vec<u8>,
 		caller: Option<H160>,
 	) -> Result<(), ExitError> {
+		// CREATE cleanup calls this even if exit_commit failed. Never install
+		// code outside the discarded frame after global resource exhaustion.
+		if fp_evm::is_storage_oog() {
+			return Err(ExitError::OutOfGas);
+		}
 		log::debug!(
 			target: "evm",
 			"Inserting code ({} bytes) at {:?}",

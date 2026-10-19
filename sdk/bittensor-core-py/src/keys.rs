@@ -524,6 +524,21 @@ fn decode_hashed_receiving_address<'py>(
 }
 
 #[pyfunction]
+fn verify_hashed_authorization(
+    proof: &[u8],
+    payload: &[u8],
+    descriptor: &[u8],
+    generation: u64,
+    expected_commitment: &[u8],
+) -> PyResult<bool> {
+    let commitment = expected_commitment
+        .try_into()
+        .map_err(|_| value_err("hashed commitment must be 32 bytes"))?;
+    keys::verify_hashed_authorization(proof, payload, descriptor, generation, commitment)
+        .map_err(to_py_err)
+}
+
+#[pyfunction]
 fn verify_mldsa_authorization(
     proof: &[u8],
     payload: &[u8],
@@ -659,6 +674,7 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(encode_mldsa_receiving_address, m)?)?;
     m.add_function(wrap_pyfunction!(decode_mldsa_receiving_address, m)?)?;
     m.add_function(wrap_pyfunction!(verify_mldsa_capability, m)?)?;
+    m.add_function(wrap_pyfunction!(verify_hashed_authorization, m)?)?;
     m.add_function(wrap_pyfunction!(verify_mldsa_authorization, m)?)?;
     // Backwards-compatible aliases for pre-migration bittensor.sp_core names.
     m.add("verify_signature", m.getattr("verify")?)?;

@@ -107,6 +107,17 @@ def encode_hashed_receiving_address(descriptor: bytes) -> str:
     return _backend.encode_hashed_receiving_address(descriptor)
 
 
+def verify_hashed_authorization(
+    proof: bytes, payload: bytes, descriptor: bytes, generation: int, expected_commitment: bytes
+) -> bool:
+    """Verify an SR/ED rotating proof against independently trusted authority."""
+    return bool(
+        _backend.verify_hashed_authorization(
+            proof, payload, descriptor, generation, expected_commitment
+        )
+    )
+
+
 def verify_mldsa_authorization(
     proof: bytes, payload: bytes, descriptor: bytes, generation: int, expected_commitment: bytes
 ) -> bool:
