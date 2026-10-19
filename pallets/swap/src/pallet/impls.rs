@@ -455,8 +455,10 @@ impl<T: Config> Pallet<T> {
             });
             return Ok((TaoBalance::ZERO, AlphaBalance::ZERO));
         }
+        let mut old_curve: Option<Superellipse> = None;
         let (mut curve, do_translate) = if let Some(curve) = SwapSuperellipse::<T>::get(netuid) {
             // Validate the existing coordinates before translating them.
+            old_curve = Some(curve.clone());
             curve
                 .calculate_price(alpha.into(), tao.into())
                 .map_err(|_| Error::<T>::ReservesOutOfBalance)?;
@@ -488,27 +490,16 @@ impl<T: Config> Pallet<T> {
                 .calculate_price(new_alpha, new_tao)
                 .map_err(|_| Error::<T>::ReservesOutOfBalance)?;
         }
-        let _ = SwapSuperellipse::<T>::try_mutate(netuid, |val| {
-            match val {
-                Some(old_curve) => {
-                    if *old_curve == curve {
-                        return Err(()); // no change; skip write
-                    }
-                    *old_curve = curve;
-                }
-                None => {
-                    *val = Some(curve);
-                }
+        // Only write what changed: a fresh netuid needs the initialized flag
+        // and the curve; an existing one only needs the curve if it differs.
+        match old_curve {
+            None => {
+                PalSwapInitialized::<T>::insert(netuid, true);
+                SwapSuperellipse::<T>::insert(netuid, curve);
             }
-            Ok(())
-        });
-        let _ = PalSwapInitialized::<T>::try_mutate(netuid, |v| {
-            if *v == true {
-                return Err(()); // no change; skip write
-            }
-            *v = true;
-            Ok(())
-        });
+            Some(old) if old != curve => SwapSuperellipse::<T>::insert(netuid, curve),
+            Some(_) => {}
+        }
         if BalancerTaoReservoir::<T>::contains_key(netuid) {
             BalancerTaoReservoir::<T>::remove(netuid);
         }
