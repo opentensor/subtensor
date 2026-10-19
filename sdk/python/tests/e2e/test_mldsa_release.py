@@ -22,7 +22,7 @@ from bittensor._transport.extrinsics import SHIELD_ENCRYPTION_OVERHEAD
 from bittensor.hashed import registration_descriptor_value
 from bittensor.mldsa_signing import prepare_mldsa_extrinsic, sign_prepared_mldsa
 from bittensor.receiving import receiving_address
-from bittensor.sp_core import MLDSA_CRYPTO_TYPES, Keypair
+from bittensor.sp_core import PQ_CRYPTO_TYPES, Keypair, is_stateless_pq
 from tests.harness.samples import dev_wallet
 
 ENDPOINT = os.getenv("E2E_WALLET_ENDPOINT")
@@ -51,7 +51,7 @@ async def record(client, signer):
     return await client.query(
         (
             "HashedAccounts",
-            "MlDsaAccounts" if signer.crypto_type in MLDSA_CRYPTO_TYPES else "Accounts",
+            "MlDsaAccounts" if signer.crypto_type in PQ_CRYPTO_TYPES else "Accounts",
         ),
         [signer.ss58_address],
     )
@@ -65,7 +65,7 @@ async def fund(client, signer, amount=100):
         max_registration_deposit=bt.Balance.from_tao(2),
     )
     assert result.success, result.to_dict()
-    if signer.crypto_type == 8:
+    if is_stateless_pq(signer):
         assert await record(client, signer) is None
 
 

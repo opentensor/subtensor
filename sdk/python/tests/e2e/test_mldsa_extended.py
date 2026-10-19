@@ -18,7 +18,7 @@ import pytest
 
 import bittensor as bt
 from bittensor.receiving import receiving_address
-from bittensor.sp_core import Keypair, ss58_decode
+from bittensor.sp_core import Keypair, requires_registration, ss58_decode
 from tests.e2e.test_wallet_types import alice_submission
 from tests.harness.samples import dev_wallet
 
@@ -74,7 +74,7 @@ def free(state):
 def assert_signing_advance(signer, before, after, result):
     count = 2 if result.data.get("shielded") else 1
     assert int(after["account"]["nonce"]) == int(before["account"]["nonce"]) + count
-    if signer.crypto_type == 7:
+    if requires_registration(signer):
         assert after["authority"]["generation"] == before["authority"]["generation"] + count
         assert after["authority"]["descriptor"] == before["authority"]["descriptor"]
         assert after["authority"]["commitment"] != before["authority"]["commitment"]

@@ -149,7 +149,7 @@ async def test_restricted_ms_proxy_cannot_escalate_through_evm_dispatch(code):
         await run.setup(owner, delegate, recipient, proxy_type="NonCritical", delay=0)
         source = "0x" + bytes(owner.public_key)[:20].hex()
         evm_account = owner.ss58_address
-        if code == 8:
+        if not requires_registration(owner):
             evm_account = ss58_encode(
                 blake2b(b"evm:" + bytes(owner.public_key)[:20], digest_size=32).digest(), 42
             )
@@ -237,7 +237,7 @@ async def test_restricted_ms_proxy_cannot_escalate_through_evm_dispatch(code):
             grant["delegate"] == recipient.ss58_address and grant["proxy_type"] == "Any"
             for grant in (await client.query(("Proxy", "Proxies"), [evm_account]))[0]
         )
-        if code == 8:
+        if not requires_registration(owner):
             assert not any(
                 grant["delegate"] == recipient.ss58_address
                 for grant in (await run.query("Proxy", "Proxies", owner))[0]
@@ -266,7 +266,7 @@ async def test_ms_delayed_proxy_regrant_preserves_the_accounts_policy(code):
         plan = await client.plan(bt.intents.Transfer(receiving_address(recipient), 1), owner)
         assert plan.ok
         assert plan.extras.get("hashed_registration_guards", []) == (
-            [recipient.ss58_address] if code == 7 else []
+            [recipient.ss58_address] if requires_registration(recipient) else []
         )
         call = plan.call
         call_hash = "0x" + bytes(call.call_hash).hex()
@@ -324,7 +324,7 @@ async def test_ms_delayed_proxy_regrant_preserves_the_accounts_policy(code):
             owner,
         )
         assert await run.query("Proxy", "Proxies", owner) == grants
-        if code == 7:
+        if requires_registration(owner):
             assert not (await run.query("Proxy", "Announcements", delegate))[0]
             assert (await run.query("System", "Account", delegate))["data"]["reserved"] == reserve
             await run.submit(
@@ -339,7 +339,7 @@ async def test_ms_delayed_proxy_regrant_preserves_the_accounts_policy(code):
             assert len(pending) == 1
             await run.finalized_height(pending[0]["height"] + delay)
             await run.submit("ordinary regrant preserves the valid announcement", execute, delegate)
-        completed = 1 if code == 7 else 2
+        completed = 1 if requires_registration(owner) else 2
         assert (await run.query("System", "Account", recipient))["data"][
             "free"
         ] == completed * 10**9
@@ -369,10 +369,10 @@ async def test_ms_classical_delegation_matches_the_account_policy(code):
             "grant classical delegate under the account policy",
             bt.calls.Proxy.add_proxy(delegate=delegate.ss58_address, proxy_type="Any", delay=0),
             owner,
-            success=code == 8,
-            error=None if code == 8 else "AccountPolicyViolation",
+            success=not requires_registration(owner),
+            error=None if not requires_registration(owner) else "AccountPolicyViolation",
         )
-        if code == 8:
+        if not requires_registration(owner):
             await run.submit(
                 "classical delegate spends from an ordinary fixed MS account",
                 bt.calls.Proxy.proxy(

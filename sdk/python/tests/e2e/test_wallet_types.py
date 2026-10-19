@@ -23,7 +23,7 @@ from bittensor.evm.addresses import h160_to_ss58
 from bittensor.evm.keys import create_evm_key
 from bittensor.hashed import registration_descriptor_value
 from bittensor.receiving import receiving_address
-from bittensor.sp_core import MLDSA_CRYPTO_TYPES, requires_registration
+from bittensor.sp_core import PQ_CRYPTO_TYPES, is_stateless_pq, requires_registration
 from tests.harness.samples import dev_wallet
 
 ENDPOINT = os.getenv("E2E_WALLET_ENDPOINT")
@@ -55,7 +55,7 @@ async def alice_submission():
             fcntl.flock(lock, fcntl.LOCK_UN)
 
 
-@pytest.mark.parametrize("scheme", ["ed", "sr", "ms"])
+@pytest.mark.parametrize("scheme", ["ed", "sr", "ms", "falcon512", "falcon1024"])
 @pytest.mark.parametrize("mode", ["standard", "hashed"])
 async def test_composable_wallet_lifecycle(tmp_path, scheme, mode):
     env = {**os.environ, "BTCLI_CONFIG": str(tmp_path / "config.json")}
@@ -141,7 +141,7 @@ async def test_composable_wallet_lifecycle(tmp_path, scheme, mode):
 
         async def record(key):
             return await client.query(
-                ("HashedAccounts", "MlDsaAccounts" if code in MLDSA_CRYPTO_TYPES else "Accounts"),
+                ("HashedAccounts", "MlDsaAccounts" if code in PQ_CRYPTO_TYPES else "Accounts"),
                 [key.ss58_address],
             )
 
@@ -156,7 +156,7 @@ async def test_composable_wallet_lifecycle(tmp_path, scheme, mode):
                 )
             record_receipt(result)
             assert result.success, result.to_dict()
-            if code == 8:
+            if is_stateless_pq(key):
                 assert await record(key) is None
 
         # Storage registration has a sponsor; PoW admission itself remains fee-free.
@@ -325,7 +325,7 @@ async def test_composable_wallet_lifecycle(tmp_path, scheme, mode):
             key = getattr(recovered, role)
             generation = (await record(key))["generation"] if hashed else None
             capability = None
-            if code in MLDSA_CRYPTO_TYPES:
+            if code in PQ_CRYPTO_TYPES:
                 from bittensor.mldsa import install_message_capability, message_capability
 
                 grant = install_message_capability(
@@ -355,7 +355,7 @@ async def test_composable_wallet_lifecycle(tmp_path, scheme, mode):
         hot = recovered.hotkey
         if hashed:
             hot = hot.at_generation((await record(hot))["generation"])
-        if code in MLDSA_CRYPTO_TYPES:
+        if code in PQ_CRYPTO_TYPES:
             request = bt.http_auth.sign_mldsa(
                 hot,
                 capability=capability,

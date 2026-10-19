@@ -25,7 +25,7 @@ from bittensor.evm.addresses import h160_to_ss58
 from bittensor.mldsa import install_message_capability, message_capability
 from bittensor.mldsa_signing import PreparedMldsaExtrinsic, sign_prepared_mldsa
 from bittensor.receiving import receiving_address
-from bittensor.sp_core import Keypair, ss58_decode, ss58_encode
+from bittensor.sp_core import Keypair, is_stateless_pq, ss58_decode, ss58_encode
 from tests.e2e.test_wallet_types import alice_submission as sponsor_submission
 from tests.harness.samples import dev_wallet
 
@@ -52,7 +52,7 @@ async def fund_unlocked(client, key, amount=100):
         max_registration_deposit=bt.Balance.from_tao(2),
     )
     assert result.success, result.to_dict()
-    if key.crypto_type == 8:
+    if is_stateless_pq(key):
         assert await record(client, key) is None
 
 

@@ -16,6 +16,7 @@ enum Mode {
     HashedEd,
     MlDsa,
     FixedMlDsa,
+    Falcon(u8),
 }
 const MODES: [Mode; 5] = [
     Mode::Sr,
@@ -33,6 +34,11 @@ impl Wallet {
         let account = match mode {
             Mode::MlDsa => super::mldsa::register(62),
             Mode::FixedMlDsa => super::mldsa::stateless::Wallet::new(62).account,
+            Mode::Falcon(profile) => {
+                let wallet = super::falcon::Wallet::new(62, profile);
+                wallet.prepare();
+                wallet.account
+            }
             Mode::Sr => AccountId::from(pair(10).public()),
             Mode::Ed => AccountId::new(ed25519::Pair::from_seed(&[10; 32]).public().0),
             _ => composable_accounts::register(Descriptor {
@@ -80,6 +86,9 @@ impl Wallet {
         }
         if matches!(self.mode, Mode::FixedMlDsa) {
             return super::mldsa::stateless::Wallet::new(62).sign(call);
+        }
+        if let Mode::Falcon(profile) = self.mode {
+            return super::falcon::Wallet::new(62, profile).sign(call);
         }
         let extra = extra(System::account_nonce(&self.account));
         if matches!(self.mode, Mode::Sr | Mode::Ed) {
@@ -202,7 +211,13 @@ fn neuron_evm_association_honors_production_cooldown_for_every_wallet_mode() {
     use subtensor_runtime_common::{CustomTransactionError, NetUid};
 
     assert_eq!(EvmKeyAssociateRateLimit::get(), 7_200);
-    for mode in MODES.into_iter().chain([Mode::FixedMlDsa]) {
+    for mode in MODES.into_iter().chain([
+        Mode::FixedMlDsa,
+        Mode::Falcon(6),
+        Mode::Falcon(7),
+        Mode::Falcon(8),
+        Mode::Falcon(9),
+    ]) {
         super::mldsa::with_profiles(|| {
             let wallet = Wallet::new(mode);
             let netuid = NetUid::from(1);
@@ -279,7 +294,13 @@ fn neuron_evm_association_honors_production_cooldown_for_every_wallet_mode() {
 
 #[test]
 fn native_evm_deposit_resolves_the_mapping_at_execution_for_every_wallet() {
-    for mode in MODES.into_iter().chain([Mode::FixedMlDsa]) {
+    for mode in MODES.into_iter().chain([
+        Mode::FixedMlDsa,
+        Mode::Falcon(6),
+        Mode::Falcon(7),
+        Mode::Falcon(8),
+        Mode::Falcon(9),
+    ]) {
         super::mldsa::with_profiles(|| {
             let wallet = Wallet::new(mode);
             let target_descriptor = super::mldsa::descriptor(119);

@@ -188,6 +188,119 @@ fn falcon_pause_and_unmeasured_weight_gate_reject_before_dispatch() {
 }
 
 #[test]
+fn falcon_rejects_other_genesis_nonce_and_call_without_consuming_authority() {
+    for profile in [6, 7, 8, 9] {
+        ext().execute_with(|| {
+            let wallet = Wallet::new(155, profile);
+            wallet.prepare();
+            let tx = wallet.sign(call());
+            let before = frame_system::Account::<Runtime>::get(&wallet.account);
+            let authority = MlDsaAccounts::<Runtime>::get(&wallet.account);
+
+            frame_system::BlockHash::<Runtime>::insert(0, H256::repeat_byte(0x42));
+            assert!(Executive::apply_extrinsic(tx.clone()).is_err());
+            frame_system::BlockHash::<Runtime>::insert(0, H256::zero());
+
+            let mut wrong_nonce = tx.clone();
+            let UncheckedExtrinsic::Legacy(legacy) = &mut wrong_nonce;
+            let sp_runtime::generic::Preamble::Signed(_, _, extension) = &mut legacy.0.preamble
+            else {
+                panic!("Falcon fixture must be signed");
+            };
+            extension.0.0.5 = check_nonce::CheckNonce::from(before.nonce + 1);
+            assert!(Executive::apply_extrinsic(wrong_nonce).is_err());
+
+            let mut wrong_call = tx.clone();
+            let UncheckedExtrinsic::Legacy(legacy) = &mut wrong_call;
+            legacy.0.function = transfer(&AccountId::new([156; 32]), 1_000_000_000);
+            assert!(Executive::apply_extrinsic(wrong_call).is_err());
+
+            assert_eq!(
+                frame_system::Account::<Runtime>::get(&wallet.account),
+                before
+            );
+            assert_eq!(MlDsaAccounts::<Runtime>::get(&wallet.account), authority);
+            assert_ok!(Executive::apply_extrinsic(tx).unwrap());
+        });
+    }
+}
+
+#[test]
+fn falcon_included_failure_consumes_nonce_and_only_rotating_authority_advances() {
+    for profile in [6, 7, 8, 9] {
+        ext().execute_with(|| {
+            let wallet = Wallet::new(157, profile);
+            wallet.prepare();
+            let destination = AccountId::new([158; 32]);
+            let nonce = System::account_nonce(&wallet.account);
+            let tx = wallet.sign(transfer(&destination, u64::MAX));
+            assert!(Executive::apply_extrinsic(tx.clone()).unwrap().is_err());
+            assert_eq!(Balances::free_balance(&destination), TaoBalance::new(0));
+            assert_eq!(System::account_nonce(&wallet.account), nonce + 1);
+            if wallet.descriptor.is_rotating() {
+                assert_eq!(
+                    MlDsaAccounts::<Runtime>::get(&wallet.account)
+                        .unwrap()
+                        .generation,
+                    1
+                );
+            } else {
+                assert_registrationless(&wallet.account);
+            }
+            assert!(Executive::apply_extrinsic(tx).is_err());
+            assert_eq!(System::account_nonce(&wallet.account), nonce + 1);
+            assert_ok!(Executive::apply_extrinsic(wallet.sign(call())).unwrap());
+            assert_eq!(System::account_nonce(&wallet.account), nonce + 2);
+        });
+    }
+}
+
+#[test]
+fn falcon_malformed_envelopes_cannot_charge_fees_or_consume_authority() {
+    for profile in [6, 7, 8, 9] {
+        ext().execute_with(|| {
+            let wallet = Wallet::new(159, profile);
+            wallet.prepare();
+            let tx = wallet.sign(call());
+            let before = frame_system::Account::<Runtime>::get(&wallet.account);
+            let authority = MlDsaAccounts::<Runtime>::get(&wallet.account);
+            for mutation in 0..6 {
+                let mut bad = tx.clone();
+                let UncheckedExtrinsic::Legacy(legacy) = &mut bad;
+                let sp_runtime::generic::Preamble::Signed(Address::Raw(bytes), signature, _) =
+                    &mut legacy.0.preamble
+                else {
+                    panic!("Falcon fixture must carry a raw proof");
+                };
+                match mutation {
+                    0 => {
+                        bytes.pop();
+                    }
+                    1 => bytes.push(0),
+                    2 => *bytes.last_mut().unwrap() ^= 1,
+                    3 => {
+                        *signature =
+                            Signature::Ed25519(sp_core::ed25519::Signature::from_raw([1; 64]));
+                    }
+                    4 => {
+                        *signature =
+                            Signature::Sr25519(sp_core::sr25519::Signature::from_raw([0; 64]));
+                    }
+                    _ => bytes[33] = u8::MAX,
+                }
+                assert!(Executive::apply_extrinsic(bad).is_err());
+                assert_eq!(
+                    frame_system::Account::<Runtime>::get(&wallet.account),
+                    before
+                );
+                assert_eq!(MlDsaAccounts::<Runtime>::get(&wallet.account), authority);
+            }
+            assert_ok!(Executive::apply_extrinsic(tx).unwrap());
+        });
+    }
+}
+
+#[test]
 fn draining_and_refunding_cannot_reset_consumed_native_nonces() {
     for profile in [falcon::FIXED_ALGORITHM_512, falcon::FIXED_ALGORITHM_1024] {
         ext().execute_with(|| {

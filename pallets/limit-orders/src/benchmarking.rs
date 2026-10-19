@@ -651,6 +651,46 @@ mod benchmarks {
         }
     }
 
+    /// Validate the Falcon fixtures against a concrete runtime without measuring weights.
+    pub fn verify_falcon_order_fixture<T: Config>(
+        n: u32,
+        p: u32,
+        netted: bool,
+        algorithm: u8,
+    ) -> Result<(), frame_benchmarking::BenchmarkError> {
+        use frame_benchmarking::{BenchmarkParameter, BenchmarkingSetup};
+        let components = [(BenchmarkParameter::n, n), (BenchmarkParameter::p, p)];
+        match (algorithm, netted) {
+            (subtensor_hashed::falcon::ALGORITHM_512, false) => {
+                <execute_falcon512_orders as BenchmarkingSetup<T>>::unit_test_instance(
+                    &execute_falcon512_orders,
+                    &components,
+                )
+            }
+            (subtensor_hashed::falcon::ALGORITHM_1024, false) => {
+                <execute_falcon1024_orders as BenchmarkingSetup<T>>::unit_test_instance(
+                    &execute_falcon1024_orders,
+                    &components,
+                )
+            }
+            (subtensor_hashed::falcon::ALGORITHM_512, true) => {
+                <execute_falcon512_batched_orders as BenchmarkingSetup<T>>::unit_test_instance(
+                    &execute_falcon512_batched_orders,
+                    &components,
+                )
+            }
+            (subtensor_hashed::falcon::ALGORITHM_1024, true) => {
+                <execute_falcon1024_batched_orders as BenchmarkingSetup<T>>::unit_test_instance(
+                    &execute_falcon1024_batched_orders,
+                    &components,
+                )
+            }
+            _ => Err(frame_benchmarking::BenchmarkError::Stop(
+                "Invalid Falcon profile",
+            )),
+        }
+    }
+
     impl_benchmark_test_suite!(
         Pallet,
         crate::tests::mock::new_test_ext(),
@@ -658,4 +698,4 @@ mod benchmarks {
     );
 }
 
-pub use benchmarks::verify_mixed_order_fixture;
+pub use benchmarks::{verify_falcon_order_fixture, verify_mixed_order_fixture};

@@ -19,6 +19,7 @@ import pytest
 
 import bittensor as bt
 from bittensor.hashed import registration_descriptor_value
+from bittensor.sp_core import requires_registration
 from tests.e2e.test_mldsa_release import evidence, key
 from tests.e2e.test_wallet_types import alice_submission
 from tests.harness.samples import dev_wallet
@@ -113,7 +114,7 @@ async def test_ms_validator_weights_and_commitments(code):
         # Sudo sets disposable balances while the tested operations use MS keys.
         funding = []
         for signer in (cold, hot, miner):
-            if code == 7:
+            if requires_registration(signer):
                 funding.append(
                     await client.compose(
                         bt.calls.HashedAccounts.register(
@@ -143,17 +144,21 @@ async def test_ms_validator_weights_and_commitments(code):
             )
         receipt(
             "Alice funds fixed SS58 accounts"
-            if code == 8
+            if not requires_registration(cold)
             else "Alice registers and funds rotating accounts",
             funded,
         )
-        if code == 8:
+        if not requires_registration(cold):
             for signer in (cold, hot, miner):
                 _, authority = await finalized(
                     ("HashedAccounts", "MlDsaAccounts"), [signer.ss58_address]
                 )
                 assert authority is None
-        registered = await execute(bt.intents.RegisterSubnet(hotkey_ss58=hot.ss58_address))
+        # Order fixtures serialize their registration-cost quote through subnet
+        # creation using this lock. Keep concurrent validator setup in that
+        # same sequence so it cannot increase a quote before the order pays it.
+        async with alice_submission():
+            registered = await execute(bt.intents.RegisterSubnet(hotkey_ss58=hot.ss58_address))
         netuid = int(registered.data["netuid"])
         report["netuid"] = netuid
         await root_batch(

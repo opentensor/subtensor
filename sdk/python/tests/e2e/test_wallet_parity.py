@@ -16,9 +16,9 @@ import pytest
 import bittensor as bt
 from bittensor.receiving import receiving_address
 from bittensor.sp_core import (
-    MLDSA_CRYPTO_TYPES,
+    PQ_CRYPTO_TYPES,
     Keypair,
-    is_stateless_mldsa,
+    is_stateless_pq,
     requires_registration,
     serialized_keypair_to_keyfile_data,
 )
@@ -27,7 +27,11 @@ from tests.harness.receiving import descriptor_receiving_address
 from tests.harness.samples import dev_wallet
 
 ENDPOINT = os.getenv("E2E_WALLET_ENDPOINT")
-WALLET_MODES = [(scheme, mode) for scheme in ("sr", "ed", "ms") for mode in ("standard", "hashed")]
+WALLET_MODES = [
+    (scheme, mode)
+    for scheme in ("sr", "ed", "ms", "falcon512", "falcon1024")
+    for mode in ("standard", "hashed")
+]
 pytestmark = [
     pytest.mark.asyncio,
     pytest.mark.skipif(not ENDPOINT, reason="requires an isolated activated Alice-root chain"),
@@ -105,7 +109,7 @@ async def test_cli_wallet_parity(tmp_path, scheme, mode):
     original = bt.Wallet("original", path=wallet_path)
     code = bt.wallets.parse_crypto_type(scheme, mode)
     protected = requires_registration(original.coldkeypub)
-    stateless = is_stateless_mldsa(original.coldkeypub)
+    stateless = is_stateless_pq(original.coldkeypub)
     alice = dev_wallet()
     async with bt.Client(ENDPOINT, fallback_endpoints=[], archive_endpoints=[]) as client:
         assert await client.query(bt.storage.Sudo.Key) == alice.coldkey.ss58_address
@@ -121,7 +125,7 @@ async def test_cli_wallet_parity(tmp_path, scheme, mode):
                 )
             assert result.success, result.to_dict()
             receipts.append({"operation": "sponsor transfer", **result.to_dict()})
-            if is_stateless_mldsa(key):
+            if is_stateless_pq(key):
                 assert (
                     await client.query(("HashedAccounts", "MlDsaAccounts"), [key.ss58_address])
                     is None
@@ -136,7 +140,7 @@ async def test_cli_wallet_parity(tmp_path, scheme, mode):
             return int(value["nonce"])
 
         # The ordinary receiving address sponsors setup only for rotating accounts;
-        # fixed MS uses its SS58 address without creating a registration record.
+        # Fixed post-quantum wallets use SS58 without creating a registration record.
         for key in (original.coldkey, original.hotkey):
             await fund(key, 1000)
             assert await balance(key) == 1000 * 10**9
@@ -149,7 +153,7 @@ async def test_cli_wallet_parity(tmp_path, scheme, mode):
                 "original", "call", "System.remark", "--args", '{"remark":"0x01"}', "--signer", role
             )
 
-        # All 36 sender/recipient combinations use the normal transfer command.
+        # Every sender/recipient combination uses the normal transfer command.
         for recipient_scheme, recipient_mode in WALLET_MODES:
             name = f"recipient-{recipient_scheme}-{recipient_mode}"
             await cli(
@@ -233,7 +237,7 @@ async def test_cli_wallet_parity(tmp_path, scheme, mode):
                 role,
             )
 
-        # Read-only backups retain the scheme for both descriptors and fixed MS SS58.
+        # Read-only backups retain the scheme for descriptors and fixed PQ SS58.
         for role in ("coldkey", "hotkey"):
             key = getattr(original, role)
             if protected or stateless:
@@ -243,12 +247,12 @@ async def test_cli_wallet_parity(tmp_path, scheme, mode):
                     f"regen-{role}pub",
                     "--address",
                     descriptor_receiving_address(key) if protected else key.ss58_address,
-                    *(["--crypto-type", "ms"] if stateless else []),
+                    *(["--crypto-type", scheme] if stateless else []),
                 )
                 public = getattr(bt.Wallet("watch-only", path=wallet_path), role + "pub")
                 assert public.ss58_address == key.ss58_address
                 assert public.crypto_type == code
-            if code in MLDSA_CRYPTO_TYPES:
+            if code in PQ_CRYPTO_TYPES:
                 from bittensor.mldsa import install_message_capability
 
                 grant = install_message_capability(

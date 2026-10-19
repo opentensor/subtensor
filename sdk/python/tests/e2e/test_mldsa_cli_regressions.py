@@ -2,7 +2,7 @@
 
 Only disposable wallets under pytest's temporary directory are used. The
 destination is deliberately bare SS58: rotating recipients need their local
-descriptor throughout submission; fixed MS recipients need no registration.
+descriptor throughout submission; fixed post-quantum recipients need no registration.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ import sys
 import pytest
 
 import bittensor as bt
-from bittensor.sp_core import Keypair
+from bittensor.sp_core import Keypair, requires_registration
 from tests.e2e.test_mldsa_extended import Evidence
 from tests.e2e.test_mldsa_release_costs import attributes, money, observe, setup, snapshot
 from tests.e2e.test_wallet_types import alice_submission
@@ -28,7 +28,11 @@ pytestmark = [
 ]
 
 
-@pytest.mark.parametrize("code", [7, 8])
+@pytest.mark.parametrize(
+    "code",
+    [7, 8, 9, 10, 11, 12],
+    ids=["hashed-ms", "ms", "falcon512", "hashed-falcon512", "falcon1024", "hashed-falcon1024"],
+)
 @pytest.mark.parametrize("shielded", [False, True])
 async def test_encrypted_cli_sender_retains_local_ms_registration(tmp_path, code, shielded):
     report = Evidence(f"release-cli-unlock-registration-{code}-{int(shielded)}")
@@ -50,6 +54,9 @@ async def test_encrypted_cli_sender_retains_local_ms_registration(tmp_path, code
         seed=recipient_seed, crypto_type=code, use_password=False, suppress=True
     )
     recipient = recipient_wallet.coldkeypub
+    rotating = requires_registration(recipient)
+    sponsor_uri = os.getenv("E2E_CLI_SPONSOR_URI", "//Alice")
+    sponsor = dev_wallet(sponsor_uri, sponsor_uri + "//hot")
     env = dict(os.environ)
     for variable, filename in (
         ("BTCLI_CONFIG", "config.json"),
@@ -71,6 +78,10 @@ async def test_encrypted_cli_sender_retains_local_ms_registration(tmp_path, code
             "--json",
             "--network",
             ENDPOINT,
+            "--fallback-endpoints",
+            "none",
+            "--archive-endpoints",
+            "none",
             "--wallet",
             sender.name,
             "--wallet-path",
@@ -103,11 +114,13 @@ async def test_encrypted_cli_sender_retains_local_ms_registration(tmp_path, code
         asyncio.timeout(900),
         bt.Client(ENDPOINT, fallback_endpoints=[], archive_endpoints=[]) as client,
     ):
-        deposit = await setup(client) if code == 7 else 0
+        registration_deposit = await setup(client)
+        deposit = registration_deposit if rotating else 0
         async with alice_submission():
             funded = await client.execute(
                 bt.intents.Transfer(sender.coldkeypub.ss58_address, 50),
-                dev_wallet(),
+                sponsor,
+                shielded=False,
                 wait_for_finalization=True,
             )
         await observe(client, report, "fund encrypted classical sender", funded)
@@ -119,7 +132,7 @@ async def test_encrypted_cli_sender_retains_local_ms_registration(tmp_path, code
         before_recipient = await snapshot(client, recipient)
         assert before_recipient["authority"] is None
         assert before_recipient["account"]["data"]["free"] == 0
-        if code == 7:
+        if rotating:
             denied_code, _, denied_text = await cli()
             assert denied_code != 0, denied_text
             assert "explicit registration sponsorship consent" in denied_text, denied_text
@@ -128,7 +141,7 @@ async def test_encrypted_cli_sender_retains_local_ms_registration(tmp_path, code
             report.add("no consent refuses before any transaction", output=denied_text)
 
         status, output, text = await cli(
-            *(["--max-registration-deposit", "0.2"] if code == 7 else [])
+            *(["--max-registration-deposit", "0.2"] if rotating else [])
         )
         assert status == 0, text
         result = json.loads(output)
@@ -145,7 +158,7 @@ async def test_encrypted_cli_sender_retains_local_ms_registration(tmp_path, code
             if entry.get("extrinsic_idx") == index
         ]
         registrations = attributes(events, "HashedAccounts", "RegisteredMlDsa")
-        if code == 7:
+        if rotating:
             assert len(registrations) == 1
             assert registrations[0]["account"] == recipient.ss58_address
             assert registrations[0]["sponsor"] == sender.coldkeypub.ss58_address
@@ -159,9 +172,9 @@ async def test_encrypted_cli_sender_retains_local_ms_registration(tmp_path, code
             and int(event["amount"]) == 2 * 10**9
             for event in transfers
         )
-        assert bool(attributes(events, "Utility", "BatchCompleted")) == (code == 7)
+        assert bool(attributes(events, "Utility", "BatchCompleted")) == rotating
         after_sender, after_recipient = await sender_state(), await snapshot(client, recipient)
-        assert (after_recipient["authority"] is not None) == (code == 7)
+        assert (after_recipient["authority"] is not None) == rotating
         assert after_recipient["account"]["data"]["free"] == 2 * 10**9
         assert after_sender["data"]["reserved"] == before_sender["data"]["reserved"] + deposit
         assert after_sender["nonce"] == before_sender["nonce"] + (2 if shielded else 1)
@@ -192,7 +205,7 @@ async def test_encrypted_cli_sender_retains_local_ms_registration(tmp_path, code
             shielded=False,
             wait_for_finalization=True,
         )
-        await observe(client, report, "recovered MS seed spends the received funds", returned)
+        await observe(client, report, "recovered seed spends the received funds", returned)
         assert (await sender_state())["data"]["free"] == after_sender["data"]["free"] + 10**9
         authority = (await snapshot(client, recipient))["authority"]
-        assert authority["generation"] == 1 if code == 7 else authority is None
+        assert authority["generation"] == 1 if rotating else authority is None
