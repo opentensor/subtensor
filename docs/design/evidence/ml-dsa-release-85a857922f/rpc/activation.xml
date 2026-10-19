@@ -1,1 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="179.926" timestamp="2026-10-18T10:28:12.974022-07:00" hostname="pop-os"><testcase classname="tests.e2e.test_hashed_activation" name="test_sudo_activation_is_live_and_root_only" time="179.831" /></testsuite></testsuites>

@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="3" time="1017.965" timestamp="2026-10-18T10:34:51.069862-07:00" hostname="pop-os"><testcase classname="tests.e2e.test_mldsa_extended" name="test_three_of_four_sr_ed_ms_hashed_ms_receiving_and_all_member_cancellations" time="1017.384"><failure message="assert 6 == (0 + 5)&#10; +  where 6 = int(6)&#10; +  and   0 = int(0)">tests/e2e/test_mldsa_extended.py:570: in test_three_of_four_sr_ed_ms_hashed_ms_receiving_and_all_member_cancellations
-    assert (
-E   assert 6 == (0 + 5)
-E    +  where 6 = int(6)
-E    +  and   0 = int(0)</failure></testcase><testcase classname="tests.e2e.test_mldsa_extended" name="test_proxy_receiving_sponsorship_denial_and_revocation[8-7]" time="658.589" /><testcase classname="tests.e2e.test_mldsa_extended" name="test_proxy_receiving_sponsorship_denial_and_revocation[7-8]" time="562.552" /></testsuite></testsuites>

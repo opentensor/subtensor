@@ -5,7 +5,7 @@ description: "Quantum-resistant account authorization with standard client decod
 
 # ML-DSA account specification
 
-**Status:** Implemented protocol candidate; production activation remains blocked on the release gates below. **Date:** October 15, 2026. **Baseline:** [PR #3220](https://github.com/RaoFoundation/subtensor/pull/3220), head `f867191868d29c5b28d3afdf13f967a12f0af128`, base `f4786f9087cac84cfab37cbdf1e01c399042653a`. Reconcile any subsequent merge changes before release. MUST, MUST NOT, SHOULD, and MAY express requirements within this specification. Local tests and benchmark definitions are not reference measurements, an independent cryptographic audit, or proof of production readiness.
+**Status:** Implemented protocol candidate; production activation requires completion of the release gates below. MUST, MUST NOT, SHOULD, and MAY express requirements within this specification. Local tests and benchmark definitions are not reference measurements, an independent cryptographic audit, or proof of production readiness.
 
 Add an **ML-DSA-65 account type** that authenticates ordinary Subtensor calls as the account's permanent `Signed(AccountId32)` origin. Preserve signed-v4 extrinsic framing, `MultiAddress`, `MultiSignature`, existing signed-extension bytes, and ordinary call encoding. Carry the ML-DSA public key and signature inside the existing variable-length `MultiAddress::Raw` variant. Existing block decoders must continue to decode mixed blocks without a custom signature enum or type override.
 
@@ -13,7 +13,7 @@ Multisig, proxies, staking, hotkey and coldkey operations, MEV Shield, limit ord
 
 # Compatibility contract
 
-Public events, storage, constants, and SDK APIs use descriptive scheme names, not revision suffixes. The descriptor tag `2` and literal `/v2/` cryptographic domain bytes are frozen protocol inputs: renaming them would change wallet identities, derivation, or signatures. ML-DSA receiving addresses use the `tao_` prefix. Existing economic order V1/V2 variants are independent of account authentication and remain unchanged. Historical evidence files retain the names captured at their recorded commits; they are not current metadata.
+Public events, storage, constants, and SDK APIs use descriptive scheme names, not revision suffixes. The descriptor tag `2` and literal `/v2/` cryptographic domain bytes are frozen protocol inputs: renaming them would change wallet identities, derivation, or signatures. ML-DSA receiving addresses use the `tao_` prefix. Existing economic order V1/V2 variants are independent of account authentication and remain unchanged.
 
 | Surface | Required behavior |
 | --- | --- |
@@ -238,7 +238,7 @@ Aura/GRANDPA/session and node networking keys are separate cryptographic roles. 
 
 The baseline Shield ciphertext bound is 8,192 bytes. A 5,367-byte signer materially reduces the usable call budget; support cannot be assumed from successful small transfers. [Pinned Shield implementation](https://github.com/RaoFoundation/subtensor/blob/f867191868d29c5b28d3afdf13f967a12f0af128/pallets/shield/src/lib.rs)
 
-The original `submit_encrypted` call at index 1 now accepts up to 32,768 ciphertext bytes. Its vector encoding and call index are unchanged. Payloads up to 8,192 bytes retain the existing weight; larger payloads use the separately benchmarked `submit_encrypted_large` weight, which currently fails closed. Proposer extraction, mortality checks, the Shield extension, decryption, and SDK framing use this single interface. The complete encrypted inner extrinsic, encryption overhead, and any outer proof must fit their respective bounds. This larger capacity is a protocol bound, not a measured proposer throughput claim; the larger tier remains behind uncalibrated weight gates until the required measurements pass.
+The original `submit_encrypted` call at index 1 now accepts up to 32,768 ciphertext bytes. Its vector encoding and call index are unchanged. Payloads up to 8,192 bytes retain the existing weight; larger payloads use the separately benchmarked `submit_encrypted_large` weight. Proposer extraction, mortality checks, the Shield extension, decryption, and SDK framing use this single interface. The complete encrypted inner extrinsic, encryption overhead, and any outer proof must fit their respective bounds. This larger capacity is a protocol bound, not a measured proposer throughput claim; the larger tier requires approved reference measurements and must fail closed without calibrated weights.
 
 When the same rotating account signs carrier and inner transaction, prepare the carrier at `(nonce n, generation g)` and the inner at `(n+1, g+1)`, with consistent chained commitments and the actual runtime's nonce semantics. An unrelated sponsor does not consume the inner account's generation. Validate the full decrypted signed extrinsic; do not reinterpret ciphertext as authorized call bytes. Carrier inclusion, inner failure, missing decryption, expiry, retries, reorgs, and an intervening account transaction must have explicit tested recovery behavior.
 
@@ -345,7 +345,7 @@ Offline/device requests use the explicit format identifier `bittensor/ms/v2/extr
 
 Ship a portable deterministic `no_std` verifier in the runtime WASM first. It must require no new host import, OS randomness, signing code, network, clock, or floating point. Pin the audited implementation, features, dependency versions, and test-vector revision. A crate's existence or performance is not audit evidence.
 
-The implementation candidate vendors `fips204` 0.4.6 at upstream commit `8d456d989dce681233ef963d3c3306da8f76d7c7`, enabling ML-DSA-65 only and sharing bounded verification arithmetic between external-message and locally reconstructed `mu` entry points. Its provenance and local semantic/formatting changes are recorded in `vendor/fips204/SUBTENSOR.md`. An independent audit of this release and patch has not been established. Neither vendor unit tests nor successful `wasm32-unknown-unknown` compilation substitutes for independent review or native/WASM execution comparison. Runtime payload hashing uses a counted streaming SCALE output with a 16 MiB payload ceiling; the chain's lower extrinsic/block limits still apply.
+The implementation candidate vendors `fips204` 0.4.6 at upstream commit `8d456d989dce681233ef963d3c3306da8f76d7c7`, enabling ML-DSA-65 only and sharing bounded verification arithmetic between external-message and locally reconstructed `mu` entry points. Its provenance and local semantic/formatting changes are recorded in `vendor/fips204/SUBTENSOR.md`. This release and its local patches require independent audit. Neither vendor unit tests nor successful `wasm32-unknown-unknown` compilation substitutes for independent review or native/WASM execution comparison. Runtime payload hashing uses a counted streaming SCALE output with a 16 MiB payload ceiling; the chain's lower extrinsic/block limits still apply.
 
 Key parsing may already expand ML-DSA's matrix; bound and account for that work before constructing a verifier, not just before `verify()`. Hashing, allocations, cold-key expansion, signature checks, database reads, and failure paths all belong in admission and benchmark accounting. Rotating keys require cold verification measurements. [Example verifier implementation](https://github.com/RustCrypto/signatures/blob/master/ml-dsa/src/verifying.rs)
 
@@ -383,7 +383,7 @@ The original APIs support every account profile. Finalized mainnet metadata at b
 
 The protected-child operations remain distinct because they require explicit consent to permanent authority/deposit policies. Cryptographic format versions, commitment domains, and existing V1/V2 order payload tags remain unchanged. The undeployed ML-DSA storage items use scheme-specific names. They are not duplicate dispatchable APIs.
 
-Production ML-DSA, derived-account, authenticated-order and large Shield weights use approved reference measurements from run `39060946210`. The runtime rejects ML-DSA authorization whose worst valid/invalid verifier weight cannot fit the block, before expanding the key matrix. Nested dispatch retains normal weight accounting. The remaining formulas conservatively retain the measured cost of the removed ML-DSA subgate reads; cleanup does not invent lower weights.
+Production ML-DSA, derived-account, authenticated-order and large Shield weights must use approved reference measurements. The runtime rejects ML-DSA authorization whose worst valid/invalid verifier weight cannot fit the block, before expanding the key matrix. Nested dispatch retains normal weight accounting.
 
 `AdminUtils.sudo_set_hashed_accounts_enabled` is the sole activation control. Its `HashedAccountsEnabled` value defaults to false and gates registration and authentication of hashed SR/ED, fixed MS, and hashed MS accounts, including ML-DSA capability installation and use. Ordinary SR/ED signing is unaffected. Disabling it never removes account protection, alias binding, the direct-signature ban, or epoch/generation tombstones. Registration guards reject while it is off. Capability revocation remains available without granting new authority. Call index 6 remains unused; the surviving `AuthorizedFixed` event retains index 8.
 
@@ -403,7 +403,7 @@ Production ML-DSA, derived-account, authenticated-order and large Shield weights
 
 Any new dispatchable needs benchmarks and `WeightInfo` wiring. Regenerate bindings, canonical-ABI-derived SDK artifacts when applicable, and generated documentation through repository generators. Preserve pinned dependencies and stop on unrelated lockfile drift. The outer extrinsic signature enum is unchanged; the local order authorization enum is extended with explicit metadata. Generated files are always regenerated.
 
-# Acceptance tests and evidence
+# Acceptance tests
 
 ## Wire and client gate
 
@@ -413,15 +413,7 @@ Construct finalized mixed blocks with ordinary Ed25519/Sr25519/ECDSA transaction
 
 Test truncation, overlong/underlong/noncanonical compact lengths, trailing bytes, invalid versions and algorithm tags, wrong carrier variant, zero carrier, malformed public keys/signatures, deep calls, memory exhaustion, and maximum payloads. Test fee APIs and simulation separately from real validation; a dummy proof used for quotation must never become execution authority.
 
-**Initial codec evidence:** unmodified `@polkadot/types` 16.5.6 decoded the proposed 5,367-byte Raw envelope and nonzero carrier using metadata v14/v15/v16. It preserved bytes, hashes, extensions, signed status, and account prefix in 15 mixed-block insertion tests. All three zero-carrier cases failed call decoding. This used synthetic keys/signatures and an October 13 metadata fixture, not a new runtime or valid ML-DSA transaction. It establishes the carrier decision only; the exact-release client matrix remains mandatory. Fixture SHA-256: `041462b93d4916a4433e56367eeb3cbf52c573781840b90828870fc996621715`.
-
-**Implementation codec evidence:** the runtime exporter checks a real ML-DSA transaction with the runtime verifier. Its signed envelopes were then decoded against metadata v14/v15/v16 read from the local release node, whose served Wasm exactly matches the compiled artifact. Unmodified `@polkadot/types` 16.5.6 passed 21 insertion cases: that transaction in each of seven positions among ordinary Sr25519/Ed25519/ECDSA, v1 Sr25519/Ed25519, and bare extrinsics. Fixture SHA-256: `f15f83394cd873f1a6539d724f45a9dfb19325812a7a7a9b0bc7166297a30c28`. Results are in `docs/design/evidence/ml-dsa-wire-codec-results.json`. This is local runtime/codec evidence against the uncommitted candidate, not a finalized block, released client matrix, or deployment approval.
-
-All 32 SDK-composed ML-DSA-signed registration, guard, order, and Shield transactions (16 cases under each of the fixed and rotating profiles) also decode and re-encode byte-for-byte in both Polkadot.js and PAPI under each metadata version. Polkadot.js additionally roundtrips a 39-extrinsic block interleaving those transactions with all seven original fixtures. Both native bindings decode the 32 additional transactions under their supported metadata v14/v15. This exposed and fixed Polkadot.js's rejection of the originally proposed 3,309-element fixed order-signature array. The final bounded-vector representation is checked by an all-metadata regression. Separately, 29 legacy order/Shield call cases per metadata version preserve the exact finalized-mainnet encoding, including every classical signature variant and V1/V2 terms.
-
-Additional checks against that same fixture passed with PAPI 1.23.3 and both the installed legacy `bittensor-core` 0.1.8 binding and the current native binding. PAPI's transaction-analysis path and full metadata-driven body roundtrips passed all 21 metadata-version/transaction cases. The legacy native binding has no ML-DSA key-creation support, but both native versions decode all seven extrinsics and all mixed-block positions with metadata v14/v15, preserving the Raw signer and carrier. Both already reject metadata v16 before decoding any extrinsic; this is an existing client limitation, not claimed support. Portable scripts, source/binary hashes, results, and reproduction commands are recorded in `docs/design/evidence/README.md`.
-
-The accompanying `docs/design/evidence/` directory contains the portable experiment, compact result record, and instructions to export fresh runtime metadata. Historical fixture provenance and codec-only limitations are retained in that record.
+Include SDK-composed registration, guard, order, and Shield transactions under both fixed and rotating profiles in byte-for-byte decoding and re-encoding checks. Preserve legacy order and Shield call bytes across every classical signature variant and V1/V2 order terms. Validate bounded detached-signature decoding against every supported metadata version.
 
 ## Cryptographic and lifecycle gate
 
@@ -437,60 +429,6 @@ Multisig tests must include separate blocks and rotations between approvals; 2-o
 
 Security tests must show that classical/v1 delegates, unsafe coldkey owners, ECDSA associations, stale proxy announcements, legacy limit-order signatures, pure-proxy creation, derivative origins, and feature disabling cannot bypass a protected authority. Include calls to and from contracts and all dynamic EVM read/failure paths. Complete detached-order replay/revocation and Shield maximum-payload/failure tests.
 
-# Local implementation validation
-
-The implementation is on `codex/ml-dsa-accounts-v2`, based exactly on
-`codex/hashed-accounts` at `f867191868d29c5b28d3afdf13f967a12f0af128`.
-These results describe the local, uncommitted candidate on October 15, 2026;
-they do not describe a deployed release.
-
-| Check | Fixed/rotating wallet validation result |
-| --- | --- |
-| `SKIP_WASM_BUILD=1 cargo test --locked --offline --workspace --all-features` | 3,503 passed, zero failed, 47 ignored across 88 test-target summaries. A final 154-test runtime rerun passed after explicitly naming the new metadata profile constant; it includes both modes and mixed-mode operation regressions. |
-| Full Python unit suite with the implementation's native extension | 2,844 passed, one skipped, including the six-command wallet matrix, recovery, immutable mode selection, old-runtime rejection, EVM routes, and message-verification mode binding. |
-| Workspace Clippy, all targets, default and all features, `-D warnings` | Both passed. |
-| `env -u SKIP_WASM_BUILD cargo build --locked --offline --release -p node-subtensor` | Passed, including the actual runtime Wasm build. |
-| Production-profile Wasm with `try-runtime` | Built successfully; SHA-256 `f14681d75696dbed9c0e61d86a0ea182fc4162dd0b2fc8e6eba6e5570b5931d7`. |
-| Finalized-mainnet upgrade replay | Passed all upgrade checks from spec 479 to 480 at block 9,290,353, with the snapshot's loaded state root matching the finalized header, spec-name/version checks enabled, and migrations verified idempotent. |
-| Ten post-upgrade blocks | Local fast-forward passed with migrations and `--try-state all`; the saved evidence separately checks each block's signature/state-root checks and completion. This is simulated execution over mainnet state, not ten newly finalized mainnet blocks. |
-| Release-node metadata versus generated SDK bindings | `codegen.check --drift` passed: no drift. |
-| Live raw-runtime RPC admission | All 64 unknown-export calls failed; 48 received the local capacity error. The exempt `Core_version` read still succeeded. |
-| Release Wasm identity | The local node's served `:code` exactly matched the built compressed Wasm, SHA-256 `3930cb27c6910a0d36d21759fc9e618301847291604715d112600b7d25dcabcb`. |
-| Legacy reader compatibility | Polkadot.js/PAPI pass 32 consolidated transactions per metadata version plus the seven-extrinsic matrix; Polkadot.js also passes a 39-extrinsic interleaved block. Installed legacy native decoding passes all 32 additional transactions within v14/v15 support. |
-| Deployed API compatibility | 29 legacy order/Shield cases retain identical mainnet bytes per metadata version; 16 new authorization-call cases decode with the installed native reader. |
-| Operation coverage inventory | All 275 SDK-scoped dispatchables are classified against release metadata and source. Twenty-five map to explicit scoped regressions, 158 have generic origin-path reasoning, and 92 retain restricted/special origins or lack targeted mappings. This inventory is not a complete per-operation execution matrix. |
-| Offline proof acceptance | Rotating zero/reused-next and both modes' exhausted-generation proofs reject in the SDK. Fixed proofs must preserve the initial commitment and still advance the authorization counter. The last usable generation remains accepted; mode-conflicting and unsupported-runtime proofs reject before signing. |
-| Release native/Wasm shared-verifier differential | Twelve valid/malformed ML-DSA order-proof cases agreed on API return bytes, events, and the entire resulting storage root using the unchanged release Wasm. Isolated root unchecked dispatch reaches the verifier without changing production admission weights; this does not activate direct ML-DSA transactions. |
-| Repository cheap gates | Formatting, whitespace, Rust path ownership, feature propagation, Ruff, binding coverage/names, beta baselines, and generated documentation all passed. |
-| Complete preflight | Still fails the push-actor gate: the configured credential resolves to `UnArbosSix`, but repository policy requires `unarbos`. The compile-heavy checks above were run separately because preflight skips them after a cheap-gate failure. |
-
-The six-command matrix, implementation diff identity, artifact/log hashes, and invariant coverage are recorded in `docs/design/evidence/ml-dsa-wallet-modes-results.json`.
-
-A subsequent [live localnet execution report](evidence/ml-dsa-localnet-report.md)
-adds finalized six-wallet blocks, real CLI operations and cross-validator Shield
-testing. It also records the SDK corrections discovered during execution. These
-functional tests use an explicitly isolated test-weight overlay; the production
-Wasm hash above and its fail-closed weights remain unchanged. Earlier unit and
-fixture results remain historical evidence for their recorded artifacts.
-
-The reproducible live-node probe and its result are in
-`docs/design/evidence/ml-dsa-node-admission.py` and
-`docs/design/evidence/ml-dsa-node-admission-results.json`. The temporary local
-node was stopped after validation. The runtime remains at spec version 480,
-transaction version 1; neither a spec-version change nor activation was performed.
-Production ML-DSA registration/authorization remain disabled, and uncalibrated new
-weights fail closed. Reference weight generation is excluded from this validation
-run at the owner's request. The shared pure-mode verifier now has exact-release
-native/Wasm differential evidence. The direct transaction path rejects before
-cryptography at its compiled `Weight::MAX` gate, so storage flags alone cannot
-exercise that path or finalize an ML-DSA transaction on this artifact. Its
-transaction-specific streaming transcript has native regressions, but its Wasm
-differential and activated end-to-end workflows still require an artifact with
-approved admission weights. Independent cryptographic review, finalized
-mixed-block/UI coverage, physical signer integrations, and the remaining rollout
-gates below are also unverified. The live RPC probe and mainnet-state simulation
-do not establish those activation properties or production throughput.
-
 # Rollout and completion criteria
 
 1. Freeze this protocol's byte layout, domains, KDF, storage separation, authority rules, and positive/negative vectors after cryptographic and client review. Reconcile with the actual merge of PR #3220.
@@ -500,4 +438,4 @@ do not establish those activation properties or production throughput.
 5. Run the mandatory repository preflight before every push, install/use the pre-push hook, and resolve required CI checks. The runtime spec-version change or exemption requires the owner's explicit instruction; benchmark labels and measurements follow the repository's hardware policy.
 6. Activate only after the full acceptance gates pass. Never enable with placeholder weights. Preserve v1 and ordinary account support throughout. Once funded ML-DSA accounts exist, rollback must retain their state and fail-closed authorization protections; reverting to a runtime that treats them as ordinary classical keys is forbidden.
 
-Completion means a valid ML-DSA transaction authenticates an ordinary permanent account, every supported account operation has proven behavior including multisig, no weaker authority bypass remains, and the declared unmodified client matrix decodes mixed blocks. Passing the initial codec experiment alone does not meet that definition.
+Completion means a valid ML-DSA transaction authenticates an ordinary permanent account, every supported account operation has proven behavior including multisig, no weaker authority bypass remains, and the declared unmodified client matrix decodes mixed blocks. Codec compatibility alone does not meet that definition.

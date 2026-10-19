@@ -1,9 +1,0 @@
-{
-  "head": "85a857922f70c218d499d2485b899fa9ef261a05",
-  "reason": "Check distinct protected-pure fee payer affordability before signing; canonicalize AccountIds when aggregating obligations.",
-  "files": {
-    "sdk/python/bittensor/executor.py": "ea8a90ddd735f742850b72ca8ebe381d5b2d1f5d42139a55f90fac50ee3502e8",
-    "sdk/python/tests/unit/test_submission_costs.py": "9670bbc9506fb13ea6abea789a08ebb3e28742f2ab9bb5439f4065844d18d0e1",
-    "sdk/python/tests/e2e/test_mldsa_release_costs.py": "8508a09492585c2d990db5ec165516daf1150de7e2e0eff5b1d645a6540c193a"
-  }
-}

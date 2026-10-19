@@ -1,8 +1,0 @@
-{
-  "reason": "try-runtime 0.10.1 lowercases the runtime argument, including Desktop",
-  "source": "/home/johnreed/Desktop/work/subtensor/target/production/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm",
-  "copied_to": "/tmp/ms-release-85a857922f/preflight-runtime/07bfb0bec2b8537b779f97d0c2c3241e81c1f6ecf7d8d6da1d992ff66605bd15.wasm",
-  "sha256": "07bfb0bec2b8537b779f97d0c2c3241e81c1f6ecf7d8d6da1d992ff66605bd15",
-  "argument_changes": "Only the --runtime path; exact bytes verified; every check flag preserved",
-  "tool_sha256": "d6fcd586fba4c7245668f4ae2a06ffc94e6da4135fae22cfe24453dd11aee3c3"
-}

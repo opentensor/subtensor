@@ -1,7 +1,0 @@
-{
-  "native_module": "/tmp/ms-release-85a857922f/native/bittensor_core.so",
-  "native_sha256": "eb11b5dd078cc7c9b37d9e2d1514ad6f279e617859baa9282af942b0a8b60524",
-  "head": "85a857922f70c218d499d2485b899fa9ef261a05",
-  "production_node_sha256": "3a62acad1752558bf0cf10030f0dab9fba7a673d646943b2aa0876164ece19f5",
-  "runtime_wasm_sha256": "edfbcf7756adf1f00953cce94c7d7741c69ccedffd55e2b2420bcf40ae36f7b6"
-}
