@@ -2851,3 +2851,144 @@ fn test_merge_swap_root_stake_and_rate_limits() {
         );
     });
 }
+
+#[test]
+fn test_merge_swap_honors_dest_reject_locked_alpha() {
+    new_test_ext(1).execute_with(|| {
+        let old = U256::from(1);
+        let dest = U256::from(2);
+        let old_hot = U256::from(10);
+        let dest_hot = U256::from(11);
+
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &old, &old_hot
+        ));
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &dest, &dest_hot
+        ));
+        // Destination is in use and keeps the default reject-locked-alpha posture.
+        assert!(SubtensorModule::coldkey_already_in_use(&dest));
+        assert!(SubtensorModule::account_rejects_locked_alpha(&dest));
+
+        let netuid = add_dynamic_network(&U256::from(200), &U256::from(201));
+        let now = SubtensorModule::get_current_block_as_u64();
+        Lock::<Test>::insert(
+            (old, netuid, old_hot),
+            LockState {
+                locked_mass: AlphaBalance::from(1_000_000_u64),
+                conviction: U64F64::from_num(0),
+                last_update: now,
+            },
+        );
+
+        assert_err!(
+            SubtensorModule::do_swap_coldkey(&old, &dest),
+            Error::<Test>::AccountRejectsLockedAlpha
+        );
+        // Source lock untouched.
+        assert_eq!(
+            Lock::<Test>::get((old, netuid, old_hot))
+                .expect("source lock remains")
+                .locked_mass,
+            AlphaBalance::from(1_000_000_u64)
+        );
+    });
+}
+
+#[test]
+fn test_merge_swap_honors_dest_reject_staking_hotkey_growth() {
+    new_test_ext(1).execute_with(|| {
+        let old = U256::from(1);
+        let dest = U256::from(2);
+        let old_hot = U256::from(10);
+        let dest_hot = U256::from(11);
+
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &old, &old_hot
+        ));
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &dest, &dest_hot
+        ));
+        assert_ok!(SubtensorModule::set_reject_staking_hotkey_growth(
+            RuntimeOrigin::signed(dest),
+            true,
+        ));
+
+        assert_err!(
+            SubtensorModule::do_swap_coldkey(&old, &dest),
+            Error::<Test>::AccountRejectsStakingHotkeyGrowth
+        );
+        assert_eq!(Owner::<Test>::get(old_hot), old);
+        assert!(StakingHotkeys::<Test>::get(dest).contains(&dest_hot));
+        assert!(!StakingHotkeys::<Test>::get(dest).contains(&old_hot));
+    });
+}
+
+#[test]
+fn test_announce_rejects_dest_opt_outs_before_fee() {
+    new_test_ext(1).execute_with(|| {
+        let who = U256::from(1);
+        let dest = U256::from(2);
+        let who_hot = U256::from(10);
+        let dest_hot = U256::from(11);
+
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &who, &who_hot
+        ));
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &dest, &dest_hot
+        ));
+        assert_ok!(SubtensorModule::set_reject_staking_hotkey_growth(
+            RuntimeOrigin::signed(dest),
+            true,
+        ));
+
+        let swap_cost = SubtensorModule::get_key_swap_cost();
+        let ed = ExistentialDeposit::get();
+        add_balance_to_coldkey_account(&who, swap_cost + ed);
+        let before = SubtensorModule::get_coldkey_balance(&who);
+
+        assert_noop!(
+            SubtensorModule::announce_coldkey_swap(RuntimeOrigin::signed(who), dest),
+            Error::<Test>::AccountRejectsStakingHotkeyGrowth
+        );
+        assert_eq!(SubtensorModule::get_coldkey_balance(&who), before);
+        assert!(ColdkeySwapAnnouncements::<Test>::get(who).is_none());
+    });
+}
+
+#[test]
+fn test_fresh_destination_still_receives_source_locks() {
+    new_test_ext(1).execute_with(|| {
+        let old = U256::from(1);
+        let dest = U256::from(2);
+        let hotkey = U256::from(10);
+
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &old, &hotkey
+        ));
+        // Destination is unused (no staking / owned hotkeys).
+        assert!(!SubtensorModule::coldkey_already_in_use(&dest));
+
+        let netuid = add_dynamic_network(&U256::from(200), &U256::from(201));
+        let now = SubtensorModule::get_current_block_as_u64();
+        let locked = AlphaBalance::from(2_000_000_u64);
+        Lock::<Test>::insert(
+            (old, netuid, hotkey),
+            LockState {
+                locked_mass: locked,
+                conviction: U64F64::from_num(0),
+                last_update: now,
+            },
+        );
+
+        assert_ok!(SubtensorModule::do_swap_coldkey(&old, &dest));
+        assert!(Lock::<Test>::get((old, netuid, hotkey)).is_none());
+        assert_eq!(
+            Lock::<Test>::get((dest, netuid, hotkey))
+                .expect("lock moved to fresh dest")
+                .locked_mass,
+            locked
+        );
+    });
+}

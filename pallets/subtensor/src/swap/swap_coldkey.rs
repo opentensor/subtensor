@@ -118,11 +118,27 @@ impl<T: Config> Pallet<T> {
         hotkeys
     }
 
+    /// Whether `coldkey` already holds coldkey-keyed economic associations that make
+    /// a swap into it a merge (rather than a rename onto a fresh key). Fresh keys
+    /// still get the temporary `accept_locked_alpha` override so an owner can move
+    /// their own locks onto a new unused coldkey; already-used destinations honor
+    /// their AccountFlags opt-outs instead.
+    pub(crate) fn coldkey_already_in_use(coldkey: &T::AccountId) -> bool {
+        !StakingHotkeys::<T>::get(coldkey).is_empty()
+            || HotkeySwapBasketCredits::<T>::iter_key_prefix(coldkey)
+                .next()
+                .is_some()
+            || !OwnedHotkeys::<T>::get(coldkey).is_empty()
+    }
+
     /// Destination checks shared by announce (before the fee) and execution.
     ///
     /// Still rejects: destination is itself a hotkey; destination has an active lock;
-    /// combined work exceeds the one-call bound. Destination may already hold stake,
-    /// owned hotkeys, basket credits, identity, or subnet ownership — those merge.
+    /// combined work exceeds the one-call bound; destination already in use that
+    /// rejects locked alpha while the source has active locks; destination that
+    /// rejects staking-hotkey growth while the source would introduce new hotkeys.
+    /// Destination may already hold stake, owned hotkeys, basket credits, identity,
+    /// or subnet ownership — those merge when the opt-outs allow.
     pub fn ensure_coldkey_swap_destination(
         old_coldkey: &T::AccountId,
         new_coldkey: &T::AccountId,
@@ -134,6 +150,32 @@ impl<T: Config> Pallet<T> {
         // Active locks on the destination cannot be merged safely with source locks
         // (conviction / aggregate buckets are per-coldkey). Block explicitly.
         Self::ensure_no_active_locks(new_coldkey)?;
+
+        // Honor destination opt-outs before any fee or mutation. A merge is not
+        // consented by the destination; AccountFlags are the only refusal knobs.
+        // Fresh unused destinations still allow an owner to move their own locks
+        // (temporary accept override in execute); already-used destinations do not.
+        if Self::coldkey_already_in_use(new_coldkey)
+            && Self::account_rejects_locked_alpha(new_coldkey)
+        {
+            Self::ensure_no_active_locks(old_coldkey)
+                .map_err(|_| Error::<T>::AccountRejectsLockedAlpha)?;
+        }
+        if Self::account_rejects_staking_hotkey_growth(new_coldkey) {
+            let dest_staking = StakingHotkeys::<T>::get(new_coldkey);
+            for hotkey in StakingHotkeys::<T>::get(old_coldkey) {
+                if !dest_staking.contains(&hotkey) {
+                    return Err(Error::<T>::AccountRejectsStakingHotkeyGrowth);
+                }
+            }
+            for hotkey in HotkeySwapBasketCredits::<T>::iter_key_prefix(old_coldkey) {
+                if !dest_staking.contains(&hotkey)
+                    && !HotkeySwapBasketCredits::<T>::contains_key(new_coldkey, &hotkey)
+                {
+                    return Err(Error::<T>::AccountRejectsStakingHotkeyGrowth);
+                }
+            }
+        }
 
         let work = Self::coldkey_swap_work(old_coldkey, new_coldkey);
         if work.hotkeys > crate::MAX_COLDKEY_SWAP_HOTKEYS
@@ -216,10 +258,17 @@ impl<T: Config> Pallet<T> {
                     IdentitiesV2::<T>::insert(new_coldkey.clone(), identity);
                 }
 
-                // Destination account flags win after the swap. Temporarily allow the
-                // destination to receive locked alpha during the move; restore afterward.
+                // Destination account flags win after the swap. Temporarily allow a
+                // fresh (unused) destination to receive locked alpha so an owner can
+                // move their own locks onto a new key; already-used destinations that
+                // reject locked alpha keep that preference (admission already refused
+                // source active locks in that case).
                 let saved_dest_flags = AccountFlags::<T>::get(new_coldkey);
-                Self::set_accept_locked_alpha(new_coldkey, true);
+                let dest_in_use_rejects_locked = Self::coldkey_already_in_use(new_coldkey)
+                    && Self::account_rejects_locked_alpha(new_coldkey);
+                if !dest_in_use_rejects_locked {
+                    Self::set_accept_locked_alpha(new_coldkey, true);
+                }
 
                 // Lease rows outlive `NetworksAdded` while a dissolved subnet awaits cleanup,
                 // so discover them through the lease index rather than the active-subnet list.
@@ -292,9 +341,13 @@ impl<T: Config> Pallet<T> {
         }
         if SubnetLeaseUnpaidDividends::<T>::contains_key(lease_id, old_coldkey) {
             let unpaid = SubnetLeaseUnpaidDividends::<T>::take(lease_id, old_coldkey);
-            SubnetLeaseUnpaidDividends::<T>::mutate(lease_id, new_coldkey, |destination| {
-                *destination = destination.saturating_add(unpaid);
-            });
+            SubnetLeaseUnpaidDividends::<T>::try_mutate(lease_id, new_coldkey, |destination| {
+                let sum = u64::from(*destination)
+                    .checked_add(u64::from(unpaid))
+                    .ok_or(sp_runtime::ArithmeticError::Overflow)?;
+                *destination = AlphaBalance::from(sum);
+                Ok::<(), DispatchError>(())
+            })?;
         }
 
         let mut lease = SubnetLeases::<T>::get(lease_id).ok_or(Error::<T>::LeaseDoesNotExist)?;
