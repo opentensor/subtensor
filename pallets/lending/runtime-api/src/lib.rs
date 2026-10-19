@@ -3,11 +3,11 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::Codec;
-use pallet_lending::{ClosingQuote, OpeningQuote, Side};
+use pallet_lending::{ClosingQuote, OpeningQuote, RaiseQuote, Side};
 use sp_runtime::DispatchError;
 
 sp_api::decl_runtime_apis! {
-    #[api_version(3)]
+    #[api_version(4)]
     pub trait LendingRuntimeApi<AccountId> where AccountId: Codec {
         /// Full opening principal and fixed collateral interest, including swap fees.
         fn quote_open(netuid: u16, side: Side, collateral: u64) -> Result<OpeningQuote, DispatchError>;
@@ -21,5 +21,15 @@ sp_api::decl_runtime_apis! {
 
         /// Full close payment and collateral refund after interest accrued to this block.
         fn quote_close(owner: AccountId, netuid: u16, repay_from_wallet: bool) -> Result<ClosingQuote, DispatchError>;
+
+        /// Atomic raise quote: escrowed long sizing plus optional unlocked-alpha sale.
+        fn quote_raise(
+            owner: AccountId,
+            netuid: u16,
+            hotkey: AccountId,
+            amount: Option<u64>,
+            collateral: Option<u64>,
+            sell: Option<u64>,
+        ) -> Result<RaiseQuote, DispatchError>;
     }
 }

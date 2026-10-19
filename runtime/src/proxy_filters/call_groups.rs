@@ -128,16 +128,23 @@ call_filter_group!(
     ]
 );
 
+// Open / close / increase: granted with staking management. Root setters are
+// excluded — they need `ensure_root` and must not be proxy-grantable.
 call_filter_group!(
     LendingCalls,
     [
         RuntimeCall::Lending(LendingCall::open),
         RuntimeCall::Lending(LendingCall::open_exact),
-        RuntimeCall::Lending(LendingCall::open_long_and_sell),
         RuntimeCall::Lending(LendingCall::close),
-        RuntimeCall::Lending(LendingCall::set_enabled),
-        RuntimeCall::Lending(LendingCall::set_lift_params),
     ]
+);
+
+// Atomic raise (escrowed long + unlocked-alpha sale). Granted only when a
+// proxy type already allows both `LendingCalls` and `StakeManagementCalls`
+// (stricter of open and remove_stake); see `proxy_type_filter`.
+call_filter_group!(
+    LendingRaiseCalls,
+    [RuntimeCall::Lending(LendingCall::open_long_and_sell),]
 );
 
 call_filter_group!(
@@ -739,6 +746,8 @@ type SubtensorSplitCalls = (
     BalanceMaintenanceCalls,
     StakeManagementCalls,
     StakeTransferCalls,
+    LendingCalls,
+    LendingRaiseCalls,
     PowRegistrationCalls,
     BurnedRegistrationCalls,
     RootRegistrationCalls,

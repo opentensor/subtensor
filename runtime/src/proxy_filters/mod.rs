@@ -31,7 +31,9 @@ type AdminAll = (SubnetManagementCalls, RootConfigCalls);
 type TransferAllowed = (BalanceTransferCalls, StakeTransferCalls);
 
 /// `Staking`: stake position management.
-type StakingAllowed = (StakeManagementCalls, LendingCalls);
+/// `LendingRaiseCalls` is included because Staking already grants both open and
+/// remove_stake — the raise filter is the stricter of those two.
+type StakingAllowed = (StakeManagementCalls, LendingCalls, LendingRaiseCalls);
 
 /// `Registration`: acquire a slot (POW or by burn).
 type RegistrationAllowed = (PowRegistrationCalls, BurnedRegistrationCalls);
@@ -62,6 +64,7 @@ type NonTransferAllowed = (
     AdminAll,
     StakeManagementCalls,
     LendingCalls,
+    LendingRaiseCalls,
     PowRegistrationCalls,
     BurnedRegistrationCalls,
     FaucetCalls,
@@ -118,6 +121,15 @@ type NonCriticalAllowed = (
 );
 
 pub(crate) fn proxy_type_filter(proxy_type: &ProxyType, call: &RuntimeCall) -> bool {
+    // Raise is the stricter of open and remove_stake: only proxy types that
+    // already grant both LendingCalls and StakeManagementCalls may dispatch it.
+    if LendingRaiseCalls::contains(call) {
+        return match proxy_type {
+            ProxyType::Any => true,
+            ProxyType::Staking | ProxyType::NonTransfer => true,
+            _ => false,
+        };
+    }
     match proxy_type {
         ProxyType::Any => true,
         ProxyType::Owner => OwnerAllowed::contains(call),
@@ -345,6 +357,7 @@ mod tests {
         let denied = &denied | &group_calls::<(SubtensorValueCalls, SudoCalls)>();
         let denied = &denied | &group_calls::<MultisigCalls>();
         let denied = &denied | &group_calls::<BasketTradingCalls>();
+        let denied = &denied | &group_calls::<(LendingCalls, LendingRaiseCalls)>();
         let denied = &denied | &group_calls::<(MevShieldStoreEncryptedCalls, OwnerKeyCalls)>();
         assert_eq!(
             allowed_calls(ProxyType::NonFungible),
@@ -538,6 +551,9 @@ mod tests {
             | &group_calls::<ColdkeySwapCalls>();
         let denied = &denied | &group_calls::<(CrowdloanCalls, MultisigCalls)>();
         let denied = &denied | &group_calls::<BasketTradingCalls>();
+        // Raise needs both open and remove_stake; NonCritical has stake mgmt
+        // but not lending open/close, so neither lending group is granted.
+        let denied = &denied | &group_calls::<(LendingCalls, LendingRaiseCalls)>();
         let denied = &denied | &group_calls::<(MevShieldStoreEncryptedCalls, OwnerKeyCalls)>();
         assert_eq!(
             allowed_calls(ProxyType::NonCritical),

@@ -26,23 +26,23 @@ DESCRIPTIONS: dict[str, str] = {
     ),
     "AmountTooSmall": (
         "The collateral or loan opening value is below the runtime minimum. Borrow at least "
-        "0.1 TAO of opening value and quote its collateral requirement. Alpha is valued at "
-        "the lending reference; adding collateral does not raise a fixed requested debt's value."
+        "0.001 TAO of opening value and quote its collateral requirement."
     ),
-    "InsufficientReserves": (
-        "The separate lending vault cannot fund this loan. Inspect lending_reserves or reduce "
-        "its size."
+    "SideCapacity": (
+        "This loan would exceed the short or long side capacity for the subnet. Reduce size or "
+        "wait for repayment; inspect lending_reserves for headroom."
     ),
-    "BorrowingLimit": (
-        "This loan would exceed the aggregate per-asset borrowing cap. Reduce its size or wait "
-        "for repayment."
+    "DepthBelowThreshold": (
+        "Pool depth after the lift would fall below the buy-depth threshold. Reduce principal "
+        "or wait for deeper reserves."
+    ),
+    "DynamicCollateral": (
+        "Collateral is below the Karl dynamic valuation requirement at the current LTV tier. "
+        "Add collateral or reduce principal; quote lending_raise_quote / lending_open_quote."
     ),
     "TooManyPositions": (
-        "The subnet has reached its bounded position count. Wait for another position to close."
-    ),
-    "TooManySubnets": (
-        "The lending pallet has reached its funded-subnet limit. This needs governance or "
-        "runtime maintenance."
+        "The subnet or pallet has reached its bounded position count. Wait for another position "
+        "to close."
     ),
     "BelowMinimumBorrow": (
         "Additional principal is below the caller's minimum. Requote; the failed call moves "
@@ -57,14 +57,39 @@ DESCRIPTIONS: dict[str, str] = {
         "interest."
     ),
     "InsufficientEscrow": (
-        "Remaining collateral cannot cover this operation. Inspect accrued interest "
+        "Remaining escrow or collateral cannot cover this operation. Inspect accrued interest "
         "and the complete close quote."
     ),
     "InsufficientCollateral": (
-        "The requested additional debt needs more collateral under the market-depth, LTV "
-        "or funded-redemption checks. Quote lending_required_collateral for this amount. "
-        "Insufficient wallet funds, unavailable inventory and other loans' uncovered debt "
-        "are separate refusals; the failed call moves no assets."
+        "The requested additional debt needs more collateral under V_dyn / LTV checks. Quote "
+        "lending_required_collateral for this amount. The failed call moves no assets."
+    ),
+    "InsufficientSellStake": (
+        "Unlocked alpha on the hotkey is below collateral plus the raise sale amount. Stake "
+        "more alpha or reduce --sell / collateral."
+    ),
+    "RaiseSlippage": (
+        "The raise sale returned less free TAO than --min-tao-out. Requote lending_raise_quote "
+        "and widen slippage or reduce size."
+    ),
+    "RaiseDeadlinePassed": (
+        "The raise's valid_until block has passed. Resubmit with a later deadline."
+    ),
+    "ConflictingSizing": (
+        "Provide exactly one of collateral or borrow amount for a raise, not both and not "
+        "neither."
+    ),
+    "InvalidLiftParams": (
+        "Lift parameters are out of range (for example floor/thin_floor above ceiling). Check "
+        "set_lift_params bounds."
+    ),
+    "PositionSideMismatch": (
+        "The existing position's side does not match this call. Close first or use the saved "
+        "side."
+    ),
+    "HotkeyMismatch": (
+        "The existing position's hotkey does not match this call. Close first or reuse the "
+        "saved hotkey."
     ),
     "InvalidQuote": (
         "A required executable-depth quote or repayment swap is unavailable. Check curve "
@@ -85,20 +110,5 @@ DESCRIPTIONS: dict[str, str] = {
     "BelowMinimumProceeds": (
         "The additional short's opening value is below the caller's minimum. Requote the "
         "opening or increase; the failed call moves no assets."
-    ),
-    "RedemptionUnavailable": (
-        "A required conservative funded-redemption bound is unavailable. TAO borrowing also "
-        "waits while the actual-stake aggregate is being migrated. Requote when the required "
-        "bounds and counters are available."
-    ),
-    "InsufficientRedemptionBacking": (
-        "The loan would exceed conservative funded-redemption coverage after accrued interest. "
-        "Alpha debt needs TAO collateral against its funded claim; TAO debt needs backed alpha "
-        "collateral. Each other same-side loan must remain individually covered. A zero protected "
-        "alpha-claim count with a positive payout pot also refuses alpha borrowing."
-    ),
-    "InvalidPriceImpact": (
-        "The governance price-impact target is outside its allowed range. Use 1 to 5,000 "
-        "basis points for both net 500-TAO reference directions, or 0 to disable the policy."
     ),
 }

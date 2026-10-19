@@ -12,13 +12,14 @@ from ..intents.lending import POSITIONS, check_side
 from ..result import BittensorError, ChainError, chain_error_from_dispatch
 from .base import read
 
-VAULTS = Item("Lending", "Vaults", "Vault")
+LIFTS = Item("Lending", "Lifts", "LiftBook")
 OPEN_BY_NETUID = Item("Lending", "OpenByNetuid")
 DISSOLUTIONS = Item("Lending", "Dissolutions", "Dissolution")
 QUOTE_OPEN = Method("LendingRuntimeApi", "quote_open")
 QUOTE_OPEN_FOR = Method("LendingRuntimeApi", "quote_open_for")
 QUOTE_OPEN_EXACT_FOR = Method("LendingRuntimeApi", "quote_open_exact_for")
 QUOTE_CLOSE = Method("LendingRuntimeApi", "quote_close")
+QUOTE_RAISE = Method("LendingRuntimeApi", "quote_raise")
 
 
 def _ok(raw: Any) -> dict:
@@ -68,6 +69,9 @@ def _position_record(
         "principal": view.balance(int(raw["principal"]), principal_unit),
         "collateral": view.balance(collateral, collateral_unit),
         "proceeds": Balance.from_rao(int(raw["proceeds"])),
+        "escrow_alpha": view.balance(int(raw.get("escrow_alpha") or 0), netuid),
+        "lift_tao": view.balance(int(raw.get("lift_tao") or 0), 0),
+        "lift_alpha": view.balance(int(raw.get("lift_alpha") or 0), netuid),
         "annual_interest": view.balance(annual, collateral_unit),
         "interest_due": view.balance(interest_due, collateral_unit),
         "last_accrued": int(raw["last_accrued"]),
@@ -127,27 +131,91 @@ async def lending_positions(view, netuid: int) -> list[dict]:
     "lending_reserves",
     {"netuid": "integer"},
     category="Prices & swaps",
-    param_docs={"netuid": "Subnet whose separate lending vault to inspect."},
+    param_docs={"netuid": "Subnet whose lift book to inspect."},
 )
 async def lending_reserves(view, netuid: int) -> dict:
-    """Available, borrowed, lost and pending balances of the lending vault.
+    """Lift-book balances for a subnet: held legs, escrow, and long collateral.
 
-    The 10% cap uses available inventory plus outstanding principal in each
-    asset. AMM reserves, borrower collateral, legacy escrow proceeds and pending
-    conversions are excluded. This reports inventory, not a promise that
-    loans will be repaid.
+    Reports custody accounting for lift-based lending, not a separate vault.
+    Outstanding short/long lift legs and escrowed proceeds are included.
     """
-    raw = await view.query(VAULTS, [netuid])
+    raw = await view.query(LIFTS, [netuid])
     raw = raw if isinstance(raw, dict) else {}
-    result = {"netuid": netuid}
-    for asset, unit in (("tao", 0), ("alpha", netuid)):
-        for kind in ("available", "outstanding", "lost", "pending"):
-            result[f"{kind}_{asset}"] = view.balance(int(raw.get(f"{kind}_{asset}") or 0), unit)
-        available = int(raw.get(f"available_{asset}") or 0)
-        outstanding = int(raw.get(f"outstanding_{asset}") or 0)
-        headroom = max((available + outstanding) // 10 - outstanding, 0)
-        result[f"borrow_headroom_{asset}"] = view.balance(headroom, unit)
-    return result
+    return {
+        "netuid": netuid,
+        "l_s": view.balance(int(raw.get("l_s") or 0), 0),
+        "l_l": view.balance(int(raw.get("l_l") or 0), 0),
+        "b_l": view.balance(int(raw.get("b_l") or 0), 0),
+        "held_tao": view.balance(int(raw.get("held_tao") or 0), 0),
+        "held_alpha": view.balance(int(raw.get("held_alpha") or 0), netuid),
+        "escrow_tao": view.balance(int(raw.get("escrow_tao") or 0), 0),
+        "escrow_alpha": view.balance(int(raw.get("escrow_alpha") or 0), netuid),
+        "long_collateral_alpha": view.balance(int(raw.get("long_collateral_alpha") or 0), netuid),
+        "g_ema": view.balance(int(raw.get("g_ema") or 0), 0),
+        "last": int(raw.get("last") or 0),
+    }
+
+
+@read(
+    "lending_raise_quote",
+    {
+        "netuid": "integer",
+        "coldkey_ss58": "string",
+        "hotkey_ss58": "string",
+        "borrow_tao": "string",
+        "collateral_alpha": "string",
+        "sell_alpha": "string",
+    },
+    category="Prices & swaps",
+    param_docs={
+        "netuid": "Subnet to raise on.",
+        "coldkey_ss58": "Owner of the raise / existing long.",
+        "hotkey_ss58": "Hotkey holding collateral and sale alpha.",
+        "borrow_tao": "Exact TAO principal; mutually exclusive with collateral_alpha.",
+        "collateral_alpha": "Exact alpha collateral; mutually exclusive with borrow_tao.",
+        "sell_alpha": "Unlocked alpha to sell; omit to match realised escrow alpha.",
+    },
+)
+async def lending_raise_quote(
+    view,
+    netuid: int,
+    coldkey_ss58: str,
+    hotkey_ss58: str,
+    borrow_tao: Optional[str] = None,
+    collateral_alpha: Optional[str] = None,
+    sell_alpha: Optional[str] = None,
+) -> dict:
+    """Quote an atomic raise: escrowed long sizing plus optional unlocked sale."""
+    view = await view.at()
+    if (borrow_tao is None) == (collateral_alpha is None):
+        raise BittensorError("provide borrow_tao or collateral_alpha, not both")
+    amount = None if borrow_tao is None else cast(Balance, tao_amount(borrow_tao)).rao
+    collateral = (
+        None
+        if collateral_alpha is None
+        else cast(Balance, alpha_amount(collateral_alpha, netuid)).rao
+    )
+    sell = None if sell_alpha is None else cast(Balance, alpha_amount(sell_alpha, netuid)).rao
+    raw = _ok(
+        await view.runtime(
+            QUOTE_RAISE,
+            [coldkey_ss58, netuid, hotkey_ss58, amount, collateral, sell],
+        )
+    )
+    return {
+        "principal_tao": view.balance(int(raw["principal_tao"]), 0),
+        "collateral_alpha": view.balance(int(raw["collateral_alpha"]), netuid),
+        "escrow_alpha": view.balance(int(raw["escrow_alpha"]), netuid),
+        "sell_alpha": view.balance(int(raw["sell_alpha"]), netuid),
+        "free_tao_out": view.balance(int(raw["free_tao_out"]), 0),
+        "price_before": raw.get("price_before"),
+        "price_after_buy": raw.get("price_after_buy"),
+        "price_after": raw.get("price_after"),
+        "v_dyn": view.balance(int(raw["v_dyn"]), 0),
+        "ltv_tier_bps": int(raw["ltv_tier_bps"]),
+        "long_cap_headroom": view.balance(int(raw["long_cap_headroom"]), 0),
+        "annual_interest_alpha": view.balance(int(raw["annual_interest_alpha"]), netuid),
+    }
 
 
 @read(

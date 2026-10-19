@@ -2807,6 +2807,24 @@ impl_runtime_apis! {
         ) -> Result<pallet_lending::ClosingQuote, sp_runtime::DispatchError> {
             pallet_lending::Pallet::<Runtime>::quote_close(&owner, netuid.into(), repay_from_wallet)
         }
+
+        fn quote_raise(
+            owner: AccountId,
+            netuid: u16,
+            hotkey: AccountId,
+            amount: Option<u64>,
+            collateral: Option<u64>,
+            sell: Option<u64>,
+        ) -> Result<pallet_lending::RaiseQuote, sp_runtime::DispatchError> {
+            pallet_lending::Pallet::<Runtime>::quote_raise(
+                &owner,
+                netuid.into(),
+                &hotkey,
+                amount,
+                collateral,
+                sell,
+            )
+        }
     }
 
     impl pallet_subtensor_swap_runtime_api::SwapRuntimeApi<Block> for Runtime {

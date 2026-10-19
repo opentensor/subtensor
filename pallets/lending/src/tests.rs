@@ -562,6 +562,40 @@ fn raise_open_long_and_sell_is_atomic() {
 }
 
 #[test]
+fn raise_rolls_back_on_slippage() {
+    new_test_ext().execute_with(|| {
+        let owner = account(1);
+        let hotkey = account(2);
+        let stake = 100_000_000_000_000u64;
+        mint_alpha(&owner, &hotkey, netuid(), stake);
+        let alpha_before = alpha(&owner, &hotkey, netuid());
+        let tao_before = tao(&owner);
+        // Impossible sale floor forces RaiseSlippage after the long leg —
+        // transactional rollback must leave no position and restore stake.
+        assert!(
+            Lending::open_long_and_sell(
+                RuntimeOrigin::signed(owner.clone()),
+                netuid(),
+                hotkey.clone(),
+                Some(5_000_000_000_000),
+                None,
+                5_000_000_000_000,
+                1,
+                Some(20_000_000_000_000),
+                u64::MAX,
+                100u64.into(),
+            )
+            .is_err()
+        );
+        assert!(Positions::<Test>::get(&owner, netuid()).is_none());
+        assert_eq!(alpha(&owner, &hotkey, netuid()), alpha_before);
+        assert_eq!(tao(&owner), tao_before);
+        assert_eq!(Lifts::<Test>::get(netuid()).l_l, 0);
+        assert_eq!(Lifts::<Test>::get(netuid()).held_tao, 0);
+    });
+}
+
+#[test]
 fn capacity_floor_ceiling_and_side_split() {
     new_test_ext().execute_with(|| {
         let params = LiftParams::default();
