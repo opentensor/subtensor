@@ -98,7 +98,7 @@ ERRORS: dict[tuple[int, int], ErrorInfo] = {
     (7, 55): ErrorInfo('SubtensorModule', 'LiquidAlphaDisabled', 'Attempting to set alpha high/low while disabled'),
     (7, 56): ErrorInfo('SubtensorModule', 'AlphaHighTooLow', 'Alpha high is too low: alpha_high > 0.8'),
     (7, 57): ErrorInfo('SubtensorModule', 'AlphaLowOutOfRange', 'Alpha low is out of range: alpha_low > 0 && alpha_low < 0.8'),
-    (7, 58): ErrorInfo('SubtensorModule', 'ColdKeyAlreadyAssociated', 'The coldkey has already been swapped'),
+    (7, 58): ErrorInfo('SubtensorModule', 'ColdKeyAlreadyAssociated', 'Retired: coldkey swaps into an already-used destination now merge. Kept for SCALE error-index stability; never returned by current runtimes.'),
     (7, 59): ErrorInfo('SubtensorModule', 'NotEnoughBalanceToPaySwapColdKey', 'The coldkey balance is not enough to pay for the swap'),
     (7, 60): ErrorInfo('SubtensorModule', 'InvalidChild', 'Attempting to set an invalid child for a hotkey on a network.'),
     (7, 61): ErrorInfo('SubtensorModule', 'DuplicateChild', 'Duplicate child when setting children.'),

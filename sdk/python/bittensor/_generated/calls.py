@@ -221,8 +221,8 @@ class SubtensorModule:
         return Call('SubtensorModule', 'add_stake_limit', {'hotkey': hotkey, 'netuid': netuid, 'amount_staked': amount_staked, 'limit_price': limit_price, 'allow_partial': allow_partial})
 
     @staticmethod
-    def announce_coldkey_swap(new_coldkey: 'AccountId') -> Call:
-        'Announces a coldkey swap to a destination coldkey. The destination is validated before the fee is charged (must not be a hotkey, must not hold active locks, and the combined swap work must fit one call). The BlakeTwo256 hash is what is stored and emitted. Reannouncement after `ColdkeySwapReannouncementDelay` is free. The `ColdkeySwapAnnounced` event is emitted on successful announcement.'
+    def announce_coldkey_swap(new_coldkey: 'AccountId32') -> Call:
+        'Announces a coldkey swap using BlakeTwo256 hash of the new coldkey.  This is required before the coldkey swap can be performed after the delay period.  It can be reannounced after a delay of `ColdkeySwapReannouncementDelay` following the first valid execution block of the original announcement.  The dispatch origin of this call must be the original coldkey that made the announcement.  * `new_coldkey`: The destination coldkey. Validated before any fee is charged so a destination that would fail at execution (hotkey, active locks, or combined work over the one-call bound) is refused without paying. The BlakeTwo256 hash is what is stored and emitted for the announcement.  The `ColdkeySwapAnnounced` event is emitted on successful announcement.'
         return Call('SubtensorModule', 'announce_coldkey_swap', {'new_coldkey': new_coldkey})
 
     @staticmethod
