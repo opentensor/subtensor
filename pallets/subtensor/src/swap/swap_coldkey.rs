@@ -103,16 +103,31 @@ impl<T: Config> Pallet<T> {
         let hotkey_limit = crate::MAX_COLDKEY_SWAP_HOTKEYS.saturating_add(1) as usize;
         let position_limit = crate::MAX_COLDKEY_SWAP_POSITIONS.saturating_add(1);
 
+        // Scan each side up to the full sentinel independently so overlapping
+        // associations cannot shrink the discovery budget and under-count the union.
         let old_hotkeys = Self::coldkey_swap_hotkeys_bounded(old_coldkey, hotkey_limit);
+        if old_hotkeys.len() >= hotkey_limit {
+            return ColdkeySwapWork {
+                hotkeys: hotkey_limit as u32,
+                positions: 0,
+            };
+        }
         let mut combined = old_hotkeys.clone();
-        if old_coldkey != new_coldkey && combined.len() < hotkey_limit {
-            for hotkey in Self::coldkey_swap_hotkeys_bounded(
-                new_coldkey,
-                hotkey_limit.saturating_sub(combined.len()),
-            ) {
+        if old_coldkey != new_coldkey {
+            let new_hotkeys = Self::coldkey_swap_hotkeys_bounded(new_coldkey, hotkey_limit);
+            if new_hotkeys.len() >= hotkey_limit {
+                return ColdkeySwapWork {
+                    hotkeys: hotkey_limit as u32,
+                    positions: 0,
+                };
+            }
+            for hotkey in new_hotkeys {
                 combined.insert(hotkey);
                 if combined.len() >= hotkey_limit {
-                    break;
+                    return ColdkeySwapWork {
+                        hotkeys: hotkey_limit as u32,
+                        positions: 0,
+                    };
                 }
             }
         }
@@ -121,9 +136,6 @@ impl<T: Config> Pallet<T> {
             hotkeys: combined.len() as u32,
             positions: 0,
         };
-        if work.hotkeys > crate::MAX_COLDKEY_SWAP_HOTKEYS {
-            return work;
-        }
 
         for hotkey in &old_hotkeys {
             // Walk legacy + v2 share maps directly so we can stop at the admission
@@ -213,8 +225,17 @@ impl<T: Config> Pallet<T> {
         // Bound the walk to the announce/execute weight envelope.
         Self::ensure_no_active_locks_for_swap(new_coldkey)?;
 
-        // Honor destination opt-outs before any fee or mutation. A merge is not
-        // consented by the destination; AccountFlags are the only refusal knobs.
+        // Bound the combined work first so opt-out walks never scan past the
+        // admission envelope (even when the destination already contains every
+        // source association and would not early-return).
+        let work = Self::coldkey_swap_work(old_coldkey, new_coldkey);
+        if work.hotkeys > crate::MAX_COLDKEY_SWAP_HOTKEYS
+            || work.positions > crate::MAX_COLDKEY_SWAP_POSITIONS
+        {
+            return Err(Error::<T>::ColdkeySwapTooHeavy);
+        }
+
+        // Honor destination opt-outs over the admitted (bounded) associations.
         // Fresh unused destinations still allow an owner to move their own locks
         // (temporary accept override in execute); already-used destinations do not.
         if Self::coldkey_already_in_use(new_coldkey)
@@ -226,27 +247,22 @@ impl<T: Config> Pallet<T> {
             })?;
         }
         if Self::account_rejects_staking_hotkey_growth(new_coldkey) {
-            let dest_staking = StakingHotkeys::<T>::get(new_coldkey);
-            for hotkey in StakingHotkeys::<T>::get(old_coldkey) {
-                if !dest_staking.contains(&hotkey) {
-                    return Err(Error::<T>::AccountRejectsStakingHotkeyGrowth);
+            let hotkey_limit = crate::MAX_COLDKEY_SWAP_HOTKEYS.saturating_add(1) as usize;
+            let dest_staking: BTreeSet<_> = StakingHotkeys::<T>::get(new_coldkey)
+                .into_iter()
+                .take(hotkey_limit)
+                .collect();
+            for hotkey in Self::coldkey_swap_hotkeys_bounded(old_coldkey, hotkey_limit) {
+                if dest_staking.contains(&hotkey) {
+                    continue;
                 }
-            }
-            for hotkey in HotkeySwapBasketCredits::<T>::iter_key_prefix(old_coldkey) {
-                if !dest_staking.contains(&hotkey)
-                    && !HotkeySwapBasketCredits::<T>::contains_key(new_coldkey, &hotkey)
-                {
-                    return Err(Error::<T>::AccountRejectsStakingHotkeyGrowth);
+                if HotkeySwapBasketCredits::<T>::contains_key(new_coldkey, &hotkey) {
+                    continue;
                 }
+                return Err(Error::<T>::AccountRejectsStakingHotkeyGrowth);
             }
         }
 
-        let work = Self::coldkey_swap_work(old_coldkey, new_coldkey);
-        if work.hotkeys > crate::MAX_COLDKEY_SWAP_HOTKEYS
-            || work.positions > crate::MAX_COLDKEY_SWAP_POSITIONS
-        {
-            return Err(Error::<T>::ColdkeySwapTooHeavy);
-        }
         Ok(work)
     }
 

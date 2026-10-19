@@ -3199,3 +3199,29 @@ fn test_coldkey_swap_work_stops_after_position_cap() {
         assert!(work.positions > MAX_COLDKEY_SWAP_POSITIONS);
     });
 }
+
+#[test]
+fn test_coldkey_swap_work_union_not_undercounted_by_overlap() {
+    new_test_ext(1).execute_with(|| {
+        let old = U256::from(1);
+        let dest = U256::from(2);
+        let shared = (MAX_COLDKEY_SWAP_HOTKEYS / 2) as usize;
+        let dest_only = shared + 2; // union would exceed MAX if fully discovered
+
+        // Source holds the shared prefix of dest's list.
+        let mut dest_list = Vec::new();
+        for i in 0..(shared + dest_only) {
+            dest_list.push(U256::from(10_000 + i as u64));
+        }
+        let source_list: Vec<_> = dest_list.iter().take(shared).cloned().collect();
+        StakingHotkeys::<Test>::insert(old, source_list);
+        // Dest list starts with the shared hotkeys, then many dest-only ones.
+        StakingHotkeys::<Test>::insert(dest, dest_list);
+
+        let work = SubtensorModule::coldkey_swap_work(&old, &dest);
+        assert!(
+            work.hotkeys > MAX_COLDKEY_SWAP_HOTKEYS,
+            "overlapping prefix must not hide dest-only hotkeys from the union count"
+        );
+    });
+}
