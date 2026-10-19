@@ -76,16 +76,14 @@ DESCRIPTIONS: dict[str, str] = {
         "The raise's valid_until block has passed. Resubmit with a later deadline."
     ),
     "ConflictingSizing": (
-        "Provide exactly one of collateral or borrow amount for a raise, not both and not "
-        "neither."
+        "Provide exactly one of collateral or borrow amount for a raise, not both and not neither."
     ),
     "InvalidLiftParams": (
         "Lift parameters are out of range (for example floor/thin_floor above ceiling). Check "
         "set_lift_params bounds."
     ),
     "PositionSideMismatch": (
-        "The existing position's side does not match this call. Close first or use the saved "
-        "side."
+        "The existing position's side does not match this call. Close first or use the saved side."
     ),
     "HotkeyMismatch": (
         "The existing position's hotkey does not match this call. Close first or reuse the "
