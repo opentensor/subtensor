@@ -209,7 +209,10 @@ impl<T: Config> Pallet<T> {
         let lift_alpha = mul_div_floor(alpha_reserve, g_numer, g_denom);
 
         ensure!(lift_tao <= tao_reserve, Error::<T>::InsufficientLiquidity);
-        ensure!(lift_alpha <= alpha_reserve, Error::<T>::InsufficientLiquidity);
+        ensure!(
+            lift_alpha <= alpha_reserve,
+            Error::<T>::InsufficientLiquidity
+        );
 
         let remaining_tao = tao_reserve.saturating_sub(lift_tao);
         let remaining_alpha = alpha_reserve.saturating_sub(lift_alpha);
@@ -642,7 +645,9 @@ impl<T: Config> SwapHandler for Pallet<T> {
     }
 
     fn balancer_quote_weight(netuid: NetUid) -> u64 {
-        SwapBalancer::<T>::get(netuid).get_quote_weight().deconstruct()
+        SwapBalancer::<T>::get(netuid)
+            .get_quote_weight()
+            .deconstruct()
     }
 
     fn protocol_alpha_reservoir(netuid: NetUid) -> AlphaBalance {
