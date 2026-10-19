@@ -137,7 +137,8 @@ mod errors {
         AlphaHighTooLow,
         /// Alpha low is out of range: alpha_low > 0 && alpha_low < 0.8
         AlphaLowOutOfRange,
-        /// The coldkey has already been swapped
+        /// Retired: coldkey swaps into an already-used destination now merge.
+        /// Kept for SCALE error-index stability; never returned by current runtimes.
         ColdKeyAlreadyAssociated,
         /// The coldkey balance is not enough to pay for the swap
         NotEnoughBalanceToPaySwapColdKey,

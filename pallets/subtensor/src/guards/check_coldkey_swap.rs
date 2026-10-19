@@ -141,7 +141,7 @@ mod tests {
     fn authorized_calls() -> Vec<RuntimeCall> {
         vec![
             RuntimeCall::SubtensorModule(crate::Call::announce_coldkey_swap {
-                new_coldkey_hash: HashingOf::<Test>::hash_of(&U256::from(99)),
+                new_coldkey: U256::from(99),
             }),
             RuntimeCall::SubtensorModule(crate::Call::swap_coldkey_announced {
                 new_coldkey: U256::from(42),

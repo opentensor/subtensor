@@ -239,7 +239,9 @@ interface INeuron {
         uint64 blockNumber,
         bytes calldata signature
     ) external;
-    function announceColdkeySwap(bytes32 newColdkeyHash) external;
+    /// @notice Announce a coldkey swap. `newColdkey` is the destination account
+    ///         (not its hash); validated before the announcement fee is charged.
+    function announceColdkeySwap(bytes32 newColdkey) external;
     function executeAnnouncedColdkeySwap(bytes32 newColdkey) external;
     function disputeColdkeySwap() external;
     function clearColdkeySwapAnnouncement() external;

@@ -539,14 +539,13 @@ mod pallet_benchmarks {
     fn announce_coldkey_swap() {
         let coldkey: T::AccountId = account("old_coldkey", 0, 0);
         let new_coldkey: T::AccountId = account("new_coldkey", 0, 0);
-        let new_coldkey_hash: T::Hash = <T as frame_system::Config>::Hashing::hash_of(&new_coldkey);
 
         let ed = <T as pallet_balances::Config>::ExistentialDeposit::get();
         let swap_cost = Subtensor::<T>::get_key_swap_cost();
         add_balance_to_coldkey_account::<T>(&coldkey, swap_cost + ed);
 
         #[extrinsic_call]
-        _(RawOrigin::Signed(coldkey), new_coldkey_hash);
+        _(RawOrigin::Signed(coldkey), new_coldkey);
     }
 
     #[benchmark]

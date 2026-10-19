@@ -402,10 +402,7 @@ pub fn sample_intent(ctx: &TestContext, op: &str, netuid: u16) -> Result<IntentC
             SignerRole::Coldkey,
             "SubtensorModule",
             "announce_coldkey_swap",
-            record([(
-                "new_coldkey_hash",
-                bytes(blake2_256(&public_key_from_ss58(&bob_cold)?).to_vec()),
-            )]),
+            record([("new_coldkey", s(bob_cold.clone()))]),
         ),
         "associate_evm_key" => make(
             SignerRole::Hotkey,

@@ -2393,18 +2393,24 @@ mod dispatches {
         ///
         /// The dispatch origin of this call must be the original coldkey that made the announcement.
         ///
-        /// * `new_coldkey_hash`: The hash of the new coldkey using BlakeTwo256.
+        /// * `new_coldkey`: The destination coldkey. Validated before any fee is charged
+        ///   so a destination that would fail at execution (hotkey, active locks, or
+        ///   combined work over the one-call bound) is refused without paying. The
+        ///   BlakeTwo256 hash is what is stored and emitted for the announcement.
         ///
         /// The `ColdkeySwapAnnounced` event is emitted on successful announcement.
         ///
         #[pallet::call_index(125)]
-        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::announce_coldkey_swap())]
+        #[pallet::weight(Pallet::<T>::announce_coldkey_swap_weight())]
         pub fn announce_coldkey_swap(
             origin: OriginFor<T>,
-            new_coldkey_hash: T::Hash,
+            new_coldkey: T::AccountId,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
             let now = <frame_system::Pallet<T>>::block_number();
+
+            // Refuse destinations that execution would still reject, before the fee.
+            let _ = Self::ensure_coldkey_swap_destination(&who, &new_coldkey)?;
 
             if let Some((when, _)) = ColdkeySwapAnnouncements::<T>::get(who.clone()) {
                 let reannouncement_delay = ColdkeySwapReannouncementDelay::<T>::get();
@@ -2416,6 +2422,7 @@ mod dispatches {
                 Self::charge_swap_cost(&who, swap_cost)?;
             }
 
+            let new_coldkey_hash = T::Hashing::hash_of(&new_coldkey);
             let delay = ColdkeySwapAnnouncementDelay::<T>::get();
             let when = now.saturating_add(delay);
             ColdkeySwapAnnouncements::<T>::insert(who.clone(), (when, new_coldkey_hash.clone()));

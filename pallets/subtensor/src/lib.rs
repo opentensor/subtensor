@@ -108,9 +108,10 @@ pub const MAX_STAKING_HOTKEYS: u32 = MAX_ROOT_CLAIM_WORK;
 /// (legacy and current share rows, pool value, both denominator maps, epoch) taken twice
 /// (validation and the debit path).
 pub const STAKING_HOTKEYS_WALK_READS_PER_ENTRY: u64 = 14;
-/// Most `StakingHotkeys` entries a coldkey swap moves in one call. Sized from the production
-/// distribution: the 99.9th percentile list is under 100 entries and four coldkeys exceed
-/// this value; they consolidate before swapping.
+/// Most hotkeys (source ∪ destination staking lists plus claim-only basket credits) a
+/// coldkey swap admits in one call. Sized from the production distribution: the 99.9th
+/// percentile list is under 100 entries and four coldkeys exceed this value; they
+/// consolidate before swapping. Merges into an already-used destination count both sides.
 pub const MAX_COLDKEY_SWAP_HOTKEYS: u32 = MAX_STAKING_HOTKEYS;
 /// Most stake positions `(hotkey, netuid)` a coldkey swap moves in one call. Each position is
 /// one `transfer_stake` worth of work; the declared weight reserves this many (about three

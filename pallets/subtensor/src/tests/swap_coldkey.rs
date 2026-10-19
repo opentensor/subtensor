@@ -56,7 +56,7 @@ fn test_announce_coldkey_swap_works() {
 
         assert_ok!(SubtensorModule::announce_coldkey_swap(
             RuntimeOrigin::signed(who),
-            new_coldkey_hash,
+            new_coldkey,
         ));
 
         let delay = ColdkeySwapAnnouncementDelay::<Test>::get();
@@ -92,7 +92,7 @@ fn test_announce_coldkey_swap_with_existing_announcement_past_delay_works() {
 
         assert_ok!(SubtensorModule::announce_coldkey_swap(
             RuntimeOrigin::signed(who),
-            new_coldkey_hash,
+            new_coldkey,
         ));
 
         let now = System::block_number();
@@ -107,7 +107,7 @@ fn test_announce_coldkey_swap_with_existing_announcement_past_delay_works() {
 
         assert_ok!(SubtensorModule::announce_coldkey_swap(
             RuntimeOrigin::signed(who),
-            new_coldkey_2_hash,
+            new_coldkey_2,
         ));
 
         let now = System::block_number();
@@ -134,7 +134,7 @@ fn test_announce_coldkey_swap_only_pays_swap_cost_if_no_announcement_exists() {
 
         assert_ok!(SubtensorModule::announce_coldkey_swap(
             RuntimeOrigin::signed(who),
-            new_coldkey_hash,
+            new_coldkey,
         ));
         assert_eq!(SubtensorModule::get_coldkey_balance(&who), ed);
 
@@ -145,7 +145,7 @@ fn test_announce_coldkey_swap_only_pays_swap_cost_if_no_announcement_exists() {
 
         assert_ok!(SubtensorModule::announce_coldkey_swap(
             RuntimeOrigin::signed(who),
-            new_coldkey_2_hash,
+            new_coldkey_2,
         ));
         assert_eq!(SubtensorModule::get_coldkey_balance(&who), ed);
     });
@@ -158,12 +158,12 @@ fn test_announce_coldkey_swap_with_bad_origin_fails() {
         let new_coldkey_hash = <Test as frame_system::Config>::Hashing::hash_of(&new_coldkey);
 
         assert_noop!(
-            SubtensorModule::announce_coldkey_swap(RuntimeOrigin::none(), new_coldkey_hash),
+            SubtensorModule::announce_coldkey_swap(RuntimeOrigin::none(), new_coldkey),
             BadOrigin
         );
 
         assert_noop!(
-            SubtensorModule::announce_coldkey_swap(RuntimeOrigin::root(), new_coldkey_hash),
+            SubtensorModule::announce_coldkey_swap(RuntimeOrigin::root(), new_coldkey),
             BadOrigin
         );
     });
@@ -186,7 +186,7 @@ fn test_announce_coldkey_swap_with_existing_announcement_not_past_delay_fails() 
 
         assert_ok!(SubtensorModule::announce_coldkey_swap(
             RuntimeOrigin::signed(who),
-            new_coldkey_hash,
+            new_coldkey,
         ));
 
         let now = System::block_number();
@@ -197,7 +197,7 @@ fn test_announce_coldkey_swap_with_existing_announcement_not_past_delay_fails() 
         );
 
         assert_noop!(
-            SubtensorModule::announce_coldkey_swap(RuntimeOrigin::signed(who), new_coldkey_2_hash,),
+            SubtensorModule::announce_coldkey_swap(RuntimeOrigin::signed(who), new_coldkey_2,),
             Error::<Test>::ColdkeySwapReannouncedTooEarly
         );
     });
@@ -450,35 +450,47 @@ fn test_swap_coldkey_announced_too_early_fails() {
 }
 
 #[test]
-fn test_swap_coldkey_announced_with_already_associated_coldkey_fails() {
+fn test_swap_coldkey_announced_into_already_associated_coldkey_merges() {
     new_test_ext(1).execute_with(|| {
         let who = U256::from(1);
         let new_coldkey = U256::from(2);
-        let new_coldkey_hash = <Test as frame_system::Config>::Hashing::hash_of(&new_coldkey);
-        let hotkey = U256::from(3);
+        let dest_hotkey = U256::from(3);
+        let source_hotkey = U256::from(4);
 
         let swap_cost = SubtensorModule::get_key_swap_cost();
         let ed = ExistentialDeposit::get();
         add_balance_to_coldkey_account(&who, swap_cost + ed);
 
+        // Destination is already in use (owns a hotkey / has StakingHotkeys).
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &new_coldkey,
+            &dest_hotkey
+        ));
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &who,
+            &source_hotkey
+        ));
+
         assert_ok!(SubtensorModule::announce_coldkey_swap(
             RuntimeOrigin::signed(who),
-            new_coldkey_hash,
+            new_coldkey,
         ));
 
         let now = System::block_number();
         let delay = ColdkeySwapAnnouncementDelay::<Test>::get() + 1;
         run_to_block(now + delay);
 
-        SubtensorModule::create_account_if_non_existent(&new_coldkey, &hotkey);
+        assert_ok!(SubtensorModule::swap_coldkey_announced(
+            <Test as frame_system::Config>::RuntimeOrigin::signed(who),
+            new_coldkey
+        ));
 
-        crate::assert_noop_ignore_postinfo!(
-            SubtensorModule::swap_coldkey_announced(
-                <Test as frame_system::Config>::RuntimeOrigin::signed(who),
-                new_coldkey
-            ),
-            Error::<Test>::ColdKeyAlreadyAssociated
-        );
+        let staking = StakingHotkeys::<Test>::get(new_coldkey);
+        assert!(staking.contains(&dest_hotkey));
+        assert!(staking.contains(&source_hotkey));
+        assert!(StakingHotkeys::<Test>::get(who).is_empty());
+        assert_eq!(Owner::<Test>::get(source_hotkey), new_coldkey);
+        assert_eq!(Owner::<Test>::get(dest_hotkey), new_coldkey);
     })
 }
 
@@ -846,8 +858,8 @@ fn test_do_swap_coldkey_preserves_new_coldkey_identity() {
 
         assert_ok!(SubtensorModule::do_swap_coldkey(&who, &new_coldkey,));
 
-        // Identity is preserved
-        assert_eq!(IdentitiesV2::<Test>::get(who), Some(old_identity));
+        // Destination identity wins; source identity is cleared (no orphan on drained key).
+        assert!(IdentitiesV2::<Test>::get(who).is_none());
         assert_eq!(IdentitiesV2::<Test>::get(new_coldkey), Some(new_identity));
     });
 }
@@ -861,7 +873,7 @@ fn test_announce_coldkey_swap_with_not_enough_balance_to_pay_swap_cost_fails() {
 
         // No balance to pay swap cost
         assert_noop!(
-            SubtensorModule::announce_coldkey_swap(RuntimeOrigin::signed(who), new_coldkey_hash),
+            SubtensorModule::announce_coldkey_swap(RuntimeOrigin::signed(who), new_coldkey),
             Error::<Test>::NotEnoughBalanceToPaySwapColdKey
         );
 
@@ -869,7 +881,7 @@ fn test_announce_coldkey_swap_with_not_enough_balance_to_pay_swap_cost_fails() {
         let balance = SubtensorModule::get_key_swap_cost() + ExistentialDeposit::get() - 1.into();
         add_balance_to_coldkey_account(&who, balance);
         assert_noop!(
-            SubtensorModule::announce_coldkey_swap(RuntimeOrigin::signed(who), new_coldkey_hash),
+            SubtensorModule::announce_coldkey_swap(RuntimeOrigin::signed(who), new_coldkey),
             Error::<Test>::NotEnoughBalanceToPaySwapColdKey
         );
     });
@@ -2090,7 +2102,7 @@ fn announce_coldkey_swap(who: U256, new_coldkey: U256) {
 
     assert_ok!(SubtensorModule::announce_coldkey_swap(
         RuntimeOrigin::signed(who),
-        coldkey_hash_of(new_coldkey),
+        new_coldkey,
     ));
 }
 
@@ -2513,6 +2525,325 @@ fn test_transfer_miner_collateral_coldkey_merges_existing_dest() {
         assert_eq!(
             ColdkeyMinerCollateral::<Test>::get(netuid, new_coldkey),
             old_locked.saturating_add(dest_locked)
+        );
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Coldkey-swap merge into an already-used destination
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_merge_swap_sums_overlapping_alpha_and_unions_hotkeys() {
+    new_test_ext(1).execute_with(|| {
+        let old = U256::from(1);
+        let dest = U256::from(2);
+        let shared_hotkey = U256::from(100);
+        let old_only_hotkey = U256::from(101);
+        let dest_only_hotkey = U256::from(102);
+
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &old,
+            &shared_hotkey
+        ));
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &old,
+            &old_only_hotkey
+        ));
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &dest,
+            &dest_only_hotkey
+        ));
+        // Dest also stakes to the shared hotkey (third-party stake association).
+        let mut dest_staking = StakingHotkeys::<Test>::get(dest);
+        if !dest_staking.contains(&shared_hotkey) {
+            dest_staking.push(shared_hotkey);
+            StakingHotkeys::<Test>::insert(dest, dest_staking);
+        }
+
+        let netuid = add_dynamic_network(&U256::from(200), &U256::from(201));
+        SubtokenEnabled::<Test>::insert(netuid, true);
+
+        let old_shared = AlphaBalance::from(1_000_000_u64);
+        let dest_shared = AlphaBalance::from(2_500_000_u64);
+        let old_only = AlphaBalance::from(750_000_u64);
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &shared_hotkey,
+            &old,
+            netuid,
+            old_shared,
+        );
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &shared_hotkey,
+            &dest,
+            netuid,
+            dest_shared,
+        );
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &old_only_hotkey,
+            &old,
+            netuid,
+            old_only,
+        );
+
+        // Overlapping basket watermarks must sum (anti double-claim).
+        BasketClaimed::<Test>::insert(&shared_hotkey, &old, 40_i128);
+        BasketClaimed::<Test>::insert(&shared_hotkey, &dest, 25_i128);
+
+        assert_ok!(SubtensorModule::do_swap_coldkey(&old, &dest));
+
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &shared_hotkey,
+                &dest,
+                netuid
+            ),
+            old_shared.saturating_add(dest_shared)
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &old_only_hotkey,
+                &dest,
+                netuid
+            ),
+            old_only
+        );
+        assert!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &shared_hotkey,
+                &old,
+                netuid
+            )
+            .is_zero()
+        );
+        assert_eq!(BasketClaimed::<Test>::get(&shared_hotkey, &dest), 65_i128);
+        assert_eq!(BasketClaimed::<Test>::get(&shared_hotkey, &old), 0_i128);
+
+        let staking = StakingHotkeys::<Test>::get(dest);
+        assert!(staking.contains(&shared_hotkey));
+        assert!(staking.contains(&old_only_hotkey));
+        assert!(staking.contains(&dest_only_hotkey));
+        assert!(StakingHotkeys::<Test>::get(old).is_empty());
+        assert_eq!(Owner::<Test>::get(old_only_hotkey), dest);
+        assert_eq!(Owner::<Test>::get(shared_hotkey), dest);
+        assert_eq!(Owner::<Test>::get(dest_only_hotkey), dest);
+    });
+}
+
+#[test]
+fn test_merge_swap_moves_subnet_ownership_and_keeps_dest_auto_stake() {
+    new_test_ext(1).execute_with(|| {
+        let old = U256::from(1);
+        let dest = U256::from(2);
+        let old_hot = U256::from(10);
+        let dest_hot = U256::from(11);
+        let auto_old = U256::from(20);
+        let auto_dest = U256::from(21);
+
+        let netuid_owned = add_dynamic_network(&old_hot, &old);
+        let netuid_auto = add_dynamic_network(&dest_hot, &dest);
+
+        AutoStakeDestination::<Test>::insert(old, netuid_auto, auto_old);
+        AutoStakeDestinationColdkeys::<Test>::insert(auto_old, netuid_auto, vec![old]);
+        AutoStakeDestination::<Test>::insert(dest, netuid_auto, auto_dest);
+        AutoStakeDestinationColdkeys::<Test>::insert(auto_dest, netuid_auto, vec![dest]);
+
+        assert_eq!(SubnetOwner::<Test>::get(netuid_owned), old);
+
+        assert_ok!(SubtensorModule::do_swap_coldkey(&old, &dest));
+
+        assert_eq!(SubnetOwner::<Test>::get(netuid_owned), dest);
+        // Destination auto-stake wins on the overlapping netuid.
+        assert_eq!(
+            AutoStakeDestination::<Test>::get(dest, netuid_auto),
+            Some(auto_dest)
+        );
+        assert!(AutoStakeDestination::<Test>::get(old, netuid_auto).is_none());
+        assert!(!AutoStakeDestinationColdkeys::<Test>::get(auto_old, netuid_auto).contains(&old));
+        assert!(AutoStakeDestinationColdkeys::<Test>::get(auto_dest, netuid_auto).contains(&dest));
+    });
+}
+
+#[test]
+fn test_merge_swap_destination_account_flags_win() {
+    new_test_ext(1).execute_with(|| {
+        let old = U256::from(1);
+        let dest = U256::from(2);
+
+        SubtensorModule::set_accept_locked_alpha(&old, true);
+        // Destination rejects locked alpha (default / cleared).
+        AccountFlags::<Test>::remove(dest);
+        assert!(SubtensorModule::account_rejects_locked_alpha(&dest));
+        assert!(!SubtensorModule::account_rejects_locked_alpha(&old));
+
+        assert_ok!(SubtensorModule::do_swap_coldkey(&old, &dest));
+
+        assert!(AccountFlags::<Test>::get(old) == 0 || !AccountFlags::<Test>::contains_key(old));
+        assert!(SubtensorModule::account_rejects_locked_alpha(&dest));
+    });
+}
+
+#[test]
+fn test_merge_swap_blocked_by_destination_active_lock() {
+    new_test_ext(1).execute_with(|| {
+        let old = U256::from(1);
+        let dest = U256::from(2);
+        let hotkey = U256::from(3);
+        let netuid = add_dynamic_network(&hotkey, &dest);
+
+        let now = SubtensorModule::get_current_block_as_u64();
+        Lock::<Test>::insert(
+            (dest, netuid, hotkey),
+            LockState {
+                locked_mass: AlphaBalance::from(1_000_000_u64),
+                conviction: U64F64::from_num(0),
+                last_update: now,
+            },
+        );
+
+        assert_err!(
+            SubtensorModule::do_swap_coldkey(&old, &dest),
+            Error::<Test>::ActiveLockExists
+        );
+    });
+}
+
+#[test]
+fn test_announce_rejects_hotkey_destination_before_fee() {
+    new_test_ext(1).execute_with(|| {
+        let who = U256::from(1);
+        let hotkey = U256::from(2);
+        let cold = U256::from(3);
+        assert_ok!(SubtensorModule::create_account_if_non_existent(&cold, &hotkey));
+
+        let swap_cost = SubtensorModule::get_key_swap_cost();
+        let ed = ExistentialDeposit::get();
+        add_balance_to_coldkey_account(&who, swap_cost + ed);
+        let before = SubtensorModule::get_coldkey_balance(&who);
+
+        assert_noop!(
+            SubtensorModule::announce_coldkey_swap(RuntimeOrigin::signed(who), hotkey),
+            Error::<Test>::NewColdKeyIsHotkey
+        );
+        assert_eq!(SubtensorModule::get_coldkey_balance(&who), before);
+        assert!(ColdkeySwapAnnouncements::<Test>::get(who).is_none());
+    });
+}
+
+#[test]
+fn test_announce_rejects_destination_with_active_lock_before_fee() {
+    new_test_ext(1).execute_with(|| {
+        let who = U256::from(1);
+        let dest = U256::from(2);
+        let hotkey = U256::from(3);
+        let netuid = add_dynamic_network(&hotkey, &dest);
+
+        let now = SubtensorModule::get_current_block_as_u64();
+        Lock::<Test>::insert(
+            (dest, netuid, hotkey),
+            LockState {
+                locked_mass: AlphaBalance::from(500_000_u64),
+                conviction: U64F64::from_num(0),
+                last_update: now,
+            },
+        );
+
+        let swap_cost = SubtensorModule::get_key_swap_cost();
+        let ed = ExistentialDeposit::get();
+        add_balance_to_coldkey_account(&who, swap_cost + ed);
+        let before = SubtensorModule::get_coldkey_balance(&who);
+
+        assert_noop!(
+            SubtensorModule::announce_coldkey_swap(RuntimeOrigin::signed(who), dest),
+            Error::<Test>::ActiveLockExists
+        );
+        assert_eq!(SubtensorModule::get_coldkey_balance(&who), before);
+    });
+}
+
+#[test]
+fn test_merge_swap_combined_hotkeys_too_heavy() {
+    new_test_ext(1).execute_with(|| {
+        let old = U256::from(1);
+        let dest = U256::from(2);
+
+        // Half the cap on each side with no overlap → union exceeds the bound.
+        let half = (MAX_COLDKEY_SWAP_HOTKEYS / 2) + 1;
+        let mut old_list = Vec::new();
+        let mut dest_list = Vec::new();
+        for i in 0..half {
+            old_list.push(U256::from(10_000 + u64::from(i)));
+            dest_list.push(U256::from(20_000 + u64::from(i)));
+        }
+        StakingHotkeys::<Test>::insert(old, old_list);
+        StakingHotkeys::<Test>::insert(dest, dest_list);
+
+        assert_err!(
+            SubtensorModule::do_swap_coldkey(&old, &dest),
+            Error::<Test>::ColdkeySwapTooHeavy
+        );
+    });
+}
+
+#[test]
+fn test_merge_swap_keeps_later_hotkey_swap_cooldown() {
+    new_test_ext(1).execute_with(|| {
+        let old = U256::from(1);
+        let dest = U256::from(2);
+        let hotkey = U256::from(3);
+        let netuid = add_dynamic_network(&hotkey, &old);
+
+        LastHotkeySwapOnNetuid::<Test>::insert(netuid, old, 100u64);
+        LastHotkeySwapOnNetuid::<Test>::insert(netuid, dest, 250u64);
+
+        assert_ok!(SubtensorModule::do_swap_coldkey(&old, &dest));
+
+        assert!(!LastHotkeySwapOnNetuid::<Test>::contains_key(netuid, old));
+        assert_eq!(LastHotkeySwapOnNetuid::<Test>::get(netuid, dest), 250u64);
+    });
+}
+
+#[test]
+fn test_merge_swap_root_stake_and_rate_limits() {
+    new_test_ext(1).execute_with(|| {
+        let old = U256::from(1);
+        let dest = U256::from(2);
+        let hotkey = U256::from(3);
+        assert_ok!(SubtensorModule::create_account_if_non_existent(&old, &hotkey));
+
+        let root = NetUid::ROOT;
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &old,
+            root,
+            AlphaBalance::from(1_000_000_u64),
+        );
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &dest,
+            root,
+            AlphaBalance::from(500_000_u64),
+        );
+
+        LastRateLimitedBlock::<Test>::insert(RateLimitKey::LastTxBlock(old), 40u64);
+        LastRateLimitedBlock::<Test>::insert(RateLimitKey::LastTxBlock(dest.clone()), 90u64);
+
+        assert_ok!(SubtensorModule::do_swap_coldkey(&old, &dest));
+
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &dest, root),
+            AlphaBalance::from(1_500_000_u64)
+        );
+        assert!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &old, root)
+                .is_zero()
+        );
+        assert!(!LastRateLimitedBlock::<Test>::contains_key(
+            &RateLimitKey::LastTxBlock(old)
+        ));
+        assert_eq!(
+            LastRateLimitedBlock::<Test>::get(RateLimitKey::LastTxBlock(dest)),
+            90u64
         );
     });
 }

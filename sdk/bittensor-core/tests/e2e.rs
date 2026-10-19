@@ -693,7 +693,7 @@ fn test_coldkey_swap_announcement_flow() {
         SignerRole::Coldkey,
         "SubtensorModule",
         "announce_coldkey_swap",
-        record([("new_coldkey_hash", bytes(hash.to_vec()))]),
+        record([("new_coldkey", s(new_cold.clone()))]),
     );
     let result = Executor::new(&ctx.client)
         .execute(&announce, &swapper)

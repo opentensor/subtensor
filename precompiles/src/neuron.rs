@@ -851,13 +851,15 @@ where
     #[precompile::public("announceColdkeySwap(bytes32)")]
     fn announce_coldkey_swap(
         handle: &mut impl PrecompileHandle,
-        new_coldkey_hash: H256,
+        new_coldkey: H256,
     ) -> EvmResult<()> {
-        let new_coldkey_hash = codec::Decode::decode(&mut new_coldkey_hash.as_bytes())
-            .map_err(|_| revert("runtime hash is not compatible with bytes32"))?;
+        // bytes32 is the destination coldkey account (not its hash). Validated
+        // before the swap fee is charged.
         dispatch_neuron(
             handle,
-            pallet_subtensor::Call::<R>::announce_coldkey_swap { new_coldkey_hash },
+            pallet_subtensor::Call::<R>::announce_coldkey_swap {
+                new_coldkey: R::AccountId::from(new_coldkey.0),
+            },
         )
     }
 

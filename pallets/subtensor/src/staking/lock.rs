@@ -1476,9 +1476,16 @@ impl<T: Config> Pallet<T> {
 
         let mut rolled_locks_to_transfer: Vec<(NetUid, T::AccountId, LockState, bool)> = Vec::new();
         for (netuid, hotkey, lock) in locks_to_transfer {
-            let perpetual_lock = decaying_locks_to_transfer
-                .iter()
-                .any(|(decaying_netuid, decaying)| *decaying_netuid == netuid && !*decaying);
+            // Destination's DecayingLock wins when both keys have a flag for the
+            // netuid, so the individual roll and the destination aggregate bucket
+            // agree. Otherwise use the source flag.
+            let perpetual_lock = if DecayingLock::<T>::contains_key(new_coldkey, netuid) {
+                Self::is_perpetual_lock(new_coldkey, netuid)
+            } else {
+                decaying_locks_to_transfer
+                    .iter()
+                    .any(|(decaying_netuid, decaying)| *decaying_netuid == netuid && !*decaying)
+            };
             let (old_lock, _) = ConvictionModel::roll_forward_lock(
                 lock,
                 now,
@@ -1508,22 +1515,23 @@ impl<T: Config> Pallet<T> {
             );
         }
 
+        // DecayingLock: destination wins on conflict. Only move source flags for
+        // netuids the destination does not already configure.
         for (netuid, _) in decaying_locks_to_transfer {
-            if let Some(decaying) = DecayingLock::<T>::take(old_coldkey, netuid) {
+            let Some(decaying) = DecayingLock::<T>::take(old_coldkey, netuid) else {
+                continue;
+            };
+            if !DecayingLock::<T>::contains_key(new_coldkey, netuid) {
                 DecayingLock::<T>::insert(new_coldkey, netuid, decaying);
             }
         }
 
-        let flags = AccountFlags::<T>::get(old_coldkey);
+        // AccountFlags are restored by the caller (destination wins). Do not
+        // overwrite the destination here — only clear the source after locks move.
         AccountFlags::<T>::remove(old_coldkey);
-        if flags != 0 {
-            AccountFlags::<T>::insert(new_coldkey, flags);
-        } else {
-            AccountFlags::<T>::remove(new_coldkey);
-        }
 
         // Insert locks for the new coldkey and add to the destination aggregate
-        // buckets after the flags have moved.
+        // buckets. Aggregate selection uses the destination's DecayingLock.
         for (netuid, hotkey, old_lock, perpetual_lock) in rolled_locks_to_transfer {
             let new_lock = ConvictionModel::roll_forward_lock(
                 old_lock.clone(),
