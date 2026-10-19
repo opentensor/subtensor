@@ -21,7 +21,10 @@ Side = Enum("Side", [("short", "short"), ("long", "long")], type=str)
 
 app = typer.Typer(
     no_args_is_help=True,
-    help=f"Lift-based escrowed loans: open, close, raise, list.\n\nGuide: {guide_docs_url('pool-lending')}",
+    help=(
+        "Lift-based escrowed loans: open, close, raise, list.\n\n"
+        f"Guide: {guide_docs_url('pool-lending')}"
+    ),
 )
 
 
