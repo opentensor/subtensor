@@ -2714,7 +2714,9 @@ fn test_announce_rejects_hotkey_destination_before_fee() {
         let who = U256::from(1);
         let hotkey = U256::from(2);
         let cold = U256::from(3);
-        assert_ok!(SubtensorModule::create_account_if_non_existent(&cold, &hotkey));
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &cold, &hotkey
+        ));
 
         let swap_cost = SubtensorModule::get_key_swap_cost();
         let ed = ExistentialDeposit::get();
@@ -2809,7 +2811,9 @@ fn test_merge_swap_root_stake_and_rate_limits() {
         let old = U256::from(1);
         let dest = U256::from(2);
         let hotkey = U256::from(3);
-        assert_ok!(SubtensorModule::create_account_if_non_existent(&old, &hotkey));
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &old, &hotkey
+        ));
 
         let root = NetUid::ROOT;
         mock_increase_stake_for_hotkey_and_coldkey_on_subnet(

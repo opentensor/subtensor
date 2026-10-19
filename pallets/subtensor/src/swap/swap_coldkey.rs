@@ -41,11 +41,13 @@ impl<T: Config> Pallet<T> {
         let max = Self::coldkey_swap_max_work();
         <T as crate::pallet::Config>::WeightInfo::announce_coldkey_swap()
             .saturating_add(T::DbWeight::get().reads(4))
-            .saturating_add(T::DbWeight::get().reads(
-                u64::from(max.hotkeys)
-                    .saturating_mul(2) // source ∪ destination list walks
-                    .saturating_add(u64::from(max.positions)),
-            ))
+            .saturating_add(
+                T::DbWeight::get().reads(
+                    u64::from(max.hotkeys)
+                        .saturating_mul(2) // source ∪ destination list walks
+                        .saturating_add(u64::from(max.positions)),
+                ),
+            )
     }
 
     /// Pre-dispatch weight of `swap_coldkey`, refunded to the actual work post-dispatch.
