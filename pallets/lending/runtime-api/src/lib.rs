@@ -23,6 +23,7 @@ sp_api::decl_runtime_apis! {
         fn quote_close(owner: AccountId, netuid: u16, repay_from_wallet: bool) -> Result<ClosingQuote, DispatchError>;
 
         /// Atomic raise quote: escrowed long sizing plus optional unlocked-alpha sale.
+        #[allow(clippy::too_many_arguments)]
         fn quote_raise(
             owner: AccountId,
             netuid: u16,

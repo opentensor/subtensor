@@ -31,6 +31,7 @@ FixedI128 = Any
 FixedU128 = Any
 H160 = Any
 H256 = Any
+LiftParams = Any
 MechId = Any
 MultiAddress = Any
 NetUid = Any
@@ -44,6 +45,7 @@ ProxyType = Any
 PulsesPayload = Any
 RecycleOrBurnEnum = Any
 RuntimeCall = Any
+Side = Any
 TaoBalance = Any
 TickIndex = Any
 Timepoint = Any
@@ -1712,3 +1714,35 @@ class LimitOrders:
     def set_pallet_status(enabled: 'bool') -> Call:
         'Set a status for the limit orders pallet  Must be called by root It allows disabling or enabling the pallet true means enabling, false means disabling'
         return Call('LimitOrders', 'set_pallet_status', {'enabled': enabled})
+
+
+class Lending:
+    """Call builders for the Lending pallet."""
+
+    @staticmethod
+    def close(netuid: 'NetUid', repay_from_wallet: 'bool', max_payment: 'u64', min_refund: 'u64') -> Call:
+        'Close a position. Shorts buy back (or repay alpha); longs repay TAO (or sell escrow).'
+        return Call('Lending', 'close', {'netuid': netuid, 'repay_from_wallet': repay_from_wallet, 'max_payment': max_payment, 'min_refund': min_refund})
+
+    @staticmethod
+    def open(netuid: 'NetUid', side: 'Side', collateral: 'u64', hotkey: 'AccountId32', min_borrow: 'u64', min_proceeds: 'u64') -> Call:
+        'Open or increase a loan. Shorts force-sell; longs force-buy into escrow.'
+        return Call('Lending', 'open', {'netuid': netuid, 'side': side, 'collateral': collateral, 'hotkey': hotkey, 'min_borrow': min_borrow, 'min_proceeds': min_proceeds})
+
+    @staticmethod
+    def open_exact(netuid: 'NetUid', side: 'Side', collateral: 'u64', hotkey: 'AccountId32', principal: 'u64', min_proceeds: 'u64') -> Call:
+        'Open or increase with an exact additional principal.'
+        return Call('Lending', 'open_exact', {'netuid': netuid, 'side': side, 'collateral': collateral, 'hotkey': hotkey, 'principal': principal, 'min_proceeds': min_proceeds})
+
+    @staticmethod
+    def open_long_and_sell(netuid: 'NetUid', hotkey: 'AccountId32', collateral_alpha: 'Any', borrow_tao: 'Any', max_collateral_alpha: 'u64', min_borrow_tao: 'u64', sell_alpha: 'Any', min_tao_out: 'u64', valid_until: 'u32') -> Call:
+        'Atomic raise: escrowed long + spot sale of own unlocked alpha.'
+        return Call('Lending', 'open_long_and_sell', {'netuid': netuid, 'hotkey': hotkey, 'collateral_alpha': collateral_alpha, 'borrow_tao': borrow_tao, 'max_collateral_alpha': max_collateral_alpha, 'min_borrow_tao': min_borrow_tao, 'sell_alpha': sell_alpha, 'min_tao_out': min_tao_out, 'valid_until': valid_until})
+
+    @staticmethod
+    def set_enabled(enabled: 'bool') -> Call:
+        return Call('Lending', 'set_enabled', {'enabled': enabled})
+
+    @staticmethod
+    def set_lift_params(params: 'LiftParams') -> Call:
+        return Call('Lending', 'set_lift_params', {'params': params})

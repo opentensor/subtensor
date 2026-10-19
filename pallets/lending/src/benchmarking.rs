@@ -1,6 +1,5 @@
 //! Placeholder benchmarks for lift-based lending.
 //! Measured weights must be produced on reference hardware; do not invent values.
-#![cfg(feature = "runtime-benchmarks")]
 #![allow(clippy::unwrap_used)]
 
 use super::*;
