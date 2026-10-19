@@ -208,11 +208,12 @@ impl<T: Config> Pallet<T> {
         with_transaction(|| {
             let result = (|| -> DispatchResult {
                 // Identity: destination wins. Always clear the source so a drained
-                // coldkey does not keep an orphaned identity row.
-                if let Some(identity) = IdentitiesV2::<T>::take(old_coldkey) {
-                    if !IdentitiesV2::<T>::contains_key(new_coldkey) {
-                        IdentitiesV2::<T>::insert(new_coldkey.clone(), identity);
-                    }
+                // coldkey does not keep an orphaned identity row (`take` runs before
+                // the `&&` condition, so the source row is removed either way).
+                if let Some(identity) = IdentitiesV2::<T>::take(old_coldkey)
+                    && !IdentitiesV2::<T>::contains_key(new_coldkey)
+                {
+                    IdentitiesV2::<T>::insert(new_coldkey.clone(), identity);
                 }
 
                 // Destination account flags win after the swap. Temporarily allow the
