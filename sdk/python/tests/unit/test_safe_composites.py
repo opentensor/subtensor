@@ -17,6 +17,7 @@ from bittensor.cli.output import Output
 from bittensor.client import Client
 from bittensor.hashed import compose_derivative
 from bittensor.intents.base import BuiltCall
+from bittensor.intents.crowdloan import CreateCrowdloan
 from bittensor.intents.multisig import (
     MultisigApprove,
     MultisigCancel,
@@ -414,6 +415,70 @@ async def test_fixed_wallet_defaults_safe_pure_and_derivative_with_explicit_lega
     ).build(substrate, wallet)
     assert kill.function == "kill_safe_pure"
     assert kill.params["height"] == 88 and kill.params["ext_index"] == 2
+
+
+def _crowdloan_with_pure_proxy(**proxy_args):
+    return CreateCrowdloan(
+        1,
+        1,
+        10,
+        1000,
+        call={
+            "op": "batch",
+            "intents": [
+                {"op": "create_pure_proxy", **proxy_args},
+                {"op": "register_leased_network", "emissions_share": 50},
+            ],
+        },
+    )
+
+
+@pytest.mark.parametrize("creator", ["fixed_key", "fixed_wallet", "safe_1", "safe_2", "sr"])
+@pytest.mark.asyncio
+async def test_crowdloan_stored_batch_preserves_creator_derivation(creator, tmp_path, monkeypatch):
+    from bittensor.wallet import Wallet
+
+    substrate = FakeSubstrate()
+    substrate.seed("System", "Account", [ALICE], {"data": {"free": 10**15}})
+    intent = _crowdloan_with_pure_proxy()
+    wallet = dev_wallet()
+    if creator.startswith("fixed"):
+        key = Keypair.create_from_seed(b"\x77" * 32, 8)
+        wallet = key
+        if creator == "fixed_wallet":
+            wallet = Wallet("creator", path=str(tmp_path))
+            wallet.coldkeypub_file.set_keypair(key.public_only(), encrypt=False)
+            monkeypatch.setattr(
+                Wallet, "coldkey", property(lambda _: pytest.fail("must not unlock creator"))
+            )
+    elif creator.startswith("safe"):
+        kwargs = dict(other_signatories=[BOB], call=intent.to_dict(), account_mode="safe")
+        intent = (
+            MultisigThreshold1(**kwargs)
+            if creator == "safe_1"
+            else MultisigExecute(threshold=2, **kwargs)
+        )
+    built = await intent.build(substrate, wallet)
+    call = built.call if isinstance(built, BuiltCall) else built
+    if creator.startswith("safe"):
+        assert call.module == "Multisig" and call.function.endswith("_safe")
+        call = call.params["call"]
+    assert (call.module, call.function) == ("Crowdloan", "create")
+    stored = call.params["call"]
+    assert (stored.module, stored.function) == ("Utility", "batch_all")
+    pure, lease = stored.params["calls"]
+    assert pure.module == "Proxy"
+    assert pure.function == ("create_pure" if creator == "sr" else "create_safe_pure")
+    assert (lease.module, lease.function) == ("SubtensorModule", "register_leased_network")
+    assert lease.params == {"emissions_share": 50, "end_block": None}
+
+
+@pytest.mark.asyncio
+async def test_crowdloan_fixed_ms_explicit_legacy_pure_warns():
+    key = Keypair.create_from_seed(b"\x77" * 32, 8)
+    with pytest.warns(UserWarning, match="Legacy pure proxy"):
+        call = await _crowdloan_with_pure_proxy(account_mode="legacy").build(FakeSubstrate(), key)
+    assert call.params["call"].params["calls"][0].function == "create_pure"
 
 
 def test_native_safe_derivation_shared_runtime_golden():

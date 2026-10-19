@@ -97,9 +97,15 @@ class CreateCrowdloan(Intent):
                 raise ValueError("crowdloan 'call' needs an 'op' key")
             from ..executor import _compose_nested_intent_call, _OriginView
             from ..receiving import account_for_read
+            from ..signing import public_view
 
-            origin = _OriginView(await account_for_read(substrate, self.coldkey_address(wallet)))
-            origin._wallet = getattr(wallet, "_wallet", wallet)
+            origin = _OriginView(
+                await account_for_read(substrate, self.coldkey_address(wallet)), wallet=wallet
+            )
+            # Finalization dispatches as this same creator. Preserve its public
+            # scheme and derivation mode when selecting nested composite calls.
+            origin.crypto_type = getattr(public_view(wallet, "coldkey"), "crypto_type", None)
+            origin.account_mode = getattr(wallet, "account_mode", None)
             # Creation stores this call; it does not dispatch it under the
             # current origin's batch filter. Its guards execute on finalization.
             inner, _ = await _compose_nested_intent_call(
