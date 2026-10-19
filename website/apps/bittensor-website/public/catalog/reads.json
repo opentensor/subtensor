@@ -68,9 +68,9 @@
         "container": "SwapRuntimeApi",
         "name": "current_alpha_price_all",
         "path": "runtime/src/lib.rs",
-        "line": 2819,
-        "end_line": 2829,
-        "url": "/code/runtime/src/lib.rs#L2819-L2829",
+        "line": 2837,
+        "end_line": 2847,
+        "url": "/code/runtime/src/lib.rs#L2837-L2847",
         "raw_url": "/code/raw/runtime/src/lib.rs"
       }
     ]
@@ -1647,9 +1647,9 @@
         "container": "SwapRuntimeApi",
         "name": "sim_swap_tao_for_alpha",
         "path": "runtime/src/lib.rs",
-        "line": 2831,
-        "end_line": 2859,
-        "url": "/code/runtime/src/lib.rs#L2831-L2859",
+        "line": 2849,
+        "end_line": 2877,
+        "url": "/code/runtime/src/lib.rs#L2849-L2877",
         "raw_url": "/code/raw/runtime/src/lib.rs"
       }
     ]
@@ -1676,9 +1676,9 @@
         "container": "SwapRuntimeApi",
         "name": "sim_swap_alpha_for_tao",
         "path": "runtime/src/lib.rs",
-        "line": 2861,
-        "end_line": 2889,
-        "url": "/code/runtime/src/lib.rs#L2861-L2889",
+        "line": 2879,
+        "end_line": 2907,
+        "url": "/code/runtime/src/lib.rs#L2879-L2907",
         "raw_url": "/code/raw/runtime/src/lib.rs"
       }
     ]

@@ -36,7 +36,7 @@ position per coldkey and subnet; closing repays its total principal.
 
 | Signer | Origin | Pallet | Wraps |
 | --- | --- | --- | --- |
-| `coldkey` | signed account (pallet role may apply) | Lending | [`Lending.open`](/code/pallets/lending/src/lib.rs#L793-L815), [`Lending.open_exact`](/code/pallets/lending/src/lib.rs#L818-L841) |
+| `coldkey` | signed account (pallet role may apply) | Lending | [`Lending.open`](/code/pallets/lending/src/lib.rs#L799-L821), [`Lending.open_exact`](/code/pallets/lending/src/lib.rs#L824-L847) |
 
 ## Parameters
 
@@ -95,7 +95,7 @@ result = sub.execute_tool("open_loan", {...}, wallet)
 
 ## On-chain implementation
 
-`Lending.open` — [`pallets/lending/src/lib.rs#L795`](/code/pallets/lending/src/lib.rs#L793-L815):
+`Lending.open` — [`pallets/lending/src/lib.rs#L801`](/code/pallets/lending/src/lib.rs#L799-L821):
 
 ```rust
 #[pallet::call_index(0)]
@@ -123,7 +123,7 @@ pub fn open(
 }
 ```
 
-`Lending.open_exact` — [`pallets/lending/src/lib.rs#L820`](/code/pallets/lending/src/lib.rs#L818-L841):
+`Lending.open_exact` — [`pallets/lending/src/lib.rs#L826`](/code/pallets/lending/src/lib.rs#L824-L847):
 
 ```rust
 #[pallet::call_index(1)]

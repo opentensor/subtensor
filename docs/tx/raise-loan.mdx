@@ -11,7 +11,7 @@ legs succeed or the call rolls back. `valid_until` is a block deadline.
 
 | Signer | Origin | Pallet | Wraps |
 | --- | --- | --- | --- |
-| `coldkey` | signed account (pallet role may apply) | Lending | [`Lending.open_long_and_sell`](/code/pallets/lending/src/lib.rs#L859-L888) |
+| `coldkey` | signed account (pallet role may apply) | Lending | [`Lending.open_long_and_sell`](/code/pallets/lending/src/lib.rs#L865-L894) |
 
 ## Parameters
 
@@ -68,7 +68,7 @@ result = sub.execute_tool("raise_loan", {...}, wallet)
 
 ## On-chain implementation
 
-`Lending.open_long_and_sell` — [`pallets/lending/src/lib.rs#L862`](/code/pallets/lending/src/lib.rs#L859-L888):
+`Lending.open_long_and_sell` — [`pallets/lending/src/lib.rs#L868`](/code/pallets/lending/src/lib.rs#L865-L894):
 
 ```rust
 #[pallet::call_index(3)]
