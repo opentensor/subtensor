@@ -106,7 +106,7 @@ async def _compose_inner(substrate, view: Any, spec: dict):
     if not op:
         raise ValueError("multisig inner call needs an 'op' key")
     # Use the same recipient preparation and origin wrappers as a direct
-    # intent. Calling build alone leaves bth1_ addresses in AccountId fields
+    # intent. Calling build alone leaves tao_ addresses in AccountId fields
     # and skips the registration checks that must run inside the multisig.
     return await _compose_nested_intent_call(
         substrate, build_intent(op, args), view, wrapper="multisig"

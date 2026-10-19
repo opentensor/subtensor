@@ -9,4 +9,4 @@ def descriptor_receiving_address(key) -> str:
     version = 2 if payload[0] == 2 else 1
     domain = b"bittensor/ms/v2/receiving" if version == 2 else b"bittensor/hashed/v1/receiving"
     checksum = blake2b(domain + payload, digest_size=32).digest()[:8]
-    return f"bth{version}_" + base64.urlsafe_b64encode(payload + checksum).decode().rstrip("=")
+    return "tao_" + base64.urlsafe_b64encode(payload + checksum).decode().rstrip("=")

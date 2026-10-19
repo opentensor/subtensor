@@ -189,7 +189,7 @@ def test_wallet_list_isolates_unreadable_public_keys(wallet_path, monkeypatch, c
         assert healthy["ss58"]
         assert "receiving_address" not in healthy
     else:
-        assert healthy["receiving_address"].startswith(("bth1_", "tao_"))
+        assert healthy["receiving_address"].startswith("tao_")
         assert healthy["ss58"] == parse_recipient(healthy["receiving_address"]).account
     assert records["healthy"]["ss58"] == other.coldkeypub.ss58_address
     assert "error" not in records["healthy"]
@@ -725,7 +725,7 @@ def test_cli_evm_associate_rejects_malformed_address_before_unlock(wallet_path, 
     monkeypatch.setattr(
         association, "_key_info", lambda *_: SimpleNamespace(address="0x" + "11" * 20)
     )
-    monkeypatch.setattr(AppContext, "resolve_address", lambda *_: "bth1_bad")
+    monkeypatch.setattr(AppContext, "resolve_address", lambda *_: "tao_bad")
 
     def unexpected(*_):
         raise AssertionError("must reject before key unlock")
@@ -733,7 +733,7 @@ def test_cli_evm_associate_rejects_malformed_address_before_unlock(wallet_path, 
     monkeypatch.setattr(association, "_unlock", unexpected)
     result = _invoke("evm", "associate", "--netuid", "1")
     assert result.exit_code != 0
-    assert "61 characters" in result.output
+    assert "60 characters" in result.output
 
 
 @pytest.mark.parametrize("crypto_type", [4, 6])

@@ -39,6 +39,20 @@ GENESIS = bytes(32)
 RESERVE = 200_000_000
 
 
+@pytest.mark.parametrize("crypto_type", [4, 6, 7])
+def test_tao_receiving_address_preserves_rotating_identity(crypto_type):
+    key = Keypair.create_from_seed(bytes([91]) * 32, crypto_type)
+    address = receiving_address(key)
+    assert address.startswith("tao_")
+    recipient = parse_recipient(address)
+    assert recipient.account == key.ss58_address
+    assert recipient.descriptor == bytes(key.hashed_descriptor)
+    public = Keypair.from_hashed_descriptor(recipient.descriptor)
+    assert public.crypto_type == crypto_type
+    assert receiving_address(public) == address
+    assert receiving_address(key.at_generation(17)) == address
+
+
 async def test_registration_rejects_missing_descriptor_before_chain_access():
     chain = AsyncMock()
     with pytest.raises(ValueError, match="requires a descriptor"):
@@ -301,7 +315,7 @@ async def test_pinned_bytes_cannot_hide_receiving_inputs_inside_multisig(setup, 
 def test_address_preserves_original_descriptor_after_rotation(setup):
     _, _, key, address = setup
     recipient = parse_recipient(address)
-    assert len(address) == 61
+    assert len(address) == 60
     assert recipient.account == key.ss58_address
     assert recipient.descriptor == bytes(key.hashed_descriptor)
     assert receiving_address(key) == address
@@ -341,7 +355,7 @@ async def test_remote_wallet_object_uses_only_its_public_file(tmp_path, setup, m
     )
     plan = await Executor(chain).plan(Transfer(remote, 1), wallet)
     assert plan.extras["hashed_registration"] == remote.coldkeypub.ss58_address
-    assert plan.args["dest_ss58"].startswith("bth1_")
+    assert plan.args["dest_ss58"].startswith("tao_")
 
 
 @pytest.mark.parametrize(
@@ -353,9 +367,9 @@ async def test_bad_receiving_addresses_fail_before_composition_or_submission(set
     if case == "checksum":
         address = address[:-2] + ("A" if address[-2] != "A" else "B") + address[-1]
     elif case == "version":
-        address = "tao_" + address[5:]
+        address = "bth1_" + address.removeprefix("tao_")
     elif case == "legacy_version":
-        address = "bth2_" + address[5:]
+        address = "bth2_" + address.removeprefix("tao_")
     elif case == "whitespace":
         address = " " + address
     else:
@@ -734,8 +748,8 @@ async def test_cli_wallet_aggregations_resolve_receiving_addresses(code, indepen
     runtime_call = chain.runtime_call
 
     async def checked_runtime(api, method, params=None, **kwargs):
-        # The fake normally accepts any string; real SCALE encoding rejects bth1.
-        assert "bth1_" not in repr(params)
+        # The fake normally accepts any string; real SCALE encoding rejects receiving descriptors.
+        assert "tao_" not in repr(params)
         return await runtime_call(api, method, params, **kwargs)
 
     chain.runtime_call = checked_runtime

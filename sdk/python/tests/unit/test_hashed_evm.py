@@ -352,7 +352,7 @@ def test_cli_stake_show_rejects_malformed_hotkey_before_evm_rpc(evm_cli, monkeyp
         "bittensor.cli.commands.evm.stake._rpc",
         lambda *args: pytest.fail("EVM RPC opened for a malformed hotkey"),
     )
-    hotkey = "bth1_bad"
+    hotkey = "tao_bad"
     result = CliRunner().invoke(
         app,
         [
@@ -370,7 +370,7 @@ def test_cli_stake_show_rejects_malformed_hotkey_before_evm_rpc(evm_cli, monkeyp
         ],
     )
     assert result.exit_code != 0
-    assert "61 characters" in result.output
+    assert "60 characters" in result.output
     substrate.query.assert_not_awaited()
 
 

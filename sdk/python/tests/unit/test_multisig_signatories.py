@@ -113,7 +113,7 @@ async def test_receiving_signatory_cannot_include_the_signer(code):
 @pytest.mark.asyncio
 async def test_malformed_receiving_signatory_rejected(intent_type, kwargs, function):
     intent = intent_type(
-        other_signatories=["bth1_invalid", BOB], call=Transfer(BOB_HOT, 1).to_dict(), **kwargs
+        other_signatories=["tao_invalid", BOB], call=Transfer(BOB_HOT, 1).to_dict(), **kwargs
     )
     with pytest.raises(ValueError):
         await intent.build(FakeSubstrate(), dev_wallet())

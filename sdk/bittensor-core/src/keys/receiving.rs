@@ -13,14 +13,13 @@ use subtensor_hashed::Descriptor;
 use super::{crypto_err, Keypair, CRYPTO_MLDSA65_FIXED};
 use crate::error::CoreError;
 
-const PREFIX: &str = "bth1_";
+const PREFIX: &str = "tao_";
 const DOMAIN: &[u8] = b"bittensor/hashed/v1/receiving";
 const DESCRIPTOR_LEN: usize = 34;
 const PAYLOAD_LEN: usize = DESCRIPTOR_LEN;
 const CHECKSUM_LEN: usize = 8;
 const BODY_LEN: usize = PAYLOAD_LEN + CHECKSUM_LEN;
-const ADDRESS_LEN: usize = 61;
-const MLDSA_PREFIX: &str = "tao_";
+const ADDRESS_LEN: usize = 60;
 const MLDSA_LEGACY_PREFIX: &str = "bth2_";
 const MLDSA_ENCODED_BODY_LEN: usize = 99;
 
@@ -65,12 +64,16 @@ pub fn encode_hashed_receiving_address(descriptor: &[u8]) -> Result<String, Core
 
 /// Decode a receiving address into its original public descriptor.
 pub fn decode_hashed_receiving_address(address: &str) -> Result<Vec<u8>, CoreError> {
-    if address.starts_with(MLDSA_PREFIX) || address.starts_with(MLDSA_LEGACY_PREFIX) {
+    // Both formats share a prefix. Bound the encoded size before decoding, then
+    // validate the format-specific descriptor and checksum below.
+    if (address.starts_with(PREFIX) && address.len() == PREFIX.len() + MLDSA_ENCODED_BODY_LEN)
+        || address.starts_with(MLDSA_LEGACY_PREFIX)
+    {
         return decode_mldsa_receiving_address(address);
     }
     if address.len() != ADDRESS_LEN {
         return Err(crypto_err(
-            "hashed receiving address must be exactly 61 characters",
+            "hashed receiving address must be exactly 60 characters",
         ));
     }
     let encoded = address
@@ -123,12 +126,12 @@ pub fn encode_mldsa_receiving_address(descriptor: &[u8]) -> Result<String, CoreE
     }
     let mut body = descriptor.to_vec();
     body.extend_from_slice(&mldsa_checksum(descriptor));
-    Ok(format!("{MLDSA_PREFIX}{}", URL_SAFE_NO_PAD.encode(body)))
+    Ok(format!("{PREFIX}{}", URL_SAFE_NO_PAD.encode(body)))
 }
 
 pub fn decode_mldsa_receiving_address(address: &str) -> Result<Vec<u8>, CoreError> {
     let encoded = address
-        .strip_prefix(MLDSA_PREFIX)
+        .strip_prefix(PREFIX)
         .or_else(|| address.strip_prefix(MLDSA_LEGACY_PREFIX))
         .ok_or_else(|| crypto_err("unsupported ML-DSA receiving prefix"))?;
     if encoded.len() != MLDSA_ENCODED_BODY_LEN {
@@ -186,7 +189,7 @@ mod tests {
     fn fixed_vector_matches_independent_blake2b_and_base64_implementation() {
         // Generated with Python hashlib.blake2b(digest_size=32) and
         // base64.urlsafe_b64encode, rather than this codec.
-        const EXPECTED: &str = "bth1_AQEHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHB2_GKIFP7N0l";
+        const EXPECTED: &str = "tao_AQEHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHB2_GKIFP7N0l";
         let descriptor = descriptor();
         let address = encode_hashed_receiving_address(&descriptor).unwrap();
         assert_eq!(address, EXPECTED);
@@ -209,7 +212,7 @@ mod tests {
         );
         let mut body = descriptor.clone();
         body.extend_from_slice(&mldsa_checksum(&descriptor));
-        for prefix in [MLDSA_PREFIX, MLDSA_LEGACY_PREFIX] {
+        for prefix in [PREFIX, MLDSA_LEGACY_PREFIX] {
             let raw = format!("{prefix}{}", URL_SAFE_NO_PAD.encode(&body));
             assert!(decode_mldsa_receiving_address(&raw).is_err());
         }
@@ -219,6 +222,35 @@ mod tests {
             public.ss58_address()
         );
         assert_ne!(public.ss58_address(), key.ss58_address());
+    }
+
+    #[test]
+    fn shared_prefix_preserves_each_rotating_scheme_and_account() {
+        for crypto_type in [
+            CRYPTO_HASHED,
+            crate::keys::CRYPTO_HASHED_ED25519,
+            crate::keys::CRYPTO_MLDSA65,
+        ] {
+            let key = Keypair::from_seed(&[17; 32], crypto_type).unwrap();
+            let descriptor = key.authorization_descriptor().unwrap();
+            let address = key.hashed_receiving_address().unwrap();
+            assert!(address.starts_with(PREFIX));
+            assert_eq!(
+                decode_hashed_receiving_address(&address).unwrap(),
+                descriptor
+            );
+            let restored =
+                Keypair::from_hashed_descriptor(&descriptor, DEFAULT_SS58_FORMAT).unwrap();
+            assert_eq!(restored.crypto_type(), crypto_type);
+            assert_eq!(restored.ss58_address(), key.ss58_address());
+            assert_eq!(restored.hashed_receiving_address().unwrap(), address);
+            if crypto_type != crate::keys::CRYPTO_MLDSA65 {
+                assert_eq!(address.len(), 60);
+                assert!(decode_mldsa_receiving_address(&address).is_err());
+            } else {
+                assert_eq!(address.len(), 103);
+            }
+        }
     }
 
     #[test]
@@ -291,10 +323,10 @@ mod tests {
     fn alternate_spellings_padding_and_trailing_data_are_rejected() {
         let address = encode_hashed_receiving_address(&descriptor()).unwrap();
         for invalid in [
-            address.replacen("bth1_", "tao_", 1),
-            address.replacen("bth1_", "bth2_", 1),
-            address.replacen("bth1_", "BTH1_", 1),
-            address.replacen("bth1_", "ss58_", 1),
+            address.replacen("tao_", "bth1_", 1),
+            address.replacen("tao_", "bth2_", 1),
+            address.replacen("tao_", "TAO_", 1),
+            address.replacen("tao_", "ss58_", 1),
             format!(" {address}"),
             format!("{address}\n"),
             format!("{address}="),

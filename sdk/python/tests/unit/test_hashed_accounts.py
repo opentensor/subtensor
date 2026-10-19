@@ -429,9 +429,9 @@ def test_cli_type_creates_wallet_and_public_descriptors(
     wallet = Wallet("new", path=str(tmp_path))
     assert wallet.coldkeypub.crypto_type == CRYPTO_HASHED
     assert wallet.hotkeypub.crypto_type == expected_hotkey
-    assert "bth1_" in result.output
+    assert "tao_" in result.output
     assert wallet.coldkeypub.ss58_address in result.output
-    assert result.output.index("bth1_") < result.output.index(wallet.coldkeypub.ss58_address)
+    assert result.output.index("tao_") < result.output.index(wallet.coldkeypub.ss58_address)
     assert "Account ID (SS58)" in result.output
     assert "Use the receiving address for transactions" in result.output
     assert "explorers display the same account as SS58" in result.output

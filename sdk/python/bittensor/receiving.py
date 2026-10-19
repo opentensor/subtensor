@@ -1,6 +1,6 @@
 """Self-contained payment addresses; never discard setup data on a write path.
 
-``bth1_`` and ``tao_`` addresses carry a public descriptor and checksum.
+``tao_`` addresses carry a public descriptor and checksum.
 They contain no network field.
 Their AccountId and authorization remain the runtime's existing ones. Only the
 native codec defines the wire format and checksum.

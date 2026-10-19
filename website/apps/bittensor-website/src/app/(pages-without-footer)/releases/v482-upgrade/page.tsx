@@ -93,7 +93,7 @@ btcli wallet create --crypto-type ms --type hashed`}
                 <tr>
                   <td>Rotating SR / ED</td>
                   <td>
-                    <code>bth1_</code> receiving address
+                    <code>tao_</code> receiving address
                   </td>
                   <td>Required; 0.2 TAO deposit</td>
                 </tr>
