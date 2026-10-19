@@ -19,7 +19,7 @@ from .receiving import (
     is_receiving_address,
     parse_recipient,
 )
-from .sp_core import Keypair, is_stateless_mldsa_descriptor, requires_registration
+from .sp_core import Keypair, is_stateless_pq, is_stateless_pq_descriptor, requires_registration
 
 _REGISTRATION_TARGETS = {
     "transfer": "dest_ss58",
@@ -56,7 +56,7 @@ def descriptor_storage(descriptor: bytes) -> str:
 
 
 async def protected_account_record(substrate, account: str, *, block_hash=None):
-    """Resolve direct and derived protection without querying absent ML-DSA metadata.
+    """Resolve direct and derived protection without querying absent post-quantum metadata.
 
     Derived records are authority policies, never direct signing descriptors.
     Registrations remain authoritative when authorization/setup is paused.
@@ -85,7 +85,7 @@ async def is_pq_required(substrate, account: str, *, block_hash=None) -> bool:
 async def compose_derivative(substrate, parent, index: int, call, *, account_mode=None):
     """Wrap exact call bytes using the actual parent's derivation mode.
 
-    A fixed MS key/wallet or safe composite view defaults to safe derivation.
+    A fixed post-quantum key/wallet or safe composite view defaults to safe derivation.
     A bare SS58 needs explicit ``account_mode="safe"``; its key type cannot
     be inferred. Legacy mode retains registered rotating-account protection.
     """
@@ -98,7 +98,7 @@ async def compose_derivative(substrate, parent, index: int, call, *, account_mod
         if account_mode is None:
             account_mode = getattr(parent, "account_mode", None)
         public = public_view(parent, "coldkey")
-        if account_mode is None and getattr(public, "crypto_type", None) == 8:
+        if account_mode is None and is_stateless_pq(public):
             account_mode = "safe"
         warn_legacy_mldsa(account_mode or "legacy", public, composite="derivative")
         parent = public.ss58_address
@@ -188,7 +188,11 @@ async def multisig_protection_call(
 async def descriptor_registration_enabled(substrate, descriptor: bytes, *, block_hash=None):
     if descriptor_storage(descriptor) == "Accounts":
         return await hashed_accounts_enabled(substrate, block_hash=block_hash)
-    if descriptor[1] == 5:
+    if descriptor[1] in (6, 7, 8, 9):
+        profiles = await substrate.constant("HashedAccounts", "FalconAccountProfiles")
+        if not supports_fixed_profile(profiles, descriptor[1]):
+            return None
+    elif descriptor[1] == 5:
         profiles = await substrate.constant("HashedAccounts", "MldsaAccountProfiles")
         if not supports_fixed_profile(profiles):
             return None
@@ -252,8 +256,12 @@ def descriptor_bytes(value: dict) -> bytes:
     """Validate the versioned public descriptor decoded from chain storage."""
     if value.get("version") == 2:
         commitment = raw_bytes(value["initial_commitment"])
-        if value.get("algorithm") not in (4, 5) or len(commitment) != 64 or not any(commitment):
-            raise ValueError("unsupported ML-DSA descriptor")
+        if (
+            value.get("algorithm") not in (4, 5, 6, 7, 8, 9)
+            or len(commitment) != 64
+            or not any(commitment)
+        ):
+            raise ValueError("unsupported post-quantum descriptor")
         return bytes((2, value["algorithm"])) + commitment
     scheme = value["scheme"]
     if isinstance(scheme, dict) and len(scheme) == 1:
@@ -271,7 +279,8 @@ def descriptor_value(descriptor: bytes) -> dict:
     """Convert the native key's SCALE descriptor to its stored descriptor fields."""
     if (
         len(descriptor) == 66
-        and descriptor[:2] in (b"\x02\x04", b"\x02\x05")
+        and descriptor[0] == 2
+        and descriptor[1] in (4, 5, 6, 7, 8, 9)
         and any(descriptor[2:])
     ):
         return {
@@ -299,7 +308,12 @@ def descriptor_value(descriptor: bytes) -> dict:
 def registration_descriptor_value(descriptor: bytes) -> dict:
     """Select the original register/check call's explicit authentication scheme."""
     value = descriptor_value(descriptor)
-    return {"MlDsa65" if descriptor[0] == 2 else "Classical": value}
+    variant = (
+        "Falcon"
+        if descriptor[0] == 2 and descriptor[1] in (6, 7, 8, 9)
+        else ("MlDsa65" if descriptor[0] == 2 else "Classical")
+    )
+    return {variant: value}
 
 
 def _local_descriptor(wallet: Any, address: str) -> bytes | None:
@@ -441,13 +455,13 @@ async def with_recipient_registration(
             public = Keypair.from_hashed_descriptor(descriptor)
             if public.ss58_address != address or (typed and typed.descriptor != descriptor):
                 raise ValueError("hashed descriptor does not match the destination address")
-            if is_stateless_mldsa_descriptor(descriptor):
+            if is_stateless_pq_descriptor(descriptor):
                 await _require_receiving_support(substrate, descriptor)
                 recipients.pop(parameter, None)
             else:
                 recipients[parameter] = typed or Recipient(address, address, descriptor)
     for name, recipient in list(recipients.items()):
-        if recipient.descriptor is not None and is_stateless_mldsa_descriptor(recipient.descriptor):
+        if recipient.descriptor is not None and is_stateless_pq_descriptor(recipient.descriptor):
             public = Keypair.from_hashed_descriptor(recipient.descriptor)
             if public.ss58_address != recipient.account:
                 raise ValueError("hashed descriptor does not match the destination address")

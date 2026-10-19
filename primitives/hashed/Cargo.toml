@@ -12,6 +12,13 @@ sp-core.workspace = true
 sp-io = { workspace = true, optional = true }
 fips204 = { path = "../../vendor/fips204", default-features = false, features = ["ml-dsa-65"] }
 sha3 = { version = "0.10.8", default-features = false }
+# Freeze the original Falcon padded format and deterministic key generation.
+# The 0.4 series is an incompatible, pre-standard FN-DSA format.
+fn-dsa-comm = { version = "=0.3.0", default-features = false, features = ["no_avx2"] }
+fn-dsa-vrfy = { version = "=0.3.0", default-features = false, features = ["no_avx2"] }
+fn-dsa-kgen = { version = "=0.3.0", default-features = false, features = ["no_avx2"], optional = true }
+fn-dsa-sign = { version = "=0.3.0", default-features = false, features = ["no_avx2"], optional = true }
+zeroize = { version = "1", default-features = false, features = ["alloc"], optional = true }
 
 [dev-dependencies]
 hex = { workspace = true, features = ["alloc"] }
@@ -22,5 +29,6 @@ workspace = true
 
 [features]
 default = ["std", "verify"]
-std = ["hex/std", "serde_json/std", "codec/std", "scale-info/std", "sha3/std", "sp-core/std", "sp-io?/std"]
+std = ["hex/std", "serde_json/std", "codec/std", "scale-info/std", "sha3/std", "sp-core/std", "sp-io?/std", "signing", "zeroize?/std"]
 verify = ["dep:sp-io"]
+signing = ["dep:fn-dsa-kgen", "dep:fn-dsa-sign", "dep:zeroize"]

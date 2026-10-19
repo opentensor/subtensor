@@ -27,7 +27,13 @@ from bittensor.hashed import (
 )
 from bittensor.intents import Transfer
 from bittensor.receiving import account_for_registered_write, parse_recipient, receiving_address
-from bittensor.sp_core import CRYPTO_MLDSA65, Keypair, account_crypto_type
+from bittensor.sp_core import (
+    CRYPTO_MLDSA65,
+    FIXED_PQ_CRYPTO_TYPES,
+    PQ_CRYPTO_TYPES,
+    Keypair,
+    account_crypto_type,
+)
 from tests.conftest import golden_codec
 from tests.harness.fake_substrate import FakeSubstrate
 from tests.harness.samples import dev_wallet
@@ -45,7 +51,7 @@ def wallet(request):
 
 
 def record(wallet, generation=7):
-    if wallet.crypto_type == 8:
+    if wallet.crypto_type in FIXED_PQ_CRYPTO_TYPES:
         generation = 0
     return {
         "descriptor": descriptor_value(bytes(wallet.hashed_descriptor)),
@@ -58,6 +64,7 @@ def chain():
     substrate = FakeSubstrate()
     substrate.seed("AdminUtils", "HashedAccountsEnabled", [], True)
     substrate.seed_constant("HashedAccounts", "MldsaAccountProfiles", "0x0405")
+    substrate.seed_constant("HashedAccounts", "FalconAccountProfiles", "0x06070809")
     substrate.seed_constant("HashedAccounts", "RegistrationDeposit", 100)
     substrate.seed_constant("HashedAccounts", "MlDsaRegistrationDeposit", 200)
     substrate.seed_constant("HashedAccounts", "DerivedRegistrationDeposit", 200)
@@ -73,6 +80,8 @@ class Codec:
         assert pallet == "HashedAccounts"
         if name == "MldsaAccountProfiles":
             return "0x0405"
+        if name == "FalconAccountProfiles":
+            return "0x06070809"
         assert name in ("MlDsaRegistrationDeposit", "RegistrationDeposit")
         return 200
 
@@ -87,7 +96,7 @@ class Codec:
     def encode_signed_extrinsic(
         self, call, *, public_key, signature, signature_version, nonce, **_kwargs
     ):
-        assert signature_version in (4, 6, 7, 8)
+        assert signature_version in (4, 6, *PQ_CRYPTO_TYPES)
         self.proof = bytes(signature)
         self.nonce = nonce
         self.account = bytes(public_key)
@@ -113,7 +122,7 @@ def connection(wallet):
             return True
         assert params == [wallet.ss58_address]
         if pallet == "HashedAccounts" and item == (
-            "MlDsaAccounts" if wallet.crypto_type in (7, 8) else "Accounts"
+            "MlDsaAccounts" if wallet.crypto_type in PQ_CRYPTO_TYPES else "Accounts"
         ):
             return state
         assert (pallet, item) == ("System", "Account")
@@ -390,7 +399,7 @@ async def test_pq_multisig_requires_quorum_registration_before_funding(wallet):
     assert transfer.params == {"dest": group.address, "value": 1_000_000}
 
 
-@pytest.mark.parametrize("crypto", [4, 6, 7])
+@pytest.mark.parametrize("crypto", [4, 6, 7, 10, 12])
 async def test_shield_pair_uses_one_finalized_generation_snapshot_and_rejects_race(crypto):
     from dataclasses import replace
 
@@ -403,7 +412,7 @@ async def test_shield_pair_uses_one_finalized_generation_snapshot_and_rejects_ra
     await conn.create_signed_extrinsic(
         b"inner", wallet, nonce=14, hashed_generation_offset=1, hashed_signing_snapshot=snapshot
     )
-    offset = 34 if crypto in (7, 8) else 0
+    offset = 34 if crypto in PQ_CRYPTO_TYPES else 0
     assert int.from_bytes(codec.proof[offset : offset + 8], "little") == 8
     conn.get_chain_finalised_head.return_value = "0xnew-head-must-not-change-authority"
     await conn.create_signed_extrinsic(b"outer", wallet, nonce=13, hashed_signing_snapshot=snapshot)
@@ -419,7 +428,7 @@ async def test_shield_pair_uses_one_finalized_generation_snapshot_and_rejects_ra
         )
 
 
-@pytest.mark.parametrize("crypto", [4, 6, 7])
+@pytest.mark.parametrize("crypto", [4, 6, 7, 10, 12])
 async def test_executor_pairs_same_snapshot_and_refuses_intervening_acceptance(monkeypatch, crypto):
     from bittensor.executor import Executor
 
@@ -470,7 +479,7 @@ async def test_fixed_profile_rejects_old_runtime_before_private_key_use():
     private = Mock(wraps=fixed)
     private.crypto_type = fixed.crypto_type
     private.hashed_descriptor = fixed.hashed_descriptor
-    with pytest.raises(SubstrateRequestException, match="standard MS"):
+    with pytest.raises(SubstrateRequestException, match="standard post-quantum"):
         await conn.create_signed_extrinsic(b"call", private)
     private.at_generation.assert_not_called()
     assert not hasattr(codec, "proof")
@@ -492,7 +501,7 @@ def test_fixed_profile_rejects_absent_or_malformed_advertisements(profiles):
     assert not supports_fixed_profile(profiles)
 
 
-@pytest.mark.parametrize("crypto", [4, 6, 7])
+@pytest.mark.parametrize("crypto", [4, 6, 7, 10, 12])
 @pytest.mark.parametrize("enabled", [False, None])
 async def test_master_switch_blocks_registered_signing_and_receiving(crypto, enabled):
     wallet = key(crypto)
@@ -525,7 +534,7 @@ async def test_master_switch_blocks_registered_signing_and_receiving(crypto, ena
         )
 
 
-@pytest.mark.parametrize("crypto", [4, 6, 7])
+@pytest.mark.parametrize("crypto", [4, 6, 7, 10, 12])
 async def test_shield_quote_counts_complete_registered_envelope_without_signing(crypto):
     from bittensor._transport.extrinsics import SHIELD_ENCRYPTION_OVERHEAD
 
@@ -552,7 +561,7 @@ async def test_shield_quote_counts_complete_registered_envelope_without_signing(
     assert conn.get_payment_info.call_args.kwargs == {"nonce": 13, "era": {"period": 8}}
 
 
-@pytest.mark.parametrize("crypto", [4, 6, 7])
+@pytest.mark.parametrize("crypto", [4, 6, 7, 10, 12])
 @pytest.mark.parametrize("nonce", [63, 16383, 2**30 - 1])
 @pytest.mark.parametrize("carrier_size", [8192, 8193, 32768, 32769])
 async def test_registered_shield_quote_preserves_compact_nonce_boundaries(

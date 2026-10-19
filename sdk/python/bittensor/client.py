@@ -558,6 +558,10 @@ class Client:
         composed = call if hasattr(call, "data") else await self._substrate.compose(call)
         return await self._substrate.prepare_mldsa(composed, descriptor=descriptor, **kwargs)
 
+    async def prepare_pq_call(self, call, *, descriptor: bytes, **kwargs):
+        """Prepare an MS or Falcon transaction for an explicitly supporting signer."""
+        return await self.prepare_mldsa_call(call, descriptor=descriptor, **kwargs)
+
     async def submit_signature(
         self, unsigned: UnsignedExtrinsic, signature: bytes | str, **kwargs
     ) -> ExtrinsicResult:

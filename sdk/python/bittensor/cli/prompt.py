@@ -708,7 +708,7 @@ def _run_app(app: typer.Typer) -> None:
                 "--hotkey-crypto-type",
             }:
                 error.message += (
-                    " Choose sr (sr25519), ed (ed25519), or ms (ML-DSA-65); "
+                    " Choose sr (sr25519), ed (ed25519), ms (ML-DSA-65), falcon512, or falcon1024; "
                     "use --type hashed for rotation."
                 )
             if isinstance(error, click_exceptions.BadOptionUsage) and error.option_name in {

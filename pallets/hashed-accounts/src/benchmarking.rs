@@ -54,6 +54,62 @@ fn setup_mldsa<T: Config>() -> Result<
     Ok((sponsor, descriptor, account, seed))
 }
 
+fn setup_falcon<T: Config>(
+    profile: u8,
+    n: u32,
+) -> Result<
+    (
+        AccountId32,
+        subtensor_hashed::falcon::SignerAddress,
+        alloc::vec::Vec<u8>,
+    ),
+    BenchmarkError,
+> {
+    use subtensor_hashed::{falcon, mldsa};
+    let sponsor: AccountId32 = whitelisted_caller();
+    let _ = T::Currency::make_free_balance_be(&sponsor, BalanceOf::<T>::max_value());
+    for attempt in 0u32..256 {
+        let mut seed = [57; 32];
+        seed.get_mut(..4)
+            .ok_or(BenchmarkError::Stop("seed"))?
+            .copy_from_slice(&attempt.to_le_bytes());
+        let public = falcon::public_key_from_seed(profile, &seed).map_err(BenchmarkError::Stop)?;
+        let descriptor = mldsa::Descriptor {
+            version: falcon::VERSION,
+            algorithm: profile,
+            initial_commitment: falcon::commitment(profile, &public)
+                .map_err(BenchmarkError::Stop)?,
+        };
+        let id = mldsa::account_id(&descriptor);
+        if descriptor.is_stateless() && !mldsa::rejects_legacy_public_keys(&id) {
+            continue;
+        }
+        let account = AccountId32::new(id);
+        T::OnRegister::setup_benchmark_mldsa(&account, &sponsor, &descriptor)?;
+        if descriptor.is_rotating() {
+            Pallet::<T>::register(RawOrigin::Signed(sponsor).into(), descriptor.into())?;
+        }
+        let payload = alloc::vec![0u8; n.saturating_add(4096) as usize];
+        let header = falcon::Header {
+            account: id,
+            version: falcon::VERSION,
+            algorithm: profile,
+            generation: 0,
+            public_key: public,
+            next_commitment: if descriptor.is_stateless() {
+                descriptor.initial_commitment
+            } else {
+                [9; 64]
+            },
+        };
+        let proof = header
+            .sign(&seed, &payload, &[0; 32])
+            .map_err(BenchmarkError::Stop)?;
+        return Ok((account, proof, payload));
+    }
+    Err(BenchmarkError::Stop("safe Falcon account search exhausted"))
+}
+
 fn setup_derived<T: Config>() -> Result<(AccountId32, DerivedDescriptor), BenchmarkError> {
     let (sponsor, descriptor, leaf, _) = setup_mldsa::<T>()?;
     Pallet::<T>::register(RawOrigin::Signed(sponsor.clone()).into(), descriptor.into())?;
@@ -153,6 +209,47 @@ mod benchmarks {
             CapabilityEpochs::<T>::get(account, CapabilityRole::Message),
             2
         );
+        Ok(())
+    }
+
+    #[benchmark]
+    fn register_falcon() -> Result<(), BenchmarkError> {
+        let sponsor: AccountId32 = whitelisted_caller();
+        let _ = T::Currency::make_free_balance_be(&sponsor, BalanceOf::<T>::max_value());
+        let descriptor = subtensor_hashed::mldsa::Descriptor {
+            version: 2,
+            algorithm: subtensor_hashed::falcon::ALGORITHM_1024,
+            initial_commitment: [8; 64],
+        };
+        let account = AccountId32::new(subtensor_hashed::mldsa::account_id(&descriptor));
+        T::OnRegister::setup_benchmark_mldsa(&account, &sponsor, &descriptor)?;
+        #[extrinsic_call]
+        register(
+            RawOrigin::Signed(sponsor),
+            RegistrationDescriptor::Falcon(descriptor),
+        );
+        assert!(MlDsaAccounts::<T>::contains_key(account));
+        Ok(())
+    }
+
+    #[benchmark]
+    fn check_registered_falcon() -> Result<(), BenchmarkError> {
+        let sponsor: AccountId32 = whitelisted_caller();
+        let _ = T::Currency::make_free_balance_be(&sponsor, BalanceOf::<T>::max_value());
+        let descriptor = subtensor_hashed::mldsa::Descriptor {
+            version: 2,
+            algorithm: subtensor_hashed::falcon::ALGORITHM_1024,
+            initial_commitment: [8; 64],
+        };
+        let account = AccountId32::new(subtensor_hashed::mldsa::account_id(&descriptor));
+        T::OnRegister::setup_benchmark_mldsa(&account, &sponsor, &descriptor)?;
+        Pallet::<T>::register(RawOrigin::Signed(sponsor.clone()).into(), descriptor.into())?;
+        #[extrinsic_call]
+        check_registered(
+            RawOrigin::Signed(sponsor),
+            RegistrationDescriptor::Falcon(descriptor),
+        );
+        assert_eq!(MlDsaAccounts::<T>::get(account).unwrap().generation, 0);
         Ok(())
     }
 
@@ -291,6 +388,246 @@ mod benchmarks {
             assert!(!proof.verify(&payload));
         }
         assert_eq!(MlDsaAccounts::<T>::get(account).unwrap().generation, 0);
+        Ok(())
+    }
+
+    #[benchmark]
+    fn authorize_falcon512(n: Linear<0, 10485760>) -> Result<(), BenchmarkError> {
+        let (account, proof, implication) =
+            setup_falcon::<T>(subtensor_hashed::falcon::ALGORITHM_512, n)?;
+        let encoded = proof.encode();
+        #[block]
+        {
+            let parsed = subtensor_hashed::falcon::SignerAddress::from_bytes(&encoded).unwrap();
+            let header = parsed.header();
+            Pallet::<T>::check_mldsa_authorization(
+                &account,
+                header.algorithm,
+                &header.public_key,
+                header.generation,
+                header.next_commitment,
+            )
+            .unwrap();
+            let proof = subtensor_hashed::falcon::SignerAddress::from_bytes(&encoded).unwrap();
+            let ticket = Pallet::<T>::check_mldsa_authorization(
+                &account,
+                proof.algorithm,
+                &proof.public_key,
+                proof.generation,
+                proof.next_commitment,
+            )
+            .unwrap();
+            assert!(proof.verify(&implication.clone()));
+            Pallet::<T>::advance_mldsa(&ticket).unwrap();
+        }
+        Ok(())
+    }
+
+    #[benchmark]
+    fn authorize_falcon512_invalid(n: Linear<0, 10485760>) -> Result<(), BenchmarkError> {
+        let (account, mut proof, implication) =
+            setup_falcon::<T>(subtensor_hashed::falcon::ALGORITHM_512, n)?;
+        // Change the nonce, retaining a canonical signature requiring full verification.
+        *proof
+            .signature
+            .get_mut(1)
+            .ok_or(BenchmarkError::Stop("signature nonce"))? ^= 1;
+        let encoded = proof.encode();
+        #[block]
+        {
+            let parsed = subtensor_hashed::falcon::SignerAddress::from_bytes(&encoded).unwrap();
+            let header = parsed.header();
+            let proof = subtensor_hashed::falcon::SignerAddress::from_bytes(&encoded).unwrap();
+            let _ticket = Pallet::<T>::check_mldsa_authorization(
+                &account,
+                header.algorithm,
+                &header.public_key,
+                header.generation,
+                header.next_commitment,
+            )
+            .unwrap();
+            assert!(!proof.verify(&implication.clone()));
+        }
+        Ok(())
+    }
+
+    #[benchmark]
+    fn authorize_falcon1024(n: Linear<0, 10485760>) -> Result<(), BenchmarkError> {
+        let (account, proof, implication) =
+            setup_falcon::<T>(subtensor_hashed::falcon::ALGORITHM_1024, n)?;
+        let encoded = proof.encode();
+        #[block]
+        {
+            let parsed = subtensor_hashed::falcon::SignerAddress::from_bytes(&encoded).unwrap();
+            let header = parsed.header();
+            Pallet::<T>::check_mldsa_authorization(
+                &account,
+                header.algorithm,
+                &header.public_key,
+                header.generation,
+                header.next_commitment,
+            )
+            .unwrap();
+            let proof = subtensor_hashed::falcon::SignerAddress::from_bytes(&encoded).unwrap();
+            let ticket = Pallet::<T>::check_mldsa_authorization(
+                &account,
+                proof.algorithm,
+                &proof.public_key,
+                proof.generation,
+                proof.next_commitment,
+            )
+            .unwrap();
+            assert!(proof.verify(&implication.clone()));
+            Pallet::<T>::advance_mldsa(&ticket).unwrap();
+        }
+        Ok(())
+    }
+
+    #[benchmark]
+    fn authorize_falcon1024_invalid(n: Linear<0, 10485760>) -> Result<(), BenchmarkError> {
+        let (account, mut proof, implication) =
+            setup_falcon::<T>(subtensor_hashed::falcon::ALGORITHM_1024, n)?;
+        // Change the nonce, retaining a canonical signature requiring full verification.
+        *proof
+            .signature
+            .get_mut(1)
+            .ok_or(BenchmarkError::Stop("signature nonce"))? ^= 1;
+        let encoded = proof.encode();
+        #[block]
+        {
+            let parsed = subtensor_hashed::falcon::SignerAddress::from_bytes(&encoded).unwrap();
+            let header = parsed.header();
+            let proof = subtensor_hashed::falcon::SignerAddress::from_bytes(&encoded).unwrap();
+            let _ticket = Pallet::<T>::check_mldsa_authorization(
+                &account,
+                header.algorithm,
+                &header.public_key,
+                header.generation,
+                header.next_commitment,
+            )
+            .unwrap();
+            assert!(!proof.verify(&implication.clone()));
+        }
+        Ok(())
+    }
+
+    #[benchmark]
+    fn authorize_fixed_falcon512(n: Linear<0, 10485760>) -> Result<(), BenchmarkError> {
+        let (account, proof, implication) =
+            setup_falcon::<T>(subtensor_hashed::falcon::FIXED_ALGORITHM_512, n)?;
+        let encoded = proof.encode();
+        #[block]
+        {
+            let parsed = subtensor_hashed::falcon::SignerAddress::from_bytes(&encoded).unwrap();
+            let header = parsed.header();
+            Pallet::<T>::check_mldsa_authorization(
+                &account,
+                header.algorithm,
+                &header.public_key,
+                header.generation,
+                header.next_commitment,
+            )
+            .unwrap();
+            let proof = subtensor_hashed::falcon::SignerAddress::from_bytes(&encoded).unwrap();
+            let ticket = Pallet::<T>::check_mldsa_authorization(
+                &account,
+                proof.algorithm,
+                &proof.public_key,
+                proof.generation,
+                proof.next_commitment,
+            )
+            .unwrap();
+            assert!(proof.verify(&implication.clone()));
+            Pallet::<T>::advance_mldsa(&ticket).unwrap();
+        }
+        Ok(())
+    }
+
+    #[benchmark]
+    fn authorize_fixed_falcon512_invalid(n: Linear<0, 10485760>) -> Result<(), BenchmarkError> {
+        let (account, mut proof, implication) =
+            setup_falcon::<T>(subtensor_hashed::falcon::FIXED_ALGORITHM_512, n)?;
+        // Change the nonce, retaining a canonical signature requiring full verification.
+        *proof
+            .signature
+            .get_mut(1)
+            .ok_or(BenchmarkError::Stop("signature nonce"))? ^= 1;
+        let encoded = proof.encode();
+        #[block]
+        {
+            let parsed = subtensor_hashed::falcon::SignerAddress::from_bytes(&encoded).unwrap();
+            let header = parsed.header();
+            let proof = subtensor_hashed::falcon::SignerAddress::from_bytes(&encoded).unwrap();
+            let _ticket = Pallet::<T>::check_mldsa_authorization(
+                &account,
+                header.algorithm,
+                &header.public_key,
+                header.generation,
+                header.next_commitment,
+            )
+            .unwrap();
+            assert!(!proof.verify(&implication.clone()));
+        }
+        Ok(())
+    }
+
+    #[benchmark]
+    fn authorize_fixed_falcon1024(n: Linear<0, 10485760>) -> Result<(), BenchmarkError> {
+        let (account, proof, implication) =
+            setup_falcon::<T>(subtensor_hashed::falcon::FIXED_ALGORITHM_1024, n)?;
+        let encoded = proof.encode();
+        #[block]
+        {
+            let parsed = subtensor_hashed::falcon::SignerAddress::from_bytes(&encoded).unwrap();
+            let header = parsed.header();
+            Pallet::<T>::check_mldsa_authorization(
+                &account,
+                header.algorithm,
+                &header.public_key,
+                header.generation,
+                header.next_commitment,
+            )
+            .unwrap();
+            let proof = subtensor_hashed::falcon::SignerAddress::from_bytes(&encoded).unwrap();
+            let ticket = Pallet::<T>::check_mldsa_authorization(
+                &account,
+                proof.algorithm,
+                &proof.public_key,
+                proof.generation,
+                proof.next_commitment,
+            )
+            .unwrap();
+            assert!(proof.verify(&implication.clone()));
+            Pallet::<T>::advance_mldsa(&ticket).unwrap();
+        }
+        Ok(())
+    }
+
+    #[benchmark]
+    fn authorize_fixed_falcon1024_invalid(n: Linear<0, 10485760>) -> Result<(), BenchmarkError> {
+        let (account, mut proof, implication) =
+            setup_falcon::<T>(subtensor_hashed::falcon::FIXED_ALGORITHM_1024, n)?;
+        // Change the nonce, retaining a canonical signature requiring full verification.
+        *proof
+            .signature
+            .get_mut(1)
+            .ok_or(BenchmarkError::Stop("signature nonce"))? ^= 1;
+        let encoded = proof.encode();
+        #[block]
+        {
+            let parsed = subtensor_hashed::falcon::SignerAddress::from_bytes(&encoded).unwrap();
+            let header = parsed.header();
+            let proof = subtensor_hashed::falcon::SignerAddress::from_bytes(&encoded).unwrap();
+            let _ticket = Pallet::<T>::check_mldsa_authorization(
+                &account,
+                header.algorithm,
+                &header.public_key,
+                header.generation,
+                header.next_commitment,
+            )
+            .unwrap();
+            assert!(!proof.verify(&implication.clone()));
+        }
         Ok(())
     }
 

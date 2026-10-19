@@ -1558,6 +1558,63 @@ impl pallet_limit_orders::OrderCapabilities for MlDsaOrderCapabilities {
             fill_amount,
         )
     }
+    fn check_falcon(
+        owner: &AccountId,
+        epoch: u64,
+        algorithm: u8,
+        public_key: &[u8],
+        order: &pallet_limit_orders::OrderView<AccountId>,
+        full_amount: u64,
+        fill_amount: u64,
+    ) -> DispatchResult {
+        HashedAccounts::check_falcon_order_capability(
+            owner,
+            epoch,
+            algorithm,
+            public_key,
+            <u16 as From<NetUid>>::from(order.netuid),
+            &order.hotkey,
+            &order.fee_recipient,
+            order.fee_rate.deconstruct(),
+            order.order_type.is_buy(),
+            full_amount,
+            fill_amount,
+        )
+    }
+    #[cfg(feature = "runtime-benchmarks")]
+    fn setup_falcon_benchmark(
+        owner: &AccountId,
+        epoch: u64,
+        algorithm: u8,
+        public_key: &[u8],
+        order: &pallet_limit_orders::OrderView<AccountId>,
+    ) -> DispatchResult {
+        hashed_auth::setup_pq_benchmark_parent(owner)?;
+        pallet_hashed_accounts::CapabilityEpochs::<Runtime>::insert(
+            owner,
+            pallet_hashed_accounts::CapabilityRole::Order,
+            epoch.saturating_sub(1),
+        );
+        HashedAccounts::do_install_capability(
+            owner,
+            epoch,
+            subtensor_hashed::falcon::commitment(algorithm, public_key)
+                .map_err(sp_runtime::DispatchError::Other)?,
+            u64::MAX,
+            pallet_hashed_accounts::CapabilityScope::Trading(
+                pallet_hashed_accounts::TradingScope {
+                    netuid: <u16 as From<NetUid>>::from(order.netuid),
+                    hotkey: order.hotkey.clone(),
+                    fee_recipient: order.fee_recipient.clone(),
+                    max_fee_perbill: 1_000_000_000,
+                    max_tao_per_order: u64::MAX,
+                    max_alpha_per_order: u64::MAX,
+                    total_tao: u64::MAX,
+                    total_alpha: u64::MAX,
+                },
+            ),
+        )
+    }
     fn consume(owner: &AccountId, epoch: u64, is_buy: bool, fill_amount: u64) -> DispatchResult {
         HashedAccounts::consume_order_capability(owner, epoch, is_buy, fill_amount)
     }

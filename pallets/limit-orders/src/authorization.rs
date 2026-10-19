@@ -6,6 +6,7 @@ use frame_support::{dispatch::DispatchResult, ensure, traits::Get, transactional
 use sp_runtime::traits::Zero;
 
 pub const ORDER_CONTEXT: &[u8] = b"bittensor/ms/v2/order";
+pub const FALCON_ORDER_CONTEXT: &[u8] = b"bittensor/falcon/v1/order";
 pub const ORDER_DOMAIN: &[u8] = b"bittensor/ms/v2/order";
 pub const ORDER_ID_DOMAIN: &[u8] = b"bittensor/ms/v2/order-id";
 /// The new batch has a fixed proof-byte ceiling independent of legacy batching.
@@ -22,6 +23,18 @@ pub struct MlDsaOrderProof {
     pub signature: BoundedVec<u8, ConstU32<3309>>,
 }
 
+/// The profile fixes the exact public-key and padded-signature sizes. Bounded
+/// vectors keep allocations and metadata bounded before cryptographic work.
+#[derive(
+    Clone, Debug, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen,
+)]
+pub struct FalconOrderProof {
+    pub algorithm: u8,
+    pub epoch: u64,
+    pub public_key: BoundedVec<u8, ConstU32<1793>>,
+    pub signature: BoundedVec<u8, ConstU32<1280>>,
+}
+
 #[allow(clippy::large_enum_variant)]
 #[derive(
     Clone, Debug, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen,
@@ -31,6 +44,8 @@ pub enum OrderAuthorization {
     AccountApproved,
     #[codec(index = 1)]
     MlDsa(MlDsaOrderProof),
+    #[codec(index = 2)]
+    Falcon(FalconOrderProof),
 }
 
 #[derive(
@@ -60,11 +75,16 @@ pub enum OrderSignature {
     AccountApproved,
     #[codec(index = 4)]
     MlDsa(Box<MlDsaOrderProof>),
+    #[codec(index = 5)]
+    Falcon(Box<FalconOrderProof>),
 }
 
 impl OrderSignature {
     pub fn is_authenticated(&self) -> bool {
-        matches!(self, Self::AccountApproved | Self::MlDsa(_))
+        matches!(
+            self,
+            Self::AccountApproved | Self::MlDsa(_) | Self::Falcon(_)
+        )
     }
 
     pub fn verify(&self, message: &[u8], signer: &AccountId32) -> bool {
@@ -73,7 +93,7 @@ impl OrderSignature {
             Self::Ed25519(signature) => MultiSignature::Ed25519(*signature),
             Self::Sr25519(signature) => MultiSignature::Sr25519(*signature),
             Self::Ecdsa(signature) => MultiSignature::Ecdsa(*signature),
-            Self::AccountApproved | Self::MlDsa(_) => return false,
+            Self::AccountApproved | Self::MlDsa(_) | Self::Falcon(_) => return false,
         };
         signature.verify(message, signer)
     }
@@ -97,6 +117,7 @@ impl TryFrom<AuthorizedOrder> for SignedOrder<AccountId32> {
             signature: match signed.authorization {
                 OrderAuthorization::AccountApproved => OrderSignature::AccountApproved,
                 OrderAuthorization::MlDsa(proof) => OrderSignature::MlDsa(Box::new(proof)),
+                OrderAuthorization::Falcon(proof) => OrderSignature::Falcon(Box::new(proof)),
             },
             partial_fill: signed.partial_fill,
         })
@@ -114,6 +135,31 @@ pub trait OrderCapabilities {
         full_amount: u64,
         fill_amount: u64,
     ) -> DispatchResult;
+    fn check_falcon(
+        _owner: &AccountId32,
+        _epoch: u64,
+        _algorithm: u8,
+        _public_key: &[u8],
+        _order: &OrderView<AccountId32>,
+        _full_amount: u64,
+        _fill_amount: u64,
+    ) -> DispatchResult {
+        Err(sp_runtime::DispatchError::Other(
+            "FalconCapabilitiesUnsupported",
+        ))
+    }
+    #[cfg(feature = "runtime-benchmarks")]
+    fn setup_falcon_benchmark(
+        _owner: &AccountId32,
+        _epoch: u64,
+        _algorithm: u8,
+        _public_key: &[u8],
+        _order: &OrderView<AccountId32>,
+    ) -> DispatchResult {
+        Err(sp_runtime::DispatchError::Other(
+            "FalconCapabilitiesUnsupported",
+        ))
+    }
     fn consume(owner: &AccountId32, epoch: u64, is_buy: bool, fill_amount: u64) -> DispatchResult;
 
     #[cfg(feature = "runtime-benchmarks")]
@@ -170,6 +216,7 @@ impl<T: Config> Pallet<T> {
         let authorization = match &signed.signature {
             OrderSignature::AccountApproved => OrderAuthorization::AccountApproved,
             OrderSignature::MlDsa(proof) => OrderAuthorization::MlDsa(proof.as_ref().clone()),
+            OrderSignature::Falcon(proof) => OrderAuthorization::Falcon(proof.as_ref().clone()),
             _ => return Err(Error::<T>::InvalidAuthorizationMode.into()),
         };
         Ok(Some(AuthorizedOrder {
@@ -209,7 +256,32 @@ impl<T: Config> Pallet<T> {
         } else {
             // The two-dimensional reference benchmark covers total entries 8..max
             // and authenticated entries 1..8. Small batches charge its minimum.
-            T::WeightInfo::execute_authenticated_orders((orders.len() as u32).max(8), count)
+            let n = (orders.len() as u32).max(8);
+            let has_other_authorization = orders.iter().any(|order| {
+                (order.order.is_authorized() || order.signature.is_authenticated())
+                    && !matches!(order.signature, OrderSignature::Falcon(_))
+            });
+            let mut weight = if has_other_authorization {
+                T::WeightInfo::execute_authenticated_orders(n, count)
+            } else {
+                frame_support::weights::Weight::zero()
+            };
+            // Mixed batches charge the maximum measured proof profile for every
+            // authenticated entry; no signature can hide behind another tier.
+            for order in orders {
+                if let OrderSignature::Falcon(proof) = &order.signature {
+                    weight = weight.max(match proof.algorithm {
+                        subtensor_hashed::falcon::ALGORITHM_512 => {
+                            T::WeightInfo::execute_falcon512_orders(n, count)
+                        }
+                        subtensor_hashed::falcon::ALGORITHM_1024 => {
+                            T::WeightInfo::execute_falcon1024_orders(n, count)
+                        }
+                        _ => frame_support::weights::Weight::MAX,
+                    });
+                }
+            }
+            weight
         }
     }
 
@@ -224,7 +296,32 @@ impl<T: Config> Pallet<T> {
         if count == 0 {
             T::WeightInfo::execute_batched_orders(orders.len() as u32)
         } else {
-            T::WeightInfo::execute_authenticated_batched_orders((orders.len() as u32).max(8), count)
+            let n = (orders.len() as u32).max(8);
+            let has_other_authorization = orders.iter().any(|order| {
+                (order.order.is_authorized() || order.signature.is_authenticated())
+                    && !matches!(order.signature, OrderSignature::Falcon(_))
+            });
+            let mut weight = if has_other_authorization {
+                T::WeightInfo::execute_authenticated_batched_orders(n, count)
+            } else {
+                frame_support::weights::Weight::zero()
+            };
+            // Mixed batches charge the maximum measured proof profile for every
+            // authenticated entry; no signature can hide behind another tier.
+            for order in orders {
+                if let OrderSignature::Falcon(proof) = &order.signature {
+                    weight = weight.max(match proof.algorithm {
+                        subtensor_hashed::falcon::ALGORITHM_512 => {
+                            T::WeightInfo::execute_falcon512_batched_orders(n, count)
+                        }
+                        subtensor_hashed::falcon::ALGORITHM_1024 => {
+                            T::WeightInfo::execute_falcon1024_batched_orders(n, count)
+                        }
+                        _ => frame_support::weights::Weight::MAX,
+                    });
+                }
+            }
+            weight
         }
     }
 
@@ -300,6 +397,27 @@ impl<T: Config> Pallet<T> {
         bytes
     }
 
+    pub fn falcon_order_signing_payload(
+        algorithm: u8,
+        epoch: u64,
+        nonce: u64,
+        order: &VersionedOrder<AccountId32>,
+    ) -> alloc::vec::Vec<u8> {
+        let mut bytes = FALCON_ORDER_CONTEXT.to_vec();
+        (
+            frame_system::Pallet::<T>::block_hash(
+                frame_system::pallet_prelude::BlockNumberFor::<T>::zero(),
+            ),
+            order.signer(),
+            algorithm,
+            epoch,
+            nonce,
+            order,
+        )
+            .encode_to(&mut bytes);
+        bytes
+    }
+
     pub(crate) fn check_order_nonce(owner: &AccountId32, nonce: u64, id: H256) -> DispatchResult {
         if let Some(existing) = OrderNonces::<T>::get(owner, nonce) {
             ensure!(existing == id, Error::<T>::OrderNonceUsed);
@@ -335,6 +453,41 @@ impl<T: Config> Pallet<T> {
                     ApprovedOrders::<T>::get(id)
                         == Some(Self::order_approval_commitment(signed.nonce, &signed.order)),
                     Error::<T>::OrderNotApproved
+                );
+            }
+            OrderAuthorization::Falcon(proof) => {
+                ensure!(
+                    matches!(
+                        proof.algorithm,
+                        subtensor_hashed::falcon::ALGORITHM_512
+                            | subtensor_hashed::falcon::ALGORITHM_1024
+                    ),
+                    Error::<T>::InvalidSignature
+                );
+                T::Capabilities::check_falcon(
+                    &order.signer,
+                    proof.epoch,
+                    proof.algorithm,
+                    &proof.public_key,
+                    order,
+                    amount,
+                    fill,
+                )?;
+                let payload = Self::falcon_order_signing_payload(
+                    proof.algorithm,
+                    proof.epoch,
+                    signed.nonce,
+                    &signed.order,
+                );
+                ensure!(
+                    subtensor_hashed::falcon::verify_message(
+                        proof.algorithm,
+                        &proof.public_key,
+                        &payload,
+                        FALCON_ORDER_CONTEXT,
+                        &proof.signature,
+                    ),
+                    Error::<T>::InvalidSignature
                 );
             }
             OrderAuthorization::MlDsa(proof) => {
@@ -381,8 +534,13 @@ impl<T: Config> Pallet<T> {
         let fill = signed.partial_fill.unwrap_or(amount);
         OrderNonces::<T>::insert(&order.signer, signed.nonce, id);
         Self::execute_validated_order(&order, signed.partial_fill, id, amount, provider)?;
-        if let OrderAuthorization::MlDsa(proof) = &signed.authorization {
-            T::Capabilities::consume(&order.signer, proof.epoch, order.order_type.is_buy(), fill)?;
+        let epoch = match &signed.authorization {
+            OrderAuthorization::MlDsa(proof) => Some(proof.epoch),
+            OrderAuthorization::Falcon(proof) => Some(proof.epoch),
+            OrderAuthorization::AccountApproved => None,
+        };
+        if let Some(epoch) = epoch {
+            T::Capabilities::consume(&order.signer, epoch, order.order_type.is_buy(), fill)?;
         }
         Ok(())
     }
@@ -422,10 +580,15 @@ impl<T: Config> Pallet<T> {
                 OrderNonces::<T>::insert(&order.signer, nonce, id);
             }
             let entry = Self::classify_order(&order, signed.partial_fill, id, amount, provider);
-            if let OrderSignature::MlDsa(proof) = signed.signature {
+            let epoch = match &signed.signature {
+                OrderSignature::MlDsa(proof) => Some(proof.epoch),
+                OrderSignature::Falcon(proof) => Some(proof.epoch),
+                _ => None,
+            };
+            if let Some(epoch) = epoch {
                 budgets.push((
                     order.signer.clone(),
-                    proof.epoch,
+                    epoch,
                     order.order_type.is_buy(),
                     entry.gross,
                 ));

@@ -1,7 +1,7 @@
 """Versioned order authorization with complete, pinned economic payloads.
 
 Original execution and cancellation calls accept classical signatures, account
-approvals, and registered ML-DSA order capabilities. Authorized orders carry an
+approvals, and registered post-quantum order capabilities. Authorized orders carry an
 explicit nonce; the transaction key is never a detached order key.
 """
 
@@ -15,7 +15,7 @@ from typing import Any
 from ._generated.calls import Call
 from .receiving import parse_recipient
 from .signing import resolve_signer
-from .sp_core import MLDSA_CRYPTO_TYPES, ROLE_ORDER, ss58_decode
+from .sp_core import FALCON_CRYPTO_TYPES, PQ_CRYPTO_TYPES, PQ_PROFILES, ROLE_ORDER, ss58_decode
 
 ORDER_ID_DOMAIN = b"bittensor/ms/v2/order-id"
 
@@ -162,9 +162,13 @@ class SignedOrder:
         if self.partial_fill is not None:
             _u64(self.partial_fill, "partial fill")
         authorization = deepcopy(self.authorization)
-        if isinstance(authorization, dict) and "MlDsa" in authorization:
-            for name in ("public_key", "signature"):
-                authorization["MlDsa"][name] = "0x" + _bytes(authorization["MlDsa"][name]).hex()
+        if isinstance(authorization, dict):
+            for scheme in ("MlDsa", "Falcon"):
+                if scheme in authorization:
+                    for name in ("public_key", "signature"):
+                        authorization[scheme][name] = (
+                            "0x" + _bytes(authorization[scheme][name]).hex()
+                        )
         return {
             "order": authorized_order(self.prepared.nonce, self.prepared.order),
             "signature": authorization,
@@ -215,7 +219,7 @@ async def order_capability(substrate, owner: str) -> OrderCapability:
         await substrate.query("AdminUtils", "HashedAccountsEnabled", block_hash=block_hash)
         is not True
     ):
-        raise ValueError("ML-DSA authorization is disabled")
+        raise ValueError("post-quantum authorization is disabled")
     record = await substrate.query(
         "HashedAccounts", "ActiveCapabilities", [owner, "Order"], block_hash=block_hash
     )
@@ -226,11 +230,11 @@ async def order_capability(substrate, owner: str) -> OrderCapability:
         or 0
     )
     if not record or not 0 < epoch < 2**64 or int(record["epoch"]) != epoch:
-        raise ValueError("no active finalized ML-DSA order capability")
+        raise ValueError("no active finalized post-quantum order capability")
     expires = int(record["expires_at"])
     commitment = _bytes(record["key_commitment"])
     if not block <= expires < 2**64 or len(commitment) != 64 or not any(commitment):
-        raise ValueError("invalid or expired ML-DSA order capability")
+        raise ValueError("invalid or expired post-quantum order capability")
     scope = record["scope"]
     if scope not in ("UnrestrictedTrading", {"UnrestrictedTrading": None}) and not (
         isinstance(scope, dict) and set(scope) == {"Trading"}
@@ -282,10 +286,12 @@ async def sign_order(
     await check_prepared_order(substrate, prepared)
     capability = await order_capability(substrate, prepared.owner)
     if (
-        keypair.crypto_type not in MLDSA_CRYPTO_TYPES
+        keypair.crypto_type not in PQ_CRYPTO_TYPES
         or capability.genesis_hash != prepared.genesis_hash
     ):
-        raise ValueError("detached orders require an ML-DSA purpose key and the capability chain")
+        raise ValueError(
+            "detached orders require a post-quantum purpose key and the capability chain"
+        )
     commitment = bytes(keypair.mldsa_capability_commitment(ROLE_ORDER, capability.epoch))
     if commitment != capability.commitment:
         raise ValueError("wallet order key does not match the finalized capability")
@@ -309,7 +315,11 @@ async def sign_order(
             )
         ),
     }
-    return SignedOrder(prepared, {"MlDsa": proof}, partial_fill)
+    scheme = "MlDsa"
+    if keypair.crypto_type in FALCON_CRYPTO_TYPES:
+        scheme = "Falcon"
+        proof["algorithm"] = PQ_PROFILES[keypair.crypto_type] & ~1
+    return SignedOrder(prepared, {scheme: proof}, partial_fill)
 
 
 def validate_trading_scope(scope):
@@ -410,13 +420,13 @@ class LimitOrders:
         """Prepare an explicit grant for direct or composite-owner authorization.
 
         A multisig can approve this intent's composed call through its normal
-        quorum. The purpose key may come from a separate ML-DSA wallet.
+        quorum. The purpose key may come from a separate post-quantum wallet.
         """
         from .intents.limit_orders import InstallOrderCapability
 
         owner = parse_recipient(owner).account
-        if keypair.crypto_type not in MLDSA_CRYPTO_TYPES:
-            raise ValueError("detached order key must come from an ML-DSA wallet")
+        if keypair.crypto_type not in PQ_CRYPTO_TYPES:
+            raise ValueError("detached order key must come from a post-quantum wallet")
         substrate = self._client._substrate
         block_hash = await substrate.block_hash(await substrate.finalized_block_number())
         if not block_hash:

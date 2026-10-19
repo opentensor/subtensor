@@ -359,19 +359,20 @@ class FakeSubstrate:
         self, keypair, *, reserve_nonces=False
     ) -> HashedSigningSnapshot:
         from bittensor.hashed import descriptor_bytes, raw_bytes
+        from bittensor.sp_core import PQ_CRYPTO_TYPES, is_stateless_pq
 
-        if keypair.crypto_type == 8:
+        if is_stateless_pq(keypair):
             descriptor = bytes(keypair.hashed_descriptor)
             return HashedSigningSnapshot(
                 await self.block_hash(self.finalized),
                 keypair.ss58_address,
-                8,
+                keypair.crypto_type,
                 descriptor,
                 0,
                 descriptor[2:],
                 self._nonces[keypair.ss58_address],
             )
-        registry = "MlDsaAccounts" if keypair.crypto_type in (7, 8) else "Accounts"
+        registry = "MlDsaAccounts" if keypair.crypto_type in PQ_CRYPTO_TYPES else "Accounts"
         record = await self.query("HashedAccounts", registry, [keypair.ss58_address])
         generation = int(record["generation"]) if record else keypair.hashed_generation
         return HashedSigningSnapshot(

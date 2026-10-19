@@ -429,7 +429,7 @@
   {
     "name": "authorize_order",
     "summary": "Authorize every economic term of a order through the account's origin.",
-    "description": "Authorize every economic term of a order through the account's origin.\n\nSupports direct ML-DSA owners, proxies, derivatives, and multisigs. This\ngrants relayers the complete specified trade; funds move only on execution.\nCancel with the same nonce and complete order to revoke its unfilled part.",
+    "description": "Authorize every economic term of a order through the account's origin.\n\nSupports direct post-quantum owners, proxies, derivatives, and multisigs. This\ngrants relayers the complete specified trade; funds move only on execution.\nCancel with the same nonce and complete order to revoke its unfilled part.",
     "signer": "coldkey",
     "origin": "signed",
     "verify": null,
@@ -1265,8 +1265,8 @@
   },
   {
     "name": "execute_orders",
-    "summary": "Relay classical orders and up to eight account-approved or ML-DSA orders.",
-    "description": "Relay classical orders and up to eight account-approved or ML-DSA orders.\n\nEach signed order includes complete terms, its signature, and an optional\npartial fill. Authorized terms also bind an owner-local nonce. With\nshould_fail true, any failed order reverts the whole batch.",
+    "summary": "Relay classical orders and up to eight account-approved or post-quantum orders.",
+    "description": "Relay classical orders and up to eight account-approved or post-quantum orders.\n\nEach signed order includes complete terms, its signature, and an optional\npartial fill. Authorized terms also bind an owner-local nonce. With\nshould_fail true, any failed order reverts the whole batch.",
     "signer": "coldkey",
     "origin": "signed",
     "verify": null,
@@ -1519,8 +1519,8 @@
   },
   {
     "name": "install_order_capability",
-    "summary": "Grant a revocable ML-DSA order key with an explicit trading scope.",
-    "description": "Grant a revocable ML-DSA order key with an explicit trading scope.\n\nA permanent epoch tombstone prevents revoked signatures from becoming\nvalid after reinstalling. Expiry is a block number, not an order timestamp.\nUnrestrictedTrading explicitly permits every trade until expiry/revocation.",
+    "summary": "Grant a revocable post-quantum order key with an explicit trading scope.",
+    "description": "Grant a revocable post-quantum order key with an explicit trading scope.\n\nA permanent epoch tombstone prevents revoked signatures from becoming\nvalid after reinstalling. Expiry is a block number, not an order timestamp.\nUnrestrictedTrading explicitly permits every trade until expiry/revocation.",
     "signer": "coldkey",
     "origin": "signed",
     "verify": null,
@@ -1540,7 +1540,7 @@
         },
         "key_commitment": {
           "type": "string",
-          "description": "64-byte commitment to the purpose-specific ML-DSA order public key, in hex."
+          "description": "64-byte commitment to the post-quantum order public key, in hex."
         },
         "expires_at": {
           "type": "integer",
@@ -1567,9 +1567,9 @@
         "pallet": "HashedAccounts",
         "call": "install_capability",
         "path": "pallets/hashed-accounts/src/lib.rs",
-        "line": 306,
-        "end_line": 315,
-        "url": "/code/pallets/hashed-accounts/src/lib.rs#L303-L315",
+        "line": 319,
+        "end_line": 328,
+        "url": "/code/pallets/hashed-accounts/src/lib.rs#L316-L328",
         "raw_url": "/code/raw/pallets/hashed-accounts/src/lib.rs"
       }
     ]
@@ -2896,9 +2896,9 @@
         "pallet": "HashedAccounts",
         "call": "revoke_capability",
         "path": "pallets/hashed-accounts/src/lib.rs",
-        "line": 320,
-        "end_line": 323,
-        "url": "/code/pallets/hashed-accounts/src/lib.rs#L317-L323",
+        "line": 333,
+        "end_line": 336,
+        "url": "/code/pallets/hashed-accounts/src/lib.rs#L330-L336",
         "raw_url": "/code/raw/pallets/hashed-accounts/src/lib.rs"
       }
     ]

@@ -28,7 +28,7 @@ import inspect
 from hashlib import blake2b
 from typing import Any, Optional
 
-from ..sp_core import MLDSA_CRYPTO_TYPES, REGISTERED_CRYPTO_TYPES
+from ..sp_core import PQ_CRYPTO_TYPES, REGISTERED_CRYPTO_TYPES, pq_lengths
 from .codec import RuntimeCodec
 from .contract import SignedExtrinsic, SigningContext, UnsignedExtrinsic
 from .errors import SubstrateRequestException
@@ -69,8 +69,9 @@ def shielded_ciphertext_size(extrinsic_size: int) -> int:
 
 
 def hashed_proof_length(crypto_type: int) -> int:
-    if crypto_type in MLDSA_CRYPTO_TYPES:
-        return MLDSA_PROOF_LENGTH
+    if crypto_type in PQ_CRYPTO_TYPES:
+        public_key, signature = pq_lengths(crypto_type)
+        return 106 + public_key + signature
     if crypto_type not in REGISTERED_CRYPTO_TYPES:
         raise ValueError("unsupported hashed signing scheme")
     return HASHED_PROOF_LENGTH

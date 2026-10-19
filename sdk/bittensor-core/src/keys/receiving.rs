@@ -10,7 +10,9 @@ use sp_core::crypto::{AccountId32, Ss58AddressFormat, Ss58Codec};
 use sp_core::hashing::blake2_256;
 use subtensor_hashed::Descriptor;
 
-use super::{crypto_err, Keypair, CRYPTO_MLDSA65_FIXED};
+#[cfg(test)]
+use super::CRYPTO_MLDSA65_FIXED;
+use super::{crypto_err, is_fixed_pq_crypto, Keypair};
 use crate::error::CoreError;
 
 const PREFIX: &str = "tao_";
@@ -97,7 +99,7 @@ impl Keypair {
     /// Return the ordinary SS58 address for fixed ML-DSA, or the receiving
     /// descriptor for a registered account, without exposing a signing key.
     pub fn hashed_receiving_address(&self) -> Result<String, CoreError> {
-        if self.crypto_type() == CRYPTO_MLDSA65_FIXED {
+        if is_fixed_pq_crypto(self.crypto_type()) {
             return Ok(self.ss58_address());
         }
         encode_hashed_receiving_address(&self.authorization_descriptor()?)
@@ -117,7 +119,7 @@ fn mldsa_checksum(descriptor: &[u8]) -> [u8; CHECKSUM_LEN] {
 /// recovered from the address and is unnecessary for receiving funds.
 pub fn encode_mldsa_receiving_address(descriptor: &[u8]) -> Result<String, CoreError> {
     let parsed = subtensor_hashed::mldsa::Descriptor::from_bytes(descriptor)
-        .map_err(|_| crypto_err("invalid ML-DSA receiving descriptor"))?;
+        .map_err(|_| crypto_err("invalid post-quantum receiving descriptor"))?;
     if parsed.is_stateless() {
         return Ok(
             AccountId32::new(subtensor_hashed::mldsa::account_id(&parsed))
@@ -133,26 +135,26 @@ pub fn decode_mldsa_receiving_address(address: &str) -> Result<Vec<u8>, CoreErro
     let encoded = address
         .strip_prefix(PREFIX)
         .or_else(|| address.strip_prefix(MLDSA_LEGACY_PREFIX))
-        .ok_or_else(|| crypto_err("unsupported ML-DSA receiving prefix"))?;
+        .ok_or_else(|| crypto_err("unsupported post-quantum receiving prefix"))?;
     if encoded.len() != MLDSA_ENCODED_BODY_LEN {
         return Err(crypto_err(
-            "ML-DSA receiving payload must be exactly 99 characters",
+            "post-quantum receiving payload must be exactly 99 characters",
         ));
     }
     let body = URL_SAFE_NO_PAD
         .decode(encoded)
-        .map_err(|_| crypto_err("invalid ML-DSA receiving encoding"))?;
+        .map_err(|_| crypto_err("invalid post-quantum receiving encoding"))?;
     if body.len() != 74 || URL_SAFE_NO_PAD.encode(&body) != encoded {
-        return Err(crypto_err("noncanonical ML-DSA receiving address"));
+        return Err(crypto_err("noncanonical post-quantum receiving address"));
     }
     let descriptor = &body[..66];
     if body[66..] != mldsa_checksum(descriptor) {
-        return Err(crypto_err("ML-DSA receiving checksum mismatch"));
+        return Err(crypto_err("post-quantum receiving checksum mismatch"));
     }
     let parsed = subtensor_hashed::mldsa::Descriptor::from_bytes(descriptor)
-        .map_err(|_| crypto_err("invalid ML-DSA receiving descriptor"))?;
+        .map_err(|_| crypto_err("invalid post-quantum receiving descriptor"))?;
     if parsed.is_stateless() {
-        return Err(crypto_err("unsupported ML-DSA receiving descriptor"));
+        return Err(crypto_err("unsupported post-quantum receiving descriptor"));
     }
     Ok(descriptor.to_vec())
 }

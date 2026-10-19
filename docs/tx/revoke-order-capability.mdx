@@ -9,7 +9,7 @@ description: "Revoke the active order key and permanently advance its epoch tomb
 
 | Signer | Origin | Pallet | Wraps |
 | --- | --- | --- | --- |
-| `coldkey` | signed account (pallet role may apply) | HashedAccounts | [`HashedAccounts.revoke_capability`](/code/pallets/hashed-accounts/src/lib.rs#L317-L323) |
+| `coldkey` | signed account (pallet role may apply) | HashedAccounts | [`HashedAccounts.revoke_capability`](/code/pallets/hashed-accounts/src/lib.rs#L330-L336) |
 
 ## Parameters
 
@@ -54,7 +54,7 @@ result = sub.execute_tool("revoke_order_capability", {...}, wallet)
 
 ## On-chain implementation
 
-`HashedAccounts.revoke_capability` — [`pallets/hashed-accounts/src/lib.rs#L320`](/code/pallets/hashed-accounts/src/lib.rs#L317-L323):
+`HashedAccounts.revoke_capability` — [`pallets/hashed-accounts/src/lib.rs#L333`](/code/pallets/hashed-accounts/src/lib.rs#L330-L336):
 
 ```rust
 #[pallet::call_index(8)]

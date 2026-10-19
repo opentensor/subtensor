@@ -24,7 +24,6 @@ const MAX_INPUT_BYTES: usize = 16 * 1024 * 1024;
 const MAX_ACTIVE_BYTES: usize = MAX_INPUT_BYTES;
 const BURST: u32 = 16;
 const REFILL: Duration = Duration::from_millis(125);
-const MLDSA_ADDRESS_BYTES: u32 = 5367;
 
 #[cfg(test)]
 static PENDING_TEST_LOCK: Mutex<()> = Mutex::new(());
@@ -158,9 +157,9 @@ fn read_only(method: &str) -> bool {
     )
 }
 
-fn mldsa_validation(data: &[u8]) -> bool {
+fn pq_validation(data: &[u8]) -> bool {
     // Runtime API v3 encodes TransactionSource, the extrinsic, then block hash.
-    // Inspect only its prefix, including malformed ML-DSA profiles/carriers. The
+    // Inspect only its prefix, including malformed post-quantum profiles/carriers. The
     // current validation pipeline checks extensions but does not dispatch the
     // call; legacy validation therefore cannot execute detached order proofs.
     let Some(mut input) = data.get(1..) else {
@@ -169,13 +168,18 @@ fn mldsa_validation(data: &[u8]) -> bool {
     Compact::<u32>::decode(&mut input).is_ok()
         && u8::decode(&mut input).ok() == Some(0x84)
         && u8::decode(&mut input).ok() == Some(2)
-        && Compact::<u32>::decode(&mut input).ok().map(|x| x.0) == Some(MLDSA_ADDRESS_BYTES)
+        && Compact::<u32>::decode(&mut input)
+            .ok()
+            .map(|x| x.0)
+            .is_some_and(|len| {
+                node_subtensor_runtime::hashed_extrinsic::is_post_quantum_proof_len(len as usize)
+            })
 }
 
 fn needs_admission(method: &str, data: &[u8], context: CallContext) -> bool {
     context == CallContext::Offchain
         && !read_only(method)
-        && (method != "TaggedTransactionQueue_validate_transaction" || mldsa_validation(data))
+        && (method != "TaggedTransactionQueue_validate_transaction" || pq_validation(data))
 }
 
 /// Keep independent workloads available even if another API is flooded with
@@ -542,6 +546,18 @@ mod tests {
             &validation(Some(5367)),
             CallContext::Offchain
         ));
+        for length in [1669, 3179] {
+            assert!(needs_admission(
+                queue,
+                &validation(Some(length)),
+                CallContext::Offchain
+            ));
+            assert!(!needs_admission(
+                queue,
+                &validation(Some(length)),
+                CallContext::Onchain
+            ));
+        }
         // Execution can contain detached proofs even with a legacy outer signer.
         for method in [
             "BlockBuilder_apply_extrinsic",

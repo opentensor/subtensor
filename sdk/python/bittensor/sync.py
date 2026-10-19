@@ -438,6 +438,9 @@ class SyncClient:
     def prepare_mldsa_call(self, call, *, descriptor, **kwargs):
         return self._call(self._client.prepare_mldsa_call(call, descriptor=descriptor, **kwargs))
 
+    def prepare_pq_call(self, call, *, descriptor, **kwargs):
+        return self._call(self._client.prepare_pq_call(call, descriptor=descriptor, **kwargs))
+
     def submit_signature(self, unsigned, signature, **kwargs):
         return self._call(self._client.submit_signature(unsigned, signature, **kwargs))
 

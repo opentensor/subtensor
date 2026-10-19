@@ -80,11 +80,11 @@ keychain_app = typer.Typer(
 )
 
 _CRYPTO_TYPE_HELP = (
-    "Signing scheme: sr/sr25519 (default), ed/ed25519, or ms (ML-DSA-65, post-quantum). "
+    "Signing scheme: sr/sr25519 (default), ed/ed25519, ms (ML-DSA-65), falcon512, or falcon1024. "
     "Select --type hashed to add rotation to any scheme. Legacy crypto-type names remain supported."
 )
 _ACCOUNT_TYPE_HELP = (
-    "Account mode: standard (fixed signing key) or hashed (rotating keys), for sr, ed, and ms. "
+    "Account mode: standard (fixed signing key) or hashed (rotating keys). "
     "New wallets default to standard; restore using the original mode."
 )
 
@@ -103,7 +103,7 @@ _PRIVATE_KEY_HELP = (
 
 _N_WORDS_HELP = (
     "Number of words in the generated mnemonic: 12, 15, 18, 21, or 24. "
-    "ML-DSA requires 24 words; other schemes retain their existing defaults."
+    "Post-quantum schemes require 24 words; sr/ed retain their existing defaults."
 )
 
 _NO_PASSWORD_HELP = (
@@ -151,7 +151,7 @@ def _public_recovery_type(
     recipient = parse_recipient(address)
     if recipient.descriptor is not None:
         return wallets.Keypair.from_hashed_descriptor(recipient.descriptor).crypto_type
-    if crypto_type == wallets.CRYPTO_MLDSA65_FIXED:
+    if crypto_type in wallets.FIXED_PQ_CRYPTO_TYPES:
         return crypto_type
     if crypto_type in wallets.REGISTERED_CRYPTO_TYPES:
         raise ValueError(
@@ -802,7 +802,7 @@ def sign(
         )
         generation = None
         capability = None
-        if keypair.crypto_type in wallets.MLDSA_CRYPTO_TYPES:
+        if keypair.crypto_type in wallets.PQ_CRYPTO_TYPES:
 
             async def finalized_capability(client):
                 from ...mldsa import message_capability
@@ -868,7 +868,19 @@ def verify(
         if (
             crypto_type is not None
             and account_type is None
-            and crypto_type.strip().lower() in ("sr", "sr25519", "ed", "ed25519", "ms", "ml-dsa")
+            and crypto_type.strip().lower()
+            in (
+                "sr",
+                "sr25519",
+                "ed",
+                "ed25519",
+                "ms",
+                "ml-dsa",
+                "falcon512",
+                "falcon1024",
+                "falcon-512",
+                "falcon-1024",
+            )
         ):
             # A receiving address commits to its mode. Bare addresses instead
             # use the creation default; legacy rotating accounts require --type.
@@ -890,10 +902,7 @@ def verify(
             else None
         )
         capability = None
-        if (
-            trusted_type in wallets.MLDSA_CRYPTO_TYPES
-            or descriptor_type in wallets.MLDSA_CRYPTO_TYPES
-        ):
+        if trusted_type in wallets.PQ_CRYPTO_TYPES or descriptor_type in wallets.PQ_CRYPTO_TYPES:
 
             async def finalized_capability(client):
                 from ...mldsa import message_capability

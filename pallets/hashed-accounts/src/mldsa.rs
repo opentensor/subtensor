@@ -1,4 +1,4 @@
-//! Separate ML-DSA and derived records; no v1 storage representation is changed.
+//! Shared post-quantum and derived records; existing storage encodings are unchanged.
 use super::*;
 use alloc::vec::Vec;
 use frame_support::{
@@ -406,11 +406,11 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Check already authenticated ML-DSA identity against current chain state.
+    /// Check an authenticated ML-DSA or Falcon identity against current chain state.
     pub fn check_mldsa_authorization(
         account: &AccountId32,
         profile: u8,
-        public_key: &[u8; 1952],
+        public_key: &[u8],
         generation: u64,
         next_commitment: [u8; 64],
     ) -> Result<ValidatedMlDsaProof, DispatchError> {
@@ -421,7 +421,9 @@ impl<T: Config> Pallet<T> {
                 version: subtensor_hashed::mldsa::VERSION,
                 algorithm: profile,
                 generation,
-                public_key: *public_key,
+                public_key: public_key
+                    .try_into()
+                    .map_err(|_| Error::<T>::WrongCommitment)?,
                 next_commitment,
             };
             ensure!(header.is_valid_stateless(), Error::<T>::WrongCommitment);
@@ -433,6 +435,37 @@ impl<T: Config> Pallet<T> {
                 next_commitment,
             });
         }
+        if subtensor_hashed::falcon::is_fixed_profile(profile) {
+            let header = subtensor_hashed::falcon::Header {
+                account: account.clone().into(),
+                version: subtensor_hashed::falcon::VERSION,
+                algorithm: profile,
+                generation,
+                public_key: public_key.to_vec(),
+                next_commitment,
+            };
+            ensure!(header.is_valid_stateless(), Error::<T>::WrongCommitment);
+            return Ok(ValidatedMlDsaProof {
+                account: account.clone(),
+                profile,
+                generation,
+                commitment: next_commitment,
+                next_commitment,
+            });
+        }
+        let commitment = if subtensor_hashed::falcon::is_supported_profile(profile) {
+            subtensor_hashed::falcon::commitment(profile, public_key)
+                .map_err(|_| Error::<T>::WrongCommitment)?
+        } else {
+            ensure!(
+                subtensor_hashed::mldsa::is_account_profile(profile),
+                Error::<T>::UnsupportedDescriptor
+            );
+            let public_key = public_key
+                .try_into()
+                .map_err(|_| Error::<T>::WrongCommitment)?;
+            subtensor_hashed::mldsa::key_commitment(public_key)
+        };
         let record = MlDsaAccounts::<T>::get(account).ok_or(Error::<T>::NotRegistered)?;
         ensure!(
             record.descriptor.is_supported() && record.descriptor.algorithm == profile,
@@ -443,10 +476,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::GenerationExhausted
         );
         ensure!(record.generation == generation, Error::<T>::WrongGeneration);
-        ensure!(
-            record.commitment == subtensor_hashed::mldsa::key_commitment(public_key),
-            Error::<T>::WrongCommitment
-        );
+        ensure!(record.commitment == commitment, Error::<T>::WrongCommitment);
         ensure!(
             record
                 .descriptor
@@ -465,7 +495,9 @@ impl<T: Config> Pallet<T> {
     /// Consume in transaction-extension preparation, outside inner-call rollback.
     pub fn advance_mldsa(validated: &ValidatedMlDsaProof) -> DispatchResult {
         ensure!(T::Enabled::get(), Error::<T>::Disabled);
-        if validated.profile == subtensor_hashed::mldsa::FIXED_ALGORITHM {
+        if validated.profile == subtensor_hashed::mldsa::FIXED_ALGORITHM
+            || subtensor_hashed::falcon::is_fixed_profile(validated.profile)
+        {
             // Only a valid first signature can acquire this reference. Keep the
             // native nonce even after all funds are spent so old signatures
             // cannot become valid again on refund. No identity registry is needed:

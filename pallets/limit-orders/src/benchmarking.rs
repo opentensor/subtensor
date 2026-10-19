@@ -201,6 +201,47 @@ fn make_benchmark_authorized_orders<T: crate::Config>(
     (entries.try_into().unwrap(), ids)
 }
 
+fn make_benchmark_falcon_orders<T: crate::Config>(
+    n: u32,
+    netuid: NetUid,
+    algorithm: u8,
+) -> (
+    frame_support::BoundedVec<crate::AuthorizedOrder, crate::MaxAuthorizedOrders>,
+    alloc::vec::Vec<H256>,
+) {
+    use crate::OrderCapabilities;
+    let (mut orders, ids) = make_benchmark_authorized_orders::<T>(n, netuid);
+    for (i, order) in orders.iter_mut().enumerate() {
+        let mut seed = [81; 32];
+        seed[..8].copy_from_slice(&(i as u64).to_le_bytes());
+        let public_key = subtensor_hashed::falcon::public_key_from_seed(algorithm, &seed).unwrap();
+        T::Capabilities::setup_falcon_benchmark(
+            order.order.signer(),
+            1,
+            algorithm,
+            &public_key,
+            &order.order.view(),
+        )
+        .unwrap();
+        let payload = Pallet::<T>::falcon_order_signing_payload(algorithm, 1, 0, &order.order);
+        let signature = subtensor_hashed::falcon::sign_message(
+            algorithm,
+            &seed,
+            &payload,
+            crate::FALCON_ORDER_CONTEXT,
+            &[0; 32],
+        )
+        .unwrap();
+        order.authorization = crate::OrderAuthorization::Falcon(crate::FalconOrderProof {
+            algorithm,
+            epoch: 1,
+            public_key: public_key.try_into().unwrap(),
+            signature: signature.try_into().unwrap(),
+        });
+    }
+    (orders, ids)
+}
+
 #[benchmarks]
 mod benchmarks {
     use super::*;
@@ -378,6 +419,146 @@ mod benchmarks {
     /// Every proof is valid and performs portable ML-DSA verification followed
     /// by a real swap and capability budget mutation. Includes the full bounded
     /// proof length; no mocked signature or guessed verification weight.
+    #[benchmark]
+    fn execute_falcon512_orders(n: Linear<8, { T::MaxOrdersPerBatch::get() }>, p: Linear<1, 8>) {
+        let netuid = NetUid::from(1u16);
+        crate::LimitOrdersEnabled::<T>::set(true);
+        T::SwapInterface::set_up_netuid_for_benchmark(netuid);
+        let (orders, _) =
+            make_benchmark_falcon_orders::<T>(p, netuid, subtensor_hashed::falcon::ALGORITHM_512);
+        let mut combined: alloc::vec::Vec<_> = orders
+            .into_iter()
+            .map(|signed| crate::SignedOrder::try_from(signed).unwrap())
+            .collect();
+        combined.extend(make_benchmark_orders::<T>(n.saturating_sub(p), netuid));
+        let ids: alloc::vec::Vec<_> = combined
+            .iter()
+            .map(|signed| Pallet::<T>::derive_order_id(&signed.order))
+            .collect();
+        let orders: frame_support::BoundedVec<_, T::MaxOrdersPerBatch> =
+            combined.try_into().unwrap();
+        let caller: T::AccountId = frame_benchmarking::account("caller", 0, 0);
+        frame_system::Pallet::<T>::reset_events();
+
+        #[extrinsic_call]
+        execute_orders(RawOrigin::Signed(caller), orders, true);
+
+        for id in ids {
+            assert_eq!(
+                crate::Orders::<T>::get(id),
+                Some(crate::OrderStatus::Fulfilled)
+            );
+        }
+    }
+
+    #[benchmark]
+    fn execute_falcon1024_orders(n: Linear<8, { T::MaxOrdersPerBatch::get() }>, p: Linear<1, 8>) {
+        let netuid = NetUid::from(1u16);
+        crate::LimitOrdersEnabled::<T>::set(true);
+        T::SwapInterface::set_up_netuid_for_benchmark(netuid);
+        let (orders, _) =
+            make_benchmark_falcon_orders::<T>(p, netuid, subtensor_hashed::falcon::ALGORITHM_1024);
+        let mut combined: alloc::vec::Vec<_> = orders
+            .into_iter()
+            .map(|signed| crate::SignedOrder::try_from(signed).unwrap())
+            .collect();
+        combined.extend(make_benchmark_orders::<T>(n.saturating_sub(p), netuid));
+        let ids: alloc::vec::Vec<_> = combined
+            .iter()
+            .map(|signed| Pallet::<T>::derive_order_id(&signed.order))
+            .collect();
+        let orders: frame_support::BoundedVec<_, T::MaxOrdersPerBatch> =
+            combined.try_into().unwrap();
+        let caller: T::AccountId = frame_benchmarking::account("caller", 0, 0);
+        frame_system::Pallet::<T>::reset_events();
+
+        #[extrinsic_call]
+        execute_orders(RawOrigin::Signed(caller), orders, true);
+
+        for id in ids {
+            assert_eq!(
+                crate::Orders::<T>::get(id),
+                Some(crate::OrderStatus::Fulfilled)
+            );
+        }
+    }
+
+    #[benchmark]
+    fn execute_falcon512_batched_orders(
+        n: Linear<8, { T::MaxOrdersPerBatch::get() }>,
+        p: Linear<1, 8>,
+    ) {
+        let netuid = NetUid::from(1u16);
+        crate::LimitOrdersEnabled::<T>::set(true);
+        T::SwapInterface::set_up_netuid_for_benchmark(netuid);
+        let pallet_acct: T::AccountId = T::PalletId::get().into_account_truncating();
+        let pallet_hotkey = T::PalletHotkey::get();
+        T::SwapInterface::set_up_acc_for_benchmark(&pallet_hotkey, &pallet_acct);
+        let (orders, _) =
+            make_benchmark_falcon_orders::<T>(p, netuid, subtensor_hashed::falcon::ALGORITHM_512);
+        let mut combined: alloc::vec::Vec<_> = orders
+            .into_iter()
+            .map(|signed| crate::SignedOrder::try_from(signed).unwrap())
+            .collect();
+        combined.extend(make_benchmark_orders::<T>(n.saturating_sub(p), netuid));
+        let ids: alloc::vec::Vec<_> = combined
+            .iter()
+            .map(|signed| Pallet::<T>::derive_order_id(&signed.order))
+            .collect();
+        let orders: frame_support::BoundedVec<_, T::MaxOrdersPerBatch> =
+            combined.try_into().unwrap();
+        let caller: T::AccountId = frame_benchmarking::account("caller", 0, 0);
+        frame_system::Pallet::<T>::reset_events();
+
+        #[extrinsic_call]
+        execute_batched_orders(RawOrigin::Signed(caller), netuid, orders);
+
+        for id in ids {
+            assert_eq!(
+                crate::Orders::<T>::get(id),
+                Some(crate::OrderStatus::Fulfilled)
+            );
+        }
+    }
+
+    #[benchmark]
+    fn execute_falcon1024_batched_orders(
+        n: Linear<8, { T::MaxOrdersPerBatch::get() }>,
+        p: Linear<1, 8>,
+    ) {
+        let netuid = NetUid::from(1u16);
+        crate::LimitOrdersEnabled::<T>::set(true);
+        T::SwapInterface::set_up_netuid_for_benchmark(netuid);
+        let pallet_acct: T::AccountId = T::PalletId::get().into_account_truncating();
+        let pallet_hotkey = T::PalletHotkey::get();
+        T::SwapInterface::set_up_acc_for_benchmark(&pallet_hotkey, &pallet_acct);
+        let (orders, _) =
+            make_benchmark_falcon_orders::<T>(p, netuid, subtensor_hashed::falcon::ALGORITHM_1024);
+        let mut combined: alloc::vec::Vec<_> = orders
+            .into_iter()
+            .map(|signed| crate::SignedOrder::try_from(signed).unwrap())
+            .collect();
+        combined.extend(make_benchmark_orders::<T>(n.saturating_sub(p), netuid));
+        let ids: alloc::vec::Vec<_> = combined
+            .iter()
+            .map(|signed| Pallet::<T>::derive_order_id(&signed.order))
+            .collect();
+        let orders: frame_support::BoundedVec<_, T::MaxOrdersPerBatch> =
+            combined.try_into().unwrap();
+        let caller: T::AccountId = frame_benchmarking::account("caller", 0, 0);
+        frame_system::Pallet::<T>::reset_events();
+
+        #[extrinsic_call]
+        execute_batched_orders(RawOrigin::Signed(caller), netuid, orders);
+
+        for id in ids {
+            assert_eq!(
+                crate::Orders::<T>::get(id),
+                Some(crate::OrderStatus::Fulfilled)
+            );
+        }
+    }
+
     #[benchmark]
     fn execute_authenticated_orders(
         n: Linear<8, { T::MaxOrdersPerBatch::get() }>,

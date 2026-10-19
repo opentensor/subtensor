@@ -22,7 +22,7 @@ use serde_json::{json, Value as JsonValue};
 use crate::codec::extrinsic::{era_birth, TxParams};
 use crate::codec::value::Value;
 use crate::error::CoreError;
-use crate::keys::{is_hashed_crypto, is_mldsa_crypto, is_rotating_crypto, Keypair};
+use crate::keys::{is_hashed_crypto, is_pq_crypto, is_rotating_crypto, Keypair};
 use crate::mlkem;
 use crate::runtime::type_string::TypeSpec;
 use crate::runtime::{Runtime, RuntimeApiMethodInfo, StorageInfo};
@@ -559,11 +559,11 @@ impl Client {
         let runtime = self.runtime()?;
         let mut registered = None;
         let mut authority_block = None;
-        let stateless = signer.crypto_type() == crate::keys::CRYPTO_MLDSA65_FIXED;
+        let stateless = crate::keys::is_fixed_pq_crypto(signer.crypto_type());
         let nonce = if stateless {
-            if !runtime.supports_mldsa_profile(subtensor_hashed::mldsa::FIXED_ALGORITHM) {
+            if !runtime.supports_mldsa_profile(signer.mldsa_profile()?) {
                 return Err(CoreError::Policy(
-                    "runtime does not support registration-free ML-DSA accounts".into(),
+                    "runtime does not support registration-free post-quantum accounts".into(),
                 ));
             }
             let state_hash = self.finalized_head()?;
@@ -576,7 +576,7 @@ impl Client {
             )? != Value::Bool(true)
             {
                 return Err(CoreError::Policy(
-                    "ML-DSA authorization is not active".into(),
+                    "post-quantum authorization is not active".into(),
                 ));
             }
             authority_block = Some(state_hash);
@@ -585,10 +585,10 @@ impl Client {
                 None => self.account_next_index(&signer.ss58_address())?,
             }
         } else if is_rotating_crypto(signer.crypto_type()) {
-            let mldsa = is_mldsa_crypto(signer.crypto_type());
+            let mldsa = is_pq_crypto(signer.crypto_type());
             if mldsa && !runtime.supports_mldsa_profile(signer.mldsa_descriptor()?[1]) {
                 return Err(CoreError::Policy(
-                    "runtime does not support ML-DSA accounts".into(),
+                    "runtime does not support post-quantum accounts".into(),
                 ));
             }
             let state_hash = if shielded || mldsa {
@@ -612,7 +612,7 @@ impl Client {
             )?;
             if mldsa {
                 let descriptor = field(&record, "descriptor")
-                    .ok_or_else(|| CoreError::Codec("ML-DSA descriptor missing".into()))?;
+                    .ok_or_else(|| CoreError::Codec("post-quantum descriptor missing".into()))?;
                 let expected = signer.mldsa_descriptor()?;
                 if field(descriptor, "version").and_then(as_u128) != Some(u128::from(expected[0]))
                     || field(descriptor, "algorithm").and_then(as_u128)
@@ -623,7 +623,7 @@ impl Client {
                         != Some(&expected[2..])
                 {
                     return Err(CoreError::Policy(
-                        "ML-DSA descriptor does not match this wallet".into(),
+                        "post-quantum descriptor does not match this wallet".into(),
                     ));
                 }
             }
@@ -721,7 +721,7 @@ impl Client {
             era_block_hash: context.params.era_block_hash,
             metadata_hash: context.params.metadata_hash,
         };
-        if signer.crypto_type() == crate::keys::CRYPTO_MLDSA65_FIXED
+        if crate::keys::is_fixed_pq_crypto(signer.crypto_type())
             && params.nonce >= u64::from(u32::MAX)
         {
             return Err(CoreError::Policy("account nonce exhausted".into()));
@@ -742,7 +742,7 @@ impl Client {
             payload.extend_from_slice(&extra);
             payload.extend_from_slice(&additional);
             selected.sign_authorization(&payload)?
-        } else if signer.crypto_type() == crate::keys::CRYPTO_MLDSA65_FIXED {
+        } else if crate::keys::is_fixed_pq_crypto(signer.crypto_type()) {
             // All account/chain/call/nonce fields are authenticated in the full
             // transcript, including Shield's inner nonce offset. The fixed key
             // has no on-chain generation to reload between the two signatures.
@@ -812,7 +812,30 @@ impl Client {
         } else {
             64
         };
-        let proof = if is_mldsa_crypto(signer.crypto_type()) {
+        let proof = if crate::keys::is_falcon_crypto(signer.crypto_type()) {
+            let profile = crate::keys::pq_profile(signer.crypto_type())
+                .ok_or_else(|| CoreError::Codec("invalid Falcon crypto type".into()))?;
+            subtensor_hashed::falcon::SignerAddress {
+                account: signer.public_key_bytes(),
+                version: subtensor_hashed::falcon::VERSION,
+                algorithm: profile,
+                generation: 0,
+                public_key: vec![
+                    0;
+                    subtensor_hashed::falcon::public_key_len(profile).ok_or_else(
+                        || CoreError::Codec("invalid Falcon profile".into())
+                    )?
+                ],
+                next_commitment: [1; 64],
+                signature: vec![
+                    0;
+                    subtensor_hashed::falcon::signature_len(profile).ok_or_else(
+                        || CoreError::Codec("invalid Falcon profile".into())
+                    )?
+                ],
+            }
+            .encode()
+        } else if is_pq_crypto(signer.crypto_type()) {
             subtensor_hashed::mldsa::SignerAddress {
                 account: signer.public_key_bytes(),
                 version: subtensor_hashed::mldsa::VERSION,
@@ -2102,7 +2125,7 @@ mod fee_quote_tests {
     use std::net::TcpListener;
 
     fn runtime() -> Runtime {
-        crate::codec::extrinsic::hashed_tests::runtime_mldsa()
+        crate::codec::extrinsic::hashed_tests::runtime_falcon()
     }
 
     #[test]
@@ -2114,6 +2137,10 @@ mod fee_quote_tests {
             6,
             crate::keys::CRYPTO_MLDSA65,
             crate::keys::CRYPTO_MLDSA65_FIXED,
+            crate::keys::CRYPTO_FALCON512,
+            crate::keys::CRYPTO_FALCON512_HASHED,
+            crate::keys::CRYPTO_FALCON1024,
+            crate::keys::CRYPTO_FALCON1024_HASHED,
         ] {
             let runtime = runtime();
             let full = Keypair::from_seed(&[17; 32], crypto).unwrap();
@@ -2138,7 +2165,7 @@ mod fee_quote_tests {
                 era_block_hash: [8; 32],
                 metadata_hash: None,
             };
-            let proof = if is_hashed_crypto(crypto) || is_mldsa_crypto(crypto) {
+            let proof = if is_hashed_crypto(crypto) || is_pq_crypto(crypto) {
                 full.sign_authorization(b"length control").unwrap()
             } else {
                 full.sign(b"length control").unwrap()
@@ -2241,7 +2268,22 @@ mod fee_quote_tests {
             let _ = codec::Compact::<u32>::decode(&mut body).unwrap();
             let mut control_body = control.as_slice();
             let _ = codec::Compact::<u32>::decode(&mut control_body).unwrap();
-            if is_mldsa_crypto(crypto) {
+            if crate::keys::is_falcon_crypto(crypto) {
+                assert_eq!(&body[..2], &[0x84, 2]);
+                let mut raw = &body[2..];
+                let profile = full.mldsa_profile().unwrap();
+                assert_eq!(
+                    codec::Compact::<u32>::decode(&mut raw).unwrap().0 as usize,
+                    subtensor_hashed::falcon::proof_len(profile).unwrap()
+                );
+                let address = subtensor_hashed::falcon::SignerAddress::decode(&mut raw).unwrap();
+                assert_eq!(address.account, full.public_key_bytes());
+                assert!(address.public_key.iter().all(|byte| *byte == 0));
+                assert!(address.signature.iter().all(|byte| *byte == 0));
+                assert_eq!(&raw[..65], &[vec![0], vec![0x4d; 64]].concat());
+                let active = full.pq_public_key().unwrap();
+                assert!(!quotes[0].windows(active.len()).any(|w| w == active));
+            } else if is_pq_crypto(crypto) {
                 assert_eq!(&body[..2], &[0x84, 2]);
                 let mut raw = &body[2..];
                 assert_eq!(codec::Compact::<u32>::decode(&mut raw).unwrap().0, 5367);
@@ -2328,7 +2370,7 @@ mod registered_signing_tests {
     /// Add the account records to the legacy codec fixture. Calls, extensions,
     /// signing envelopes, and System.Account keys retain the real metadata.
     fn runtime(crypto: u8) -> Runtime {
-        let mut runtime = crate::codec::extrinsic::hashed_tests::runtime_mldsa();
+        let mut runtime = crate::codec::extrinsic::hashed_tests::runtime_falcon();
         let u8_ty = add_type(
             &mut runtime,
             TypeDef::Primitive(scale_info::TypeDefPrimitive::U8),
@@ -2341,7 +2383,7 @@ mod registered_signing_tests {
             &mut runtime,
             TypeDef::Primitive(scale_info::TypeDefPrimitive::Bool),
         );
-        let commitment_len = if is_mldsa_crypto(crypto) { 64 } else { 32 };
+        let commitment_len = if is_pq_crypto(crypto) { 64 } else { 32 };
         let commitment_ty = add_type(
             &mut runtime,
             TypeDef::Array(TypeDefArray {
@@ -2379,7 +2421,7 @@ mod registered_signing_tests {
         account.value_type = account_ty;
         let mut authority = account.clone();
         authority.prefix = "HashedAccounts".into();
-        authority.name = if is_mldsa_crypto(crypto) {
+        authority.name = if is_pq_crypto(crypto) {
             "MlDsaAccounts"
         } else {
             "Accounts"
@@ -2459,7 +2501,7 @@ mod registered_signing_tests {
             let enabled_key = storage_key("AdminUtils", "HashedAccountsEnabled", &[]);
             let authority_key = storage_key(
                 "HashedAccounts",
-                if is_mldsa_crypto(crypto) {
+                if is_pq_crypto(crypto) {
                     "MlDsaAccounts"
                 } else {
                     "Accounts"
@@ -2469,7 +2511,7 @@ mod registered_signing_tests {
             let account_key = storage_key("System", "Account", &address);
             let next_key = storage_key("MevShield", "NextKey", &[]);
             let events_key = storage_key("System", "Events", &[]);
-            let descriptor = if is_mldsa_crypto(crypto) {
+            let descriptor = if is_pq_crypto(crypto) {
                 signer.mldsa_descriptor().unwrap()
             } else {
                 signer.hashed_descriptor().unwrap()
@@ -2486,7 +2528,7 @@ mod registered_signing_tests {
                 );
                 encoded
             };
-            let (old_authority, new_authority) = if crypto == crate::keys::CRYPTO_MLDSA65_FIXED {
+            let (old_authority, new_authority) = if crate::keys::is_fixed_pq_crypto(crypto) {
                 // A fixed signer must never read this deliberately absent record.
                 (Vec::new(), Vec::new())
             } else {
@@ -2700,7 +2742,12 @@ mod registered_signing_tests {
         assert_eq!(u8::decode(&mut bytes).unwrap(), 0x84);
         assert_eq!(u8::decode(&mut bytes).unwrap(), 2);
         let address = Vec::<u8>::decode(&mut bytes).unwrap();
-        if is_mldsa_crypto(signer.crypto_type()) {
+        if crate::keys::is_falcon_crypto(signer.crypto_type()) {
+            let proof = subtensor_hashed::falcon::SignerAddress::from_bytes(&address).unwrap();
+            assert_eq!(proof.generation, generation);
+            assert_eq!(proof.account, signer.public_key_bytes());
+            assert!(proof.verify(&payload));
+        } else if is_pq_crypto(signer.crypto_type()) {
             let proof =
                 subtensor_hashed::mldsa::SignerAddress::decode(&mut address.as_slice()).unwrap();
             assert_eq!(proof.generation, generation);
@@ -2731,11 +2778,13 @@ mod registered_signing_tests {
         }
     }
 
-    fn wallet_modes() -> [u8; 3] {
+    fn wallet_modes() -> [u8; 5] {
         [
             crate::keys::CRYPTO_HASHED,
             crate::keys::CRYPTO_HASHED_ED25519,
             crate::keys::CRYPTO_MLDSA65,
+            crate::keys::CRYPTO_FALCON512_HASHED,
+            crate::keys::CRYPTO_FALCON1024_HASHED,
         ]
     }
 
@@ -2883,57 +2932,69 @@ mod registered_signing_tests {
 
     #[test]
     fn fixed_ms_signs_queued_nonces_without_authority_records() {
-        let signer = Keypair::from_seed(&[31; 32], crate::keys::CRYPTO_MLDSA65_FIXED).unwrap();
-        let node = MockNode::new(&signer);
-        let call = node.call();
-        node.state.lock().unwrap().pending = true;
-        for nonce in [NONCE, NONCE + 1, NONCE + 2] {
-            let (encoded, _) = node
-                .client
-                .sign_extrinsic(&call, &signer, nonce, None)
-                .unwrap();
-            assert_proof(&node, &signer, &encoded, &call, 0, nonce);
+        for crypto in [
+            crate::keys::CRYPTO_MLDSA65_FIXED,
+            crate::keys::CRYPTO_FALCON512,
+            crate::keys::CRYPTO_FALCON1024,
+        ] {
+            let signer = Keypair::from_seed(&[31; 32], crypto).unwrap();
+            let node = MockNode::new(&signer);
+            let call = node.call();
+            node.state.lock().unwrap().pending = true;
+            for nonce in [NONCE, NONCE + 1, NONCE + 2] {
+                let (encoded, _) = node
+                    .client
+                    .sign_extrinsic(&call, &signer, nonce, None)
+                    .unwrap();
+                assert_proof(&node, &signer, &encoded, &call, 0, nonce);
+            }
+            let state = node.state.lock().unwrap();
+            assert!(state.authority_reads.is_empty());
+            assert!(state.account_reads.is_empty());
         }
-        let state = node.state.lock().unwrap();
-        assert!(state.authority_reads.is_empty());
-        assert!(state.account_reads.is_empty());
     }
 
     #[test]
     fn fixed_ms_shield_signs_both_nonces_with_the_same_key() {
-        let signer = Keypair::from_seed(&[32; 32], crate::keys::CRYPTO_MLDSA65_FIXED).unwrap();
-        let node = MockNode::new(&signer);
-        let call = node.call();
-        let outcome = node.client.submit_shielded(&call, &signer, false).unwrap();
-        assert!(!outcome.success); // The server captures, then rejects the carrier.
-        let state = node.state.lock().unwrap();
-        assert!(state.authority_reads.is_empty());
-        assert!(state.account_reads.is_empty());
-        assert_eq!(state.finalized_reads, 1);
-        let outer = &state.submitted[0];
-        let runtime = node.client.runtime().unwrap();
-        let decoded = runtime.decode_extrinsic(outer, true).unwrap();
-        let Value::List(args) = field(field(&decoded, "call").unwrap(), "call_args").unwrap()
-        else {
-            panic!("decoded call arguments")
-        };
-        let ciphertext = args
-            .iter()
-            .find_map(|arg| {
-                (field(arg, "name") == Some(&Value::str("ciphertext")))
-                    .then(|| value_bytes(field(arg, "value").unwrap()).unwrap())
-            })
-            .unwrap();
-        let inner = node.decrypt(&ciphertext);
-        let outer_call = runtime
-            .compose_call(
-                "MevShield",
-                "submit_encrypted",
-                &Value::record(vec![("ciphertext".into(), Value::Bytes(ciphertext))]),
-            )
-            .unwrap();
-        assert_proof(&node, &signer, outer, &outer_call, 0, NONCE);
-        assert_proof(&node, &signer, &inner, &call, 0, NONCE + 1);
+        for crypto in [
+            crate::keys::CRYPTO_MLDSA65_FIXED,
+            crate::keys::CRYPTO_FALCON512,
+            crate::keys::CRYPTO_FALCON1024,
+        ] {
+            let signer = Keypair::from_seed(&[32; 32], crypto).unwrap();
+            let node = MockNode::new(&signer);
+            let call = node.call();
+            let outcome = node.client.submit_shielded(&call, &signer, false).unwrap();
+            assert!(!outcome.success); // The server captures, then rejects the carrier.
+            let state = node.state.lock().unwrap();
+            assert!(state.authority_reads.is_empty());
+            assert!(state.account_reads.is_empty());
+            assert_eq!(state.finalized_reads, 1);
+            let outer = &state.submitted[0];
+            let runtime = node.client.runtime().unwrap();
+            let decoded = runtime.decode_extrinsic(outer, true).unwrap();
+            let Value::List(args) = field(field(&decoded, "call").unwrap(), "call_args").unwrap()
+            else {
+                panic!("decoded call arguments")
+            };
+            let ciphertext = args
+                .iter()
+                .find_map(|arg| {
+                    (field(arg, "name") == Some(&Value::str("ciphertext")))
+                        .then(|| value_bytes(field(arg, "value").unwrap()).unwrap())
+                })
+                .unwrap();
+            let inner = node.decrypt(&ciphertext);
+            let outer_call = runtime
+                .compose_call(
+                    "MevShield",
+                    "submit_encrypted",
+                    &Value::record(vec![("ciphertext".into(), Value::Bytes(ciphertext))]),
+                )
+                .unwrap();
+            assert_proof(&node, &signer, outer, &outer_call, 0, NONCE);
+            assert_proof(&node, &signer, &inner, &call, 0, NONCE + 1);
+        }
     }
 
     #[test]
@@ -2979,15 +3040,21 @@ mod registered_signing_tests {
 
     #[test]
     fn fixed_ms_shield_rejects_exhausted_inner_nonce_before_submitting() {
-        let signer = Keypair::from_seed(&[33; 32], crate::keys::CRYPTO_MLDSA65_FIXED).unwrap();
-        let node = MockNode::new(&signer);
-        node.state.lock().unwrap().nonce_override = Some(u64::from(u32::MAX) - 1);
-        let error = node
-            .client
-            .submit_shielded(&node.call(), &signer, false)
-            .unwrap_err();
-        assert!(error.to_string().contains("nonce exhausted"));
-        assert!(node.state.lock().unwrap().submitted.is_empty());
+        for crypto in [
+            crate::keys::CRYPTO_MLDSA65_FIXED,
+            crate::keys::CRYPTO_FALCON512,
+            crate::keys::CRYPTO_FALCON1024,
+        ] {
+            let signer = Keypair::from_seed(&[33; 32], crypto).unwrap();
+            let node = MockNode::new(&signer);
+            node.state.lock().unwrap().nonce_override = Some(u64::from(u32::MAX) - 1);
+            let error = node
+                .client
+                .submit_shielded(&node.call(), &signer, false)
+                .unwrap_err();
+            assert!(error.to_string().contains("nonce exhausted"));
+            assert!(node.state.lock().unwrap().submitted.is_empty());
+        }
     }
 
     #[test]

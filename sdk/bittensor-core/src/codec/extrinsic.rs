@@ -266,28 +266,32 @@ impl Runtime {
         signature_version: u8,
         params: &TxParams,
     ) -> Result<(Vec<u8>, [u8; 32]), CoreError> {
-        let mldsa = if crate::keys::is_mldsa_crypto(signature_version) {
-            let address = subtensor_hashed::mldsa::SignerAddress::from_bytes(signature)
-                .map_err(|_| CoreError::Codec("invalid ML-DSA authorization envelope".into()))?;
-            let profile = address.algorithm;
+        let pq = if crate::keys::is_pq_crypto(signature_version) {
+            let (account, profile, encoded) = if crate::keys::is_falcon_crypto(signature_version) {
+                let address = subtensor_hashed::falcon::SignerAddress::from_bytes(signature)
+                    .map_err(|_| {
+                        CoreError::Codec("invalid Falcon authorization envelope".into())
+                    })?;
+                (address.account, address.algorithm, address.encode())
+            } else {
+                let address = subtensor_hashed::mldsa::SignerAddress::from_bytes(signature)
+                    .map_err(|_| {
+                        CoreError::Codec("invalid ML-DSA authorization envelope".into())
+                    })?;
+                (address.account, address.algorithm, address.encode())
+            };
             if !self.supports_mldsa_profile(profile) {
                 return Err(CoreError::Codec(
-                    "runtime does not advertise this ML-DSA account profile".into(),
+                    "runtime does not advertise this post-quantum account profile".into(),
                 ));
             }
-            let matching_profile = match signature_version {
-                crate::keys::CRYPTO_MLDSA65 => profile == subtensor_hashed::mldsa::ALGORITHM,
-                crate::keys::CRYPTO_MLDSA65_FIXED => {
-                    profile == subtensor_hashed::mldsa::FIXED_ALGORITHM
-                }
-                _ => false,
-            };
-            if address.account != public_key || !matching_profile {
+            if account != public_key || crate::keys::pq_profile(signature_version) != Some(profile)
+            {
                 return Err(CoreError::Codec(
-                    "ML-DSA proof account does not match signer".into(),
+                    "post-quantum proof account does not match signer".into(),
                 ));
             }
-            Some(address)
+            Some(encoded)
         } else {
             None
         };
@@ -309,9 +313,9 @@ impl Runtime {
         } else {
             None
         };
-        let (address, signature, signature_version) = if let Some(address) = &mldsa {
+        let (address, signature, signature_version) = if let Some(address) = &pq {
             (
-                Value::record(vec![("Raw".into(), Value::Bytes(address.encode()))]),
+                Value::record(vec![("Raw".into(), Value::Bytes(address.clone()))]),
                 subtensor_hashed::mldsa::CARRIER_SIGNATURE.as_slice(),
                 0,
             )
@@ -398,6 +402,12 @@ impl Runtime {
     /// Detect the explicit ML-DSA registration variant on the original call.
     /// Presence of HashedAccounts alone does not imply ML-DSA support.
     pub fn supports_mldsa_profile(&self, profile: u8) -> bool {
+        if subtensor_hashed::falcon::is_account_profile(profile) {
+            return self.supports_registration_variant("Falcon")
+                && self
+                    .constant("HashedAccounts", "FalconAccountProfiles")
+                    .is_some_and(|constant| constant.value.contains(&profile));
+        }
         self.supports_mldsa_accounts()
             && match profile {
                 subtensor_hashed::mldsa::ALGORITHM => true,
@@ -409,6 +419,10 @@ impl Runtime {
     }
 
     pub fn supports_mldsa_accounts(&self) -> bool {
+        self.supports_registration_variant("MlDsa65")
+    }
+
+    fn supports_registration_variant(&self, variant: &str) -> bool {
         self.pallets
             .iter()
             .filter(|p| p.name == "HashedAccounts")
@@ -432,7 +446,7 @@ impl Runtime {
                     };
                     matches!(&descriptor.type_def, TypeDef::Variant(schemes)
                         if schemes.variants.iter().any(|scheme|
-                            scheme.name == "MlDsa65" && scheme.fields.len() == 1)
+                            scheme.name == variant && scheme.fields.len() == 1)
                         && schemes.variants.iter().any(|scheme|
                             scheme.name == "Classical" && scheme.fields.len() == 1))
                 })
@@ -880,6 +894,42 @@ pub(crate) mod hashed_tests {
         runtime
     }
 
+    pub(crate) fn runtime_falcon() -> Runtime {
+        let mut runtime = runtime_mldsa();
+        let pallet = runtime
+            .pallets
+            .iter_mut()
+            .find(|p| p.name == "HashedAccounts")
+            .unwrap();
+        let call_id = pallet.calls_type.unwrap();
+        pallet.constants.push(crate::runtime::ConstantInfo {
+            name: "FalconAccountProfiles".into(),
+            ty: 0,
+            value: vec![6, 7, 8, 9],
+            docs: vec![],
+        });
+        let TypeDef::Variant(calls) = &runtime.types.resolve(call_id).unwrap().type_def else {
+            panic!("calls")
+        };
+        let descriptor_id = calls
+            .variants
+            .iter()
+            .find(|call| call.name == "register")
+            .unwrap()
+            .fields[0]
+            .ty
+            .id;
+        let descriptor = &mut runtime.types.types[descriptor_id as usize].ty;
+        let TypeDef::Variant(variants) = &mut descriptor.type_def else {
+            panic!("descriptor")
+        };
+        let mut falcon = variants.variants[1].clone();
+        falcon.name = "Falcon".into();
+        falcon.index = 2;
+        variants.variants.push(falcon);
+        runtime
+    }
+
     #[test]
     fn fixed_profile_requires_advertised_runtime_support_before_encoding() {
         let mut runtime = runtime_mldsa();
@@ -942,9 +992,13 @@ pub(crate) mod hashed_tests {
         for crypto in [
             crate::keys::CRYPTO_MLDSA65,
             crate::keys::CRYPTO_MLDSA65_FIXED,
+            crate::keys::CRYPTO_FALCON512,
+            crate::keys::CRYPTO_FALCON512_HASHED,
+            crate::keys::CRYPTO_FALCON1024,
+            crate::keys::CRYPTO_FALCON1024_HASHED,
         ] {
             let legacy_runtime = runtime(false);
-            let runtime = runtime_mldsa();
+            let runtime = runtime_falcon();
             let call = runtime
                 .compose_call(
                     "System",
@@ -954,7 +1008,7 @@ pub(crate) mod hashed_tests {
                 .unwrap();
             let wallet = Keypair::from_seed(&[7; 32], crypto)
                 .unwrap()
-                .at_generation(if crypto == crate::keys::CRYPTO_MLDSA65 {
+                .at_generation(if crate::keys::is_rotating_crypto(crypto) {
                     3
                 } else {
                     0
@@ -965,9 +1019,15 @@ pub(crate) mod hashed_tests {
             let proof = wallet
                 .sign_mldsa_with_randomness(&payload, &[0; 32])
                 .unwrap();
-            assert!(subtensor_hashed::mldsa::SignerAddress::from_bytes(&proof)
-                .unwrap()
-                .verify(&payload));
+            if crate::keys::is_falcon_crypto(crypto) {
+                assert!(subtensor_hashed::falcon::SignerAddress::from_bytes(&proof)
+                    .unwrap()
+                    .verify(&payload));
+            } else {
+                assert!(subtensor_hashed::mldsa::SignerAddress::from_bytes(&proof)
+                    .unwrap()
+                    .verify(&payload));
+            }
             let (encoded, hash) = runtime
                 .encode_signed_extrinsic(
                     &call,
@@ -979,12 +1039,13 @@ pub(crate) mod hashed_tests {
                 .unwrap();
             assert_eq!(hash, blake2_256(&encoded));
             runtime.decode_extrinsic(&encoded, true).unwrap();
+            legacy_runtime.decode_extrinsic(&encoded, true).unwrap();
             let mut body = Cursor::new(&encoded);
             let _ = compact_u128(&mut body).unwrap();
             assert_eq!(body.byte().unwrap(), 0x84);
             assert_eq!(body.byte().unwrap(), 2);
-            assert_eq!(compact_u128(&mut body).unwrap(), 5367);
-            assert_eq!(body.take(5367).unwrap(), proof);
+            assert_eq!(compact_u128(&mut body).unwrap(), proof.len() as u128);
+            assert_eq!(body.take(proof.len()).unwrap(), proof);
             assert_eq!(body.byte().unwrap(), 0);
             assert_eq!(
                 body.take(64).unwrap(),

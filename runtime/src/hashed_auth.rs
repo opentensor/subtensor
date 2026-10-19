@@ -27,6 +27,36 @@ frame_support::parameter_types! { pub static TestVerificationWeight: Weight = We
 pub struct TestWeights;
 #[cfg(test)]
 impl WeightInfo for TestWeights {
+    fn register_falcon() -> Weight {
+        TestVerificationWeight::get()
+    }
+    fn check_registered_falcon() -> Weight {
+        TestVerificationWeight::get()
+    }
+    fn authorize_fixed_falcon512(_: u32) -> Weight {
+        TestVerificationWeight::get()
+    }
+    fn authorize_fixed_falcon512_invalid(_: u32) -> Weight {
+        TestVerificationWeight::get()
+    }
+    fn authorize_fixed_falcon1024(_: u32) -> Weight {
+        TestVerificationWeight::get()
+    }
+    fn authorize_fixed_falcon1024_invalid(_: u32) -> Weight {
+        TestVerificationWeight::get()
+    }
+    fn authorize_falcon512(_: u32) -> Weight {
+        TestVerificationWeight::get()
+    }
+    fn authorize_falcon512_invalid(_: u32) -> Weight {
+        TestVerificationWeight::get()
+    }
+    fn authorize_falcon1024(_: u32) -> Weight {
+        TestVerificationWeight::get()
+    }
+    fn authorize_falcon1024_invalid(_: u32) -> Weight {
+        TestVerificationWeight::get()
+    }
     fn register_mldsa65() -> Weight {
         TestVerificationWeight::get()
     }
@@ -69,11 +99,12 @@ impl WeightInfo for TestWeights {
 }
 
 /// Wire-independent context, reconstructed exclusively from the signer address.
-/// The large ML-DSA key is boxed to keep transaction-extension stack frames small.
+/// Post-quantum headers are boxed to keep transaction-extension stack frames small.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum AccountAuthorization {
     V1(subtensor_hashed::SignerAddress),
     MlDsa(Box<subtensor_hashed::mldsa::Header>),
+    Falcon(Box<subtensor_hashed::falcon::Header>),
 }
 
 impl AccountAuthorization {
@@ -86,6 +117,10 @@ impl AccountAuthorization {
                 let address = subtensor_hashed::mldsa::SignerAddress::from_bytes(bytes)?;
                 Ok(Self::MlDsa(Box::new(address.header())))
             }
+            subtensor_hashed::falcon::PROOF_LEN_512 | subtensor_hashed::falcon::PROOF_LEN_1024 => {
+                let address = subtensor_hashed::falcon::SignerAddress::from_bytes(bytes)?;
+                Ok(Self::Falcon(Box::new(address.header())))
+            }
             _ => Err("Invalid hashed signer address length".into()),
         }
     }
@@ -94,6 +129,7 @@ impl AccountAuthorization {
         AccountId::new(match self {
             Self::V1(address) => address.account,
             Self::MlDsa(address) => address.account,
+            Self::Falcon(address) => address.account,
         })
     }
 
@@ -101,7 +137,26 @@ impl AccountAuthorization {
         match self {
             Self::V1(address) => address.generation,
             Self::MlDsa(address) => address.generation,
+            Self::Falcon(address) => address.generation,
         }
+    }
+}
+
+/// Charge each Falcon parameter set independently, including invalid proofs.
+pub(crate) fn falcon_authorization_weight(profile: u8, len: u32) -> Weight {
+    type Weights = <Runtime as pallet_hashed_accounts::Config>::WeightInfo;
+    match profile {
+        subtensor_hashed::falcon::ALGORITHM_512 => {
+            Weights::authorize_falcon512(len).max(Weights::authorize_falcon512_invalid(len))
+        }
+        subtensor_hashed::falcon::ALGORITHM_1024 => {
+            Weights::authorize_falcon1024(len).max(Weights::authorize_falcon1024_invalid(len))
+        }
+        subtensor_hashed::falcon::FIXED_ALGORITHM_512 => Weights::authorize_fixed_falcon512(len)
+            .max(Weights::authorize_fixed_falcon512_invalid(len)),
+        subtensor_hashed::falcon::FIXED_ALGORITHM_1024 => Weights::authorize_fixed_falcon1024(len)
+            .max(Weights::authorize_fixed_falcon1024_invalid(len)),
+        _ => Weight::MAX,
     }
 }
 
@@ -175,6 +230,7 @@ impl TransactionExtension<RuntimeCall> for AccountTxExtension {
                     <Runtime as pallet_hashed_accounts::Config>::WeightInfo::authorize_mldsa65(len)
                         .max(<Runtime as pallet_hashed_accounts::Config>::WeightInfo::authorize_mldsa65_invalid(len))
                 }
+                AccountAuthorization::Falcon(header) => falcon_authorization_weight(header.algorithm, len),
             };
             self.0.weight(call).saturating_add(auth)
         } else {
@@ -207,6 +263,16 @@ impl TransactionExtension<RuntimeCall> for AccountTxExtension {
                     address.next_commitment,
                 )
                 .map(ValidatedAuthorization::V1),
+                AccountAuthorization::Falcon(address) => {
+                    crate::HashedAccounts::check_mldsa_authorization(
+                        &account,
+                        address.algorithm,
+                        &address.public_key,
+                        address.generation,
+                        address.next_commitment,
+                    )
+                    .map(ValidatedAuthorization::MlDsa)
+                }
                 AccountAuthorization::MlDsa(address) => {
                     crate::HashedAccounts::check_mldsa_authorization(
                         &account,
@@ -234,9 +300,16 @@ impl TransactionExtension<RuntimeCall> for AccountTxExtension {
             );
             // Fixed stateless keys use the ordinary account nonce, including
             // queued consecutive transactions. Their proof generation is always zero.
-            if !matches!(address, AccountAuthorization::MlDsa(header)
-                if header.algorithm == subtensor_hashed::mldsa::FIXED_ALGORITHM)
-            {
+            let stateless = match address {
+                AccountAuthorization::MlDsa(header) => {
+                    header.algorithm == subtensor_hashed::mldsa::FIXED_ALGORITHM
+                }
+                AccountAuthorization::Falcon(header) => {
+                    subtensor_hashed::falcon::is_fixed_profile(header.algorithm)
+                }
+                AccountAuthorization::V1(_) => false,
+            };
+            if !stateless {
                 valid
                     .provides
                     .push((b"hashed-generation", &account, address.generation()).encode());

@@ -288,7 +288,8 @@ impl Keypair {
         })
     }
 
-    /// Recorded descriptor profile (4 rotates; 5 is registration-free fixed).
+    /// Recorded descriptor profile: MS 4/5, Falcon-512 6/7, Falcon-1024 8/9.
+    /// Each pair is rotating then registration-free fixed.
     /// An address-only watch view has no descriptor and cannot infer this value
     /// from its account hash.
     #[getter]
@@ -311,7 +312,7 @@ impl Keypair {
     fn mldsa_public_key<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
         Ok(PyBytes::new(
             py,
-            &self.inner.mldsa_public_key().map_err(to_py_err)?,
+            &self.inner.pq_public_key().map_err(to_py_err)?,
         ))
     }
     #[getter]
@@ -345,9 +346,9 @@ impl Keypair {
         ))
     }
     fn mldsa_receiving_address(&self) -> PyResult<String> {
-        if !keys::is_mldsa_crypto(self.inner.crypto_type()) {
+        if !keys::is_pq_crypto(self.inner.crypto_type()) {
             return Err(pyo3::exceptions::PyValueError::new_err(
-                "operation requires an ML-DSA account",
+                "operation requires a post-quantum account",
             ));
         }
         self.inner.hashed_receiving_address().map_err(to_py_err)
@@ -362,7 +363,7 @@ impl Keypair {
             py,
             &self
                 .inner
-                .mldsa_capability_public_key(role, epoch)
+                .pq_capability_public_key(role, epoch)
                 .map_err(to_py_err)?,
         ))
     }
@@ -435,7 +436,7 @@ impl Keypair {
             py,
             &self
                 .inner
-                .sign_mldsa_order_for(owner, epoch, nonce, genesis, order)
+                .sign_pq_order_for(owner, epoch, nonce, genesis, order)
                 .map_err(to_py_err)?,
         ))
     }
@@ -548,7 +549,7 @@ fn verify_mldsa_authorization(
 ) -> PyResult<bool> {
     let commitment = expected_commitment
         .try_into()
-        .map_err(|_| value_err("ML-DSA commitment must be 64 bytes"))?;
+        .map_err(|_| value_err("post-quantum commitment must be 64 bytes"))?;
     keys::verify_mldsa_authorization(proof, payload, descriptor, generation, commitment)
         .map_err(to_py_err)
 }
@@ -697,6 +698,10 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("CRYPTO_HASHED_ED25519", keys::CRYPTO_HASHED_ED25519)?;
     m.add("CRYPTO_MLDSA65", keys::CRYPTO_MLDSA65)?;
     m.add("CRYPTO_MLDSA65_FIXED", keys::CRYPTO_MLDSA65_FIXED)?;
+    m.add("CRYPTO_FALCON512", keys::CRYPTO_FALCON512)?;
+    m.add("CRYPTO_FALCON512_HASHED", keys::CRYPTO_FALCON512_HASHED)?;
+    m.add("CRYPTO_FALCON1024", keys::CRYPTO_FALCON1024)?;
+    m.add("CRYPTO_FALCON1024_HASHED", keys::CRYPTO_FALCON1024_HASHED)?;
     m.add("ROLE_ORDER", keys::ROLE_ORDER)?;
     m.add("ROLE_MESSAGE", keys::ROLE_MESSAGE)?;
     Ok(())

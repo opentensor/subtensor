@@ -63,7 +63,7 @@ from .signing import (
     public_view,
     resolve_signer,
 )
-from .sp_core import REGISTERED_CRYPTO_TYPES, Keypair, is_stateless_mldsa, ss58_decode
+from .sp_core import REGISTERED_CRYPTO_TYPES, Keypair, is_stateless_pq, ss58_decode
 
 # Transaction-pool rejections that resolve themselves within a block or so (a
 # competing extrinsic at the same nonce, or a race against pool state). Worth
@@ -1485,7 +1485,7 @@ class Executor:
         await _prepare_shielded_signer(keypair)
         snapshot = (
             await self.substrate.prepare_hashed_snapshot(
-                keypair, **({"reserve_nonces": True} if is_stateless_mldsa(keypair) else {})
+                keypair, **({"reserve_nonces": True} if is_stateless_pq(keypair) else {})
             )
             if keypair.crypto_type in REGISTERED_CRYPTO_TYPES
             else None
@@ -1517,7 +1517,7 @@ class Executor:
                 )
             )
         except BaseException:
-            if is_stateless_mldsa(keypair):
+            if is_stateless_pq(keypair):
                 self.substrate.release_nonce_reservation(keypair.ss58_address, nonce, 2)
             raise
         result = await self.substrate.submit(
@@ -1554,7 +1554,7 @@ class Executor:
             release_reservation = (
                 result.error is not None and result.error.name == "ShieldInnerExpired"
             )
-        if release_reservation and is_stateless_mldsa(keypair):
+        if release_reservation and is_stateless_pq(keypair):
             self.substrate.release_nonce_reservation(keypair.ss58_address, nonce, 2)
         return result
 

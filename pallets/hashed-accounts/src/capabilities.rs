@@ -160,6 +160,20 @@ impl<T: Config> Pallet<T> {
         epoch: u64,
         public_key: &subtensor_hashed::mldsa::PublicKeyBytes,
     ) -> Result<CapabilityRecord, sp_runtime::DispatchError> {
+        Self::checked_capability_commitment(
+            owner,
+            role,
+            epoch,
+            subtensor_hashed::mldsa::commitment(public_key),
+        )
+    }
+
+    fn checked_capability_commitment(
+        owner: &AccountId32,
+        role: CapabilityRole,
+        epoch: u64,
+        commitment: [u8; 64],
+    ) -> Result<CapabilityRecord, sp_runtime::DispatchError> {
         ensure!(T::Enabled::get(), Error::<T>::Disabled);
         let record =
             ActiveCapabilities::<T>::get(owner, role).ok_or(Error::<T>::CapabilityMissing)?;
@@ -170,7 +184,7 @@ impl<T: Config> Pallet<T> {
         let now: u64 = frame_system::Pallet::<T>::block_number().saturated_into();
         ensure!(now <= record.expires_at, Error::<T>::CapabilityExpired);
         ensure!(
-            subtensor_hashed::mldsa::commitment(public_key) == record.key_commitment,
+            commitment == record.key_commitment,
             Error::<T>::WrongCommitment
         );
         Ok(record)
@@ -190,6 +204,68 @@ impl<T: Config> Pallet<T> {
         fill_amount: u64,
     ) -> DispatchResult {
         let record = Self::checked_capability(owner, CapabilityRole::Order, epoch, public_key)?;
+        Self::check_order_scope(
+            &record,
+            netuid,
+            hotkey,
+            fee_recipient,
+            fee_perbill,
+            is_buy,
+            full_amount,
+            fill_amount,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn check_falcon_order_capability(
+        owner: &AccountId32,
+        epoch: u64,
+        algorithm: u8,
+        public_key: &[u8],
+        netuid: u16,
+        hotkey: &AccountId32,
+        fee_recipient: &AccountId32,
+        fee_perbill: u32,
+        is_buy: bool,
+        full_amount: u64,
+        fill_amount: u64,
+    ) -> DispatchResult {
+        // Purpose keys have one canonical profile per degree, independent of
+        // whether the owning wallet rotates its transaction key.
+        ensure!(
+            matches!(
+                algorithm,
+                subtensor_hashed::falcon::ALGORITHM_512 | subtensor_hashed::falcon::ALGORITHM_1024
+            ),
+            Error::<T>::UnsupportedDescriptor
+        );
+        let commitment = subtensor_hashed::falcon::commitment(algorithm, public_key)
+            .map_err(|_| Error::<T>::WrongCommitment)?;
+        let record =
+            Self::checked_capability_commitment(owner, CapabilityRole::Order, epoch, commitment)?;
+        Self::check_order_scope(
+            &record,
+            netuid,
+            hotkey,
+            fee_recipient,
+            fee_perbill,
+            is_buy,
+            full_amount,
+            fill_amount,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn check_order_scope(
+        record: &CapabilityRecord,
+        netuid: u16,
+        hotkey: &AccountId32,
+        fee_recipient: &AccountId32,
+        fee_perbill: u32,
+        is_buy: bool,
+        full_amount: u64,
+        fill_amount: u64,
+    ) -> DispatchResult {
         if let CapabilityScope::Trading(scope) = &record.scope {
             ensure!(
                 scope.netuid == netuid

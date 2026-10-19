@@ -1,5 +1,6 @@
-//! Version-two ML-DSA wallets. Account identity and signing public keys are
-//! deliberately separate: the former remains 32 bytes, the latter is 1952.
+//! Descriptor-based post-quantum wallets with immutable recovery profiles.
+//! Account identities remain 32 bytes; signing keys have algorithm-specific widths.
+//! Historical ML-DSA method names remain available for client compatibility.
 
 use codec::{Decode, Encode};
 use hkdf::Hkdf;
@@ -8,9 +9,9 @@ use sha2::Sha512;
 use subtensor_hashed::mldsa;
 use zeroize::Zeroizing;
 
-use super::{
-    crypto_err, is_mldsa_crypto, Keypair, KeypairInner, CRYPTO_MLDSA65, CRYPTO_MLDSA65_FIXED,
-};
+use super::{crypto_err, falcon, is_pq_crypto, Keypair, KeypairInner};
+#[cfg(test)]
+use super::{CRYPTO_MLDSA65, CRYPTO_MLDSA65_FIXED};
 use crate::error::CoreError;
 
 const DERIVATION_SALT: &[u8] = b"bittensor/ms/v2/derive";
@@ -31,21 +32,22 @@ pub struct MldsaKeypair {
 
 impl MldsaKeypair {
     pub(super) fn from_seed(seed: &[u8], crypto_type: u8) -> Result<Self, CoreError> {
-        let profile = match crypto_type {
-            CRYPTO_MLDSA65 => mldsa::ALGORITHM,
-            CRYPTO_MLDSA65_FIXED => mldsa::FIXED_ALGORITHM,
-            _ => return Err(crypto_err("unsupported ML-DSA account profile")),
-        };
+        let profile = super::pq_profile(crypto_type)
+            .ok_or_else(|| crypto_err("unsupported post-quantum account profile"))?;
         let master = Zeroizing::new(
             <[u8; 32]>::try_from(seed)
-                .map_err(|_| crypto_err("ML-DSA master seed must be exactly 32 bytes"))?,
+                .map_err(|_| crypto_err("post-quantum master seed must be exactly 32 bytes"))?,
         );
-        let (transaction_index, initial_commitment) = if profile == mldsa::FIXED_ALGORITHM {
-            Self::stateless_transaction_key(&master, STATELESS_KEY_SEARCH_LIMIT)?
+        let (transaction_index, initial_commitment) = if super::is_fixed_pq_crypto(crypto_type) {
+            Self::stateless_transaction_key_for_profile(
+                &master,
+                profile,
+                STATELESS_KEY_SEARCH_LIMIT,
+            )?
         } else {
             let initial = Self::derive_seed_for_profile(&master, profile, ROLE_TRANSACTION, 0)?;
-            let public = mldsa::public_key_from_seed(&initial).map_err(crypto_err)?;
-            (0, mldsa::commitment(&public))
+            let public = falcon::public_key(profile, &initial)?;
+            (0, falcon::commitment(profile, &public)?)
         };
         Ok(Self {
             descriptor: mldsa::Descriptor {
@@ -59,22 +61,26 @@ impl MldsaKeypair {
         })
     }
 
+    #[cfg(test)]
     fn stateless_transaction_key(
         master: &[u8; 32],
         limit: u64,
     ) -> Result<(u64, mldsa::Commitment), CoreError> {
+        Self::stateless_transaction_key_for_profile(master, mldsa::FIXED_ALGORITHM, limit)
+    }
+
+    fn stateless_transaction_key_for_profile(
+        master: &[u8; 32],
+        profile: u8,
+        limit: u64,
+    ) -> Result<(u64, mldsa::Commitment), CoreError> {
         for index in 0..limit {
-            let seed = Self::derive_seed_for_profile(
-                master,
-                mldsa::FIXED_ALGORITHM,
-                ROLE_TRANSACTION,
-                index,
-            )?;
-            let public = mldsa::public_key_from_seed(&seed).map_err(crypto_err)?;
-            let initial_commitment = mldsa::commitment(&public);
+            let seed = Self::derive_seed_for_profile(master, profile, ROLE_TRANSACTION, index)?;
+            let public = falcon::public_key(profile, &seed)?;
+            let initial_commitment = falcon::commitment(profile, &public)?;
             let descriptor = mldsa::Descriptor {
                 version: mldsa::VERSION,
-                algorithm: mldsa::FIXED_ALGORITHM,
+                algorithm: profile,
                 initial_commitment,
             };
             if initial_commitment != [0; mldsa::COMMITMENT_LEN]
@@ -84,7 +90,7 @@ impl MldsaKeypair {
             }
         }
         Err(crypto_err(
-            "ML-DSA account derivation exhausted its bounded key search",
+            "post-quantum account derivation exhausted its bounded key search",
         ))
     }
 
@@ -104,22 +110,27 @@ impl MldsaKeypair {
         index: u64,
     ) -> Result<Zeroizing<[u8; 32]>, CoreError> {
         if role > ROLE_MESSAGE {
-            return Err(crypto_err("unsupported ML-DSA key role"));
+            return Err(crypto_err("unsupported post-quantum key role"));
         }
-        let kdf = Hkdf::<Sha512>::new(Some(DERIVATION_SALT), master);
+        let salt = if subtensor_hashed::falcon::is_account_profile(profile) {
+            b"bittensor/falcon/v1/derive".as_slice()
+        } else {
+            DERIVATION_SALT
+        };
+        let kdf = Hkdf::<Sha512>::new(Some(salt), master);
         let mut seed = Zeroizing::new([0; 32]);
         kdf.expand(
             &(mldsa::VERSION, profile, role, index).encode(),
             seed.as_mut(),
         )
-        .map_err(|_| crypto_err("ML-DSA signing-key derivation failed"))?;
+        .map_err(|_| crypto_err("post-quantum signing-key derivation failed"))?;
         Ok(seed)
     }
 
-    fn seed_at(&self, role: u8, index: u64) -> Result<Zeroizing<[u8; 32]>, CoreError> {
+    pub(super) fn seed_at(&self, role: u8, index: u64) -> Result<Zeroizing<[u8; 32]>, CoreError> {
         Self::derive_seed_for_profile(
             self.master_seed()
-                .ok_or_else(|| crypto_err("ML-DSA derivation requires a private wallet"))?,
+                .ok_or_else(|| crypto_err("post-quantum derivation requires a private wallet"))?,
             self.descriptor.algorithm,
             role,
             if role == ROLE_TRANSACTION && !self.descriptor.is_rotating() {
@@ -138,11 +149,11 @@ impl MldsaKeypair {
     }
 }
 
-fn randomness() -> Result<Zeroizing<[u8; 32]>, CoreError> {
+pub(super) fn randomness() -> Result<Zeroizing<[u8; 32]>, CoreError> {
     let mut random = Zeroizing::new([0; 32]);
     OsRng
         .try_fill_bytes(random.as_mut())
-        .map_err(|_| crypto_err("ML-DSA signing randomness unavailable"))?;
+        .map_err(|_| crypto_err("post-quantum signing randomness unavailable"))?;
     Ok(random)
 }
 
@@ -200,7 +211,20 @@ pub fn verify_mldsa_authorization(
     expected_commitment: &[u8; 64],
 ) -> Result<bool, CoreError> {
     let descriptor = mldsa::Descriptor::from_bytes(descriptor)
-        .map_err(|_| crypto_err("invalid ML-DSA descriptor"))?;
+        .map_err(|_| crypto_err("invalid post-quantum descriptor"))?;
+    if subtensor_hashed::falcon::is_account_profile(descriptor.algorithm) {
+        let Ok(proof) = subtensor_hashed::falcon::SignerAddress::from_bytes(encoded) else {
+            return Ok(false);
+        };
+        return Ok(generation != u64::MAX
+            && (!descriptor.is_stateless() || generation == 0)
+            && proof.account == mldsa::account_id(&descriptor)
+            && proof.algorithm == descriptor.algorithm
+            && proof.generation == generation
+            && falcon::commitment(proof.algorithm, &proof.public_key)? == *expected_commitment
+            && descriptor.accepts_next_commitment(expected_commitment, &proof.next_commitment)
+            && proof.verify(payload));
+    }
     let Ok(proof) = mldsa::SignerAddress::from_bytes(encoded) else {
         return Ok(false);
     };
@@ -223,13 +247,27 @@ pub fn verify_mldsa_capability(
     epoch: u64,
     expected_commitment: &[u8; 64],
 ) -> Result<bool, CoreError> {
+    if encoded
+        .get(1)
+        .is_some_and(|profile| subtensor_hashed::falcon::is_account_profile(*profile))
+    {
+        return falcon::verify_capability(
+            encoded,
+            payload,
+            owner,
+            genesis_hash,
+            role,
+            epoch,
+            expected_commitment,
+        );
+    }
     let context = capability_context(role)?;
     if encoded.len() != MldsaCapabilityProof::ENCODED_LEN {
         return Ok(false);
     }
     let mut input = encoded;
     let proof = MldsaCapabilityProof::decode(&mut input)
-        .map_err(|_| crypto_err("invalid ML-DSA capability proof"))?;
+        .map_err(|_| crypto_err("invalid post-quantum capability proof"))?;
     if !input.is_empty()
         || proof.version != mldsa::VERSION
         || proof.algorithm != mldsa::ALGORITHM
@@ -251,20 +289,20 @@ pub fn verify_mldsa_capability(
 }
 
 impl Keypair {
-    fn mldsa(&self) -> Result<&MldsaKeypair, CoreError> {
+    pub(super) fn mldsa(&self) -> Result<&MldsaKeypair, CoreError> {
         match &self.inner {
             KeypairInner::Mldsa(key) => Ok(key),
             _ => Err(crypto_err(
-                "operation requires an ML-DSA account descriptor",
+                "operation requires a post-quantum account descriptor",
             )),
         }
     }
 
     pub fn from_mldsa_descriptor(encoded: &[u8], ss58_format: u16) -> Result<Self, CoreError> {
         let descriptor = mldsa::Descriptor::from_bytes(encoded)
-            .map_err(|_| crypto_err("invalid ML-DSA account descriptor"))?;
+            .map_err(|_| crypto_err("invalid post-quantum account descriptor"))?;
         if !descriptor.is_supported() {
-            return Err(crypto_err("unsupported ML-DSA account descriptor"));
+            return Err(crypto_err("unsupported post-quantum account descriptor"));
         }
         Ok(Self {
             inner: KeypairInner::Mldsa(MldsaKeypair {
@@ -298,12 +336,12 @@ impl Keypair {
         let key = self.mldsa()?;
         if key.descriptor.is_stateless() && generation != 0 {
             return Err(crypto_err(
-                "registration-free ML-DSA accounts have no signing generation",
+                "registration-free post-quantum accounts have no signing generation",
             ));
         }
         if key.master_seed.is_none() {
             return Err(crypto_err(
-                "ML-DSA generation selection requires a private wallet",
+                "post-quantum generation selection requires a private wallet",
             ));
         }
         Ok(Self {
@@ -330,6 +368,9 @@ impl Keypair {
     }
     pub fn mldsa_public_key(&self) -> Result<mldsa::PublicKeyBytes, CoreError> {
         let key = self.mldsa()?;
+        if subtensor_hashed::falcon::is_account_profile(key.descriptor.algorithm) {
+            return Err(crypto_err("use pq_public_key for Falcon public keys"));
+        }
         mldsa::public_key_from_seed(&*key.seed_at(ROLE_TRANSACTION, key.generation)?)
             .map_err(crypto_err)
     }
@@ -338,10 +379,13 @@ impl Keypair {
         if generation == 0 || !key.descriptor.is_rotating() {
             return Ok(key.descriptor.initial_commitment);
         }
-        Ok(mldsa::commitment(
-            &mldsa::public_key_from_seed(&*key.seed_at(ROLE_TRANSACTION, generation)?)
-                .map_err(crypto_err)?,
-        ))
+        falcon::commitment(
+            key.descriptor.algorithm,
+            &falcon::public_key(
+                key.descriptor.algorithm,
+                &*key.seed_at(ROLE_TRANSACTION, generation)?,
+            )?,
+        )
     }
     pub fn mldsa_current_commitment(&self) -> Result<[u8; 64], CoreError> {
         self.mldsa_commitment(self.mldsa_generation()?)
@@ -350,7 +394,7 @@ impl Keypair {
         self.mldsa_commitment(
             self.mldsa_generation()?
                 .checked_add(1)
-                .ok_or_else(|| crypto_err("ML-DSA signing generation exhausted"))?,
+                .ok_or_else(|| crypto_err("post-quantum signing generation exhausted"))?,
         )
     }
 
@@ -367,6 +411,9 @@ impl Keypair {
         random: &[u8; 32],
     ) -> Result<Vec<u8>, CoreError> {
         let key = self.mldsa()?;
+        if subtensor_hashed::falcon::is_account_profile(key.descriptor.algorithm) {
+            return self.sign_falcon(payload, random);
+        }
         let seed = key.seed_at(ROLE_TRANSACTION, key.generation)?;
         let header = mldsa::Header {
             account: key.account_id(),
@@ -388,12 +435,18 @@ impl Keypair {
         epoch: u64,
     ) -> Result<mldsa::PublicKeyBytes, CoreError> {
         capability_context(role)?;
+        if subtensor_hashed::falcon::is_account_profile(self.mldsa_profile()?) {
+            return Err(crypto_err(
+                "use pq_capability_public_key for Falcon public keys",
+            ));
+        }
         mldsa::public_key_from_seed(&*self.mldsa()?.seed_at(role, epoch)?).map_err(crypto_err)
     }
     pub fn mldsa_capability_commitment(&self, role: u8, epoch: u64) -> Result<[u8; 64], CoreError> {
-        Ok(mldsa::commitment(
-            &self.mldsa_capability_public_key(role, epoch)?,
-        ))
+        falcon::commitment(
+            falcon::capability_profile(self.mldsa_profile()?),
+            &self.pq_capability_public_key(role, epoch)?,
+        )
     }
     pub fn sign_mldsa_capability(
         &self,
@@ -415,6 +468,9 @@ impl Keypair {
         genesis_hash: [u8; 32],
         payload: &[u8],
     ) -> Result<Vec<u8>, CoreError> {
+        if subtensor_hashed::falcon::is_account_profile(self.mldsa_profile()?) {
+            return self.sign_falcon_capability_for(owner, role, epoch, genesis_hash, payload);
+        }
         if role != ROLE_MESSAGE {
             return Err(crypto_err(
                 "order authorization requires sign_mldsa_order with its canonical order transcript",
@@ -461,6 +517,9 @@ impl Keypair {
         genesis_hash: [u8; 32],
         order: &[u8],
     ) -> Result<mldsa::SignatureBytes, CoreError> {
+        if subtensor_hashed::falcon::is_account_profile(self.mldsa_profile()?) {
+            return Err(crypto_err("use sign_pq_order_for for Falcon orders"));
+        }
         let seed = self.mldsa()?.seed_at(ROLE_ORDER, epoch)?;
         let context = capability_context(ROLE_ORDER)?;
         let mut transcript = context.to_vec();
@@ -469,31 +528,31 @@ impl Keypair {
         mldsa::sign_message(&seed, &transcript, context, &*randomness()?).map_err(crypto_err)
     }
 
-    /// Variable-width authorization APIs support v1 and ML-DSA without changing
+    /// Variable-width authorization APIs support classical and post-quantum profiles without changing
     /// the historical fixed-width Rust v1 APIs.
     pub fn authorization_descriptor(&self) -> Result<Vec<u8>, CoreError> {
-        if is_mldsa_crypto(self.crypto_type()) {
+        if is_pq_crypto(self.crypto_type()) {
             self.mldsa_descriptor()
         } else {
             self.hashed_descriptor()
         }
     }
     pub fn authorization_generation(&self) -> Result<u64, CoreError> {
-        if is_mldsa_crypto(self.crypto_type()) {
+        if is_pq_crypto(self.crypto_type()) {
             self.mldsa_generation()
         } else {
             self.hashed_generation()
         }
     }
     pub fn authorization_public_key(&self) -> Result<Vec<u8>, CoreError> {
-        if is_mldsa_crypto(self.crypto_type()) {
-            Ok(self.mldsa_public_key()?.to_vec())
+        if is_pq_crypto(self.crypto_type()) {
+            self.pq_public_key()
         } else {
             self.hashed_signing_public_key()
         }
     }
     pub fn authorization_commitment(&self, generation: u64) -> Result<Vec<u8>, CoreError> {
-        if is_mldsa_crypto(self.crypto_type()) {
+        if is_pq_crypto(self.crypto_type()) {
             Ok(self.mldsa_commitment(generation)?.to_vec())
         } else {
             Ok(self.hashed_commitment(generation)?.to_vec())
@@ -510,7 +569,7 @@ impl Keypair {
         )
     }
     pub fn sign_authorization(&self, payload: &[u8]) -> Result<Vec<u8>, CoreError> {
-        if is_mldsa_crypto(self.crypto_type()) {
+        if is_pq_crypto(self.crypto_type()) {
             self.sign_mldsa(payload)
         } else {
             self.sign_hashed(payload)

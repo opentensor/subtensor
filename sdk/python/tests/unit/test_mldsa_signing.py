@@ -8,14 +8,16 @@ import pytest
 
 from bittensor._transport.contract import HashedSigningSnapshot
 from bittensor._transport.errors import SubstrateRequestException
+from bittensor._transport.extrinsics import hashed_proof_length
 from bittensor.mldsa_signing import (
     FORMAT,
+    PQ_FORMAT,
     PreparedMldsaExtrinsic,
     attach_mldsa_proof,
     prepare_mldsa_extrinsic,
     sign_prepared_mldsa,
 )
-from bittensor.sp_core import CRYPTO_MLDSA65, Keypair
+from bittensor.sp_core import CRYPTO_MLDSA65, FALCON_CRYPTO_TYPES, FIXED_PQ_CRYPTO_TYPES, Keypair
 from tests.unit.test_mldsa_accounts import GENESIS, Codec, connection, key
 
 
@@ -30,14 +32,14 @@ class OfflineCodec(Codec):
         return bytes(call), extra, b"implicit-runtime-values"
 
 
-@pytest.fixture(params=[7, 8])
+@pytest.fixture(params=[7, 8, 9, 10, 11, 12])
 def signing_wallet(request):
     return key(request.param)
 
 
 def prepared(wallet=None):
     wallet = wallet or key()
-    generation = 0 if wallet.crypto_type == 8 else 7
+    generation = 0 if wallet.crypto_type in FIXED_PQ_CRYPTO_TYPES else 7
     authority = HashedSigningSnapshot(
         "0x" + "22" * 32,
         wallet.ss58_address,
@@ -64,13 +66,18 @@ def prepared(wallet=None):
 def test_offline_json_roundtrip_and_full_payload_proof_attachment(signing_wallet):
     wallet, codec, request = prepared(signing_wallet)
     exported = json.loads(json.dumps(request.to_dict()))
-    assert exported["format"] == FORMAT
+    assert exported["format"] == (
+        PQ_FORMAT if wallet.crypto_type in FALCON_CRYPTO_TYPES else FORMAT
+    )
     restored = PreparedMldsaExtrinsic.from_dict(exported)
     assert restored == request
+    swapped = dict(exported, format=FORMAT if exported["format"] == PQ_FORMAT else PQ_FORMAT)
+    with pytest.raises(ValueError, match="cryptographic profile"):
+        PreparedMldsaExtrinsic.from_dict(swapped)
     assert len(restored.payload) > 256
     assert restored.payload.startswith(b"canonical call" * 50)
     proof = sign_prepared_mldsa(restored, wallet, codec=codec, expected_genesis_hash=GENESIS)
-    assert len(proof) == 5367
+    assert len(proof) == hashed_proof_length(wallet.crypto_type)
     signed = attach_mldsa_proof(codec, restored, proof)
     assert signed.data.endswith(proof)
     assert codec.account == bytes(wallet.public_key)
@@ -160,12 +167,14 @@ async def test_connected_preparation_uses_public_descriptor_and_revalidates_fina
         b"full call" * 64, descriptor=wallet.hashed_descriptor, tip=11
     )
     assert (
-        request.authority.generation == state["generation"] == (0 if wallet.crypto_type == 8 else 7)
+        request.authority.generation
+        == state["generation"]
+        == (0 if wallet.crypto_type in FIXED_PQ_CRYPTO_TYPES else 7)
     )
     assert request.authority.block_hash == "0xfinalized"
     proof = sign_prepared_mldsa(request, wallet, codec=codec, expected_genesis_hash=GENESIS)
     assert (await conn.attach_signature(request, proof)).data.endswith(proof)
-    if wallet.crypto_type == 8:
+    if wallet.crypto_type in FIXED_PQ_CRYPTO_TYPES:
         state["generation"] = 99  # Registry contents cannot change fixed-key authority.
         assert (await conn.attach_signature(request, proof)).data.endswith(proof)
         return
@@ -185,7 +194,7 @@ async def test_connected_attachment_rejects_pending_nonce_and_missing_finalized_
     request = await conn.prepare_mldsa_unsigned(b"call", descriptor=wallet.hashed_descriptor)
     proof = sign_prepared_mldsa(request, wallet, codec=codec, expected_genesis_hash=GENESIS)
     conn._nonces.next_for.return_value = 14
-    if wallet.crypto_type == 8:
+    if wallet.crypto_type in FIXED_PQ_CRYPTO_TYPES:
         assert (await conn.attach_signature(request, proof)).data.endswith(proof)
     else:
         with pytest.raises(SubstrateRequestException, match="pending transaction"):
@@ -223,7 +232,7 @@ def test_attachment_rejects_correctly_signed_zero_next_commitment():
     valid = wallet.at_generation(7).sign_mldsa(request.payload)
     assert attach_mldsa_proof(codec, request, valid).data.endswith(valid)
     codec.encode_signed_extrinsic = Mock(side_effect=AssertionError("must reject before assembly"))
-    with pytest.raises(ValueError, match="invalid ML-DSA transaction proof"):
+    with pytest.raises(ValueError, match="invalid post-quantum transaction proof"):
         attach_mldsa_proof(codec, request, proof)
     codec.encode_signed_extrinsic.assert_not_called()
 
@@ -232,6 +241,6 @@ def test_offline_fixed_signer_requires_runtime_profile_support_before_private_ke
     wallet, codec, request = prepared(key(8))
     codec.constant = lambda *_: None
     private = Mock(wraps=wallet)
-    with pytest.raises(ValueError, match="fixed-key"):
+    with pytest.raises(ValueError, match="account profile"):
         sign_prepared_mldsa(request, private, codec=codec, expected_genesis_hash=GENESIS)
     private.at_generation.assert_not_called()

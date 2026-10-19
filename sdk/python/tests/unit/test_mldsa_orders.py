@@ -16,12 +16,12 @@ from bittensor.limit_orders import (
     prepare_order,
     sign_order,
 )
-from bittensor.sp_core import ROLE_ORDER, Keypair, ss58_decode
+from bittensor.sp_core import FALCON_CRYPTO_TYPES, ROLE_ORDER, Keypair, pq_lengths, ss58_decode
 from tests.harness.fake_substrate import FakeSubstrate
 from tests.harness.samples import ALICE_HOT, BOB
 
 
-@pytest.fixture(params=[7, 8])
+@pytest.fixture(params=[7, 8, 9, 10, 11, 12])
 def wallet(request):
     return Keypair.create_from_seed(bytes([7]) * 32, request.param)
 
@@ -100,10 +100,12 @@ async def test_detached_signing_keeps_every_economic_byte_and_uses_finalized_epo
     observed = ObservedKey(key)
     signed = await sign_order(substrate, prepared, observed, partial_fill=30)
     assert observed.signed == (3, 17, prepared.genesis_hash, prepared.encoded)
-    proof = signed.value()["signature"]["MlDsa"]
+    proof = signed.value()["signature"][
+        "Falcon" if key.crypto_type in FALCON_CRYPTO_TYPES else "MlDsa"
+    ]
     assert (
-        len(bytes.fromhex(proof["public_key"][2:])) == 1952
-        and len(bytes.fromhex(proof["signature"][2:])) == 3309
+        len(bytes.fromhex(proof["public_key"][2:])) == pq_lengths(key.crypto_type)[0]
+        and len(bytes.fromhex(proof["signature"][2:])) == pq_lengths(key.crypto_type)[1]
     )
     assert bytes.fromhex(proof["public_key"][2:]) != key.mldsa_public_key
     assert (

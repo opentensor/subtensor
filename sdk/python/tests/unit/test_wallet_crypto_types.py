@@ -18,8 +18,9 @@ from bittensor.sp_core import (
     CRYPTO_HASHED,
     CRYPTO_HASHED_ED25519,
     CRYPTO_SR25519,
+    FIXED_PQ_CRYPTO_TYPES,
     HASHED_CRYPTO_TYPES,
-    MLDSA_CRYPTO_TYPES,
+    PQ_CRYPTO_TYPES,
     REGISTERED_CRYPTO_TYPES,
     Keypair,
     serialized_keypair_to_keyfile_data,
@@ -95,6 +96,10 @@ def test_missing_other_option_does_not_list_crypto_types(wallet_path, monkeypatc
         ("hashed-ed25519", CRYPTO_HASHED_ED25519),
         ("ms", 8),
         ("ml-dsa", 8),
+        ("falcon512", 9),
+        ("falcon-512", 9),
+        ("falcon1024", 11),
+        ("falcon-1024", 11),
     ],
 )
 def test_cli_selection_applies_to_both_keys_and_mnemonic_recovery(wallet_path, name, code):
@@ -105,9 +110,7 @@ def test_cli_selection_applies_to_both_keys_and_mnemonic_recovery(wallet_path, n
     for role in ("coldkey", "hotkey"):
         key = getattr(wallet, role)
         public = getattr(wallet, role + "pub")
-        assert len(details[role + "_mnemonic"].split()) == (
-            24 if code in MLDSA_CRYPTO_TYPES else 12
-        )
+        assert len(details[role + "_mnemonic"].split()) == (24 if code in PQ_CRYPTO_TYPES else 12)
         recovered = Keypair.create_from_mnemonic(details[role + "_mnemonic"], code)
         assert key.crypto_type == public.crypto_type == recovered.crypto_type == code
         assert key.ss58_address == public.ss58_address == recovered.ss58_address
@@ -158,7 +161,7 @@ def test_sdk_explicit_ed25519_override_is_not_treated_as_missing(wallet_path):
     assert wallet.hotkey.crypto_type == CRYPTO_ED25519
 
 
-@pytest.mark.parametrize("name", ["unknown", "5", "9"])
+@pytest.mark.parametrize("name", ["unknown", "5", "13"])
 def test_unsupported_scheme_fails_before_creating_keys(wallet_path, name):
     result = invoke("create", "--crypto-type", name, "--no-password")
     assert result.exit_code != 0
@@ -186,9 +189,9 @@ def test_cli_recovers_exported_private_key(wallet_path, scheme, code, role):
     assert restored.ss58_address == original.ss58_address
     if code in REGISTERED_CRYPTO_TYPES:
         assert restored.hashed_descriptor == original.hashed_descriptor
-        generation = 0 if code == 8 else 1
+        generation = 0 if code in FIXED_PQ_CRYPTO_TYPES else 1
         restored, original = restored.at_generation(generation), original.at_generation(generation)
-    if code in MLDSA_CRYPTO_TYPES:
+    if code in PQ_CRYPTO_TYPES:
         assert restored.mldsa_current_commitment == original.mldsa_current_commitment
         assert restored.mldsa_capability_commitment(2, 4) == original.mldsa_capability_commitment(
             2, 4
@@ -236,7 +239,7 @@ def test_missing_account_type_lists_modes(wallet_path, monkeypatch, capsys, opti
     assert not wallet_path.exists()
 
 
-@pytest.mark.parametrize("scheme", ["sr", "ed", "ms"])
+@pytest.mark.parametrize("scheme", ["sr", "ed", "ms", "falcon512", "falcon1024"])
 @pytest.mark.parametrize("mode", ["standard", "hashed"])
 def test_explicit_scheme_and_mode_create_recover_and_sign(wallet_path, scheme, mode):
     result = invoke("create", "--crypto-type", scheme, "--type", mode, "--no-password")
@@ -269,7 +272,7 @@ def test_explicit_scheme_and_mode_create_recover_and_sign(wallet_path, scheme, m
             assert restored.ss58_address == address
             assert restored.crypto_type == code
         signer = key.at_generation(1) if code in HASHED_CRYPTO_TYPES else key
-        if code in MLDSA_CRYPTO_TYPES:
+        if code in PQ_CRYPTO_TYPES:
             signature = signer.sign_mldsa(b"composable accounts")
             args = (
                 key.hashed_descriptor,

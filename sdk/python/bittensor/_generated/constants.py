@@ -194,3 +194,4 @@ class HashedAccounts:
     MlDsaRegistrationDeposit = Item('HashedAccounts', 'MlDsaRegistrationDeposit')
     DerivedRegistrationDeposit = Item('HashedAccounts', 'DerivedRegistrationDeposit')
     MldsaAccountProfiles = Item('HashedAccounts', 'MldsaAccountProfiles')
+    FalconAccountProfiles = Item('HashedAccounts', 'FalconAccountProfiles')

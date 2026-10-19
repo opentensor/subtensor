@@ -12,7 +12,11 @@ import pytest
 from bittensor._substrate import RpcSubstrate
 from bittensor._transport.contract import HashedSigningSnapshot, SignedExtrinsic
 from bittensor._transport.errors import ExtrinsicSubmissionRejected, SubstrateRequestException
-from bittensor._transport.extrinsics import SHIELD_ENCRYPTION_OVERHEAD, NonceCache
+from bittensor._transport.extrinsics import (
+    SHIELD_ENCRYPTION_OVERHEAD,
+    NonceCache,
+    hashed_proof_length,
+)
 from bittensor._transport.interface import SubstrateConnection
 from bittensor.cli.wallet_addresses import address_fields, check_registration
 from bittensor.executor import Executor, _is_transient
@@ -21,29 +25,40 @@ from bittensor.intents import Transfer
 from bittensor.mldsa_signing import prepare_mldsa_extrinsic, sign_prepared_mldsa
 from bittensor.receiving import receiving_address
 from bittensor.result import ChainError, ExtrinsicResult
-from bittensor.sp_core import Keypair, is_stateless_mldsa, requires_registration
+from bittensor.sp_core import (
+    PQ_PROFILES,
+    Keypair,
+    is_stateless_pq,
+    pq_lengths,
+    requires_registration,
+)
 from bittensor.wallet import Wallet
 from tests.conftest import golden_codec
 from tests.unit.test_mldsa_accounts import GENESIS, Codec
 from tests.unit.test_mldsa_signing import OfflineCodec
 
 
-def mock_key():
+def mock_key(crypto_type=8):
     key = SimpleNamespace(
-        crypto_type=8,
+        crypto_type=crypto_type,
         public_key=bytes([9]) * 32,
         ss58_address=Keypair.create_from_uri("//Alice").ss58_address,
-        hashed_descriptor=b"\x02\x05" + bytes([7]) * 64,
+        hashed_descriptor=bytes((2, PQ_PROFILES[crypto_type])) + bytes([7]) * 64,
     )
+    public_length, signature_length = pq_lengths(crypto_type)
     proof = (
-        key.public_key + key.hashed_descriptor[:2] + bytes(8 + 1952) + bytes([7]) * 64 + bytes(3309)
+        key.public_key
+        + key.hashed_descriptor[:2]
+        + bytes(8 + public_length)
+        + bytes([7]) * 64
+        + bytes(signature_length)
     )
     key.sign_hashed = Mock(return_value=proof)
     key.at_generation = Mock(return_value=key)
     return key
 
 
-def connection(key, *, enabled=True, profiles=b"\x04\x05", pending=13):
+def connection(key, *, enabled=True, profiles=bytes([4, 5, 6, 7, 8, 9]), pending=13):
     codec = Codec()
     codec.constant = Mock(return_value=profiles)
     conn = SubstrateConnection("ws://unused.invalid")
@@ -64,8 +79,11 @@ def connection(key, *, enabled=True, profiles=b"\x04\x05", pending=13):
     return conn, codec
 
 
-async def test_stateless_signer_queues_native_nonces_without_authority_reads():
-    key = mock_key()
+@pytest.mark.parametrize("crypto_type", [8, 9, 11])
+async def test_stateless_signer_queues_native_nonces_without_authority_reads(
+    crypto_type,
+):
+    key = mock_key(crypto_type)
     conn, codec = connection(key)
     await conn.create_signed_extrinsic(b"first", key)
     assert codec.nonce == 13
@@ -76,12 +94,15 @@ async def test_stateless_signer_queues_native_nonces_without_authority_reads():
         call.args[:2] == ("AdminUtils", "HashedAccountsEnabled")
         for call in conn.query.call_args_list
     )
-    assert len(codec.proof) == 5367
+    assert len(codec.proof) == hashed_proof_length(crypto_type)
 
 
 @pytest.mark.parametrize("enabled,profiles", [(False, bytes([4, 5])), (True, bytes([4]))])
-async def test_disabled_or_old_runtime_rejects_before_private_signing(enabled, profiles):
-    key = mock_key()
+@pytest.mark.parametrize("crypto_type", [8, 9, 11])
+async def test_disabled_or_old_runtime_rejects_before_private_signing(
+    crypto_type, enabled, profiles
+):
+    key = mock_key(crypto_type)
     conn, _ = connection(key, enabled=enabled, profiles=profiles)
     with pytest.raises(SubstrateRequestException):
         await conn.create_signed_extrinsic(b"call", key)
@@ -90,8 +111,11 @@ async def test_disabled_or_old_runtime_rejects_before_private_signing(enabled, p
     assert conn._nonces._nonces == {}
 
 
-async def test_shield_pair_reserves_nonces_and_keeps_generation_zero():
-    key = mock_key()
+@pytest.mark.parametrize("crypto_type", [8, 9, 11])
+async def test_shield_pair_reserves_nonces_and_keeps_generation_zero(
+    crypto_type,
+):
+    key = mock_key(crypto_type)
     conn, codec = connection(key, pending=63)
     snapshot = await conn.prepare_hashed_snapshot(key, reserve_nonces=True)
     assert (snapshot.nonce, snapshot.generation) == (63, 0)
@@ -120,8 +144,9 @@ async def test_explicit_lower_nonce_cannot_reclaim_pending_shield_inner():
 
 
 @pytest.mark.parametrize("failure", ["sign", "pool", "disconnect"])
-async def test_rpc_shield_failure_preserves_other_local_reservations(failure):
-    key = mock_key()
+@pytest.mark.parametrize("crypto_type", [8, 9, 11])
+async def test_rpc_shield_failure_preserves_other_local_reservations(crypto_type, failure):
+    key = mock_key(crypto_type)
     conn, _ = connection(key, pending=63)
     snapshot = await conn.prepare_hashed_snapshot(key, reserve_nonces=True)
     assert await conn._nonces.next_for(key.ss58_address) == 65
@@ -173,10 +198,11 @@ async def test_shield_retry_reuses_expired_inner_nonce_without_skipping_gap(conc
     ],
 )
 @pytest.mark.parametrize("accepted_watch", [False, True])
+@pytest.mark.parametrize("crypto_type", [8, 9, 11])
 async def test_shield_unknown_rpc_result_keeps_hidden_inner_nonce(
-    monkeypatch, failure, accepted_watch
+    crypto_type, monkeypatch, failure, accepted_watch
 ):
-    key = mock_key()
+    key = mock_key(crypto_type)
     conn, _ = connection(key, pending=63)
     conn.create_signed_extrinsic = AsyncMock(return_value=SignedExtrinsic(b"carrier", "0xcarrier"))
     error = SubstrateRequestException(failure)
@@ -207,8 +233,9 @@ async def test_shield_unknown_rpc_result_keeps_hidden_inner_nonce(
 
 
 @pytest.mark.parametrize("failure", ["sign", "pool", "disconnect"])
-async def test_ordinary_fixed_failure_preserves_concurrent_shield_pair(failure):
-    key = mock_key()
+@pytest.mark.parametrize("crypto_type", [8, 9, 11])
+async def test_ordinary_fixed_failure_preserves_concurrent_shield_pair(crypto_type, failure):
+    key = mock_key(crypto_type)
     conn, _ = connection(key, pending=63)
     await conn.prepare_hashed_snapshot(key, reserve_nonces=True)
     conn.create_signed_extrinsic = AsyncMock(return_value=object())
@@ -232,8 +259,9 @@ async def test_ordinary_fixed_failure_preserves_concurrent_shield_pair(failure):
 
 
 @pytest.mark.parametrize("failure", ["rpc", "disconnect"])
-async def test_nonce_lookup_failure_preserves_existing_shield_reservations(failure):
-    key = mock_key()
+@pytest.mark.parametrize("crypto_type", [8, 9, 11])
+async def test_nonce_lookup_failure_preserves_existing_shield_reservations(crypto_type, failure):
+    key = mock_key(crypto_type)
     conn, _ = connection(key, pending=63)
     await conn.prepare_hashed_snapshot(key, reserve_nonces=True)
     conn.create_signed_extrinsic = AsyncMock()
@@ -301,10 +329,11 @@ async def test_external_fixed_submit_failure_preserves_unrelated_reservations(
 @pytest.mark.parametrize(
     "failure", ["sign", "oversize", "compose", "carrier", "expired", "inner", "pending"]
 )
+@pytest.mark.parametrize("crypto_type", [8, 9, 11])
 async def test_shield_abandoned_nonces_recover_without_reusing_concurrent_reservation(
-    monkeypatch, failure
+    crypto_type, monkeypatch, failure
 ):
-    key = mock_key()
+    key = mock_key(crypto_type)
     conn, _ = connection(key, pending=63)
 
     async def sign(*_args, **_kwargs):
@@ -379,21 +408,29 @@ async def test_shield_expiration_requires_observed_finalized_era_end(outcome):
             await executor._resolve_shielded_inner(success_result(10), "0xinner", 1)
 
 
-async def test_fee_dummy_has_full_proof_and_never_unlocks_or_reads_registry():
-    key = mock_key()
+@pytest.mark.parametrize("crypto_type", [8, 9, 11])
+async def test_fee_dummy_has_full_proof_and_never_unlocks_or_reads_registry(
+    crypto_type,
+):
+    key = mock_key(crypto_type)
     conn, codec = connection(key)
     await conn.sign_without_nonce_tracking(b"call", key, nonce=64, signature=bytes(64))
     assert codec.nonce == 64
-    assert len(codec.proof) == 5367
-    assert codec.proof[32:42] == b"\x02\x05" + bytes(8)
-    assert codec.proof[42:1994] == bytes(1952)
+    assert len(codec.proof) == hashed_proof_length(crypto_type)
+    assert codec.proof[32:42] == bytes((2, PQ_PROFILES[crypto_type])) + bytes(8)
+    public_length, signature_length = pq_lengths(crypto_type)
+    assert codec.proof[42 : 42 + public_length] == bytes(public_length)
+    assert codec.proof[106 + public_length :] == bytes(signature_length)
     key.at_generation.assert_not_called()
     key.sign_hashed.assert_not_called()
 
 
-def test_standard_ms_has_one_address_and_no_registration_lookup():
-    key = mock_key()
-    assert is_stateless_mldsa(key) and not requires_registration(key)
+@pytest.mark.parametrize("crypto_type", [8, 9, 11])
+def test_standard_ms_has_one_address_and_no_registration_lookup(
+    crypto_type,
+):
+    key = mock_key(crypto_type)
+    assert is_stateless_pq(key) and not requires_registration(key)
     assert receiving_address(key) == key.ss58_address
     fields = address_fields(key, network="finney")
     assert fields == {"ss58": key.ss58_address}

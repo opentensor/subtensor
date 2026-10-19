@@ -5,15 +5,22 @@ import pytest
 from bittensor import http_auth, wallets
 from bittensor.mldsa import (
     MessageCapability,
+    capability_proof_length,
     install_message_capability,
     message_capability,
     user_message_payload,
     verify_payload,
 )
-from bittensor.sp_core import CRYPTO_MLDSA65, ROLE_MESSAGE, Keypair
+from bittensor.sp_core import (
+    ROLE_MESSAGE,
+    Keypair,
+    account_crypto_type,
+    is_stateless_pq,
+    pq_lengths,
+)
 
 
-@pytest.fixture(params=[7, 8])
+@pytest.fixture(params=[7, 8, 9, 10, 11, 12])
 def key(request):
     return Keypair.create_from_seed(bytes([82]) * 32, request.param)
 
@@ -34,20 +41,20 @@ def capability(key):
 def test_message_signing_uses_owner_grant_and_never_transaction_key(key, capability):
     signed = wallets.sign_message_key("hello", key, message_capability=capability)
     proof = bytes.fromhex(signed["signature"])
-    assert len(proof) == 5336
-    assert proof[75:2027] != bytes(key.mldsa_public_key)
+    assert len(proof) == capability_proof_length(key.crypto_type)
+    assert proof[75 : 75 + pq_lengths(key.crypto_type)[0]] != bytes(key.mldsa_public_key)
     assert wallets.verify_message(
         "hello",
         signed["signature"],
         key.ss58_address,
-        CRYPTO_MLDSA65,
+        key.crypto_type,
         message_capability=capability,
     )
     assert not wallets.verify_message(
         "changed",
         signed["signature"],
         key.ss58_address,
-        CRYPTO_MLDSA65,
+        key.crypto_type,
         message_capability=capability,
     )
     for changed in (
@@ -143,14 +150,14 @@ def test_owner_approved_message_key_can_authenticate_a_multisig_identity(key, ca
         "approved by quorum",
         signed["signature"],
         composite,
-        CRYPTO_MLDSA65,
+        key.crypto_type,
         message_capability=delegated,
     )
     assert not wallets.verify_message(
         "approved by quorum",
         signed["signature"],
         key.ss58_address,
-        CRYPTO_MLDSA65,
+        key.crypto_type,
         message_capability=capability,
     )
 
@@ -224,9 +231,9 @@ def test_receiving_message_verification_binds_wallet_mode(key, capability):
         "mode binding",
         signed["signature"],
         address,
-        8 if key.crypto_type == 7 else 7,
+        account_crypto_type(key.crypto_type, "hashed" if is_stateless_pq(key) else "standard"),
         message_capability=capability,
-    ) is (key.crypto_type == 8)
+    ) is is_stateless_pq(key)
 
 
 def test_cli_ms_verification_infers_descriptor_mode_and_rejects_override(
@@ -254,9 +261,11 @@ def test_cli_ms_verification_infers_descriptor_mode_and_rejects_override(
         "--ss58",
         receiving_address(key),
         "--crypto-type",
-        "ms",
+        "ms"
+        if wallets.signing_scheme_name(key.crypto_type) == "mldsa65"
+        else wallets.signing_scheme_name(key.crypto_type),
     ]
     assert CliRunner().invoke(app, args).exit_code == 0
-    wrong = "standard" if key.crypto_type == 7 else "hashed"
+    wrong = "hashed" if is_stateless_pq(key) else "standard"
     result = CliRunner().invoke(app, [*args, "--type", wrong])
-    assert result.exit_code == (0 if key.crypto_type == 8 else 1), result.output
+    assert result.exit_code == (0 if is_stateless_pq(key) else 1), result.output

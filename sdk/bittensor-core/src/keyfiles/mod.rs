@@ -18,7 +18,7 @@ use zeroize::{Zeroize, Zeroizing};
 
 use crate::error::CoreError;
 use crate::keys::{
-    ensure_sodium, is_hashed_crypto, is_mldsa_crypto, Keypair, CRYPTO_ED25519, CRYPTO_SR25519,
+    ensure_sodium, is_hashed_crypto, is_pq_crypto, Keypair, CRYPTO_ED25519, CRYPTO_SR25519,
 };
 
 const NACL_SALT: &[u8] = b"\x13q\x83\xdf\xf1Z\t\xbc\x9c\x90\xb5Q\x879\xe9\xb1";
@@ -206,8 +206,8 @@ pub fn serialized_keypair_to_keyfile_data(keypair: &Keypair) -> Result<Vec<u8>, 
     data.insert("cryptoType", json!(keypair.crypto_type()));
     data.insert("accountType", json!(keypair.account_type()));
     data.insert("signingScheme", json!(keypair.signing_scheme()));
-    if is_hashed_crypto(keypair.crypto_type()) || is_mldsa_crypto(keypair.crypto_type()) {
-        let field = if is_mldsa_crypto(keypair.crypto_type()) {
+    if is_hashed_crypto(keypair.crypto_type()) || is_pq_crypto(keypair.crypto_type()) {
+        let field = if is_pq_crypto(keypair.crypto_type()) {
             data.insert("walletVersion", json!(2));
             "mldsaDescriptor"
         } else {
@@ -302,7 +302,7 @@ fn keypair_from_raw_text(text: &str) -> Option<Keypair> {
 }
 
 fn deserialize_hashed(keyfile: &serde_json::Value, crypto_type: u8) -> Result<Keypair, CoreError> {
-    let descriptor_field = if is_mldsa_crypto(crypto_type) {
+    let descriptor_field = if is_pq_crypto(crypto_type) {
         if keyfile
             .get("walletVersion")
             .and_then(serde_json::Value::as_u64)
@@ -310,13 +310,13 @@ fn deserialize_hashed(keyfile: &serde_json::Value, crypto_type: u8) -> Result<Ke
             || keyfile.get("hashedDescriptor").is_some()
         {
             return Err(key_err(
-                "ML-DSA keyfiles require walletVersion 2 and mldsaDescriptor",
+                "post-quantum keyfiles require walletVersion 2 and mldsaDescriptor",
             ));
         }
         "mldsaDescriptor"
     } else {
         if keyfile.get("mldsaDescriptor").is_some() {
-            return Err(key_err("v2 descriptor requires ML-DSA cryptoType"));
+            return Err(key_err("v2 descriptor requires post-quantum cryptoType"));
         }
         "hashedDescriptor"
     };
@@ -442,14 +442,14 @@ pub fn deserialize_keypair_from_keyfile_data(keyfile_data: &[u8]) -> Result<Keyp
         })
         .unwrap_or(CRYPTO_SR25519);
 
-    if is_hashed_crypto(crypto_type) || is_mldsa_crypto(crypto_type) {
+    if is_hashed_crypto(crypto_type) || is_pq_crypto(crypto_type) {
         return deserialize_hashed(&keyfile_dict, crypto_type);
     }
     if keyfile_dict.get("hashedDescriptor").is_some()
         || keyfile_dict.get("mldsaDescriptor").is_some()
     {
         return Err(key_err(
-            "wallet descriptors require a hashed or ML-DSA cryptoType",
+            "wallet descriptors require a hashed or post-quantum cryptoType",
         ));
     }
 

@@ -7,9 +7,9 @@ from typing import Any, Callable
 
 from .keyfiles import Keyfile, Keypair
 from .sp_core import (
-    CRYPTO_MLDSA65_FIXED,
     CRYPTO_SR25519,
-    MLDSA_CRYPTO_TYPES,
+    FIXED_PQ_CRYPTO_TYPES,
+    PQ_CRYPTO_TYPES,
     REGISTERED_CRYPTO_TYPES,
     account_crypto_type,
 )
@@ -45,7 +45,7 @@ def _restore_public_key(address: str | None, public_key: str | None, crypto_type
             if encoded != bytes(keypair.public_key):
                 raise ValueError("public key does not match the receiving address")
         return keypair
-    if crypto_type in REGISTERED_CRYPTO_TYPES and crypto_type != CRYPTO_MLDSA65_FIXED:
+    if crypto_type in REGISTERED_CRYPTO_TYPES and crypto_type not in FIXED_PQ_CRYPTO_TYPES:
         raise ValueError(
             "hashed watch-only recovery requires the complete receiving address; "
             "copy it from `btcli wallet show`"
@@ -210,9 +210,9 @@ class Wallet:
         account_type: str | None = None,
     ) -> Wallet:
         crypto_type = account_crypto_type(crypto_type, account_type)
-        words = (24 if crypto_type in MLDSA_CRYPTO_TYPES else 12) if n_words is None else n_words
-        if crypto_type in MLDSA_CRYPTO_TYPES and words != 24:
-            raise ValueError("ML-DSA wallets require a fresh 24-word mnemonic")
+        words = (24 if crypto_type in PQ_CRYPTO_TYPES else 12) if n_words is None else n_words
+        if crypto_type in PQ_CRYPTO_TYPES and words != 24:
+            raise ValueError("post-quantum wallets require a fresh 24-word mnemonic")
         mnemonic = Keypair.generate_mnemonic(words)
         keypair = Keypair.create_from_mnemonic(mnemonic, crypto_type)
         # on_mnemonic lets a caller (the CLI) render the mnemonic itself
@@ -246,9 +246,9 @@ class Wallet:
         account_type: str | None = None,
     ) -> Wallet:
         crypto_type = account_crypto_type(crypto_type, account_type)
-        words = (24 if crypto_type in MLDSA_CRYPTO_TYPES else 12) if n_words is None else n_words
-        if crypto_type in MLDSA_CRYPTO_TYPES and words != 24:
-            raise ValueError("ML-DSA wallets require a fresh 24-word mnemonic")
+        words = (24 if crypto_type in PQ_CRYPTO_TYPES else 12) if n_words is None else n_words
+        if crypto_type in PQ_CRYPTO_TYPES and words != 24:
+            raise ValueError("post-quantum wallets require a fresh 24-word mnemonic")
         mnemonic = Keypair.generate_mnemonic(words)
         keypair = Keypair.create_from_mnemonic(mnemonic, crypto_type)
         if on_mnemonic is not None:

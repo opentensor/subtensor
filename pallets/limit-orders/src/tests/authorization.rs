@@ -106,6 +106,47 @@ impl OrderCapabilities for MockCapabilities {
         }
         Ok(())
     }
+    fn check_falcon(
+        owner: &AccountId32,
+        epoch: u64,
+        algorithm: u8,
+        pk: &[u8],
+        _: &OrderView<AccountId32>,
+        _: u64,
+        fill: u64,
+    ) -> DispatchResult {
+        let grant = read_grant(owner)?;
+        let commitment =
+            subtensor_hashed::falcon::commitment(algorithm, pk).map_err(DispatchError::Other)?;
+        if grant.epoch != epoch || grant.commitment != commitment {
+            return Err(DispatchError::Other("WrongGrant"));
+        }
+        if fill > grant.remaining {
+            return Err(DispatchError::Other("BudgetExceeded"));
+        }
+        Ok(())
+    }
+    #[cfg(feature = "runtime-benchmarks")]
+    fn setup_falcon_benchmark(
+        owner: &AccountId32,
+        epoch: u64,
+        algorithm: u8,
+        public_key: &[u8],
+        _: &OrderView<AccountId32>,
+    ) -> DispatchResult {
+        let commitment = subtensor_hashed::falcon::commitment(algorithm, public_key)
+            .map_err(DispatchError::Other)?;
+        sp_io::storage::set(
+            &grant_key(owner),
+            &Grant {
+                epoch,
+                commitment,
+                remaining: u64::MAX,
+            }
+            .encode(),
+        );
+        Ok(())
+    }
     fn consume(owner: &AccountId32, epoch: u64, _: bool, fill: u64) -> DispatchResult {
         let mut grant = read_grant(owner)?;
         if grant.epoch != epoch {
@@ -927,4 +968,75 @@ fn mldsa_order_proof_decodes_bounded_bytes_and_requires_exact_signature_length()
         assert_ok!(execute(valid));
         assert_eq!(read_grant(&alice()).unwrap().remaining, 500);
     });
+}
+
+#[test]
+fn falcon_orders_bind_every_term_and_consume_scoped_budgets_in_both_execution_paths() {
+    for algorithm in [
+        subtensor_hashed::falcon::ALGORITHM_512,
+        subtensor_hashed::falcon::ALGORITHM_1024,
+    ] {
+        for batched in [false, true] {
+            new_test_ext().execute_with(|| {
+                prepare();
+                let public_key =
+                    subtensor_hashed::falcon::public_key_from_seed(algorithm, &SEED).unwrap();
+                sp_io::storage::set(
+                    &grant_key(&alice()),
+                    &Grant {
+                        epoch: 3,
+                        commitment: subtensor_hashed::falcon::commitment(algorithm, &public_key)
+                            .unwrap(),
+                        remaining: 1000,
+                    }
+                    .encode(),
+                );
+                let terms = order();
+                let payload = LimitOrders::falcon_order_signing_payload(algorithm, 3, 11, &terms);
+                let signature = subtensor_hashed::falcon::sign_message(
+                    algorithm,
+                    &SEED,
+                    &payload,
+                    FALCON_ORDER_CONTEXT,
+                    &[1; 32],
+                )
+                .unwrap();
+                let good = AuthorizedOrder {
+                    nonce: 11,
+                    order: terms,
+                    partial_fill: None,
+                    authorization: OrderAuthorization::Falcon(FalconOrderProof {
+                        algorithm,
+                        epoch: 3,
+                        public_key: public_key.try_into().unwrap(),
+                        signature: signature.try_into().unwrap(),
+                    }),
+                };
+                let submit = |signed: AuthorizedOrder| {
+                    if batched {
+                        LimitOrders::execute_batched_orders(
+                            RuntimeOrigin::signed(charlie()),
+                            netuid(),
+                            bounded(vec![signed.try_into().unwrap()]),
+                        )
+                    } else {
+                        execute(signed)
+                    }
+                };
+                let mut mutated = good.clone();
+                mutated.nonce = 12;
+                assert_noop!(submit(mutated), Error::<Test>::InvalidSignature);
+                let mut mutated = good.clone();
+                if let OrderAuthorization::Falcon(proof) = &mut mutated.authorization {
+                    proof.algorithm += 1;
+                }
+                assert_noop!(submit(mutated), Error::<Test>::InvalidSignature);
+                assert_eq!(read_grant(&alice()).unwrap().remaining, 1000);
+                assert_ok!(submit(good.clone()));
+                assert_eq!(read_grant(&alice()).unwrap().remaining, 500);
+                assert!(submit(good).is_err());
+                assert_eq!(read_grant(&alice()).unwrap().remaining, 500);
+            });
+        }
+    }
 }

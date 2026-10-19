@@ -12,6 +12,8 @@ pub use pallet::*;
 pub use subtensor_hashed::{Descriptor, Proof, RegistrationDescriptor, Scheme};
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+#[cfg(test)]
+mod falcon_tests;
 mod mldsa;
 #[cfg(test)]
 mod mldsa_tests;
@@ -261,6 +263,17 @@ pub mod pallet {
                 subtensor_hashed::mldsa::FIXED_ALGORITHM,
             ]
         }
+
+        /// Rotating and registration-free Falcon profiles, grouped by degree.
+        #[pallet::constant_name(FalconAccountProfiles)]
+        pub fn falcon_account_profiles() -> [u8; 4] {
+            [
+                subtensor_hashed::falcon::ALGORITHM_512,
+                subtensor_hashed::falcon::FIXED_ALGORITHM_512,
+                subtensor_hashed::falcon::ALGORITHM_1024,
+                subtensor_hashed::falcon::FIXED_ALGORITHM_1024,
+            ]
+        }
     }
 
     #[pallet::error]
@@ -329,6 +342,7 @@ pub mod pallet {
         #[pallet::weight(match descriptor {
             RegistrationDescriptor::Classical(_) => T::WeightInfo::register(),
             RegistrationDescriptor::MlDsa65(_) => T::WeightInfo::register_mldsa65(),
+            RegistrationDescriptor::Falcon(_) => T::WeightInfo::register_falcon(),
         })]
         #[transactional]
         pub fn register(
@@ -341,6 +355,17 @@ pub mod pallet {
                     Self::do_register_classical(&sponsor, descriptor)
                 }
                 RegistrationDescriptor::MlDsa65(descriptor) => {
+                    ensure!(
+                        subtensor_hashed::mldsa::is_account_profile(descriptor.algorithm),
+                        Error::<T>::UnsupportedDescriptor
+                    );
+                    Self::do_register_mldsa(&sponsor, descriptor)
+                }
+                RegistrationDescriptor::Falcon(descriptor) => {
+                    ensure!(
+                        subtensor_hashed::falcon::is_account_profile(descriptor.algorithm),
+                        Error::<T>::UnsupportedDescriptor
+                    );
                     Self::do_register_mldsa(&sponsor, descriptor)
                 }
             }
@@ -352,6 +377,7 @@ pub mod pallet {
         #[pallet::weight(match descriptor {
             RegistrationDescriptor::Classical(_) => T::WeightInfo::check_registered(),
             RegistrationDescriptor::MlDsa65(_) => T::WeightInfo::check_registered_mldsa65(),
+            RegistrationDescriptor::Falcon(_) => T::WeightInfo::check_registered_falcon(),
         })]
         pub fn check_registered(
             origin: OriginFor<T>,
@@ -363,6 +389,17 @@ pub mod pallet {
                     Self::do_check_registered_classical(descriptor)
                 }
                 RegistrationDescriptor::MlDsa65(descriptor) => {
+                    ensure!(
+                        subtensor_hashed::mldsa::is_account_profile(descriptor.algorithm),
+                        Error::<T>::UnsupportedDescriptor
+                    );
+                    Self::do_check_registered_mldsa65(descriptor)
+                }
+                RegistrationDescriptor::Falcon(descriptor) => {
+                    ensure!(
+                        subtensor_hashed::falcon::is_account_profile(descriptor.algorithm),
+                        Error::<T>::UnsupportedDescriptor
+                    );
                     Self::do_check_registered_mldsa65(descriptor)
                 }
             }

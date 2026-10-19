@@ -18,9 +18,41 @@ pub trait WeightInfo {
     fn authorize(n: u32) -> Weight;
     fn authorize_ed25519(n: u32) -> Weight;
     fn register_mldsa65() -> Weight;
+    fn register_falcon() -> Weight {
+        Weight::MAX
+    }
+    fn check_registered_falcon() -> Weight {
+        Weight::MAX
+    }
     fn check_registered_mldsa65() -> Weight;
     fn authorize_mldsa65(n: u32) -> Weight;
     fn authorize_mldsa65_invalid(n: u32) -> Weight;
+    // Falcon verification is disabled until reference measurements are installed.
+    // Registration remains gated too, so setup cannot precede spend activation.
+    fn authorize_falcon512(_n: u32) -> Weight {
+        Weight::MAX
+    }
+    fn authorize_falcon512_invalid(_n: u32) -> Weight {
+        Weight::MAX
+    }
+    fn authorize_falcon1024(_n: u32) -> Weight {
+        Weight::MAX
+    }
+    fn authorize_falcon1024_invalid(_n: u32) -> Weight {
+        Weight::MAX
+    }
+    fn authorize_fixed_falcon512(_n: u32) -> Weight {
+        Weight::MAX
+    }
+    fn authorize_fixed_falcon512_invalid(_n: u32) -> Weight {
+        Weight::MAX
+    }
+    fn authorize_fixed_falcon1024(_n: u32) -> Weight {
+        Weight::MAX
+    }
+    fn authorize_fixed_falcon1024_invalid(_n: u32) -> Weight {
+        Weight::MAX
+    }
     fn register_derived() -> Weight;
     fn register_derived_sponsored() -> Weight;
     fn check_derived() -> Weight;

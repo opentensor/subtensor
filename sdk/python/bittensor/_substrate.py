@@ -45,7 +45,7 @@ from .result import (
     chain_error_from_substrate_request,
 )
 from .settings import DEFAULT_ERA_PERIOD, SS58_FORMAT, explorer_extrinsic_url
-from .sp_core import is_stateless_mldsa
+from .sp_core import is_stateless_pq
 
 T = TypeVar("T")
 
@@ -733,11 +733,11 @@ class RpcSubstrate:
         """
         reservation = (
             (hashed_signing_snapshot.nonce, 2)
-            if hashed_signing_snapshot is not None and is_stateless_mldsa(keypair)
+            if hashed_signing_snapshot is not None and is_stateless_pq(keypair)
             else None
         )
         try:
-            if is_stateless_mldsa(keypair) and reservation is None:
+            if is_stateless_pq(keypair) and reservation is None:
                 if nonce is None:
                     nonce = await self.raw.get_account_next_index(keypair.ss58_address)
                 reservation = (nonce, 1)
@@ -758,7 +758,7 @@ class RpcSubstrate:
                 error,
                 keypair.ss58_address,
                 reservation=reservation,
-                reset_nonce_cache=not is_stateless_mldsa(keypair),
+                reset_nonce_cache=not is_stateless_pq(keypair),
             )
         return await self._submit_and_report(
             extrinsic,
@@ -835,7 +835,7 @@ class RpcSubstrate:
             signer_address=unsigned.address,
             wait_for_inclusion=wait_for_inclusion,
             wait_for_finalization=wait_for_finalization,
-            reset_nonce_cache=not is_stateless_mldsa(getattr(unsigned, "unsigned", unsigned)),
+            reset_nonce_cache=not is_stateless_pq(getattr(unsigned, "unsigned", unsigned)),
         )
 
     async def submit_signed(
@@ -857,7 +857,7 @@ class RpcSubstrate:
             signer_address=keypair.ss58_address,
             wait_for_inclusion=wait_for_inclusion,
             wait_for_finalization=wait_for_finalization,
-            reset_nonce_cache=not is_stateless_mldsa(keypair),
+            reset_nonce_cache=not is_stateless_pq(keypair),
         )
 
     async def _submit_and_report(

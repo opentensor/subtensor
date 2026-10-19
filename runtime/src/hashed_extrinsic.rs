@@ -76,6 +76,17 @@ fn decode_call<I: Input>(input: &mut I) -> Result<RuntimeCall, codec::Error> {
     RuntimeCall::decode_with_depth_limit(frame_support::MAX_EXTRINSIC_DEPTH, &mut input)
 }
 
+/// Shared syntactic classification for bounded node admission. This is not
+/// signature verification: malformed carriers of these sizes need the same budget.
+pub const fn is_post_quantum_proof_len(len: usize) -> bool {
+    matches!(
+        len,
+        subtensor_hashed::mldsa::SignerAddress::ENCODED_LEN
+            | subtensor_hashed::falcon::PROOF_LEN_512
+            | subtensor_hashed::falcon::PROOF_LEN_1024
+    )
+}
+
 // Bound the variable-length signer before allocation or signature recovery.
 fn decode_address<I: Input>(input: &mut I) -> Result<Address, codec::Error> {
     match input.read_byte()? {
@@ -86,8 +97,7 @@ fn decode_address<I: Input>(input: &mut I) -> Result<Address, codec::Error> {
         }
         2 => {
             let len = Compact::<u32>::decode(input)?.0;
-            if len != SignerAddress::ENCODED_LEN as u32
-                && len != subtensor_hashed::mldsa::SignerAddress::ENCODED_LEN as u32
+            if len != SignerAddress::ENCODED_LEN as u32 && !is_post_quantum_proof_len(len as usize)
             {
                 return Err("Invalid hashed signer address length".into());
             }
@@ -249,6 +259,36 @@ impl Checkable<ChainContext> for UncheckedExtrinsic {
                                 &AccountId::new(address.public_key),
                             )
                         {
+                            return Err(InvalidTransaction::BadProof.into());
+                        }
+                    }
+                    AccountAuthorization::Falcon(header) => {
+                        if !matches!(signature, Signature::Ed25519(marker)
+                            if marker.0 == subtensor_hashed::mldsa::CARRIER_SIGNATURE)
+                        {
+                            return Err(InvalidTransaction::BadProof.into());
+                        }
+                        let len = u32::try_from(xt.0.function.encoded_size())
+                            .map_err(|_| InvalidTransaction::ExhaustsResources)?;
+                        if crate::hashed_auth::falcon_authorization_weight(header.algorithm, len)
+                            .any_gt(
+                                <Runtime as frame_system::Config>::BlockWeights::get().max_block,
+                            )
+                        {
+                            return Err(InvalidTransaction::ExhaustsResources.into());
+                        }
+                        crate::HashedAccounts::check_mldsa_authorization(
+                            &account,
+                            header.algorithm,
+                            &header.public_key,
+                            header.generation,
+                            header.next_commitment,
+                        )
+                        .map_err(|_| InvalidTransaction::BadProof)?;
+                        let address = subtensor_hashed::falcon::SignerAddress::from_bytes(bytes)
+                            .map_err(|_| InvalidTransaction::BadProof)?;
+                        let payload = (&xt.0.function, &extension.0, extension.0.implicit()?);
+                        if !address.verify_encoded(&payload) {
                             return Err(InvalidTransaction::BadProof.into());
                         }
                     }

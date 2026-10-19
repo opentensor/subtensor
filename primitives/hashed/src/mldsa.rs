@@ -66,16 +66,17 @@ impl Descriptor {
 
     pub fn is_supported(&self) -> bool {
         self.version == VERSION
-            && is_account_profile(self.algorithm)
+            && (is_account_profile(self.algorithm)
+                || crate::falcon::is_account_profile(self.algorithm))
             && self.initial_commitment != [0; 64]
     }
 
     pub fn is_rotating(&self) -> bool {
-        self.algorithm == ALGORITHM
+        self.algorithm == ALGORITHM || crate::falcon::is_rotating_profile(self.algorithm)
     }
 
     pub fn is_stateless(&self) -> bool {
-        self.algorithm == FIXED_ALGORITHM
+        self.algorithm == FIXED_ALGORITHM || crate::falcon::is_fixed_profile(self.algorithm)
     }
 
     /// Rotation policy is immutable account identity, never supplied by a signer.
@@ -288,7 +289,12 @@ pub fn key_commitment(public_key: &PublicKeyBytes) -> Commitment {
 }
 
 pub fn account_id(descriptor: &Descriptor) -> [u8; 32] {
-    let mut encoded = ACCOUNT_DOMAIN.to_vec();
+    let domain = if crate::falcon::is_account_profile(descriptor.algorithm) {
+        crate::falcon::ACCOUNT_DOMAIN
+    } else {
+        ACCOUNT_DOMAIN
+    };
+    let mut encoded = domain.to_vec();
     descriptor.encode_to(&mut encoded);
     sp_core::hashing::blake2_256(&encoded)
 }

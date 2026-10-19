@@ -2,7 +2,7 @@
 //!
 //! The pinned SDK has two validation workers, but callers waiting to enqueue work
 //! are not bounded and `submit_local` bypasses those workers. This shared wrapper
-//! bounds ML-DSA RPC, network and offchain submissions, including invalid proofs.
+//! bounds post-quantum RPC, network and offchain submissions, including invalid proofs.
 //! Legacy-only requests retain the existing pool's behavior. Limits are local
 //! operator policy, not measured verification throughput or a consensus rule.
 //! Existing ready/future pool limits still govern retained data.
@@ -33,10 +33,11 @@ use std::{
 const MAX_TRANSACTION_BYTES: usize = 10 * 1024 * 1024;
 const MAX_PENDING_BYTES: usize = 64 * 1024 * 1024;
 const MAX_PENDING: usize = 64;
-const MAX_MLDSA_PENDING: usize = 2;
-const MLDSA_BURST: u32 = 16;
-const MLDSA_REFILL: Duration = Duration::from_millis(125);
+const MAX_PQ_PENDING: usize = 2;
+const PQ_BURST: u32 = 16;
+const PQ_REFILL: Duration = Duration::from_millis(125);
 const MAX_QUEUE_WAIT: Duration = Duration::from_secs(15);
+#[cfg(test)]
 const MLDSA_ADDRESS_BYTES: u32 = 5367;
 
 type Pool = TransactionPoolHandle<Block, FullClient>;
@@ -76,7 +77,7 @@ impl Output for Prefix {
     }
 }
 
-fn mldsa_account(xt: &OpaqueExtrinsic) -> Option<[u8; 32]> {
+fn pq_account(xt: &OpaqueExtrinsic) -> Option<[u8; 32]> {
     let mut prefix = Prefix::default();
     xt.encode_to(&mut prefix);
     let input = &mut prefix.bytes.get(..prefix.len)?;
@@ -86,7 +87,9 @@ fn mldsa_account(xt: &OpaqueExtrinsic) -> Option<[u8; 32]> {
     if u8::decode(input).ok()? != 0x84 || u8::decode(input).ok()? != 2 {
         return None;
     }
-    if Compact::<u32>::decode(input).ok()?.0 != MLDSA_ADDRESS_BYTES {
+    if !node_subtensor_runtime::hashed_extrinsic::is_post_quantum_proof_len(
+        Compact::<u32>::decode(input).ok()?.0 as usize,
+    ) {
         return None;
     }
     <[u8; 32]>::decode(input).ok()
@@ -102,8 +105,8 @@ struct Request {
 impl Request {
     fn from_transactions(xts: &[OpaqueExtrinsic]) -> Result<Option<Self>, PoolError> {
         // Preserve legacy submission behavior, including batches larger than the
-        // new ML-DSA admission budget. This scan retains only a bounded prefix.
-        if !xts.iter().any(|xt| mldsa_account(xt).is_some()) {
+        // new post-quantum admission budget. This scan retains only a bounded prefix.
+        if !xts.iter().any(|xt| pq_account(xt).is_some()) {
             return Ok(None);
         }
         if xts.len() > MAX_PENDING {
@@ -122,8 +125,8 @@ impl Request {
             if request.bytes > MAX_PENDING_BYTES {
                 return Err(busy());
             }
-            if let Some(account) = mldsa_account(xt) {
-                if request.accounts.len() == MAX_MLDSA_PENDING {
+            if let Some(account) = pq_account(xt) {
+                if request.accounts.len() == MAX_PQ_PENDING {
                     return Err(busy());
                 }
                 request.accounts.push(account);
@@ -147,7 +150,7 @@ impl State {
             count: 0,
             bytes: 0,
             accounts: HashSet::new(),
-            tokens: MLDSA_BURST,
+            tokens: PQ_BURST,
             refilled_at: now,
         }
     }
@@ -157,7 +160,7 @@ impl State {
         let bytes = self.bytes.checked_add(request.bytes).ok_or_else(busy)?;
         if count > MAX_PENDING
             || bytes > MAX_PENDING_BYTES
-            || self.accounts.len().saturating_add(request.accounts.len()) > MAX_MLDSA_PENDING
+            || self.accounts.len().saturating_add(request.accounts.len()) > MAX_PQ_PENDING
         {
             return Err(busy());
         }
@@ -172,13 +175,13 @@ impl State {
         if let Some(elapsed) = now.checked_duration_since(self.refilled_at) {
             let refill = elapsed
                 .as_nanos()
-                .checked_div(MLDSA_REFILL.as_nanos())
+                .checked_div(PQ_REFILL.as_nanos())
                 .unwrap_or(0);
             if refill > 0 {
                 self.tokens = self
                     .tokens
-                    .saturating_add(refill.min(u128::from(MLDSA_BURST)) as u32)
-                    .min(MLDSA_BURST);
+                    .saturating_add(refill.min(u128::from(PQ_BURST)) as u32)
+                    .min(PQ_BURST);
                 // Discarding the fractional interval is deliberately conservative.
                 self.refilled_at = now;
             }
@@ -313,7 +316,7 @@ async fn admit_queued(
         }
         // FIFO admission prevents new requests stealing a released slot. Polling
         // at the token refill interval also bounds wakeups for a saturated queue.
-        tokio::time::sleep(MLDSA_REFILL).await;
+        tokio::time::sleep(PQ_REFILL).await;
     }
 }
 
@@ -544,12 +547,12 @@ mod tests {
     fn failed_proof_completion_does_not_refund_tokens_or_allow_clock_rollback() {
         let now = Instant::now();
         let mut state = State::new(now);
-        for _ in 0..MLDSA_BURST {
+        for _ in 0..PQ_BURST {
             state.admit(&request(1), now).unwrap();
             state.release(&request(1));
         }
         assert!(state.admit(&request(2), now).is_err());
-        let later = now + MLDSA_REFILL;
+        let later = now + PQ_REFILL;
         state.admit(&request(2), later).unwrap();
         state.release(&request(2));
         assert!(state.admit(&request(2), now).is_err());
@@ -558,16 +561,24 @@ mod tests {
 
     #[test]
     fn header_classification_and_batch_limits_do_not_require_full_decoding() {
+        for len in [MLDSA_ADDRESS_BYTES, 1669, 3179] {
+            let mut body = vec![0x84, 2];
+            body.extend(Compact(len).encode());
+            body.extend([7; 32]);
+            let xt = OpaqueExtrinsic::from_bytes(&body.encode()).unwrap();
+            assert_eq!(pq_account(&xt), Some([7; 32]));
+            assert!(Request::from_transactions(&[xt]).unwrap().is_some());
+        }
         let mut body = vec![0x84, 2];
         body.extend(Compact(MLDSA_ADDRESS_BYTES).encode());
         body.extend([7; 32]);
         // Deliberately malformed remainder still receives the expensive budget.
         let xt = OpaqueExtrinsic::from_bytes(&body.encode()).unwrap();
-        assert_eq!(mldsa_account(&xt), Some([7; 32]));
+        assert_eq!(pq_account(&xt), Some([7; 32]));
         assert!(Request::from_transactions(&vec![xt.clone(); MAX_PENDING + 1]).is_err());
-        assert!(Request::from_transactions(&vec![xt; MAX_MLDSA_PENDING + 1]).is_err());
+        assert!(Request::from_transactions(&vec![xt; MAX_PQ_PENDING + 1]).is_err());
         let ordinary = OpaqueExtrinsic::from_bytes(&vec![4, 1, 2, 3].encode()).unwrap();
-        assert_eq!(mldsa_account(&ordinary), None);
+        assert_eq!(pq_account(&ordinary), None);
         assert!(Request::from_transactions(&[ordinary]).unwrap().is_none());
     }
 

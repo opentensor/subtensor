@@ -51,12 +51,23 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Optional, Protocol
 
-from .mldsa import PROOF_LENGTH, MessageCapability, sign_payload, verify_payload
+from .mldsa import (
+    MessageCapability,
+    capability_proof_crypto_type,
+    capability_proof_length,
+    sign_payload,
+    verify_payload,
+)
 from .result import BittensorError
 from .signing import WalletLike, resolve_signer
-from .sp_core import CLASSICAL_HASHED_CRYPTO_TYPES, CRYPTO_MLDSA65
+from .sp_core import (
+    CLASSICAL_HASHED_CRYPTO_TYPES,
+    CRYPTO_FALCON512_HASHED,
+    CRYPTO_FALCON1024_HASHED,
+    CRYPTO_MLDSA65,
+)
 from .sp_core import verify as _sp_core_verify
-from .wallets import CRYPTO_TYPE_NAMES, parse_crypto_type
+from .wallets import CRYPTO_TYPE_NAMES, parse_crypto_type, signing_scheme_name
 
 PROTOCOL = "btauth/1"
 VERSION = "1"
@@ -77,10 +88,15 @@ _NO_RECEIVER = "-"
 
 _DEFAULT_SCHEME = "sr25519"
 
-# ML-DSA authentication transports the 5336-byte capability proof in a bounded binary body prefix.
+# Post-quantum authentication transports a bounded capability proof in the binary body.
 # It does not put a public key and hexadecimal signature in HTTP headers.
 _MLDSA_MAGIC = b"btauth/2\x00"
 DEFAULT_MAX_MLDSA_BODY_BYTES = 1024 * 1024
+_PQ_HTTP_SCHEMES = {
+    "mldsa65": CRYPTO_MLDSA65,
+    "falcon512": CRYPTO_FALCON512_HASHED,
+    "falcon1024": CRYPTO_FALCON1024_HASHED,
+}
 
 
 class AuthError(BittensorError):
@@ -133,7 +149,14 @@ class AuthenticatedRequest:
 
 
 def _mldsa_payload(
-    *, capability: MessageCapability, method: str, path: str, body: bytes, nonce: int, receiver: str
+    *,
+    capability: MessageCapability,
+    method: str,
+    path: str,
+    body: bytes,
+    nonce: int,
+    receiver: str,
+    scheme: str = "mldsa65",
 ) -> bytes:
     if not 0 <= nonce < 2**64:
         raise ValueError("nonce must be a u64 nanosecond timestamp")
@@ -145,7 +168,7 @@ def _mldsa_payload(
     ss58_decode(receiver)
     lines = (
         "btauth/2",
-        "mldsa65",
+        scheme,
         capability.genesis_hash.hex(),
         str(capability.epoch),
         capability.audience.hex(),
@@ -172,8 +195,11 @@ def sign_mldsa(
 ) -> SignedRequest:
     """Sign with an owner-approved message key; send the returned body verbatim."""
     if max_body_bytes < 0 or len(body) > max_body_bytes:
-        raise ValueError("HTTP body exceeds the configured ML-DSA limit")
+        raise ValueError("HTTP body exceeds the configured post-quantum limit")
     signer = resolve_signer(wallet, role="hotkey")
+    scheme = signing_scheme_name(signer.crypto_type)
+    if scheme not in _PQ_HTTP_SCHEMES:
+        raise ValueError("post-quantum HTTP authentication requires a post-quantum message key")
     nonce = time.time_ns() if nonce_ns is None else nonce_ns
     payload = _mldsa_payload(
         capability=capability,
@@ -182,17 +208,18 @@ def sign_mldsa(
         body=body,
         nonce=nonce,
         receiver=receiver_ss58,
+        scheme=scheme,
     )
     proof = sign_payload(signer, payload, capability)
-    if len(proof) != PROOF_LENGTH:
-        raise ValueError("invalid ML-DSA message proof length")
+    if capability_proof_crypto_type(proof) != _PQ_HTTP_SCHEMES[scheme]:
+        raise ValueError("message proof does not match its signing scheme")
     return SignedRequest(
         {
             HEADER_VERSION: "2",
             HEADER_HOTKEY: capability.owner,
             HEADER_RECEIVER: receiver_ss58,
             HEADER_NONCE: str(nonce),
-            HEADER_CRYPTO: "mldsa65",
+            HEADER_CRYPTO: scheme,
         },
         _MLDSA_MAGIC + proof + body,
     )
@@ -219,17 +246,20 @@ def verify_mldsa(
     documented revocation-latency bound; request fields are never a registry.
     Apply the same total body limit in the HTTP server before reading the body.
     """
-    prefix = len(_MLDSA_MAGIC) + PROOF_LENGTH
+    lowered = {key.lower(): value for key, value in headers.items()}
+    scheme = lowered.get(HEADER_CRYPTO.lower())
+    if scheme not in _PQ_HTTP_SCHEMES:
+        raise BadSignature("unsupported post-quantum HTTP signing scheme")
+    crypto_type = _PQ_HTTP_SCHEMES[scheme]
+    prefix = len(_MLDSA_MAGIC) + capability_proof_length(crypto_type)
     if (
         max_body_bytes < 0
         or not prefix <= len(body) <= prefix + max_body_bytes
         or not body.startswith(_MLDSA_MAGIC)
     ):
-        raise MalformedAuth("invalid or oversized ML-DSA authentication body")
-    lowered = {key.lower(): value for key, value in headers.items()}
+        raise MalformedAuth("invalid or oversized post-quantum authentication body")
     if (
         lowered.get(HEADER_VERSION.lower()) != "2"
-        or lowered.get(HEADER_CRYPTO.lower()) != "mldsa65"
         or lowered.get(HEADER_HOTKEY.lower()) != capability.owner
     ):
         raise BadSignature("HTTP authentication does not match the trusted capability")
@@ -238,10 +268,10 @@ def verify_mldsa(
         raise WrongReceiver("request was signed for a different receiving hotkey")
     raw_nonce = lowered.get(HEADER_NONCE.lower(), "")
     if not raw_nonce.isascii() or not raw_nonce.isdecimal() or len(raw_nonce) > 20:
-        raise MalformedAuth("invalid ML-DSA nonce")
+        raise MalformedAuth("invalid post-quantum nonce")
     nonce = int(raw_nonce)
     if raw_nonce != str(nonce) or nonce >= 2**64:
-        raise MalformedAuth("noncanonical ML-DSA nonce")
+        raise MalformedAuth("noncanonical post-quantum nonce")
     if not (0 <= max_age < float("inf") and 0 <= allowed_skew < float("inf")):
         raise ValueError("freshness bounds must be finite and nonnegative")
     now = time.time_ns() if now_ns is None else now_ns
@@ -256,21 +286,26 @@ def verify_mldsa(
             body=original,
             nonce=nonce,
             receiver=receiver,
+            scheme=scheme,
         )
     except ValueError as error:
         raise MalformedAuth(str(error)) from None
     proof = body[len(_MLDSA_MAGIC) : prefix]
-    if not verify_payload(proof, payload, capability):
-        raise BadSignature("ML-DSA proof does not match the trusted message capability")
+    try:
+        proof_type = capability_proof_crypto_type(proof)
+    except ValueError as error:
+        raise MalformedAuth(str(error)) from None
+    if proof_type != crypto_type or not verify_payload(proof, payload, capability):
+        raise BadSignature("post-quantum proof does not match the trusted message capability")
     store = nonce_store if nonce_store is not None else _default_nonce_store
     retention = getattr(store, "retention", None)
     if retention is not None and max_age + allowed_skew > retention:
         raise ValueError("nonce store retention is shorter than the freshness window")
     if not store.check_and_store(capability.owner, nonce):
         raise ReplayedRequest("this nonce was already accepted from this hotkey")
-    # This identifies the capability's ML-DSA scheme, not its owner's spending
-    # mode. A capability can also belong to a protected multisig or proxy.
-    return AuthenticatedRequest(Caller(capability.owner, nonce, CRYPTO_MLDSA65), original)
+    # This identifies the capability scheme, not the owner's spending mode.
+    # A capability can also belong to a multisig or proxy.
+    return AuthenticatedRequest(Caller(capability.owner, nonce, crypto_type), original)
 
 
 class NonceStore(Protocol):
@@ -356,7 +391,7 @@ async def prepare_signer(wallet: WalletLike, *, client):
     ordinary SR/ED signers require no chain access. The returned hashed signer
     can be reused: normal spending-key rotations never reactivate generation zero.
 
-    ``client`` is a connected :class:`bittensor.Client`. ML-DSA requests use
+    ``client`` is a connected :class:`bittensor.Client`. post-quantum requests use
     :func:`sign_mldsa` and a finalized message capability instead.
     """
     from .hashed import descriptor_bytes
@@ -585,6 +620,13 @@ __all__ = [
     "build_payload",
     "sign",
     "sign_mldsa",
+    "sign_pq",
     "verify",
     "verify_mldsa",
+    "verify_pq",
 ]
+
+
+# These names accept every supported post-quantum capability profile.
+sign_pq = sign_mldsa
+verify_pq = verify_mldsa

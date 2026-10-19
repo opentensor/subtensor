@@ -134,7 +134,7 @@ fn all_metadata_versions_respect_legacy_client_fixed_array_limit() {
         let metadata = frame_metadata::RuntimeMetadataPrefixed::decode(&mut &encoded[..]).unwrap();
 
         macro_rules! profiles {
-            ($metadata:expr) => {
+            ($metadata:expr, $name:literal) => {
                 &$metadata
                     .pallets
                     .iter()
@@ -142,18 +142,25 @@ fn all_metadata_versions_respect_legacy_client_fixed_array_limit() {
                     .unwrap()
                     .constants
                     .iter()
-                    .find(|c| c.name == "MldsaAccountProfiles")
+                    .find(|c| c.name == $name)
                     .unwrap()
                     .value
             };
         }
         let advertised = match &metadata.1 {
-            frame_metadata::RuntimeMetadata::V14(data) => profiles!(data),
-            frame_metadata::RuntimeMetadata::V15(data) => profiles!(data),
-            frame_metadata::RuntimeMetadata::V16(data) => profiles!(data),
+            frame_metadata::RuntimeMetadata::V14(data) => profiles!(data, "MldsaAccountProfiles"),
+            frame_metadata::RuntimeMetadata::V15(data) => profiles!(data, "MldsaAccountProfiles"),
+            frame_metadata::RuntimeMetadata::V16(data) => profiles!(data, "MldsaAccountProfiles"),
             _ => panic!("unexpected metadata version"),
         };
         assert_eq!(advertised.as_slice(), &[4, 5]);
+        let falcon_profiles = match &metadata.1 {
+            frame_metadata::RuntimeMetadata::V14(data) => profiles!(data, "FalconAccountProfiles"),
+            frame_metadata::RuntimeMetadata::V15(data) => profiles!(data, "FalconAccountProfiles"),
+            frame_metadata::RuntimeMetadata::V16(data) => profiles!(data, "FalconAccountProfiles"),
+            _ => panic!("unexpected metadata version"),
+        };
+        assert_eq!(falcon_profiles.as_slice(), &[6, 7, 8, 9]);
         let registry = match metadata.1 {
             frame_metadata::RuntimeMetadata::V14(metadata) => metadata.types,
             frame_metadata::RuntimeMetadata::V15(metadata) => metadata.types,

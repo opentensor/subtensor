@@ -1,4 +1,4 @@
-"""Owner-approved ML-DSA message keys, resolved from finalized chain state.
+"""Owner-approved post-quantum message keys, resolved from finalized chain state.
 
 A proof never grants its own authority. Verifiers supply a freshly resolved
 capability for the claimed account and intended audience.
@@ -10,17 +10,41 @@ from dataclasses import dataclass
 
 from ._generated.calls import Call
 from .sp_core import (
-    MLDSA_CRYPTO_TYPES,
+    CRYPTO_FALCON512_HASHED,
+    CRYPTO_FALCON1024_HASHED,
+    CRYPTO_MLDSA65,
+    PQ_CRYPTO_TYPES,
     ROLE_MESSAGE,
+    pq_lengths,
     ss58_decode,
     verify_mldsa_capability,
 )
 
 MESSAGE_DOMAIN = b"bittensor/ms/v2/user-message\x00"
 PROOF_LENGTH = 5336
+CAPABILITY_CRYPTO_TYPES = {
+    4: CRYPTO_MLDSA65,
+    6: CRYPTO_FALCON512_HASHED,
+    8: CRYPTO_FALCON1024_HASHED,
+}
 
 
-def supports_fixed_profile(profiles) -> bool:
+def capability_proof_length(crypto_type: int) -> int:
+    public_key, signature = pq_lengths(crypto_type)
+    return 75 + public_key + signature
+
+
+def capability_proof_crypto_type(proof: bytes) -> int:
+    """Read a bounded scheme tag, never authority; verification still binds the grant."""
+    if len(proof) < 2 or proof[0] != 2 or proof[1] not in CAPABILITY_CRYPTO_TYPES:
+        raise ValueError("unsupported post-quantum capability proof")
+    crypto_type = CAPABILITY_CRYPTO_TYPES[proof[1]]
+    if len(proof) != capability_proof_length(crypto_type):
+        raise ValueError("invalid post-quantum capability proof length")
+    return crypto_type
+
+
+def supports_fixed_profile(profiles, profile: int = 5) -> bool:
     """Accept metadata byte arrays as hex, bytes, or decoded integer sequences.
 
     The native metadata adapter renders [u8; N] constants as hex. Malformed or
@@ -37,7 +61,7 @@ def supports_fixed_profile(profiles) -> bool:
             return False
     except (ValueError, TypeError):
         return False
-    return 5 in profiles
+    return profile in profiles
 
 
 def _bytes(value) -> bytes:
@@ -64,7 +88,7 @@ class MessageCapability:
             or not 0 < len(self.audience) <= 128
             or not 0 <= self.finalized_block <= self.expires_at < 2**64
         ):
-            raise ValueError("invalid or expired ML-DSA message capability")
+            raise ValueError("invalid or expired post-quantum message capability")
 
 
 async def message_capability(substrate, owner: str, audience: bytes) -> MessageCapability:
@@ -77,7 +101,7 @@ async def message_capability(substrate, owner: str, audience: bytes) -> MessageC
         await substrate.query("AdminUtils", "HashedAccountsEnabled", block_hash=block_hash)
         is not True
     ):
-        raise ValueError("ML-DSA authorization is disabled")
+        raise ValueError("post-quantum authorization is disabled")
     record = await substrate.query(
         "HashedAccounts", "ActiveCapabilities", [owner, "Message"], block_hash=block_hash
     )
@@ -86,7 +110,7 @@ async def message_capability(substrate, owner: str, audience: bytes) -> MessageC
     )
     if not record or int(record["epoch"]) != int(epoch):
         raise ValueError(
-            "no active ML-DSA message capability; install an owner-approved message key first"
+            "no active post-quantum message capability; install an owner-approved message key first"
         )
     scope = record["scope"]
     if not isinstance(scope, dict) or "Message" not in scope:
@@ -107,8 +131,8 @@ async def message_capability(substrate, owner: str, audience: bytes) -> MessageC
 
 def install_message_capability(keypair, *, epoch: int, expires_at: int, audience: bytes) -> Call:
     """Build an explicit grant. Epoch must be the finalized tombstone plus one."""
-    if keypair.crypto_type not in MLDSA_CRYPTO_TYPES or not 0 < len(audience) <= 128:
-        raise ValueError("ML-DSA wallet and 1..128 audience bytes required")
+    if keypair.crypto_type not in PQ_CRYPTO_TYPES or not 0 < len(audience) <= 128:
+        raise ValueError("post-quantum wallet and 1..128 audience bytes required")
     if not 0 < epoch < 2**64 or not 0 < expires_at < 2**64:
         raise ValueError("epoch and expiry must be positive u64 values")
     return Call(
@@ -124,8 +148,8 @@ def install_message_capability(keypair, *, epoch: int, expires_at: int, audience
 
 
 def sign_payload(keypair, payload: bytes, capability: MessageCapability) -> bytes:
-    if keypair.crypto_type not in MLDSA_CRYPTO_TYPES:
-        raise ValueError("message capability requires an ML-DSA signing key")
+    if keypair.crypto_type not in PQ_CRYPTO_TYPES:
+        raise ValueError("message capability requires a post-quantum signing key")
     if (
         bytes(keypair.mldsa_capability_commitment(ROLE_MESSAGE, capability.epoch))
         != capability.commitment
@@ -143,7 +167,9 @@ def sign_payload(keypair, payload: bytes, capability: MessageCapability) -> byte
 
 
 def verify_payload(proof: bytes, payload: bytes, capability: MessageCapability) -> bool:
-    if len(proof) != PROOF_LENGTH:
+    try:
+        capability_proof_crypto_type(proof)
+    except (ValueError, TypeError):
         return False
     return bool(
         verify_mldsa_capability(

@@ -67,7 +67,7 @@ class _OwnerOrder(Intent):
 class AuthorizeOrder(_OwnerOrder):
     """Authorize every economic term of a order through the account's origin.
 
-    Supports direct ML-DSA owners, proxies, derivatives, and multisigs. This
+    Supports direct post-quantum owners, proxies, derivatives, and multisigs. This
     grants relayers the complete specified trade; funds move only on execution.
     Cancel with the same nonce and complete order to revoke its unfilled part.
     """
@@ -97,7 +97,7 @@ class CancelOrder(_OwnerOrder):
 @register
 @dataclass
 class ExecuteOrders(Intent):
-    """Relay classical orders and up to eight account-approved or ML-DSA orders.
+    """Relay classical orders and up to eight account-approved or post-quantum orders.
 
     Each signed order includes complete terms, its signature, and an optional
     partial fill. Authorized terms also bind an owner-local nonce. With
@@ -144,17 +144,31 @@ class ExecuteOrders(Intent):
                     raise ValueError("invalid classical order signature length")
                 authorization[scheme] = "0x" + signature.hex()
                 continue
-            if scheme != "MlDsa" or not authorized:
-                raise ValueError("ML-DSA authorization requires an Authorized order")
-            proof = authorization["MlDsa"]
+            if scheme not in ("MlDsa", "Falcon") or not authorized:
+                raise ValueError("post-quantum authorization requires an Authorized order")
+            proof = authorization[scheme]
+            expected_fields = {"epoch", "public_key", "signature"}
+            if scheme == "Falcon":
+                expected_fields.add("algorithm")
             if (
                 not isinstance(proof, dict)
-                or set(proof) != {"epoch", "public_key", "signature"}
+                or set(proof) != expected_fields
                 or not _u64(proof["epoch"], "capability epoch")
             ):
-                raise ValueError("invalid ML-DSA order proof")
-            if len(_bytes(proof["public_key"])) != 1952 or len(_bytes(proof["signature"])) != 3309:
-                raise ValueError("invalid ML-DSA order proof lengths")
+                raise ValueError("invalid post-quantum order proof")
+            if scheme == "Falcon":
+                if proof["algorithm"] not in (6, 8):
+                    raise ValueError("unsupported Falcon capability algorithm")
+                public_length, signature_length = {6: (897, 666), 8: (1793, 1280)}[
+                    proof["algorithm"]
+                ]
+            else:
+                public_length, signature_length = 1952, 3309
+            if (
+                len(_bytes(proof["public_key"])) != public_length
+                or len(_bytes(proof["signature"])) != signature_length
+            ):
+                raise ValueError("invalid post-quantum order proof lengths")
             for name in ("public_key", "signature"):
                 proof[name] = "0x" + _bytes(proof[name]).hex()
         if authorized_count > 8:
@@ -218,7 +232,7 @@ class ExecuteBatchedOrders(ExecuteOrders):
 @register
 @dataclass
 class InstallOrderCapability(Intent):
-    """Grant a revocable ML-DSA order key with an explicit trading scope.
+    """Grant a revocable post-quantum order key with an explicit trading scope.
 
     A permanent epoch tombstone prevents revoked signatures from becoming
     valid after reinstalling. Expiry is a block number, not an order timestamp.
@@ -231,9 +245,7 @@ class InstallOrderCapability(Intent):
 
     expected_epoch: int = field(metadata={"help": "Finalized owner/Order epoch plus one."})
     key_commitment: str = field(
-        metadata={
-            "help": "64-byte commitment to the purpose-specific ML-DSA order public key, in hex."
-        }
+        metadata={"help": "64-byte commitment to the post-quantum order public key, in hex."}
     )
     expires_at: int = field(metadata={"help": "Inclusive chain block-number expiry."})
     scope: dict = field(metadata={"help": "Explicit Trading bounds, or UnrestrictedTrading."})
@@ -270,7 +282,7 @@ class InstallOrderCapability(Intent):
 
     def summary(self):
         return (
-            f"grant ML-DSA order capability epoch {self.expected_epoch} "
+            f"grant post-quantum order capability epoch {self.expected_epoch} "
             f"until block {self.expires_at}"
         )
 
@@ -300,4 +312,4 @@ class RevokeOrderCapability(Intent):
         )
 
     def summary(self):
-        return "revoke the active ML-DSA order capability"
+        return "revoke the active post-quantum order capability"

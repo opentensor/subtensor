@@ -23,6 +23,7 @@ use crate::error::CoreError;
 mod base58;
 mod hashed;
 pub use hashed::{verify_hashed_authorization, HashedKeypair};
+mod falcon;
 mod mldsa;
 pub use mldsa::{
     verify_mldsa_authorization, verify_mldsa_capability, MldsaCapabilityProof, MldsaKeypair,
@@ -47,6 +48,41 @@ pub const CRYPTO_MLDSA65: u8 = 7;
 /// Fixed-key ML-DSA-65. Preserve code 7 and all original rotating identities.
 pub const CRYPTO_MLDSA65_FIXED: u8 = 8;
 
+pub const CRYPTO_FALCON512: u8 = 9;
+pub const CRYPTO_FALCON512_HASHED: u8 = 10;
+pub const CRYPTO_FALCON1024: u8 = 11;
+pub const CRYPTO_FALCON1024_HASHED: u8 = 12;
+
+pub fn is_falcon_crypto(crypto_type: u8) -> bool {
+    matches!(
+        crypto_type,
+        CRYPTO_FALCON512 | CRYPTO_FALCON512_HASHED | CRYPTO_FALCON1024 | CRYPTO_FALCON1024_HASHED
+    )
+}
+
+pub fn is_pq_crypto(crypto_type: u8) -> bool {
+    is_mldsa_crypto(crypto_type) || is_falcon_crypto(crypto_type)
+}
+
+pub fn is_fixed_pq_crypto(crypto_type: u8) -> bool {
+    matches!(
+        crypto_type,
+        CRYPTO_MLDSA65_FIXED | CRYPTO_FALCON512 | CRYPTO_FALCON1024
+    )
+}
+
+pub fn pq_profile(crypto_type: u8) -> Option<u8> {
+    match crypto_type {
+        CRYPTO_MLDSA65 => Some(4),
+        CRYPTO_MLDSA65_FIXED => Some(5),
+        CRYPTO_FALCON512_HASHED => Some(6),
+        CRYPTO_FALCON512 => Some(7),
+        CRYPTO_FALCON1024_HASHED => Some(8),
+        CRYPTO_FALCON1024 => Some(9),
+        _ => None,
+    }
+}
+
 pub fn is_mldsa_crypto(crypto_type: u8) -> bool {
     matches!(crypto_type, CRYPTO_MLDSA65 | CRYPTO_MLDSA65_FIXED)
 }
@@ -56,11 +92,28 @@ pub fn is_hashed_crypto(crypto_type: u8) -> bool {
 }
 
 pub fn is_rotating_crypto(crypto_type: u8) -> bool {
-    is_hashed_crypto(crypto_type) || crypto_type == CRYPTO_MLDSA65
+    is_hashed_crypto(crypto_type)
+        || matches!(
+            crypto_type,
+            CRYPTO_MLDSA65 | CRYPTO_FALCON512_HASHED | CRYPTO_FALCON1024_HASHED
+        )
 }
 
 /// Compose account mode with a signing scheme; omitted mode preserves legacy codes.
 pub fn account_crypto_type(crypto_type: u8, mode: Option<&str>) -> Result<u8, CoreError> {
+    if is_falcon_crypto(crypto_type) {
+        let (fixed, hashed) = if matches!(crypto_type, CRYPTO_FALCON512 | CRYPTO_FALCON512_HASHED) {
+            (CRYPTO_FALCON512, CRYPTO_FALCON512_HASHED)
+        } else {
+            (CRYPTO_FALCON1024, CRYPTO_FALCON1024_HASHED)
+        };
+        return match mode {
+            None => Ok(crypto_type),
+            Some("hashed") => Ok(hashed),
+            Some("standard") => Ok(fixed),
+            _ => Err(crypto_err("account type must be standard or hashed")),
+        };
+    }
     if is_mldsa_crypto(crypto_type) {
         return match mode {
             None => Ok(crypto_type),
@@ -250,6 +303,8 @@ impl Keypair {
             CRYPTO_HASHED | CRYPTO_SR25519 => "sr25519",
             CRYPTO_HASHED_ED25519 | CRYPTO_ED25519 => "ed25519",
             CRYPTO_MLDSA65 | CRYPTO_MLDSA65_FIXED => "mldsa65",
+            CRYPTO_FALCON512 | CRYPTO_FALCON512_HASHED => "falcon512",
+            CRYPTO_FALCON1024 | CRYPTO_FALCON1024_HASHED => "falcon1024",
             _ => "unknown",
         }
     }
@@ -266,7 +321,11 @@ impl Keypair {
             | CRYPTO_HASHED
             | CRYPTO_HASHED_ED25519
             | CRYPTO_MLDSA65
-            | CRYPTO_MLDSA65_FIXED => {}
+            | CRYPTO_MLDSA65_FIXED
+            | CRYPTO_FALCON512
+            | CRYPTO_FALCON512_HASHED
+            | CRYPTO_FALCON1024
+            | CRYPTO_FALCON1024_HASHED => {}
             other => return Err(crypto_err(format!("unknown crypto type {other}"))),
         }
 
@@ -310,12 +369,12 @@ impl Keypair {
         password: Option<&str>,
     ) -> Result<Self, CoreError> {
         let (inner, seed) = match crypto_type {
-            CRYPTO_MLDSA65 | CRYPTO_MLDSA65_FIXED => {
+            crypto if is_pq_crypto(crypto) => {
                 let phrase = bip39::Mnemonic::parse_in(bip39::Language::English, mnemonic)
-                    .map_err(|_| crypto_err("invalid ML-DSA mnemonic"))?;
+                    .map_err(|_| crypto_err("invalid post-quantum mnemonic"))?;
                 if phrase.word_count() != 24 {
                     return Err(crypto_err(
-                        "ML-DSA wallets require a 24-word mnemonic with 256-bit entropy",
+                        "post-quantum wallets require a 24-word mnemonic with 256-bit entropy",
                     ));
                 }
                 let expanded = Zeroizing::new(phrase.to_seed(password.unwrap_or("")));
@@ -361,7 +420,7 @@ impl Keypair {
     /// Derive a keypair from a 32-byte seed.
     pub fn from_seed(seed: &[u8], crypto_type: u8) -> Result<Self, CoreError> {
         let inner = match crypto_type {
-            CRYPTO_MLDSA65 | CRYPTO_MLDSA65_FIXED => {
+            crypto if is_pq_crypto(crypto) => {
                 KeypairInner::Mldsa(MldsaKeypair::from_seed(seed, crypto_type)?)
             }
             CRYPTO_SR25519 => KeypairInner::Sr25519(
@@ -387,9 +446,9 @@ impl Keypair {
 
     /// Derive a keypair from a secret URI (e.g. "//Alice" or "<mnemonic>//hard/soft").
     pub fn from_uri(uri: &str, crypto_type: u8) -> Result<Self, CoreError> {
-        if is_hashed_crypto(crypto_type) || is_mldsa_crypto(crypto_type) {
+        if is_hashed_crypto(crypto_type) || is_pq_crypto(crypto_type) {
             return Err(crypto_err(
-                "hashed and ML-DSA wallets require a mnemonic or a 32-byte master seed; secret URIs are unsupported",
+                "hashed and post-quantum wallets require a mnemonic or a 32-byte master seed; secret URIs are unsupported",
             ));
         }
         let inner = match crypto_type {
@@ -421,7 +480,7 @@ impl Keypair {
                 .map_err(|_| crypto_err("invalid private_key hex string"))?,
         );
 
-        if is_hashed_crypto(crypto_type) || is_mldsa_crypto(crypto_type) {
+        if is_hashed_crypto(crypto_type) || is_pq_crypto(crypto_type) {
             return Self::from_seed(&private_key_vec, crypto_type);
         }
 
@@ -478,13 +537,15 @@ impl Keypair {
             KeypairInner::Ed25519(_) => CRYPTO_ED25519,
             KeypairInner::Sr25519(_) => CRYPTO_SR25519,
             KeypairInner::Hashed(key) => key.crypto_type(),
-            KeypairInner::Mldsa(key) => {
-                if key.descriptor.is_rotating() {
-                    CRYPTO_MLDSA65
-                } else {
-                    CRYPTO_MLDSA65_FIXED
-                }
-            }
+            KeypairInner::Mldsa(key) => match key.descriptor.algorithm {
+                4 => CRYPTO_MLDSA65,
+                5 => CRYPTO_MLDSA65_FIXED,
+                6 => CRYPTO_FALCON512_HASHED,
+                7 => CRYPTO_FALCON512,
+                8 => CRYPTO_FALCON1024_HASHED,
+                9 => CRYPTO_FALCON1024,
+                _ => unreachable!("validated post-quantum profile"),
+            },
             KeypairInner::PublicOnly { crypto_type, .. } => *crypto_type,
         }
     }
@@ -540,7 +601,7 @@ impl Keypair {
             KeypairInner::Sr25519(pair) => Ok(as_bytes(&pair.sign(message))),
             KeypairInner::Hashed(_) => self.sign_hashed_message(message),
             KeypairInner::Mldsa(_) => Err(crypto_err(
-                "ML-DSA message signing requires an explicit registered capability and epoch",
+                "post-quantum message signing requires an explicit registered capability and epoch",
             )),
             KeypairInner::PublicOnly { .. } => {
                 Err(crypto_err("no private key set to create signatures"))

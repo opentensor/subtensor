@@ -6,6 +6,8 @@
 
 extern crate alloc;
 
+/// Original Falcon padded signatures with immutable account profiles.
+pub mod falcon;
 /// Quantum-resistant account protocol, independent of the immutable v1 format.
 pub mod mldsa;
 
@@ -134,6 +136,8 @@ pub enum RegistrationDescriptor {
     Classical(Descriptor),
     #[codec(index = 1)]
     MlDsa65(mldsa::Descriptor),
+    #[codec(index = 2)]
+    Falcon(mldsa::Descriptor),
 }
 
 impl From<Descriptor> for RegistrationDescriptor {
@@ -144,7 +148,11 @@ impl From<Descriptor> for RegistrationDescriptor {
 
 impl From<mldsa::Descriptor> for RegistrationDescriptor {
     fn from(descriptor: mldsa::Descriptor) -> Self {
-        Self::MlDsa65(descriptor)
+        if falcon::is_account_profile(descriptor.algorithm) {
+            Self::Falcon(descriptor)
+        } else {
+            Self::MlDsa65(descriptor)
+        }
     }
 }
 

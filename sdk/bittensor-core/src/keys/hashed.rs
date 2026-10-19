@@ -56,12 +56,12 @@ pub fn verify_hashed_authorization(
     Ok(match descriptor.scheme {
         Scheme::Sr25519 => sr25519::Pair::verify(
             &sr25519::Signature::from_raw(proof.signature),
-            &message,
+            message,
             &sr25519::Public::from_raw(proof.public_key),
         ),
         Scheme::Ed25519 => ed25519::Pair::verify(
             &ed25519::Signature::from_raw(proof.signature),
-            &message,
+            message,
             &ed25519::Public::from_raw(proof.public_key),
         ),
     })
@@ -214,7 +214,7 @@ impl Keypair {
     /// A new view of the same stable account at the generation read from chain.
     /// Neither this operation nor signing mutates any persisted wallet state.
     pub fn at_generation(&self, generation: u64) -> Result<Self, CoreError> {
-        if super::is_mldsa_crypto(self.crypto_type()) {
+        if super::is_pq_crypto(self.crypto_type()) {
             return self.mldsa_at_generation(generation);
         }
         let hashed = self.hashed()?;

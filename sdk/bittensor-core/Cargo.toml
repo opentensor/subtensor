@@ -32,7 +32,7 @@ fernet = { version = "=0.2.1", optional = true }
 openssl = { version = "0.10", features = ["vendored"], optional = true }
 hex = "0.4.3"
 hkdf = "0.12.4"
-subtensor-hashed = { path = "../../primitives/hashed", default-features = false }
+subtensor-hashed = { path = "../../primitives/hashed", default-features = false, features = ["signing"] }
 # OpenCL is loaded only when GPU mining is requested; wheels need no GPU SDK.
 libloading = { version = "0.8.9", optional = true }
 pbkdf2 = { version = "0.12.2", optional = true }

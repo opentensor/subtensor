@@ -15,19 +15,33 @@ from typing import Callable
 
 from ._transport.codec import is_valid_ss58_address
 from .keyfiles import Keypair, WrongPasswordError, resolve_key_password
-from .mldsa import MessageCapability, sign_payload, user_message_payload, verify_payload
+from .mldsa import (
+    MessageCapability,
+    capability_proof_crypto_type,
+    sign_payload,
+    user_message_payload,
+    verify_payload,
+)
 from .settings import SS58_FORMAT
 from .sp_core import (
     CLASSICAL_HASHED_CRYPTO_TYPES,
     CRYPTO_ED25519,
+    CRYPTO_FALCON512,
+    CRYPTO_FALCON512_HASHED,
+    CRYPTO_FALCON1024,
+    CRYPTO_FALCON1024_HASHED,
     CRYPTO_HASHED,
     CRYPTO_HASHED_ED25519,
     CRYPTO_MLDSA65,
     CRYPTO_MLDSA65_FIXED,
     CRYPTO_SR25519,
+    FALCON512_CRYPTO_TYPES,
+    FALCON1024_CRYPTO_TYPES,
     MLDSA_CRYPTO_TYPES,
+    PQ_CRYPTO_TYPES,
     account_crypto_type,
 )
+from .sp_core import FIXED_PQ_CRYPTO_TYPES as FIXED_PQ_CRYPTO_TYPES
 from .sp_core import HASHED_CRYPTO_TYPES as HASHED_CRYPTO_TYPES
 from .sp_core import REGISTERED_CRYPTO_TYPES as REGISTERED_CRYPTO_TYPES
 from .sp_core import requires_registration as requires_registration
@@ -40,6 +54,10 @@ CRYPTO_TYPE_NAMES: dict[int, str] = {
     CRYPTO_HASHED_ED25519: "hashed-ed25519",
     CRYPTO_MLDSA65: "mldsa65",
     CRYPTO_MLDSA65_FIXED: "ms",
+    CRYPTO_FALCON512: "falcon512",
+    CRYPTO_FALCON512_HASHED: "hashed-falcon512",
+    CRYPTO_FALCON1024: "falcon1024",
+    CRYPTO_FALCON1024_HASHED: "hashed-falcon1024",
 }
 _NAME_TO_CRYPTO_TYPE: dict[str, int] = {name: code for code, name in CRYPTO_TYPE_NAMES.items()}
 _NAME_TO_CRYPTO_TYPE.update(
@@ -49,6 +67,8 @@ _NAME_TO_CRYPTO_TYPE.update(
         "ml-dsa-65": CRYPTO_MLDSA65,
         "mldsa": CRYPTO_MLDSA65,
         "ml-dsa": CRYPTO_MLDSA65_FIXED,
+        "falcon-512": CRYPTO_FALCON512,
+        "falcon-1024": CRYPTO_FALCON1024,
     }
 )
 DEFAULT_CRYPTO_TYPE = CRYPTO_SR25519
@@ -90,6 +110,10 @@ def signing_scheme_name(crypto_type: int | None) -> str:
         return "ed25519"
     if crypto_type in MLDSA_CRYPTO_TYPES:
         return "mldsa65"
+    if crypto_type in FALCON512_CRYPTO_TYPES:
+        return "falcon512"
+    if crypto_type in FALCON1024_CRYPTO_TYPES:
+        return "falcon1024"
     return format_crypto_type(crypto_type)
 
 
@@ -244,10 +268,10 @@ def sign_message_key(
     message_capability: MessageCapability | None = None,
 ) -> dict[str, str]:
     """Sign with an unlocked key; a classical hashed key needs its finalized generation."""
-    if keypair.crypto_type in MLDSA_CRYPTO_TYPES:
+    if keypair.crypto_type in PQ_CRYPTO_TYPES:
         if message_capability is None:
             raise ValueError(
-                "ML-DSA message signing requires a finalized owner-approved message capability"
+                "post-quantum signing requires a finalized owner-approved message capability"
             )
         signature = sign_payload(
             keypair, user_message_payload(message.encode(), message_capability), message_capability
@@ -296,7 +320,11 @@ def verify_message(
         if message_capability is not None:
             if recipient.account != message_capability.owner or crypto_type not in (
                 None,
-                *MLDSA_CRYPTO_TYPES,
+                *PQ_CRYPTO_TYPES,
+            ):
+                return False
+            if crypto_type is not None and signing_scheme_name(crypto_type) != signing_scheme_name(
+                capability_proof_crypto_type(raw)
             ):
                 return False
             return verify_payload(

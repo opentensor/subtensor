@@ -11,6 +11,8 @@ use sp_runtime::{
 use subtensor_hashed::{Descriptor, Scheme};
 #[path = "hashed_envelope_tests.rs"]
 mod envelope;
+#[path = "falcon_tests.rs"]
+mod falcon;
 #[path = "mldsa_tests.rs"]
 mod mldsa;
 #[path = "mldsa_benchmark_tests.rs"]
@@ -968,7 +970,9 @@ fn all_registration_profiles_reserve_the_same_flat_deposit_once() {
             hashed_auth::TestVerificationWeight::set(Weight::zero());
             let recipient = AccountId::new(match descriptor {
                 RegistrationDescriptor::Classical(value) => subtensor_hashed::account_id(&value),
-                RegistrationDescriptor::MlDsa65(value) => mldsa::account_id(&value),
+                RegistrationDescriptor::MlDsa65(value) | RegistrationDescriptor::Falcon(value) => {
+                    mldsa::account_id(&value)
+                }
             });
             let sponsor = AccountId::from(pair(72).public());
             let registration =

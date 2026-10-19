@@ -392,9 +392,10 @@ def test_replay_and_deposit_refresh_preserve_safe_mode():
 
 
 @pytest.mark.asyncio
-async def test_fixed_wallet_defaults_safe_pure_and_derivative_with_explicit_legacy():
+@pytest.mark.parametrize("crypto_type", [8, 9, 11])
+async def test_fixed_wallet_defaults_safe_pure_and_derivative_with_explicit_legacy(crypto_type):
     substrate = FakeSubstrate()
-    key = Keypair.create_from_seed(b"\x77" * 32, 8)
+    key = Keypair.create_from_seed(b"\x77" * 32, crypto_type)
     wallet = SimpleNamespace(coldkey=key, coldkeypub=key, hotkey=key)
     built = await CreatePureProxy().build(substrate, wallet)
     assert built.call.function == "create_safe_pure"
@@ -434,8 +435,11 @@ def _crowdloan_with_pure_proxy(**proxy_args):
 
 
 @pytest.mark.parametrize("creator", ["fixed_key", "fixed_wallet", "safe_1", "safe_2", "sr"])
+@pytest.mark.parametrize("crypto_type", [8, 9, 11])
 @pytest.mark.asyncio
-async def test_crowdloan_stored_batch_preserves_creator_derivation(creator, tmp_path, monkeypatch):
+async def test_crowdloan_stored_batch_preserves_creator_derivation(
+    creator, crypto_type, tmp_path, monkeypatch
+):
     from bittensor.wallet import Wallet
 
     substrate = FakeSubstrate()
@@ -443,7 +447,7 @@ async def test_crowdloan_stored_batch_preserves_creator_derivation(creator, tmp_
     intent = _crowdloan_with_pure_proxy()
     wallet = dev_wallet()
     if creator.startswith("fixed"):
-        key = Keypair.create_from_seed(b"\x77" * 32, 8)
+        key = Keypair.create_from_seed(b"\x77" * 32, crypto_type)
         wallet = key
         if creator == "fixed_wallet":
             wallet = Wallet("creator", path=str(tmp_path))

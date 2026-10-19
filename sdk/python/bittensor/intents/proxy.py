@@ -225,10 +225,11 @@ class CreatePureProxy(Intent):
         from ..account_mode import validate_account_mode, warn_legacy_mldsa
         from ..hashed import is_pq_required
         from ..signing import public_view
+        from ..sp_core import is_stateless_pq
 
         payer = self.coldkey_address(wallet)
         mode = self.account_mode or getattr(wallet, "account_mode", None)
-        if mode is None and getattr(public_view(wallet, "coldkey"), "crypto_type", None) == 8:
+        if mode is None and is_stateless_pq(public_view(wallet, "coldkey")):
             mode = "safe"
         if mode is not None:
             validate_account_mode(mode)

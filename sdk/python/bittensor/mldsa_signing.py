@@ -1,4 +1,4 @@
-"""Versioned offline/device signing requests for ML-DSA accounts.
+"""Versioned offline/device signing requests for post-quantum accounts.
 
 Devices must explicitly implement this protocol. It carries the full native
 payload and authority snapshot; legacy Polkadot signer payloads and their
@@ -12,15 +12,21 @@ from dataclasses import asdict, dataclass
 from ._transport.contract import HashedSigningSnapshot, SignedExtrinsic, UnsignedExtrinsic
 from .mldsa import supports_fixed_profile
 from .sp_core import (
-    MLDSA_CRYPTO_TYPES,
+    FALCON_CRYPTO_TYPES,
+    PQ_CRYPTO_TYPES,
     Keypair,
-    is_stateless_mldsa_descriptor,
+    is_stateless_pq_descriptor,
     ss58_decode,
     verify_mldsa_authorization,
 )
 
 FORMAT = "bittensor/ms/v2/extrinsic/1"
+PQ_FORMAT = "bittensor/pq/extrinsic/1"
 MAX_NATIVE_PAYLOAD = 16 * 1024 * 1024
+
+
+def _format(crypto_type):
+    return PQ_FORMAT if crypto_type in FALCON_CRYPTO_TYPES else FORMAT
 
 
 def _bytes(value):
@@ -38,7 +44,7 @@ class PreparedMldsaExtrinsic:
 
     @property
     def payload(self):
-        """Complete native payload; the signer adds its canonical ML-DSA header."""
+        """Complete native payload; the signer adds its canonical post-quantum header."""
         return self.unsigned.payload
 
     @property
@@ -49,7 +55,7 @@ class PreparedMldsaExtrinsic:
         unsigned, authority = self.unsigned, self.authority
         public = Keypair.from_hashed_descriptor(authority.descriptor)
         if (
-            unsigned.crypto_type not in MLDSA_CRYPTO_TYPES
+            unsigned.crypto_type not in PQ_CRYPTO_TYPES
             or authority.crypto_type != unsigned.crypto_type
             or public.crypto_type != unsigned.crypto_type
             or unsigned.nonce != authority.nonce
@@ -58,7 +64,7 @@ class PreparedMldsaExtrinsic:
             or bytes(ss58_decode(authority.address)) != unsigned.public_key
             or not authority.block_hash
             or (
-                is_stateless_mldsa_descriptor(authority.descriptor)
+                is_stateless_pq_descriptor(authority.descriptor)
                 and (
                     authority.generation != 0
                     or authority.commitment != authority.descriptor[2:]
@@ -76,23 +82,27 @@ class PreparedMldsaExtrinsic:
             + unsigned.included_in_extrinsic
             + unsigned.included_in_signed_data
         ):
-            raise ValueError("invalid versioned ML-DSA signing request")
+            raise ValueError("invalid versioned post-quantum signing request")
 
     def to_dict(self):
         self.validate()
         authority = asdict(self.authority)
         for name in ("descriptor", "commitment"):
             authority[name] = "0x" + authority[name].hex()
-        return {"format": FORMAT, "unsigned": self.unsigned.to_dict(), "authority": authority}
+        return {
+            "format": _format(self.unsigned.crypto_type),
+            "unsigned": self.unsigned.to_dict(),
+            "authority": authority,
+        }
 
     @classmethod
     def from_dict(cls, data):
         if (
             not isinstance(data, dict)
             or set(data) != {"format", "unsigned", "authority"}
-            or data["format"] != FORMAT
+            or data["format"] not in (FORMAT, PQ_FORMAT)
         ):
-            raise ValueError("unsupported ML-DSA signing request format")
+            raise ValueError("unsupported post-quantum signing request format")
         authority = dict(data["authority"])
         for name in ("descriptor", "commitment"):
             authority[name] = _bytes(authority[name])
@@ -100,6 +110,8 @@ class PreparedMldsaExtrinsic:
             UnsignedExtrinsic.from_dict(data["unsigned"]), HashedSigningSnapshot(**authority)
         )
         result.validate()
+        if data["format"] != _format(result.unsigned.crypto_type):
+            raise ValueError("signing request format does not match its cryptographic profile")
         return result
 
 
@@ -140,16 +152,18 @@ def prepare_mldsa_extrinsic(
         transaction_version=codec.transaction_version,
         metadata_hash=metadata_hash,
         payload=call_data + extra + implicit,
-        payload_json={"format": FORMAT},
+        payload_json={"format": _format(authority.crypto_type)},
         included_in_extrinsic=extra,
         included_in_signed_data=implicit,
     )
     prepared = PreparedMldsaExtrinsic(unsigned, authority)
     prepared.validate()
-    if authority.descriptor[1] == 5:
-        profiles = codec.constant("HashedAccounts", "MldsaAccountProfiles")
-        if not supports_fixed_profile(profiles):
-            raise ValueError("runtime does not support fixed-key ML-DSA accounts")
+    profile = authority.descriptor[1]
+    if profile in (5, 6, 7, 8, 9):
+        constant = "FalconAccountProfiles" if profile in (6, 7, 8, 9) else "MldsaAccountProfiles"
+        profiles = codec.constant("HashedAccounts", constant)
+        if not supports_fixed_profile(profiles, profile):
+            raise ValueError("runtime does not support this post-quantum account profile")
     return prepared
 
 
@@ -165,13 +179,13 @@ def sign_prepared_mldsa(
     """
     prepared.validate()
     if _bytes(expected_genesis_hash) != _bytes(prepared.unsigned.genesis_hash):
-        raise ValueError("ML-DSA request does not match the trusted signing chain")
+        raise ValueError("post-quantum request does not match the trusted signing chain")
     _validate_codec_request(codec, prepared)
     if (
-        keypair.crypto_type not in MLDSA_CRYPTO_TYPES
+        keypair.crypto_type not in PQ_CRYPTO_TYPES
         or bytes(keypair.hashed_descriptor) != prepared.authority.descriptor
     ):
-        raise ValueError("ML-DSA signing request belongs to another wallet")
+        raise ValueError("post-quantum signing request belongs to another wallet")
     current = keypair.at_generation(prepared.authority.generation)
     if bytes(current.hashed_current_commitment) != prepared.authority.commitment:
         raise ValueError("offline key does not match the requested authority commitment")
@@ -186,7 +200,7 @@ def _validate_codec_request(codec, prepared: PreparedMldsaExtrinsic):
         codec.spec_version != unsigned.spec_version
         or codec.transaction_version != unsigned.transaction_version
     ):
-        raise ValueError("runtime changed since ML-DSA preparation; prepare and sign again")
+        raise ValueError("runtime changed since post-quantum preparation; prepare and sign again")
     rebuilt = prepare_mldsa_extrinsic(
         codec,
         unsigned.call_data,
@@ -199,7 +213,7 @@ def _validate_codec_request(codec, prepared: PreparedMldsaExtrinsic):
         metadata_hash=unsigned.metadata_hash,
     )
     if rebuilt.payload != prepared.payload:
-        raise ValueError("ML-DSA prepared call, extensions or implicit values changed")
+        raise ValueError("post-quantum prepared call, extensions or implicit values changed")
 
 
 def attach_mldsa_proof(codec, prepared: PreparedMldsaExtrinsic, proof: bytes | str):
@@ -210,7 +224,7 @@ def attach_mldsa_proof(codec, prepared: PreparedMldsaExtrinsic, proof: bytes | s
     if not verify_mldsa_authorization(
         proof, prepared.payload, authority.descriptor, authority.generation, authority.commitment
     ):
-        raise ValueError("invalid ML-DSA transaction proof")
+        raise ValueError("invalid post-quantum transaction proof")
     data, extrinsic_hash = codec.encode_signed_extrinsic(
         unsigned.call_data,
         public_key=unsigned.public_key,
@@ -223,3 +237,10 @@ def attach_mldsa_proof(codec, prepared: PreparedMldsaExtrinsic, proof: bytes | s
         metadata_hash_enabled=unsigned.metadata_hash is not None,
     )
     return SignedExtrinsic(data=data, extrinsic_hash=extrinsic_hash)
+
+
+# Generic names for new integrations; existing MS entrypoints remain compatible.
+PreparedPqExtrinsic = PreparedMldsaExtrinsic
+prepare_pq_extrinsic = prepare_mldsa_extrinsic
+sign_prepared_pq = sign_prepared_mldsa
+attach_pq_proof = attach_mldsa_proof

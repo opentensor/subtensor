@@ -68,9 +68,15 @@ enum Mode {
     Ed,
     HashedMs,
     FixedMs,
+    Falcon(u8),
 }
 
 fn signed(call: RuntimeCall, mode: Mode) -> (AccountId, UncheckedExtrinsic) {
+    if let Mode::Falcon(profile) = mode {
+        let wallet = super::falcon::Wallet::new(91, profile);
+        wallet.prepare();
+        return (wallet.account.clone(), wallet.sign(call));
+    }
     if matches!(mode, Mode::FixedMs) {
         pallet_admin_utils::HashedAccountsEnabled::<Runtime>::put(true);
         let wallet = super::mldsa::stateless::Wallet::new(91);
@@ -86,7 +92,7 @@ fn signed(call: RuntimeCall, mode: Mode) -> (AccountId, UncheckedExtrinsic) {
             AccountId::new(ed25519::Pair::from_seed(&key).public().0),
             None,
         ),
-        Mode::FixedMs => unreachable!("handled before registered signing modes"),
+        Mode::FixedMs | Mode::Falcon(_) => unreachable!("handled before registered signing modes"),
         Mode::HashedMs => {
             pallet_admin_utils::HashedAccountsEnabled::<Runtime>::put(true);
 
@@ -233,13 +239,22 @@ fn every_metadata_call_has_explicit_envelope_and_dispatch_coverage() {
             let ethereum = call.is_self_contained();
             self_contained += <usize as From<bool>>::from(ethereum);
             let mut outcomes = Vec::new();
-            for mode in [Mode::Sr, Mode::Ed, Mode::HashedMs, Mode::FixedMs] {
+            for mode in [
+                Mode::Sr,
+                Mode::Ed,
+                Mode::HashedMs,
+                Mode::FixedMs,
+                Mode::Falcon(6),
+                Mode::Falcon(7),
+                Mode::Falcon(8),
+                Mode::Falcon(9),
+            ] {
                 ext().execute_with(|| {
                     System::set_block_number(1);
                     pallet_admin_utils::HashedAccountsEnabled::<Runtime>::put(true);
 
                     let (account, tx) = signed(call.clone(), mode);
-                    let protected = matches!(mode, Mode::HashedMs);
+                    let protected = matches!(mode, Mode::HashedMs | Mode::Falcon(6 | 8));
                     let checked = tx.clone().check(&ChainContext::default());
                     if ethereum {
                         assert!(
@@ -288,7 +303,7 @@ fn every_metadata_call_has_explicit_envelope_and_dispatch_coverage() {
                             "{name} {mode:?}"
                         );
                     }
-                    if matches!(mode, Mode::FixedMs) {
+                    if matches!(mode, Mode::FixedMs | Mode::Falcon(7 | 9)) {
                         assert!(HashedAccounts::mldsa_accounts(&account).is_none());
                         assert_eq!(
                             System::account_nonce(&account),
@@ -301,10 +316,30 @@ fn every_metadata_call_has_explicit_envelope_and_dispatch_coverage() {
                 });
             }
             if !ethereum {
-                let [sr, ed, hashed_ms, fixed_ms] = outcomes.as_slice() else {
+                let [
+                    sr,
+                    ed,
+                    hashed_ms,
+                    fixed_ms,
+                    hashed512,
+                    fixed512,
+                    hashed1024,
+                    fixed1024,
+                ] = outcomes.as_slice()
+                else {
                     panic!("{name}: missing wallet result");
                 };
                 assert_eq!(sr, ed, "{name}: ordinary SR/ED outcome differs");
+                assert_eq!(sr, fixed512, "{name}: fixed Falcon512 outcome differs");
+                assert_eq!(sr, fixed1024, "{name}: fixed Falcon1024 outcome differs");
+                assert_eq!(
+                    hashed_ms, hashed512,
+                    "{name}: hashed Falcon512 outcome differs"
+                );
+                assert_eq!(
+                    hashed_ms, hashed1024,
+                    "{name}: hashed Falcon1024 outcome differs"
+                );
                 assert_eq!(sr, fixed_ms, "{name}: registrationless MS outcome differs");
                 assert_eq!(sr.1, hashed_ms.1, "{name}: pool validity differs");
                 // These are the only expected dispatch differences for the
@@ -373,7 +408,16 @@ fn every_metadata_call_has_explicit_envelope_and_dispatch_coverage() {
 #[test]
 #[cfg(feature = "pow-faucet")]
 fn malformed_faucet_work_is_a_dispatch_error_for_every_signing_mode() {
-    for mode in [Mode::Sr, Mode::Ed, Mode::HashedMs, Mode::FixedMs] {
+    for mode in [
+        Mode::Sr,
+        Mode::Ed,
+        Mode::HashedMs,
+        Mode::FixedMs,
+        Mode::Falcon(6),
+        Mode::Falcon(7),
+        Mode::Falcon(8),
+        Mode::Falcon(9),
+    ] {
         for len in [0, 1, 31, 33, 64] {
             ext().execute_with(|| {
                 System::set_block_number(1);
@@ -392,7 +436,7 @@ fn malformed_faucet_work_is_a_dispatch_error_for_every_signing_mode() {
                     "{mode:?}: work length {len}"
                 );
                 assert_eq!(System::account_nonce(&account), before + 1);
-                if matches!(mode, Mode::HashedMs) {
+                if matches!(mode, Mode::HashedMs | Mode::Falcon(6 | 8)) {
                     assert_eq!(
                         HashedAccounts::mldsa_accounts(account).unwrap().generation,
                         1
