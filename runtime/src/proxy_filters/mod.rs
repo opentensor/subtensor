@@ -124,11 +124,10 @@ pub(crate) fn proxy_type_filter(proxy_type: &ProxyType, call: &RuntimeCall) -> b
     // Raise is the stricter of open and remove_stake: only proxy types that
     // already grant both LendingCalls and StakeManagementCalls may dispatch it.
     if LendingRaiseCalls::contains(call) {
-        return match proxy_type {
-            ProxyType::Any => true,
-            ProxyType::Staking | ProxyType::NonTransfer => true,
-            _ => false,
-        };
+        return matches!(
+            proxy_type,
+            ProxyType::Any | ProxyType::Staking | ProxyType::NonTransfer
+        );
     }
     match proxy_type {
         ProxyType::Any => true,
