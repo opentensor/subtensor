@@ -128,8 +128,9 @@ call_filter_group!(
     ]
 );
 
-// Open / close / increase: granted with staking management. Root setters are
-// excluded — they need `ensure_root` and must not be proxy-grantable.
+// Open / close / increase: granted with staking management. Root setters live
+// in `LendingRootCalls` (AdminAll / RootConfigCalls pattern — inert without
+// `ensure_root`).
 call_filter_group!(
     LendingCalls,
     [
@@ -145,6 +146,17 @@ call_filter_group!(
 call_filter_group!(
     LendingRaiseCalls,
     [RuntimeCall::Lending(LendingCall::open_long_and_sell),]
+);
+
+// Root-only lending knobs (`ensure_root`). Granted with AdminAll the same way
+// `RootConfigCalls` are: broad proxies may list them, but dispatch still fails
+// without root.
+call_filter_group!(
+    LendingRootCalls,
+    [
+        RuntimeCall::Lending(LendingCall::set_enabled),
+        RuntimeCall::Lending(LendingCall::set_lift_params),
+    ]
 );
 
 call_filter_group!(
@@ -748,6 +760,7 @@ type SubtensorSplitCalls = (
     StakeTransferCalls,
     LendingCalls,
     LendingRaiseCalls,
+    LendingRootCalls,
     PowRegistrationCalls,
     BurnedRegistrationCalls,
     RootRegistrationCalls,

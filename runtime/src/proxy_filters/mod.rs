@@ -22,10 +22,11 @@ use crate::RuntimeCall;
 // ============================================================================
 
 /// Admin-utils configuration granted to broad proxies. Root-only
-/// (`RootConfigCalls`) calls are still inert (they need `ensure_root`).
-/// Owner-key rotation is **not** inert: `sudo_set_sn_owner_hotkey` is
-/// owner-or-root, so `OwnerKeyCalls` stays inventory-only.
-type AdminAll = (SubnetManagementCalls, RootConfigCalls);
+/// (`RootConfigCalls`, `LendingRootCalls`) calls are still inert (they need
+/// `ensure_root`). Owner-key rotation is **not** inert:
+/// `sudo_set_sn_owner_hotkey` is owner-or-root, so `OwnerKeyCalls` stays
+/// inventory-only.
+type AdminAll = (SubnetManagementCalls, RootConfigCalls, LendingRootCalls);
 
 /// `Transfer`: liquid value movement.
 type TransferAllowed = (BalanceTransferCalls, StakeTransferCalls);
@@ -356,6 +357,7 @@ mod tests {
         let denied = &denied | &group_calls::<(SubtensorValueCalls, SudoCalls)>();
         let denied = &denied | &group_calls::<MultisigCalls>();
         let denied = &denied | &group_calls::<BasketTradingCalls>();
+        // Open/raise move value; root setters stay via AdminAll (ensure_root).
         let denied = &denied | &group_calls::<(LendingCalls, LendingRaiseCalls)>();
         let denied = &denied | &group_calls::<(MevShieldStoreEncryptedCalls, OwnerKeyCalls)>();
         assert_eq!(
@@ -551,7 +553,7 @@ mod tests {
         let denied = &denied | &group_calls::<(CrowdloanCalls, MultisigCalls)>();
         let denied = &denied | &group_calls::<BasketTradingCalls>();
         // Raise needs both open and remove_stake; NonCritical has stake mgmt
-        // but not lending open/close, so neither lending group is granted.
+        // but not lending open/close. Root setters remain via AdminAll.
         let denied = &denied | &group_calls::<(LendingCalls, LendingRaiseCalls)>();
         let denied = &denied | &group_calls::<(MevShieldStoreEncryptedCalls, OwnerKeyCalls)>();
         assert_eq!(
@@ -779,6 +781,10 @@ mod tests {
         assert_eq!(
             allowed_calls(ProxyType::Staking),
             expected(&[
+                "Lending::close",
+                "Lending::open",
+                "Lending::open_exact",
+                "Lending::open_long_and_sell",
                 "SubtensorModule::add_collateral",
                 "SubtensorModule::add_stake",
                 "SubtensorModule::add_stake_limit",
