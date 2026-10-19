@@ -10,12 +10,12 @@ import bittensor_core
 import pytest
 
 from bittensor._substrate import RpcSubstrate
-from bittensor._transport.contract import HashedSigningSnapshot
-from bittensor._transport.errors import SubstrateRequestException
+from bittensor._transport.contract import HashedSigningSnapshot, SignedExtrinsic
+from bittensor._transport.errors import ExtrinsicSubmissionRejected, SubstrateRequestException
 from bittensor._transport.extrinsics import SHIELD_ENCRYPTION_OVERHEAD, NonceCache
 from bittensor._transport.interface import SubstrateConnection
 from bittensor.cli.wallet_addresses import address_fields, check_registration
-from bittensor.executor import Executor
+from bittensor.executor import Executor, _is_transient
 from bittensor.hashed import with_recipient_registration
 from bittensor.intents import Transfer
 from bittensor.mldsa_signing import prepare_mldsa_extrinsic, sign_prepared_mldsa
@@ -130,7 +130,7 @@ async def test_rpc_shield_failure_preserves_other_local_reservations(failure):
     if failure == "sign":
         conn.create_signed_extrinsic.side_effect = ValueError("signing refused")
     elif failure == "pool":
-        conn.submit_extrinsic.side_effect = SubstrateRequestException("Invalid Transaction")
+        conn.submit_extrinsic.side_effect = ExtrinsicSubmissionRejected("Invalid Transaction")
     else:
         conn.submit_extrinsic.side_effect = OSError("connection lost")
     substrate = RpcSubstrate("ws://unused.invalid")
@@ -164,6 +164,48 @@ async def test_shield_retry_reuses_expired_inner_nonce_without_skipping_gap(conc
         assert await cache.reserve("account") == 66
 
 
+@pytest.mark.parametrize(
+    "failure",
+    [
+        "RPC session closed",
+        "connection lost while waiting for a subscription",
+        {"error": {"code": 1013, "message": "Transaction Already Imported"}},
+    ],
+)
+@pytest.mark.parametrize("accepted_watch", [False, True])
+async def test_shield_unknown_rpc_result_keeps_hidden_inner_nonce(
+    monkeypatch, failure, accepted_watch
+):
+    key = mock_key()
+    conn, _ = connection(key, pending=63)
+    conn.create_signed_extrinsic = AsyncMock(return_value=SignedExtrinsic(b"carrier", "0xcarrier"))
+    error = SubstrateRequestException(failure)
+    conn._session = SimpleNamespace(subscribe=AsyncMock())
+    if accepted_watch:
+        from tests.unit.test_submission_admission import Watch
+
+        conn._session.subscribe.return_value = Watch(error=error)
+    else:
+        conn._session.subscribe.side_effect = error
+    substrate = RpcSubstrate("ws://unused.invalid")
+    substrate._substrate = conn
+    substrate.mev_next_key = AsyncMock(return_value=bytes(1184))
+    substrate.sign_extrinsic = AsyncMock(return_value=(b"inner", "0xinner"))
+    substrate.compose = AsyncMock(return_value=b"outer")
+    monkeypatch.setattr(
+        "bittensor.executor._core.encrypt_mlkem768", lambda *_args, **_kwargs: b"ciphertext"
+    )
+    result = await Executor(substrate)._submit_encrypted_call(
+        b"call", key, {}, period=8, wait_for_inclusion=True, wait_for_finalization=True
+    )
+    assert not result.success
+    # The node knows the carrier but cannot see the encrypted inner yet.
+    conn._nonces._session.request.return_value = 64
+    assert await conn._nonces.next_for(key.ss58_address) == 65
+    assert result.data["submission_outcome_unknown"] is True
+    assert not _is_transient(replace(result, message="Priority is too low"))
+
+
 @pytest.mark.parametrize("failure", ["sign", "pool", "disconnect"])
 async def test_ordinary_fixed_failure_preserves_concurrent_shield_pair(failure):
     key = mock_key()
@@ -174,7 +216,7 @@ async def test_ordinary_fixed_failure_preserves_concurrent_shield_pair(failure):
     if failure == "sign":
         conn.create_signed_extrinsic.side_effect = ValueError("signing refused")
     elif failure == "pool":
-        conn.submit_extrinsic.side_effect = SubstrateRequestException("Invalid Transaction")
+        conn.submit_extrinsic.side_effect = ExtrinsicSubmissionRejected("Invalid Transaction")
     else:
         conn.submit_extrinsic.side_effect = OSError("connection lost")
     substrate = RpcSubstrate("ws://unused.invalid")
@@ -224,7 +266,7 @@ async def test_external_fixed_submit_failure_preserves_unrelated_reservations(
     assert await conn._nonces.next_for(native_key.ss58_address) == 65
     conn.submit_extrinsic = AsyncMock(
         side_effect=(
-            SubstrateRequestException("Invalid Transaction")
+            ExtrinsicSubmissionRejected("Invalid Transaction")
             if failure == "pool"
             else OSError("connection lost")
         )

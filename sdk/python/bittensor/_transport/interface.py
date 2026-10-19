@@ -31,7 +31,14 @@ from .contract import (
     SignedExtrinsic,
     UnsignedExtrinsic,
 )
-from .errors import BlockNotFound, ExtrinsicNotFound, SubstrateRequestException
+from .errors import (
+    BlockNotFound,
+    ExtrinsicNotFound,
+    ExtrinsicSubmissionRejected,
+    MaxRetriesExceeded,
+    RpcPolicyRejection,
+    SubstrateRequestException,
+)
 from .extrinsics import (
     IMMORTAL,
     NonceCache,
@@ -74,12 +81,27 @@ async def _submit_with_admission_retry(
     for attempt in range(len(_ADMISSION_DELAYS) + 1):
         try:
             return await submit()
+        except (MaxRetriesExceeded, RpcPolicyRejection):
+            raise
         except SubstrateRequestException as error:
-            if attempt == len(_ADMISSION_DELAYS) or not any(
-                message in str(error) for message in _ADMISSION_ERRORS
+            rpc_error = (error.payload or {}).get("error", {})
+            admission_rejected = (
+                any(message in str(error) for message in _ADMISSION_ERRORS)
+                if isinstance(rpc_error, dict) and rpc_error
+                else str(error) in _ADMISSION_ERRORS
+            )
+            if admission_rejected and attempt < len(_ADMISSION_DELAYS):
+                await asyncio.sleep(_ADMISSION_DELAYS[attempt])
+                continue
+            # Initial author RPC errors for bad format/verification, invalid
+            # transactions, insufficient replacement priority, or bad arguments
+            # establish rejection. Watch failures and AlreadyImported do not.
+            if admission_rejected or (
+                isinstance(rpc_error, dict)
+                and rpc_error.get("code") in (1001, 1002, 1010, 1014, -32602)
             ):
-                raise
-            await asyncio.sleep(_ADMISSION_DELAYS[attempt])
+                raise ExtrinsicSubmissionRejected(error.payload or str(error)) from error
+            raise
     raise AssertionError("unreachable admission retry state")
 
 

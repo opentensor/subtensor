@@ -445,7 +445,7 @@ async def test_rpc_substrate_write_helper_preserves_public_policy_metadata():
     assert excinfo.value.retry_after == "9"
 
 
-async def test_rpc_substrate_submit_preserves_policy_metadata_and_clears_nonce():
+async def test_rpc_substrate_submit_preserves_policy_metadata_and_unknown_nonce():
     class RefusedSubmit:
         def __init__(self):
             self.cleared = []
@@ -467,7 +467,7 @@ async def test_rpc_substrate_submit_preserves_policy_metadata_and_clears_nonce()
             wait_for_finalization=True,
         )
     assert excinfo.value.retry_after == "7"
-    assert raw.cleared == ["5Signer"]
+    assert raw.cleared == []
 
 
 async def test_rpc_substrate_submit_timeout_is_a_public_connection_error():
@@ -491,7 +491,7 @@ async def test_rpc_substrate_submit_timeout_is_a_public_connection_error():
             wait_for_inclusion=True,
             wait_for_finalization=True,
         )
-    assert raw.cleared == ["5Signer"]
+    assert raw.cleared == []
 
 
 async def test_state_discarded_classified():

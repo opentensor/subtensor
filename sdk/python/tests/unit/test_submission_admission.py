@@ -7,7 +7,11 @@ from unittest.mock import AsyncMock
 import pytest
 
 from bittensor._transport.contract import InclusionReport, SignedExtrinsic
-from bittensor._transport.errors import SubstrateRequestException
+from bittensor._transport.errors import (
+    ExtrinsicSubmissionRejected,
+    MaxRetriesExceeded,
+    SubstrateRequestException,
+)
 from bittensor._transport.interface import SubstrateConnection
 
 BUSY = "Local transaction admission capacity reached; retry later"
@@ -34,7 +38,14 @@ class Watch:
         yield {"result": self.update}
 
 
-@pytest.mark.parametrize("busy", [BUSY, EXECUTION_BUSY])
+@pytest.mark.parametrize(
+    "busy",
+    [
+        BUSY,
+        EXECUTION_BUSY,
+        {"error": {"code": -32000, "message": "Runtime API error", "data": BUSY}},
+    ],
+)
 @pytest.mark.parametrize("mode", ["raw", "included", "finalized"])
 async def test_rejected_submission_retries_identical_bytes(transport, busy, mode):
     connection, signed, sleep = transport
@@ -92,7 +103,8 @@ async def test_persistent_admission_rejection_has_bounded_backoff(transport, wat
     operation.side_effect = error
     with pytest.raises(SubstrateRequestException) as raised:
         await connection.submit_extrinsic(signed, wait_for_finalization=watch)
-    assert raised.value is error
+    assert isinstance(raised.value, ExtrinsicSubmissionRejected)
+    assert raised.value.__cause__ is error
     assert operation.await_count == 5
     assert [call.args[0] for call in sleep.await_args_list] == [0.125, 0.25, 0.5, 1.0]
     assert all(call == operation.await_args_list[0] for call in operation.await_args_list)
@@ -105,6 +117,8 @@ async def test_persistent_admission_rejection_has_bounded_backoff(transport, wat
         SubstrateRequestException("Invalid Transaction: BadProof"),
         TimeoutError("unknown outcome"),
         SubstrateRequestException("connection closed"),
+        SubstrateRequestException(f"subscription disconnected: {BUSY}"),
+        MaxRetriesExceeded(f"RPC retries exhausted: {BUSY}"),
         asyncio.CancelledError(),
     ],
 )
@@ -119,12 +133,42 @@ async def test_other_errors_and_ambiguous_sends_are_never_retried(transport, wat
     sleep.assert_not_awaited()
 
 
-async def test_accepted_watch_is_never_resubmitted_on_error(transport):
+@pytest.mark.parametrize(
+    "code,rejected",
+    [
+        (1001, True),
+        (1002, True),
+        (1010, True),
+        (1014, True),
+        (-32602, True),
+        (1013, False),
+        (1011, False),
+        (-32603, False),
+    ],
+)
+@pytest.mark.parametrize("watch", [False, True])
+async def test_only_definite_initial_rpc_rejection_is_classified(transport, code, rejected, watch):
     connection, signed, sleep = transport
-    watch = Watch(error=SubstrateRequestException(BUSY))
+    operation = connection._session.subscribe if watch else connection._session.request
+    operation.side_effect = SubstrateRequestException({"error": {"code": code, "message": "test"}})
+    with pytest.raises(SubstrateRequestException) as raised:
+        await connection.submit_extrinsic(signed, wait_for_finalization=watch)
+    assert isinstance(raised.value, ExtrinsicSubmissionRejected) is rejected
+    operation.assert_awaited_once()
+    sleep.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "payload", [BUSY, "RPC session closed", {"error": {"code": 1010, "message": "watch failed"}}]
+)
+async def test_accepted_watch_is_never_resubmitted_on_error(transport, payload):
+    connection, signed, sleep = transport
+    error = SubstrateRequestException(payload)
+    watch = Watch(error=error)
     connection._session.subscribe.return_value = watch
-    with pytest.raises(SubstrateRequestException, match=BUSY):
+    with pytest.raises(SubstrateRequestException) as raised:
         await connection.submit_extrinsic(signed, wait_for_finalization=True)
+    assert raised.value is error
     connection._session.subscribe.assert_awaited_once()
     watch.unsubscribe.assert_awaited_once()
     sleep.assert_not_awaited()

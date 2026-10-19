@@ -10,6 +10,121 @@ use sp_runtime::{Perbill, traits::AccountIdConversion};
 use subtensor_hashed::mldsa as mldsa_crypto;
 use subtensor_runtime_common::AlphaBalance;
 
+#[test]
+fn batch_price_failure_reverts_real_assets_approvals_and_nonces() {
+    // Two buyers split an odd alpha amount. Their one-unit rounding loss must
+    // not exceed the zero-slippage ceiling, even with a perfectly offset batch.
+    mldsa::with_profiles(|| {
+        let netuid = NetUid::from(42u16);
+        SubtensorModule::init_new_network(netuid, 100);
+        pallet_subtensor::SubnetMechanism::<Runtime>::insert(netuid, 1);
+        pallet_subtensor::SubtokenEnabled::<Runtime>::insert(netuid, true);
+        pallet_subtensor::SubnetTAO::<Runtime>::insert(netuid, TaoBalance::new(2_000_000_000_000));
+        pallet_subtensor::SubnetAlphaIn::<Runtime>::insert(
+            netuid,
+            AlphaBalance::new(1_000_000_000_000),
+        );
+        pallet_subtensor_swap::SwapBalancer::<Runtime>::remove(netuid);
+        assert_eq!(
+            Swap::current_price(netuid),
+            substrate_fixed::types::U64F64::from_num(2)
+        );
+        let accounts = [91, 92, 93].map(|seed| AccountId::from(pair(seed).public()));
+        let intermediary: AccountId = LimitOrdersPalletId::get().into_account_truncating();
+        for account in &accounts {
+            assert_ok!(SubtensorModule::create_account_if_non_existent(
+                account, account
+            ));
+            let _ = Balances::make_free_balance_be(account, TaoBalance::new(10_000_000_000));
+        }
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &intermediary,
+            &LimitOrdersPalletHotkey::get()
+        ));
+        let _ = Balances::make_free_balance_be(&intermediary, TaoBalance::new(1_000_000_000));
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &accounts[2],
+            &accounts[2],
+            netuid,
+            AlphaBalance::new(3_000_000_001),
+        );
+        pallet_limit_orders::LimitOrdersEnabled::<Runtime>::put(true);
+        for slippage in [0, 1] {
+            let nonce = 7u64.saturating_add(slippage as u64);
+            let mut batch = Vec::new();
+            for (index, owner) in accounts.iter().enumerate() {
+                let order = VersionedOrder::V1(Order {
+                    signer: owner.clone(),
+                    hotkey: owner.clone(),
+                    netuid,
+                    order_type: if index == 2 {
+                        OrderType::StopLoss
+                    } else {
+                        OrderType::LimitBuy
+                    },
+                    amount: 3_000_000_001,
+                    limit_price: 2_000_000_000,
+                    expiry: u64::MAX,
+                    fee_rate: Perbill::zero(),
+                    fee_recipient: intermediary.clone(),
+                    relayer: None,
+                    max_slippage: Some(Perbill::from_percent(slippage)),
+                    chain_id: ConfigurableChainId::get(),
+                    partial_fills_enabled: false,
+                });
+                assert_ok!(LimitOrders::authorize_order(
+                    RuntimeOrigin::signed(owner.clone()),
+                    order.clone().with_nonce(nonce).unwrap()
+                ));
+                batch.push(AuthorizedOrder {
+                    order,
+                    nonce,
+                    partial_fill: None,
+                    authorization: OrderAuthorization::AccountApproved,
+                });
+            }
+            let batch = unified_orders(batch.try_into().unwrap());
+            if slippage == 0 {
+                // The failure occurs during payout, after real TAO and alpha
+                // collection. assert_noop compares the complete storage root.
+                assert_noop!(
+                    LimitOrders::execute_batched_orders(
+                        RuntimeOrigin::signed(accounts[0].clone()),
+                        netuid,
+                        batch
+                    ),
+                    pallet_limit_orders::Error::<Runtime>::PriceConditionNotMet
+                );
+                for owner in &accounts {
+                    assert!(pallet_limit_orders::OrderNonces::<Runtime>::contains_key(
+                        owner, nonce
+                    ));
+                    assert_eq!(
+                        Balances::free_balance(owner),
+                        TaoBalance::new(10_000_000_000)
+                    );
+                }
+                assert_eq!(
+                    SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                        &accounts[2],
+                        &accounts[2],
+                        netuid
+                    ),
+                    AlphaBalance::new(3_000_000_001)
+                );
+            } else {
+                // With new explicitly approved rounding tolerance, the same
+                // accounts can settle successfully.
+                assert_ok!(LimitOrders::execute_batched_orders(
+                    RuntimeOrigin::signed(accounts[0].clone()),
+                    netuid,
+                    batch
+                ));
+            }
+        }
+    });
+}
+
 fn grant(
     owner: &AccountId,
     public: &mldsa_crypto::PublicKeyBytes,

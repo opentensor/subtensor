@@ -188,6 +188,97 @@ fn prepare() {
 }
 
 #[test]
+fn batched_stop_loss_floor_applies_to_every_authorization_and_netting_side() {
+    for mode in 0..3 {
+        for buy_amount in [50_000_000_000, 60_000_000_000] {
+            new_test_ext().execute_with(|| {
+                MockSwap::set_price(0.5);
+                MockSwap::set_buy_alpha_return(20_000_000_000);
+                MockSwap::set_tao_balance(bob(), buy_amount);
+                MockSwap::set_alpha_balance(alice(), bob(), netuid(), 100_000_000_000);
+                let mut terms = order();
+                if let VersionedOrder::V1(order) = &mut terms {
+                    order.order_type = OrderType::StopLoss;
+                    order.amount = 100_000_000_000;
+                    order.limit_price = 1_000_000_000;
+                    order.max_slippage = Some(Perbill::from_percent(1));
+                }
+                let seller = if mode == 0 {
+                    SignedOrder {
+                        signature: sp_runtime::MultiSignature::Sr25519(
+                            Sr25519Keyring::Alice.sign(&terms.encode()),
+                        )
+                        .into(),
+                        order: terms.clone(),
+                        partial_fill: None,
+                    }
+                } else {
+                    let authorization = if mode == 1 {
+                        assert_ok!(LimitOrders::authorize_order(
+                            RuntimeOrigin::signed(alice()),
+                            terms.clone().with_nonce(7).unwrap()
+                        ));
+                        OrderAuthorization::AccountApproved
+                    } else {
+                        grant(&alice(), 1, 100_000_000_000);
+                        signed(terms.clone(), 7, 1).authorization
+                    };
+                    unified_orders(
+                        vec![AuthorizedOrder {
+                            nonce: 7,
+                            order: terms,
+                            partial_fill: None,
+                            authorization,
+                        }]
+                        .try_into()
+                        .unwrap(),
+                    )[0]
+                    .clone()
+                };
+                let buyer = make_signed_order(
+                    Sr25519Keyring::Bob,
+                    bob(),
+                    netuid(),
+                    OrderType::LimitBuy,
+                    buy_amount,
+                    u64::MAX,
+                    FAR_FUTURE,
+                    Perbill::zero(),
+                    fee_recipient(),
+                    None,
+                );
+                let batch = bounded(vec![buyer, seller]);
+                assert_noop!(
+                    LimitOrders::execute_batched_orders(
+                        RuntimeOrigin::signed(charlie()),
+                        netuid(),
+                        batch.clone()
+                    ),
+                    Error::<Test>::PriceConditionNotMet
+                );
+                assert_eq!(MockSwap::tao_balance(&bob()), buy_amount);
+                assert_eq!(
+                    MockSwap::alpha_balance(&alice(), &bob(), netuid()),
+                    100_000_000_000
+                );
+                if mode == 2 {
+                    assert_eq!(read_grant(&alice()).unwrap().remaining, 100_000_000_000);
+                }
+                // A rejected batch leaves the orders and authority retryable.
+                MockSwap::set_price(1.0);
+                MockSwap::set_sell_tao_return(100_000_000_000 - buy_amount);
+                assert_ok!(LimitOrders::execute_batched_orders(
+                    RuntimeOrigin::signed(charlie()),
+                    netuid(),
+                    batch
+                ));
+                assert_eq!(MockSwap::tao_balance(&alice()), 100_000_000_000);
+            });
+        }
+    }
+}
+
+#[test]
 fn approved_order_uses_owner_authority_and_keeps_legacy_protection() {
     new_test_ext().execute_with(|| {
         prepare();

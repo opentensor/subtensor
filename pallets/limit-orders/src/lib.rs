@@ -1434,6 +1434,23 @@ partial fills {partial}, signer {signer}{tail}",
                 return Ok(());
             }
 
+            // Offsetting orders settle at spot without reaching the pool's price-limit
+            // check. Apply both sides' constraints before collecting any assets.
+            let scaled_price = current_price.saturating_mul(U64F64::from_num(1_000_000_000u64));
+            for order in &valid_buys {
+                ensure!(
+                    order.effective_swap_limit == u64::MAX
+                        || scaled_price <= U64F64::from_num(order.effective_swap_limit),
+                    Error::<T>::PriceConditionNotMet
+                );
+            }
+            for order in &valid_sells {
+                ensure!(
+                    scaled_price >= U64F64::from_num(order.effective_swap_limit),
+                    Error::<T>::PriceConditionNotMet
+                );
+            }
+
             let total_buy_net: u128 = valid_buys.iter().map(|e| e.net as u128).sum();
             let total_sell_net: u128 = valid_sells.iter().map(|e| e.net as u128).sum();
             let total_sell_tao_equiv: u128 = Self::alpha_to_tao(total_sell_net, current_price);
@@ -1760,6 +1777,14 @@ partial fills {partial}, signer {signer}{tail}",
                 // transfer while still marking the order terminal — which would consume the
                 // signer's TAO for zero alpha and permanently close the order.
                 ensure!(share > 0, Error::<T>::ZeroShareInBatch);
+                // Check the actual rounded allocation, not just the residual pool
+                // swap. Explicit order fees are separate from the exchange price.
+                ensure!(
+                    e.effective_swap_limit == u64::MAX
+                        || (e.net as u128).saturating_mul(1_000_000_000)
+                            <= (share as u128).saturating_mul(e.effective_swap_limit as u128),
+                    Error::<T>::PriceConditionNotMet
+                );
                 T::SwapInterface::transfer_staked_alpha(
                     pallet_acct,
                     pallet_hotkey,
@@ -1842,6 +1867,11 @@ partial fills {partial}, signer {signer}{tail}",
                 // layer) rather than no-op the transfer while still marking the order terminal,
                 // which would consume the seller's alpha for zero TAO and close the order.
                 ensure!(net_share > 0, Error::<T>::ZeroShareInBatch);
+                ensure!(
+                    (gross_share as u128).saturating_mul(1_000_000_000)
+                        >= (e.net as u128).saturating_mul(e.effective_swap_limit as u128),
+                    Error::<T>::PriceConditionNotMet
+                );
 
                 if fee > 0 {
                     if let Some(entry) = sell_fees.iter_mut().find(|(r, _)| r == &e.fee_recipient) {

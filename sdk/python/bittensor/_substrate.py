@@ -29,6 +29,7 @@ from ._transport.contract import (
 )
 from ._transport.errors import (
     ExtrinsicNotFound,
+    ExtrinsicSubmissionRejected,
     MaxRetriesExceeded,
     RpcPolicyRejection,
     StateDiscardedError,
@@ -881,8 +882,9 @@ class RpcSubstrate:
                 error,
                 signer_address,
                 reservation=reservation,
-                release_reservation=isinstance(error, SubstrateRequestException),
-                reset_nonce_cache=reset_nonce_cache,
+                release_reservation=isinstance(error, ExtrinsicSubmissionRejected),
+                reset_nonce_cache=reset_nonce_cache
+                and isinstance(error, ExtrinsicSubmissionRejected),
             )
         return self._result_from_report(report, wait_for_inclusion or wait_for_finalization)
 
@@ -902,7 +904,8 @@ class RpcSubstrate:
         pending nonce. Fixed submissions with no owned reservation also leave
         the cache intact: a failed nonce lookup or external extrinsic cannot
         abandon another caller's Shield pair. Other flows retain their cache reset.
-        Chain-side rejections become a failed result; other failures raise.
+        RPC failures become a failed result, marked when admission is unknown;
+        other failures raise. Only definite rejection releases reservations.
         """
         if reservation is None:
             if reset_nonce_cache:
@@ -918,6 +921,7 @@ class RpcSubstrate:
             success=False,
             message=chain_error.message,
             error=chain_error,
+            data={"submission_outcome_unknown": True} if not release_reservation else {},
         )
 
     def _result_from_report(self, report: InclusionReport, waited: bool) -> ExtrinsicResult:

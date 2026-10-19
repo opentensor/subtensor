@@ -675,9 +675,79 @@ fn bounded_buy_entries(
 }
 
 fn bounded_sell_entries(
-    v: Vec<OrderEntry<AccountId>>,
+    mut v: Vec<OrderEntry<AccountId>>,
 ) -> BoundedVec<OrderEntry<AccountId>, ConstU32<64>> {
+    for entry in &mut v {
+        entry.side = OrderType::TakeProfit;
+        entry.effective_swap_limit = 0; // an unconstrained seller has no floor
+    }
     BoundedVec::try_from(v).unwrap()
+}
+
+#[test]
+fn rounded_allocations_enforce_each_price_limit_before_fees_and_partial_fill_bookkeeping() {
+    for buy in [false, true] {
+        for below_limit in [false, true] {
+            new_test_ext().execute_with(|| {
+                let pallet_acct = PalletHotkeyAccount::get();
+                let mut entry = make_buy_entry(
+                    H256::repeat_byte(90),
+                    alice(),
+                    bob(),
+                    10_000,
+                    if buy { 9_900 } else { 10_000 },
+                    Perbill::from_percent(1),
+                    fee_recipient(),
+                );
+                entry.order_amount = 20_000;
+                entry.partial_fill = Some(10_000);
+                entry.effective_swap_limit = if buy { 1_000_000_000 } else { 990_000_000 };
+                if !buy {
+                    entry.side = OrderType::StopLoss;
+                }
+                let id = entry.order_id;
+                let entries = bounded_buy_entries(vec![entry]);
+                let output = if below_limit { 9_899 } else { 9_900 };
+                let result = if buy {
+                    LimitOrders::<Test>::distribute_alpha_pro_rata(
+                        &entries,
+                        output,
+                        9_900,
+                        0,
+                        &OrderSide::Buy,
+                        U64F64::from_num(1),
+                        &pallet_acct,
+                        &pallet_acct,
+                        netuid(),
+                    )
+                } else {
+                    LimitOrders::<Test>::distribute_tao_pro_rata(
+                        &entries,
+                        output,
+                        0,
+                        10_000,
+                        &OrderSide::Sell,
+                        U64F64::from_num(1),
+                        &pallet_acct,
+                        netuid(),
+                    )
+                    .map(|fees| assert_eq!(fees, vec![(fee_recipient(), 99)]))
+                };
+                if below_limit {
+                    assert_eq!(
+                        result,
+                        Err(crate::Error::<Test>::PriceConditionNotMet.into())
+                    );
+                    assert!(MockSwap::alpha_transfers().is_empty());
+                    assert!(MockSwap::tao_transfers().is_empty());
+                    assert!(!Orders::<Test>::contains_key(id));
+                } else {
+                    assert_ok!(result);
+                    assert!(Orders::<Test>::contains_key(id));
+                }
+            });
+        }
+    }
 }
 
 #[test]

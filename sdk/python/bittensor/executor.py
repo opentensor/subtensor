@@ -132,6 +132,8 @@ async def estimate_shielded_carrier_fee(
 
 
 def _is_transient(result: ExtrinsicResult) -> bool:
+    if result.data.get("submission_outcome_unknown", False):
+        return False
     message = (result.message or "").lower()
     return any(needle in message for needle in _TRANSIENT_SUBSTRINGS)
 
@@ -1527,7 +1529,9 @@ class Executor:
             wait_for_finalization=wait_for_finalization,
             **({"hashed_signing_snapshot": snapshot} if snapshot is not None else {}),
         )
-        release_reservation = not result.success
+        release_reservation = not result.success and not result.data.get(
+            "submission_outcome_unknown", False
+        )
         if result.success:
             result = replace(
                 result,
