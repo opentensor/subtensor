@@ -489,6 +489,35 @@ NAME_TO_CODE: dict[str, ErrorCode] = {
     "PartialFillNotSupportedForProvider": _C.INVALID_ARGUMENT,
     "LinkedOutputNotPrunable": _C.INVALID_ARGUMENT,
     "OrderSignerFrozen": _C.NOT_AUTHORIZED,
+    # ── Lending ─────────────────────────────────────────────────────────
+    "Disabled": _C.DISABLED,  # also used by other pallets when unique
+    "SubnetUnavailable": _C.SUBNET_NOT_EXISTS,
+    "ReferenceUnavailable": _C.TOO_EARLY,
+    "ReferenceWarmingUp": _C.TOO_EARLY,
+    "PositionExists": _C.ALREADY_EXISTS,
+    "PositionMissing": _C.NOT_FOUND,
+    "AmountTooSmall": _C.INVALID_ARGUMENT,
+    "SideCapacity": _C.LIMIT_EXCEEDED,
+    "DepthBelowThreshold": _C.INSUFFICIENT_LIQUIDITY,
+    "DynamicCollateral": _C.INSUFFICIENT_BALANCE,
+    "TooManyPositions": _C.LIMIT_EXCEEDED,
+    "BelowMinimumBorrow": _C.INVALID_ARGUMENT,
+    "AboveMaximumPayment": _C.INVALID_ARGUMENT,
+    "BelowMinimumRefund": _C.INVALID_ARGUMENT,
+    "InsufficientEscrow": _C.INSUFFICIENT_BALANCE,
+    "InsufficientCollateral": _C.INSUFFICIENT_BALANCE,
+    "InsufficientSellStake": _C.INSUFFICIENT_BALANCE,
+    "RaiseSlippage": _C.INSUFFICIENT_LIQUIDITY,
+    "RaiseDeadlinePassed": _C.EXPIRED,
+    "ConflictingSizing": _C.INVALID_ARGUMENT,
+    "InvalidLiftParams": _C.INVALID_ARGUMENT,
+    "PositionSideMismatch": _C.INVALID_ARGUMENT,
+    "HotkeyMismatch": _C.INVALID_ARGUMENT,
+    "InvalidQuote": _C.INSUFFICIENT_LIQUIDITY,
+    "Arithmetic": _C.INTERNAL,  # Lending arithmetic overflow / underrepresentation
+    "CustodyUnavailable": _C.INTERNAL,
+    "AlreadyDissolving": _C.EXPIRED,
+    "BelowMinimumProceeds": _C.INVALID_ARGUMENT,
 }
 
 # ── Pool-rejection custom codes ──────────────────────────────────────────
