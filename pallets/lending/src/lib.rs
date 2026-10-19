@@ -1,9 +1,8 @@
-//! Fixed-principal loans funded exclusively by the AMM's extracted reserve floors.
+//! Lift-based escrowed lending on Balancer pools (spec v5.1).
 //!
-//! Alpha loans and TAO loans transfer their borrowed asset freely to their owner.
-//! Both lock collateral, pay a fixed annual opening-value coupon,
-//! and have no price-triggered liquidation. Both coupons burn TAO; long coupons first
-//! sell alpha through the guarded AMM. Exhausted collateral forfeits the position.
+//! Liquidity is pulled from the pool only when someone borrows (`lift`). Shorts
+//! force-sell borrowed alpha into escrowed TAO; longs force-buy with borrowed TAO
+//! into escrowed alpha. No free borrowed assets are delivered. Interest burns.
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
@@ -28,57 +27,30 @@ use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::OrderSwapInterface;
 use weights::WeightInfo;
 
-/// Full, fee-inclusive quotes and subnet lifecycle access. Implementations must reject
-/// partial fills, preserve alpha issuance, and make every asset-moving method transactional.
+/// Pool + custody adapter used by lending. Implementations must be transactional
+/// for every asset-moving method.
 pub trait LendingPoolInterface<AccountId>: OrderSwapInterface<AccountId> {
     fn subnet_exists(netuid: NetUid) -> bool;
-    /// Tighten a live pool's geometric price-impact floor and physically append
-    /// newly unreachable assets to its vault. Never recall loans or widen a curve.
-    fn tune_min_price_impact(
-        _netuid: NetUid,
-        _bps: u16,
-    ) -> Result<(TaoBalance, AlphaBalance), DispatchError> {
-        Err(DispatchError::Other("Pool price-impact tuning unavailable"))
-    }
     fn owner_allowed(_owner: &AccountId) -> bool {
         true
     }
     fn quote_sell(netuid: NetUid, alpha: AlphaBalance) -> Result<TaoBalance, DispatchError>;
     fn quote_buy(netuid: NetUid, tao: TaoBalance) -> Result<AlphaBalance, DispatchError>;
-    /// A mature short-horizon price EMA, when one exists. Terminal marks use the
-    /// higher of this reference and lending's long-horizon EMA, never spot price.
     fn fast_alpha_price(_netuid: NetUid) -> Option<U64F64> {
         None
     }
-    /// An upper bound on the alpha claims sharing a funded deregistration payout.
-    /// Must fail while aggregate staking counters are incomplete.
-    fn redemption_alpha_supply(netuid: NetUid) -> Result<u128, DispatchError>;
-    /// Conservative ordinary deregistration pot (excluding unloaned vault TAO)
-    /// and a guaranteed eligible alpha denominator after the proposed withdrawal.
-    /// Holder aggregates are not a safe lower bound on rounded redemption claims.
-    fn alpha_loan_redemption_basis(
-        netuid: NetUid,
-        remaining_unloaned_alpha: AlphaBalance,
-    ) -> Result<(TaoBalance, u128), DispatchError>;
-    /// A conservative executable gross TAO input, including the finite curve boundary.
     fn max_buy_input(_netuid: NetUid) -> TaoBalance {
         u64::MAX.into()
     }
-    /// Conservative maximum alpha sale input that fills completely.
     fn max_sell_input(_netuid: NetUid) -> AlphaBalance {
         u64::MAX.into()
     }
-    /// A quote error that may be a rounded-zero payout. The caller must independently
-    /// prove positive capacity before treating it as a lower input-bound failure.
     fn quote_may_round_to_zero(_error: &DispatchError) -> bool {
         false
     }
-    /// TAO this custody account can spend under the AMM's account-preservation policy.
     fn buy_spendable_tao(_account: &AccountId) -> TaoBalance {
         u64::MAX.into()
     }
-    /// Terminal refunds must not strand a dissolution on a reaped recipient's dust.
-    /// Return the amount actually credited; only sub-existential dust may be recycled.
     fn refund_dissolution_tao(
         from: &AccountId,
         to: &AccountId,
@@ -87,8 +59,6 @@ pub trait LendingPoolInterface<AccountId>: OrderSwapInterface<AccountId> {
         Self::transfer_tao(from, to, amount)?;
         Ok(amount)
     }
-    /// Withdraw both legs as one credit before resolving recipients, so reaping the
-    /// sender cannot destroy a small second leg between transfers.
     fn terminal_split_tao(
         from: &AccountId,
         vault: &AccountId,
@@ -108,20 +78,15 @@ pub trait LendingPoolInterface<AccountId>: OrderSwapInterface<AccountId> {
         };
         Ok((recovered, refunded))
     }
-    /// Credit an assessed coupon, reporting any explicit account-creation dust loss.
     fn collect_interest_tao(
         from: &AccountId,
-        vault: &AccountId,
+        to: &AccountId,
         amount: TaoBalance,
     ) -> Result<TaoBalance, DispatchError> {
-        Self::transfer_tao(from, vault, amount)?;
+        Self::transfer_tao(from, to, amount)?;
         Ok(amount)
     }
-    /// Burn exactly the collected fee using the chain's canonical TAO burn account.
-    /// Failure must preserve both balances, including unrelated custody principal.
     fn burn_interest_tao(account: &AccountId, amount: TaoBalance) -> DispatchResult;
-    /// Lock lending collateral while preserving ownership, available stake and locks.
-    /// The loan's own minimum opening value replaces unrelated minimum trade sizes.
     fn lock_alpha_collateral(
         from: &AccountId,
         source_hotkey: &AccountId,
@@ -141,8 +106,6 @@ pub trait LendingPoolInterface<AccountId>: OrderSwapInterface<AccountId> {
             false,
         )
     }
-    /// Repay the fixed alpha principal without applying unrelated spot-valued
-    /// minimum-transfer rules. Source ownership, available stake and locks still apply.
     fn repay_alpha(
         from: &AccountId,
         source_hotkey: &AccountId,
@@ -162,7 +125,6 @@ pub trait LendingPoolInterface<AccountId>: OrderSwapInterface<AccountId> {
             false,
         )
     }
-    /// Move only lending custody alpha at its frozen cutoff after subnet removal.
     fn transfer_dissolution_alpha(
         from: &AccountId,
         to: &AccountId,
@@ -172,62 +134,111 @@ pub trait LendingPoolInterface<AccountId>: OrderSwapInterface<AccountId> {
     ) -> DispatchResult {
         Self::transfer_staked_alpha(from, hotkey, to, hotkey, netuid, amount, false, false)
     }
-    /// Return uncommitted lending inventory to the dissolution pot before its denominator
-    /// is fixed. Collected fees remain separate. No swap is permitted here.
-    fn return_dissolution_reserves(
+
+    /// Live pool TAO reserve (`y` / SubnetTAO).
+    fn pool_tao(netuid: NetUid) -> TaoBalance;
+    /// Live pool alpha reserve (`x` / SubnetAlphaIn).
+    fn pool_alpha(netuid: NetUid) -> AlphaBalance;
+    /// Balancer quote-weight parts for hypothetical quotes.
+    fn quote_weight_parts(netuid: NetUid) -> u64;
+    /// `y*` such that a fee-free buy of `ref_tao` moves price by `move_bps`.
+    fn buy_depth_threshold(netuid: NetUid, ref_tao: TaoBalance, move_bps: u16) -> TaoBalance;
+    fn quote_sell_on(
+        tao_reserve: TaoBalance,
+        alpha_reserve: AlphaBalance,
+        quote_weight_parts: u64,
+        delta_alpha: AlphaBalance,
+    ) -> TaoBalance;
+    fn quote_buy_on(
+        tao_reserve: TaoBalance,
+        alpha_reserve: AlphaBalance,
+        quote_weight_parts: u64,
+        delta_tao: TaoBalance,
+    ) -> AlphaBalance;
+
+    /// Lift `g = numer/denom` from the pool, debit SubnetTAO/AlphaIn/TotalStake,
+    /// and credit the returned legs into lending custody.
+    fn lift_and_debit(
         netuid: NetUid,
-        account: &AccountId,
-        hotkey: &AccountId,
+        g_numer: u64,
+        g_denom: u64,
+        custody_cold: &AccountId,
+        custody_hot: &AccountId,
+    ) -> Result<(AlphaBalance, TaoBalance), DispatchError>;
+
+    /// Re-add lift legs and credit SubnetTAO/AlphaIn/TotalStake as appropriate.
+    fn readd_and_credit(
+        netuid: NetUid,
+        custody_cold: &AccountId,
+        custody_hot: &AccountId,
         tao: TaoBalance,
         alpha: AlphaBalance,
     ) -> DispatchResult;
+
+    /// Forced buy: spend custody TAO into the pool, credit alpha to custody stake.
+    fn forced_buy_into_custody(
+        custody_cold: &AccountId,
+        custody_hot: &AccountId,
+        netuid: NetUid,
+        tao: TaoBalance,
+    ) -> Result<AlphaBalance, DispatchError>;
+
+    /// Forced sell of custody alpha into escrow TAO on `escrow_cold`.
+    fn forced_sell_into_escrow(
+        custody_cold: &AccountId,
+        custody_hot: &AccountId,
+        escrow_cold: &AccountId,
+        netuid: NetUid,
+        alpha: AlphaBalance,
+    ) -> Result<TaoBalance, DispatchError>;
+
+    /// Unlocked stake available for collateral / raise sale (excludes locks).
+    fn unlocked_stake(
+        hotkey: &AccountId,
+        coldkey: &AccountId,
+        netuid: NetUid,
+    ) -> AlphaBalance;
+
+    /// Raise sale leg: unstake `alpha` to `coldkey` free TAO (`allow_partial = false`).
+    fn unstake_for_raise(
+        hotkey: &AccountId,
+        coldkey: &AccountId,
+        netuid: NetUid,
+        alpha: AlphaBalance,
+        min_tao_out: TaoBalance,
+    ) -> Result<TaoBalance, DispatchError>;
+
+    /// Eligible alpha for dissolution pot (ordinary claims). Lending adds escrow/collateral.
+    fn eligible_alpha_for_dissolution(netuid: NetUid) -> Result<u128, DispatchError>;
+
+    /// §13 lending settlement divisor: **all** subnet alpha **including pool alpha**,
+    /// on every subnet (legacy and new). Must not omit `SubnetAlphaIn`. Typically
+    /// `SubnetAlphaIn + SubnetAlphaOut` (u128). Used only for `r = pot / all_alpha`.
+    fn all_alpha_for_lending_settlement(netuid: NetUid) -> u128;
 }
 
-/// Subtensor's migration and dissolution integration. The no-op implementation keeps
-/// independent Subtensor mocks and runtimes that do not include lending compatible.
+/// Subtensor dissolution / hotkey integration.
 pub trait LendingInterface<AccountId> {
     fn custody_accounts(netuid: NetUid) -> Option<(AccountId, AccountId)>;
-    fn has_vault(netuid: NetUid) -> bool;
-    fn has_funding_capacity() -> bool;
     fn has_positions(owner: &AccountId) -> bool;
     fn has_hotkey_positions(hotkey: &AccountId) -> bool;
     fn max_positions() -> u32;
     fn on_hotkey_swap(old: &AccountId, new: &AccountId, netuid: Option<NetUid>) -> DispatchResult;
-    fn fund_reserves(
-        netuid: NetUid,
-        tao: TaoBalance,
-        alpha: AlphaBalance,
-        reference: U64F64,
-        has_history: bool,
-    ) -> DispatchResult;
     fn start_dissolution(netuid: NetUid) -> DispatchResult;
-    fn settle_shorts(netuid: NetUid, meter: &mut WeightMeter) -> bool;
-    /// Freeze the exact ordinary funded payout basis before any alpha payout.
-    /// Debt recoveries must not be added to this pot afterwards.
-    fn freeze_redemption_basis(
-        netuid: NetUid,
-        pot: TaoBalance,
-        eligible_alpha: u128,
-        eligible_rows: u64,
-    ) -> DispatchResult;
-    fn on_alpha_redemption(
-        netuid: NetUid,
-        coldkey: &AccountId,
-        tao_paid: TaoBalance,
-    ) -> DispatchResult;
-    fn settle_remaining_longs(netuid: NetUid, meter: &mut WeightMeter) -> bool;
+    /// Re-add held lift legs into reserves. Called from `do_dissolve_network` (§13).
+    fn readd_lifts_for_dissolution(netuid: NetUid) -> DispatchResult;
+    /// Settle all lending positions at fixed §13 rate `r = pool_TAO / ALL_alpha`.
+    /// Runs after main counts alpha and before stakers are paid. Returns `true` when done.
+    fn settle_lending(netuid: NetUid, meter: &mut WeightMeter) -> bool;
     fn finish_dissolution(netuid: NetUid) -> DispatchResult;
+    /// Whether `(hotkey, coldkey)` holds lending custody alpha on `netuid` that
+    /// main's alpha count/payout must skip (collateral or long escrow).
+    fn is_lending_custody(hotkey: &AccountId, coldkey: &AccountId, netuid: NetUid) -> bool;
 }
 
 impl<AccountId> LendingInterface<AccountId> for () {
     fn custody_accounts(_: NetUid) -> Option<(AccountId, AccountId)> {
         None
-    }
-    fn has_vault(_: NetUid) -> bool {
-        false
-    }
-    fn has_funding_capacity() -> bool {
-        false
     }
     fn has_positions(_: &AccountId) -> bool {
         false
@@ -241,32 +252,20 @@ impl<AccountId> LendingInterface<AccountId> for () {
     fn on_hotkey_swap(_: &AccountId, _: &AccountId, _: Option<NetUid>) -> DispatchResult {
         Ok(())
     }
-    fn fund_reserves(
-        _: NetUid,
-        _: TaoBalance,
-        _: AlphaBalance,
-        _: U64F64,
-        _: bool,
-    ) -> DispatchResult {
-        Ok(())
-    }
     fn start_dissolution(_: NetUid) -> DispatchResult {
         Ok(())
     }
-    fn settle_shorts(_: NetUid, _: &mut WeightMeter) -> bool {
-        true
-    }
-    fn freeze_redemption_basis(_: NetUid, _: TaoBalance, _: u128, _: u64) -> DispatchResult {
+    fn readd_lifts_for_dissolution(_: NetUid) -> DispatchResult {
         Ok(())
     }
-    fn on_alpha_redemption(_: NetUid, _: &AccountId, _: TaoBalance) -> DispatchResult {
-        Ok(())
-    }
-    fn settle_remaining_longs(_: NetUid, _: &mut WeightMeter) -> bool {
+    fn settle_lending(_: NetUid, _: &mut WeightMeter) -> bool {
         true
     }
     fn finish_dissolution(_: NetUid) -> DispatchResult {
         Ok(())
+    }
+    fn is_lending_custody(_: &AccountId, _: &AccountId, _: NetUid) -> bool {
+        false
     }
 }
 
@@ -287,7 +286,76 @@ pub enum Side {
     Long,
 }
 
-#[freeze_struct("400b840d2e2a9837")]
+/// Root-settable capacity / LTV / interest / pacing parameters (bps where noted).
+#[freeze_struct("a1b2c3d4e5f60718")]
+#[derive(
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    TypeInfo,
+    MaxEncodedLen,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+)]
+pub struct LiftParams {
+    /// Floor capacity as fraction of G_ref (default 3300 = 33%).
+    pub floor_bps: u16,
+    /// Thin-pool floor when G_ref < thin_tao (default 1500 = 15%).
+    pub thin_floor_bps: u16,
+    /// Reference buy size for impact rule (default 1000 τ).
+    pub ref_tao: u64,
+    /// Target price move for impact rule (default 1000 = 10%).
+    pub move_bps: u16,
+    /// Ceiling as fraction of G_ref (default 5000 = 50%).
+    pub ceiling_bps: u16,
+    /// Short side share of Cap (default 5000 = 50%).
+    pub split_short_bps: u16,
+    /// Optional rebalance target for split_short (0 = off).
+    pub rebalance_target_bps: u16,
+    /// Max rebalance of Cap per day in bps (unused while target is 0).
+    pub rebalance_rate_bps: u16,
+    /// Thin-pool threshold on G_ref (default 3000 τ).
+    pub thin_tao: u64,
+    /// Short LTV (default 2500 = 25%).
+    pub ltv_short_bps: u16,
+    /// Long LTV (default 2500 = 25%).
+    pub ltv_long_bps: u16,
+    /// Thin long LTV when G_ref < thin_tao (default 1500 = 15%).
+    pub thin_ltv_long_bps: u16,
+    /// APR in bps (default 10000 = 100%).
+    pub apr_bps: u16,
+    /// Per-block long-interest sell cap as spot move bps (default 1).
+    pub slice_bps: u16,
+    /// Skip paced sells while spot < crash_guard_bps of EMA (default 9500).
+    pub crash_guard_bps: u16,
+}
+
+impl Default for LiftParams {
+    fn default() -> Self {
+        Self {
+            floor_bps: 3_300,
+            thin_floor_bps: 1_500,
+            ref_tao: 1_000_000_000_000,
+            move_bps: 1_000,
+            ceiling_bps: 5_000,
+            split_short_bps: 5_000,
+            rebalance_target_bps: 0,
+            rebalance_rate_bps: 0,
+            thin_tao: 3_000_000_000_000,
+            ltv_short_bps: 2_500,
+            ltv_long_bps: 2_500,
+            thin_ltv_long_bps: 1_500,
+            apr_bps: 10_000,
+            slice_bps: 1,
+            crash_guard_bps: 9_500,
+        }
+    }
+}
+
+#[freeze_struct("b2c3d4e5f6071829")]
 #[derive(
     Encode,
     Decode,
@@ -300,40 +368,49 @@ pub enum Side {
     PartialEq,
     Eq,
 )]
-pub struct Vault {
-    pub available_tao: u64,
-    pub available_alpha: u64,
-    pub outstanding_tao: u64,
-    pub outstanding_alpha: u64,
-    pub lost_tao: u64,
-    pub lost_alpha: u64,
-    pub pending_tao: u64,
-    pub pending_alpha: u64,
+pub struct LiftBook {
+    /// TAO legs of outstanding short lifts (`L_S`).
+    pub l_s: u64,
+    /// TAO principal of outstanding long lifts (`L_L`).
+    pub l_l: u64,
+    /// TAO spent on forced long buys (`B_L`, equals `L_L` under escrowed longs).
+    pub b_l: u64,
+    pub held_tao: u64,
+    pub held_alpha: u64,
+    /// Aggregate short escrow TAO (`E_S`).
+    pub escrow_tao: u64,
+    /// Aggregate long escrow alpha (`A`).
+    pub escrow_alpha: u64,
+    pub long_collateral_alpha: u64,
+    /// Geometric EMA of un-lifted depth `G`.
+    pub g_ema: u64,
+    pub last: u64,
 }
 
-#[freeze_struct("9482783dc052c44b")]
+#[freeze_struct("c3d4e5f60718293a")]
 #[derive(
     Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen, Clone, Debug, PartialEq, Eq,
 )]
 pub struct Position<AccountId, BlockNumber> {
     pub side: Side,
     pub hotkey: AccountId,
-    /// Fixed debt in the borrowed token: alpha for Short, TAO for Long.
+    /// Alpha for Short, TAO for Long.
     pub principal: u64,
-    /// Remaining collateral in TAO for Short, alpha for Long.
+    /// TAO for Short, alpha for Long.
     pub collateral: u64,
-    /// Actual funded TAO receipts during dissolution or legacy short sale proceeds.
-    /// Freely delivered alpha loans create no opening proceeds.
+    /// Short escrow TAO (`E_S`). Zero for longs.
     pub proceeds: u64,
-    /// 100% nominal annual interest, fixed in opening collateral units.
+    /// Long escrow alpha (`A`). Zero for shorts.
+    pub escrow_alpha: u64,
+    pub lift_tao: u64,
+    pub lift_alpha: u64,
     pub annual_interest: u64,
     pub last_accrued: BlockNumber,
-    /// Fractional collateral atoms, numerator modulo BlocksPerYear.
     pub interest_remainder: u64,
     pub due: BlockNumber,
 }
 
-#[freeze_struct("78138cda5aaf128")]
+#[freeze_struct("d4e5f60718293a4b")]
 #[derive(
     Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen, Clone, Debug, PartialEq, Eq,
 )]
@@ -343,17 +420,19 @@ pub struct LendingReference<BlockNumber> {
     pub valid_after: BlockNumber,
 }
 
-#[freeze_struct("3a89334a6e24f568")]
+#[freeze_struct("e5f60718293a4b5c")]
 #[derive(
     Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen, Clone, Debug, PartialEq, Eq,
 )]
 pub struct Dissolution<BlockNumber> {
-    pub price: U64F64,
     pub frozen_at: BlockNumber,
-    pub reserves_returned: bool,
+    /// Lift legs have been re-added into reserves.
+    pub lifts_readded: bool,
+    /// Settlement rate `r` as U64F64 (TAO per alpha), set after readd.
+    pub rate: U64F64,
 }
 
-#[freeze_struct("c9a092f7f943650f")]
+#[freeze_struct("f60718293a4b5c6d")]
 #[derive(
     Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen, Clone, Debug, PartialEq, Eq,
 )]
@@ -361,25 +440,46 @@ pub struct OpeningQuote {
     pub principal: u64,
     pub annual_interest: u64,
     pub opening_value: u64,
+    pub collateral: u64,
+    pub v_dyn: u64,
+    pub escrow_estimate: u64,
 }
 
-#[freeze_struct("68b43b0f1faa9c7a")]
+#[freeze_struct("0718293a4b5c6d7e")]
 #[derive(
     Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen, Clone, Debug, PartialEq, Eq,
 )]
 pub struct ClosingQuote {
     pub payment: u64,
     pub refund: u64,
+    pub escrow_return: u64,
 }
 
-/// Geometric EMA update weight: 1 - 2^(-1 / 7200), a 24-hour half-life at 12s blocks.
+#[freeze_struct("18293a4b5c6d7e8f")]
+#[derive(
+    Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen, Clone, Debug, PartialEq, Eq,
+)]
+pub struct RaiseQuote {
+    pub principal_tao: u64,
+    pub collateral_alpha: u64,
+    pub escrow_alpha: u64,
+    pub sell_alpha: u64,
+    pub free_tao_out: u64,
+    pub price_before: U64F64,
+    pub price_after_buy: U64F64,
+    pub price_after: U64F64,
+    pub v_dyn: u64,
+    pub ltv_tier_bps: u16,
+    pub long_cap_headroom: u64,
+    pub annual_interest_alpha: u64,
+}
+
+/// Geometric EMA update weight: 1 - 2^(-1 / 7200), 24h half-life at 12s blocks.
 const EMA_WEIGHT_BITS: u128 = 1_775_790_721_272_497;
-/// Bound internal orders while allowing input-reserve guards to expand after each buy.
 pub const MAX_BUYBACK_STEPS: u32 = 6;
-/// Price-impact policy uses a fixed net reference input, excluding swap fees.
-pub const PRICE_IMPACT_REFERENCE_TAO: u64 = 500_000_000_000;
-/// A sale cannot have a 100% price decline while staying on the positive branch.
-pub const MAX_MIN_PRICE_IMPACT_BPS: u16 = 5_000;
+const BPS_DENOM: u128 = 10_000;
+const BISECTION_STEPS: u32 = 16;
+
 
 #[frame_support::pallet]
 #[allow(clippy::expect_used)]
@@ -406,22 +506,17 @@ pub mod pallet {
         type MaxPositionsPerSubnet: Get<u32>;
         #[pallet::constant]
         type MaxTotalPositions: Get<u32>;
-        #[pallet::constant]
-        type MaxFundedSubnets: Get<u32>;
         type WeightInfo: WeightInfo;
     }
 
     #[pallet::storage]
     pub type Enabled<T> = StorageValue<_, bool, ValueQuery>;
     #[pallet::storage]
-    pub type Vaults<T> = StorageMap<_, Identity, NetUid, Vault, OptionQuery>;
+    pub type LiftParamsStore<T> = StorageValue<_, LiftParams, ValueQuery>;
     #[pallet::storage]
-    pub type VaultCount<T> = StorageValue<_, u32, ValueQuery>;
-    /// Governance's requested geometric minimum for both reference directions.
-    /// Zero is disabled. Relaxing this policy never returns vault assets or widens
-    /// existing curves. No recurring recalibration is needed on the fixed ellipse.
+    pub type Lifts<T: Config> = StorageMap<_, Identity, NetUid, LiftBook, ValueQuery>;
     #[pallet::storage]
-    pub type MinPriceImpactBps<T> = StorageMap<_, Identity, NetUid, u16, ValueQuery>;
+    pub type LongInterestPending<T> = StorageMap<_, Identity, NetUid, u64, ValueQuery>;
     #[pallet::storage]
     pub type Positions<T: Config> = StorageDoubleMap<
         _,
@@ -458,13 +553,11 @@ pub mod pallet {
     #[pallet::storage]
     pub type Dissolutions<T: Config> =
         StorageMap<_, Identity, NetUid, Dissolution<BlockNumberFor<T>>, OptionQuery>;
-    /// Exact ordinary payout pot, eligible alpha claim count, and payout row count.
-    /// Separate storage preserves the frozen Dissolution codec.
-    #[pallet::storage]
-    pub type RedemptionBases<T> = StorageMap<_, Identity, NetUid, (u64, u128, u64), OptionQuery>;
     #[pallet::storage]
     pub type DissolutionCursor<T: Config> =
         StorageMap<_, Identity, NetUid, T::AccountId, OptionQuery>;
+    #[pallet::storage]
+    pub type DissolutionPhase<T> = StorageMap<_, Identity, NetUid, u8, ValueQuery>;
     #[pallet::storage]
     pub type Due<T: Config> = StorageDoubleMap<
         _,
@@ -481,6 +574,9 @@ pub mod pallet {
     pub type ConversionCursor<T> = StorageValue<_, NetUid, OptionQuery>;
     #[pallet::storage]
     pub type PalletHotkey<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
+    /// Subnets that have ever had a lift book / reference (for EMA finalize).
+    #[pallet::storage]
+    pub type ActiveNets<T> = StorageMap<_, Identity, NetUid, (), OptionQuery>;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -492,64 +588,11 @@ pub mod pallet {
             principal: u64,
             collateral: u64,
             proceeds: u64,
+            escrow_alpha: u64,
+            lift_tao: u64,
+            lift_alpha: u64,
             annual_interest: u64,
         },
-        Closed {
-            owner: T::AccountId,
-            netuid: NetUid,
-            side: Side,
-            refund: u64,
-        },
-        InterestCollected {
-            owner: T::AccountId,
-            netuid: NetUid,
-            collateral_paid: u64,
-        },
-        Forfeited {
-            owner: T::AccountId,
-            netuid: NetUid,
-            side: Side,
-            principal_lost: u64,
-        },
-        ReservesFunded {
-            netuid: NetUid,
-            tao: u64,
-            alpha: u64,
-        },
-        /// Retained for event codec compatibility; new coupons emit InterestBurned.
-        InterestConverted {
-            netuid: NetUid,
-            side: Side,
-            input: u64,
-            output: u64,
-        },
-        DissolutionFrozen {
-            netuid: NetUid,
-            price: U64F64,
-            frozen_at: BlockNumberFor<T>,
-        },
-        DissolutionSettled {
-            owner: T::AccountId,
-            netuid: NetUid,
-            side: Side,
-            principal_recovered: u64,
-            principal_lost: u64,
-            tao_refund: u64,
-        },
-        EnabledSet {
-            enabled: bool,
-        },
-        DustForfeited {
-            netuid: NetUid,
-            recipient: T::AccountId,
-            tao: u64,
-        },
-        InterestBurned {
-            netuid: NetUid,
-            side: Side,
-            tao: u64,
-        },
-        /// Additional collateral, debt, proceeds and coupon on an existing position.
         Increased {
             owner: T::AccountId,
             netuid: NetUid,
@@ -557,13 +600,89 @@ pub mod pallet {
             principal: u64,
             collateral: u64,
             proceeds: u64,
+            escrow_alpha: u64,
+            lift_tao: u64,
+            lift_alpha: u64,
             annual_interest: u64,
         },
-        MinPriceImpactSet {
+        Closed {
+            owner: T::AccountId,
             netuid: NetUid,
-            bps: u16,
-            tao_funded: u64,
-            alpha_funded: u64,
+            side: Side,
+            refund: u64,
+            escrow_returned: u64,
+        },
+        Forfeited {
+            owner: T::AccountId,
+            netuid: NetUid,
+            side: Side,
+            principal_lost: u64,
+        },
+        Lifted {
+            netuid: NetUid,
+            tao: u64,
+            alpha: u64,
+        },
+        Readded {
+            netuid: NetUid,
+            tao: u64,
+            alpha: u64,
+        },
+        LongEscrowed {
+            owner: T::AccountId,
+            netuid: NetUid,
+            tao_in: u64,
+            alpha_escrowed: u64,
+        },
+        Raised {
+            owner: T::AccountId,
+            hotkey: T::AccountId,
+            netuid: NetUid,
+            collateral_alpha: u64,
+            principal_tao: u64,
+            escrow_alpha: u64,
+            sell_alpha: u64,
+            free_tao_out: u64,
+            price_before: U64F64,
+            price_after: U64F64,
+        },
+        InterestCollected {
+            owner: T::AccountId,
+            netuid: NetUid,
+            collateral_paid: u64,
+        },
+        InterestBurned {
+            netuid: NetUid,
+            side: Side,
+            tao: u64,
+        },
+        LongInterestSold {
+            netuid: NetUid,
+            alpha: u64,
+            tao: u64,
+        },
+        LiftParamsSet {
+            params: LiftParams,
+        },
+        EnabledSet {
+            enabled: bool,
+        },
+        DissolutionFrozen {
+            netuid: NetUid,
+            frozen_at: BlockNumberFor<T>,
+        },
+        DissolutionSettled {
+            owner: T::AccountId,
+            netuid: NetUid,
+            side: Side,
+            principal_tao_equiv: u64,
+            tao_to_pot: u64,
+            tao_refund: u64,
+        },
+        DustForfeited {
+            netuid: NetUid,
+            recipient: T::AccountId,
+            tao: u64,
         },
     }
 
@@ -576,10 +695,10 @@ pub mod pallet {
         PositionExists,
         PositionMissing,
         AmountTooSmall,
-        InsufficientReserves,
-        BorrowingLimit,
+        SideCapacity,
+        DepthBelowThreshold,
+        DynamicCollateral,
         TooManyPositions,
-        TooManySubnets,
         BelowMinimumBorrow,
         AboveMaximumPayment,
         BelowMinimumRefund,
@@ -589,11 +708,14 @@ pub mod pallet {
         CustodyUnavailable,
         AlreadyDissolving,
         BelowMinimumProceeds,
-        RedemptionUnavailable,
-        InsufficientRedemptionBacking,
-        InvalidPriceImpact,
-        /// The requested additional debt needs more collateral from this owner.
         InsufficientCollateral,
+        InsufficientSellStake,
+        RaiseSlippage,
+        RaiseDeadlinePassed,
+        ConflictingSizing,
+        InvalidLiftParams,
+        PositionSideMismatch,
+        HotkeyMismatch,
     }
 
     #[pallet::hooks]
@@ -604,20 +726,21 @@ pub mod pallet {
             assert!(T::MinimumLoanValue::get() > 0);
             assert!(T::MaxPositionsPerSubnet::get() > 0);
             assert!(T::MaxPositionsPerSubnet::get() <= T::MaxTotalPositions::get());
-            assert!(T::MaxFundedSubnets::get() > 0);
         }
+
         fn on_initialize(_: BlockNumberFor<T>) -> Weight {
-            // Reserve finalize work in advance; the migration enforces MaxFundedSubnets.
             T::WeightInfo::update_reference()
-                .saturating_mul(u64::from(VaultCount::<T>::get()))
+                .saturating_mul(u64::from(T::MaxPositionsPerSubnet::get()).saturating_add(1))
                 .saturating_add(T::DbWeight::get().reads(2))
         }
 
         fn on_finalize(now: BlockNumberFor<T>) {
-            for (netuid, _) in Vaults::<T>::iter() {
+            let params = LiftParamsStore::<T>::get();
+            for (netuid, _) in ActiveNets::<T>::iter() {
                 if Dissolutions::<T>::contains_key(netuid) {
                     continue;
                 }
+                Self::update_g_ema(netuid, now, &params);
                 References::<T>::mutate(netuid, |reference| {
                     if let Some(reference) = reference {
                         if reference.last_updated >= now {
@@ -643,8 +766,7 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        /// Open or increase one loan on a subnet, using the same side and collateral hotkey.
-        /// Collateral and caller bounds apply to the additional loan, not existing totals.
+        /// Open or increase a loan. Shorts force-sell; longs force-buy into escrow.
         #[pallet::call_index(0)]
         #[pallet::weight(T::WeightInfo::open())]
         pub fn open(
@@ -669,9 +791,8 @@ pub mod pallet {
             )
         }
 
-        /// Open or increase a loan by exactly the requested additional principal.
-        /// Improved lending capacity cannot increase the signed debt amount.
-        #[pallet::call_index(4)]
+        /// Open or increase with an exact additional principal.
+        #[pallet::call_index(1)]
         #[pallet::weight(T::WeightInfo::open_exact())]
         pub fn open_exact(
             origin: OriginFor<T>,
@@ -683,6 +804,7 @@ pub mod pallet {
             min_proceeds: u64,
         ) -> DispatchResult {
             let owner = ensure_signed(origin)?;
+            ensure!(principal > 0, Error::<T>::AmountTooSmall);
             Self::do_open(
                 owner,
                 netuid,
@@ -695,9 +817,8 @@ pub mod pallet {
             )
         }
 
-        /// Repay the fixed principal and release remaining collateral. A short may buy back
-        /// from escrow or supply alpha from its opening hotkey; a long supplies free TAO.
-        #[pallet::call_index(1)]
+        /// Close a position. Shorts buy back (or repay alpha); longs repay TAO (or sell escrow).
+        #[pallet::call_index(2)]
         #[pallet::weight(T::WeightInfo::close())]
         #[transactional]
         pub fn close(
@@ -708,110 +829,42 @@ pub mod pallet {
             min_refund: u64,
         ) -> DispatchResult {
             let owner = ensure_signed(origin)?;
-            ensure!(
-                !Dissolutions::<T>::contains_key(netuid),
-                Error::<T>::SubnetUnavailable
-            );
-            let mut position =
-                Positions::<T>::get(&owner, netuid).ok_or(Error::<T>::PositionMissing)?;
-            let now = frame_system::Pallet::<T>::block_number();
-            Self::charge_interest(&owner, netuid, &mut position, now, true)?;
-            ensure!(position.collateral > 0, Error::<T>::InsufficientEscrow);
-            let escrow = Self::position_account(&owner, netuid);
-            let vault = Self::reserve_account(netuid);
-            let custody = Self::custody_hotkey()?;
-            let refund = match position.side {
-                Side::Short => {
-                    let pot = Self::add(position.collateral, position.proceeds)?;
-                    if repay_from_wallet {
-                        ensure!(
-                            position.principal <= max_payment,
-                            Error::<T>::AboveMaximumPayment
-                        );
-                        T::Pool::repay_alpha(
-                            &owner,
-                            &position.hotkey,
-                            &vault,
-                            &custody,
-                            netuid,
-                            position.principal.into(),
-                        )?;
-                        Self::credit_principal(
-                            netuid,
-                            Side::Short,
-                            position.principal,
-                            position.principal,
-                        )?;
-                        ensure!(pot >= min_refund, Error::<T>::BelowMinimumRefund);
-                        T::Pool::transfer_tao(&escrow, &owner, pot.into())?;
-                        pot
-                    } else {
-                        let (payment, alpha) = Self::execute_buyback(
-                            &escrow,
-                            netuid,
-                            position.principal,
-                            position.collateral.min(max_payment),
-                        )?;
-                        ensure!(payment <= max_payment, Error::<T>::AboveMaximumPayment);
-                        let refund = Self::sub(pot, payment)?;
-                        ensure!(refund >= min_refund, Error::<T>::BelowMinimumRefund);
-                        ensure!(alpha >= position.principal, Error::<T>::InvalidQuote);
-                        T::Pool::transfer_staked_alpha(
-                            &escrow,
-                            &custody,
-                            &vault,
-                            &custody,
-                            netuid,
-                            alpha.into(),
-                            false,
-                            false,
-                        )?;
-                        Self::credit_principal(netuid, Side::Short, position.principal, alpha)?;
-                        T::Pool::transfer_tao(&escrow, &owner, refund.into())?;
-                        refund
-                    }
-                }
-                Side::Long => {
-                    ensure!(
-                        position.principal <= max_payment,
-                        Error::<T>::AboveMaximumPayment
-                    );
-                    ensure!(
-                        position.collateral >= min_refund,
-                        Error::<T>::BelowMinimumRefund
-                    );
-                    T::Pool::transfer_tao(&owner, &vault, position.principal.into())?;
-                    T::Pool::transfer_staked_alpha(
-                        &escrow,
-                        &custody,
-                        &owner,
-                        &position.hotkey,
-                        netuid,
-                        position.collateral.into(),
-                        false,
-                        true,
-                    )?;
-                    Self::credit_principal(
-                        netuid,
-                        Side::Long,
-                        position.principal,
-                        position.principal,
-                    )?;
-                    position.collateral
-                }
-            };
-            Self::remove_position(&owner, netuid, &position);
-            Self::deposit_event(Event::Closed {
-                owner,
-                netuid,
-                side: position.side,
-                refund,
-            });
-            Ok(())
+            Self::do_close(owner, netuid, repay_from_wallet, max_payment, min_refund)
         }
 
-        /// Pause new loans. Repayment, collection and terminal settlement remain available.
-        #[pallet::call_index(2)]
+        /// Atomic raise: escrowed long + spot sale of own unlocked alpha.
+        #[pallet::call_index(3)]
+        #[pallet::weight(T::WeightInfo::open_long_and_sell())]
+        #[transactional]
+        pub fn open_long_and_sell(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            hotkey: T::AccountId,
+            collateral_alpha: Option<u64>,
+            borrow_tao: Option<u64>,
+            max_collateral_alpha: u64,
+            min_borrow_tao: u64,
+            sell_alpha: Option<u64>,
+            min_tao_out: u64,
+            valid_until: BlockNumberFor<T>,
+        ) -> DispatchResultWithPostInfo {
+            let owner = ensure_signed(origin)?;
+            Self::do_open_long_and_sell(
+                owner,
+                netuid,
+                hotkey,
+                collateral_alpha,
+                borrow_tao,
+                max_collateral_alpha,
+                min_borrow_tao,
+                sell_alpha,
+                min_tao_out,
+                valid_until,
+            )?;
+            Ok(().into())
+        }
+
+        #[pallet::call_index(4)]
         #[pallet::weight(T::WeightInfo::set_enabled())]
         pub fn set_enabled(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
             ensure_root(origin)?;
@@ -820,1947 +873,2119 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Set a geometric minimum ending-price movement for a net 500-TAO buy
-        /// and an alpha sale worth 500 TAO at its opening spot price. Root only.
-        /// Zero disables the policy; lower targets never widen an existing curve.
-        /// Tightening preserves spot within fixed-point tolerance and moves only
-        /// newly unreachable, actually funded assets into the existing vault.
-        #[pallet::call_index(3)]
-        #[pallet::weight(T::WeightInfo::set_min_price_impact())]
-        #[transactional]
-        pub fn set_min_price_impact(
-            origin: OriginFor<T>,
-            netuid: NetUid,
-            bps: u16,
-        ) -> DispatchResult {
+        #[pallet::call_index(5)]
+        #[pallet::weight(T::WeightInfo::set_lift_params())]
+        pub fn set_lift_params(origin: OriginFor<T>, params: LiftParams) -> DispatchResult {
             ensure_root(origin)?;
+            Self::ensure_valid_lift_params(&params)?;
+            LiftParamsStore::<T>::put(params);
+            Self::deposit_event(Event::LiftParamsSet { params });
+            Ok(())
+        }
+    }
+
+    impl<T: Config> Pallet<T> {
+        pub fn lift_params() -> LiftParams {
+            LiftParamsStore::<T>::get()
+        }
+
+        fn ensure_valid_lift_params(p: &LiftParams) -> DispatchResult {
             ensure!(
-                bps <= MAX_MIN_PRICE_IMPACT_BPS,
-                Error::<T>::InvalidPriceImpact
+                p.floor_bps <= p.ceiling_bps && p.thin_floor_bps <= p.ceiling_bps,
+                Error::<T>::InvalidLiftParams
             );
             ensure!(
-                !netuid.is_root() && T::Pool::subnet_exists(netuid),
+                p.ceiling_bps <= 10_000
+                    && p.split_short_bps <= 10_000
+                    && p.ltv_short_bps <= 10_000
+                    && p.ltv_long_bps <= 10_000
+                    && p.thin_ltv_long_bps <= 10_000
+                    && p.apr_bps <= 10_000
+                    && p.crash_guard_bps <= 10_000
+                    && p.move_bps > 0
+                    && p.ref_tao > 0,
+                Error::<T>::InvalidLiftParams
+            );
+            Ok(())
+        }
+
+        pub fn recovery_account() -> T::AccountId {
+            T::PalletId::get().into_sub_account_truncating(b"recovery")
+        }
+
+        /// Lending custody coldkey for held lift legs on a subnet.
+        pub fn reserve_account(netuid: NetUid) -> T::AccountId {
+            T::PalletId::get().into_sub_account_truncating((b"lift", netuid))
+        }
+
+        pub fn position_account(owner: &T::AccountId, netuid: NetUid) -> T::AccountId {
+            let key = T::Hashing::hash_of(&(b"position", owner, netuid));
+            T::PalletId::get().into_sub_account_truncating(key)
+        }
+
+        pub fn initialize_custody() -> DispatchResult {
+            if PalletHotkey::<T>::exists() {
+                return Ok(());
+            }
+            let coldkey: T::AccountId = T::PalletId::get().into_account_truncating();
+            let key = T::Hashing::hash_of(&(
+                b"lending/hotkey",
+                frame_system::Pallet::<T>::parent_hash(),
+            ));
+            let hotkey = T::PalletId::get().into_sub_account_truncating(key);
+            T::Pool::register_pallet_hotkey(&coldkey, &hotkey)?;
+            ensure!(
+                T::Pool::pallet_hotkey_registered(&coldkey, &hotkey),
+                Error::<T>::CustodyUnavailable
+            );
+            PalletHotkey::<T>::put(hotkey);
+            Ok(())
+        }
+
+        pub fn custody_hotkey() -> Result<T::AccountId, DispatchError> {
+            PalletHotkey::<T>::get().ok_or(Error::<T>::CustodyUnavailable.into())
+        }
+
+        fn ensure_lending_live(netuid: NetUid) -> DispatchResult {
+            ensure!(Enabled::<T>::get(), Error::<T>::Disabled);
+            ensure!(
+                T::Pool::subnet_exists(netuid) && !Dissolutions::<T>::contains_key(netuid),
                 Error::<T>::SubnetUnavailable
             );
-            ensure!(
-                !Dissolutions::<T>::contains_key(netuid),
-                Error::<T>::AlreadyDissolving
-            );
-            ensure!(
-                Vaults::<T>::contains_key(netuid),
-                Error::<T>::SubnetUnavailable
-            );
-            let (tao, alpha) = if bps == 0 {
-                MinPriceImpactBps::<T>::remove(netuid);
-                (TaoBalance::ZERO, AlphaBalance::ZERO)
-            } else if bps <= MinPriceImpactBps::<T>::get(netuid) {
-                // The previously established global floor persists through swaps.
-                // Relaxing its label cannot require a fresh executable reference
-                // trade when the live pool has since approached a boundary.
-                MinPriceImpactBps::<T>::insert(netuid, bps);
-                (TaoBalance::ZERO, AlphaBalance::ZERO)
-            } else {
-                let funding = T::Pool::tune_min_price_impact(netuid, bps)?;
-                MinPriceImpactBps::<T>::insert(netuid, bps);
-                funding
-            };
-            Self::deposit_event(Event::MinPriceImpactSet {
-                netuid,
-                bps,
-                tao_funded: tao.to_u64(),
-                alpha_funded: alpha.to_u64(),
-            });
             Ok(())
         }
-    }
-}
 
-impl<T: Config> Pallet<T> {
-    #[transactional]
-    #[allow(clippy::too_many_arguments)]
-    fn do_open(
-        owner: T::AccountId,
-        netuid: NetUid,
-        side: Side,
-        collateral: u64,
-        hotkey: T::AccountId,
-        requested_principal: Option<u64>,
-        min_borrow: u64,
-        min_proceeds: u64,
-    ) -> DispatchResult {
-        ensure!(Enabled::<T>::get(), Error::<T>::Disabled);
-        ensure!(
-            T::Pool::owner_allowed(&owner),
-            Error::<T>::SubnetUnavailable
-        );
-        let existing = Positions::<T>::get(&owner, netuid);
-        if let Some(position) = &existing {
-            Self::ensure_matching_position(position, side, &hotkey)?;
-        } else {
-            ensure!(
-                PositionCount::<T>::get(netuid) < T::MaxPositionsPerSubnet::get(),
-                Error::<T>::TooManyPositions
-            );
-            ensure!(
-                TotalPositions::<T>::get() < T::MaxTotalPositions::get(),
-                Error::<T>::TooManyPositions
-            );
+        fn ensure_reference_warm(netuid: NetUid) -> Result<LendingReference<BlockNumberFor<T>>, DispatchError> {
+            let reference = References::<T>::get(netuid).ok_or(Error::<T>::ReferenceUnavailable)?;
+            let now = frame_system::Pallet::<T>::block_number();
+            ensure!(now >= reference.valid_after, Error::<T>::ReferenceWarmingUp);
+            Ok(reference)
         }
-        let quote = Self::quote_open_inner(
-            netuid,
-            side,
-            collateral,
-            requested_principal,
-            existing.as_ref().map(|position| (&owner, position)),
-        )?;
-        ensure!(
-            quote.principal >= min_borrow,
-            Error::<T>::BelowMinimumBorrow
-        );
-        if side == Side::Short {
-            ensure!(
-                quote.opening_value >= min_proceeds,
-                Error::<T>::BelowMinimumProceeds
-            );
-        }
-        let now = frame_system::Pallet::<T>::block_number();
-        let increasing = existing.is_some();
-        let mut position = if let Some(mut position) = existing {
-            // Settle only whole atoms and retain fractional interest. Increasing
-            // a loan cannot erase accrued fees or postpone its scheduled collection.
-            Self::charge_interest(&owner, netuid, &mut position, now, false)?;
-            position
-        } else {
-            Position {
-                side,
-                hotkey: hotkey.clone(),
-                principal: 0,
-                collateral: 0,
-                proceeds: 0,
-                annual_interest: 0,
-                last_accrued: now,
-                interest_remainder: 0,
-                due: now.saturating_add(T::InterestPeriod::get()),
+
+        /// Ensure a reference exists (warm up from spot on first activity).
+        fn ensure_or_init_reference(netuid: NetUid) -> Result<LendingReference<BlockNumberFor<T>>, DispatchError> {
+            if let Some(reference) = References::<T>::get(netuid) {
+                let now = frame_system::Pallet::<T>::block_number();
+                ensure!(now >= reference.valid_after, Error::<T>::ReferenceWarmingUp);
+                return Ok(reference);
             }
-        };
-        let vault = Self::reserve_account(netuid);
-        let escrow = Self::position_account(&owner, netuid);
-        let custody = Self::custody_hotkey()?;
-        let proceeds = match side {
-            Side::Short => {
-                T::Pool::transfer_tao(&owner, &escrow, collateral.into())?;
-                T::Pool::transfer_staked_alpha(
-                    &vault,
-                    &custody,
-                    &owner,
-                    &hotkey,
-                    netuid,
-                    quote.principal.into(),
-                    false,
-                    true,
-                )?;
-                0
-            }
-            Side::Long => {
-                T::Pool::lock_alpha_collateral(
-                    &owner,
-                    &hotkey,
-                    &escrow,
-                    &custody,
-                    netuid,
-                    collateral.into(),
-                )?;
-                T::Pool::transfer_tao(&vault, &owner, quote.principal.into())?;
-                0
-            }
-        };
-        Vaults::<T>::try_mutate(netuid, |vault| -> DispatchResult {
-            let vault = vault.as_mut().ok_or(Error::<T>::InsufficientReserves)?;
-            match side {
-                Side::Short => {
-                    vault.available_alpha = Self::sub(vault.available_alpha, quote.principal)?;
-                    vault.outstanding_alpha = Self::add(vault.outstanding_alpha, quote.principal)?;
-                }
-                Side::Long => {
-                    vault.available_tao = Self::sub(vault.available_tao, quote.principal)?;
-                    vault.outstanding_tao = Self::add(vault.outstanding_tao, quote.principal)?;
-                }
-            }
-            Ok(())
-        })?;
-        position.principal = Self::add(position.principal, quote.principal)?;
-        position.collateral = Self::add(position.collateral, collateral)?;
-        position.proceeds = Self::add(position.proceeds, proceeds)?;
-        position.annual_interest = Self::add(position.annual_interest, quote.annual_interest)?;
-        if !increasing {
-            let due = position.due;
-            LoanHotkeys::<T>::mutate(&hotkey, |count| *count = count.saturating_add(1));
-            OpenByNetuid::<T>::insert(netuid, &owner, ());
-            EscrowOwner::<T>::insert(netuid, &escrow, &owner);
-            PositionCount::<T>::mutate(netuid, |n| *n = n.saturating_add(1));
-            TotalPositions::<T>::mutate(|n| *n = n.saturating_add(1));
-            Due::<T>::insert(due, (&owner, netuid), ());
-            NextDue::<T>::mutate(|next| {
-                if next.is_none_or(|existing| existing > due) {
-                    *next = Some(due);
+            Self::initialize_custody()?;
+            let now = frame_system::Pallet::<T>::block_number();
+            let spot = T::Pool::current_alpha_price(netuid);
+            ensure!(spot.to_bits() > 0, Error::<T>::ReferenceUnavailable);
+            let reference = LendingReference {
+                price: spot,
+                last_updated: now,
+                valid_after: now.saturating_add(T::ReferenceWarmup::get()),
+            };
+            References::<T>::insert(netuid, reference.clone());
+            ActiveNets::<T>::insert(netuid, ());
+            // First open waits for warmup unless we seed g_ema immediately.
+            Lifts::<T>::mutate(netuid, |book| {
+                if book.g_ema == 0 {
+                    book.g_ema = Self::g_spot(netuid, book);
+                    book.last = now.saturated_into();
                 }
             });
+            Err(Error::<T>::ReferenceWarmingUp.into())
         }
-        Positions::<T>::insert(&owner, netuid, position);
-        Self::deposit_event(if increasing {
-            Event::Increased {
-                owner,
-                netuid,
-                side,
-                principal: quote.principal,
-                collateral,
-                proceeds,
-                annual_interest: quote.annual_interest,
-            }
-        } else {
-            Event::Opened {
-                owner,
-                netuid,
-                side,
-                principal: quote.principal,
-                collateral,
-                proceeds,
-                annual_interest: quote.annual_interest,
-            }
-        });
-        Ok(())
-    }
 
-    pub fn recovery_account() -> T::AccountId {
-        T::PalletId::get().into_sub_account_truncating(b"recovery")
-    }
-    pub fn reserve_account(netuid: NetUid) -> T::AccountId {
-        T::PalletId::get().into_sub_account_truncating((b"vault", netuid))
-    }
-
-    pub fn position_account(owner: &T::AccountId, netuid: NetUid) -> T::AccountId {
-        // Hash first: truncating a raw owner tuple can silently discard its unique suffix.
-        let key = T::Hashing::hash_of(&(b"position", owner, netuid));
-        T::PalletId::get().into_sub_account_truncating(key)
-    }
-
-    pub fn initialize_custody() -> DispatchResult {
-        if PalletHotkey::<T>::exists() {
-            return Ok(());
+        fn g_spot(netuid: NetUid, book: &LiftBook) -> u64 {
+            // G = y + L_S + E_S (long term cancels)
+            T::Pool::pool_tao(netuid)
+                .to_u64()
+                .saturating_add(book.l_s)
+                .saturating_add(book.escrow_tao)
         }
-        let coldkey: T::AccountId = T::PalletId::get().into_account_truncating();
-        let key =
-            T::Hashing::hash_of(&(b"lending/hotkey", frame_system::Pallet::<T>::parent_hash()));
-        let hotkey = T::PalletId::get().into_sub_account_truncating(key);
-        T::Pool::register_pallet_hotkey(&coldkey, &hotkey)?;
-        ensure!(
-            T::Pool::pallet_hotkey_registered(&coldkey, &hotkey),
-            Error::<T>::CustodyUnavailable
-        );
-        PalletHotkey::<T>::put(hotkey);
-        Ok(())
-    }
 
-    pub fn custody_hotkey() -> Result<T::AccountId, DispatchError> {
-        PalletHotkey::<T>::get().ok_or(Error::<T>::CustodyUnavailable.into())
-    }
-
-    /// Record assets already transferred to the vault by the pool migration adapter.
-    /// Re-funding an existing vault never resets its historical reference.
-    #[transactional]
-    pub fn fund_reserves(
-        netuid: NetUid,
-        tao: TaoBalance,
-        alpha: AlphaBalance,
-        initial_reference: U64F64,
-        has_history: bool,
-    ) -> DispatchResult {
-        ensure!(
-            initial_reference.to_bits() > 0,
-            Error::<T>::ReferenceUnavailable
-        );
-        Self::initialize_custody()?;
-        if !Vaults::<T>::contains_key(netuid) {
-            ensure!(
-                VaultCount::<T>::get() < T::MaxFundedSubnets::get(),
-                Error::<T>::TooManySubnets
-            );
-            VaultCount::<T>::mutate(|count| *count = count.saturating_add(1));
-            let now = frame_system::Pallet::<T>::block_number();
-            let valid_after = if has_history {
-                now
+        fn g_ref(netuid: NetUid, book: &LiftBook) -> u64 {
+            let spot = Self::g_spot(netuid, book);
+            if book.g_ema == 0 {
+                spot
             } else {
-                now.saturating_add(T::ReferenceWarmup::get())
-            };
-            References::<T>::insert(
-                netuid,
-                LendingReference {
-                    price: initial_reference,
-                    last_updated: now,
-                    valid_after,
-                },
-            );
+                spot.min(book.g_ema)
+            }
         }
-        Vaults::<T>::try_mutate(netuid, |vault| -> DispatchResult {
-            let vault = vault.get_or_insert_with(Vault::default);
-            vault.available_tao = Self::add(vault.available_tao, tao.to_u64())?;
-            vault.available_alpha = Self::add(vault.available_alpha, alpha.to_u64())?;
-            Ok(())
-        })?;
-        Self::deposit_event(Event::ReservesFunded {
-            netuid,
-            tao: tao.to_u64(),
-            alpha: alpha.to_u64(),
-        });
-        Ok(())
-    }
 
-    pub fn quote_open(
-        netuid: NetUid,
-        side: Side,
-        collateral: u64,
-    ) -> Result<OpeningQuote, DispatchError> {
-        Self::quote_open_inner(netuid, side, collateral, None, None)
-    }
-
-    /// Quote additional debt and its coupon for the same path used by `open`.
-    /// The ownerless quote remains available for a genuinely new position.
-    pub fn quote_open_for(
-        owner: &T::AccountId,
-        netuid: NetUid,
-        side: Side,
-        collateral: u64,
-        hotkey: &T::AccountId,
-    ) -> Result<OpeningQuote, DispatchError> {
-        let existing = Positions::<T>::get(owner, netuid);
-        if let Some(position) = &existing {
-            Self::ensure_matching_position(position, side, hotkey)?;
-        }
-        Self::quote_open_inner(
-            netuid,
-            side,
-            collateral,
-            None,
-            existing.as_ref().map(|position| (owner, position)),
-        )
-    }
-
-    /// Quote exactly the additional principal that `open_exact` will transfer.
-    pub fn quote_open_exact_for(
-        owner: &T::AccountId,
-        netuid: NetUid,
-        side: Side,
-        collateral: u64,
-        hotkey: &T::AccountId,
-        principal: u64,
-    ) -> Result<OpeningQuote, DispatchError> {
-        let existing = Positions::<T>::get(owner, netuid);
-        if let Some(position) = &existing {
-            Self::ensure_matching_position(position, side, hotkey)?;
-        }
-        Self::quote_open_inner(
-            netuid,
-            side,
-            collateral,
-            Some(principal),
-            existing.as_ref().map(|position| (owner, position)),
-        )
-    }
-
-    fn ensure_matching_position(
-        position: &Position<T::AccountId, BlockNumberFor<T>>,
-        side: Side,
-        hotkey: &T::AccountId,
-    ) -> DispatchResult {
-        ensure!(
-            position.side == side && position.hotkey == *hotkey,
-            Error::<T>::PositionExists
-        );
-        Ok(())
-    }
-
-    fn quote_open_inner(
-        netuid: NetUid,
-        side: Side,
-        collateral: u64,
-        requested_principal: Option<u64>,
-        existing: Option<(&T::AccountId, &Position<T::AccountId, BlockNumberFor<T>>)>,
-    ) -> Result<OpeningQuote, DispatchError> {
-        ensure!(
-            T::Pool::subnet_exists(netuid) && !Dissolutions::<T>::contains_key(netuid),
-            Error::<T>::SubnetUnavailable
-        );
-        if requested_principal.is_none() {
-            ensure!(collateral > 0, Error::<T>::AmountTooSmall);
-        }
-        let reference = References::<T>::get(netuid).ok_or(Error::<T>::ReferenceUnavailable)?;
-        ensure!(
-            frame_system::Pallet::<T>::block_number() >= reference.valid_after,
-            Error::<T>::ReferenceWarmingUp
-        );
-        ensure!(
-            reference.price.to_bits() > 0,
-            Error::<T>::ReferenceUnavailable
-        );
-        // Validate the requested debt before probing collateral. Adding collateral
-        // cannot repair an opening value below the minimum or exhausted inventory.
-        let requested_quote = requested_principal
-            .map(|principal| Self::opening_quote(side, principal, reference.price))
-            .transpose()?;
-        let vault = Vaults::<T>::get(netuid).ok_or(Error::<T>::InsufficientReserves)?;
-        if let Some(quote) = &requested_quote {
-            Self::ensure_borrow_capacity(&vault, side, quote.principal)?;
-        }
-        let (combined_collateral, old_principal) = if let Some((_, position)) = existing {
-            let now = frame_system::Pallet::<T>::block_number();
-            let (interest, remainder) = Self::interest_due(position, now, false)?;
-            // Reserve a whole atom for the preserved fractional coupon. A loan
-            // whose old collateral is exhausted cannot be revived by discarding fees.
-            let accrued = Self::add(interest, u64::from(remainder > 0))?;
-            let remaining = position
-                .collateral
-                .checked_sub(accrued)
-                .filter(|remaining| *remaining > 0)
-                .ok_or(Error::<T>::InsufficientEscrow)?;
-            // Actual custody retains the fractional atom until it is charged;
-            // validate that addition too, even though valuation reserves the atom.
-            Self::add(Self::sub(position.collateral, interest)?, collateral)?;
-            (Self::add(remaining, collateral)?, position.principal)
-        } else {
-            (collateral, 0)
-        };
-        let required = requested_principal
-            .map(|principal| Self::add(old_principal, principal))
-            .transpose()?;
-        let market_limit = required
-            .map(|required| {
-                Self::market_capacity(netuid, side, required).map(|capacity| (required, capacity))
-            })
-            .transpose()?;
-        let quarter = combined_collateral
-            .checked_div(4)
-            .ok_or(Error::<T>::Arithmetic)?;
-        if requested_principal.is_none() {
-            ensure!(quarter > 0, Error::<T>::AmountTooSmall);
-        }
-        let principal = match side {
-            Side::Short => {
-                // The exact debt fixes the post-grant inventory and every other
-                // borrower's funded backing independently of this owner's collateral.
-                let exact_funded = requested_principal
-                    .map(|principal| {
-                        Self::funded_alpha_limit_for(
-                            netuid,
-                            combined_collateral,
-                            &vault,
-                            old_principal,
-                            principal,
-                            existing.map(|(owner, _)| owner),
-                            true,
-                        )
-                    })
-                    .transpose()?;
-                let historical = if let Some(required) = required {
-                    Self::ensure_historical_collateral(side, quarter, required, reference.price)?;
-                    required
-                } else {
-                    Self::alpha_for_tao(quarter, reference.price, false)?
-                };
-                let executable = Self::executable_quote(netuid, side, quarter, market_limit)?;
-                let candidate = historical
-                    .min(executable)
-                    .checked_sub(old_principal)
-                    .ok_or(Error::<T>::InsufficientEscrow)?;
-                if let Some(principal) = exact_funded {
-                    principal
-                } else {
-                    Self::funded_alpha_limit_for(
-                        netuid,
-                        combined_collateral,
-                        &vault,
-                        old_principal,
-                        candidate,
-                        existing.map(|(owner, _)| owner),
-                        false,
-                    )?
+        fn update_g_ema(netuid: NetUid, now: BlockNumberFor<T>, _params: &LiftParams) {
+            Lifts::<T>::mutate(netuid, |book| {
+                let now_u: u64 = now.saturated_into();
+                if book.last >= now_u && book.g_ema > 0 {
+                    return;
                 }
-            }
-            Side::Long => {
-                if let Some(principal) = requested_principal {
-                    Self::funded_long_limit_for(
-                        netuid,
-                        combined_collateral,
-                        vault.available_tao,
-                        old_principal,
-                        existing.map(|(owner, _)| owner),
-                        Some(principal),
-                    )?;
-                }
-                let historical = if let Some(required) = required {
-                    Self::ensure_historical_collateral(side, quarter, required, reference.price)?;
-                    required
-                } else {
-                    Self::tao_for_alpha(quarter, reference.price, false)?
-                };
-                let historical = historical
-                    .checked_sub(old_principal)
-                    .ok_or(Error::<T>::InsufficientEscrow)?;
-                let executable = Self::executable_quote(netuid, side, quarter, market_limit)?
-                    .checked_sub(old_principal)
-                    .ok_or(Error::<T>::InsufficientEscrow)?;
-                if let Some(principal) = requested_principal {
-                    principal
-                } else {
-                    let funded = Self::funded_long_limit_for(
-                        netuid,
-                        combined_collateral,
-                        vault.available_tao,
-                        old_principal,
-                        existing.map(|(owner, _)| owner),
-                        None,
-                    )?;
-                    historical.min(executable).min(funded)
-                }
-            }
-        };
-        let quote = if let Some(quote) = &requested_quote {
-            quote.clone()
-        } else {
-            Self::opening_quote(side, principal, reference.price)?
-        };
-        if requested_principal.is_some() {
-            ensure!(collateral > 0, Error::<T>::InsufficientCollateral);
-        }
-        // Quotes must reject exactly the checked additions dispatch will perform.
-        if let Some((_, position)) = existing {
-            Self::add(position.principal, quote.principal)?;
-            Self::add(position.annual_interest, quote.annual_interest)?;
-        }
-        if requested_quote.is_none() {
-            Self::ensure_borrow_capacity(&vault, side, quote.principal)?;
-        }
-        Ok(quote)
-    }
-
-    fn ensure_historical_collateral(
-        side: Side,
-        quarter: u64,
-        required: u64,
-        price: U64F64,
-    ) -> DispatchResult {
-        let needed = match side {
-            // Any overflow here exceeds even u64 collateral, so cannot satisfy the quarter check.
-            Side::Short => Self::tao_for_alpha(required, price, true)
-                .map_err(|_| Error::<T>::InsufficientCollateral)?,
-            Side::Long => {
-                // Solve alpha * price_bits >= required_TAO * 2^64 with integer
-                // ceiling division. Comparing requested debt avoids huge-C overflow.
-                let numerator = u128::from(required)
-                    .checked_mul(1_u128 << 64)
-                    .ok_or(Error::<T>::Arithmetic)?;
-                let alpha = Self::ceil_ratio(numerator, price.to_bits())?;
-                u64::try_from(alpha).map_err(|_| Error::<T>::InsufficientCollateral)?
-            }
-        };
-        ensure!(quarter >= needed, Error::<T>::InsufficientCollateral);
-        Ok(())
-    }
-
-    fn market_quote(netuid: NetUid, side: Side, input: u64) -> Result<u64, DispatchError> {
-        match side {
-            Side::Short => T::Pool::quote_buy(netuid, input.into()).map(|amount| amount.to_u64()),
-            Side::Long => T::Pool::quote_sell(netuid, input.into()).map(|amount| amount.to_u64()),
-        }
-    }
-
-    fn market_capacity(netuid: NetUid, side: Side, required: u64) -> Result<u64, DispatchError> {
-        let capacity = match side {
-            Side::Short => T::Pool::max_buy_input(netuid).to_u64(),
-            Side::Long => T::Pool::max_sell_input(netuid).to_u64(),
-        };
-        ensure!(capacity > 0, Error::<T>::InsufficientReserves);
-        let maximum = Self::market_quote(netuid, side, capacity)?;
-        ensure!(maximum >= required, Error::<T>::InsufficientReserves);
-        Ok(capacity)
-    }
-
-    fn executable_quote(
-        netuid: NetUid,
-        side: Side,
-        quarter: u64,
-        market_limit: Option<(u64, u64)>,
-    ) -> Result<u64, DispatchError> {
-        let Some((required, capacity)) = market_limit else {
-            return Self::market_quote(netuid, side, quarter);
-        };
-        let input = quarter.min(capacity);
-        let output = match Self::market_quote(netuid, side, input) {
-            Ok(output) => output,
-            Err(error) if input < capacity && T::Pool::quote_may_round_to_zero(&error) => {
-                // Full-capacity feasibility was proved before collateral admission.
-                // Only this recognized rounded-zero error is a lower input-bound failure.
-                return Err(Error::<T>::InsufficientCollateral.into());
-            }
-            Err(error) => return Err(error),
-        };
-        ensure!(output >= required, Error::<T>::InsufficientCollateral);
-        Ok(output)
-    }
-
-    fn opening_quote(
-        side: Side,
-        principal: u64,
-        price: U64F64,
-    ) -> Result<OpeningQuote, DispatchError> {
-        let quote = match side {
-            Side::Short => {
-                let opening_value = Self::tao_for_alpha(principal, price, true)?;
-                OpeningQuote {
-                    principal,
-                    annual_interest: opening_value,
-                    opening_value,
-                }
-            }
-            Side::Long => OpeningQuote {
-                principal,
-                annual_interest: Self::alpha_for_tao(principal, price, true)?,
-                opening_value: principal,
-            },
-        };
-        ensure!(
-            quote.principal > 0
-                && quote.annual_interest > 0
-                && quote.opening_value >= T::MinimumLoanValue::get(),
-            Error::<T>::AmountTooSmall
-        );
-        Ok(quote)
-    }
-
-    fn ensure_borrow_capacity(vault: &Vault, side: Side, principal: u64) -> DispatchResult {
-        let (available, outstanding) = match side {
-            Side::Short => (vault.available_alpha, vault.outstanding_alpha),
-            Side::Long => (vault.available_tao, vault.outstanding_tao),
-        };
-        ensure!(principal <= available, Error::<T>::InsufficientReserves);
-        let funded = u128::from(available).saturating_add(u128::from(outstanding));
-        let borrowed = u128::from(outstanding).saturating_add(u128::from(principal));
-        ensure!(
-            borrowed.saturating_mul(10) <= funded,
-            Error::<T>::BorrowingLimit
-        );
-        Ok(())
-    }
-
-    /// Limit immediate funded redemption as well as market-valued alpha credit.
-    /// Value the market candidate's full inventory withdrawal once; clipping it
-    /// down only increases the guaranteed denominator, so needs no quote search.
-    fn funded_alpha_limit_for(
-        netuid: NetUid,
-        collateral: u64,
-        vault: &Vault,
-        old_principal: u64,
-        candidate: u64,
-        growing_owner: Option<&T::AccountId>,
-        exact: bool,
-    ) -> Result<u64, DispatchError> {
-        let remaining_alpha = vault.available_alpha.saturating_sub(candidate);
-        let (pool_pot, supply) =
-            T::Pool::alpha_loan_redemption_basis(netuid, remaining_alpha.into())
-                .map_err(|_| Error::<T>::RedemptionUnavailable)?;
-        // Ordinary cash accounting saturates in the u64 TAO domain. No future
-        // interest or principal repayment is counted as present lending backing.
-        let pot = pool_pot.to_u64().saturating_add(vault.available_tao);
-        if pot == 0 {
-            return Ok(candidate);
-        }
-        ensure!(supply > 0, Error::<T>::InsufficientRedemptionBacking);
-
-        let now = frame_system::Pallet::<T>::block_number();
-        let bound =
-            usize::try_from(T::MaxPositionsPerSubnet::get()).map_err(|_| Error::<T>::Arithmetic)?;
-        for (index, (owner, ())) in OpenByNetuid::<T>::iter_prefix(netuid).enumerate() {
-            ensure!(index < bound, Error::<T>::TooManyPositions);
-            if growing_owner.is_some_and(|growing| growing == &owner) {
-                continue;
-            }
-            let position =
-                Positions::<T>::get(&owner, netuid).ok_or(Error::<T>::PositionMissing)?;
-            if position.side != Side::Short {
-                continue;
-            }
-            let (interest, remainder) = Self::interest_due(&position, now, false)?;
-            let accrued = Self::add(interest, u64::from(remainder > 0))?;
-            let remaining = position
-                .collateral
-                .checked_sub(accrued)
-                .ok_or(Error::<T>::InsufficientRedemptionBacking)?;
-            let principal = u128::from(position.principal);
-            let owed = Self::ceil_ratio(
-                principal
-                    .checked_mul(u128::from(pot))
-                    .ok_or(Error::<T>::Arithmetic)?,
-                supply,
-            )?
-            .checked_add(principal)
-            .ok_or(Error::<T>::Arithmetic)?;
-            ensure!(
-                owed <= u128::from(remaining),
-                Error::<T>::InsufficientRedemptionBacking
-            );
-        }
-        let target = collateral.checked_div(4).ok_or(Error::<T>::Arithmetic)?;
-        // ceil(q*P/N)+q <= target iff q*(P+N) <= target*N.
-        // The q-atom allowance bounds every possible split-row payout rounding.
-        let denominator = u128::from(pot)
-            .checked_add(supply)
-            .ok_or(Error::<T>::Arithmetic)?;
-        let combined_limit = u128::from(target)
-            .checked_mul(supply)
-            .and_then(|value| value.checked_div(denominator))
-            .ok_or(Error::<T>::Arithmetic)?;
-        let incremental = combined_limit
-            .checked_sub(u128::from(old_principal))
-            .filter(|value| *value > 0)
-            .ok_or(if exact {
-                Error::<T>::InsufficientCollateral
-            } else {
-                Error::<T>::InsufficientRedemptionBacking
-            })?;
-        let incremental = u64::try_from(incremental).map_err(|_| Error::<T>::Arithmetic)?;
-
-        if exact {
-            ensure!(candidate <= incremental, Error::<T>::InsufficientCollateral);
-        }
-        Ok(candidate.min(incremental))
-    }
-
-    /// Protect ordinary pro-rata redemption even if all active AMM TAO is sold out.
-    /// Only physically unloaned vault TAO is backing; coupons and expected recoveries
-    /// are excluded. Surplus collateral belongs to its owner, so every loan is checked
-    /// independently rather than pooling borrowers' collateral.
-    #[cfg(any(test, feature = "runtime-benchmarks"))]
-    fn funded_long_limit(
-        netuid: NetUid,
-        collateral: u64,
-        backing: u64,
-    ) -> Result<u64, DispatchError> {
-        Self::funded_long_limit_for(netuid, collateral, backing, 0, None, None)
-    }
-
-    fn funded_long_limit_for(
-        netuid: NetUid,
-        collateral: u64,
-        backing: u64,
-        old_principal: u64,
-        growing_owner: Option<&T::AccountId>,
-        requested_principal: Option<u64>,
-    ) -> Result<u64, DispatchError> {
-        let supply = T::Pool::redemption_alpha_supply(netuid)
-            .map_err(|_| Error::<T>::RedemptionUnavailable)?;
-        ensure!(supply > 0, Error::<T>::RedemptionUnavailable);
-        let mut limit = backing;
-        let now = frame_system::Pallet::<T>::block_number();
-        let max_positions = T::MaxPositionsPerSubnet::get();
-        let mut count = 0_u32;
-        for (owner, ()) in
-            OpenByNetuid::<T>::iter_prefix(netuid).take(max_positions.saturating_add(1) as usize)
-        {
-            count = count.checked_add(1).ok_or(Error::<T>::Arithmetic)?;
-            ensure!(count <= max_positions, Error::<T>::TooManyPositions);
-            let position =
-                Positions::<T>::get(&owner, netuid).ok_or(Error::<T>::PositionMissing)?;
-            // This owner's combined position already passes the stricter 25% check
-            // with its new collateral. Every other loan still needs independent coverage.
-            if growing_owner == Some(&owner) {
-                continue;
-            }
-            if position.side != Side::Long {
-                continue;
-            }
-            let (interest, _) = Self::interest_due(&position, now, true)?;
-            let remaining = position
-                .collateral
-                .checked_sub(interest)
-                .filter(|remaining| *remaining > 0)
-                .ok_or(Error::<T>::InsufficientRedemptionBacking)?;
-            let claim = u128::from(position.principal)
-                .checked_mul(supply)
-                .ok_or(Error::<T>::Arithmetic)?;
-            let remaining = u128::from(remaining);
-            // Ceiling division without overflowing by adding the divisor first.
-            let quotient = claim.checked_div(remaining).ok_or(Error::<T>::Arithmetic)?;
-            let remainder = claim.checked_rem(remaining).ok_or(Error::<T>::Arithmetic)?;
-            let required = quotient
-                .checked_add(u128::from(remainder != 0))
-                .ok_or(Error::<T>::Arithmetic)?;
-            let required =
-                u64::try_from(required).map_err(|_| Error::<T>::InsufficientRedemptionBacking)?;
-            let allowance = backing
-                .checked_sub(required)
-                .ok_or(Error::<T>::InsufficientRedemptionBacking)?;
-            limit = limit.min(allowance);
-        }
-        if let Some(requested) = requested_principal {
-            ensure!(
-                requested <= limit,
-                Error::<T>::InsufficientRedemptionBacking
-            );
-        }
-        let denominator = supply
-            .checked_mul(4)
-            .and_then(|n| n.checked_add(u128::from(collateral)))
-            .ok_or(Error::<T>::Arithmetic)?;
-        // Solve 4 * (old_debt + new_debt) * supply <= collateral * (backing - new_debt).
-        let numerator = u128::from(collateral)
-            .checked_mul(u128::from(backing))
-            .ok_or(Error::<T>::Arithmetic)?;
-        let existing_claim = u128::from(old_principal)
-            .checked_mul(supply)
-            .and_then(|claim| claim.checked_mul(4))
-            .ok_or(Error::<T>::Arithmetic)?;
-        let numerator =
-            numerator
-                .checked_sub(existing_claim)
-                .ok_or(if requested_principal.is_some() {
-                    Error::<T>::InsufficientCollateral
-                } else {
-                    Error::<T>::InsufficientRedemptionBacking
-                })?;
-        let funded = numerator
-            .checked_div(denominator)
-            .ok_or(Error::<T>::Arithmetic)?;
-        let own_limit = u64::try_from(funded).map_err(|_| Error::<T>::Arithmetic)?;
-        if let Some(requested) = requested_principal {
-            ensure!(requested <= own_limit, Error::<T>::InsufficientCollateral);
-        }
-        limit = limit.min(own_limit);
-        ensure!(limit > 0, Error::<T>::InsufficientRedemptionBacking);
-        Ok(limit)
-    }
-
-    pub fn quote_close(
-        owner: &T::AccountId,
-        netuid: NetUid,
-        repay_from_wallet: bool,
-    ) -> Result<ClosingQuote, DispatchError> {
-        ensure!(
-            !Dissolutions::<T>::contains_key(netuid),
-            Error::<T>::SubnetUnavailable
-        );
-        let mut position = Positions::<T>::get(owner, netuid).ok_or(Error::<T>::PositionMissing)?;
-        let (interest, _) =
-            Self::interest_due(&position, frame_system::Pallet::<T>::block_number(), true)?;
-        ensure!(
-            position.collateral > interest,
-            Error::<T>::InsufficientEscrow
-        );
-        let remaining = position.collateral.saturating_sub(interest);
-        match position.side {
-            Side::Short => {
-                let pot = Self::add(remaining, position.proceeds)?;
-                let payment = if repay_from_wallet {
-                    position.principal
-                } else {
-                    use frame_support::storage::{TransactionOutcome, with_transaction};
-                    let escrow = Self::position_account(owner, netuid);
-                    with_transaction(|| {
-                        let result = (|| {
-                            Self::charge_interest(
-                                owner,
-                                netuid,
-                                &mut position,
-                                frame_system::Pallet::<T>::block_number(),
-                                true,
-                            )?;
-                            Self::execute_buyback(&escrow, netuid, position.principal, remaining)
-                                .map(|(payment, _)| payment)
-                        })();
-                        TransactionOutcome::Rollback(result)
-                    })?
-                };
-                let refund = if repay_from_wallet {
-                    pot
-                } else {
-                    Self::sub(pot, payment)?
-                };
-                Ok(ClosingQuote { payment, refund })
-            }
-            Side::Long => Ok(ClosingQuote {
-                payment: position.principal,
-                refund: remaining,
-            }),
-        }
-    }
-
-    fn buyback_input(netuid: NetUid, principal: u64, budget: u64) -> Result<u64, DispatchError> {
-        ensure!(budget > 0, Error::<T>::InsufficientEscrow);
-        // Capacity is supplied independently of quote dust errors. Positive-input
-        // quotes whose rounded output is zero are lower-bound failures, never evidence
-        // that larger inputs cross the finite buy endpoint.
-        let mut high = budget.min(T::Pool::max_buy_input(netuid).to_u64());
-        ensure!(high > 0, Error::<T>::InsufficientEscrow);
-        ensure!(
-            T::Pool::quote_buy(netuid, high.into())?.to_u64() >= principal,
-            Error::<T>::InsufficientEscrow
-        );
-        let mut low = 1_u64;
-        while low < high {
-            let mid =
-                low.saturating_add(high.saturating_sub(low).checked_div(2).unwrap_or_default());
-            if T::Pool::quote_buy(netuid, mid.into()).is_ok_and(|out| out.to_u64() >= principal) {
-                high = mid;
-            } else {
-                low = mid.saturating_add(1);
-            }
-        }
-        Ok(low)
-    }
-
-    fn execute_buyback(
-        escrow: &T::AccountId,
-        netuid: NetUid,
-        principal: u64,
-        budget: u64,
-    ) -> Result<(u64, u64), DispatchError> {
-        let custody = Self::custody_hotkey()?;
-        let mut payment = 0_u64;
-        let mut alpha = 0_u64;
-        for _ in 0..MAX_BUYBACK_STEPS {
-            let remaining = principal.saturating_sub(alpha);
-            if remaining == 0 {
-                return Ok((payment, alpha));
-            }
-            let capacity = budget
-                .saturating_sub(payment)
-                .min(T::Pool::buy_spendable_tao(escrow).to_u64())
-                .min(T::Pool::max_buy_input(netuid).to_u64());
-            ensure!(capacity > 0, Error::<T>::InsufficientEscrow);
-            let maximum = T::Pool::quote_buy(netuid, capacity.into())?.to_u64();
-            ensure!(maximum > 0, Error::<T>::InsufficientEscrow);
-            let input = if maximum >= remaining {
-                Self::buyback_input(netuid, remaining, capacity)?
-            } else {
-                capacity
-            };
-            let expected = T::Pool::quote_buy(netuid, input.into())?.to_u64();
-            let received = T::Pool::buy_alpha(
-                escrow,
-                &custody,
-                netuid,
-                input.into(),
-                u64::MAX.into(),
-                false,
-            )?
-            .to_u64();
-            ensure!(received == expected, Error::<T>::InvalidQuote);
-            payment = Self::add(payment, input)?;
-            alpha = Self::add(alpha, received)?;
-        }
-        ensure!(alpha >= principal, Error::<T>::InsufficientEscrow);
-        Ok((payment, alpha))
-    }
-
-    fn tao_for_alpha(alpha: u64, price: U64F64, round_up: bool) -> Result<u64, DispatchError> {
-        let value = price
-            .checked_mul(U64F64::from_num(alpha))
-            .ok_or(Error::<T>::Arithmetic)?;
-        let rounded = if round_up {
-            value.checked_ceil().ok_or(Error::<T>::Arithmetic)?
-        } else {
-            value.floor()
-        };
-        Ok(rounded.saturating_to_num())
-    }
-
-    fn alpha_for_tao(tao: u64, price: U64F64, round_up: bool) -> Result<u64, DispatchError> {
-        let value = U64F64::from_num(tao)
-            .checked_div(price)
-            .ok_or(Error::<T>::Arithmetic)?;
-        let rounded = if round_up {
-            value.checked_ceil().ok_or(Error::<T>::Arithmetic)?
-        } else {
-            value.floor()
-        };
-        Ok(rounded.saturating_to_num())
-    }
-
-    fn add(a: u64, b: u64) -> Result<u64, DispatchError> {
-        a.checked_add(b).ok_or(Error::<T>::Arithmetic.into())
-    }
-    fn sub(a: u64, b: u64) -> Result<u64, DispatchError> {
-        a.checked_sub(b).ok_or(Error::<T>::Arithmetic.into())
-    }
-
-    pub fn ema_update(previous: U64F64, observed: U64F64) -> Option<U64F64> {
-        if previous.to_bits() == 0 || observed.to_bits() == 0 {
-            return None;
-        }
-        let half = previous.checked_div(U64F64::from_num(2))?;
-        let twice = previous.saturating_mul(U64F64::from_num(2));
-        let bounded = observed.clamp(half, twice);
-        let ratio = bounded.checked_div(previous)?;
-        let log_ratio: I64F64 = ln(I64F64::checked_from_num(ratio)?).ok()?;
-        let exponent =
-            log_ratio.checked_mul(I64F64::from_num(U64F64::from_bits(EMA_WEIGHT_BITS)))?;
-        let multiplier: I64F64 = exp(exponent).ok()?;
-        previous.checked_mul(U64F64::checked_from_num(multiplier)?)
-    }
-
-    fn interest_due(
-        position: &Position<T::AccountId, BlockNumberFor<T>>,
-        until: BlockNumberFor<T>,
-        final_charge: bool,
-    ) -> Result<(u64, u64), DispatchError> {
-        let elapsed: u64 = until.saturating_sub(position.last_accrued).saturated_into();
-        let denominator = u128::from(T::BlocksPerYear::get());
-        ensure!(denominator > 0, Error::<T>::Arithmetic);
-        let numerator = u128::from(position.annual_interest)
-            .saturating_mul(u128::from(elapsed))
-            .saturating_add(u128::from(position.interest_remainder));
-        let whole = numerator
-            .checked_div(denominator)
-            .ok_or(Error::<T>::Arithmetic)?;
-        let remainder = numerator
-            .checked_rem(denominator)
-            .ok_or(Error::<T>::Arithmetic)?;
-        let paid = if final_charge && remainder > 0 {
-            whole.saturating_add(1)
-        } else {
-            whole
-        };
-        Ok((
-            paid.min(u128::from(u64::MAX)) as u64,
-            if final_charge { 0 } else { remainder as u64 },
-        ))
-    }
-
-    fn charge_interest(
-        owner: &T::AccountId,
-        netuid: NetUid,
-        position: &mut Position<T::AccountId, BlockNumberFor<T>>,
-        until: BlockNumberFor<T>,
-        final_charge: bool,
-    ) -> DispatchResult {
-        let (due, remainder) = Self::interest_due(position, until, final_charge)?;
-        let paid = due.min(position.collateral);
-        if paid > 0 {
-            let escrow = Self::position_account(owner, netuid);
-            let vault = Self::reserve_account(netuid);
-            let mut credited = paid;
-            match position.side {
-                Side::Short => {
-                    credited =
-                        T::Pool::collect_interest_tao(&escrow, &vault, paid.into())?.to_u64();
-                    ensure!(credited <= paid, Error::<T>::InvalidQuote);
-                    if credited < paid {
-                        Self::deposit_event(Event::DustForfeited {
-                            netuid,
-                            recipient: vault,
-                            tao: paid.saturating_sub(credited),
-                        });
+                let spot = Self::g_spot(netuid, book);
+                if book.g_ema == 0 {
+                    book.g_ema = spot;
+                } else if let (Some(prev), Some(obs)) = (
+                    U64F64::checked_from_num(book.g_ema),
+                    U64F64::checked_from_num(spot.max(1)),
+                ) {
+                    if let Some(next) = Self::ema_update(prev, obs) {
+                        book.g_ema = next.saturating_to_num::<u64>().max(1);
                     }
                 }
+                book.last = now_u;
+            });
+        }
+
+        fn side_caps(netuid: NetUid, params: &LiftParams) -> Result<(u64, u64, u64), DispatchError> {
+            let book = Lifts::<T>::get(netuid);
+            let g_ref = Self::g_ref(netuid, &book);
+            let y_star = T::Pool::buy_depth_threshold(
+                netuid,
+                params.ref_tao.into(),
+                params.move_bps,
+            )
+            .to_u64();
+            let f_bps = if g_ref < params.thin_tao {
+                params.thin_floor_bps
+            } else {
+                params.floor_bps
+            };
+            let floor_cap = Self::mul_bps(g_ref, f_bps)?;
+            let ceiling_cap = Self::mul_bps(g_ref, params.ceiling_bps)?;
+            let impact_cap = g_ref.saturating_sub(y_star);
+            let cap = floor_cap.max(impact_cap.min(ceiling_cap));
+            let cap_short = Self::mul_bps(cap, params.split_short_bps)?;
+            let cap_long = cap.saturating_sub(cap_short);
+            Ok((cap, cap_short, cap_long))
+        }
+
+        fn ensure_side_capacity(netuid: NetUid, side: Side, delta_l: u64) -> DispatchResult {
+            let params = Self::lift_params();
+            let book = Lifts::<T>::get(netuid);
+            let (_cap, cap_short, cap_long) = Self::side_caps(netuid, &params)?;
+            match side {
+                Side::Short => {
+                    ensure!(
+                        book.l_s.saturating_add(delta_l) <= cap_short,
+                        Error::<T>::SideCapacity
+                    );
+                }
                 Side::Long => {
-                    let custody = Self::custody_hotkey()?;
-                    if Dissolutions::<T>::contains_key(netuid) {
-                        T::Pool::transfer_dissolution_alpha(
-                            &escrow,
-                            &vault,
+                    ensure!(
+                        book.l_l.saturating_add(delta_l) <= cap_long,
+                        Error::<T>::SideCapacity
+                    );
+                }
+            }
+            Ok(())
+        }
+
+        fn ltv_tier_bps(netuid: NetUid, side: Side, params: &LiftParams) -> u16 {
+            match side {
+                Side::Short => params.ltv_short_bps,
+                Side::Long => {
+                    let book = Lifts::<T>::get(netuid);
+                    let g_ref = Self::g_ref(netuid, &book);
+                    if g_ref < params.thin_tao {
+                        params.thin_ltv_long_bps
+                    } else {
+                        params.ltv_long_bps
+                    }
+                }
+            }
+        }
+
+        /// Karl dynamic valuation (spec §5). Evaluated on pre-extrinsic pool / after lift.
+        fn v_dyn(
+            netuid: NetUid,
+            collateral: u64,
+            principal_tao: u64,
+            reference: &LendingReference<BlockNumberFor<T>>,
+            growing_owner: Option<&T::AccountId>,
+        ) -> Result<u64, DispatchError> {
+            let p_spot = T::Pool::current_alpha_price(netuid);
+            let p_ref = reference.price;
+            let y = T::Pool::pool_tao(netuid).to_u64();
+            let x = T::Pool::pool_alpha(netuid).to_u64();
+            ensure!(y > principal_tao && principal_tao > 0, Error::<T>::DepthBelowThreshold);
+            // pool' after lift: (y - P, x * (1 - P/y))
+            let y_prime = y.saturating_sub(principal_tao);
+            let x_prime = {
+                let lift_alpha = (u128::from(x)
+                    .saturating_mul(u128::from(principal_tao))
+                    / u128::from(y).max(1)) as u64;
+                x.saturating_sub(lift_alpha)
+            };
+            let w = T::Pool::quote_weight_parts(netuid);
+            let a_ahead = Self::a_ahead(netuid, growing_owner)?;
+            // Sell A_ahead into pool'
+            let (y2, x2) = if a_ahead > 0 {
+                let out = T::Pool::quote_sell_on(
+                    y_prime.into(),
+                    x_prime.into(),
+                    w,
+                    a_ahead.into(),
+                )
+                .to_u64();
+                (
+                    y_prime.saturating_sub(out), // sell adds TAO? wait — sell alpha → TAO out of pool means y decreases for buyer; for AMM sell of alpha, alpha goes in, TAO comes out so y decreases
+                    x_prime.saturating_add(a_ahead),
+                )
+            } else {
+                (y_prime, x_prime)
+            };
+            // Correction: selling alpha into pool: x increases, y decreases by TAO out
+            let tao_out_ahead = if a_ahead > 0 {
+                T::Pool::quote_sell_on(y_prime.into(), x_prime.into(), w, a_ahead.into()).to_u64()
+            } else {
+                0
+            };
+            let y_after = y_prime.saturating_sub(tao_out_ahead);
+            let x_after = x_prime.saturating_add(a_ahead);
+            let q = if collateral > 0 {
+                // Fee-inclusive sale of C uses live quote path on hypothetical state via quote_sell_on (fee-free).
+                // Conservative: use fee-free as upper bound then take min with spots.
+                T::Pool::quote_sell_on(y_after.into(), x_after.into(), w, collateral.into()).to_u64()
+            } else {
+                0
+            };
+            let at_ref = Self::tao_for_alpha(collateral, p_ref, false)?;
+            let at_spot = Self::tao_for_alpha(collateral, p_spot, false)?;
+            Ok(q.min(at_ref).min(at_spot))
+        }
+
+        fn a_ahead(netuid: NetUid, growing_owner: Option<&T::AccountId>) -> Result<u64, DispatchError> {
+            let mut total = LongInterestPending::<T>::get(netuid);
+            let max = T::MaxPositionsPerSubnet::get();
+            let mut count = 0u32;
+            for (owner, ()) in OpenByNetuid::<T>::iter_prefix(netuid) {
+                count = count.saturating_add(1);
+                ensure!(count <= max, Error::<T>::TooManyPositions);
+                if growing_owner.is_some_and(|g| g == &owner) {
+                    // Include this owner's existing collateral too (whole-position check).
+                }
+                if let Some(pos) = Positions::<T>::get(&owner, netuid) {
+                    if pos.side == Side::Long {
+                        total = Self::add(total, pos.collateral)?;
+                    }
+                }
+            }
+            Ok(total)
+        }
+
+        fn mul_bps(value: u64, bps: u16) -> Result<u64, DispatchError> {
+            let product = u128::from(value)
+                .checked_mul(u128::from(bps))
+                .ok_or(Error::<T>::Arithmetic)?;
+            Ok((product / BPS_DENOM) as u64)
+        }
+
+        fn add(a: u64, b: u64) -> Result<u64, DispatchError> {
+            a.checked_add(b).ok_or(Error::<T>::Arithmetic.into())
+        }
+        fn sub(a: u64, b: u64) -> Result<u64, DispatchError> {
+            a.checked_sub(b).ok_or(Error::<T>::Arithmetic.into())
+        }
+
+        fn tao_for_alpha(alpha: u64, price: U64F64, round_up: bool) -> Result<u64, DispatchError> {
+            let value = price
+                .checked_mul(U64F64::from_num(alpha))
+                .ok_or(Error::<T>::Arithmetic)?;
+            let rounded = if round_up {
+                value.checked_ceil().ok_or(Error::<T>::Arithmetic)?
+            } else {
+                value.floor()
+            };
+            Ok(rounded.saturating_to_num())
+        }
+
+        fn alpha_for_tao(tao: u64, price: U64F64, round_up: bool) -> Result<u64, DispatchError> {
+            ensure!(price.to_bits() > 0, Error::<T>::Arithmetic);
+            let value = U64F64::from_num(tao)
+                .checked_div(price)
+                .ok_or(Error::<T>::Arithmetic)?;
+            let rounded = if round_up {
+                value.checked_ceil().ok_or(Error::<T>::Arithmetic)?
+            } else {
+                value.floor()
+            };
+            Ok(rounded.saturating_to_num())
+        }
+
+        pub fn ema_update(previous: U64F64, observed: U64F64) -> Option<U64F64> {
+            if previous.to_bits() == 0 || observed.to_bits() == 0 {
+                return None;
+            }
+            let half = previous.checked_div(U64F64::from_num(2))?;
+            let twice = previous.saturating_mul(U64F64::from_num(2));
+            let bounded = observed.clamp(half, twice);
+            let ratio = bounded.checked_div(previous)?;
+            let log_ratio: I64F64 = ln(I64F64::checked_from_num(ratio)?).ok()?;
+            let exponent =
+                log_ratio.checked_mul(I64F64::from_num(U64F64::from_bits(EMA_WEIGHT_BITS)))?;
+            let multiplier: I64F64 = exp(exponent).ok()?;
+            previous.checked_mul(U64F64::checked_from_num(multiplier)?)
+        }
+
+        fn ensure_matching_position(
+            position: &Position<T::AccountId, BlockNumberFor<T>>,
+            side: Side,
+            hotkey: &T::AccountId,
+        ) -> DispatchResult {
+            ensure!(position.side == side, Error::<T>::PositionSideMismatch);
+            ensure!(&position.hotkey == hotkey, Error::<T>::HotkeyMismatch);
+            Ok(())
+        }
+
+        fn opening_quote(
+            side: Side,
+            principal: u64,
+            price: U64F64,
+            collateral: u64,
+            v_dyn: u64,
+            escrow_estimate: u64,
+            params: &LiftParams,
+        ) -> Result<OpeningQuote, DispatchError> {
+            let opening_value = match side {
+                Side::Short => Self::tao_for_alpha(principal, price, true)?,
+                Side::Long => principal,
+            };
+            let annual_interest = match side {
+                Side::Short => Self::mul_bps(opening_value, params.apr_bps)?,
+                Side::Long => {
+                    let alpha = Self::alpha_for_tao(principal, price, true)?;
+                    Self::mul_bps(alpha, params.apr_bps)?
+                }
+            };
+            ensure!(
+                principal > 0
+                    && annual_interest > 0
+                    && opening_value >= T::MinimumLoanValue::get(),
+                Error::<T>::AmountTooSmall
+            );
+            Ok(OpeningQuote {
+                principal,
+                annual_interest,
+                opening_value,
+                collateral,
+                v_dyn,
+                escrow_estimate,
+            })
+        }
+
+        /// Max additional principal for collateral under LTV·V_dyn and side caps.
+        fn max_principal_for_collateral(
+            netuid: NetUid,
+            side: Side,
+            collateral: u64,
+            existing: Option<&Position<T::AccountId, BlockNumberFor<T>>>,
+            owner: Option<&T::AccountId>,
+            reference: &LendingReference<BlockNumberFor<T>>,
+            params: &LiftParams,
+        ) -> Result<u64, DispatchError> {
+            let old_principal = existing.map(|p| p.principal).unwrap_or(0);
+            let old_collateral = existing.map(|p| p.collateral).unwrap_or(0);
+            let total_collateral = Self::add(old_collateral, collateral)?;
+            let ltv = Self::ltv_tier_bps(netuid, side, params);
+            let (_cap, cap_short, cap_long) = Self::side_caps(netuid, params)?;
+            let book = Lifts::<T>::get(netuid);
+            let headroom = match side {
+                Side::Short => cap_short.saturating_sub(book.l_s),
+                Side::Long => cap_long.saturating_sub(book.l_l),
+            };
+            if headroom == 0 || total_collateral == 0 {
+                return Ok(0);
+            }
+            // Bisection on additional principal.
+            let mut lo = 0u64;
+            let mut hi = headroom;
+            // For shorts, principal is alpha; lift delta uses τ_L ≈ P_alpha * p.
+            // Capacity is in TAO lift legs. Approximate ΔL_S ≈ quote of selling P, or P*p.
+            // Spec: open short iff L_S + ΔL ≤ Cap_short where ΔL = τ_L from lift g=P/x.
+            // So ΔL = floor(y * P / x). Bound hi by that invertibility.
+            for _ in 0..BISECTION_STEPS {
+                if lo + 1 >= hi {
+                    break;
+                }
+                let mid = lo.saturating_add(hi.saturating_sub(lo) / 2);
+                let ok = Self::principal_feasible(
+                    netuid,
+                    side,
+                    mid,
+                    total_collateral,
+                    old_principal,
+                    owner,
+                    reference,
+                    ltv,
+                    params,
+                )?;
+                if ok {
+                    lo = mid;
+                } else {
+                    hi = mid;
+                }
+            }
+            let candidate = if Self::principal_feasible(
+                netuid,
+                side,
+                hi,
+                total_collateral,
+                old_principal,
+                owner,
+                reference,
+                ltv,
+                params,
+            )? {
+                hi
+            } else {
+                lo
+            };
+            Ok(candidate.saturating_sub(old_principal).min(headroom))
+        }
+
+        fn principal_feasible(
+            netuid: NetUid,
+            side: Side,
+            total_principal: u64,
+            total_collateral: u64,
+            old_principal: u64,
+            owner: Option<&T::AccountId>,
+            reference: &LendingReference<BlockNumberFor<T>>,
+            ltv_bps: u16,
+            _params: &LiftParams,
+        ) -> Result<bool, DispatchError> {
+            if total_principal == 0 {
+                return Ok(false);
+            }
+            let incremental = total_principal.saturating_sub(old_principal);
+            if incremental == 0 {
+                return Ok(true);
+            }
+            let delta_l = Self::lift_tao_for_principal(netuid, side, incremental)?;
+            if Self::ensure_side_capacity(netuid, side, delta_l).is_err() {
+                return Ok(false);
+            }
+            match side {
+                Side::Short => {
+                    let value = Self::tao_for_alpha(
+                        total_collateral,
+                        reference.price.min(T::Pool::current_alpha_price(netuid)),
+                        false,
+                    )?;
+                    let max_debt = Self::mul_bps(value, ltv_bps)?;
+                    let debt_value = Self::tao_for_alpha(
+                        total_principal,
+                        T::Pool::current_alpha_price(netuid),
+                        true,
+                    )?;
+                    Ok(debt_value <= max_debt)
+                }
+                Side::Long => {
+                    let v = Self::v_dyn(netuid, total_collateral, total_principal, reference, owner)?;
+                    let max_p = Self::mul_bps(v, ltv_bps)?;
+                    Ok(total_principal <= max_p)
+                }
+            }
+        }
+
+        fn lift_tao_for_principal(netuid: NetUid, side: Side, principal: u64) -> Result<u64, DispatchError> {
+            let y = T::Pool::pool_tao(netuid).to_u64();
+            let x = T::Pool::pool_alpha(netuid).to_u64();
+            ensure!(y > 0 && x > 0, Error::<T>::DepthBelowThreshold);
+            match side {
+                // g = P/x → τ_L = floor(y * P / x)
+                Side::Short => {
+                    ensure!(principal < x, Error::<T>::DepthBelowThreshold);
+                    Ok(((u128::from(y) * u128::from(principal)) / u128::from(x)) as u64)
+                }
+                // g = P/y → τ_L = P
+                Side::Long => {
+                    ensure!(principal < y, Error::<T>::DepthBelowThreshold);
+                    Ok(principal)
+                }
+            }
+        }
+
+        fn lift_fraction(
+            netuid: NetUid,
+            side: Side,
+            principal: u64,
+        ) -> Result<(u64, u64), DispatchError> {
+            let y = T::Pool::pool_tao(netuid).to_u64();
+            let x = T::Pool::pool_alpha(netuid).to_u64();
+            match side {
+                Side::Short => {
+                    ensure!(principal > 0 && principal < x, Error::<T>::DepthBelowThreshold);
+                    Ok((principal, x))
+                }
+                Side::Long => {
+                    ensure!(principal > 0 && principal < y, Error::<T>::DepthBelowThreshold);
+                    Ok((principal, y))
+                }
+            }
+        }
+
+        #[transactional]
+        fn do_open(
+            owner: T::AccountId,
+            netuid: NetUid,
+            side: Side,
+            collateral: u64,
+            hotkey: T::AccountId,
+            requested_principal: Option<u64>,
+            min_borrow: u64,
+            min_proceeds: u64,
+        ) -> DispatchResult {
+            Self::ensure_lending_live(netuid)?;
+            ensure!(
+                T::Pool::owner_allowed(&owner),
+                Error::<T>::SubnetUnavailable
+            );
+            ensure!(collateral > 0, Error::<T>::AmountTooSmall);
+            let reference = match Self::ensure_or_init_reference(netuid) {
+                Ok(r) => r,
+                Err(e) => {
+                    // Warmup path: if reference was just created, surface warming up.
+                    return Err(e);
+                }
+            };
+            // After first init, reference is warm only after warmup — but for testing
+            // and subsequent opens we need warm. Re-read:
+            let reference = Self::ensure_reference_warm(netuid).unwrap_or(reference);
+            // If still warming, fail:
+            let now = frame_system::Pallet::<T>::block_number();
+            ensure!(now >= reference.valid_after, Error::<T>::ReferenceWarmingUp);
+
+            let existing = Positions::<T>::get(&owner, netuid);
+            if let Some(ref position) = existing {
+                Self::ensure_matching_position(position, side, &hotkey)?;
+            } else {
+                ensure!(
+                    PositionCount::<T>::get(netuid) < T::MaxPositionsPerSubnet::get(),
+                    Error::<T>::TooManyPositions
+                );
+                ensure!(
+                    TotalPositions::<T>::get() < T::MaxTotalPositions::get(),
+                    Error::<T>::TooManyPositions
+                );
+            }
+            let params = Self::lift_params();
+            let principal = if let Some(p) = requested_principal {
+                let old = existing.as_ref().map(|x| x.principal).unwrap_or(0);
+                let total = Self::add(old, p)?;
+                let total_coll = Self::add(
+                    existing.as_ref().map(|x| x.collateral).unwrap_or(0),
+                    collateral,
+                )?;
+                let ltv = Self::ltv_tier_bps(netuid, side, &params);
+                ensure!(
+                    Self::principal_feasible(
+                        netuid,
+                        side,
+                        total,
+                        total_coll,
+                        old,
+                        Some(&owner),
+                        &reference,
+                        ltv,
+                        &params,
+                    )?,
+                    Error::<T>::DynamicCollateral
+                );
+                let delta_l = Self::lift_tao_for_principal(netuid, side, p)?;
+                Self::ensure_side_capacity(netuid, side, delta_l)?;
+                p
+            } else {
+                Self::max_principal_for_collateral(
+                    netuid,
+                    side,
+                    collateral,
+                    existing.as_ref(),
+                    Some(&owner),
+                    &reference,
+                    &params,
+                )?
+            };
+            ensure!(principal >= min_borrow, Error::<T>::BelowMinimumBorrow);
+
+            let price = reference.price.min(T::Pool::current_alpha_price(netuid));
+            let v = match side {
+                Side::Short => Self::tao_for_alpha(collateral, price, false)?,
+                Side::Long => {
+                    let old_p = existing.as_ref().map(|x| x.principal).unwrap_or(0);
+                    let total_p = Self::add(old_p, principal)?;
+                    let total_c = Self::add(
+                        existing.as_ref().map(|x| x.collateral).unwrap_or(0),
+                        collateral,
+                    )?;
+                    Self::v_dyn(netuid, total_c, total_p, &reference, Some(&owner))?
+                }
+            };
+            let quote = Self::opening_quote(side, principal, price, collateral, v, 0, &params)?;
+
+            let increasing = existing.is_some();
+            let mut position = if let Some(mut position) = existing {
+                Self::charge_interest(&owner, netuid, &mut position, now, false)?;
+                position
+            } else {
+                Position {
+                    side,
+                    hotkey: hotkey.clone(),
+                    principal: 0,
+                    collateral: 0,
+                    proceeds: 0,
+                    escrow_alpha: 0,
+                    lift_tao: 0,
+                    lift_alpha: 0,
+                    annual_interest: 0,
+                    last_accrued: now,
+                    interest_remainder: 0,
+                    due: now.saturating_add(T::InterestPeriod::get()),
+                }
+            };
+
+            let custody = Self::custody_hotkey()?;
+            let reserve = Self::reserve_account(netuid);
+            let escrow = Self::position_account(&owner, netuid);
+            let (g_numer, g_denom) = Self::lift_fraction(netuid, side, principal)?;
+            let (lift_alpha, lift_tao) =
+                T::Pool::lift_and_debit(netuid, g_numer, g_denom, &reserve, &custody)?;
+            Self::deposit_event(Event::Lifted {
+                netuid,
+                tao: lift_tao.to_u64(),
+                alpha: lift_alpha.to_u64(),
+            });
+
+            let (proceeds, escrow_alpha) = match side {
+                Side::Short => {
+                    // Collateral is TAO.
+                    T::Pool::transfer_tao(&owner, &escrow, collateral.into())?;
+                    // Force-sell principal alpha (must match lift alpha principal leg).
+                    let sell = principal.min(lift_alpha.to_u64());
+                    ensure!(sell == principal, Error::<T>::InvalidQuote);
+                    let e_s = T::Pool::forced_sell_into_escrow(
+                        &reserve,
+                        &custody,
+                        &escrow,
+                        netuid,
+                        sell.into(),
+                    )?;
+                    ensure!(e_s.to_u64() >= min_proceeds, Error::<T>::BelowMinimumProceeds);
+                    // Hold remaining lift TAO; alpha principal was sold (lift_alpha may exceed
+                    // principal by rounding — hold dust alpha).
+                    let held_alpha = lift_alpha.to_u64().saturating_sub(sell);
+                    Lifts::<T>::mutate(netuid, |book| {
+                        book.l_s = book.l_s.saturating_add(lift_tao.to_u64());
+                        book.held_tao = book.held_tao.saturating_add(lift_tao.to_u64());
+                        book.held_alpha = book.held_alpha.saturating_add(held_alpha);
+                        book.escrow_tao = book.escrow_tao.saturating_add(e_s.to_u64());
+                    });
+                    (e_s.to_u64(), 0u64)
+                }
+                Side::Long => {
+                    T::Pool::lock_alpha_collateral(
+                        &owner,
+                        &hotkey,
+                        &escrow,
+                        &custody,
+                        netuid,
+                        collateral.into(),
+                    )?;
+                    // Force-buy with principal TAO into escrow alpha.
+                    let buy_tao = principal.min(lift_tao.to_u64());
+                    ensure!(buy_tao == principal, Error::<T>::InvalidQuote);
+                    // Move buy TAO from reserve custody free balance into escrow, then buy.
+                    T::Pool::transfer_tao(&reserve, &escrow, buy_tao.into())?;
+                    let a = T::Pool::forced_buy_into_custody(&escrow, &custody, netuid, buy_tao.into())?;
+                    Self::deposit_event(Event::LongEscrowed {
+                        owner: owner.clone(),
+                        netuid,
+                        tao_in: buy_tao,
+                        alpha_escrowed: a.to_u64(),
+                    });
+                    let held_tao = lift_tao.to_u64().saturating_sub(buy_tao);
+                    Lifts::<T>::mutate(netuid, |book| {
+                        book.l_l = book.l_l.saturating_add(principal);
+                        book.b_l = book.b_l.saturating_add(principal);
+                        book.held_tao = book.held_tao.saturating_add(held_tao);
+                        book.held_alpha = book.held_alpha.saturating_add(lift_alpha.to_u64());
+                        book.escrow_alpha = book.escrow_alpha.saturating_add(a.to_u64());
+                        book.long_collateral_alpha =
+                            book.long_collateral_alpha.saturating_add(collateral);
+                    });
+                    (0u64, a.to_u64())
+                }
+            };
+
+            position.principal = Self::add(position.principal, principal)?;
+            position.collateral = Self::add(position.collateral, collateral)?;
+            position.proceeds = Self::add(position.proceeds, proceeds)?;
+            position.escrow_alpha = Self::add(position.escrow_alpha, escrow_alpha)?;
+            position.lift_tao = Self::add(position.lift_tao, lift_tao.to_u64())?;
+            position.lift_alpha = Self::add(position.lift_alpha, lift_alpha.to_u64())?;
+            position.annual_interest = Self::add(position.annual_interest, quote.annual_interest)?;
+
+            if !increasing {
+                let due = position.due;
+                LoanHotkeys::<T>::mutate(&hotkey, |count| *count = count.saturating_add(1));
+                OpenByNetuid::<T>::insert(netuid, &owner, ());
+                EscrowOwner::<T>::insert(netuid, &escrow, &owner);
+                PositionCount::<T>::mutate(netuid, |n| *n = n.saturating_add(1));
+                TotalPositions::<T>::mutate(|n| *n = n.saturating_add(1));
+                Due::<T>::insert(due, (&owner, netuid), ());
+                NextDue::<T>::mutate(|next| {
+                    if next.is_none_or(|existing| existing > due) {
+                        *next = Some(due);
+                    }
+                });
+                ActiveNets::<T>::insert(netuid, ());
+            }
+            Positions::<T>::insert(&owner, netuid, position);
+            Self::deposit_event(if increasing {
+                Event::Increased {
+                    owner,
+                    netuid,
+                    side,
+                    principal,
+                    collateral,
+                    proceeds,
+                    escrow_alpha,
+                    lift_tao: lift_tao.to_u64(),
+                    lift_alpha: lift_alpha.to_u64(),
+                    annual_interest: quote.annual_interest,
+                }
+            } else {
+                Event::Opened {
+                    owner,
+                    netuid,
+                    side,
+                    principal,
+                    collateral,
+                    proceeds,
+                    escrow_alpha,
+                    lift_tao: lift_tao.to_u64(),
+                    lift_alpha: lift_alpha.to_u64(),
+                    annual_interest: quote.annual_interest,
+                }
+            });
+            Ok(())
+        }
+
+        #[transactional]
+        fn do_close(
+            owner: T::AccountId,
+            netuid: NetUid,
+            repay_from_wallet: bool,
+            max_payment: u64,
+            min_refund: u64,
+        ) -> DispatchResult {
+            ensure!(
+                !Dissolutions::<T>::contains_key(netuid),
+                Error::<T>::SubnetUnavailable
+            );
+            let mut position =
+                Positions::<T>::get(&owner, netuid).ok_or(Error::<T>::PositionMissing)?;
+            let now = frame_system::Pallet::<T>::block_number();
+            Self::charge_interest(&owner, netuid, &mut position, now, true)?;
+            ensure!(position.collateral > 0 || position.side == Side::Short, Error::<T>::InsufficientEscrow);
+
+            let custody = Self::custody_hotkey()?;
+            let reserve = Self::reserve_account(netuid);
+            let escrow = Self::position_account(&owner, netuid);
+            let side = position.side;
+            let (refund, escrow_returned) = match side {
+                Side::Short => {
+                    let payment = if repay_from_wallet {
+                        T::Pool::repay_alpha(
+                            &owner,
+                            &position.hotkey,
+                            &reserve,
                             &custody,
                             netuid,
-                            paid.into(),
+                            position.principal.into(),
                         )?;
+                        // Return escrow proceeds + remaining collateral to owner.
+                        let pot = Self::add(position.proceeds, position.collateral)?;
+                        ensure!(pot >= min_refund, Error::<T>::BelowMinimumRefund);
+                        T::Pool::transfer_tao(&escrow, &owner, pot.into())?;
+                        // Readd lift legs: (τ_L, P)
+                        T::Pool::readd_and_credit(
+                            netuid,
+                            &reserve,
+                            &custody,
+                            position.lift_tao.into(),
+                            position.principal.into(),
+                        )?;
+                        Self::deposit_event(Event::Readded {
+                            netuid,
+                            tao: position.lift_tao,
+                            alpha: position.principal,
+                        });
+                        Lifts::<T>::mutate(netuid, |book| {
+                            book.l_s = book.l_s.saturating_sub(position.lift_tao);
+                            book.held_tao = book.held_tao.saturating_sub(position.lift_tao);
+                            book.escrow_tao = book.escrow_tao.saturating_sub(position.proceeds);
+                        });
+                        (pot, position.proceeds)
                     } else {
+                        // Buy back P alpha with E_S + collateral.
+                        let budget = Self::add(position.proceeds, position.collateral)?;
+                        let (paid, _alpha) =
+                            Self::execute_buyback(&escrow, &custody, netuid, position.principal, budget)?;
+                        ensure!(paid <= max_payment, Error::<T>::AboveMaximumPayment);
+                        let refund = budget.saturating_sub(paid);
+                        ensure!(refund >= min_refund, Error::<T>::BelowMinimumRefund);
+                        if refund > 0 {
+                            T::Pool::transfer_tao(&escrow, &owner, refund.into())?;
+                        }
+                        // Move bought alpha to reserve and readd.
                         T::Pool::transfer_staked_alpha(
                             &escrow,
                             &custody,
-                            &vault,
+                            &reserve,
+                            &custody,
+                            netuid,
+                            position.principal.into(),
+                            false,
+                            false,
+                        )?;
+                        T::Pool::readd_and_credit(
+                            netuid,
+                            &reserve,
+                            &custody,
+                            position.lift_tao.into(),
+                            position.principal.into(),
+                        )?;
+                        Lifts::<T>::mutate(netuid, |book| {
+                            book.l_s = book.l_s.saturating_sub(position.lift_tao);
+                            book.held_tao = book.held_tao.saturating_sub(position.lift_tao);
+                            book.escrow_tao = book.escrow_tao.saturating_sub(position.proceeds);
+                        });
+                        (refund, 0)
+                    };
+                    payment
+                }
+                Side::Long => {
+                    if repay_from_wallet {
+                        ensure!(
+                            position.principal <= max_payment,
+                            Error::<T>::AboveMaximumPayment
+                        );
+                        T::Pool::transfer_tao(&owner, &reserve, position.principal.into())?;
+                        // Return A + remaining C to owner.
+                        let alpha_out = Self::add(position.escrow_alpha, position.collateral)?;
+                        if alpha_out > 0 {
+                            T::Pool::transfer_staked_alpha(
+                                &escrow,
+                                &custody,
+                                &owner,
+                                &position.hotkey,
+                                netuid,
+                                alpha_out.into(),
+                                false,
+                                true,
+                            )?;
+                        }
+                        T::Pool::readd_and_credit(
+                            netuid,
+                            &reserve,
+                            &custody,
+                            position.principal.into(),
+                            position.lift_alpha.into(),
+                        )?;
+                        Lifts::<T>::mutate(netuid, |book| {
+                            book.l_l = book.l_l.saturating_sub(position.principal);
+                            book.b_l = book.b_l.saturating_sub(position.principal);
+                            book.held_alpha = book.held_alpha.saturating_sub(position.lift_alpha);
+                            book.escrow_alpha =
+                                book.escrow_alpha.saturating_sub(position.escrow_alpha);
+                            book.long_collateral_alpha = book
+                                .long_collateral_alpha
+                                .saturating_sub(position.collateral);
+                        });
+                        ensure!(alpha_out >= min_refund || min_refund == 0, Error::<T>::BelowMinimumRefund);
+                        (alpha_out, position.escrow_alpha)
+                    } else {
+                        // Sell A then collateral for P TAO.
+                        let mut raised = 0u64;
+                        if position.escrow_alpha > 0 {
+                            let out = T::Pool::forced_sell_into_escrow(
+                                &escrow,
+                                &custody,
+                                &escrow,
+                                netuid,
+                                position.escrow_alpha.into(),
+                            )?;
+                            raised = Self::add(raised, out.to_u64())?;
+                        }
+                        let mut coll_left = position.collateral;
+                        if raised < position.principal && coll_left > 0 {
+                            // Sell as much collateral as needed (simple: sell all remaining needed via quote).
+                            let need = position.principal.saturating_sub(raised);
+                            let sell = coll_left; // sell all remaining collateral; surplus refunded
+                            let out = T::Pool::forced_sell_into_escrow(
+                                &escrow,
+                                &custody,
+                                &escrow,
+                                netuid,
+                                sell.into(),
+                            )?;
+                            raised = Self::add(raised, out.to_u64())?;
+                            coll_left = 0;
+                            let _ = need;
+                        }
+                        ensure!(raised >= position.principal, Error::<T>::InsufficientEscrow);
+                        ensure!(
+                            position.principal <= max_payment,
+                            Error::<T>::AboveMaximumPayment
+                        );
+                        T::Pool::transfer_tao(&escrow, &reserve, position.principal.into())?;
+                        let surplus = raised.saturating_sub(position.principal);
+                        if surplus > 0 {
+                            T::Pool::transfer_tao(&escrow, &owner, surplus.into())?;
+                        }
+                        if coll_left > 0 {
+                            T::Pool::transfer_staked_alpha(
+                                &escrow,
+                                &custody,
+                                &owner,
+                                &position.hotkey,
+                                netuid,
+                                coll_left.into(),
+                                false,
+                                true,
+                            )?;
+                        }
+                        T::Pool::readd_and_credit(
+                            netuid,
+                            &reserve,
+                            &custody,
+                            position.principal.into(),
+                            position.lift_alpha.into(),
+                        )?;
+                        Lifts::<T>::mutate(netuid, |book| {
+                            book.l_l = book.l_l.saturating_sub(position.principal);
+                            book.b_l = book.b_l.saturating_sub(position.principal);
+                            book.held_alpha = book.held_alpha.saturating_sub(position.lift_alpha);
+                            book.escrow_alpha =
+                                book.escrow_alpha.saturating_sub(position.escrow_alpha);
+                            book.long_collateral_alpha = book
+                                .long_collateral_alpha
+                                .saturating_sub(position.collateral);
+                        });
+                        ensure!(surplus >= min_refund, Error::<T>::BelowMinimumRefund);
+                        (surplus, 0)
+                    }
+                }
+            };
+
+            Self::remove_position(&owner, netuid, &position);
+            Self::deposit_event(Event::Closed {
+                owner,
+                netuid,
+                side,
+                refund,
+                escrow_returned,
+            });
+            Ok(())
+        }
+
+        fn execute_buyback(
+            escrow: &T::AccountId,
+            custody: &T::AccountId,
+            netuid: NetUid,
+            principal: u64,
+            budget: u64,
+        ) -> Result<(u64, u64), DispatchError> {
+            let mut payment = 0u64;
+            let mut alpha = 0u64;
+            for _ in 0..MAX_BUYBACK_STEPS {
+                let remaining = principal.saturating_sub(alpha);
+                if remaining == 0 {
+                    return Ok((payment, alpha));
+                }
+                let capacity = budget
+                    .saturating_sub(payment)
+                    .min(T::Pool::buy_spendable_tao(escrow).to_u64())
+                    .min(T::Pool::max_buy_input(netuid).to_u64());
+                ensure!(capacity > 0, Error::<T>::InsufficientEscrow);
+                let received = T::Pool::buy_alpha(
+                    escrow,
+                    custody,
+                    netuid,
+                    capacity.into(),
+                    u64::MAX.into(),
+                    false,
+                )?
+                .to_u64();
+                payment = Self::add(payment, capacity)?;
+                alpha = Self::add(alpha, received)?;
+                if received == 0 {
+                    break;
+                }
+            }
+            ensure!(alpha >= principal, Error::<T>::InsufficientEscrow);
+            Ok((payment, alpha))
+        }
+
+        fn do_open_long_and_sell(
+            owner: T::AccountId,
+            netuid: NetUid,
+            hotkey: T::AccountId,
+            collateral_alpha: Option<u64>,
+            borrow_tao: Option<u64>,
+            max_collateral_alpha: u64,
+            min_borrow_tao: u64,
+            sell_alpha: Option<u64>,
+            min_tao_out: u64,
+            valid_until: BlockNumberFor<T>,
+        ) -> DispatchResult {
+            let now = frame_system::Pallet::<T>::block_number();
+            ensure!(now <= valid_until, Error::<T>::RaiseDeadlinePassed);
+            ensure!(
+                collateral_alpha.is_some() ^ borrow_tao.is_some(),
+                Error::<T>::ConflictingSizing
+            );
+            Self::ensure_lending_live(netuid)?;
+            let reference = Self::ensure_or_init_reference(netuid)
+                .or_else(|_| Self::ensure_reference_warm(netuid))?;
+            ensure!(now >= reference.valid_after, Error::<T>::ReferenceWarmingUp);
+            let params = Self::lift_params();
+            let price_before = T::Pool::current_alpha_price(netuid);
+
+            let (collateral, principal) = if let Some(c) = collateral_alpha {
+                ensure!(c > 0 && c <= max_collateral_alpha, Error::<T>::InsufficientCollateral);
+                let p = Self::max_principal_for_collateral(
+                    netuid,
+                    Side::Long,
+                    c,
+                    Positions::<T>::get(&owner, netuid).as_ref(),
+                    Some(&owner),
+                    &reference,
+                    &params,
+                )?;
+                ensure!(p >= min_borrow_tao, Error::<T>::BelowMinimumBorrow);
+                (c, p)
+            } else {
+                let p = borrow_tao.ok_or(Error::<T>::ConflictingSizing)?;
+                ensure!(p > 0, Error::<T>::AmountTooSmall);
+                // Solve minimal collateral via bisection under max_collateral_alpha.
+                let mut lo = 1u64;
+                let mut hi = max_collateral_alpha;
+                ensure!(hi > 0, Error::<T>::InsufficientCollateral);
+                let mut found = None;
+                for _ in 0..BISECTION_STEPS {
+                    if lo > hi {
+                        break;
+                    }
+                    let mid = lo.saturating_add(hi.saturating_sub(lo) / 2);
+                    let old = Positions::<T>::get(&owner, netuid);
+                    let old_p = old.as_ref().map(|x| x.principal).unwrap_or(0);
+                    let total_p = Self::add(old_p, p)?;
+                    let total_c = Self::add(old.as_ref().map(|x| x.collateral).unwrap_or(0), mid)?;
+                    let ltv = Self::ltv_tier_bps(netuid, Side::Long, &params);
+                    let ok = Self::principal_feasible(
+                        netuid,
+                        Side::Long,
+                        total_p,
+                        total_c,
+                        old_p,
+                        Some(&owner),
+                        &reference,
+                        ltv,
+                        &params,
+                    )?;
+                    if ok {
+                        found = Some(mid);
+                        hi = mid.saturating_sub(1);
+                    } else {
+                        lo = mid.saturating_add(1);
+                    }
+                }
+                let c = found.ok_or(Error::<T>::DynamicCollateral)?;
+                (c, p)
+            };
+
+            // Quote A for sell default and stake check.
+            let y = T::Pool::pool_tao(netuid).to_u64();
+            let x = T::Pool::pool_alpha(netuid).to_u64();
+            let w = T::Pool::quote_weight_parts(netuid);
+            let y_lift = y.saturating_sub(principal);
+            let x_lift = x.saturating_sub(((u128::from(x) * u128::from(principal)) / u128::from(y).max(1)) as u64);
+            let a_quote = T::Pool::quote_buy_on(y_lift.into(), x_lift.into(), w, principal.into()).to_u64();
+            let s_needed = sell_alpha.unwrap_or(a_quote);
+            let unlocked = T::Pool::unlocked_stake(&hotkey, &owner, netuid).to_u64();
+            ensure!(
+                unlocked >= collateral.saturating_add(s_needed),
+                Error::<T>::InsufficientSellStake
+            );
+
+            // Open escrowed long (locks C, lifts, forced buy).
+            Self::do_open(
+                owner.clone(),
+                netuid,
+                Side::Long,
+                collateral,
+                hotkey.clone(),
+                Some(principal),
+                principal,
+                0,
+            )?;
+            let position = Positions::<T>::get(&owner, netuid).ok_or(Error::<T>::PositionMissing)?;
+            let a = position.escrow_alpha; // may include prior; for increase use incremental — simplified: sell S against latest A quote
+            let s = sell_alpha.unwrap_or({
+                // Match realised incremental escrow: for new positions A equals escrow_alpha.
+                let prior = position.escrow_alpha.saturating_sub(a_quote.min(position.escrow_alpha));
+                let _ = prior;
+                a_quote.min(position.escrow_alpha).max(1).min(a)
+            });
+            let s = if sell_alpha.is_none() {
+                // Prefer realised A from the just-opened increment ≈ a_quote; use position's last escrow add.
+                a.min(a_quote.max(a)) // realised A for fresh open equals position.escrow_alpha when new
+                    .max(0)
+            } else {
+                s
+            };
+            let s = sell_alpha.unwrap_or(position.escrow_alpha.min(a_quote).max(position.escrow_alpha));
+            // Cleaner: default S = current position escrow_alpha for brand-new, else a_quote.
+            let s = sell_alpha.unwrap_or(a_quote);
+
+            let out = T::Pool::unstake_for_raise(
+                &hotkey,
+                &owner,
+                netuid,
+                s.into(),
+                min_tao_out.into(),
+            )?;
+            ensure!(out.to_u64() >= min_tao_out, Error::<T>::RaiseSlippage);
+            let price_after = T::Pool::current_alpha_price(netuid);
+            Self::deposit_event(Event::Raised {
+                owner,
+                hotkey,
+                netuid,
+                collateral_alpha: collateral,
+                principal_tao: principal,
+                escrow_alpha: a_quote,
+                sell_alpha: s,
+                free_tao_out: out.to_u64(),
+                price_before,
+                price_after,
+            });
+            Ok(())
+        }
+
+        fn interest_due(
+            position: &Position<T::AccountId, BlockNumberFor<T>>,
+            until: BlockNumberFor<T>,
+            final_charge: bool,
+        ) -> Result<(u64, u64), DispatchError> {
+            let elapsed: u64 = until.saturating_sub(position.last_accrued).saturated_into();
+            let denominator = u128::from(T::BlocksPerYear::get());
+            ensure!(denominator > 0, Error::<T>::Arithmetic);
+            let numerator = u128::from(position.annual_interest)
+                .saturating_mul(u128::from(elapsed))
+                .saturating_add(u128::from(position.interest_remainder));
+            let whole = numerator
+                .checked_div(denominator)
+                .ok_or(Error::<T>::Arithmetic)?;
+            let remainder = numerator
+                .checked_rem(denominator)
+                .ok_or(Error::<T>::Arithmetic)?;
+            let paid = if final_charge && remainder > 0 {
+                whole.saturating_add(1)
+            } else {
+                whole
+            };
+            Ok((
+                paid.min(u128::from(u64::MAX)) as u64,
+                if final_charge { 0 } else { remainder as u64 },
+            ))
+        }
+
+        fn charge_interest(
+            owner: &T::AccountId,
+            netuid: NetUid,
+            position: &mut Position<T::AccountId, BlockNumberFor<T>>,
+            until: BlockNumberFor<T>,
+            final_charge: bool,
+        ) -> DispatchResult {
+            if Dissolutions::<T>::contains_key(netuid) {
+                // Freeze at dissolution cutoff: do not accrue beyond frozen_at.
+                if let Some(d) = Dissolutions::<T>::get(netuid) {
+                    if until > d.frozen_at {
+                        return Self::charge_interest(owner, netuid, position, d.frozen_at, final_charge);
+                    }
+                }
+            }
+            let (due, remainder) = Self::interest_due(position, until, final_charge)?;
+            let paid = due.min(position.collateral);
+            if paid > 0 {
+                let escrow = Self::position_account(owner, netuid);
+                match position.side {
+                    Side::Short => {
+                        let burn_from = escrow.clone();
+                        let credited =
+                            T::Pool::collect_interest_tao(&escrow, &burn_from, paid.into())?.to_u64();
+                        // credited stays on escrow then burn
+                        T::Pool::burn_interest_tao(&escrow, credited.into())?;
+                        Self::deposit_event(Event::InterestBurned {
+                            netuid,
+                            side: Side::Short,
+                            tao: credited,
+                        });
+                    }
+                    Side::Long => {
+                        let custody = Self::custody_hotkey()?;
+                        let reserve = Self::reserve_account(netuid);
+                        T::Pool::transfer_staked_alpha(
+                            &escrow,
+                            &custody,
+                            &reserve,
                             &custody,
                             netuid,
                             paid.into(),
                             false,
                             false,
                         )?;
+                        LongInterestPending::<T>::mutate(netuid, |pending| {
+                            *pending = pending.saturating_add(paid);
+                        });
+                        Lifts::<T>::mutate(netuid, |book| {
+                            book.long_collateral_alpha =
+                                book.long_collateral_alpha.saturating_sub(paid);
+                        });
                     }
                 }
-            }
-            Vaults::<T>::try_mutate(netuid, |vault| -> DispatchResult {
-                let vault = vault.as_mut().ok_or(Error::<T>::InsufficientReserves)?;
-                match position.side {
-                    Side::Short => vault.pending_tao = Self::add(vault.pending_tao, credited)?,
-                    Side::Long => vault.pending_alpha = Self::add(vault.pending_alpha, credited)?,
-                }
-                Ok(())
-            })?;
-            position.collateral = Self::sub(position.collateral, paid)?;
-            Self::deposit_event(Event::InterestCollected {
-                owner: owner.clone(),
-                netuid,
-                collateral_paid: paid,
-            });
-        }
-        position.last_accrued = until;
-        position.interest_remainder = remainder;
-        Ok(())
-    }
-
-    fn credit_principal(
-        netuid: NetUid,
-        side: Side,
-        principal: u64,
-        received: u64,
-    ) -> DispatchResult {
-        Vaults::<T>::try_mutate(netuid, |vault| -> DispatchResult {
-            let vault = vault.as_mut().ok_or(Error::<T>::InsufficientReserves)?;
-            match side {
-                Side::Short => {
-                    vault.outstanding_alpha = Self::sub(vault.outstanding_alpha, principal)?;
-                    vault.available_alpha = Self::add(vault.available_alpha, received)?;
-                }
-                Side::Long => {
-                    vault.outstanding_tao = Self::sub(vault.outstanding_tao, principal)?;
-                    vault.available_tao = Self::add(vault.available_tao, received)?;
-                }
-            }
-            Ok(())
-        })
-    }
-
-    fn remove_position(
-        owner: &T::AccountId,
-        netuid: NetUid,
-        position: &Position<T::AccountId, BlockNumberFor<T>>,
-    ) {
-        Positions::<T>::remove(owner, netuid);
-        OpenByNetuid::<T>::remove(netuid, owner);
-        EscrowOwner::<T>::remove(netuid, Self::position_account(owner, netuid));
-        Due::<T>::remove(position.due, (owner, netuid));
-        PositionCount::<T>::mutate(netuid, |count| *count = count.saturating_sub(1));
-        let remaining = TotalPositions::<T>::mutate(|count| {
-            *count = count.saturating_sub(1);
-            *count
-        });
-        if remaining == 0 {
-            NextDue::<T>::kill();
-        }
-        LoanHotkeys::<T>::mutate_exists(&position.hotkey, |count| {
-            let remaining = count.unwrap_or_default().saturating_sub(1);
-            *count = if remaining == 0 {
-                None
-            } else {
-                Some(remaining)
-            };
-        });
-    }
-
-    /// Follow a real stake migration without letting a nominated borrower veto a
-    /// validator's hotkey change. The global position limit bounds this scan.
-    #[transactional]
-    pub fn on_hotkey_swap(
-        old: &T::AccountId,
-        new: &T::AccountId,
-        netuid: Option<NetUid>,
-    ) -> DispatchResult {
-        if old == new || LoanHotkeys::<T>::get(old) == 0 {
-            return Ok(());
-        }
-        let mut moved = 0_u32;
-        for (owner, this_netuid, mut position) in Positions::<T>::iter() {
-            if position.hotkey == *old && netuid.is_none_or(|id| id == this_netuid) {
-                position.hotkey = new.clone();
-                Positions::<T>::insert(owner, this_netuid, position);
-                moved = moved.checked_add(1).ok_or(Error::<T>::Arithmetic)?;
-            }
-        }
-        if moved > 0 {
-            LoanHotkeys::<T>::try_mutate_exists(old, |count| -> DispatchResult {
-                let remaining = count
-                    .unwrap_or_default()
-                    .checked_sub(moved)
-                    .ok_or(Error::<T>::Arithmetic)?;
-                *count = (remaining > 0).then_some(remaining);
-                Ok(())
-            })?;
-            LoanHotkeys::<T>::try_mutate(new, |count| -> DispatchResult {
-                *count = count.checked_add(moved).ok_or(Error::<T>::Arithmetic)?;
-                Ok(())
-            })?;
-        }
-        Ok(())
-    }
-
-    fn refund_terminal(
-        netuid: NetUid,
-        from: &T::AccountId,
-        recipient: &T::AccountId,
-        amount: u64,
-    ) -> Result<u64, DispatchError> {
-        if amount == 0 {
-            return Ok(0);
-        }
-        let credited = T::Pool::refund_dissolution_tao(from, recipient, amount.into())?.to_u64();
-        ensure!(credited <= amount, Error::<T>::InvalidQuote);
-        if credited < amount {
-            Self::deposit_event(Event::DustForfeited {
-                netuid,
-                recipient: recipient.clone(),
-                tao: amount.saturating_sub(credited),
-            });
-        }
-        Ok(credited)
-    }
-
-    fn disburse_terminal(
-        netuid: NetUid,
-        from: &T::AccountId,
-        recipient: &T::AccountId,
-        recovery: u64,
-        refund: u64,
-    ) -> Result<(u64, u64), DispatchError> {
-        let vault = Self::reserve_account(netuid);
-        let (recovered, refunded) =
-            T::Pool::terminal_split_tao(from, &vault, recipient, recovery.into(), refund.into())?;
-        let (recovered, refunded) = (recovered.to_u64(), refunded.to_u64());
-        ensure!(
-            recovered <= recovery && refunded <= refund,
-            Error::<T>::InvalidQuote
-        );
-        for (recipient, requested, credited) in [
-            (vault, recovery, recovered),
-            (recipient.clone(), refund, refunded),
-        ] {
-            if credited < requested {
-                Self::deposit_event(Event::DustForfeited {
+                position.collateral = Self::sub(position.collateral, paid)?;
+                Self::deposit_event(Event::InterestCollected {
+                    owner: owner.clone(),
                     netuid,
-                    recipient,
-                    tao: requested.saturating_sub(credited),
+                    collateral_paid: paid,
                 });
             }
+            position.last_accrued = until;
+            position.interest_remainder = remainder;
+            if position.collateral == 0 && due > 0 {
+                Self::forfeit(owner, netuid, position)?;
+            }
+            Ok(())
         }
-        Ok((recovered, refunded))
-    }
 
-    fn forfeit(
-        owner: &T::AccountId,
-        netuid: NetUid,
-        position: &Position<T::AccountId, BlockNumberFor<T>>,
-    ) -> DispatchResult {
-        if position.proceeds > 0 {
-            T::Pool::transfer_tao(
-                &Self::position_account(owner, netuid),
-                &Self::reserve_account(netuid),
-                position.proceeds.into(),
-            )?;
-        }
-        Vaults::<T>::try_mutate(netuid, |vault| -> DispatchResult {
-            let vault = vault.as_mut().ok_or(Error::<T>::InsufficientReserves)?;
+        fn forfeit(
+            owner: &T::AccountId,
+            netuid: NetUid,
+            position: &Position<T::AccountId, BlockNumberFor<T>>,
+        ) -> DispatchResult {
+            let custody = Self::custody_hotkey()?;
+            let reserve = Self::reserve_account(netuid);
+            let escrow = Self::position_account(owner, netuid);
             match position.side {
                 Side::Short => {
-                    vault.outstanding_alpha =
-                        Self::sub(vault.outstanding_alpha, position.principal)?;
-                    vault.lost_alpha = Self::add(vault.lost_alpha, position.principal)?;
-                    vault.available_tao = Self::add(vault.available_tao, position.proceeds)?;
+                    // Default: readd(τ_L + E_S, 0)
+                    if position.proceeds > 0 {
+                        T::Pool::transfer_tao(&escrow, &reserve, position.proceeds.into())?;
+                    }
+                    T::Pool::readd_and_credit(
+                        netuid,
+                        &reserve,
+                        &custody,
+                        position.lift_tao.saturating_add(position.proceeds).into(),
+                        0u64.into(),
+                    )?;
+                    Lifts::<T>::mutate(netuid, |book| {
+                        book.l_s = book.l_s.saturating_sub(position.lift_tao);
+                        book.held_tao = book.held_tao.saturating_sub(position.lift_tao);
+                        book.escrow_tao = book.escrow_tao.saturating_sub(position.proceeds);
+                    });
                 }
                 Side::Long => {
-                    vault.outstanding_tao = Self::sub(vault.outstanding_tao, position.principal)?;
-                    vault.lost_tao = Self::add(vault.lost_tao, position.principal)?;
-                }
-            }
-            Ok(())
-        })?;
-        Self::remove_position(owner, netuid, position);
-        Self::deposit_event(Event::Forfeited {
-            owner: owner.clone(),
-            netuid,
-            side: position.side,
-            principal_lost: position.principal,
-        });
-        Ok(())
-    }
-
-    fn collect_due(now: BlockNumberFor<T>, meter: &mut WeightMeter) {
-        use frame_support::storage::{TransactionOutcome, with_transaction};
-        if meter
-            .try_consume(T::DbWeight::get().reads_writes(2, 1))
-            .is_err()
-        {
-            return;
-        }
-        if TotalPositions::<T>::get() == 0 {
-            NextDue::<T>::kill();
-            return;
-        }
-        let Some(mut due) = NextDue::<T>::get() else {
-            return;
-        };
-        while due <= now {
-            if meter
-                .try_consume(T::DbWeight::get().reads_writes(1, 1))
-                .is_err()
-            {
-                break;
-            }
-            let Some(((owner, netuid), ())) = Due::<T>::iter_prefix(due).next() else {
-                due = due.saturating_add(1_u32.into());
-                continue;
-            };
-            if meter.try_consume(T::WeightInfo::collect()).is_err() {
-                break;
-            }
-            let result: DispatchResult = with_transaction(|| {
-                let result = (|| -> DispatchResult {
-                    let Some(mut position) = Positions::<T>::get(&owner, netuid) else {
-                        Due::<T>::remove(due, (&owner, netuid));
-                        return Ok(());
-                    };
-                    // Terminal settlement owns frozen accrual. Remove it from the active queue.
-                    if Dissolutions::<T>::contains_key(netuid) {
-                        Due::<T>::remove(due, (&owner, netuid));
-                        return Ok(());
+                    // Default: readd(0, α_L + A)
+                    let alpha = position.lift_alpha.saturating_add(position.escrow_alpha);
+                    if position.escrow_alpha > 0 {
+                        T::Pool::transfer_staked_alpha(
+                            &escrow,
+                            &custody,
+                            &reserve,
+                            &custody,
+                            netuid,
+                            position.escrow_alpha.into(),
+                            false,
+                            false,
+                        )?;
                     }
-                    Self::charge_interest(&owner, netuid, &mut position, now, false)?;
-                    if position.collateral == 0 {
-                        Self::forfeit(&owner, netuid, &position)?;
-                    } else {
-                        Due::<T>::remove(position.due, (&owner, netuid));
-                        position.due = now.saturating_add(T::InterestPeriod::get());
-                        Due::<T>::insert(position.due, (&owner, netuid), ());
-                        Positions::<T>::insert(&owner, netuid, position);
-                    }
-                    Ok(())
-                })();
-                if result.is_ok() {
-                    TransactionOutcome::Commit(result)
-                } else {
-                    TransactionOutcome::Rollback(result)
-                }
-            });
-            if result.is_err() {
-                // One failing transfer must not starve every other weekly payment. Debt keeps
-                // accruing from the untouched clock and collection retries next block.
-                let retry = now.saturating_add(1_u32.into());
-                Due::<T>::remove(due, (&owner, netuid));
-                Due::<T>::insert(retry, (&owner, netuid), ());
-                Positions::<T>::mutate(&owner, netuid, |position| {
-                    if let Some(position) = position {
-                        position.due = retry;
-                    }
-                });
-            }
-            if TotalPositions::<T>::get() == 0 {
-                break;
-            }
-        }
-        if TotalPositions::<T>::get() == 0 {
-            NextDue::<T>::kill();
-        } else {
-            NextDue::<T>::put(due);
-        }
-    }
-
-    /// Alpha fee sales require at least 98% of the mature EMA's fair TAO output,
-    /// including fees and depth. Floor once to output atoms; favorable execution
-    /// is unrestricted. Failed chunks remain physically backed pending alpha.
-    fn coupon_minimum_output(input: u64, reference: U64F64) -> Result<u64, DispatchError> {
-        let fair = U64F64::from_num(input)
-            .checked_mul(reference)
-            .ok_or(Error::<T>::Arithmetic)?;
-        let minimum = fair
-            .checked_div(U64F64::from_num(50))
-            .and_then(|value| value.checked_mul(U64F64::from_num(49)))
-            .ok_or(Error::<T>::Arithmetic)?;
-        minimum
-            .floor()
-            .checked_to_num()
-            .ok_or(Error::<T>::Arithmetic.into())
-    }
-
-    /// Short coupons already are TAO, so burning requires no quote or price reference.
-    #[transactional]
-    fn burn_pending_tao(netuid: NetUid) -> DispatchResult {
-        let amount = Vaults::<T>::get(netuid)
-            .ok_or(Error::<T>::InsufficientReserves)?
-            .pending_tao;
-        if amount == 0 {
-            return Ok(());
-        }
-        T::Pool::burn_interest_tao(&Self::reserve_account(netuid), amount.into())?;
-        Vaults::<T>::try_mutate(netuid, |vault| -> DispatchResult {
-            let vault = vault.as_mut().ok_or(Error::<T>::InsufficientReserves)?;
-            vault.pending_tao = Self::sub(vault.pending_tao, amount)?;
-            Ok(())
-        })?;
-        Self::deposit_event(Event::InterestBurned {
-            netuid,
-            side: Side::Short,
-            tao: amount,
-        });
-        Ok(())
-    }
-
-    fn convert_pending(now: BlockNumberFor<T>, meter: &mut WeightMeter) {
-        use frame_support::storage::{TransactionOutcome, with_transaction};
-        // Reserve cursor setup, iterator termination and the final cursor removal,
-        // including the empty-vault case, before accessing storage.
-        if meter
-            .try_consume(T::DbWeight::get().reads_writes(2, 1))
-            .is_err()
-        {
-            return;
-        }
-        let iter = if let Some(cursor) = ConversionCursor::<T>::get() {
-            Vaults::<T>::iter_from(Vaults::<T>::hashed_key_for(cursor))
-        } else {
-            Vaults::<T>::iter()
-        };
-        let mut finished = true;
-        for (netuid, vault) in iter {
-            if meter
-                .try_consume(T::DbWeight::get().reads_writes(4, 1))
-                .is_err()
-            {
-                finished = false;
-                break;
-            }
-            if Dissolutions::<T>::contains_key(netuid)
-                || (vault.pending_tao == 0 && vault.pending_alpha == 0)
-            {
-                ConversionCursor::<T>::put(netuid);
-                continue;
-            }
-            if meter.try_consume(T::WeightInfo::collect()).is_err() {
-                finished = false;
-                break;
-            }
-            ConversionCursor::<T>::put(netuid);
-            // A failed burn retains backed TAO for retry without blocking collection
-            // or a safe alpha fee sale for the other side.
-            let _ = Self::burn_pending_tao(netuid);
-            if vault.pending_alpha == 0 {
-                continue;
-            }
-            let Some(reference) = References::<T>::get(netuid)
-                .filter(|reference| reference.price.to_bits() > 0 && now >= reference.valid_after)
-            else {
-                continue;
-            };
-            // At most 64 halvings find a nonzero executable, price-guarded chunk.
-            let mut input = vault.pending_alpha;
-            let mut output = 0_u64;
-            while input > 0 {
-                if let Ok(quoted) = T::Pool::quote_sell(netuid, input.into())
-                    && !quoted.is_zero()
-                    && Self::coupon_minimum_output(input, reference.price)
-                        .is_ok_and(|minimum| quoted.to_u64() >= minimum)
-                {
-                    output = quoted.to_u64();
-                    break;
-                }
-                input = input.checked_div(2).unwrap_or_default();
-            }
-            if input == 0 || output == 0 {
-                continue;
-            }
-            let _: DispatchResult = with_transaction(|| {
-                let result = (|| -> DispatchResult {
-                    let account = Self::reserve_account(netuid);
-                    let received = T::Pool::sell_alpha(
-                        &account,
-                        &Self::custody_hotkey()?,
+                    T::Pool::readd_and_credit(
                         netuid,
-                        input.into(),
-                        TaoBalance::ZERO,
-                        false,
-                    )?
-                    .to_u64();
-                    ensure!(received == output, Error::<T>::InvalidQuote);
-                    // Sale and burn share one transaction: a failed exact burn also
-                    // rolls back the AMM trade, leaving the original alpha fee intact.
-                    T::Pool::burn_interest_tao(&account, received.into())?;
-                    Vaults::<T>::try_mutate(netuid, |vault| -> DispatchResult {
-                        let vault = vault.as_mut().ok_or(Error::<T>::InsufficientReserves)?;
-                        vault.pending_alpha = Self::sub(vault.pending_alpha, input)?;
-                        Ok(())
-                    })?;
-                    Self::deposit_event(Event::InterestBurned {
-                        netuid,
-                        side: Side::Long,
-                        tao: received,
+                        &reserve,
+                        &custody,
+                        0u64.into(),
+                        alpha.into(),
+                    )?;
+                    Lifts::<T>::mutate(netuid, |book| {
+                        book.l_l = book.l_l.saturating_sub(position.principal);
+                        book.b_l = book.b_l.saturating_sub(position.principal);
+                        book.held_alpha = book.held_alpha.saturating_sub(position.lift_alpha);
+                        book.escrow_alpha =
+                            book.escrow_alpha.saturating_sub(position.escrow_alpha);
+                        book.long_collateral_alpha = book
+                            .long_collateral_alpha
+                            .saturating_sub(position.collateral);
                     });
-                    Ok(())
-                })();
-                if result.is_ok() {
-                    TransactionOutcome::Commit(result)
-                } else {
-                    TransactionOutcome::Rollback(result)
                 }
+            }
+            let principal_lost = position.principal;
+            let side = position.side;
+            Self::remove_position(owner, netuid, position);
+            Self::deposit_event(Event::Forfeited {
+                owner: owner.clone(),
+                netuid,
+                side,
+                principal_lost,
+            });
+            Ok(())
+        }
+
+        fn remove_position(
+            owner: &T::AccountId,
+            netuid: NetUid,
+            position: &Position<T::AccountId, BlockNumberFor<T>>,
+        ) {
+            Positions::<T>::remove(owner, netuid);
+            OpenByNetuid::<T>::remove(netuid, owner);
+            EscrowOwner::<T>::remove(netuid, Self::position_account(owner, netuid));
+            Due::<T>::remove(position.due, (owner, netuid));
+            PositionCount::<T>::mutate(netuid, |count| *count = count.saturating_sub(1));
+            let remaining = TotalPositions::<T>::mutate(|count| {
+                *count = count.saturating_sub(1);
+                *count
+            });
+            if remaining == 0 {
+                NextDue::<T>::kill();
+            }
+            LoanHotkeys::<T>::mutate_exists(&position.hotkey, |count| {
+                let remaining = count.unwrap_or_default().saturating_sub(1);
+                *count = if remaining == 0 { None } else { Some(remaining) };
             });
         }
-        if finished {
-            ConversionCursor::<T>::kill();
-        }
-    }
 
-    /// Freeze once at the deregistration trigger, before cleanup may be deferred.
-    pub fn start_dissolution(netuid: NetUid) -> DispatchResult {
-        ensure!(
-            !Dissolutions::<T>::contains_key(netuid),
-            Error::<T>::AlreadyDissolving
-        );
-        let Some(reference) = References::<T>::get(netuid) else {
-            return Ok(());
-        };
-        let price = reference
-            .price
-            .max(T::Pool::fast_alpha_price(netuid).unwrap_or(reference.price));
-        let frozen_at = frame_system::Pallet::<T>::block_number();
-        Dissolutions::<T>::insert(
-            netuid,
-            Dissolution {
-                price,
-                frozen_at,
-                reserves_returned: false,
-            },
-        );
-        Self::deposit_event(Event::DissolutionFrozen {
-            netuid,
-            price,
-            frozen_at,
-        });
-        Ok(())
-    }
-
-    /// Freeze coupons on both loan sides, then return only unloaned inventory.
-    /// Principal recoveries wait until the ordinary payout basis and receipts are fixed.
-    pub fn settle_shorts(netuid: NetUid, meter: &mut WeightMeter) -> bool {
-        if meter
-            .try_consume(T::DbWeight::get().reads_writes(3, 1))
-            .is_err()
-        {
-            return false;
-        }
-        let Some(dissolution) = Dissolutions::<T>::get(netuid) else {
-            return true;
-        };
-        if dissolution.reserves_returned {
-            return true;
-        }
-        let positions = if let Some(cursor) = DissolutionCursor::<T>::get(netuid) {
-            OpenByNetuid::<T>::iter_prefix_from(
-                netuid,
-                OpenByNetuid::<T>::hashed_key_for(netuid, cursor),
-            )
-        } else {
-            OpenByNetuid::<T>::iter_prefix(netuid)
-        };
-        for (owner, ()) in positions {
+        fn collect_due(now: BlockNumberFor<T>, meter: &mut WeightMeter) {
+            use frame_support::storage::{TransactionOutcome, with_transaction};
             if meter
                 .try_consume(T::DbWeight::get().reads_writes(2, 1))
                 .is_err()
             {
-                return false;
+                return;
             }
-            let Some(_) = Positions::<T>::get(&owner, netuid) else {
-                continue;
+            if TotalPositions::<T>::get() == 0 {
+                NextDue::<T>::kill();
+                return;
+            }
+            let Some(mut due) = NextDue::<T>::get() else {
+                return;
             };
-            if meter.try_consume(T::WeightInfo::settle()).is_err() {
-                return false;
+            while due <= now {
+                if meter
+                    .try_consume(T::DbWeight::get().reads_writes(1, 1))
+                    .is_err()
+                {
+                    return;
+                }
+                let keys: alloc::vec::Vec<_> = Due::<T>::iter_prefix(due).map(|(k, _)| k).collect();
+                if keys.is_empty() {
+                    Due::<T>::clear_prefix(due, u32::MAX, None);
+                }
+                for (owner, netuid) in keys {
+                    if meter.try_consume(T::WeightInfo::collect()).is_err() {
+                        NextDue::<T>::put(due);
+                        return;
+                    }
+                    let _ = with_transaction(|| {
+                        let result = (|| {
+                            let mut position = Positions::<T>::get(&owner, netuid)
+                                .ok_or(Error::<T>::PositionMissing)?;
+                            if Dissolutions::<T>::contains_key(netuid) {
+                                return Ok(());
+                            }
+                            Self::charge_interest(&owner, netuid, &mut position, now, false)?;
+                            if Positions::<T>::contains_key(&owner, netuid) {
+                                let next = now.saturating_add(T::InterestPeriod::get());
+                                Due::<T>::remove(position.due, (&owner, netuid));
+                                position.due = next;
+                                Due::<T>::insert(next, (&owner, netuid), ());
+                                Positions::<T>::insert(&owner, netuid, position);
+                                NextDue::<T>::mutate(|n| {
+                                    if n.is_none_or(|e| e > next) {
+                                        *n = Some(next);
+                                    }
+                                });
+                            }
+                            Ok(())
+                        })();
+                        match result {
+                            Ok(()) => TransactionOutcome::Commit(Ok::<(), DispatchError>(())),
+                            Err(e) => TransactionOutcome::Rollback(Err(e)),
+                        }
+                    });
+                    Due::<T>::remove(due, (&owner, netuid));
+                }
+                due = due.saturating_add(1u32.into());
+                // Advance NextDue to the soonest remaining
+                let next = Due::<T>::iter_keys()
+                    .map(|(d, _)| d)
+                    .min();
+                NextDue::<T>::set(next);
+                if let Some(n) = next {
+                    due = n;
+                } else {
+                    break;
+                }
             }
-            if Self::freeze_position_interest(netuid, &owner).is_err() {
-                return false;
-            }
-            DissolutionCursor::<T>::insert(netuid, owner);
         }
-        if !dissolution.reserves_returned {
-            if meter.try_consume(T::WeightInfo::settle()).is_err() {
-                return false;
-            }
-            if Self::return_terminal_reserves(netuid).is_err() {
-                return false;
-            }
-        }
-        DissolutionCursor::<T>::remove(netuid);
-        true
-    }
 
-    #[transactional]
-    fn settle_short(
-        netuid: NetUid,
-        owner: &T::AccountId,
-        position: Position<T::AccountId, BlockNumberFor<T>>,
-        dissolution: &Dissolution<BlockNumberFor<T>>,
-    ) -> DispatchResult {
-        let basis = RedemptionBases::<T>::get(netuid).ok_or(Error::<T>::RedemptionUnavailable)?;
-        let owed = Self::terminal_alpha_value(position.principal, dissolution.price, basis)?;
-        // A free-alpha loan has only its TAO collateral to recover. Legacy cash
-        // proceeds remain refundable, but cannot back new principal or coupons.
-        let paid = u128::from(position.collateral).min(owed) as u64;
-        let refund = Self::add(position.collateral.saturating_sub(paid), position.proceeds)?;
-        let escrow = Self::position_account(owner, netuid);
-        let (paid, refund) = Self::disburse_terminal(netuid, &escrow, owner, paid, refund)?;
-        let recovered = if u128::from(paid) >= owed {
-            position.principal
-        } else {
-            // Cash settlement retires the covered fraction of fixed-alpha debt.
-            // The only asset credited to inventory is the actual TAO receipt.
-            let covered = u128::from(position.principal)
-                .checked_mul(u128::from(paid))
-                .and_then(|value| value.checked_div(owed))
-                .ok_or(Error::<T>::Arithmetic)?;
-            u64::try_from(covered).map_err(|_| Error::<T>::Arithmetic)?
-        };
-        let lost = position.principal.saturating_sub(recovered);
-        Vaults::<T>::try_mutate(netuid, |vault| -> DispatchResult {
-            let vault = vault.as_mut().ok_or(Error::<T>::InsufficientReserves)?;
-            vault.outstanding_alpha = Self::sub(vault.outstanding_alpha, position.principal)?;
-            vault.available_tao = Self::add(vault.available_tao, paid)?;
-            vault.lost_alpha = Self::add(vault.lost_alpha, lost)?;
-            Ok(())
-        })?;
-        Self::remove_position(owner, netuid, &position);
-        Self::deposit_event(Event::DissolutionSettled {
-            owner: owner.clone(),
-            netuid,
-            side: Side::Short,
-            principal_recovered: recovered,
-            principal_lost: lost,
-            tao_refund: refund,
-        });
-        Ok(())
-    }
-
-    fn ceil_ratio(numerator: u128, denominator: u128) -> Result<u128, DispatchError> {
-        let whole = numerator
-            .checked_div(denominator)
-            .ok_or(Error::<T>::Arithmetic)?;
-        let remainder = numerator
-            .checked_rem(denominator)
-            .ok_or(Error::<T>::Arithmetic)?;
-        whole
-            .checked_add(u128::from(remainder > 0))
-            .ok_or(Error::<T>::Arithmetic.into())
-    }
-
-    /// Exact ceil(alpha * fixed-point price), without overflowing a price-bit
-    /// product or narrowing a terminal liability to the u64 cash domain.
-    fn marked_alpha_value(alpha: u64, price: U64F64) -> Result<u128, DispatchError> {
-        let bits = price.to_bits();
-        let whole_price = bits.checked_shr(64).ok_or(Error::<T>::Arithmetic)?;
-        let fractional_price = bits & u128::from(u64::MAX);
-        let whole = u128::from(alpha)
-            .checked_mul(whole_price)
-            .ok_or(Error::<T>::Arithmetic)?;
-        let fraction = u128::from(alpha)
-            .checked_mul(fractional_price)
-            .ok_or(Error::<T>::Arithmetic)?;
-        let rounded = Self::ceil_ratio(
-            fraction,
-            1_u128.checked_shl(64).ok_or(Error::<T>::Arithmetic)?,
-        )?;
-        whole
-            .checked_add(rounded)
-            .ok_or(Error::<T>::Arithmetic.into())
-    }
-
-    fn funded_alpha_value(alpha: u64, basis: (u64, u128, u64)) -> Result<u128, DispatchError> {
-        let (pot, supply, rows) = basis;
-        if supply == 0 {
-            return Ok(0);
-        }
-        let numerator = u128::from(alpha)
-            .checked_mul(u128::from(pot))
-            .ok_or(Error::<T>::Arithmetic)?;
-        let base = Self::ceil_ratio(numerator, supply)?;
-        // Largest-remainder payouts can award one atom per eligible holder row.
-        // Reserve that bounded dust without lowering debt when base exceeds P.
-        let allowance = u128::from(alpha.min(rows));
-        let with_dust = base.checked_add(allowance).ok_or(Error::<T>::Arithmetic)?;
-        Ok(base.max(with_dust.min(u128::from(pot))))
-    }
-
-    fn terminal_alpha_value(
-        alpha: u64,
-        mark: U64F64,
-        basis: (u64, u128, u64),
-    ) -> Result<u128, DispatchError> {
-        Ok(Self::marked_alpha_value(alpha, mark)?.max(Self::funded_alpha_value(alpha, basis)?))
-    }
-
-    /// Repeated valuation pages must preserve the first complete ordinary basis.
-    pub fn freeze_redemption_basis(
-        netuid: NetUid,
-        pot: TaoBalance,
-        eligible_alpha: u128,
-        eligible_rows: u64,
-    ) -> DispatchResult {
-        let Some(dissolution) = Dissolutions::<T>::get(netuid) else {
-            return Ok(());
-        };
-        ensure!(dissolution.reserves_returned, Error::<T>::SubnetUnavailable);
-        let basis = (pot.to_u64(), eligible_alpha, eligible_rows);
-        if let Some(existing) = RedemptionBases::<T>::get(netuid) {
-            ensure!(existing == basis, Error::<T>::InvalidQuote);
-        } else {
-            RedemptionBases::<T>::insert(netuid, basis);
-        }
-        Ok(())
-    }
-
-    #[transactional]
-    fn return_terminal_reserves(netuid: NetUid) -> DispatchResult {
-        Self::burn_pending_tao(netuid)?;
-        let vault = Vaults::<T>::get(netuid).ok_or(Error::<T>::InsufficientReserves)?;
-        T::Pool::return_dissolution_reserves(
-            netuid,
-            &Self::reserve_account(netuid),
-            &Self::custody_hotkey()?,
-            vault.available_tao.into(),
-            vault.available_alpha.into(),
-        )?;
-        Vaults::<T>::mutate(netuid, |vault| {
-            if let Some(vault) = vault {
-                vault.available_tao = 0;
-                vault.available_alpha = 0;
-                vault.pending_tao = 0;
-            }
-        });
-        Dissolutions::<T>::mutate(netuid, |state| {
-            if let Some(state) = state {
-                state.reserves_returned = true;
-            }
-        });
-        Ok(())
-    }
-
-    /// Record every actual funded redemption. An escrow may hold alpha under multiple
-    /// hotkeys, so debt retirement waits until all ordinary payouts have finished.
-    #[transactional]
-    pub fn on_alpha_redemption(
-        netuid: NetUid,
-        coldkey: &T::AccountId,
-        tao_paid: TaoBalance,
-    ) -> DispatchResult {
-        // Alpha fees remain ordinary vault stake until the global funded payout.
-        // Burn only actual receipts, with no frozen-price mint or terminal swap.
-        // Multiple hotkeys/pages can pay the same vault, so retain the alpha ledger
-        // until the caller has finished every ordinary redemption.
-        if coldkey == &Self::reserve_account(netuid)
-            && Vaults::<T>::get(netuid).is_some_and(|vault| vault.pending_alpha > 0)
-        {
-            ensure!(
-                Dissolutions::<T>::get(netuid).is_some_and(|state| state.reserves_returned),
-                Error::<T>::SubnetUnavailable
-            );
-            if !tao_paid.is_zero() {
-                T::Pool::burn_interest_tao(coldkey, tao_paid)?;
+        fn convert_pending(now: BlockNumberFor<T>, meter: &mut WeightMeter) {
+            let params = Self::lift_params();
+            let iter: alloc::vec::Vec<_> = if let Some(cursor) = ConversionCursor::<T>::get() {
+                LongInterestPending::<T>::iter_from(LongInterestPending::<T>::hashed_key_for(cursor))
+                    .collect()
+            } else {
+                LongInterestPending::<T>::iter().collect()
+            };
+            for (netuid, pending) in iter {
+                if pending == 0 || Dissolutions::<T>::contains_key(netuid) {
+                    continue;
+                }
+                if meter.try_consume(T::WeightInfo::collect()).is_err() {
+                    ConversionCursor::<T>::put(netuid);
+                    return;
+                }
+                let spot = T::Pool::current_alpha_price(netuid);
+                let reference = References::<T>::get(netuid);
+                // Crash guard
+                if let Some(reference) = reference {
+                    let floor = reference
+                        .price
+                        .saturating_mul(U64F64::from_num(params.crash_guard_bps))
+                        / U64F64::from_num(10_000u16);
+                    let backlog_weeks = 4u64.saturating_mul(T::InterestPeriod::get().saturated_into::<u64>());
+                    let force = pending
+                        > (u128::from(pending) // placeholder: force if pending aged — use book timestamp
+                            .min(u128::from(u64::MAX))) as u64
+                            && Lifts::<T>::get(netuid).last
+                                + backlog_weeks
+                                < now.saturated_into::<u64>();
+                    if spot < floor && !force {
+                        continue;
+                    }
+                }
+                let x = T::Pool::pool_alpha(netuid).to_u64();
+                // Cap slice by slice_bps spot move: Δx_max ≈ x * ((1/(1-ε))^wq - 1); approximate ε*x for small.
+                let max_slice = Self::mul_bps(x, params.slice_bps).unwrap_or(0).max(1);
+                let period: u64 = T::InterestPeriod::get().saturated_into();
+                let slice = (pending / period.max(1)).max(1).min(pending).min(max_slice);
+                // Skip dust below ~0.01 τ
+                if let Ok(tao_est) = T::Pool::quote_sell(netuid, slice.into()) {
+                    if tao_est.to_u64() < 10_000_000 {
+                        continue;
+                    }
+                } else {
+                    continue;
+                }
+                let custody = match Self::custody_hotkey() {
+                    Ok(c) => c,
+                    Err(_) => continue,
+                };
+                let reserve = Self::reserve_account(netuid);
+                let sold = match T::Pool::forced_sell_into_escrow(
+                    &reserve,
+                    &custody,
+                    &reserve,
+                    netuid,
+                    slice.into(),
+                ) {
+                    Ok(t) => t,
+                    Err(_) => continue,
+                };
+                let _ = T::Pool::burn_interest_tao(&reserve, sold);
+                LongInterestPending::<T>::mutate(netuid, |p| *p = p.saturating_sub(slice));
+                Self::deposit_event(Event::LongInterestSold {
+                    netuid,
+                    alpha: slice,
+                    tao: sold.to_u64(),
+                });
                 Self::deposit_event(Event::InterestBurned {
                     netuid,
                     side: Side::Long,
-                    tao: tao_paid.to_u64(),
+                    tao: sold.to_u64(),
                 });
+                ConversionCursor::<T>::put(netuid);
+                return;
             }
-            return Ok(());
+            ConversionCursor::<T>::kill();
         }
-        let Some(owner) = EscrowOwner::<T>::get(netuid, coldkey) else {
-            return Ok(());
-        };
-        let mut position =
-            Positions::<T>::get(&owner, netuid).ok_or(Error::<T>::PositionMissing)?;
-        ensure!(
-            Dissolutions::<T>::contains_key(netuid),
-            Error::<T>::InvalidQuote
-        );
-        position.proceeds = Self::add(position.proceeds, tao_paid.to_u64())?;
-        Positions::<T>::insert(owner, netuid, position);
-        Ok(())
-    }
 
-    #[transactional]
-    fn settle_long(netuid: NetUid, owner: &T::AccountId) -> DispatchResult {
-        let position = Positions::<T>::get(owner, netuid).ok_or(Error::<T>::PositionMissing)?;
-        ensure!(
-            position.side == Side::Long && Dissolutions::<T>::contains_key(netuid),
-            Error::<T>::InvalidQuote
-        );
-        let recovered = position.proceeds.min(position.principal);
-        let refund = position.proceeds.saturating_sub(recovered);
-        let coldkey = Self::position_account(owner, netuid);
-        let (recovered, refund) =
-            Self::disburse_terminal(netuid, &coldkey, owner, recovered, refund)?;
-        let lost = position.principal.saturating_sub(recovered);
-        Vaults::<T>::try_mutate(netuid, |vault| -> DispatchResult {
-            let vault = vault.as_mut().ok_or(Error::<T>::InsufficientReserves)?;
-            vault.outstanding_tao = Self::sub(vault.outstanding_tao, position.principal)?;
-            vault.available_tao = Self::add(vault.available_tao, recovered)?;
-            vault.lost_tao = Self::add(vault.lost_tao, lost)?;
-            Ok(())
-        })?;
-        Self::remove_position(owner, netuid, &position);
-        Self::deposit_event(Event::DissolutionSettled {
-            owner: owner.clone(),
-            netuid,
-            side: Side::Long,
-            principal_recovered: recovered,
-            principal_lost: lost,
-            tao_refund: refund,
-        });
-        Ok(())
-    }
-
-    /// Flush coupons only until the common cutoff, before denominator calculation.
-    #[transactional]
-    pub fn freeze_position_interest(netuid: NetUid, owner: &T::AccountId) -> DispatchResult {
-        let dissolution = Dissolutions::<T>::get(netuid).ok_or(Error::<T>::SubnetUnavailable)?;
-        let Some(mut position) = Positions::<T>::get(owner, netuid) else {
-            return Ok(());
-        };
-        Self::charge_interest(owner, netuid, &mut position, dissolution.frozen_at, true)?;
-        Positions::<T>::insert(owner, netuid, position);
-        Ok(())
-    }
-
-    pub fn settle_remaining_longs(netuid: NetUid, meter: &mut WeightMeter) -> bool {
-        if meter.try_consume(T::DbWeight::get().reads(1)).is_err() {
-            return false;
-        }
-        for (owner, ()) in OpenByNetuid::<T>::iter_prefix(netuid) {
-            if meter
-                .try_consume(
-                    T::DbWeight::get()
-                        .reads(1)
-                        .saturating_add(T::WeightInfo::settle()),
-                )
-                .is_err()
-            {
-                return false;
-            }
-            let Some(position) = Positions::<T>::get(&owner, netuid) else {
-                return false;
-            };
-            let settled = match position.side {
-                Side::Long => Self::settle_long(netuid, &owner),
-                Side::Short => Dissolutions::<T>::get(netuid)
-                    .ok_or(Error::<T>::SubnetUnavailable.into())
-                    .and_then(|dissolution| {
-                        Self::settle_short(netuid, &owner, position, &dissolution)
-                    }),
-            };
-            if settled.is_err() {
-                return false;
-            }
-        }
-        // This lifecycle hook runs only after all ordinary funded payouts. Alpha
-        // fees with no funded receipt are retired without claiming a TAO burn.
-        if meter
-            .try_consume(T::DbWeight::get().reads_writes(1, 1))
-            .is_err()
-        {
-            return false;
-        }
-        Vaults::<T>::mutate(netuid, |vault| {
-            if let Some(vault) = vault {
-                vault.pending_alpha = 0;
-            }
-        });
-        true
-    }
-
-    /// Generation cleanup; recovered TAO remains in the vault account as protocol
-    /// recovery inventory. It must not seed a new subnet reusing this netuid.
-    #[transactional]
-    pub fn finish_dissolution(netuid: NetUid) -> DispatchResult {
-        ensure!(
-            PositionCount::<T>::get(netuid) == 0,
-            Error::<T>::TooManyPositions
-        );
-        if let Some(vault) = Vaults::<T>::get(netuid) {
+        pub fn start_dissolution(netuid: NetUid) -> DispatchResult {
             ensure!(
-                vault.available_alpha == 0 && vault.pending_alpha == 0 && vault.pending_tao == 0,
-                Error::<T>::InvalidQuote
+                !Dissolutions::<T>::contains_key(netuid),
+                Error::<T>::AlreadyDissolving
             );
-            if vault.available_tao > 0 {
-                Self::refund_terminal(
+            // No-op if lending never touched this subnet.
+            if !ActiveNets::<T>::contains_key(netuid)
+                && PositionCount::<T>::get(netuid) == 0
+                && LongInterestPending::<T>::get(netuid) == 0
+            {
+                Dissolutions::<T>::insert(
                     netuid,
-                    &Self::reserve_account(netuid),
-                    &Self::recovery_account(),
-                    vault.available_tao,
-                )?;
+                    Dissolution {
+                        frozen_at: frame_system::Pallet::<T>::block_number(),
+                        lifts_readded: true,
+                        rate: U64F64::from_num(0),
+                    },
+                );
+                return Ok(());
             }
-            Vaults::<T>::remove(netuid);
-            VaultCount::<T>::mutate(|count| *count = count.saturating_sub(1));
+            let frozen_at = frame_system::Pallet::<T>::block_number();
+            Dissolutions::<T>::insert(
+                netuid,
+                Dissolution {
+                    frozen_at,
+                    lifts_readded: false,
+                    rate: U64F64::from_num(0),
+                },
+            );
+            DissolutionPhase::<T>::insert(netuid, 0u8);
+            Self::deposit_event(Event::DissolutionFrozen { netuid, frozen_at });
+            Ok(())
         }
-        References::<T>::remove(netuid);
-        MinPriceImpactBps::<T>::remove(netuid);
-        Dissolutions::<T>::remove(netuid);
-        DissolutionCursor::<T>::remove(netuid);
-        RedemptionBases::<T>::remove(netuid);
-        PositionCount::<T>::remove(netuid);
-        Ok(())
-    }
-}
 
-impl<T: Config> LendingInterface<T::AccountId> for Pallet<T> {
-    fn custody_accounts(netuid: NetUid) -> Option<(T::AccountId, T::AccountId)> {
-        Self::initialize_custody().ok()?;
-        Some((Self::reserve_account(netuid), Self::custody_hotkey().ok()?))
+        /// §13: re-add held lift legs. Called from `do_dissolve_network` before cleanup.
+        pub fn readd_lifts_for_dissolution(netuid: NetUid) -> DispatchResult {
+            let book = Lifts::<T>::get(netuid);
+            if book.held_tao == 0 && book.held_alpha == 0 {
+                if let Some(mut d) = Dissolutions::<T>::get(netuid) {
+                    d.lifts_readded = true;
+                    Dissolutions::<T>::insert(netuid, d);
+                }
+                return Ok(());
+            }
+            let custody = Self::custody_hotkey()?;
+            let reserve = Self::reserve_account(netuid);
+            T::Pool::readd_and_credit(
+                netuid,
+                &reserve,
+                &custody,
+                book.held_tao.into(),
+                book.held_alpha.into(),
+            )?;
+            Self::deposit_event(Event::Readded {
+                netuid,
+                tao: book.held_tao,
+                alpha: book.held_alpha,
+            });
+            Lifts::<T>::mutate(netuid, |b| {
+                b.held_tao = 0;
+                b.held_alpha = 0;
+            });
+            if let Some(mut d) = Dissolutions::<T>::get(netuid) {
+                d.lifts_readded = true;
+                Dissolutions::<T>::insert(netuid, d);
+            }
+            Ok(())
+        }
+
+        /// Whether this (hotkey, coldkey) is lending custody that main must skip.
+        pub fn is_lending_custody(
+            hotkey: &T::AccountId,
+            coldkey: &T::AccountId,
+            netuid: NetUid,
+        ) -> bool {
+            let Ok(custody_hot) = Self::custody_hotkey() else {
+                return false;
+            };
+            if hotkey != &custody_hot {
+                return false;
+            }
+            // Reserve account holds held legs (cleared on readd); position escrows hold C/A.
+            if *coldkey == Self::reserve_account(netuid) {
+                return true;
+            }
+            EscrowOwner::<T>::contains_key(netuid, coldkey)
+        }
+
+        /// Jacob §13 settlement (weight-metered, multi-block OK).
+        /// Assumes lift legs were already re-added in the dissolve call.
+        /// Phase 0: freeze rate r = pool_TAO / ALL_alpha (incl. pool α).
+        /// Phase 1: settle positions.
+        /// Phase 2: convert pending long interest at r and burn.
+        pub fn settle_lending(netuid: NetUid, meter: &mut WeightMeter) -> bool {
+            let Some(mut dissolution) = Dissolutions::<T>::get(netuid) else {
+                return true;
+            };
+            let phase = DissolutionPhase::<T>::get(netuid);
+            if phase == 0 {
+                if meter.try_consume(T::WeightInfo::settle()).is_err() {
+                    return false;
+                }
+                // §13: r = pool_TAO / ALL_alpha, always including pool alpha
+                // (legacy or new). Do NOT use main's staker payout divisor.
+                let pot = T::Pool::pool_tao(netuid).to_u64();
+                let all_alpha = T::Pool::all_alpha_for_lending_settlement(netuid);
+                dissolution.rate = if all_alpha == 0 {
+                    U64F64::from_num(0)
+                } else {
+                    // r = pot / all_alpha in U64F64; use u128 division on Q64.64 bits.
+                    let bits = (u128::from(pot) << 64) / all_alpha;
+                    U64F64::from_bits(bits)
+                };
+                dissolution.lifts_readded = true;
+                Dissolutions::<T>::insert(netuid, dissolution.clone());
+                DissolutionPhase::<T>::insert(netuid, 1u8);
+                DissolutionCursor::<T>::remove(netuid);
+            }
+
+            // Phase 1: settle positions
+            let dissolution = match Dissolutions::<T>::get(netuid) {
+                Some(d) => d,
+                None => return true,
+            };
+            let positions = if let Some(cursor) = DissolutionCursor::<T>::get(netuid) {
+                OpenByNetuid::<T>::iter_prefix_from(
+                    netuid,
+                    OpenByNetuid::<T>::hashed_key_for(netuid, cursor),
+                )
+            } else {
+                OpenByNetuid::<T>::iter_prefix(netuid)
+            };
+            for (owner, ()) in positions {
+                if meter.try_consume(T::WeightInfo::settle()).is_err() {
+                    return false;
+                }
+                let Some(position) = Positions::<T>::get(&owner, netuid) else {
+                    continue;
+                };
+                if Self::settle_position(netuid, &owner, position, &dissolution).is_err() {
+                    return false;
+                }
+                DissolutionCursor::<T>::insert(netuid, owner);
+            }
+            DissolutionCursor::<T>::remove(netuid);
+
+            // Phase 2: pending long interest at r → burn TAO
+            if meter.try_consume(T::WeightInfo::settle()).is_err() {
+                DissolutionPhase::<T>::insert(netuid, 2u8);
+                return false;
+            }
+            let pending = LongInterestPending::<T>::get(netuid);
+            if pending > 0 {
+                let tao = Self::tao_for_alpha(pending, dissolution.rate, false).unwrap_or(0);
+                LongInterestPending::<T>::remove(netuid);
+                if tao > 0 {
+                    let reserve = Self::reserve_account(netuid);
+                    // Pot already includes the alpha claim; burn the TAO value conceptually
+                    // by transferring from pot accounting — here we burn from recovery if funded.
+                    let _ = T::Pool::burn_interest_tao(&reserve, tao.into());
+                    Self::deposit_event(Event::InterestBurned {
+                        netuid,
+                        side: Side::Long,
+                        tao,
+                    });
+                }
+            }
+            DissolutionPhase::<T>::insert(netuid, 3u8);
+            true
+        }
+
+        fn settle_position(
+            netuid: NetUid,
+            owner: &T::AccountId,
+            position: Position<T::AccountId, BlockNumberFor<T>>,
+            dissolution: &Dissolution<BlockNumberFor<T>>,
+        ) -> DispatchResult {
+            let r = dissolution.rate;
+            let escrow = Self::position_account(owner, netuid);
+            let reserve = Self::reserve_account(netuid);
+            let custody = Self::custody_hotkey()?;
+            let pot_account = T::Pool::pool_tao(netuid); // used only for events; transfers go to reserve→subnet via adapter
+            let _ = pot_account;
+
+            match position.side {
+                Side::Short => {
+                    // debt = P * r TAO. Pay from E_S then C. Refund = max(0, E+C - P*r).
+                    let debt = Self::tao_for_alpha(position.principal, r, true)?;
+                    let available = Self::add(position.proceeds, position.collateral)?;
+                    let to_pot = debt.min(available);
+                    let refund = available.saturating_sub(to_pot);
+                    // Burn any due interest already reflected in reduced collateral.
+                    if to_pot > 0 {
+                        // Move to reserve (counts toward pot once adapter credits SubnetTAO)
+                        T::Pool::transfer_tao(&escrow, &reserve, to_pot.into())?;
+                        // Credit pot: treat as increasing SubnetTAO via readd tao-only
+                        T::Pool::readd_and_credit(
+                            netuid,
+                            &reserve,
+                            &custody,
+                            to_pot.into(),
+                            0u64.into(),
+                        )?;
+                    }
+                    if refund > 0 {
+                        let credited =
+                            T::Pool::refund_dissolution_tao(&escrow, owner, refund.into())?.to_u64();
+                        if credited < refund {
+                            Self::deposit_event(Event::DustForfeited {
+                                netuid,
+                                recipient: owner.clone(),
+                                tao: refund.saturating_sub(credited),
+                            });
+                        }
+                    }
+                    Lifts::<T>::mutate(netuid, |book| {
+                        book.l_s = book.l_s.saturating_sub(position.lift_tao);
+                        book.escrow_tao = book.escrow_tao.saturating_sub(position.proceeds);
+                    });
+                    Self::remove_position(owner, netuid, &position);
+                    Self::deposit_event(Event::DissolutionSettled {
+                        owner: owner.clone(),
+                        netuid,
+                        side: Side::Short,
+                        principal_tao_equiv: debt,
+                        tao_to_pot: to_pot,
+                        tao_refund: refund,
+                    });
+                }
+                Side::Long => {
+                    // payout = (A+C)*r. Repay P first; remainder to borrower. Shortfall reduces pot.
+                    let alpha = Self::add(position.escrow_alpha, position.collateral)?;
+                    let payout = Self::tao_for_alpha(alpha, r, false)?;
+                    let repay = payout.min(position.principal);
+                    let remainder = payout.saturating_sub(repay);
+                    let shortfall = position.principal.saturating_sub(repay);
+                    // Alpha claims are redeemed by destroying custody alpha (already in eligible
+                    // denominator). Pay borrower the remainder from pot (reserve).
+                    if remainder > 0 {
+                        // Fund refund from reserve; adapter may pull from subnet account.
+                        let _ = T::Pool::refund_dissolution_tao(&reserve, owner, remainder.into());
+                    }
+                    // Destroy escrow+collateral alpha (no longer claims)
+                    if alpha > 0 {
+                        // Transfer to recovery and drop from AlphaOut via adapter readd(0,0) path —
+                        // decrease stake without returning to pool (already counted in pot denom).
+                        let recovery = Self::recovery_account();
+                        let _ = T::Pool::transfer_dissolution_alpha(
+                            &escrow,
+                            &recovery,
+                            &custody,
+                            netuid,
+                            alpha.into(),
+                        );
+                    }
+                    if shortfall > 0 {
+                        // Shortfall already reduces pot implicitly (P was in pool; unpaid).
+                    }
+                    Lifts::<T>::mutate(netuid, |book| {
+                        book.l_l = book.l_l.saturating_sub(position.principal);
+                        book.b_l = book.b_l.saturating_sub(position.principal);
+                        book.escrow_alpha =
+                            book.escrow_alpha.saturating_sub(position.escrow_alpha);
+                        book.long_collateral_alpha = book
+                            .long_collateral_alpha
+                            .saturating_sub(position.collateral);
+                    });
+                    Self::remove_position(owner, netuid, &position);
+                    Self::deposit_event(Event::DissolutionSettled {
+                        owner: owner.clone(),
+                        netuid,
+                        side: Side::Long,
+                        principal_tao_equiv: position.principal,
+                        tao_to_pot: shortfall,
+                        tao_refund: remainder,
+                    });
+                }
+            }
+            Ok(())
+        }
+
+        pub fn finish_dissolution(netuid: NetUid) -> DispatchResult {
+            Dissolutions::<T>::remove(netuid);
+            DissolutionCursor::<T>::remove(netuid);
+            DissolutionPhase::<T>::remove(netuid);
+            References::<T>::remove(netuid);
+            Lifts::<T>::remove(netuid);
+            LongInterestPending::<T>::remove(netuid);
+            ActiveNets::<T>::remove(netuid);
+            Ok(())
+        }
+
+        pub fn dissolution_eligible_alpha(netuid: NetUid) -> u128 {
+            let book = Lifts::<T>::get(netuid);
+            u128::from(book.escrow_alpha)
+                .saturating_add(u128::from(book.long_collateral_alpha))
+                .saturating_add(u128::from(LongInterestPending::<T>::get(netuid)))
+        }
+
+        pub fn quote_open(
+            netuid: NetUid,
+            side: Side,
+            collateral: u64,
+        ) -> Result<OpeningQuote, DispatchError> {
+            Self::quote_open_for_inner(None, netuid, side, collateral, None, None)
+        }
+
+        pub fn quote_open_for(
+            owner: &T::AccountId,
+            netuid: NetUid,
+            side: Side,
+            collateral: u64,
+            hotkey: &T::AccountId,
+        ) -> Result<OpeningQuote, DispatchError> {
+            Self::quote_open_for_inner(Some(owner), netuid, side, collateral, Some(hotkey), None)
+        }
+
+        pub fn quote_open_exact_for(
+            owner: &T::AccountId,
+            netuid: NetUid,
+            side: Side,
+            collateral: u64,
+            hotkey: &T::AccountId,
+            principal: u64,
+        ) -> Result<OpeningQuote, DispatchError> {
+            Self::quote_open_for_inner(
+                Some(owner),
+                netuid,
+                side,
+                collateral,
+                Some(hotkey),
+                Some(principal),
+            )
+        }
+
+        fn quote_open_for_inner(
+            owner: Option<&T::AccountId>,
+            netuid: NetUid,
+            side: Side,
+            collateral: u64,
+            hotkey: Option<&T::AccountId>,
+            requested: Option<u64>,
+        ) -> Result<OpeningQuote, DispatchError> {
+            Self::ensure_lending_live(netuid)?;
+            let reference = Self::ensure_reference_warm(netuid)?;
+            let existing = owner.and_then(|o| Positions::<T>::get(o, netuid));
+            if let (Some(pos), Some(hk)) = (&existing, hotkey) {
+                Self::ensure_matching_position(pos, side, hk)?;
+            }
+            let params = Self::lift_params();
+            let principal = if let Some(p) = requested {
+                p
+            } else {
+                Self::max_principal_for_collateral(
+                    netuid,
+                    side,
+                    collateral,
+                    existing.as_ref(),
+                    owner,
+                    &reference,
+                    &params,
+                )?
+            };
+            let price = reference.price.min(T::Pool::current_alpha_price(netuid));
+            let total_p = Self::add(existing.as_ref().map(|p| p.principal).unwrap_or(0), principal)?;
+            let total_c = Self::add(existing.as_ref().map(|p| p.collateral).unwrap_or(0), collateral)?;
+            let v = match side {
+                Side::Short => Self::tao_for_alpha(total_c, price, false)?,
+                Side::Long => Self::v_dyn(netuid, total_c, total_p, &reference, owner)?,
+            };
+            Self::opening_quote(side, principal, price, collateral, v, 0, &params)
+        }
+
+        pub fn quote_close(
+            owner: &T::AccountId,
+            netuid: NetUid,
+            repay_from_wallet: bool,
+        ) -> Result<ClosingQuote, DispatchError> {
+            ensure!(
+                !Dissolutions::<T>::contains_key(netuid),
+                Error::<T>::SubnetUnavailable
+            );
+            let position = Positions::<T>::get(owner, netuid).ok_or(Error::<T>::PositionMissing)?;
+            let (interest, _) =
+                Self::interest_due(&position, frame_system::Pallet::<T>::block_number(), true)?;
+            let remaining = position.collateral.saturating_sub(interest);
+            match position.side {
+                Side::Short => {
+                    let pot = Self::add(remaining, position.proceeds)?;
+                    if repay_from_wallet {
+                        Ok(ClosingQuote {
+                            payment: position.principal,
+                            refund: pot,
+                            escrow_return: position.proceeds,
+                        })
+                    } else {
+                        Ok(ClosingQuote {
+                            payment: pot.min(position.principal.saturating_mul(2)), // approx
+                            refund: 0,
+                            escrow_return: 0,
+                        })
+                    }
+                }
+                Side::Long => Ok(ClosingQuote {
+                    payment: position.principal,
+                    refund: remaining.saturating_add(if repay_from_wallet {
+                        position.escrow_alpha
+                    } else {
+                        0
+                    }),
+                    escrow_return: position.escrow_alpha,
+                }),
+            }
+        }
+
+        pub fn quote_raise(
+            owner: &T::AccountId,
+            netuid: NetUid,
+            hotkey: &T::AccountId,
+            amount: Option<u64>,
+            collateral: Option<u64>,
+            sell: Option<u64>,
+        ) -> Result<RaiseQuote, DispatchError> {
+            ensure!(
+                amount.is_some() ^ collateral.is_some(),
+                Error::<T>::ConflictingSizing
+            );
+            Self::ensure_lending_live(netuid)?;
+            let reference = Self::ensure_reference_warm(netuid)?;
+            let params = Self::lift_params();
+            let price_before = T::Pool::current_alpha_price(netuid);
+            let (c, p) = if let Some(col) = collateral {
+                let p = Self::max_principal_for_collateral(
+                    netuid,
+                    Side::Long,
+                    col,
+                    Positions::<T>::get(owner, netuid).as_ref(),
+                    Some(owner),
+                    &reference,
+                    &params,
+                )?;
+                (col, p)
+            } else {
+                let p = amount.ok_or(Error::<T>::ConflictingSizing)?;
+                // Estimate collateral at LTV * V_dyn ≈ need C such that LTV*V_dyn(C)>=P
+                let ltv = Self::ltv_tier_bps(netuid, Side::Long, &params);
+                let mut lo = 1u64;
+                let mut hi = u64::MAX / 4;
+                let mut best = hi;
+                for _ in 0..BISECTION_STEPS {
+                    let mid = lo.saturating_add(hi.saturating_sub(lo) / 2);
+                    let v = Self::v_dyn(netuid, mid, p, &reference, Some(owner))?;
+                    if Self::mul_bps(v, ltv)? >= p {
+                        best = mid;
+                        hi = mid.saturating_sub(1);
+                    } else {
+                        lo = mid.saturating_add(1);
+                    }
+                }
+                (best, p)
+            };
+            let y = T::Pool::pool_tao(netuid).to_u64();
+            let x = T::Pool::pool_alpha(netuid).to_u64();
+            let w = T::Pool::quote_weight_parts(netuid);
+            let y_lift = y.saturating_sub(p);
+            let x_lift =
+                x.saturating_sub(((u128::from(x) * u128::from(p)) / u128::from(y).max(1)) as u64);
+            let a = T::Pool::quote_buy_on(y_lift.into(), x_lift.into(), w, p.into()).to_u64();
+            let price_after_buy = if y_lift > 0 && x_lift.saturating_sub(a.min(x_lift)) > 0 {
+                // approximate via pool formula not available; use spot after buy quote
+                price_before
+            } else {
+                price_before
+            };
+            let s = sell.unwrap_or(a);
+            let free = T::Pool::quote_sell_on(
+                y_lift.saturating_add(p).into(), // after buy y back
+                x_lift.saturating_sub(a).saturating_add(a).into(),
+                w,
+                s.into(),
+            )
+            .to_u64();
+            // Better free estimate: sell S on post-buy state (y+ P - fees, x - A)
+            let y_buy = y_lift; // after spending P, y returns toward original; use live quote_sell
+            let free = T::Pool::quote_sell(netuid, s.into()).unwrap_or(free.into()).to_u64();
+            let _ = y_buy;
+            let (_cap, _cs, cl) = Self::side_caps(netuid, &params)?;
+            let book = Lifts::<T>::get(netuid);
+            let headroom = cl.saturating_sub(book.l_l);
+            let interest = Self::alpha_for_tao(p, price_before, true)?;
+            Ok(RaiseQuote {
+                principal_tao: p,
+                collateral_alpha: c,
+                escrow_alpha: a,
+                sell_alpha: s,
+                free_tao_out: free,
+                price_before,
+                price_after_buy,
+                price_after: price_before,
+                v_dyn: Self::v_dyn(netuid, c, p, &reference, Some(owner))?,
+                ltv_tier_bps: Self::ltv_tier_bps(netuid, Side::Long, &params),
+                long_cap_headroom: headroom,
+                annual_interest_alpha: Self::mul_bps(interest, params.apr_bps)?,
+            })
+        }
+
+        #[transactional]
+        pub fn on_hotkey_swap(
+            old: &T::AccountId,
+            new: &T::AccountId,
+            netuid: Option<NetUid>,
+        ) -> DispatchResult {
+            if old == new || LoanHotkeys::<T>::get(old) == 0 {
+                return Ok(());
+            }
+            let mut moved = 0u32;
+            for (owner, this_netuid, mut position) in Positions::<T>::iter() {
+                if position.hotkey == *old && netuid.is_none_or(|id| id == this_netuid) {
+                    position.hotkey = new.clone();
+                    Positions::<T>::insert(owner, this_netuid, position);
+                    moved = moved.checked_add(1).ok_or(Error::<T>::Arithmetic)?;
+                }
+            }
+            if moved > 0 {
+                LoanHotkeys::<T>::try_mutate_exists(old, |count| -> DispatchResult {
+                    let remaining = count
+                        .unwrap_or_default()
+                        .checked_sub(moved)
+                        .ok_or(Error::<T>::Arithmetic)?;
+                    *count = (remaining > 0).then_some(remaining);
+                    Ok(())
+                })?;
+                LoanHotkeys::<T>::try_mutate(new, |count| -> DispatchResult {
+                    *count = count.checked_add(moved).ok_or(Error::<T>::Arithmetic)?;
+                    Ok(())
+                })?;
+            }
+            Ok(())
+        }
     }
-    fn has_vault(netuid: NetUid) -> bool {
-        Vaults::<T>::contains_key(netuid)
-    }
-    fn has_funding_capacity() -> bool {
-        VaultCount::<T>::get() < T::MaxFundedSubnets::get()
-    }
-    fn has_positions(owner: &T::AccountId) -> bool {
-        use frame_support::StorageDoubleMap as _;
-        Positions::<T>::contains_prefix(owner)
-    }
-    fn has_hotkey_positions(hotkey: &T::AccountId) -> bool {
-        LoanHotkeys::<T>::get(hotkey) > 0
-    }
-    fn max_positions() -> u32 {
-        T::MaxTotalPositions::get()
-    }
-    fn on_hotkey_swap(
-        old: &T::AccountId,
-        new: &T::AccountId,
-        netuid: Option<NetUid>,
-    ) -> DispatchResult {
-        Self::on_hotkey_swap(old, new, netuid)
-    }
-    fn fund_reserves(
-        netuid: NetUid,
-        tao: TaoBalance,
-        alpha: AlphaBalance,
-        reference: U64F64,
-        has_history: bool,
-    ) -> DispatchResult {
-        Self::fund_reserves(netuid, tao, alpha, reference, has_history)
-    }
-    fn start_dissolution(netuid: NetUid) -> DispatchResult {
-        Self::start_dissolution(netuid)
-    }
-    fn settle_shorts(netuid: NetUid, meter: &mut WeightMeter) -> bool {
-        Self::settle_shorts(netuid, meter)
-    }
-    fn freeze_redemption_basis(
-        netuid: NetUid,
-        pot: TaoBalance,
-        eligible_alpha: u128,
-        eligible_rows: u64,
-    ) -> DispatchResult {
-        Self::freeze_redemption_basis(netuid, pot, eligible_alpha, eligible_rows)
-    }
-    fn on_alpha_redemption(
-        netuid: NetUid,
-        coldkey: &T::AccountId,
-        tao_paid: TaoBalance,
-    ) -> DispatchResult {
-        Self::on_alpha_redemption(netuid, coldkey, tao_paid)
-    }
-    fn settle_remaining_longs(netuid: NetUid, meter: &mut WeightMeter) -> bool {
-        Self::settle_remaining_longs(netuid, meter)
-    }
-    fn finish_dissolution(netuid: NetUid) -> DispatchResult {
-        Self::finish_dissolution(netuid)
+
+    impl<T: Config> LendingInterface<T::AccountId> for Pallet<T> {
+        fn custody_accounts(netuid: NetUid) -> Option<(T::AccountId, T::AccountId)> {
+            let hotkey = PalletHotkey::<T>::get()?;
+            Some((Self::reserve_account(netuid), hotkey))
+        }
+        fn has_positions(owner: &T::AccountId) -> bool {
+            Positions::<T>::iter_prefix(owner).next().is_some()
+        }
+        fn has_hotkey_positions(hotkey: &T::AccountId) -> bool {
+            LoanHotkeys::<T>::get(hotkey) > 0
+        }
+        fn max_positions() -> u32 {
+            T::MaxTotalPositions::get()
+        }
+        fn on_hotkey_swap(old: &T::AccountId, new: &T::AccountId, netuid: Option<NetUid>) -> DispatchResult {
+            Self::on_hotkey_swap(old, new, netuid)
+        }
+        fn start_dissolution(netuid: NetUid) -> DispatchResult {
+            Self::start_dissolution(netuid)
+        }
+        fn readd_lifts_for_dissolution(netuid: NetUid) -> DispatchResult {
+            Self::readd_lifts_for_dissolution(netuid)
+        }
+        fn settle_lending(netuid: NetUid, meter: &mut WeightMeter) -> bool {
+            Self::settle_lending(netuid, meter)
+        }
+        fn finish_dissolution(netuid: NetUid) -> DispatchResult {
+            Self::finish_dissolution(netuid)
+        }
+        fn is_lending_custody(hotkey: &T::AccountId, coldkey: &T::AccountId, netuid: NetUid) -> bool {
+            Self::is_lending_custody(hotkey, coldkey, netuid)
+        }
     }
 }
