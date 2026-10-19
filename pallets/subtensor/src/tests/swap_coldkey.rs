@@ -3110,3 +3110,92 @@ fn test_merge_swap_basket_claimed_overflow_fails_closed() {
         assert_eq!(Owner::<Test>::get(old_hot), old);
     });
 }
+
+#[test]
+fn test_merge_swap_rolls_source_locks_under_source_policy() {
+    new_test_ext(1).execute_with(|| {
+        let old = U256::from(1);
+        let dest = U256::from(2);
+        let hotkey = U256::from(10);
+        let dest_hot = U256::from(11);
+
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &old, &hotkey
+        ));
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &dest, &dest_hot
+        ));
+        // Destination is in use and accepts locked alpha, but is perpetual on
+        // this netuid with no active locks of its own.
+        assert_ok!(SubtensorModule::set_reject_locked_alpha(
+            RuntimeOrigin::signed(dest),
+            false,
+        ));
+        let netuid = add_dynamic_network(&U256::from(200), &U256::from(201));
+        DecayingLock::<Test>::insert(dest, netuid, false);
+        assert!(SubtensorModule::is_perpetual_lock(&dest, netuid));
+        assert!(!SubtensorModule::is_perpetual_lock(&old, netuid));
+
+        UnlockRate::<Test>::put(200u64);
+        MaturityRate::<Test>::put(200u64);
+        let start = SubtensorModule::get_current_block_as_u64();
+        let initial = AlphaBalance::from(1_000_000_u64);
+        Lock::<Test>::insert(
+            (old, netuid, hotkey),
+            LockState {
+                locked_mass: initial,
+                conviction: U64F64::from_num(0),
+                last_update: start,
+            },
+        );
+        // Advance so a decaying roll reduces mass; a perpetual roll would not.
+        System::set_block_number(start + UnlockRate::<Test>::get());
+
+        let expected = crate::staking::lock::ConvictionModel::roll_forward_lock(
+            Lock::<Test>::get((old, netuid, hotkey)).expect("source lock"),
+            SubtensorModule::get_current_block_as_u64(),
+            UnlockRate::<Test>::get(),
+            MaturityRate::<Test>::get(),
+            false,
+            false, // source decaying policy
+        )
+        .0
+        .locked_mass;
+
+        assert_ok!(SubtensorModule::do_swap_coldkey(&old, &dest));
+
+        let moved = Lock::<Test>::get((dest, netuid, hotkey)).expect("lock on dest");
+        assert_eq!(
+            moved.locked_mass, expected,
+            "merge must not reinflate mass by rolling history under dest perpetual policy"
+        );
+        assert!(moved.locked_mass < initial);
+    });
+}
+
+#[test]
+fn test_coldkey_swap_work_stops_after_position_cap() {
+    new_test_ext(1).execute_with(|| {
+        let old = U256::from(1);
+        let dest = U256::from(2);
+        let hotkey = U256::from(10);
+
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &old, &hotkey
+        ));
+        // Insert more unique netuid stake rows than the admission cap allows.
+        let over = MAX_COLDKEY_SWAP_POSITIONS.saturating_add(8);
+        for i in 0..over {
+            let netuid = NetUid::from(i as u16);
+            AlphaV2::<Test>::insert((hotkey, old, netuid), SafeFloat::from(1u64));
+        }
+
+        let work = SubtensorModule::coldkey_swap_work(&old, &dest);
+        assert_eq!(
+            work.positions,
+            MAX_COLDKEY_SWAP_POSITIONS.saturating_add(1),
+            "admission scan must stop one past the cap"
+        );
+        assert!(work.positions > MAX_COLDKEY_SWAP_POSITIONS);
+    });
+}

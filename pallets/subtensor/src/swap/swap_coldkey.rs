@@ -2,6 +2,7 @@ use frame_support::storage::{TransactionOutcome, with_transaction};
 use frame_support::weights::Weight;
 
 use super::*;
+use crate::migrations::migrate_alpha_v2::retired::Alpha;
 use crate::subnets::leasing::LeaseId;
 use crate::weights::WeightInfo;
 use sp_core::Get;
@@ -37,15 +38,22 @@ impl<T: Config> Pallet<T> {
 
     /// Pre-dispatch weight of `announce_coldkey_swap`, covering destination validation
     /// (including the combined hotkey/position admission scan) before the fee is charged.
+    ///
+    /// Admission walks stop one entry past the cap so a failing oversize scan is still
+    /// covered by this envelope (`max + 1` sentinel reads per axis).
     pub fn announce_coldkey_swap_weight() -> Weight {
         let max = Self::coldkey_swap_max_work();
+        let hotkey_reads = u64::from(max.hotkeys).saturating_add(1).saturating_mul(2);
+        let position_reads = u64::from(max.positions).saturating_add(1);
+        // Destination active-lock admission is also bounded by the position envelope.
+        let lock_reads = u64::from(max.positions).saturating_add(1);
         <T as crate::pallet::Config>::WeightInfo::announce_coldkey_swap()
             .saturating_add(T::DbWeight::get().reads(4))
             .saturating_add(
                 T::DbWeight::get().reads(
-                    u64::from(max.hotkeys)
-                        .saturating_mul(2) // source ∪ destination list walks
-                        .saturating_add(u64::from(max.positions)),
+                    hotkey_reads
+                        .saturating_add(position_reads)
+                        .saturating_add(lock_reads),
                 ),
             )
     }
@@ -85,36 +93,89 @@ impl<T: Config> Pallet<T> {
     /// Stake positions the swap has to move, plus the combined hotkey set of source and
     /// destination. Positions only leave the source; hotkeys count the union so a merge
     /// into an already-used coldkey cannot under-price bookkeeping or exceed the list cap.
+    ///
+    /// Stops one entry past each admission limit so oversized accounts fail closed
+    /// without scanning unbounded storage during announce/execute prechecks.
     pub fn coldkey_swap_work(
         old_coldkey: &T::AccountId,
         new_coldkey: &T::AccountId,
     ) -> ColdkeySwapWork {
-        let old_hotkeys = Self::coldkey_swap_hotkeys(old_coldkey);
+        let hotkey_limit = crate::MAX_COLDKEY_SWAP_HOTKEYS.saturating_add(1) as usize;
+        let position_limit = crate::MAX_COLDKEY_SWAP_POSITIONS.saturating_add(1);
+
+        let old_hotkeys = Self::coldkey_swap_hotkeys_bounded(old_coldkey, hotkey_limit);
         let mut combined = old_hotkeys.clone();
-        if old_coldkey != new_coldkey {
-            combined.extend(Self::coldkey_swap_hotkeys(new_coldkey));
+        if old_coldkey != new_coldkey && combined.len() < hotkey_limit {
+            for hotkey in Self::coldkey_swap_hotkeys_bounded(
+                new_coldkey,
+                hotkey_limit.saturating_sub(combined.len()),
+            ) {
+                combined.insert(hotkey);
+                if combined.len() >= hotkey_limit {
+                    break;
+                }
+            }
         }
 
         let mut work = ColdkeySwapWork {
             hotkeys: combined.len() as u32,
             positions: 0,
         };
-        for hotkey in old_hotkeys {
-            let netuids: BTreeSet<NetUid> = Self::alpha_iter_prefix((&hotkey, old_coldkey))
-                .map(|(netuid, _)| netuid)
-                .collect();
-            work.positions = work.positions.saturating_add(netuids.len() as u32);
+        if work.hotkeys > crate::MAX_COLDKEY_SWAP_HOTKEYS {
+            return work;
+        }
+
+        for hotkey in &old_hotkeys {
+            // Walk legacy + v2 share maps directly so we can stop at the admission
+            // sentinel without `alpha_iter_prefix`'s full-prefix materialization.
+            let mut seen: BTreeSet<NetUid> = BTreeSet::new();
+            for (netuid, share) in Alpha::<T>::iter_prefix((hotkey, old_coldkey)) {
+                if share == substrate_fixed::types::U64F64::from_num(0) || !seen.insert(netuid) {
+                    continue;
+                }
+                work.positions = work.positions.saturating_add(1);
+                if work.positions >= position_limit {
+                    return work;
+                }
+            }
+            for (netuid, share) in AlphaV2::<T>::iter_prefix((hotkey, old_coldkey)) {
+                if share.is_zero() || !seen.insert(netuid) {
+                    continue;
+                }
+                work.positions = work.positions.saturating_add(1);
+                if work.positions >= position_limit {
+                    return work;
+                }
+            }
         }
         work
     }
 
     /// Include claim-only root-swap credits without appending them to the staking list.
     fn coldkey_swap_hotkeys(coldkey: &T::AccountId) -> BTreeSet<T::AccountId> {
-        let mut hotkeys: BTreeSet<_> = StakingHotkeys::<T>::get(coldkey).into_iter().collect();
-        let limit = crate::MAX_COLDKEY_SWAP_HOTKEYS
-            .saturating_sub(hotkeys.len() as u32)
-            .saturating_add(1) as usize;
-        hotkeys.extend(HotkeySwapBasketCredits::<T>::iter_key_prefix(coldkey).take(limit));
+        Self::coldkey_swap_hotkeys_bounded(
+            coldkey,
+            crate::MAX_COLDKEY_SWAP_HOTKEYS.saturating_add(1) as usize,
+        )
+    }
+
+    /// Bounded hotkey discovery for admission / transfer walks.
+    fn coldkey_swap_hotkeys_bounded(
+        coldkey: &T::AccountId,
+        limit: usize,
+    ) -> BTreeSet<T::AccountId> {
+        if limit == 0 {
+            return BTreeSet::new();
+        }
+        let mut hotkeys: BTreeSet<_> = StakingHotkeys::<T>::get(coldkey)
+            .into_iter()
+            .take(limit)
+            .collect();
+        if hotkeys.len() >= limit {
+            return hotkeys;
+        }
+        let remaining = limit.saturating_sub(hotkeys.len());
+        hotkeys.extend(HotkeySwapBasketCredits::<T>::iter_key_prefix(coldkey).take(remaining));
         hotkeys
     }
 
@@ -149,7 +210,8 @@ impl<T: Config> Pallet<T> {
         }
         // Active locks on the destination cannot be merged safely with source locks
         // (conviction / aggregate buckets are per-coldkey). Block explicitly.
-        Self::ensure_no_active_locks(new_coldkey)?;
+        // Bound the walk to the announce/execute weight envelope.
+        Self::ensure_no_active_locks_for_swap(new_coldkey)?;
 
         // Honor destination opt-outs before any fee or mutation. A merge is not
         // consented by the destination; AccountFlags are the only refusal knobs.
@@ -158,8 +220,10 @@ impl<T: Config> Pallet<T> {
         if Self::coldkey_already_in_use(new_coldkey)
             && Self::account_rejects_locked_alpha(new_coldkey)
         {
-            Self::ensure_no_active_locks(old_coldkey)
-                .map_err(|_| Error::<T>::AccountRejectsLockedAlpha)?;
+            Self::ensure_no_active_locks_for_swap(old_coldkey).map_err(|e| match e {
+                Error::<T>::ActiveLockExists => Error::<T>::AccountRejectsLockedAlpha,
+                other => other,
+            })?;
         }
         if Self::account_rejects_staking_hotkey_growth(new_coldkey) {
             let dest_staking = StakingHotkeys::<T>::get(new_coldkey);
