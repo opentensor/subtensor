@@ -258,14 +258,18 @@ impl<T: Config> Pallet<T> {
                     IdentitiesV2::<T>::insert(new_coldkey.clone(), identity);
                 }
 
-                // Destination account flags win after the swap. Temporarily allow a
-                // fresh (unused) destination to receive locked alpha so an owner can
-                // move their own locks onto a new key; already-used destinations that
-                // reject locked alpha keep that preference (admission already refused
-                // source active locks in that case).
+                // AccountFlags: destination wins on a merge into an already-used key;
+                // on a rename onto a fresh key the source flags follow so opt-outs
+                // (e.g. reject_staking_hotkey_growth) survive key rotation.
+                // Temporarily allow a fresh destination to receive locked alpha so
+                // an owner can move their own locks onto a new key; already-used
+                // destinations that reject locked alpha keep that preference
+                // (admission already refused source active locks in that case).
                 let saved_dest_flags = AccountFlags::<T>::get(new_coldkey);
-                let dest_in_use_rejects_locked = Self::coldkey_already_in_use(new_coldkey)
-                    && Self::account_rejects_locked_alpha(new_coldkey);
+                let saved_source_flags = AccountFlags::<T>::get(old_coldkey);
+                let dest_in_use = Self::coldkey_already_in_use(new_coldkey);
+                let dest_in_use_rejects_locked =
+                    dest_in_use && Self::account_rejects_locked_alpha(new_coldkey);
                 if !dest_in_use_rejects_locked {
                     Self::set_accept_locked_alpha(new_coldkey, true);
                 }
@@ -295,10 +299,15 @@ impl<T: Config> Pallet<T> {
                 // above); decaying-lock flags keep the destination's value on conflict.
                 Self::swap_coldkey_locks(old_coldkey, new_coldkey)?;
 
-                // Destination AccountFlags win: clear source, restore destination.
+                // Clear source; restore the winning flags (dest if in use, else source).
                 AccountFlags::<T>::remove(old_coldkey);
-                if saved_dest_flags != 0 {
-                    AccountFlags::<T>::insert(new_coldkey, saved_dest_flags);
+                let final_flags = if dest_in_use {
+                    saved_dest_flags
+                } else {
+                    saved_source_flags
+                };
+                if final_flags != 0 {
+                    AccountFlags::<T>::insert(new_coldkey, final_flags);
                 } else {
                     AccountFlags::<T>::remove(new_coldkey);
                 }

@@ -1526,8 +1526,9 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // AccountFlags are restored by the caller (destination wins). Do not
-        // overwrite the destination here — only clear the source after locks move.
+        // AccountFlags are restored by the caller (dest wins on merge; source
+        // follows on rename onto a fresh key). Do not overwrite the destination
+        // here — only clear the source after locks move.
         AccountFlags::<T>::remove(old_coldkey);
 
         // Insert locks for the new coldkey and add to the destination aggregate

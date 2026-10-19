@@ -2675,17 +2675,49 @@ fn test_merge_swap_destination_account_flags_win() {
     new_test_ext(1).execute_with(|| {
         let old = U256::from(1);
         let dest = U256::from(2);
+        let dest_hot = U256::from(20);
 
+        // Destination is already in use so its AccountFlags win over the source.
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &dest, &dest_hot
+        ));
         SubtensorModule::set_accept_locked_alpha(&old, true);
         // Destination rejects locked alpha (default / cleared).
         AccountFlags::<Test>::remove(dest);
         assert!(SubtensorModule::account_rejects_locked_alpha(&dest));
         assert!(!SubtensorModule::account_rejects_locked_alpha(&old));
+        assert!(SubtensorModule::coldkey_already_in_use(&dest));
 
         assert_ok!(SubtensorModule::do_swap_coldkey(&old, &dest));
 
         assert!(AccountFlags::<Test>::get(old) == 0 || !AccountFlags::<Test>::contains_key(old));
         assert!(SubtensorModule::account_rejects_locked_alpha(&dest));
+    });
+}
+
+#[test]
+fn test_rename_onto_fresh_destination_moves_source_account_flags() {
+    new_test_ext(1).execute_with(|| {
+        let old = U256::from(1);
+        let dest = U256::from(2);
+        let hot = U256::from(10);
+
+        assert_ok!(SubtensorModule::create_account_if_non_existent(&old, &hot));
+        assert_ok!(SubtensorModule::set_reject_staking_hotkey_growth(
+            RuntimeOrigin::signed(old),
+            true,
+        ));
+        assert!(!SubtensorModule::coldkey_already_in_use(&dest));
+
+        assert_ok!(SubtensorModule::do_swap_coldkey(&old, &dest));
+
+        assert!(SubtensorModule::account_rejects_staking_hotkey_growth(
+            &dest
+        ));
+        assert!(!SubtensorModule::account_rejects_staking_hotkey_growth(
+            &old
+        ));
+        assert_eq!(Owner::<Test>::get(hot), dest);
     });
 }
 
