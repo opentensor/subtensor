@@ -40,11 +40,10 @@ use core::marker::PhantomData;
 
 /// Weight functions needed for `pallet_limit_orders`.
 pub trait WeightInfo {
-    // Independent Falcon reference measurements are required before activation.
-    fn execute_falcon512_orders(_n: u32, _p: u32) -> Weight { Weight::MAX }
-    fn execute_falcon1024_orders(_n: u32, _p: u32) -> Weight { Weight::MAX }
-    fn execute_falcon512_batched_orders(_n: u32, _p: u32) -> Weight { Weight::MAX }
-    fn execute_falcon1024_batched_orders(_n: u32, _p: u32) -> Weight { Weight::MAX }
+    fn execute_falcon512_orders(n: u32, p: u32) -> Weight { Self::execute_authenticated_orders(n, p) }
+    fn execute_falcon1024_orders(n: u32, p: u32) -> Weight { Self::execute_authenticated_orders(n, p) }
+    fn execute_falcon512_batched_orders(n: u32, p: u32) -> Weight { Self::execute_authenticated_batched_orders(n, p) }
+    fn execute_falcon1024_batched_orders(n: u32, p: u32) -> Weight { Self::execute_authenticated_batched_orders(n, p) }
 
 	fn authorize_order() -> Weight;
 	fn execute_authenticated_orders(n: u32, p: u32, ) -> Weight;
