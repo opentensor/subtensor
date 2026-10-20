@@ -38,6 +38,7 @@ PROXY_TYPES = (
     "SubnetLeaseBeneficiary",
     "RootClaim",
     "BasketTrading",
+    "Validate",
 )
 
 
