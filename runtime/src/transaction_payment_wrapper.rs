@@ -353,7 +353,7 @@ mod tests {
     use super::ChargeTransactionPaymentWrapper;
     use crate::{
         BuildStorage, NORMAL_DISPATCH_BASE_PRIORITY, OPERATIONAL_DISPATCH_PRIORITY, Proxy, Runtime,
-        RuntimeCall, RuntimeGenesisConfig, RuntimeOrigin, System, SystemCall,
+        RuntimeCall, RuntimeGenesisConfig, RuntimeOrigin, SubtensorModule, System, SystemCall,
     };
     use frame_support::{
         assert_ok,
@@ -472,10 +472,14 @@ mod tests {
     // -- Setup helpers --
 
     fn add_proxy(real: &AccountId, delegate: &AccountId) {
+        add_proxy_of(real, delegate, ProxyType::Any);
+    }
+
+    fn add_proxy_of(real: &AccountId, delegate: &AccountId, proxy_type: ProxyType) {
         assert_ok!(Proxy::add_proxy(
             RuntimeOrigin::signed(real.clone()),
             delegate.clone().into(),
-            ProxyType::Any,
+            proxy_type,
             0,
         ));
     }
@@ -1146,6 +1150,82 @@ mod tests {
                     );
                 }
             }
+        });
+    }
+
+    #[test]
+    fn three_level_validate_proxy_still_requires_consent_at_every_hop() {
+        // Validate is a narrow filter (#3041); fee redirection is independent of
+        // proxy type and must still demand RealPaysFee on every hop (#3270).
+        new_test_ext().execute_with(|| {
+            for (real, delegate) in [
+                (real_b(), signer()),
+                (real_a(), real_b()),
+                (other(), real_a()),
+            ] {
+                add_proxy_of(&real, &delegate, ProxyType::Validate);
+            }
+            // Outer opt-in only → outer pays; no deeper consent means no
+            // unconsenting real is charged.
+            enable_real_pays_fee(&real_b(), &signer());
+            let call = proxy_call(
+                real_b(),
+                proxy_call(real_a(), proxy_call(other(), call_set_weights())),
+            );
+            let (_, val) = validate_call(RuntimeOrigin::signed(signer()), &call).unwrap();
+            assert_eq!(fee_payer(&val), real_b());
+
+            enable_real_pays_fee(&real_a(), &real_b());
+            enable_real_pays_fee(&other(), &real_a());
+            let (_, val) = validate_call(RuntimeOrigin::signed(signer()), &call).unwrap();
+            assert_eq!(fee_payer(&val), other());
+        });
+    }
+
+    #[test]
+    fn proxy_fee_weight_covers_three_consent_reads_and_batch_margin() {
+        new_test_ext().execute_with(|| {
+            let call = proxy_call(real_a(), call_remark());
+            let declared =
+                ChargeTransactionPaymentWrapper::<Runtime>::new(TaoBalance::new(0)).weight(&call);
+            let expected_reads = <Runtime as frame_system::Config>::DbWeight::get().reads(4);
+            // Hard lower bound: the wrapper adds four consent/batch reads on top
+            // of the inner ChargeTransactionPayment weight.
+            assert!(
+                declared.proof_size() >= expected_reads.proof_size(),
+                "declared={declared:?} expected at least {expected_reads:?}"
+            );
+        });
+    }
+
+    #[test]
+    fn coldkey_swap_moves_real_pays_fee_consent_for_nested_proxy() {
+        // After #3267 merge + proxy transfer, RealPaysFee keyed by the source
+        // coldkey must follow onto the destination so nested fee redirection
+        // cannot charge an account that never opted in under the new key.
+        new_test_ext().execute_with(|| {
+            add_proxy(&real_a(), &signer());
+            enable_real_pays_fee(&real_a(), &signer());
+            add_proxy(&other(), &real_a());
+            enable_real_pays_fee(&other(), &real_a());
+
+            assert_ok!(SubtensorModule::do_swap_coldkey(&real_a(), &real_b()));
+
+            // Consent lived on real_a; after swap it must live on real_b.
+            assert!(!Proxy::is_real_pays_fee(&real_a(), &signer()));
+            assert!(Proxy::is_real_pays_fee(&real_b(), &signer()));
+            // Nested hop other→real_a is unchanged (other was not swapped).
+            assert!(Proxy::is_real_pays_fee(&other(), &real_a()));
+
+            // Proxy grant also moved: signer is now a proxy of real_b.
+            assert!(Proxy::find_proxy(&real_b(), &signer(), Some(ProxyType::Any)).is_ok());
+            assert!(Proxy::find_proxy(&real_a(), &signer(), Some(ProxyType::Any)).is_err());
+
+            // Fee chain signer→real_b stops there: the next hop still names
+            // real_a as delegate, which no longer matches the moved grant.
+            let call = proxy_call(real_b(), proxy_call(other(), call_remark()));
+            let (_, val) = validate_call(RuntimeOrigin::signed(signer()), &call).unwrap();
+            assert_eq!(fee_payer(&val), real_b());
         });
     }
 
