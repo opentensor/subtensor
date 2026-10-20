@@ -8,7 +8,6 @@
 //! Authorization measured with compiled Wasm on an AMD EPYC 9V74, 2026-10-13.
 //! Falcon: reference run 39343562831, commit 6efef86d21a8eea84963373882afdd8747742f68.
 //! Measured 2026-10-20 UTC, compiled Wasm, AMD EPYC 9V45, 50 steps, 20 repeats.
-//! Account measurements completed; the overall run timed out in the orders pallet.
 use core::marker::PhantomData;
 use frame_support::{
     traits::Get,
