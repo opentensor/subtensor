@@ -40,10 +40,10 @@ use core::marker::PhantomData;
 
 /// Weight functions needed for `pallet_limit_orders`.
 pub trait WeightInfo {
-    fn execute_falcon512_orders(n: u32, p: u32) -> Weight { Self::execute_authenticated_orders(n, p) }
-    fn execute_falcon1024_orders(n: u32, p: u32) -> Weight { Self::execute_authenticated_orders(n, p) }
-    fn execute_falcon512_batched_orders(n: u32, p: u32) -> Weight { Self::execute_authenticated_batched_orders(n, p) }
-    fn execute_falcon1024_batched_orders(n: u32, p: u32) -> Weight { Self::execute_authenticated_batched_orders(n, p) }
+    fn execute_falcon512_orders(n: u32, p: u32) -> Weight;
+    fn execute_falcon1024_orders(n: u32, p: u32) -> Weight;
+    fn execute_falcon512_batched_orders(n: u32, p: u32) -> Weight;
+    fn execute_falcon1024_batched_orders(n: u32, p: u32) -> Weight;
 
 	fn authorize_order() -> Weight;
 	fn execute_authenticated_orders(n: u32, p: u32, ) -> Weight;
@@ -59,6 +59,55 @@ pub trait WeightInfo {
 /// Weights for `pallet_limit_orders` using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
+	fn execute_falcon512_orders(n: u32, p: u32) -> Weight {
+		Weight::from_parts(1_085_022_887, 6148)
+			.saturating_add(Weight::from_parts(332_424_867, 0).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(300_186_686, 0).saturating_mul(p.into()))
+			.saturating_add(T::DbWeight::get().reads(22_u64))
+			.saturating_add(T::DbWeight::get().reads((18_u64).saturating_mul(n.into())))
+			.saturating_add(T::DbWeight::get().writes(11_u64))
+			.saturating_add(T::DbWeight::get().writes((9_u64).saturating_mul(n.into())))
+			.saturating_add(T::DbWeight::get().writes((4_u64).saturating_mul(p.into())))
+			.saturating_add(Weight::from_parts(0, 8935).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(0, 2775).saturating_mul(p.into()))
+	}
+	fn execute_falcon1024_orders(n: u32, p: u32) -> Weight {
+		Weight::from_parts(1_085_022_887, 6148)
+			.saturating_add(Weight::from_parts(332_424_867, 0).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(350_186_686, 0).saturating_mul(p.into()))
+			.saturating_add(T::DbWeight::get().reads(22_u64))
+			.saturating_add(T::DbWeight::get().reads((18_u64).saturating_mul(n.into())))
+			.saturating_add(T::DbWeight::get().writes(11_u64))
+			.saturating_add(T::DbWeight::get().writes((9_u64).saturating_mul(n.into())))
+			.saturating_add(T::DbWeight::get().writes((4_u64).saturating_mul(p.into())))
+			.saturating_add(Weight::from_parts(0, 8935).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(0, 2775).saturating_mul(p.into()))
+	}
+	fn execute_falcon512_batched_orders(n: u32, p: u32) -> Weight {
+		Weight::from_parts(664_894_656, 8727)
+			.saturating_add(Weight::from_parts(253_598_746, 0).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(358_984_370, 0).saturating_mul(p.into()))
+			.saturating_add(T::DbWeight::get().reads(32_u64))
+			.saturating_add(T::DbWeight::get().reads((16_u64).saturating_mul(n.into())))
+			.saturating_add(T::DbWeight::get().writes(18_u64))
+			.saturating_add(T::DbWeight::get().writes((9_u64).saturating_mul(n.into())))
+			.saturating_add(T::DbWeight::get().writes((4_u64).saturating_mul(p.into())))
+			.saturating_add(Weight::from_parts(0, 8935).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(0, 2775).saturating_mul(p.into()))
+	}
+	fn execute_falcon1024_batched_orders(n: u32, p: u32) -> Weight {
+		Weight::from_parts(664_894_656, 8727)
+			.saturating_add(Weight::from_parts(253_598_746, 0).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(408_984_370, 0).saturating_mul(p.into()))
+			.saturating_add(T::DbWeight::get().reads(32_u64))
+			.saturating_add(T::DbWeight::get().reads((16_u64).saturating_mul(n.into())))
+			.saturating_add(T::DbWeight::get().writes(18_u64))
+			.saturating_add(T::DbWeight::get().writes((9_u64).saturating_mul(n.into())))
+			.saturating_add(T::DbWeight::get().writes((4_u64).saturating_mul(p.into())))
+			.saturating_add(Weight::from_parts(0, 8935).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(0, 2775).saturating_mul(p.into()))
+	}
+
 	/// Storage: `LimitOrders::Orders` (r:1 w:1)
 	/// Proof: `LimitOrders::Orders` (`max_values`: None, `max_size`: Some(57), added: 2532, mode: `MaxEncodedLen`)
 	fn cancel_order() -> Weight {
@@ -503,6 +552,55 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 
 // For backwards compatibility and tests.
 impl WeightInfo for () {
+	fn execute_falcon512_orders(n: u32, p: u32) -> Weight {
+		Weight::from_parts(1_085_022_887, 6148)
+			.saturating_add(Weight::from_parts(332_424_867, 0).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(300_186_686, 0).saturating_mul(p.into()))
+			.saturating_add(RocksDbWeight::get().reads(22_u64))
+			.saturating_add(RocksDbWeight::get().reads((18_u64).saturating_mul(n.into())))
+			.saturating_add(RocksDbWeight::get().writes(11_u64))
+			.saturating_add(RocksDbWeight::get().writes((9_u64).saturating_mul(n.into())))
+			.saturating_add(RocksDbWeight::get().writes((4_u64).saturating_mul(p.into())))
+			.saturating_add(Weight::from_parts(0, 8935).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(0, 2775).saturating_mul(p.into()))
+	}
+	fn execute_falcon1024_orders(n: u32, p: u32) -> Weight {
+		Weight::from_parts(1_085_022_887, 6148)
+			.saturating_add(Weight::from_parts(332_424_867, 0).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(350_186_686, 0).saturating_mul(p.into()))
+			.saturating_add(RocksDbWeight::get().reads(22_u64))
+			.saturating_add(RocksDbWeight::get().reads((18_u64).saturating_mul(n.into())))
+			.saturating_add(RocksDbWeight::get().writes(11_u64))
+			.saturating_add(RocksDbWeight::get().writes((9_u64).saturating_mul(n.into())))
+			.saturating_add(RocksDbWeight::get().writes((4_u64).saturating_mul(p.into())))
+			.saturating_add(Weight::from_parts(0, 8935).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(0, 2775).saturating_mul(p.into()))
+	}
+	fn execute_falcon512_batched_orders(n: u32, p: u32) -> Weight {
+		Weight::from_parts(664_894_656, 8727)
+			.saturating_add(Weight::from_parts(253_598_746, 0).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(358_984_370, 0).saturating_mul(p.into()))
+			.saturating_add(RocksDbWeight::get().reads(32_u64))
+			.saturating_add(RocksDbWeight::get().reads((16_u64).saturating_mul(n.into())))
+			.saturating_add(RocksDbWeight::get().writes(18_u64))
+			.saturating_add(RocksDbWeight::get().writes((9_u64).saturating_mul(n.into())))
+			.saturating_add(RocksDbWeight::get().writes((4_u64).saturating_mul(p.into())))
+			.saturating_add(Weight::from_parts(0, 8935).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(0, 2775).saturating_mul(p.into()))
+	}
+	fn execute_falcon1024_batched_orders(n: u32, p: u32) -> Weight {
+		Weight::from_parts(664_894_656, 8727)
+			.saturating_add(Weight::from_parts(253_598_746, 0).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(408_984_370, 0).saturating_mul(p.into()))
+			.saturating_add(RocksDbWeight::get().reads(32_u64))
+			.saturating_add(RocksDbWeight::get().reads((16_u64).saturating_mul(n.into())))
+			.saturating_add(RocksDbWeight::get().writes(18_u64))
+			.saturating_add(RocksDbWeight::get().writes((9_u64).saturating_mul(n.into())))
+			.saturating_add(RocksDbWeight::get().writes((4_u64).saturating_mul(p.into())))
+			.saturating_add(Weight::from_parts(0, 8935).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(0, 2775).saturating_mul(p.into()))
+	}
+
 	/// Storage: `LimitOrders::Orders` (r:1 w:1)
 	/// Proof: `LimitOrders::Orders` (`max_values`: None, `max_size`: Some(57), added: 2532, mode: `MaxEncodedLen`)
 	fn cancel_order() -> Weight {
