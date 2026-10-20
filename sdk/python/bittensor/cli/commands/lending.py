@@ -519,8 +519,8 @@ def raise_loan(
         try:
             with context.output.activity("quoting raise sale floor…"):
                 intent.min_tao_out = context.run(floor)
-        except Exception:
-            pass
+        except Exception as error:
+            raise BittensorError("could not verify requested raise slippage protection") from error
 
     card = [
         ("netuid", str(netuid)),

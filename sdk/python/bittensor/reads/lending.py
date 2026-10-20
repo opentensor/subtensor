@@ -181,12 +181,17 @@ async def lending_raise_quote(
     netuid: int,
     coldkey_ss58: str,
     hotkey_ss58: str,
-    borrow_tao: Optional[str] = None,
-    collateral_alpha: Optional[str] = None,
-    sell_alpha: Optional[str] = None,
+    borrow_tao: Optional[str] = "",
+    collateral_alpha: Optional[str] = "",
+    sell_alpha: Optional[str] = "",
 ) -> dict:
     """Quote an atomic raise: escrowed long sizing plus optional unlocked sale."""
     view = await view.at()
+    # Empty-string defaults keep the generated CLI options optional; treat them
+    # as unset so callers can pass exactly one of borrow_tao / collateral_alpha.
+    borrow_tao = borrow_tao or None
+    collateral_alpha = collateral_alpha or None
+    sell_alpha = sell_alpha or None
     if (borrow_tao is None) == (collateral_alpha is None):
         raise BittensorError("provide borrow_tao or collateral_alpha, not both")
     amount = None if borrow_tao is None else cast(Balance, tao_amount(borrow_tao)).rao
@@ -245,7 +250,7 @@ async def lending_open_quote(
     collateral: str,
     coldkey_ss58: Optional[str] = None,
     hotkey_ss58: Optional[str] = None,
-    amount: Optional[str] = None,
+    amount: Optional[str] = "",
 ) -> dict:
     """Quote additional fixed debt, opening value and collateral coupon.
 
@@ -266,6 +271,7 @@ async def lending_open_quote(
     """
     view = await view.at()
     side = check_side(side)
+    amount = amount or None
     collateral_amount = cast(
         Balance, tao_amount(collateral) if side == "Short" else alpha_amount(collateral, netuid)
     )

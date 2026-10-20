@@ -30,7 +30,8 @@ pub trait WeightInfo {
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
     /// Open / increase: reference, params, book, capacity, lift, escrow, Due.
-    /// Estimated ~45 reads, ~25 writes, swaps included in compute pad.
+    /// Long admission uses aggregate `long_collateral_alpha` (O(1)), not a
+    /// full-position scan. Estimated ~45 reads, ~25 writes, swaps in compute pad.
     fn open() -> Weight {
         Weight::from_parts(250_000_000, 32_000)
             .saturating_add(T::DbWeight::get().reads(45_u64))

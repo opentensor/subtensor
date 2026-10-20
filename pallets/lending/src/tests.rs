@@ -1635,3 +1635,85 @@ fn custody_hotkey_is_detected_for_stake_guards() {
         assert!(PalletHotkey::<Test>::get().is_some());
     });
 }
+
+#[test]
+fn coldkey_swap_interest_debits_stored_custody() {
+    new_test_ext().execute_with(|| {
+        let owner = account(1);
+        let new_owner = account(11);
+        let hotkey = account(2);
+        mint_tao(&owner, 50_000_000_000_000);
+        assert_ok!(Lending::open(
+            RuntimeOrigin::signed(owner.clone()),
+            netuid(),
+            Side::Short,
+            10_000_000_000_000,
+            hotkey.clone(),
+            1,
+            1,
+            0,
+            deadline(),
+        ));
+        let position = Positions::<Test>::get(&owner, netuid()).unwrap();
+        let custody = position.custody.clone();
+        let escrow_before = tao(&custody);
+        assert!(escrow_before > 0);
+        assert_ok!(Lending::on_coldkey_swap(&owner, &new_owner));
+        let due = Positions::<Test>::get(&new_owner, netuid()).unwrap().due;
+        System::set_block_number(due.saturating_add(1));
+        let _ = <Lending as Hooks<_>>::on_idle(due.saturating_add(1), Weight::MAX);
+        let wrong = Lending::position_account(&new_owner, netuid());
+        if wrong != custody {
+            assert_eq!(
+                tao(&wrong),
+                0,
+                "interest must not debit the post-swap derived escrow"
+            );
+        }
+        let still = Positions::<Test>::get(&new_owner, netuid());
+        assert!(
+            tao(&custody) < escrow_before || still.is_none(),
+            "interest/forfeit must move funds from the stored custody account"
+        );
+    });
+}
+
+#[test]
+fn hotkey_swap_rewrites_open_by_hotkey_index() {
+    new_test_ext().execute_with(|| {
+        let owner = account(1);
+        let hotkey = account(2);
+        let new_hotkey = account(22);
+        mint_tao(&owner, 50_000_000_000_000);
+        assert_ok!(Lending::open(
+            RuntimeOrigin::signed(owner.clone()),
+            netuid(),
+            Side::Short,
+            10_000_000_000_000,
+            hotkey.clone(),
+            1,
+            1,
+            0,
+            deadline(),
+        ));
+        assert!(OpenByHotkey::<Test>::contains_key(
+            &hotkey,
+            (&owner, netuid())
+        ));
+        assert_ok!(Lending::on_hotkey_swap(&hotkey, &new_hotkey, None));
+        assert!(!OpenByHotkey::<Test>::contains_key(
+            &hotkey,
+            (&owner, netuid())
+        ));
+        assert!(OpenByHotkey::<Test>::contains_key(
+            &new_hotkey,
+            (&owner, netuid())
+        ));
+        assert_eq!(
+            Positions::<Test>::get(&owner, netuid()).unwrap().hotkey,
+            new_hotkey
+        );
+        assert_eq!(LoanHotkeys::<Test>::get(&hotkey), 0);
+        assert_eq!(LoanHotkeys::<Test>::get(&new_hotkey), 1);
+    });
+}

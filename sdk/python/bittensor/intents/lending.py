@@ -176,6 +176,14 @@ class OpenLoan(Intent):
         default=0,
         metadata={"help": "Minimum additional short opening value in TAO; unused for longs."},
     )
+    min_escrow_alpha: Money = field(
+        default=0,
+        metadata={"help": "Minimum escrowed alpha after a long's forced buy; unused for shorts."},
+    )
+    valid_until: int = field(
+        default=2**32 - 1,
+        metadata={"help": "Latest block number that may include this open."},
+    )
     amount: Optional[Money] = field(
         default=None,
         metadata={"help": "Exact additional amount to borrow: alpha for a short, TAO for a long."},
@@ -192,6 +200,11 @@ class OpenLoan(Intent):
         self.collateral = normalized
         self.min_borrow = debt_unit(self.min_borrow)
         self.min_proceeds = tao_amount(self.min_proceeds)
+        self.min_escrow_alpha = alpha_amount(self.min_escrow_alpha, self.netuid)
+        if not isinstance(self.valid_until, int) or isinstance(self.valid_until, bool):
+            raise BittensorError("valid_until must be a block number")
+        if self.valid_until < 0:
+            raise BittensorError("valid_until must be non-negative")
         if normalized.rao == 0:
             raise BittensorError("collateral must be greater than zero")
         if self.amount is not None:
@@ -212,6 +225,8 @@ class OpenLoan(Intent):
             "collateral": collateral.rao,
             "hotkey": hotkey,
             "min_proceeds": cast(Balance, self.min_proceeds).rao,
+            "min_escrow_alpha": cast(Balance, self.min_escrow_alpha).rao,
+            "valid_until": self.valid_until,
         }
         if self.amount is None:
             params["min_borrow"] = cast(Balance, self.min_borrow).rao
@@ -371,6 +386,10 @@ class RaiseLoan(Intent):
         default=0,
         metadata={"help": "Minimum free TAO from the raise sale leg."},
     )
+    min_escrow_alpha: Money = field(
+        default=0,
+        metadata={"help": "Minimum escrowed alpha after the long's forced buy."},
+    )
     valid_until: int = field(
         default=0,
         metadata={"help": "Latest block number that may include this raise."},
@@ -391,6 +410,7 @@ class RaiseLoan(Intent):
         if self.sell_alpha is not None:
             self.sell_alpha = alpha_amount(self.sell_alpha, self.netuid)
         self.min_tao_out = tao_amount(self.min_tao_out)
+        self.min_escrow_alpha = alpha_amount(self.min_escrow_alpha, self.netuid)
         if not isinstance(self.valid_until, int) or isinstance(self.valid_until, bool):
             raise BittensorError("valid_until must be a block number")
         if self.valid_until < 0:
@@ -410,6 +430,7 @@ class RaiseLoan(Intent):
             "min_borrow_tao": cast(Balance, self.min_borrow_tao).rao,
             "sell_alpha": (None if self.sell_alpha is None else cast(Balance, self.sell_alpha).rao),
             "min_tao_out": cast(Balance, self.min_tao_out).rao,
+            "min_escrow_alpha": cast(Balance, self.min_escrow_alpha).rao,
             "valid_until": self.valid_until,
         }
         return await substrate.compose(Call("Lending", "open_long_and_sell", params))
@@ -458,11 +479,19 @@ class CloseLoan(Intent):
         default=True,
         metadata={"help": "Repay short alpha from its saved hotkey; false buys with collateral."},
     )
+    valid_until: int = field(
+        default=2**32 - 1,
+        metadata={"help": "Latest block number that may include this close."},
+    )
 
     def __post_init__(self):
         _check_netuid(self.netuid)
         self.max_payment = _contextual_amount(self.max_payment)
         self.min_refund = _contextual_amount(self.min_refund)
+        if not isinstance(self.valid_until, int) or isinstance(self.valid_until, bool):
+            raise BittensorError("valid_until must be a block number")
+        if self.valid_until < 0:
+            raise BittensorError("valid_until must be non-negative")
 
     async def build(self, substrate, wallet: Any):
         owner = self.coldkey_address(wallet)
@@ -502,6 +531,7 @@ class CloseLoan(Intent):
                     "repay_from_wallet": self.repay_from_wallet,
                     "max_payment": payment.rao,
                     "min_refund": refund.rao,
+                    "valid_until": self.valid_until,
                 },
             )
         )

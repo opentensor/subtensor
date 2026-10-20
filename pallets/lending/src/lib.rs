@@ -597,6 +597,17 @@ pub mod pallet {
     #[pallet::storage]
     pub type LoanHotkeys<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, u32, ValueQuery>;
+    /// Positions indexed by loan hotkey for O(loan-count) hotkey swaps.
+    #[pallet::storage]
+    pub type OpenByHotkey<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Blake2_128Concat,
+        (T::AccountId, NetUid),
+        (),
+        OptionQuery,
+    >;
     #[pallet::storage]
     pub type EscrowOwner<T: Config> = StorageDoubleMap<
         _,
@@ -631,6 +642,14 @@ pub mod pallet {
     /// Count of positions due at each block. Avoids unbounded Due key scans.
     #[pallet::storage]
     pub type DueIndex<T: Config> = StorageMap<_, Twox64Concat, BlockNumberFor<T>, u32, ValueQuery>;
+    /// Sorted due-bucket successor (earliest → later). Enables O(1) head advance.
+    #[pallet::storage]
+    pub type DueNext<T: Config> =
+        StorageMap<_, Twox64Concat, BlockNumberFor<T>, BlockNumberFor<T>, OptionQuery>;
+    /// Sorted due-bucket predecessor.
+    #[pallet::storage]
+    pub type DuePrev<T: Config> =
+        StorageMap<_, Twox64Concat, BlockNumberFor<T>, BlockNumberFor<T>, OptionQuery>;
     #[pallet::storage]
     pub type NextDue<T: Config> = StorageValue<_, BlockNumberFor<T>, OptionQuery>;
     /// Resume point inside the current due bucket: (owner, netuid).
@@ -1384,18 +1403,15 @@ pub mod pallet {
             netuid: NetUid,
             growing_owner: Option<&T::AccountId>,
         ) -> Result<u64, DispatchError> {
-            let mut total = LongInterestPending::<T>::get(netuid);
-            let max = T::MaxPositionsPerSubnet::get();
-            let mut count = 0u32;
-            for (owner, ()) in OpenByNetuid::<T>::iter_prefix(netuid) {
-                count = count.saturating_add(1);
-                ensure!(count <= max, Error::<T>::TooManyPositions);
-                if growing_owner.is_some_and(|g| g == &owner) {
-                    // Include this owner's existing collateral too (whole-position check).
-                }
-                if let Some(pos) = Positions::<T>::get(&owner, netuid) {
+            // Aggregate book + pending interest; exclude the growing owner's current
+            // collateral because `v_dyn` sells that quantity separately as `C`.
+            let pending = LongInterestPending::<T>::get(netuid);
+            let booked = Lifts::<T>::get(netuid).long_collateral_alpha;
+            let mut total = Self::add(pending, booked)?;
+            if let Some(owner) = growing_owner {
+                if let Some(pos) = Positions::<T>::get(owner, netuid) {
                     if pos.side == Side::Long {
-                        total = Self::add(total, pos.collateral)?;
+                        total = total.saturating_sub(pos.collateral);
                     }
                 }
             }
@@ -1695,10 +1711,21 @@ pub mod pallet {
             // If still warming, fail:
             ensure!(now >= reference.valid_after, Error::<T>::ReferenceWarmingUp);
 
-            let existing = Positions::<T>::get(&owner, netuid);
+            // Accrue interest before sizing so LTV/capacity use remaining collateral.
+            let mut existing = Positions::<T>::get(&owner, netuid);
             if let Some(ref position) = existing {
                 Self::ensure_matching_position(position, side, &hotkey)?;
-            } else {
+            }
+            if let Some(mut position) = existing.take() {
+                Self::charge_interest(&owner, netuid, &mut position, now, false)?;
+                if Positions::<T>::contains_key(&owner, netuid) {
+                    existing = Some(position);
+                } else {
+                    // Exhausted and forfeited — treat as a fresh open.
+                    existing = None;
+                }
+            }
+            if existing.is_none() {
                 ensure!(
                     PositionCount::<T>::get(netuid) < T::MaxPositionsPerSubnet::get(),
                     Error::<T>::TooManyPositions
@@ -1767,8 +1794,7 @@ pub mod pallet {
             let quote = Self::opening_quote(side, principal, price, collateral, v, 0, &params)?;
 
             let increasing = existing.is_some();
-            let mut position = if let Some(mut position) = existing {
-                Self::charge_interest(&owner, netuid, &mut position, now, false)?;
+            let mut position = if let Some(position) = existing {
                 position
             } else {
                 let escrow = Self::position_account(&owner, netuid);
@@ -1880,6 +1906,7 @@ pub mod pallet {
                 let due = position.due;
                 LoanHotkeys::<T>::mutate(&hotkey, |count| *count = count.saturating_add(1));
                 OpenByNetuid::<T>::insert(netuid, &owner, ());
+                OpenByHotkey::<T>::insert(&hotkey, (&owner, netuid), ());
                 EscrowOwner::<T>::insert(netuid, &escrow, &owner);
                 PositionCount::<T>::mutate(netuid, |n| *n = n.saturating_add(1));
                 TotalPositions::<T>::mutate(|n| *n = n.saturating_add(1));
@@ -2723,7 +2750,7 @@ pub mod pallet {
             let (due, remainder) = Self::interest_due(position, until, final_charge)?;
             let paid = due.min(position.collateral);
             if paid > 0 {
-                let escrow = Self::position_account(owner, netuid);
+                let escrow = position.custody.clone();
                 match position.side {
                     Side::Short => {
                         let burn_from = escrow.clone();
@@ -2786,7 +2813,7 @@ pub mod pallet {
         ) -> DispatchResult {
             let custody = Self::custody_hotkey()?;
             let reserve = Self::reserve_account(netuid);
-            let escrow = Self::position_account(owner, netuid);
+            let escrow = position.custody.clone();
             match position.side {
                 Side::Short => {
                     // Default: readd(τ_L + E_S, 0)
@@ -2858,6 +2885,7 @@ pub mod pallet {
         ) {
             Positions::<T>::remove(owner, netuid);
             OpenByNetuid::<T>::remove(netuid, owner);
+            OpenByHotkey::<T>::remove(&position.hotkey, (owner, netuid));
             EscrowOwner::<T>::remove(netuid, &position.custody);
             if Due::<T>::take(position.due, (owner, netuid)).is_some() {
                 Self::note_due_removed(position.due);
@@ -2881,6 +2909,31 @@ pub mod pallet {
             });
         }
 
+        fn unlink_due_bucket(due: BlockNumberFor<T>) {
+            let prev = DuePrev::<T>::take(due);
+            let next = DueNext::<T>::take(due);
+            match (prev, next) {
+                (None, None) => {
+                    if NextDue::<T>::get() == Some(due) {
+                        NextDue::<T>::kill();
+                    }
+                }
+                (None, Some(n)) => {
+                    DuePrev::<T>::remove(n);
+                    if NextDue::<T>::get() == Some(due) {
+                        NextDue::<T>::put(n);
+                    }
+                }
+                (Some(p), None) => {
+                    DueNext::<T>::remove(p);
+                }
+                (Some(p), Some(n)) => {
+                    DueNext::<T>::insert(p, n);
+                    DuePrev::<T>::insert(n, p);
+                }
+            }
+        }
+
         fn note_due_removed(due: BlockNumberFor<T>) {
             let remaining = DueIndex::<T>::mutate(due, |count| {
                 *count = count.saturating_sub(1);
@@ -2888,20 +2941,45 @@ pub mod pallet {
             });
             if remaining == 0 {
                 DueIndex::<T>::remove(due);
-                if NextDue::<T>::get() == Some(due) {
-                    // Recompute from the compact due-block index (not all positions).
-                    NextDue::<T>::set(DueIndex::<T>::iter_keys().min());
-                }
+                Self::unlink_due_bucket(due);
             }
         }
 
         fn note_due_inserted(due: BlockNumberFor<T>) {
+            let was_empty = DueIndex::<T>::get(due) == 0;
             DueIndex::<T>::mutate(due, |count| *count = count.saturating_add(1));
-            NextDue::<T>::mutate(|next| {
-                if next.is_none_or(|existing| existing > due) {
-                    *next = Some(due);
+            if !was_empty {
+                return;
+            }
+            // Splice `due` into the sorted doubly-linked schedule headed by NextDue.
+            match NextDue::<T>::get() {
+                None => NextDue::<T>::put(due),
+                Some(head) if due < head => {
+                    DueNext::<T>::insert(due, head);
+                    DuePrev::<T>::insert(head, due);
+                    NextDue::<T>::put(due);
                 }
-            });
+                Some(head) => {
+                    let mut prev = head;
+                    loop {
+                        match DueNext::<T>::get(prev) {
+                            Some(n) if n < due => prev = n,
+                            Some(n) => {
+                                DueNext::<T>::insert(prev, due);
+                                DuePrev::<T>::insert(due, prev);
+                                DueNext::<T>::insert(due, n);
+                                DuePrev::<T>::insert(n, due);
+                                break;
+                            }
+                            None => {
+                                DueNext::<T>::insert(prev, due);
+                                DuePrev::<T>::insert(due, prev);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         fn collect_due(now: BlockNumberFor<T>, meter: &mut WeightMeter) {
@@ -2932,11 +3010,18 @@ pub mod pallet {
                     Due::<T>::iter_prefix(due)
                 };
                 let mut saw_entry = false;
+                // Cursor stores the last successfully processed key so
+                // `iter_prefix_from` resumes at the next unprocessed entry.
+                let mut last_done: Option<(T::AccountId, NetUid)> = None;
                 for ((owner, netuid), ()) in iter {
                     saw_entry = true;
                     // Meter each position before charging interest.
                     if meter.try_consume(T::WeightInfo::collect()).is_err() {
-                        DueBucketCursor::<T>::put((owner, netuid));
+                        if let Some(done) = last_done {
+                            DueBucketCursor::<T>::put(done);
+                        }
+                        // else: keep the prior exclusive cursor (or none) so the
+                        // unprocessed entry is retried, not skipped.
                         NextDue::<T>::put(due);
                         return;
                     }
@@ -2971,18 +3056,27 @@ pub mod pallet {
                         Due::<T>::remove(due, (&owner, netuid));
                         Self::note_due_removed(due);
                     }
+                    last_done = Some((owner, netuid));
                 }
                 DueBucketCursor::<T>::kill();
                 if !saw_entry {
                     // Stale NextDue pointing at an empty bucket.
                     DueIndex::<T>::remove(due);
+                    Self::unlink_due_bucket(due);
                 }
-                let next = DueIndex::<T>::iter_keys().min();
-                NextDue::<T>::set(next);
-                if let Some(n) = next {
+                // `note_due_removed` / unlink already advanced NextDue off this bucket.
+                let Some(n) = NextDue::<T>::get() else {
+                    break;
+                };
+                if n == due {
+                    // Defensive: still parked on a drained bucket.
+                    Self::unlink_due_bucket(due);
+                    let Some(n) = NextDue::<T>::get() else {
+                        break;
+                    };
                     due = n;
                 } else {
-                    break;
+                    due = n;
                 }
             }
         }
@@ -3283,7 +3377,7 @@ pub mod pallet {
             Positions::<T>::insert(owner, netuid, position.clone());
 
             let r = dissolution.rate;
-            let escrow = Self::position_account(owner, netuid);
+            let escrow = position.custody.clone();
             let reserve = Self::reserve_account(netuid);
             let custody = Self::custody_hotkey()?;
 
@@ -3629,12 +3723,23 @@ pub mod pallet {
                 return Ok(());
             }
             let mut moved = 0u32;
-            for (owner, this_netuid, mut position) in Positions::<T>::iter() {
-                if *old == position.hotkey && netuid.is_none_or(|id| id == this_netuid) {
-                    position.hotkey = new.clone();
-                    Positions::<T>::insert(owner, this_netuid, position);
-                    moved = moved.checked_add(1).ok_or(Error::<T>::Arithmetic)?;
+            let keys: alloc::vec::Vec<_> = OpenByHotkey::<T>::iter_prefix(old)
+                .map(|(key, ())| key)
+                .collect();
+            for (owner, this_netuid) in keys {
+                if netuid.is_some_and(|id| id != this_netuid) {
+                    continue;
                 }
+                let Some(mut position) = Positions::<T>::get(&owner, this_netuid) else {
+                    OpenByHotkey::<T>::remove(old, (&owner, this_netuid));
+                    continue;
+                };
+                ensure!(position.hotkey == *old, Error::<T>::Arithmetic);
+                position.hotkey = new.clone();
+                Positions::<T>::insert(&owner, this_netuid, &position);
+                OpenByHotkey::<T>::remove(old, (&owner, this_netuid));
+                OpenByHotkey::<T>::insert(new, (&owner, this_netuid), ());
+                moved = moved.checked_add(1).ok_or(Error::<T>::Arithmetic)?;
             }
             if moved > 0 {
                 LoanHotkeys::<T>::try_mutate_exists(old, |count| -> DispatchResult {
@@ -3666,6 +3771,8 @@ pub mod pallet {
                 Positions::<T>::insert(new, netuid, &position);
                 OpenByNetuid::<T>::remove(netuid, old);
                 OpenByNetuid::<T>::insert(netuid, new, ());
+                OpenByHotkey::<T>::remove(&position.hotkey, (old, netuid));
+                OpenByHotkey::<T>::insert(&position.hotkey, (new, netuid), ());
                 EscrowOwner::<T>::insert(netuid, &position.custody, new);
                 if Due::<T>::take(position.due, (old, netuid)).is_some() {
                     Due::<T>::insert(position.due, (new, netuid), ());
