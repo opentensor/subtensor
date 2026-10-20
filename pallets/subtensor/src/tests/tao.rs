@@ -571,3 +571,45 @@ fn test_recycle_tao_cannot_cross_preserve_threshold_in_high_ed_runtime() {
         );
     });
 }
+
+/// Regression for short dissolution settlement: recovery + below-ED refund must
+/// leave the escrow via one credit split. Separate Expendable transfers would
+/// reap the refund remainder after recovery and strand the position.
+#[test]
+fn test_terminal_split_tao_recovers_when_refund_is_below_ed() {
+    new_test_ext(1).execute_with(|| {
+        use pallet_lending::LendingPoolInterface;
+
+        let escrow = U256::from(10);
+        let vault = U256::from(11);
+        let recipient = U256::from(12);
+        let ed = ExistentialDeposit::get();
+        assert!(ed > 1u64.into(), "high-ED mock required");
+        let recovery = ed + TaoBalance::from(50);
+        let refund = ed - TaoBalance::from(1);
+        add_balance_to_coldkey_account(&escrow, recovery + refund);
+        assert!(Balances::total_balance(&recipient).is_zero());
+
+        let subtensor_ti_before = subtensor_total_issuance();
+        let balances_ti_before = balances_total_issuance();
+
+        let (recovered, refunded) =
+            <SubtensorModule as LendingPoolInterface<U256>>::terminal_split_tao(
+                &escrow, &vault, &recipient, recovery, refund,
+            )
+            .expect("terminal split must not fail mid-refund");
+
+        assert_eq!(recovered, recovery);
+        assert_eq!(
+            refunded,
+            TaoBalance::ZERO,
+            "below-ED refund to empty recipient is recycled as dust"
+        );
+        assert_eq!(Balances::total_balance(&escrow), 0.into());
+        assert_eq!(Balances::total_balance(&vault), recovery);
+        assert_eq!(Balances::total_balance(&recipient), 0.into());
+        // Recycled dust reduces issuance by the unrepayable refund.
+        assert_eq!(balances_ti_before - balances_total_issuance(), refund);
+        assert_eq!(subtensor_ti_before - subtensor_total_issuance(), refund);
+    });
+}

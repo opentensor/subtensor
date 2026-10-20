@@ -3448,6 +3448,10 @@ pub mod pallet {
             true
         }
 
+        /// Atomic per-position settlement. Must not leave a half-paid escrow:
+        /// short recovery+refund are withdrawn together via `terminal_split_tao`
+        /// (Expendable transfers would otherwise reap a below-ED refund remainder).
+        #[transactional]
         fn settle_position(
             netuid: NetUid,
             owner: &T::AccountId,
@@ -3471,27 +3475,32 @@ pub mod pallet {
                     let available = Self::add(position.proceeds, position.collateral)?;
                     let to_pot = debt.min(available);
                     let refund = available.saturating_sub(to_pot);
-                    if to_pot > 0 {
-                        T::Pool::transfer_tao(&escrow, &reserve, to_pot.into())?;
+                    // Withdraw recovery + refund in one credit split so a below-ED
+                    // refund cannot be reaped by an intervening Expendable transfer.
+                    let (recovered, refunded) = T::Pool::terminal_split_tao(
+                        &escrow,
+                        &reserve,
+                        owner,
+                        to_pot.into(),
+                        refund.into(),
+                    )?;
+                    let recovered = recovered.to_u64();
+                    let refunded = refunded.to_u64();
+                    if recovered > 0 {
                         T::Pool::readd_and_credit(
                             netuid,
                             &reserve,
                             &custody,
-                            to_pot.into(),
+                            recovered.into(),
                             0u64.into(),
                         )?;
                     }
-                    if refund > 0 {
-                        let credited =
-                            T::Pool::refund_dissolution_tao(&escrow, owner, refund.into())?
-                                .to_u64();
-                        if credited < refund {
-                            Self::deposit_event(Event::DustForfeited {
-                                netuid,
-                                recipient: owner.clone(),
-                                tao: refund.saturating_sub(credited),
-                            });
-                        }
+                    if refunded < refund {
+                        Self::deposit_event(Event::DustForfeited {
+                            netuid,
+                            recipient: owner.clone(),
+                            tao: refund.saturating_sub(refunded),
+                        });
                     }
                     Lifts::<T>::mutate(netuid, |book| {
                         book.l_s = book.l_s.saturating_sub(position.lift_tao);
@@ -3842,6 +3851,8 @@ pub mod pallet {
 
         /// §14: re-key Positions / OpenByNetuid / EscrowOwner / Due from `old` to
         /// `new` without moving custody funds (`Position.custody` stays put).
+        /// Rejects when `new` already has a loan on the same netuid — overwriting
+        /// would orphan the destination's custody funds.
         #[transactional]
         pub fn on_coldkey_swap(old: &T::AccountId, new: &T::AccountId) -> DispatchResult {
             if old == new {
@@ -3849,6 +3860,10 @@ pub mod pallet {
             }
             let positions: alloc::vec::Vec<_> = Positions::<T>::iter_prefix(old).collect();
             for (netuid, position) in positions {
+                ensure!(
+                    !Positions::<T>::contains_key(new, netuid),
+                    Error::<T>::PositionExists
+                );
                 Positions::<T>::remove(old, netuid);
                 Positions::<T>::insert(new, netuid, &position);
                 OpenByNetuid::<T>::remove(netuid, old);

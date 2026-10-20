@@ -1680,6 +1680,94 @@ fn coldkey_swap_interest_debits_stored_custody() {
 }
 
 #[test]
+fn coldkey_swap_rejects_destination_with_existing_loan() {
+    new_test_ext().execute_with(|| {
+        let owner = account(1);
+        let dest = account(11);
+        let hotkey_a = account(2);
+        let hotkey_b = account(3);
+        mint_tao(&owner, 50_000_000_000_000);
+        mint_tao(&dest, 50_000_000_000_000);
+        assert_ok!(Lending::open(
+            RuntimeOrigin::signed(owner.clone()),
+            netuid(),
+            Side::Short,
+            10_000_000_000_000,
+            hotkey_a,
+            1,
+            1,
+            0,
+            deadline(),
+        ));
+        assert_ok!(Lending::open(
+            RuntimeOrigin::signed(dest.clone()),
+            netuid(),
+            Side::Short,
+            10_000_000_000_000,
+            hotkey_b,
+            1,
+            1,
+            0,
+            deadline(),
+        ));
+        let dest_before = Positions::<Test>::get(&dest, netuid()).unwrap();
+        let dest_custody = dest_before.custody.clone();
+        let dest_escrow = tao(&dest_custody);
+        assert!(
+            Lending::on_coldkey_swap(&owner, &dest).is_err(),
+            "must not overwrite an existing destination loan"
+        );
+        // Destination loan and custody untouched.
+        let still = Positions::<Test>::get(&dest, netuid()).unwrap();
+        assert_eq!(still.custody, dest_custody);
+        assert_eq!(tao(&dest_custody), dest_escrow);
+        assert!(Positions::<Test>::get(&owner, netuid()).is_some());
+    });
+}
+
+#[test]
+fn short_settlement_uses_terminal_split_for_recovery_and_refund() {
+    new_test_ext().execute_with(|| {
+        let owner = account(1);
+        let hotkey = account(2);
+        mint_tao(&owner, 50_000_000_000_000);
+        assert_ok!(Lending::open(
+            RuntimeOrigin::signed(owner.clone()),
+            netuid(),
+            Side::Short,
+            10_000_000_000_000,
+            hotkey,
+            1,
+            1,
+            0,
+            deadline(),
+        ));
+        let position = Positions::<Test>::get(&owner, netuid()).unwrap();
+        let escrow = position.custody.clone();
+        let escrow_before = tao(&escrow);
+        assert!(escrow_before > 0);
+        let owner_before = tao(&owner);
+        // Force a settlement rate that leaves a positive refund (r ≈ 0).
+        assert_ok!(Lending::start_dissolution(netuid()));
+        assert_ok!(Lending::readd_lifts_for_dissolution(netuid()));
+        Dissolutions::<Test>::mutate(netuid(), |d| {
+            if let Some(d) = d {
+                d.rate = U64F64::from_num(0);
+            }
+        });
+        DissolutionPhase::<Test>::insert(netuid(), 1u8);
+        let mut meter = WeightMeter::with_limit(Weight::from_parts(u64::MAX, u64::MAX));
+        assert!(Lending::settle_lending(netuid(), &mut meter));
+        assert!(Positions::<Test>::get(&owner, netuid()).is_none());
+        assert_eq!(tao(&escrow), 0, "escrow must be emptied atomically");
+        assert!(
+            tao(&owner) >= owner_before.saturating_add(escrow_before.saturating_sub(1)),
+            "full escrow refunded to owner when r=0"
+        );
+    });
+}
+
+#[test]
 fn hotkey_swap_rewrites_open_by_hotkey_index() {
     new_test_ext().execute_with(|| {
         let owner = account(1);
