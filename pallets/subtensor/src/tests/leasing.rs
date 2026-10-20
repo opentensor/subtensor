@@ -425,6 +425,10 @@ fn test_register_leased_network_works() {
             Some(lease_id)
         );
 
+        // Ensure the subnet is permanently marked as lease-created so the owner
+        // emission floor applies even after the lease ends.
+        assert!(SubtensorModule::get_subnet_created_via_lease(lease.netuid));
+
         // Ensure the beneficiary has been added as a proxy
         assert!(PROXIES.with_borrow(|proxies| proxies.0 == vec![(lease.coldkey, beneficiary)]));
 

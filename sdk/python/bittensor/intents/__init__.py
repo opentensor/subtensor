@@ -28,6 +28,7 @@ from .crowdloan import (
     UpdateCrowdloanMinContribution,
     WithdrawCrowdloan,
 )
+from .emission_weights import SetSubnetEmissionWeights
 from .evm import EvmWithdraw, FundEvmKey
 from .governance import (
     SetMechanismCount,
@@ -77,6 +78,7 @@ from .staking import (
     RemoveStake,
     RemoveStakeLimit,
     SetAutoStake,
+    SetRejectStakingHotkeyGrowth,
     StakeIntoBasket,
     SwapBasket,
     SwapBasketMany,
@@ -157,8 +159,10 @@ __all__ = [
     "SetMinCollateral",
     "SetPerpetualLock",
     "SetRejectLockedAlpha",
+    "SetRejectStakingHotkeyGrowth",
     "SetRootClaimThreshold",
     "SetSubnetEmissionEnabled",
+    "SetSubnetEmissionWeights",
     "SetSubnetIdentity",
     "SetTake",
     "SetWeights",

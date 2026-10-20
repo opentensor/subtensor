@@ -907,5 +907,32 @@ mod events {
             /// Pending pre-compaction commits cancelled in this step.
             cleared_commits: u32,
         },
+        /// The coldkey changed its third-party staking-list growth preference.
+        RejectStakingHotkeyGrowthUpdated {
+            /// Account setting the preference.
+            coldkey: T::AccountId,
+            /// Whether unsolicited growth is rejected.
+            enabled: bool,
+        },
+        /// The validator swapped, but this delegator's stake could not follow without
+        /// growing its staking list. On root, basket credits follow the new hotkey.
+        HotkeySwapStakeRetained {
+            /// Staker whose position stayed put.
+            coldkey: T::AccountId,
+            /// Hotkey still holding the position.
+            old_hotkey: T::AccountId,
+            /// Validator's new hotkey (also the root basket credit destination).
+            new_hotkey: T::AccountId,
+            /// Subnet whose stake was retained.
+            netuid: NetUid,
+        },
+        /// The subnet owner or root set the subnet's emission weight vector.
+        SubnetEmissionWeightsSet {
+            /// Subnet whose vector changed.
+            netuid: NetUid,
+            /// Full post-merge vector `[burn, recycle, owner, validator, miner]` in
+            /// `u64::MAX` parts.
+            weights: Vec<u64>,
+        },
     }
 }

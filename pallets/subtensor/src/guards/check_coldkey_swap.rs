@@ -57,6 +57,7 @@ where
             call.is_sub_type(),
             Some(
                 Call::announce_coldkey_swap { .. }
+                    | Call::announce_coldkey_swap_v2 { .. }
                     | Call::swap_coldkey_announced { .. }
                     | Call::dispute_coldkey_swap { .. }
             )
@@ -66,7 +67,10 @@ where
         ) || (!locked
             && matches!(
                 call.is_sub_type(),
-                Some(Call::clear_coldkey_swap_announcement { .. })
+                Some(
+                    Call::clear_coldkey_swap_announcement { .. }
+                        | Call::release_own_coldkey_swap_destination_reservation { .. }
+                )
             ))
     }
 }
@@ -155,6 +159,9 @@ mod tests {
         vec![
             RuntimeCall::SubtensorModule(crate::Call::announce_coldkey_swap {
                 new_coldkey_hash: HashingOf::<Test>::hash_of(&U256::from(99)),
+            }),
+            RuntimeCall::SubtensorModule(crate::Call::announce_coldkey_swap_v2 {
+                new_coldkey: U256::from(99),
             }),
             RuntimeCall::SubtensorModule(crate::Call::swap_coldkey_announced {
                 new_coldkey: U256::from(42),
@@ -438,6 +445,100 @@ mod tests {
                     .error,
                 Error::<Test>::ColdkeySwapAnnounced.into(),
             );
+        });
+    }
+
+    #[test]
+    fn v2_recovery_cleans_reservations_without_unlocking_early() {
+        new_test_ext(1).execute_with(|| {
+            let who = U256::from(1);
+            let destination = U256::from(42);
+            let signed = RuntimeOrigin::signed(who);
+            let announce = RuntimeCall::SubtensorModule(crate::Call::announce_coldkey_swap_v2 {
+                new_coldkey: destination,
+            });
+            add_balance_to_coldkey_account(
+                &who,
+                SubtensorModule::get_key_swap_cost() * 2u64.into() + ExistentialDeposit::get(),
+            );
+            assert_ok!(dispatch_with_ext(announce.clone(), signed.clone()));
+            assert_eq!(
+                crate::ColdkeySwapDestinationReservations::<Test>::get(destination),
+                Some(who)
+            );
+            assert_ok!(dispatch_with_ext(
+                RuntimeCall::SubtensorModule(crate::Call::dispute_coldkey_swap {}),
+                signed.clone()
+            ));
+            assert_ok!(SubtensorModule::reset_coldkey_swap_keep_locked(
+                RuntimeOrigin::root(),
+                who
+            ));
+            assert!(!crate::ColdkeySwapReservedDestination::<Test>::contains_key(who));
+            assert!(!crate::ColdkeySwapDestinationReservations::<Test>::contains_key(destination));
+            assert_eq!(ColdkeySwapDisputes::<Test>::get(who), Some(0));
+
+            assert_ok!(dispatch_with_ext(announce, signed.clone()));
+            let when = ColdkeySwapAnnouncements::<Test>::get(who).unwrap().0;
+            System::set_block_number(when + crate::ColdkeySwapReannouncementDelay::<Test>::get());
+            assert_eq!(
+                dispatch_with_ext(
+                    RuntimeCall::SubtensorModule(crate::Call::clear_coldkey_swap_announcement {}),
+                    signed.clone()
+                )
+                .unwrap_err()
+                .error,
+                Error::<Test>::ColdkeySwapAnnounced.into()
+            );
+            assert_ok!(dispatch_with_ext(
+                RuntimeCall::SubtensorModule(crate::Call::swap_coldkey_announced {
+                    new_coldkey: destination
+                }),
+                signed.clone()
+            ));
+            assert!(!crate::ColdkeySwapReservedDestination::<Test>::contains_key(who));
+            assert!(!crate::ColdkeySwapDestinationReservations::<Test>::contains_key(destination));
+            assert!(!ColdkeySwapAnnouncements::<Test>::contains_key(who));
+            assert!(!ColdkeySwapDisputes::<Test>::contains_key(who));
+            assert_ok!(dispatch_with_ext(remark_call(), signed));
+        });
+    }
+
+    #[test]
+    fn destination_release_respects_recovery_lock_and_dispute() {
+        new_test_ext(1).execute_with(|| {
+            let who = U256::from(1);
+            let announcer = U256::from(2);
+            setup_swap_announced(&who);
+            crate::ColdkeySwapReservedDestination::<Test>::insert(announcer, who);
+            crate::ColdkeySwapDestinationReservations::<Test>::insert(who, announcer);
+            let release = RuntimeCall::SubtensorModule(
+                crate::Call::release_own_coldkey_swap_destination_reservation {},
+            );
+            let signed = RuntimeOrigin::signed(who);
+            ColdkeySwapDisputes::<Test>::insert(who, 0);
+            assert_eq!(
+                dispatch_with_ext(release.clone(), signed.clone())
+                    .unwrap_err()
+                    .error,
+                Error::<Test>::ColdkeySwapAnnounced.into()
+            );
+            ColdkeySwapDisputes::<Test>::insert(who, 1);
+            assert_eq!(
+                dispatch_with_ext(release.clone(), signed.clone())
+                    .unwrap_err()
+                    .error,
+                Error::<Test>::ColdkeySwapDisputed.into()
+            );
+            assert_eq!(
+                crate::ColdkeySwapDestinationReservations::<Test>::get(who),
+                Some(announcer)
+            );
+            ColdkeySwapDisputes::<Test>::remove(who);
+            assert_ok!(dispatch_with_ext(release, signed));
+            assert!(!crate::ColdkeySwapReservedDestination::<Test>::contains_key(announcer));
+            assert!(!crate::ColdkeySwapDestinationReservations::<Test>::contains_key(who));
+            assert!(ColdkeySwapAnnouncements::<Test>::contains_key(who));
         });
     }
 

@@ -7,7 +7,6 @@ import {
     addStake,
     announceColdkeySwap,
     burnedRegister,
-    coldkeyHashBinary,
     disputeColdkeySwap,
     forceSetBalance,
     generateKeyringPair,
@@ -46,7 +45,7 @@ describeSuite({
                 await forceSetBalance(api, oldColdkey.address);
 
                 // Announce and dispute
-                await announceColdkeySwap(api, oldColdkey, coldkeyHashBinary(newColdkey));
+                await announceColdkeySwap(api, oldColdkey, newColdkey);
                 await disputeColdkeySwap(api, oldColdkey);
                 log("Announced + disputed");
 
@@ -66,7 +65,7 @@ describeSuite({
                 log("Storage cleared");
 
                 // Re-announce should succeed
-                await announceColdkeySwap(api, oldColdkey, coldkeyHashBinary(newColdkey));
+                await announceColdkeySwap(api, oldColdkey, newColdkey);
                 log("Re-announce after reset succeeded");
             },
         });
@@ -194,7 +193,7 @@ describeSuite({
                 await forceSetBalance(api, oldColdkey.address);
 
                 // Announce for decoy
-                await announceColdkeySwap(api, oldColdkey, coldkeyHashBinary(decoy));
+                await announceColdkeySwap(api, oldColdkey, decoy);
                 const annBefore = await getColdkeySwapAnnouncement(api, oldColdkey.address);
                 expect(annBefore, "announcement should exist").not.toBeNull();
                 log("Pending announcement exists");

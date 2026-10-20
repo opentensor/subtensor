@@ -50,6 +50,12 @@ use macros::{config, dispatches, errors, events, genesis, hooks};
 
 pub use extensions::*;
 pub use guards::*;
+pub use subnets::emission_weights::{
+    EMISSION_WEIGHT_ONE, EMISSION_WEIGHT_SLOTS, EMISSION_WEIGHTS_VIEW_READS, EmissionIndex,
+    EmissionWeights, EmissionWeightsVec, EmissionWeightsView, MAX_OWNER_EMISSION,
+    MAX_VALIDATOR_EMISSION, MIN_MINER_EMISSION, emission_fraction, emission_share_to_parts,
+    normalize_tao_weight, root_emission_share,
+};
 
 #[cfg(test)]
 pub(crate) mod tests;
@@ -102,15 +108,29 @@ pub const MAX_STAKING_HOTKEYS: u32 = MAX_ROOT_CLAIM_WORK;
 /// (legacy and current share rows, pool value, both denominator maps, epoch) taken twice
 /// (validation and the debit path).
 pub const STAKING_HOTKEYS_WALK_READS_PER_ENTRY: u64 = 14;
-/// Most `StakingHotkeys` entries a coldkey swap moves in one call. Sized from the production
-/// distribution: the 99.9th percentile list is under 100 entries and four coldkeys exceed
-/// this value; they consolidate before swapping.
+/// Most hotkeys (source ∪ destination staking lists plus claim-only basket credits) a
+/// coldkey swap admits in one call. Sized from the production distribution: the 99.9th
+/// percentile list is under 100 entries and four coldkeys exceed this value; they
+/// consolidate before swapping. Merges into an already-used destination count both sides.
 pub const MAX_COLDKEY_SWAP_HOTKEYS: u32 = MAX_STAKING_HOTKEYS;
 /// Most stake positions `(hotkey, netuid)` a coldkey swap moves in one call. Each position is
 /// one `transfer_stake` worth of work; the declared weight reserves this many (about three
 /// quarters of the normal block budget) and refunds the rest post-dispatch. Four production
 /// coldkeys exceed it today.
 pub const MAX_COLDKEY_SWAP_POSITIONS: u32 = 1024;
+/// Most destination `Lock` rows a coldkey swap may scan/purge. Sized so the
+/// declared swap envelope still fits the normal-class `max_extrinsic` after
+/// charging the full per-row admission + re-check + purge + aggregate path
+/// (independent of source positions). See `coldkey_swap_weight`.
+pub const MAX_COLDKEY_SWAP_DEST_LOCKS: u32 = 128;
+/// Most pending network-registration queue rows one coldkey swap rewrites.
+/// Escrow is updated only via those queue `lock_id`s (no global escrow scan).
+pub const MAX_COLDKEY_SWAP_PENDING_REGISTRATIONS: u32 = 32;
+/// Most `NetworkRegistrationQueue` entries a coldkey swap may scan or rewrite.
+/// The queue is a single unbounded `Vec`; visiting beyond this fails closed so
+/// work cannot grow with unrelated accounts' registrations outside the weight
+/// envelope.
+pub const MAX_COLDKEY_SWAP_REGISTRATION_QUEUE_SCAN: u32 = 256;
 /// Most subnet legs one `unstake_all` / `unstake_all_alpha` call will validate or
 /// unstake. Each successful leg is one `remove_stake` plus a [`MAX_STAKING_HOTKEYS`]
 /// walk (~9.3e10 ref-time at RocksDbWeight). The normal-class `max_extrinsic` is
@@ -219,6 +239,8 @@ pub const MAX_COLDKEY_COLLATERAL_HOTKEYS: u32 = 32;
 
 /// Account flag bit that opts into receiving locked alpha transfers.
 pub const ACCOUNT_FLAGS_ACCEPT_LOCKED_ALPHA: u128 = 1u128 << 0;
+/// Refuse staking-list growth initiated by another coldkey.
+pub const ACCOUNT_FLAGS_REJECT_STAKING_HOTKEY_GROWTH: u128 = 1u128 << 1;
 
 #[allow(deprecated)]
 #[deny(missing_docs)]
@@ -234,6 +256,7 @@ pub mod pallet {
     use crate::migrations;
     use crate::staking::lock::LockState;
     use crate::subnets::dissolution::DissolveCleanupStatus;
+    use crate::subnets::emission_weights::EmissionWeightsVec;
     use crate::subnets::leasing::{LeaseId, SubnetLeaseOf};
     use crate::subnets::subnet::NetworkRegistrationInfo;
     use crate::weights::WeightInfo;
@@ -1616,6 +1639,20 @@ pub mod pallet {
     pub type AccountFlags<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, u128, ValueQuery>;
 
+    /// Claim-only fund associations created when a root swap leaves a staker's stake
+    /// behind. These never grow StakingHotkeys or the work of a stake exit. Claims and
+    /// coldkey swaps bound their selection before admitting work.
+    #[pallet::storage]
+    pub type HotkeySwapBasketCredits<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Blake2_128Concat,
+        T::AccountId,
+        (),
+        OptionQuery,
+    >;
+
     /// MAP ( hot ) --> take | Returns the hotkey delegation take. And signals that this key is open for delegation
     #[pallet::storage]
     pub type Delegates<T: Config> =
@@ -1920,6 +1957,23 @@ pub mod pallet {
     #[pallet::storage]
     pub type ColdkeySwapAnnouncements<T: Config> =
         StorageMap<_, Twox64Concat, T::AccountId, (BlockNumberFor<T>, T::Hash), OptionQuery>;
+
+    /// Destination account reserved by an in-flight coldkey-swap announcement.
+    ///
+    /// Announce takes the destination in cleartext so it can be validated before
+    /// the fee; without a reservation a third party could register that address
+    /// as their hotkey during the delay and force `NewColdKeyIsHotkey` at execute,
+    /// repeatedly delaying recovery while the source stays announcement-restricted.
+    #[pallet::storage]
+    pub type ColdkeySwapDestinationReservations<T: Config> =
+        StorageMap<_, Twox64Concat, T::AccountId, T::AccountId, OptionQuery>;
+
+    /// Reverse index of [`ColdkeySwapDestinationReservations`]: announcer → reserved
+    /// destination, so reannounce / clear / execute can free the prior reservation
+    /// without scanning.
+    #[pallet::storage]
+    pub type ColdkeySwapReservedDestination<T: Config> =
+        StorageMap<_, Twox64Concat, T::AccountId, T::AccountId, OptionQuery>;
 
     /// A map of the coldkey swap disputes from a coldkey to the
     /// block number the coldkey swap was disputed. Zero means root cleared the
@@ -2268,6 +2322,10 @@ pub mod pallet {
         StorageValue<_, u64, ValueQuery, DefaultNetworkLockReductionInterval<T>>;
 
     /// ITEM( subnet_owner_cut )
+    ///
+    /// Deprecated: superseded by the owner slot of [`SubnetEmissionWeights`]. Kept as the
+    /// seed for `migrate_seed_subnet_emission_weights` and for legacy global views; no
+    /// emission path reads it.
     #[pallet::storage]
     pub type SubnetOwnerCut<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetOwnerCut<T>>;
 
@@ -2278,9 +2336,36 @@ pub mod pallet {
     }
 
     /// MAP ( netuid ) --> owner_cut_enabled
+    ///
+    /// Deprecated: an owner slot of zero in [`SubnetEmissionWeights`] now means "disabled".
+    /// Kept only as the seed for `migrate_seed_subnet_emission_weights`.
     #[pallet::storage]
     pub type OwnerCutEnabled<T> =
         StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultOwnerCutEnabled<T>>;
+
+    /// Canonical emission vector for subnets that have never set one.
+    #[pallet::type_value]
+    pub fn DefaultSubnetEmissionWeights<T: Config>() -> EmissionWeightsVec {
+        Pallet::<T>::emission_weights_to_vec(Pallet::<T>::default_emission_weights())
+    }
+
+    /// MAP ( netuid ) --> `[burn, recycle, owner, validator, miner]` in `u64::MAX` parts,
+    /// summing to exactly one. See `subnets::emission_weights`.
+    #[pallet::storage]
+    pub type SubnetEmissionWeights<T: Config> = StorageMap<
+        _,
+        Identity,
+        NetUid,
+        EmissionWeightsVec,
+        ValueQuery,
+        DefaultSubnetEmissionWeights<T>,
+    >;
+
+    /// MAP ( netuid ) --> true when the subnet was registered through a lease. Persists after
+    /// the lease ends; such subnets may not lower their owner cut below the launch default.
+    #[pallet::storage]
+    pub type SubnetCreatedViaLease<T: Config> =
+        StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultFalse<T>>;
 
     /// ITEM( network_rate_limit )
     #[pallet::storage]
@@ -2450,6 +2535,16 @@ pub mod pallet {
     /// MAP ( netuid ) --> pending_owner_cut
     #[pallet::storage]
     pub type PendingOwnerCut<T> =
+        StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
+
+    /// MAP ( netuid ) --> cumulative alpha accrued to the owner slot since the subnet was
+    /// registered (seeded at migration from the legacy global cut; written as an explicit
+    /// zero at registration). The legacy lock refund on dissolution deducts this history,
+    /// so it must not depend on the owner's current, adjustable share. An absent entry
+    /// means the subnet pre-dates the seed migration; the refund then falls back to the
+    /// legacy `issuance × SubnetOwnerCut` deduction (`owner_cut_alpha_for_lock_refund`).
+    #[pallet::storage]
+    pub type SubnetOwnerCutAccrued<T> =
         StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
 
     /// Default miner-burned proportion.
@@ -3577,6 +3672,14 @@ pub mod pallet {
         prod_or_fast!(7_200, 1)
     }
 
+    /// ITEM (Rate limit for subnet emission weight vector updates: once a week at 12 s
+    /// blocks, keyed per subnet. Root is exempt; a subnet's first call is always allowed,
+    /// and dissolution clears the key so a reused netuid starts fresh.)
+    #[pallet::type_value]
+    pub fn SubnetEmissionWeightsRateLimit<T: Config>() -> u64 {
+        prod_or_fast!(50_400, 1)
+    }
+
     /// MAP ( netuid ) --> Current number of subnet mechanisms
     #[pallet::storage]
     pub type MechanismCountCurrent<T: Config> =
@@ -3885,6 +3988,7 @@ impl<T: Config + pallet_balances::Config<Balance = TaoBalance>>
         );
 
         // Increse alpha out counter
+        Self::ensure_staking_hotkeys_can_grow(coldkey, hotkey)?;
         SubnetAlphaOut::<T>::mutate(netuid, |total| {
             *total = total.saturating_add(alpha);
         });
@@ -3952,6 +4056,9 @@ pub trait ProxyInterface<AccountId> {
     fn add_lease_beneficiary_proxy(beneficiary: &AccountId, lease: &AccountId) -> DispatchResult;
     fn remove_lease_beneficiary_proxy(beneficiary: &AccountId, lease: &AccountId)
     -> DispatchResult;
+    /// Move proxies (and real-pays-fee flags) keyed by `from` onto `to`, merging
+    /// with any proxies `to` already holds. Used by coldkey swap.
+    fn transfer_delegator_proxies(from: &AccountId, to: &AccountId) -> DispatchResult;
 }
 
 impl<T> ProxyInterface<T> for () {
@@ -3960,6 +4067,10 @@ impl<T> ProxyInterface<T> for () {
     }
 
     fn remove_lease_beneficiary_proxy(_: &T, _: &T) -> DispatchResult {
+        Ok(())
+    }
+
+    fn transfer_delegator_proxies(_: &T, _: &T) -> DispatchResult {
         Ok(())
     }
 }

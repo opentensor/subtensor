@@ -3,6 +3,13 @@
 from __future__ import annotations
 
 DESCRIPTIONS: dict[str, str] = {
+    "AccountRejectsStakingHotkeyGrowth": (
+        "The receiving coldkey opted out of staking-list growth caused by other accounts. "
+        "Transfer onto a hotkey the receiver already lists or owns, or have the receiver "
+        "voluntarily establish the destination through its own staking action. Contracts "
+        "can check getRejectStakingHotkeyGrowth before transferring to avoid a refused "
+        "precompile call."
+    ),
     "AccountRejectsLockedAlpha": (
         "Locked alpha was being transferred to a coldkey whose `AccountFlags` do not have the "
         "accept-locked-alpha bit set, e.g. during a lock transfer or coldkey swap of locks. "
@@ -187,9 +194,10 @@ DESCRIPTIONS: dict[str, str] = {
         "overlap."
     ),
     "ColdKeyAlreadyAssociated": (
-        "The destination coldkey of a coldkey swap already has staking hotkeys associated with "
-        "it, so it cannot receive the swapped identity. Check the `StakingHotkeys` storage for "
-        "the new coldkey and swap to a fresh, unused coldkey instead."
+        "Retired error: coldkey swaps into an already-used destination now merge assets into "
+        "that coldkey. Current runtimes never return this code; if you still see it, you are "
+        "on a pre-merge runtime — upgrade, or use a destination without staking hotkeys on "
+        "the older chain."
     ),
     "ColdkeyCollateralIncomplete": (
         "A coldkey swap could not fully migrate miner collateral: after migrating every "
@@ -283,7 +291,9 @@ DESCRIPTIONS: dict[str, str] = {
     ),
     "Deprecated": (
         "The extrinsic has been removed and always fails, e.g. `schedule_swap_coldkey`, the "
-        "swap pallet's user-liquidity calls, or `sudo_set_total_issuance`. Migrate to the "
+        "swap pallet's user-liquidity calls, `sudo_set_total_issuance`, or the owner-cut "
+        "setters `sudo_set_subnet_owner_cut` / `sudo_set_owner_cut_enabled` (replaced by "
+        "`sudo_set_subnet_emission_weights`, `btcli subnets emission`). Migrate to the "
         "replacement call noted in the deprecation (for coldkey swaps, "
         "`btcli wallet announce-coldkey-swap` then `btcli wallet swap-coldkey`)."
     ),
@@ -797,6 +807,72 @@ DESCRIPTIONS: dict[str, str] = {
         "(`btcli subnets list`) against the subnet limit and retry once a subnet becomes "
         "prunable."
     ),
+    "EmissionWeightsLengthMismatch": (
+        "`sudo_set_subnet_emission_weights` was given `uids` and `values` lists of different "
+        "lengths. Each slot index in `uids` needs exactly one share in `values`; pass the two "
+        "lists pairwise (e.g. `uids=[2, 3, 4]`, `values=[owner, validator, miner]`)."
+    ),
+    "EmissionWeightIndexOutOfRange": (
+        "`sudo_set_subnet_emission_weights` named a slot index outside the five-slot emission "
+        "weight vector. Valid indices are 0 = burn, 1 = recycle, 2 = owner, 3 = validator, "
+        "4 = miner; later slots (e.g. gamma buys) are reserved for a future runtime."
+    ),
+    "EmissionWeightIndexDuplicated": (
+        "`sudo_set_subnet_emission_weights` listed the same slot index twice in `uids`. Give "
+        "each slot at most once per call."
+    ),
+    "EmissionWeightsDoNotSumToOne": (
+        "After merging your update into the subnet's current emission weight vector, the five "
+        "shares do not sum to exactly `u64::MAX` (1.0). Omitted slots keep their current value, "
+        "so raising one slot requires lowering another in the same call. `btcli subnets "
+        "emission set-value/increase/decrease` renormalise the other slots for you; with the "
+        "raw call, pass a full `[0, 0, owner, validator, miner]` vector whose parts total "
+        "18446744073709551615."
+    ),
+    "BurnEmissionMustBeZero": (
+        "Slot 0 (burn) of the emission weight vector was set to a non-zero share. Burning "
+        "alpha emission is reserved for a future runtime; in v1 the burn share must be 0 "
+        "(or simply omitted)."
+    ),
+    "RecycleEmissionMustBeZero": (
+        "Slot 1 (recycle) of the emission weight vector was set to a non-zero share. Recycling "
+        "alpha emission is reserved for a future runtime; in v1 the recycle share must be 0 "
+        "(or simply omitted)."
+    ),
+    "OwnerEmissionAboveMaximum": (
+        "Slot 2 (owner) of the emission weight vector exceeds the 33% ceiling. The subnet "
+        "owner may take at most 0.33 of block emission; lower the owner share (0 disables the "
+        "owner cut entirely on subnets that were not created through a lease)."
+    ),
+    "LeasedSubnetOwnerCutBelowMinimum": (
+        "The subnet was created through a crowdloan lease, so slot 2 (owner) of its emission "
+        "weight vector may not drop below the 18% launch default that lease contributors are "
+        "paid from. Keep the owner share at or above 0.18 on lease-created subnets."
+    ),
+    "ValidatorEmissionAboveMaximum": (
+        "Slot 3 (validator) of the emission weight vector exceeds the 50% ceiling. Validator "
+        "dividends may draw at most 0.50 of block emission; lower the validator share."
+    ),
+    "ValidatorEmissionTooLowToPreserveRoot": (
+        "Slot 3 (validator) of the emission weight vector is at or below root's baseline "
+        "share. Every block the chain pays root `min(V, r)` of the subnet's emission off the "
+        "top of the validator slot, where `r = V0 * x / (x + A)` is what root would earn with "
+        "the default validator share V0 (0.41) and the global TaoWeight (`x` = root TAO times "
+        "that weight, `A` = the subnet's alpha issuance), recomputed from live state; alpha "
+        "validators get `V - min(V, r)`. A set with `V <= r` would leave validators nothing, "
+        "so it is rejected. `btcli subnets emission show --netuid <n>` prints the baseline "
+        "and the floor for this block. Raise the validator share above it and resubmit."
+    ),
+    "MinerEmissionBelowMinimum": (
+        "Slot 4 (miner) of the emission weight vector is below the 33% floor. Miner incentive "
+        "must receive at least 0.33 of block emission; raise the miner share (or lower the "
+        "owner/validator shares that crowd it out)."
+    ),
+    "EmissionWeightsNotSettableOnRoot": (
+        "`sudo_set_subnet_emission_weights` was called for netuid 0. The root network has no "
+        "alpha emission to divide, so it carries no emission weight vector; pass a subnet "
+        "netuid."
+    ),
     "SubnetNotExists": (
         "The netuid passed to the call does not correspond to a registered subnet. Verify the "
         "netuid argument against `NetworksAdded` or `btcli subnets list`; the subnet may also "
@@ -936,5 +1012,18 @@ DESCRIPTIONS: dict[str, str] = {
         "The coldkey stakes through more hotkeys, or holds more stake positions, than one "
         "coldkey swap can move. Unstake from or move stake off unused hotkeys and subnets "
         "to consolidate, then retry the swap."
+    ),
+    "ColdkeySwapDestinationReserved": (
+        "This account is reserved as the destination of an in-flight coldkey-swap "
+        "announcement, so it cannot be registered as a hotkey and another coldkey cannot "
+        "announce to it until that announcement is executed, cleared, released by the "
+        "destination, reset by root, or the reservation TTL expires. Wait for the "
+        "reservation to clear, have the destination call "
+        "`release_own_coldkey_swap_destination_reservation`, or choose a different account."
+    ),
+    "ColdkeySwapDestinationReservationNotFound": (
+        "No live coldkey-swap destination reservation exists for this account, so "
+        "`release_own_coldkey_swap_destination_reservation` has nothing to free. Confirm "
+        "the account is the reserved destination of an in-flight announcement."
     ),
 }

@@ -45,7 +45,8 @@ use pallet_subtensor::rpc_info::{
     show_subnet::SubnetState,
     stake_info::{StakeAvailability, StakeInfo},
     subnet_info::{
-        SubnetHyperparams, SubnetHyperparamsV2, SubnetHyperparamsV3, SubnetInfo, SubnetInfov2,
+        SubnetEmissionWeightsInfo, SubnetHyperparams, SubnetHyperparamsV2, SubnetHyperparamsV3,
+        SubnetInfo, SubnetInfov2,
     },
 };
 use pallet_subtensor::{CommitmentsInterface, ProxyInterface};
@@ -238,7 +239,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 479,
+    spec_version: 482,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -625,6 +626,10 @@ impl ProxyInterface<AccountId> for Proxier {
             0,
         )
     }
+
+    fn transfer_delegator_proxies(from: &AccountId, to: &AccountId) -> DispatchResult {
+        pallet_proxy::Pallet::<Runtime>::transfer_delegator_proxies(from, to)
+    }
 }
 
 pub struct CommitmentsI;
@@ -727,6 +732,54 @@ fn lease_recovery_rolls_back_real_proxy_storage_on_a_late_failure() {
             .is_ok()
         );
         assert_eq!(SubnetLeases::<Runtime>::get(0).unwrap().beneficiary, new);
+    });
+}
+
+#[test]
+#[allow(clippy::unwrap_used)]
+fn coldkey_swap_merges_validate_proxies_keyed_by_coldkey() {
+    use frame_support::assert_ok;
+    use sp_runtime::BuildStorage;
+
+    let old = AccountId::new([91; 32]);
+    let new = AccountId::new([92; 32]);
+    let validate_delegate = AccountId::new([93; 32]);
+    let staking_delegate = AccountId::new([94; 32]);
+    let storage = RuntimeGenesisConfig {
+        balances: pallet_balances::GenesisConfig {
+            balances: vec![
+                (old.clone(), 100_000_000_000u64.into()),
+                (new.clone(), 100_000_000_000u64.into()),
+            ],
+            dev_accounts: None,
+        },
+        ..Default::default()
+    }
+    .build_storage()
+    .unwrap();
+    sp_io::TestExternalities::new(storage).execute_with(|| {
+        System::set_block_number(1);
+        assert_ok!(Proxy::add_proxy(
+            RuntimeOrigin::signed(old.clone()),
+            validate_delegate.clone().into(),
+            ProxyType::Validate,
+            0,
+        ));
+        assert_ok!(Proxy::add_proxy(
+            RuntimeOrigin::signed(new.clone()),
+            staking_delegate.clone().into(),
+            ProxyType::Staking,
+            0,
+        ));
+
+        assert_ok!(SubtensorModule::do_swap_coldkey(&old, &new));
+
+        assert!(Proxy::find_proxy(&old, &validate_delegate, Some(ProxyType::Validate)).is_err());
+        assert!(Proxy::find_proxy(&new, &validate_delegate, Some(ProxyType::Validate)).is_ok());
+        assert!(Proxy::find_proxy(&new, &staking_delegate, Some(ProxyType::Staking)).is_ok());
+        let (proxies, _) = pallet_proxy::Proxies::<Runtime>::get(&new);
+        assert_eq!(proxies.len(), 2);
+        assert!(pallet_proxy::Proxies::<Runtime>::get(&old).0.is_empty());
     });
 }
 
@@ -1273,7 +1326,7 @@ impl pallet_evm::Config for Runtime {
     type Timestamp = Timestamp;
     type WeightInfo = pallet_evm::weights::SubstrateWeight<Self>;
     type BalanceConverter = SubtensorEvmBalanceConverter;
-    type AccountProvider = pallet_evm::FrameSystemAccountProvider<Self>;
+    type AccountProvider = pallet_evm::NoncePreservingAccountProvider<Self>;
     type GasLimitStorageGrowthRatio = ();
     type CreateOriginFilter = ();
     type CreateInnerOriginFilter = ();
@@ -1734,6 +1787,21 @@ type Migrations = (
     // resync under its own HasMigrationRun marker; try-runtime checks the sum and that
     // issuance is untouched.
     pallet_subtensor::migrations::migrate_resync_total_stake::resync_total_stake_v2::Migration<
+        Runtime,
+    >,
+    // Spec 480 (etao): seed every subnet's emission weight vector
+    // `[burn, recycle, owner, validator, miner]` and its accrued owner cut from the legacy
+    // `SubnetOwnerCut` / `OwnerCutEnabled` state so the first post-upgrade block pays
+    // what the last pre-upgrade block did. One-shot, stamped in HasMigrationRun;
+    // try-runtime checks every seeded vector.
+    pallet_subtensor::migrations::migrate_seed_subnet_emission_weights::seed_subnet_emission_weights::Migration<
+        Runtime,
+    >,
+    // Spec 481: root is paid its live baseline share off the top of the validator slot
+    // every block, so spec 480's per-subnet frozen `SubnetTaoWeight` has no reader. Clear
+    // any entries written while 480 ran (testnet). One-shot, stamped in HasMigrationRun;
+    // try-runtime checks the map is empty and reports subnets off the default split.
+    pallet_subtensor::migrations::migrate_remove_subnet_tao_weight::remove_subnet_tao_weight::Migration<
         Runtime,
     >,
 );
@@ -2468,7 +2536,7 @@ impl_runtime_apis! {
         }
     }
 
-    #[api_version(2)]
+    #[api_version(3)]
     impl subtensor_custom_rpc_runtime_api::SubnetInfoRuntimeApi<Block> for Runtime {
         fn get_subnet_info(netuid: NetUid) -> Option<SubnetInfo<AccountId32>> {
             SubtensorModule::get_subnet_info(netuid)
@@ -2556,6 +2624,10 @@ impl_runtime_apis! {
                 Ok(block_emission) => block_emission.into(),
                 Err(_) => TaoBalance::ZERO,
             }
+        }
+
+        fn get_subnet_emission_weights(netuid: NetUid) -> Option<SubnetEmissionWeightsInfo> {
+            SubtensorModule::get_subnet_emission_weights_info(netuid)
         }
     }
 

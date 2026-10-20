@@ -102,6 +102,12 @@ pub trait SubtensorCustomApi<BlockHash> {
         netuid: NetUid,
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
+    #[method(name = "subnetInfo_getSubnetEmissionWeights")]
+    fn get_subnet_emission_weights(
+        &self,
+        netuid: NetUid,
+        at: Option<BlockHash>,
+    ) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getSelectiveMechagraph")]
     fn get_selective_mechagraph(
         &self,
@@ -570,6 +576,23 @@ where
             Ok(result) => Ok(result.encode()),
             Err(e) => Err(Error::RuntimeError(format!(
                 "Unable to get coldkey auto stake hotkey: {e:?}"
+            ))
+            .into()),
+        }
+    }
+
+    fn get_subnet_emission_weights(
+        &self,
+        netuid: NetUid,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        match api.get_subnet_emission_weights(at, netuid) {
+            Ok(result) => Ok(result.encode()),
+            Err(e) => Err(Error::RuntimeError(format!(
+                "Unable to get subnet emission weights: {e:?}"
             ))
             .into()),
         }
