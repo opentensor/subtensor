@@ -118,6 +118,10 @@ pub const MAX_COLDKEY_SWAP_HOTKEYS: u32 = MAX_STAKING_HOTKEYS;
 /// quarters of the normal block budget) and refunds the rest post-dispatch. Four production
 /// coldkeys exceed it today.
 pub const MAX_COLDKEY_SWAP_POSITIONS: u32 = 1024;
+/// Most destination `Lock` rows a coldkey swap may scan/purge. Sized so the
+/// declared swap envelope still fits the normal-class `max_extrinsic` after
+/// charging per-row admission + cleanup (independent of source positions).
+pub const MAX_COLDKEY_SWAP_DEST_LOCKS: u32 = 256;
 /// Most pending network-registration queue rows one coldkey swap rewrites.
 /// Escrow is updated only via those queue `lock_id`s (no global escrow scan).
 pub const MAX_COLDKEY_SWAP_PENDING_REGISTRATIONS: u32 = 32;

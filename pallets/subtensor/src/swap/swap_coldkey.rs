@@ -35,12 +35,12 @@ impl<T: Config> Pallet<T> {
                 .saturating_mul(u64::from(work.positions)),
         )
         .saturating_add(T::DbWeight::get().reads(u64::from(work.hotkeys).saturating_mul(3)))
-        // Destination lock admission scan + execute purge (Lock remove,
-        // LockingColdkeys, aggregate reduce) per exhausted row.
+        // Destination lock admission scan + execute purge (Lock remove +
+        // LockingColdkeys / aggregate touch) per exhausted row.
         .saturating_add(T::DbWeight::get().reads(u64::from(work.dest_locks)))
         .saturating_add(T::DbWeight::get().reads_writes(
             u64::from(work.dest_locks),
-            u64::from(work.dest_locks).saturating_mul(3),
+            u64::from(work.dest_locks).saturating_mul(2),
         ))
         // Queue value read, per-entry visit cost, then get+insert per owned
         // pending registration and one queue rewrite.
@@ -59,7 +59,7 @@ impl<T: Config> Pallet<T> {
             hotkeys: crate::MAX_COLDKEY_SWAP_HOTKEYS,
             positions: crate::MAX_COLDKEY_SWAP_POSITIONS,
             pending_registrations: crate::MAX_COLDKEY_SWAP_PENDING_REGISTRATIONS,
-            dest_locks: crate::MAX_COLDKEY_SWAP_POSITIONS,
+            dest_locks: crate::MAX_COLDKEY_SWAP_DEST_LOCKS,
             registration_queue_scan: crate::MAX_COLDKEY_SWAP_REGISTRATION_QUEUE_SCAN,
         }
     }
@@ -74,9 +74,11 @@ impl<T: Config> Pallet<T> {
         let max = Self::coldkey_swap_max_work();
         let hotkey_reads = u64::from(max.hotkeys).saturating_add(1).saturating_mul(2);
         let position_reads = u64::from(max.positions).saturating_add(1);
-        // Dest lock walk at admission, plus source lock walk when an in-use dest
-        // rejects locked alpha — both stop at the position sentinel.
-        let lock_reads = u64::from(max.positions).saturating_add(1).saturating_mul(2);
+        // Dest lock walk at admission (dest-lock sentinel), plus source lock
+        // walk when an in-use dest rejects locked alpha (position sentinel).
+        let lock_reads = u64::from(max.dest_locks)
+            .saturating_add(1)
+            .saturating_add(u64::from(max.positions).saturating_add(1));
         // Opt-out growth check re-reads dest staking + up to sentinel source
         // associations (contains_key per hotkey) after the bounded work scan.
         let opt_out_reads = u64::from(max.hotkeys)
@@ -427,7 +429,7 @@ impl<T: Config> Pallet<T> {
             Ok(scanned) => scanned,
             Err(error) => {
                 let scanned = ColdkeySwapWork {
-                    dest_locks: crate::MAX_COLDKEY_SWAP_POSITIONS.saturating_add(1),
+                    dest_locks: crate::MAX_COLDKEY_SWAP_DEST_LOCKS.saturating_add(1),
                     ..Default::default()
                 };
                 return Err((
@@ -520,17 +522,22 @@ impl<T: Config> Pallet<T> {
 
     /// Weight of the stake work a failed coldkey swap did, on top of the benchmarked base
     /// the dispatch adds: nothing but the pre-check reads when refused before the scan,
-    /// the admission scan (one `StakingHotkeys` read plus one read per position) when
-    /// refused as too heavy, and the admitted work when a later step rolled it back.
+    /// the admission scan (hotkeys, positions, dest locks, registration queue) when
+    /// refused before commit, and the admitted work when a later step rolled it back.
     fn coldkey_swap_failed_weight(work: Option<ColdkeySwapWork>, admitted: bool) -> Weight {
         // seed idle + hotkey-exists + active-locks + (optional) work scan bookkeeping.
         let precheck = T::DbWeight::get().reads(4);
         match work {
             None => precheck,
+            // Non-admitted failures still performed dest-lock and/or queue scans —
+            // charge those axes so repeated announce/execute attempts cannot
+            // refund the recorded work (Skeptic fid:0ea40e68).
             Some(work) if !admitted => precheck.saturating_add(
                 T::DbWeight::get().reads(
                     u64::from(work.hotkeys)
                         .saturating_add(u64::from(work.positions))
+                        .saturating_add(u64::from(work.dest_locks))
+                        .saturating_add(u64::from(work.registration_queue_scan))
                         .saturating_add(1),
                 ),
             ),

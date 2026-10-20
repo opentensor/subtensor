@@ -1443,7 +1443,7 @@ impl<T: Config> Pallet<T> {
     pub fn ensure_no_active_locks_for_swap(coldkey: &T::AccountId) -> Result<u32, Error<T>> {
         Self::ensure_no_active_locks_with_limit(
             coldkey,
-            crate::MAX_COLDKEY_SWAP_POSITIONS.saturating_add(1),
+            crate::MAX_COLDKEY_SWAP_DEST_LOCKS.saturating_add(1),
         )
     }
 

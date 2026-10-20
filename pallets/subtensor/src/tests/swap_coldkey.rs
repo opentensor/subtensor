@@ -3632,8 +3632,68 @@ fn test_swap_rejects_oversized_registration_queue_dominated_by_unrelated() {
         let err = SubtensorModule::do_swap_coldkey_tracked(&old, &dest).expect_err("too heavy");
         let (done, dispatch_err) = err;
         assert_eq!(dispatch_err, Error::<Test>::ColdkeySwapTooHeavy.into());
-        // Failure still charges the queue scan that discovered the oversize.
-        assert!(done.ref_time() > 0);
+        // Failure charges the recorded queue-scan axis (not a bare precheck).
+        let bare = <Test as frame_system::Config>::DbWeight::get().reads(4);
+        assert!(
+            done.ref_time() > bare.ref_time(),
+            "queue-scan failure must charge scanned rows: done={}, bare={}",
+            done.ref_time(),
+            bare.ref_time()
+        );
+    });
+}
+
+#[test]
+fn test_swap_failure_weight_grows_with_destination_lock_scan() {
+    new_test_ext(1).execute_with(|| {
+        let old = U256::from(1);
+        let dest_light = U256::from(2);
+        let dest_heavy = U256::from(3);
+        let hot = U256::from(4);
+
+        assert_ok!(SubtensorModule::create_account_if_non_existent(&old, &hot));
+        // Both destinations reject staking growth so admission fails after the
+        // dest-lock scan (source introduces a new hotkey).
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &dest_light,
+            &U256::from(12)
+        ));
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &dest_heavy,
+            &U256::from(13)
+        ));
+        for dest in [dest_light, dest_heavy] {
+            assert_ok!(SubtensorModule::set_reject_staking_hotkey_growth(
+                RuntimeOrigin::signed(dest),
+                true,
+            ));
+        }
+
+        let now = SubtensorModule::get_current_block_as_u64();
+        // Heavy dest: several exhausted dust rows scanned before opt-out refusal.
+        for i in 0..8u64 {
+            let netuid = NetUid::from(10 + i as u16);
+            let dhot = U256::from(100 + i);
+            Lock::<Test>::insert(
+                (dest_heavy, netuid, dhot),
+                LockState {
+                    locked_mass: AlphaBalance::ZERO,
+                    conviction: U64F64::from_num(0),
+                    last_update: now,
+                },
+            );
+        }
+
+        let (light_done, _) =
+            SubtensorModule::do_swap_coldkey_tracked(&old, &dest_light).expect_err("opt-out");
+        let (heavy_done, _) =
+            SubtensorModule::do_swap_coldkey_tracked(&old, &dest_heavy).expect_err("opt-out");
+        assert!(
+            heavy_done.ref_time() > light_done.ref_time(),
+            "failure weight must grow with dest lock rows scanned: light={}, heavy={}",
+            light_done.ref_time(),
+            heavy_done.ref_time()
+        );
     });
 }
 
@@ -3719,6 +3779,67 @@ fn test_swap_failure_charges_admission_work_on_dest_opt_out() {
 
 /// Legacy hash announce preserves commitment secrecy (no cleartext dest /
 /// reservation); V2 remains the validated+reserved path.
+
+#[test]
+fn test_swap_coldkey_announced_declared_weight_fits_block() {
+    new_test_ext(1).execute_with(|| {
+        let declared = SubtensorModule::swap_coldkey_announced_declared_weight();
+        let max = <Test as frame_system::Config>::BlockWeights::get()
+            .get(frame_support::dispatch::DispatchClass::Normal)
+            .max_extrinsic
+            .expect("normal max_extrinsic");
+        assert!(
+            declared.all_lte(max),
+            "declared={:?} exceeds max_extrinsic={:?}",
+            declared,
+            max
+        );
+    });
+}
+
+#[test]
+fn test_e2e_happy_path_subnet_owner_swap_to_fresh_destination() {
+    new_test_ext(1).execute_with(|| {
+        let old = U256::from(1);
+        let dest = U256::from(2);
+        let hotkey = U256::from(3);
+        let netuid = add_dynamic_network(&hotkey, &old);
+        // Mimic start_call + stake like the zombienet happy path.
+        let stake_amount = DefaultMinStake::<Test>::get().to_u64() * 200;
+        add_balance_to_coldkey_account(&old, (stake_amount * 2).into());
+        assert_ok!(SubtensorModule::stake_into_subnet(
+            &hotkey,
+            &old,
+            netuid,
+            stake_amount.into(),
+            <Test as crate::Config>::SwapInterface::max_price(),
+            false,
+        ));
+        assert!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &old, netuid)
+                > AlphaBalance::ZERO
+        );
+
+        let swap_cost = SubtensorModule::get_key_swap_cost();
+        add_balance_to_coldkey_account(&old, swap_cost + ExistentialDeposit::get());
+        assert_ok!(SubtensorModule::announce_coldkey_swap_v2(
+            RuntimeOrigin::signed(old),
+            dest,
+        ));
+        let (when, _) = ColdkeySwapAnnouncements::<Test>::get(old).expect("announced");
+        run_to_block(when + 1);
+        assert_ok!(SubtensorModule::swap_coldkey_announced(
+            RuntimeOrigin::signed(old),
+            dest,
+        ));
+        assert_eq!(SubnetOwner::<Test>::get(netuid), dest);
+        assert!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &dest, netuid)
+                > AlphaBalance::ZERO
+        );
+    });
+}
+
 #[test]
 fn test_legacy_hash_announce_does_not_reserve_destination() {
     new_test_ext(1).execute_with(|| {
