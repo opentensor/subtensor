@@ -252,6 +252,7 @@ impl<T: Config> Pallet<T> {
             <T as crate::pallet::Config>::WeightInfo::swap_coldkey_announced(),
             Self::coldkey_swap_max_work(),
         )
+        .saturating_add(T::DbWeight::get().writes(1))
     }
 
     /// Post-dispatch weight of `swap_coldkey_announced`.
@@ -260,6 +261,7 @@ impl<T: Config> Pallet<T> {
             <T as crate::pallet::Config>::WeightInfo::swap_coldkey_announced(),
             work,
         )
+        .saturating_add(T::DbWeight::get().writes(1))
     }
 
     /// Stake positions the swap has to move, plus the combined hotkey set of source and

@@ -1976,7 +1976,8 @@ pub mod pallet {
         StorageMap<_, Twox64Concat, T::AccountId, T::AccountId, OptionQuery>;
 
     /// A map of the coldkey swap disputes from a coldkey to the
-    /// block number the coldkey swap was disputed.
+    /// block number the coldkey swap was disputed. Zero means root cleared the
+    /// dispute but retained the recovery lock; a successful swap or full root reset releases it.
     #[pallet::storage]
     pub type ColdkeySwapDisputes<T: Config> =
         StorageMap<_, Twox64Concat, T::AccountId, BlockNumberFor<T>, OptionQuery>;

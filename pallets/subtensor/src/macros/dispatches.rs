@@ -2534,6 +2534,10 @@ mod dispatches {
                     Self::fail_with_weight(error, base.saturating_add(done))
                 })?;
 
+            // A self-swap must not release a root-imposed recovery lock.
+            if who != new_coldkey {
+                ColdkeySwapDisputes::<T>::remove(&who);
+            }
             Self::release_coldkey_swap_destination_reservation(&who);
             ColdkeySwapAnnouncements::<T>::remove(who);
 
@@ -2561,12 +2565,13 @@ mod dispatches {
                 Error::<T>::ColdkeySwapAnnouncementNotFound
             );
             ensure!(
-                !ColdkeySwapDisputes::<T>::contains_key(&coldkey),
+                !ColdkeySwapDisputes::<T>::get(&coldkey).is_some_and(|when| !when.is_zero()),
                 Error::<T>::ColdkeySwapAlreadyDisputed
             );
 
             let now = <frame_system::Pallet<T>>::block_number();
-            ColdkeySwapDisputes::<T>::insert(&coldkey, now);
+            // Zero is reserved for a root reset that retains the recovery lock.
+            ColdkeySwapDisputes::<T>::insert(&coldkey, now.max(1u32.into()));
 
             Self::deposit_event(Event::ColdkeySwapDisputed { coldkey });
             Ok(())
@@ -2589,6 +2594,35 @@ mod dispatches {
             Self::release_coldkey_swap_destination_reservation(&coldkey);
             ColdkeySwapAnnouncements::<T>::remove(&coldkey);
             ColdkeySwapDisputes::<T>::remove(&coldkey);
+
+            Self::deposit_event(Event::ColdkeySwapReset { who: coldkey });
+            Ok(())
+        }
+
+        /// Reset a coldkey swap while retaining its recovery lock.
+        ///
+        /// Clears the announcement and active dispute. The coldkey may announce again,
+        /// dispute, execute the new swap, or submit an encrypted transaction, but cannot
+        /// clear the announcement to unlock itself or make unrelated calls. Uses the
+        /// existing dispute entry with block zero.
+        ///
+        /// The dispatch origin of this call must be root.
+        ///
+        /// * `coldkey`: The coldkey to reset the swap for while keeping it locked.
+        #[pallet::call_index(156)]
+        #[pallet::weight(
+            <T as crate::pallet::Config>::WeightInfo::reset_coldkey_swap_keep_locked()
+                .saturating_add(Pallet::<T>::coldkey_swap_reservation_release_weight())
+        )]
+        pub fn reset_coldkey_swap_keep_locked(
+            origin: OriginFor<T>,
+            coldkey: T::AccountId,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+
+            Self::release_coldkey_swap_destination_reservation(&coldkey);
+            ColdkeySwapAnnouncements::<T>::remove(&coldkey);
+            ColdkeySwapDisputes::<T>::insert(&coldkey, BlockNumberFor::<T>::zero());
 
             Self::deposit_event(Event::ColdkeySwapReset { who: coldkey });
             Ok(())

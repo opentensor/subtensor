@@ -99,6 +99,7 @@ RAW_ONLY: dict[str, set[str]] = {
         # or root-only (reset, arbitrary swap)
         "announce_coldkey_swap",
         "reset_coldkey_swap",
+        "reset_coldkey_swap_keep_locked",
         "schedule_swap_coldkey",
         "swap_coldkey",
         "swap_hotkey_v2",
