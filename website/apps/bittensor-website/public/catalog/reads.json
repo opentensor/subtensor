@@ -68,9 +68,9 @@
         "container": "SwapRuntimeApi",
         "name": "current_alpha_price_all",
         "path": "runtime/src/lib.rs",
-        "line": 2794,
-        "end_line": 2804,
-        "url": "/code/runtime/src/lib.rs#L2794-L2804",
+        "line": 2864,
+        "end_line": 2874,
+        "url": "/code/runtime/src/lib.rs#L2864-L2874",
         "raw_url": "/code/raw/runtime/src/lib.rs"
       }
     ]
@@ -932,9 +932,9 @@
         "container": "StakeInfoRuntimeApi",
         "name": "get_hotkey_conviction",
         "path": "runtime/src/lib.rs",
-        "line": 2649,
-        "end_line": 2651,
-        "url": "/code/runtime/src/lib.rs#L2649-L2651",
+        "line": 2719,
+        "end_line": 2721,
+        "url": "/code/runtime/src/lib.rs#L2719-L2721",
         "raw_url": "/code/raw/runtime/src/lib.rs"
       }
     ]
@@ -1394,9 +1394,9 @@
         "container": "StakeInfoRuntimeApi",
         "name": "get_most_convicted_hotkey_on_subnet",
         "path": "runtime/src/lib.rs",
-        "line": 2653,
-        "end_line": 2655,
-        "url": "/code/runtime/src/lib.rs#L2653-L2655",
+        "line": 2723,
+        "end_line": 2725,
+        "url": "/code/runtime/src/lib.rs#L2723-L2725",
         "raw_url": "/code/raw/runtime/src/lib.rs"
       }
     ]
@@ -1647,9 +1647,9 @@
         "container": "SwapRuntimeApi",
         "name": "sim_swap_tao_for_alpha",
         "path": "runtime/src/lib.rs",
-        "line": 2806,
-        "end_line": 2834,
-        "url": "/code/runtime/src/lib.rs#L2806-L2834",
+        "line": 2876,
+        "end_line": 2904,
+        "url": "/code/runtime/src/lib.rs#L2876-L2904",
         "raw_url": "/code/raw/runtime/src/lib.rs"
       }
     ]
@@ -1676,9 +1676,9 @@
         "container": "SwapRuntimeApi",
         "name": "sim_swap_alpha_for_tao",
         "path": "runtime/src/lib.rs",
-        "line": 2836,
-        "end_line": 2864,
-        "url": "/code/runtime/src/lib.rs#L2836-L2864",
+        "line": 2906,
+        "end_line": 2934,
+        "url": "/code/runtime/src/lib.rs#L2906-L2934",
         "raw_url": "/code/raw/runtime/src/lib.rs"
       }
     ]
@@ -1757,9 +1757,9 @@
         "container": "BetaBasketRuntimeApi",
         "name": "get_root_basket_owed",
         "path": "runtime/src/lib.rs",
-        "line": 2666,
-        "end_line": 2668,
-        "url": "/code/runtime/src/lib.rs#L2666-L2668",
+        "line": 2736,
+        "end_line": 2738,
+        "url": "/code/runtime/src/lib.rs#L2736-L2738",
         "raw_url": "/code/raw/runtime/src/lib.rs"
       }
     ]
@@ -1822,9 +1822,9 @@
         "container": "BetaBasketRuntimeApi",
         "name": "get_root_basket_total_nav",
         "path": "runtime/src/lib.rs",
-        "line": 2678,
-        "end_line": 2680,
-        "url": "/code/runtime/src/lib.rs#L2678-L2680",
+        "line": 2748,
+        "end_line": 2750,
+        "url": "/code/runtime/src/lib.rs#L2748-L2750",
         "raw_url": "/code/raw/runtime/src/lib.rs"
       }
     ]
@@ -2279,8 +2279,8 @@
   },
   {
     "name": "subnet_emission_enabled",
-    "summary": "Root-controlled pool-side TAO emission flag for a subnet (1 = enabled). When 0, the subnet earns no TAO emission share even while subnet_is_active is true; only root can flip it (see the set_subnet_emission_enabled intent).",
-    "description": "Root-controlled pool-side TAO emission flag for a subnet (1 = enabled). When 0, the subnet earns no TAO emission share even while subnet_is_active is true; only root can flip it (see the set_subnet_emission_enabled intent).",
+    "summary": "Root-controlled pool-side TAO emission flag for a subnet (1 = enabled). New registrations start enabled. When 0, the subnet earns no TAO emission share even while subnet_is_active is true; only root can flip it (see the set_subnet_emission_enabled intent).",
+    "description": "Root-controlled pool-side TAO emission flag for a subnet (1 = enabled). New registrations start enabled. When 0, the subnet earns no TAO emission share even while subnet_is_active is true; only root can flip it (see the set_subnet_emission_enabled intent).",
     "params": {
       "netuid": "integer"
     },
@@ -2430,9 +2430,9 @@
         "container": "SubnetRegistrationRuntimeApi",
         "name": "get_network_registration_cost",
         "path": "runtime/src/lib.rs",
-        "line": 2659,
-        "end_line": 2661,
-        "url": "/code/runtime/src/lib.rs#L2659-L2661",
+        "line": 2729,
+        "end_line": 2731,
+        "url": "/code/runtime/src/lib.rs#L2729-L2731",
         "raw_url": "/code/raw/runtime/src/lib.rs"
       }
     ]
@@ -2466,8 +2466,8 @@
         "container": "SubtensorModule",
         "name": "InitialStartCallDelay",
         "path": "runtime/src/lib.rs",
-        "line": 1032,
-        "url": "/code/runtime/src/lib.rs#L1032",
+        "line": 1102,
+        "url": "/code/runtime/src/lib.rs#L1102",
         "raw_url": "/code/raw/runtime/src/lib.rs"
       }
     ]
@@ -2727,9 +2727,9 @@
         "container": "BetaBasketRuntimeApi",
         "name": "get_validator_basket_nav",
         "path": "runtime/src/lib.rs",
-        "line": 2672,
-        "end_line": 2674,
-        "url": "/code/runtime/src/lib.rs#L2672-L2674",
+        "line": 2742,
+        "end_line": 2744,
+        "url": "/code/runtime/src/lib.rs#L2742-L2744",
         "raw_url": "/code/raw/runtime/src/lib.rs"
       }
     ]

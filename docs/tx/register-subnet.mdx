@@ -20,10 +20,10 @@ execution waits for the matching `NetworkAdded` event before returning
 by default. The result's `registration_mode` distinguishes the two paths
 and `netuid` is the subnet actually assigned.
 The new subnet starts inactive: call `start_call` once the chain's
-activation delay has passed to activate it; the subnet's share of TAO
-emission additionally stays off until root enables the subnet's
-emission-enabled flag. This is a major, expensive commitment — check the
-current cost before sending.
+activation delay has passed to activate trading and epoch emission. The
+pool-side TAO emission-share flag (`SubnetEmissionEnabled`) starts on
+for new registrations; root can still disable it later. This is a major,
+expensive commitment — check the current cost before sending.
 
 | Signer | Origin | Pallet | Wraps |
 | --- | --- | --- | --- |
