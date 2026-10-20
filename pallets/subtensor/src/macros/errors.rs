@@ -454,5 +454,7 @@ mod errors {
         MinerEmissionBelowMinimum,
         /// `set_subnet_emission_weights`: the root subnet has no emission vector.
         EmissionWeightsNotSettableOnRoot,
+        /// Third-party stake onto the lending custody hotkey is rejected (§14).
+        CustodyHotkey,
     }
 }

@@ -4,6 +4,7 @@ use frame_support::weights::Weight;
 use super::*;
 use crate::subnets::leasing::LeaseId;
 use crate::weights::WeightInfo;
+use pallet_lending::LendingInterface;
 use sp_core::Get;
 use sp_std::collections::btree_set::BTreeSet;
 
@@ -200,6 +201,9 @@ impl<T: Config> Pallet<T> {
 
                 // Transfer any remaining balance from old_coldkey to new_coldkey
                 Self::transfer_all_tao_and_kill(old_coldkey, new_coldkey)?;
+
+                // §14: re-key lending positions to the new coldkey; custody funds stay put.
+                T::Lending::on_coldkey_swap(old_coldkey, new_coldkey)?;
 
                 // Owner identity continuity for indexers / coldkey-keyed policy.
                 Self::record_coldkey_swap_lineage(old_coldkey, new_coldkey);

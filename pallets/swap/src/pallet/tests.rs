@@ -66,6 +66,64 @@ mod dispatchables {
         parts / 1_000_000_000_000_000_000_f64
     }
 
+    /// cargo test --package pallet-subtensor-swap --lib -- pallet::tests::dispatchables::test_lift_protocol_liquidity_preserves_price --exact --nocapture
+    #[test]
+    fn test_lift_protocol_liquidity_preserves_price() {
+        new_test_ext().execute_with(|| {
+            let netuid = NetUid::from(1);
+            let tao = TaoBalance::from(1_000_000_000_000_u64);
+            let alpha = AlphaBalance::from(4_000_000_000_000_u64);
+            TaoReserve::set_mock_reserve(netuid, tao);
+            AlphaReserve::set_mock_reserve(netuid, alpha);
+            let _ = Swap::maybe_initialize_palswap(netuid, Some(Swap::current_price(netuid)));
+            let price_before = Swap::current_price(netuid);
+            let weight_before = SwapBalancer::<Test>::get(netuid).get_quote_weight();
+
+            // g = 1/10 → lift 10% of both reserves
+            let (lift_alpha, lift_tao) =
+                Swap::lift_protocol_liquidity(netuid, 1, 10).expect("lift ok");
+            assert_eq!(u64::from(lift_tao), 100_000_000_000);
+            assert_eq!(u64::from(lift_alpha), 400_000_000_000);
+
+            // Caller updates reserves (swap does not)
+            TaoReserve::set_mock_reserve(netuid, tao - lift_tao);
+            AlphaReserve::set_mock_reserve(netuid, alpha - lift_alpha);
+
+            let price_after = Swap::current_price(netuid);
+            assert_abs_diff_eq!(
+                price_before.to_num::<f64>(),
+                price_after.to_num::<f64>(),
+                epsilon = price_before.to_num::<f64>() / 1_000_000_000_000.
+            );
+            assert_eq!(
+                SwapBalancer::<Test>::get(netuid).get_quote_weight(),
+                weight_before
+            );
+
+            // Readd restores price-active liquidity
+            let (active_tao, active_alpha) =
+                Swap::readd_protocol_liquidity(netuid, lift_tao, lift_alpha);
+            assert_eq!(active_tao, lift_tao);
+            assert_eq!(active_alpha, lift_alpha);
+        });
+    }
+
+    #[test]
+    fn test_lift_protocol_liquidity_rejects_minimum_reserve_breach() {
+        new_test_ext().execute_with(|| {
+            let netuid = NetUid::from(1);
+            // MinimumReserve in mock is 1
+            TaoReserve::set_mock_reserve(netuid, TaoBalance::from(10u64));
+            AlphaReserve::set_mock_reserve(netuid, AlphaBalance::from(10u64));
+            // g = 9/10 leaves 1 — ok; g = 95/100 would leave < 1 after floor? floor(10*95/100)=9 leaves 1.
+            // g = 99/100 → floor(10*99/100)=9 leaves 1. Need remaining < min.
+            // With min=1, only emptying fails: g that leaves 0.
+            assert!(Swap::lift_protocol_liquidity(netuid, 10, 10).is_err());
+            assert!(Swap::lift_protocol_liquidity(netuid, 0, 10).is_err());
+            assert!(Swap::lift_protocol_liquidity(netuid, 1, 0).is_err());
+        });
+    }
+
     /// cargo test --package pallet-subtensor-swap --lib -- pallet::tests::dispatchables::test_adjust_protocol_liquidity_happy --exact --nocapture
     #[test]
     fn test_adjust_protocol_liquidity_happy() {
