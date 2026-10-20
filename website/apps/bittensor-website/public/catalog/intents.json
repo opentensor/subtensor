@@ -2126,7 +2126,7 @@
   {
     "name": "remove_proxies",
     "summary": "Revoke every proxy delegation for the signing account at once.",
-    "description": "Revoke every proxy delegation for the signing account at once.\n\nA cleanup/panic switch: all delegates lose access in one call and all proxy\ndeposits are returned. Careful if this account spawned pure proxies \u2014 they\nare controlled *through* delegations, so removing everything can strand them\npermanently (there is no key to recover a pure proxy with).",
+    "description": "Revoke every proxy delegation for the signing account at once.\n\nA cleanup/panic switch: all delegates lose access in one call and all proxy\ndeposits are returned. Careful if this account spawned pure proxies \u2014 they\nare controlled *through* delegations, so removing everything can strand them\npermanently (there is no key to recover a pure proxy with). `Validate` and\n`Weights` grants are keyed by the hotkey, so revoking those needs a second\ncall with `from_hotkey` set.",
     "signer": "coldkey",
     "origin": "signed",
     "verify": null,
@@ -2139,7 +2139,12 @@
     "docs_url": "/docs/tx/remove-proxies",
     "input_schema": {
       "type": "object",
-      "properties": {},
+      "properties": {
+        "from_hotkey": {
+          "type": "boolean",
+          "description": "Sign with the hotkey to revoke its Validate/Weights grants."
+        }
+      },
       "required": [],
       "additionalProperties": false
     },

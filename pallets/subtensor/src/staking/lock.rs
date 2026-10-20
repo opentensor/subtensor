@@ -1575,10 +1575,14 @@ impl<T: Config> Pallet<T> {
                 Self::is_subnet_owner_hotkey(netuid, &hotkey),
                 source_perpetual,
             );
-            Self::ensure_can_receive_locked_alpha_with_flag(
-                new_coldkey_rejects_locked_alpha,
-                old_lock.locked_mass,
-            )?;
+            // Admission treats sub-threshold rows as zero and `insert_lock_state`
+            // drops them, so only real locks need the destination's consent.
+            if !old_lock.is_zero() {
+                Self::ensure_can_receive_locked_alpha_with_flag(
+                    new_coldkey_rejects_locked_alpha,
+                    old_lock.locked_mass,
+                )?;
+            }
             rolled_locks_to_transfer.push((netuid, hotkey, old_lock, dest_perpetual));
         }
 

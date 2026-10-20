@@ -187,18 +187,29 @@ class RemoveProxies(Intent):
     A cleanup/panic switch: all delegates lose access in one call and all proxy
     deposits are returned. Careful if this account spawned pure proxies — they
     are controlled *through* delegations, so removing everything can strand them
-    permanently (there is no key to recover a pure proxy with).
+    permanently (there is no key to recover a pure proxy with). ``Validate`` and
+    ``Weights`` grants are keyed by the hotkey, so revoking those needs a second
+    call with ``from_hotkey`` set.
     """
 
     op = "remove_proxies"
     signer = "coldkey"
     wraps = (("Proxy", "remove_proxies"),)
 
+    from_hotkey: bool = field(
+        default=False,
+        metadata={"help": "Sign with the hotkey to revoke its Validate/Weights grants."},
+    )
+
+    def __post_init__(self):
+        # Instance attribute shadowing the ClassVar default.
+        self.signer = "hotkey" if self.from_hotkey else "coldkey"
+
     async def build(self, substrate, wallet: Any):
         return await substrate.compose(calls.Proxy.remove_proxies())
 
     def summary(self) -> str:
-        return "remove ALL proxies for the signer"
+        return f"remove ALL proxies for the {self.signer}"
 
     async def warnings(self, substrate, signer_address: str) -> list[str]:
         return ["revokes every delegate at once; pure-proxy accounts would become inaccessible"]

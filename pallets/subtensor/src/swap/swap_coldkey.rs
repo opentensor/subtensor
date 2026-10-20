@@ -640,6 +640,15 @@ impl<T: Config> Pallet<T> {
         new_coldkey: &T::AccountId,
         work: ColdkeySwapWork,
     ) -> Result<ColdkeySwapWork, DispatchError> {
+        // A self-swap moves nothing; running the merge body against one account
+        // would drop state that the helpers take before re-checking the destination.
+        if old_coldkey == new_coldkey {
+            Self::deposit_event(Event::ColdkeySwapped {
+                old_coldkey: old_coldkey.clone(),
+                new_coldkey: new_coldkey.clone(),
+            });
+            return Ok(work);
+        }
         with_transaction(|| {
             let result = (|| -> DispatchResult {
                 // Identity: destination wins. Always clear the source so a drained
