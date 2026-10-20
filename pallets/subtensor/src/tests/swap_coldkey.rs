@@ -2673,6 +2673,34 @@ fn test_merge_swap_moves_subnet_ownership_and_keeps_dest_auto_stake() {
     });
 }
 
+/// Merge into a used destination that has no auto-stake setting must keep the
+/// unset/default reward route — source policy is dropped (Skeptic fid:5f22d507).
+#[test]
+fn test_merge_swap_does_not_import_source_auto_stake_onto_unset_dest() {
+    new_test_ext(1).execute_with(|| {
+        let old = U256::from(1);
+        let dest = U256::from(2);
+        let old_hot = U256::from(10);
+        let dest_hot = U256::from(11);
+        let auto_old = U256::from(20);
+
+        let _netuid_owned = add_dynamic_network(&old_hot, &old);
+        let netuid_auto = add_dynamic_network(&dest_hot, &dest);
+        assert!(SubtensorModule::coldkey_already_in_use(&dest));
+
+        AutoStakeDestination::<Test>::insert(old, netuid_auto, auto_old);
+        AutoStakeDestinationColdkeys::<Test>::insert(auto_old, netuid_auto, vec![old]);
+        // Destination deliberately has no AutoStakeDestination row.
+
+        assert_ok!(SubtensorModule::do_swap_coldkey(&old, &dest));
+
+        assert!(AutoStakeDestination::<Test>::get(old, netuid_auto).is_none());
+        assert!(AutoStakeDestination::<Test>::get(dest, netuid_auto).is_none());
+        assert!(!AutoStakeDestinationColdkeys::<Test>::get(auto_old, netuid_auto).contains(&old));
+        assert!(!AutoStakeDestinationColdkeys::<Test>::get(auto_old, netuid_auto).contains(&dest));
+    });
+}
+
 #[test]
 fn test_merge_swap_destination_account_flags_win() {
     new_test_ext(1).execute_with(|| {

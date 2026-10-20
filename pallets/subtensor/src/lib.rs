@@ -4056,8 +4056,12 @@ pub trait ProxyInterface<AccountId> {
     fn remove_lease_beneficiary_proxy(beneficiary: &AccountId, lease: &AccountId)
     -> DispatchResult;
     /// Move proxies (and real-pays-fee flags) keyed by `from` onto `to`, merging
-    /// with any proxies `to` already holds. Used by coldkey swap.
+    /// with any proxies `to` already holds. Used by coldkey swap on renames.
     fn transfer_delegator_proxies(from: &AccountId, to: &AccountId) -> DispatchResult;
+    /// Drop all proxies / fee-consent keyed by `delegator` and unreserve deposits.
+    /// Used when merging into an already-used destination so source grants cannot
+    /// be installed without destination authorization (Skeptic fid:03ad8f72).
+    fn clear_delegator_proxies(delegator: &AccountId);
 }
 
 impl<T> ProxyInterface<T> for () {
@@ -4072,6 +4076,8 @@ impl<T> ProxyInterface<T> for () {
     fn transfer_delegator_proxies(_: &T, _: &T) -> DispatchResult {
         Ok(())
     }
+
+    fn clear_delegator_proxies(_: &T) {}
 }
 
 /// Interface for purging commitment state when subnets or neurons are removed.

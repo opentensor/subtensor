@@ -1211,6 +1211,31 @@ mod tests {
         });
     }
 
+    #[test]
+    fn coldkey_swap_merge_into_used_dest_drops_source_fee_consent() {
+        // Skeptic fid:03ad8f72 — unsolicited merge into a staking-in-use
+        // destination must clear source RealPaysFee, not install it on the victim.
+        new_test_ext().execute_with(|| {
+            let dest_hot = AccountId::from([9_u8; 32]);
+            assert_ok!(SubtensorModule::create_account_if_non_existent(
+                &real_b(),
+                &dest_hot
+            ));
+            assert!(!pallet_subtensor::OwnedHotkeys::<Runtime>::get(&real_b()).is_empty());
+
+            add_proxy(&real_a(), &signer());
+            enable_real_pays_fee(&real_a(), &signer());
+            add_proxy(&real_b(), &other());
+
+            assert_ok!(SubtensorModule::do_swap_coldkey(&real_a(), &real_b()));
+
+            assert!(!Proxy::is_real_pays_fee(&real_a(), &signer()));
+            assert!(!Proxy::is_real_pays_fee(&real_b(), &signer()));
+            assert!(Proxy::find_proxy(&real_b(), &signer(), Some(ProxyType::Any)).is_err());
+            assert!(Proxy::find_proxy(&real_b(), &other(), Some(ProxyType::Any)).is_ok());
+        });
+    }
+
     // ============================================================
     // Priority override
     // ============================================================
