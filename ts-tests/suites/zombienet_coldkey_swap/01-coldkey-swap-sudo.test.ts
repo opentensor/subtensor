@@ -79,7 +79,7 @@ describeSuite({
                 await forceSetBalance(api, oldColdkey.address);
 
                 // Announce and dispute
-                await announceColdkeySwap(api, oldColdkey, coldkeyHashBinary(newColdkey));
+                await announceColdkeySwap(api, oldColdkey, newColdkey);
                 await disputeColdkeySwap(api, oldColdkey);
                 log("Announced + disputed");
 
@@ -99,7 +99,7 @@ describeSuite({
                 log("Announcement and active dispute cleared; recovery lock retained");
 
                 // Re-announce should succeed
-                await announceColdkeySwap(api, oldColdkey, coldkeyHashBinary(newColdkey));
+                await announceColdkeySwap(api, oldColdkey, newColdkey);
                 log("Re-announce after reset succeeded");
                 await disputeColdkeySwap(api, oldColdkey);
                 expect(await getColdkeySwapDispute(api, oldColdkey.address)).toBeGreaterThan(0);
