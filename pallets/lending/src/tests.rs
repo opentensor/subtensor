@@ -943,3 +943,295 @@ fn dissolving_blocks_new_opens_only_when_flagged() {
         );
     });
 }
+
+#[test]
+fn short_ltv_values_tao_collateral_directly() {
+    new_test_ext().execute_with(|| {
+        // Price = 10 TAO/alpha so the old alpha-priced collateral bug is visible.
+        set_pool(10_000_000_000_000_000, 1_000_000_000_000_000);
+        let spot = MockPool::price();
+        References::<Test>::insert(
+            netuid(),
+            LendingReference {
+                price: spot,
+                last_updated: 1u64,
+                valid_after: 1u64,
+            },
+        );
+        let owner = account(1);
+        let hotkey = account(2);
+        let collateral = 100_000_000_000u64; // 100 TAO
+        mint_tao(&owner, collateral * 2);
+        // At 25% LTV, max TAO debt = 25 TAO. At price 10 that is 2.5 alpha.
+        // The old bug priced 100 TAO collateral as 1000 TAO and admitted 25 alpha.
+        assert!(
+            Lending::open_exact(
+                RuntimeOrigin::signed(owner.clone()),
+                netuid(),
+                Side::Short,
+                collateral,
+                hotkey.clone(),
+                25_000_000_000, // 25 alpha ≈ 250 TAO debt
+                1,
+            )
+            .is_err(),
+            "oversized short must fail when LTV applies to TAO collateral"
+        );
+        // Boundary under the TAO LTV bound must succeed.
+        assert_ok!(Lending::open_exact(
+            RuntimeOrigin::signed(owner.clone()),
+            netuid(),
+            Side::Short,
+            collateral,
+            hotkey,
+            2_000_000_000, // 2 alpha ≈ 20 TAO debt < 25 TAO max
+            1,
+        ));
+        let position = Positions::<Test>::get(&owner, netuid()).unwrap();
+        assert_eq!(position.principal, 2_000_000_000);
+        assert_eq!(position.collateral, collateral);
+    });
+}
+
+#[test]
+fn raise_rejects_dissolving_subnet() {
+    new_test_ext().execute_with(|| {
+        let owner = account(1);
+        let hotkey = account(2);
+        mint_alpha(&owner, &hotkey, netuid(), 100_000_000_000_000);
+        assert_ok!(Lending::start_dissolution(netuid()));
+        assert!(
+            Lending::open_long_and_sell(
+                RuntimeOrigin::signed(owner),
+                netuid(),
+                hotkey,
+                Some(5_000_000_000_000),
+                None,
+                5_000_000_000_000,
+                1,
+                None,
+                0,
+                100u64.into(),
+            )
+            .is_err()
+        );
+    });
+}
+
+#[test]
+fn raise_rejects_insufficient_collateral_stake() {
+    new_test_ext().execute_with(|| {
+        let owner = account(1);
+        let hotkey = account(2);
+        mint_alpha(&owner, &hotkey, netuid(), 1_000); // tiny
+        assert!(
+            Lending::open_long_and_sell(
+                RuntimeOrigin::signed(owner),
+                netuid(),
+                hotkey,
+                Some(5_000_000_000_000),
+                None,
+                5_000_000_000_000,
+                1,
+                None,
+                0,
+                100u64.into(),
+            )
+            .is_err()
+        );
+    });
+}
+
+#[test]
+fn raise_rejects_when_long_capacity_exhausted() {
+    new_test_ext().execute_with(|| {
+        let owner = account(1);
+        let hotkey = account(2);
+        mint_alpha(&owner, &hotkey, netuid(), 500_000_000_000_000);
+        // Saturate the long book against the live side cap.
+        let params = LiftParams::default();
+        let (_cap, _cs, cl) = {
+            // Force book L_L to the current long cap.
+            let (cap, cs, cl) = {
+                let book = Lifts::<Test>::get(netuid());
+                let g_ref = pool_tao(); // deep pool ≈ g_ref
+                let _ = (book, g_ref);
+                Lending::lift_params();
+                // Use side_caps via a tiny open then mutate.
+                (0u64, 0u64, 0u64)
+            };
+            let _ = (cap, cs);
+            // Directly fill L_L past any reasonable open.
+            Lifts::<Test>::mutate(netuid(), |book| {
+                book.l_l = u64::MAX / 2;
+                book.b_l = book.l_l;
+            });
+            (0u64, 0u64, cl)
+        };
+        let _ = (params, cl);
+        assert!(
+            Lending::open_long_and_sell(
+                RuntimeOrigin::signed(owner),
+                netuid(),
+                hotkey,
+                Some(5_000_000_000_000),
+                None,
+                5_000_000_000_000,
+                1,
+                None,
+                0,
+                100u64.into(),
+            )
+            .is_err()
+        );
+    });
+}
+
+#[test]
+fn raise_partial_capacity_still_opens() {
+    new_test_ext().execute_with(|| {
+        let owner = account(1);
+        let hotkey = account(2);
+        mint_alpha(&owner, &hotkey, netuid(), 200_000_000_000_000);
+        // Consume some long capacity but leave headroom.
+        Lifts::<Test>::mutate(netuid(), |book| {
+            book.l_l = 1_000_000_000_000;
+            book.b_l = 1_000_000_000_000;
+        });
+        assert_ok!(Lending::open_long_and_sell(
+            RuntimeOrigin::signed(owner.clone()),
+            netuid(),
+            hotkey,
+            Some(2_000_000_000_000),
+            None,
+            2_000_000_000_000,
+            1,
+            None,
+            0,
+            100u64.into(),
+        ));
+        let position = Positions::<Test>::get(&owner, netuid()).unwrap();
+        assert_eq!(position.side, Side::Long);
+        assert!(position.principal > 0);
+    });
+}
+
+#[test]
+fn raise_borrow_tao_path_and_rounding_edge() {
+    new_test_ext().execute_with(|| {
+        let owner = account(1);
+        let hotkey = account(2);
+        mint_alpha(&owner, &hotkey, netuid(), 200_000_000_000_000);
+        // Exact borrow path: size minimal collateral under the ceiling.
+        assert_ok!(Lending::open_long_and_sell(
+            RuntimeOrigin::signed(owner.clone()),
+            netuid(),
+            hotkey.clone(),
+            None,
+            Some(1_000_000_000_000),
+            50_000_000_000_000,
+            1_000_000_000_000,
+            None,
+            0,
+            100u64.into(),
+        ));
+        let position = Positions::<Test>::get(&owner, netuid()).unwrap();
+        assert_eq!(position.principal, 1_000_000_000_000);
+        assert!(position.collateral > 0);
+        // Zero borrow rejected.
+        assert!(
+            Lending::open_long_and_sell(
+                RuntimeOrigin::signed(account(3)),
+                netuid(),
+                account(4),
+                None,
+                Some(0),
+                1,
+                0,
+                None,
+                0,
+                100u64.into(),
+            )
+            .is_err()
+        );
+    });
+}
+
+#[test]
+fn short_buyback_bounds_input_to_remaining_principal() {
+    new_test_ext().execute_with(|| {
+        set_pool(1_000_000_000_000_000, 1_000_000_000_000_000);
+        let spot = MockPool::price();
+        References::<Test>::insert(
+            netuid(),
+            LendingReference {
+                price: spot,
+                last_updated: 1u64,
+                valid_after: 1u64,
+            },
+        );
+        let owner = account(1);
+        let hotkey = account(2);
+        // Large TAO collateral relative to a small alpha principal.
+        mint_tao(&owner, 50_000_000_000_000);
+        assert_ok!(Lending::open_exact(
+            RuntimeOrigin::signed(owner.clone()),
+            netuid(),
+            Side::Short,
+            10_000_000_000_000,
+            hotkey.clone(),
+            100_000_000_000, // small principal
+            1,
+        ));
+        let position = Positions::<Test>::get(&owner, netuid()).unwrap();
+        let principal = position.principal;
+        let escrow = Lending::position_account(&owner, netuid());
+        let custody = Lending::custody_hotkey().unwrap();
+        let alpha_before_owner = alpha(&owner, &hotkey, netuid());
+        assert_ok!(Lending::close(
+            RuntimeOrigin::signed(owner.clone()),
+            netuid(),
+            false,
+            u64::MAX,
+            0,
+        ));
+        assert!(Positions::<Test>::get(&owner, netuid()).is_none());
+        // Escrow should not retain stranded alpha after close.
+        assert_eq!(alpha(&escrow, &custody, netuid()), 0);
+        // Owner may receive surplus alpha from any residual overshoot.
+        let _ = (principal, alpha_before_owner);
+    });
+}
+
+#[test]
+fn dissolution_interest_does_not_forfeit_after_readd() {
+    new_test_ext().execute_with(|| {
+        let owner = account(1);
+        let hotkey = account(2);
+        mint_tao(&owner, 50_000_000_000_000);
+        assert_ok!(Lending::open(
+            RuntimeOrigin::signed(owner.clone()),
+            netuid(),
+            Side::Short,
+            5_000_000_000_000,
+            hotkey,
+            1,
+            1,
+        ));
+        // Drain collateral so final interest charge would forfeit on the live path.
+        Positions::<Test>::mutate(&owner, netuid(), |maybe| {
+            if let Some(p) = maybe {
+                p.collateral = 0;
+                p.annual_interest = 1_000_000_000_000;
+                p.last_accrued = 0u64;
+            }
+        });
+        assert_ok!(Lending::start_dissolution(netuid()));
+        // Readd held legs as dissolution does.
+        assert_ok!(Lending::readd_lifts_for_dissolution(netuid()));
+        let mut meter = WeightMeter::with_limit(Weight::from_parts(u64::MAX, u64::MAX));
+        // Must complete without stalling on a double-readd forfeit.
+        assert!(Lending::settle_lending(netuid(), &mut meter));
+        assert!(Positions::<Test>::get(&owner, netuid()).is_none());
+    });
+}

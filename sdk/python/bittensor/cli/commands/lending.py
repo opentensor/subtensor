@@ -364,6 +364,17 @@ def raise_loan(
     valid_until: Optional[int] = typer.Option(
         None, "--valid-until", help=RaiseLoan.field_help("valid_until")
     ),
+    ltv: Optional[float] = typer.Option(
+        None,
+        "--ltv",
+        min=0.0,
+        max=1.0,
+        help=(
+            "Target loan-to-value as a fraction of collateral value (e.g. 0.20). "
+            "Must be at or below the subnet's current max LTV. With --collateral, "
+            "sizes borrow to this LTV; with --amount, rejects if implied LTV exceeds it."
+        ),
+    ),
     max_slippage: float = typer.Option(
         1.0,
         "--max-slippage",
@@ -376,6 +387,9 @@ def raise_loan(
 
     Pass --collateral (alpha) or --amount (TAO to borrow), not both. Optionally
     sell unlocked alpha with --sell. Fails unless both legs clear.
+
+    Use --ltv to see max borrowable at current LTV/capacity and to request a
+    lower LTV than the subnet max (validated client-side before submit).
     """
     context = ctx_of(ctx)
     if amount is not None and collateral is not None:
@@ -405,22 +419,90 @@ def raise_loan(
     with context.output.activity("resolving raise deadline…"):
         until = context.run(deadline)
 
+    # Quote at max LTV first so --ltv can show headroom and validate locally.
+    async def max_quote(client):
+        view = await client.at()
+        return await view.read(
+            "lending_raise_quote",
+            netuid=netuid,
+            coldkey_ss58=owner,
+            hotkey_ss58=hotkey,
+            collateral_alpha=collateral,
+            borrow_tao=amount,
+            sell_alpha=sell,
+        )
+
+    with context.output.activity("quoting raise at current LTV / capacity…"):
+        quote = context.run(max_quote)
+    if not isinstance(quote, dict):
+        context.output.error("raise quote is unavailable")
+        raise typer.Exit(2)
+
+    max_borrow = quote.get("principal_tao")
+    max_ltv_bps = quote.get("ltv_tier_bps")
+    headroom = quote.get("long_cap_headroom")
+    if not isinstance(max_borrow, Balance) or not isinstance(max_ltv_bps, int) or max_ltv_bps <= 0:
+        context.output.error("raise quote is missing max borrow or LTV tier")
+        raise typer.Exit(2)
+    max_ltv = max_ltv_bps / 10_000.0
+    context.output.message(
+        f"max borrowable at LTV {max_ltv:.2%} / capacity headroom "
+        f"{headroom if headroom is not None else '?'}: {max_borrow}"
+    )
+
+    borrow_tao = amount
+    collateral_alpha = collateral
+    if ltv is not None:
+        if ltv <= 0:
+            context.output.error("--ltv must be greater than 0")
+            raise typer.Exit(2)
+        if ltv > max_ltv + 1e-12:
+            context.output.error(
+                f"--ltv {ltv:.4f} exceeds subnet max LTV {max_ltv:.4f} ({max_ltv_bps} bps)"
+            )
+            raise typer.Exit(2)
+        if collateral is not None:
+            # Scale max principal by requested_ltv / max_ltv.
+            scaled = (max_borrow.rao * round(ltv * 10_000)) // max_ltv_bps
+            if scaled <= 0:
+                context.output.error("requested --ltv yields zero borrow at this collateral")
+                raise typer.Exit(2)
+            borrow_tao = str(Balance.from_rao(scaled, 0))
+            collateral_alpha = None
+            context.output.message(f"sizing borrow at LTV {ltv:.2%}: {borrow_tao}")
+        else:
+            # --amount path: reject when implied LTV from v_dyn exceeds --ltv.
+            v_dyn = quote.get("v_dyn")
+            if isinstance(v_dyn, Balance) and v_dyn.rao > 0 and max_borrow.rao > 0:
+                implied = max_borrow.rao / v_dyn.rao
+                if implied > ltv + 1e-12:
+                    context.output.error(
+                        f"--amount implies LTV ≈ {implied:.2%}, above --ltv {ltv:.2%} "
+                        f"(max LTV {max_ltv:.2%}, max borrow at full LTV depends on collateral)"
+                    )
+                    raise typer.Exit(2)
+
     intent = RaiseLoan(
         netuid=netuid,
         hotkey_ss58=hotkey,
-        collateral_alpha=collateral,
-        borrow_tao=amount,
+        collateral_alpha=collateral_alpha,
+        borrow_tao=borrow_tao,
         max_collateral_alpha=collateral or "0",
-        min_borrow_tao=amount or "0",
+        min_borrow_tao=borrow_tao or amount or "0",
         sell_alpha=sell,
         min_tao_out=min_tao_out,
         valid_until=until,
     )
+    # When --ltv sized from collateral, allow up to the original collateral ceiling.
+    if ltv is not None and collateral is not None:
+        intent.max_collateral_alpha = alpha_amount(collateral, netuid)
+        intent.min_borrow_tao = tao_amount(borrow_tao)
+
     if sell is not None and cast(Balance, intent.min_tao_out).rao == 0 and max_slippage > 0:
 
         async def floor(client):
             view = await client.at()
-            quote = await view.read(
+            sale_quote = await view.read(
                 "lending_raise_quote",
                 netuid=netuid,
                 coldkey_ss58=owner,
@@ -429,7 +511,7 @@ def raise_loan(
                 borrow_tao=intent.borrow_tao,
                 sell_alpha=intent.sell_alpha,
             )
-            out = quote.get("free_tao_out") if isinstance(quote, dict) else None
+            out = sale_quote.get("free_tao_out") if isinstance(sale_quote, dict) else None
             if not isinstance(out, Balance) or out.rao <= 0:
                 raise BittensorError("raise sale quote is unavailable")
             return _bound(out, max_slippage, ceiling=False)
@@ -440,24 +522,28 @@ def raise_loan(
         except Exception:
             pass
 
+    card = [
+        ("netuid", str(netuid)),
+        ("owner", owner),
+        ("hotkey", hotkey),
+        ("collateral", str(intent.collateral_alpha)),
+        ("borrow", str(intent.borrow_tao)),
+        ("max LTV", f"{max_ltv:.2%} ({max_ltv_bps} bps)"),
+        ("max borrow", str(max_borrow)),
+    ]
+    if ltv is not None:
+        card.append(("requested LTV", f"{ltv:.2%}"))
+    card.extend(
+        [
+            ("sell", str(intent.sell_alpha)),
+            ("min tao out", str(intent.min_tao_out)),
+            ("valid until", str(intent.valid_until)),
+        ]
+    )
     context.submit(
         intent,
         proxy_for=proxy or "self",
-        card_sections=[
-            (
-                "Raise",
-                [
-                    ("netuid", str(netuid)),
-                    ("owner", owner),
-                    ("hotkey", hotkey),
-                    ("collateral", str(intent.collateral_alpha)),
-                    ("borrow", str(intent.borrow_tao)),
-                    ("sell", str(intent.sell_alpha)),
-                    ("min tao out", str(intent.min_tao_out)),
-                    ("valid until", str(intent.valid_until)),
-                ],
-            )
-        ],
+        card_sections=[("Raise", card)],
     )
 
 

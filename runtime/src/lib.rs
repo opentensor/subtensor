@@ -239,7 +239,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 481,
+    spec_version: 482,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1455,7 +1455,7 @@ impl pallet_lending::Config for Runtime {
     type ReferenceWarmup = LendingReferenceWarmup;
     type MaxPositionsPerSubnet = LendingMaxPositionsPerSubnet;
     type MaxTotalPositions = LendingMaxTotalPositions;
-    type WeightInfo = ();
+    type WeightInfo = pallet_lending::weights::SubstrateWeight<Runtime>;
 }
 
 // Limit Orders
@@ -1814,6 +1814,7 @@ mod benches {
         [pallet_subtensor_proxy, Proxy]
         [pallet_subtensor_utility, Utility]
         [pallet_limit_orders, LimitOrders]
+        [pallet_lending, Lending]
     );
 }
 

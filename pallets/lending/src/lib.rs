@@ -604,8 +604,14 @@ pub mod pallet {
         (),
         OptionQuery,
     >;
+    /// Count of positions due at each block. Avoids unbounded Due key scans.
+    #[pallet::storage]
+    pub type DueIndex<T: Config> = StorageMap<_, Twox64Concat, BlockNumberFor<T>, u32, ValueQuery>;
     #[pallet::storage]
     pub type NextDue<T: Config> = StorageValue<_, BlockNumberFor<T>, OptionQuery>;
+    /// Resume point inside the current due bucket: (owner, netuid).
+    #[pallet::storage]
+    pub type DueBucketCursor<T: Config> = StorageValue<_, (T::AccountId, NetUid), OptionQuery>;
     #[pallet::storage]
     pub type ConversionCursor<T> = StorageValue<_, NetUid, OptionQuery>;
     #[pallet::storage]
@@ -1452,13 +1458,10 @@ pub mod pallet {
                 return Ok(false);
             }
             match side {
+                // Short collateral is TAO. Apply LTV to that TAO amount directly;
+                // convert only the alpha principal to a TAO debt value.
                 Side::Short => {
-                    let value = Self::tao_for_alpha(
-                        total_collateral,
-                        reference.price.min(T::Pool::current_alpha_price(netuid)),
-                        false,
-                    )?;
-                    let max_debt = Self::mul_bps(value, ltv_bps)?;
+                    let max_debt = Self::mul_bps(total_collateral, ltv_bps)?;
                     let debt_value = Self::tao_for_alpha(
                         total_principal,
                         T::Pool::current_alpha_price(netuid),
@@ -1607,7 +1610,11 @@ pub mod pallet {
 
             let price = reference.price.min(T::Pool::current_alpha_price(netuid));
             let v = match side {
-                Side::Short => Self::tao_for_alpha(collateral, price, false)?,
+                // Short collateral is already TAO; do not price it as alpha.
+                Side::Short => Self::add(
+                    existing.as_ref().map(|x| x.collateral).unwrap_or(0),
+                    collateral,
+                )?,
                 Side::Long => {
                     let old_p = existing.as_ref().map(|x| x.principal).unwrap_or(0);
                     let total_p = Self::add(old_p, principal)?;
@@ -1738,11 +1745,7 @@ pub mod pallet {
                 PositionCount::<T>::mutate(netuid, |n| *n = n.saturating_add(1));
                 TotalPositions::<T>::mutate(|n| *n = n.saturating_add(1));
                 Due::<T>::insert(due, (&owner, netuid), ());
-                NextDue::<T>::mutate(|next| {
-                    if next.is_none_or(|existing| existing > due) {
-                        *next = Some(due);
-                    }
-                });
+                Self::note_due_inserted(due);
                 ActiveNets::<T>::insert(netuid, ());
             }
             Positions::<T>::insert(&owner, netuid, position);
@@ -1838,7 +1841,7 @@ pub mod pallet {
                     } else {
                         // Buy back P alpha with E_S + collateral.
                         let budget = Self::add(position.proceeds, position.collateral)?;
-                        let (paid, _alpha) = Self::execute_buyback(
+                        let (paid, bought) = Self::execute_buyback(
                             &escrow,
                             &custody,
                             netuid,
@@ -1851,7 +1854,21 @@ pub mod pallet {
                         if refund > 0 {
                             T::Pool::transfer_tao(&escrow, &owner, refund.into())?;
                         }
-                        // Move bought alpha to reserve and readd.
+                        // Return any surplus alpha from overshoot before readd.
+                        let excess = bought.saturating_sub(position.principal);
+                        if excess > 0 {
+                            T::Pool::transfer_staked_alpha(
+                                &escrow,
+                                &custody,
+                                &owner,
+                                &position.hotkey,
+                                netuid,
+                                excess.into(),
+                                false,
+                                true,
+                            )?;
+                        }
+                        // Move bought principal alpha to reserve and readd.
                         T::Pool::transfer_staked_alpha(
                             &escrow,
                             &custody,
@@ -2006,6 +2023,43 @@ pub mod pallet {
             Ok(())
         }
 
+        /// Conservative TAO input that quotes to at least `alpha_wanted`.
+        fn tao_to_buy_alpha(netuid: NetUid, alpha_wanted: u64) -> Result<u64, DispatchError> {
+            if alpha_wanted == 0 {
+                return Ok(0);
+            }
+            let mut lo = 1u64;
+            let mut hi = T::Pool::max_buy_input(netuid).to_u64().max(1);
+            // Grow the upper bound until the quote covers the remaining debt.
+            for _ in 0..64 {
+                let got = T::Pool::quote_buy(netuid, hi.into())?.to_u64();
+                if got >= alpha_wanted {
+                    break;
+                }
+                let next = hi.saturating_mul(2);
+                if next == hi {
+                    break;
+                }
+                hi = next;
+            }
+            ensure!(
+                T::Pool::quote_buy(netuid, hi.into())?.to_u64() >= alpha_wanted,
+                Error::<T>::InsufficientEscrow
+            );
+            for _ in 0..64 {
+                if lo >= hi {
+                    break;
+                }
+                let mid = lo.saturating_add(hi.saturating_sub(lo) / 2);
+                if T::Pool::quote_buy(netuid, mid.into())?.to_u64() >= alpha_wanted {
+                    hi = mid;
+                } else {
+                    lo = mid.saturating_add(1);
+                }
+            }
+            Ok(hi)
+        }
+
         fn execute_buyback(
             escrow: &T::AccountId,
             custody: &T::AccountId,
@@ -2020,10 +2074,14 @@ pub mod pallet {
                 if remaining == 0 {
                     return Ok((payment, alpha));
                 }
+                // Bound each buy by the TAO needed for the remaining principal,
+                // not the entire surplus collateral budget.
+                let needed = Self::tao_to_buy_alpha(netuid, remaining)?;
                 let capacity = budget
                     .saturating_sub(payment)
                     .min(T::Pool::buy_spendable_tao(escrow).to_u64())
-                    .min(T::Pool::max_buy_input(netuid).to_u64());
+                    .min(T::Pool::max_buy_input(netuid).to_u64())
+                    .min(needed);
                 ensure!(capacity > 0, Error::<T>::InsufficientEscrow);
                 let received = T::Pool::buy_alpha(
                     escrow,
@@ -2278,7 +2336,11 @@ pub mod pallet {
             position.last_accrued = until;
             position.interest_remainder = remainder;
             if position.collateral == 0 && due > 0 {
-                Self::forfeit(owner, netuid, position)?;
+                // Dissolution already re-added lift legs; never forfeit there.
+                // Live-market path still defaults when collateral is exhausted.
+                if !Dissolutions::<T>::contains_key(netuid) {
+                    Self::forfeit(owner, netuid, position)?;
+                }
             }
             Ok(())
         }
@@ -2363,7 +2425,9 @@ pub mod pallet {
             Positions::<T>::remove(owner, netuid);
             OpenByNetuid::<T>::remove(netuid, owner);
             EscrowOwner::<T>::remove(netuid, Self::position_account(owner, netuid));
-            Due::<T>::remove(position.due, (owner, netuid));
+            if Due::<T>::take(position.due, (owner, netuid)).is_some() {
+                Self::note_due_removed(position.due);
+            }
             PositionCount::<T>::mutate(netuid, |count| *count = count.saturating_sub(1));
             let remaining = TotalPositions::<T>::mutate(|count| {
                 *count = count.saturating_sub(1);
@@ -2371,6 +2435,7 @@ pub mod pallet {
             });
             if remaining == 0 {
                 NextDue::<T>::kill();
+                DueBucketCursor::<T>::kill();
             }
             LoanHotkeys::<T>::mutate_exists(&position.hotkey, |count| {
                 let remaining = count.unwrap_or_default().saturating_sub(1);
@@ -2379,6 +2444,29 @@ pub mod pallet {
                 } else {
                     Some(remaining)
                 };
+            });
+        }
+
+        fn note_due_removed(due: BlockNumberFor<T>) {
+            let remaining = DueIndex::<T>::mutate(due, |count| {
+                *count = count.saturating_sub(1);
+                *count
+            });
+            if remaining == 0 {
+                DueIndex::<T>::remove(due);
+                if NextDue::<T>::get() == Some(due) {
+                    // Recompute from the compact due-block index (not all positions).
+                    NextDue::<T>::set(DueIndex::<T>::iter_keys().min());
+                }
+            }
+        }
+
+        fn note_due_inserted(due: BlockNumberFor<T>) {
+            DueIndex::<T>::mutate(due, |count| *count = count.saturating_add(1));
+            NextDue::<T>::mutate(|next| {
+                if next.is_none_or(|existing| existing > due) {
+                    *next = Some(due);
+                }
             });
         }
 
@@ -2392,24 +2480,29 @@ pub mod pallet {
             }
             if TotalPositions::<T>::get() == 0 {
                 NextDue::<T>::kill();
+                DueBucketCursor::<T>::kill();
                 return;
             }
             let Some(mut due) = NextDue::<T>::get() else {
                 return;
             };
             while due <= now {
-                if meter
-                    .try_consume(T::DbWeight::get().reads_writes(1, 1))
-                    .is_err()
-                {
+                // Charge before touching the bucket. Resume via DueBucketCursor.
+                if meter.try_consume(T::DbWeight::get().reads(1)).is_err() {
+                    NextDue::<T>::put(due);
                     return;
                 }
-                let keys: alloc::vec::Vec<_> = Due::<T>::iter_prefix(due).map(|(k, _)| k).collect();
-                if keys.is_empty() {
-                    let _ = Due::<T>::clear_prefix(due, u32::MAX, None);
-                }
-                for (owner, netuid) in keys {
+                let iter = if let Some(cursor) = DueBucketCursor::<T>::get() {
+                    Due::<T>::iter_prefix_from(due, Due::<T>::hashed_key_for(due, cursor))
+                } else {
+                    Due::<T>::iter_prefix(due)
+                };
+                let mut saw_entry = false;
+                for ((owner, netuid), ()) in iter {
+                    saw_entry = true;
+                    // Meter each position before charging interest.
                     if meter.try_consume(T::WeightInfo::collect()).is_err() {
+                        DueBucketCursor::<T>::put((owner, netuid));
                         NextDue::<T>::put(due);
                         return;
                     }
@@ -2423,15 +2516,13 @@ pub mod pallet {
                             Self::charge_interest(&owner, netuid, &mut position, now, false)?;
                             if Positions::<T>::contains_key(&owner, netuid) {
                                 let next = now.saturating_add(T::InterestPeriod::get());
-                                Due::<T>::remove(position.due, (&owner, netuid));
+                                if Due::<T>::take(position.due, (&owner, netuid)).is_some() {
+                                    Self::note_due_removed(position.due);
+                                }
                                 position.due = next;
                                 Due::<T>::insert(next, (&owner, netuid), ());
+                                Self::note_due_inserted(next);
                                 Positions::<T>::insert(&owner, netuid, position);
-                                NextDue::<T>::mutate(|n| {
-                                    if n.is_none_or(|e| e > next) {
-                                        *n = Some(next);
-                                    }
-                                });
                             }
                             Ok(())
                         })();
@@ -2440,10 +2531,19 @@ pub mod pallet {
                             Err(e) => TransactionOutcome::Rollback(Err(e)),
                         }
                     });
-                    Due::<T>::remove(due, (&owner, netuid));
+                    // Drop the processed due entry if charge_interest forfeited
+                    // (remove_position already cleared it) or left it for reschedule.
+                    if Due::<T>::contains_key(due, (&owner, netuid)) {
+                        Due::<T>::remove(due, (&owner, netuid));
+                        Self::note_due_removed(due);
+                    }
                 }
-                // Advance NextDue to the soonest remaining
-                let next = Due::<T>::iter_keys().map(|(d, _)| d).min();
+                DueBucketCursor::<T>::kill();
+                if !saw_entry {
+                    // Stale NextDue pointing at an empty bucket.
+                    DueIndex::<T>::remove(due);
+                }
+                let next = DueIndex::<T>::iter_keys().min();
                 NextDue::<T>::set(next);
                 if let Some(n) = next {
                     due = n;
@@ -2455,15 +2555,20 @@ pub mod pallet {
 
         fn convert_pending(now: BlockNumberFor<T>, meter: &mut WeightMeter) {
             let params = Self::lift_params();
-            let iter: alloc::vec::Vec<_> = if let Some(cursor) = ConversionCursor::<T>::get() {
+            // Bounded, resumable walk — never materialise the full map first.
+            let iter = if let Some(cursor) = ConversionCursor::<T>::get() {
                 LongInterestPending::<T>::iter_from(LongInterestPending::<T>::hashed_key_for(
                     cursor,
                 ))
-                .collect()
             } else {
-                LongInterestPending::<T>::iter().collect()
+                LongInterestPending::<T>::iter()
             };
             for (netuid, pending) in iter {
+                // Charge the storage read before any conversion work.
+                if meter.try_consume(T::DbWeight::get().reads(1)).is_err() {
+                    ConversionCursor::<T>::put(netuid);
+                    return;
+                }
                 if pending == 0 || Dissolutions::<T>::contains_key(netuid) {
                     continue;
                 }
@@ -2923,7 +3028,8 @@ pub mod pallet {
                 collateral,
             )?;
             let v = match side {
-                Side::Short => Self::tao_for_alpha(total_c, price, false)?,
+                // Short collateral is TAO; long collateral uses dynamic valuation.
+                Side::Short => total_c,
                 Side::Long => Self::v_dyn(netuid, total_c, total_p, &reference, owner)?,
             };
             Self::opening_quote(side, principal, price, collateral, v, 0, &params)

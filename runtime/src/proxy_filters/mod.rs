@@ -1157,4 +1157,65 @@ mod pow_proxy_tests {
         assert!(!ProxyType::NonCritical.filter(&legacy));
         assert!(!ProxyType::Staking.filter(&pow));
     }
+
+    #[test]
+    fn lending_raise_and_open_close_proxy_paths() {
+        use pallet_lending::{Call as LendingCall, Side};
+        use subtensor_runtime_common::{AccountId, NetUid};
+
+        let hotkey = AccountId::new([9u8; 32]);
+        let netuid = NetUid::from(1);
+        let open = RuntimeCall::Lending(LendingCall::open {
+            netuid,
+            side: Side::Short,
+            collateral: 1,
+            hotkey: hotkey.clone(),
+            min_borrow: 1,
+            min_proceeds: 0,
+        });
+        let open_exact = RuntimeCall::Lending(LendingCall::open_exact {
+            netuid,
+            side: Side::Long,
+            collateral: 1,
+            hotkey: hotkey.clone(),
+            principal: 1,
+            min_proceeds: 0,
+        });
+        let close = RuntimeCall::Lending(LendingCall::close {
+            netuid,
+            repay_from_wallet: true,
+            max_payment: u64::MAX,
+            min_refund: 0,
+        });
+        let raise = RuntimeCall::Lending(LendingCall::open_long_and_sell {
+            netuid,
+            hotkey,
+            collateral_alpha: Some(1),
+            borrow_tao: None,
+            max_collateral_alpha: 1,
+            min_borrow_tao: 1,
+            sell_alpha: None,
+            min_tao_out: 0,
+            valid_until: 100,
+        });
+
+        // Staking / NonTransfer / Any may open, close, and raise.
+        for proxy in [ProxyType::Staking, ProxyType::NonTransfer, ProxyType::Any] {
+            assert!(proxy.filter(&open), "{proxy:?} must allow open");
+            assert!(proxy.filter(&open_exact), "{proxy:?} must allow open_exact");
+            assert!(proxy.filter(&close), "{proxy:?} must allow close");
+            assert!(proxy.filter(&raise), "{proxy:?} must allow raise");
+        }
+        // Transfer-only, Registration, NonFungible, and RootClaim must not touch lending.
+        for proxy in [
+            ProxyType::Transfer,
+            ProxyType::Registration,
+            ProxyType::RootClaim,
+            ProxyType::NonFungible,
+        ] {
+            assert!(!proxy.filter(&open), "{proxy:?} must deny open");
+            assert!(!proxy.filter(&close), "{proxy:?} must deny close");
+            assert!(!proxy.filter(&raise), "{proxy:?} must deny raise");
+        }
+    }
 }
