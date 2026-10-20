@@ -404,6 +404,17 @@ impl<T: Config> LendingPoolInterface<T::AccountId> for Pallet<T> {
             .saturating_add(u128::from(SubnetAlphaOut::<T>::get(netuid).to_u64()))
     }
 
+    fn moving_alpha_price(netuid: NetUid) -> U64F64 {
+        Self::get_moving_alpha_price(netuid)
+    }
+
+    fn live_subnets() -> alloc::vec::Vec<NetUid> {
+        Self::get_all_subnet_netuids()
+            .into_iter()
+            .filter(|netuid| !netuid.is_root())
+            .collect()
+    }
+
     #[transactional]
     fn pay_from_pot(
         netuid: NetUid,

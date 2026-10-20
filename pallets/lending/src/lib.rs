@@ -1,8 +1,10 @@
-//! Lift-based escrowed lending on Balancer pools (spec v5.1).
+//! Lift-based escrowed lending on Balancer pools (spec v5.1 / Jacob §13.2).
 //!
 //! Liquidity is pulled from the pool only when someone borrows (`lift`). Shorts
 //! force-sell borrowed alpha into escrowed TAO; longs force-buy with borrowed TAO
 //! into escrowed alpha. No free borrowed assets are delivered. Interest burns.
+//! Dissolution settlement rate uses a TAO EMA hardened against one-block pumps
+//! (§13.2): `r = min(T_flag, t_ema_flag) / D`, then capped by moving alpha price.
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(
     clippy::too_many_arguments,
@@ -218,6 +220,12 @@ pub trait LendingPoolInterface<AccountId>: OrderSwapInterface<AccountId> {
     /// `SubnetAlphaIn + SubnetAlphaOut` (u128). Used only for `r = pot / all_alpha`.
     fn all_alpha_for_lending_settlement(netuid: NetUid) -> u128;
 
+    /// Slow moving alpha price used to cap dissolution settlement rate (§13.2).
+    fn moving_alpha_price(netuid: NetUid) -> U64F64;
+
+    /// Non-root live subnet netuids (for per-block TAO EMA updates).
+    fn live_subnets() -> alloc::vec::Vec<NetUid>;
+
     /// Pay `amount` TAO from the dissolution pot (`SubnetTAO` + subnet account) to `to`.
     fn pay_from_pot(
         netuid: NetUid,
@@ -248,7 +256,8 @@ pub trait LendingInterface<AccountId> {
     fn start_dissolution(netuid: NetUid) -> DispatchResult;
     /// Re-add held lift legs into reserves. Called from `do_dissolve_network` (§13).
     fn readd_lifts_for_dissolution(netuid: NetUid) -> DispatchResult;
-    /// Settle all lending positions at fixed §13 rate `r = pool_TAO / ALL_alpha`.
+    /// Settle all lending positions at fixed §13.2 rate
+    /// `r = min(T_flag, t_ema_flag) / ALL_alpha` (capped by moving price).
     /// Runs after main counts alpha and before stakers are paid. Returns `true` when done.
     fn settle_lending(netuid: NetUid, meter: &mut WeightMeter) -> bool;
     fn finish_dissolution(netuid: NetUid) -> DispatchResult;
@@ -308,7 +317,7 @@ pub enum Side {
 }
 
 /// Root-settable capacity / LTV / interest / pacing parameters (bps where noted).
-#[freeze_struct("cd5acc0ce307b8a0")]
+#[freeze_struct("65a8a36265cd2c31")]
 #[derive(
     Encode,
     Decode,
@@ -352,6 +361,8 @@ pub struct LiftParams {
     pub slice_bps: u16,
     /// Skip paced sells while spot < crash_guard_bps of EMA (default 9500).
     pub crash_guard_bps: u16,
+    /// Blocks for settlement TAO EMA half-life divisor (default 7200 ≈ 24h).
+    pub settle_ema_blocks: u64,
 }
 
 impl Default for LiftParams {
@@ -372,6 +383,7 @@ impl Default for LiftParams {
             apr_bps: 10_000,
             slice_bps: 1,
             crash_guard_bps: 9_500,
+            settle_ema_blocks: 7_200,
         }
     }
 }
@@ -441,7 +453,7 @@ pub struct LendingReference<BlockNumber> {
     pub valid_after: BlockNumber,
 }
 
-#[freeze_struct("f8bdd22c5917f62f")]
+#[freeze_struct("aa9abd5a02a75fa9")]
 #[derive(
     Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen, Clone, Debug, PartialEq, Eq,
 )]
@@ -449,8 +461,12 @@ pub struct Dissolution<BlockNumber> {
     pub frozen_at: BlockNumber,
     /// Lift legs have been re-added into reserves.
     pub lifts_readded: bool,
-    /// Settlement rate `r` as U64F64 (TAO per alpha), set after readd.
+    /// Settlement rate `r` as U64F64 (TAO per alpha), set in settle phase 0.
     pub rate: U64F64,
+    /// Snapshot of `SubnetTAO + Lifts.held_tao` at `start_dissolution` (§13.2).
+    pub t_flag: u64,
+    /// Snapshot of settlement TAO EMA at `start_dissolution` (§13.2).
+    pub t_ema_flag: u64,
 }
 
 #[freeze_struct("5da4836dd626280e")]
@@ -597,6 +613,9 @@ pub mod pallet {
     /// Subnets that have ever had a lift book / reference (for EMA finalize).
     #[pallet::storage]
     pub type ActiveNets<T> = StorageMap<_, Identity, NetUid, (), OptionQuery>;
+    /// Settlement TAO EMA per subnet (§13.2). Basis is `pool_tao + held_tao`.
+    #[pallet::storage]
+    pub type TaoEma<T> = StorageMap<_, Identity, NetUid, u64, OptionQuery>;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -765,6 +784,13 @@ pub mod pallet {
 
         fn on_finalize(now: BlockNumberFor<T>) {
             let params = LiftParamsStore::<T>::get();
+            // §13.2: update settlement TAO EMA for every live non-dissolving subnet.
+            for netuid in T::Pool::live_subnets() {
+                if Dissolutions::<T>::contains_key(netuid) {
+                    continue;
+                }
+                Self::update_tao_ema(netuid, &params);
+            }
             for (netuid, _) in ActiveNets::<T>::iter() {
                 if Dissolutions::<T>::contains_key(netuid) {
                     continue;
@@ -783,6 +809,24 @@ pub mod pallet {
                     }
                 });
             }
+        }
+
+        fn on_runtime_upgrade() -> Weight {
+            // Initialize missing TaoEma entries to the current settlement basis.
+            let mut writes = 0u64;
+            let mut reads = 0u64;
+            for netuid in T::Pool::live_subnets() {
+                reads = reads.saturating_add(1);
+                if TaoEma::<T>::contains_key(netuid) {
+                    continue;
+                }
+                let basis = Self::settlement_tao_basis(netuid);
+                // settlement_tao_basis: pool_tao + Lifts read
+                reads = reads.saturating_add(2);
+                TaoEma::<T>::insert(netuid, basis);
+                writes = writes.saturating_add(1);
+            }
+            T::DbWeight::get().reads_writes(reads, writes)
         }
 
         fn on_idle(now: BlockNumberFor<T>, remaining: Weight) -> Weight {
@@ -932,10 +976,41 @@ pub mod pallet {
                     && p.apr_bps <= 10_000
                     && p.crash_guard_bps <= 10_000
                     && p.move_bps > 0
-                    && p.ref_tao > 0,
+                    && p.ref_tao > 0
+                    && p.settle_ema_blocks > 0,
                 Error::<T>::InvalidLiftParams
             );
             Ok(())
+        }
+
+        /// Settlement TAO basis `T = SubnetTAO + Lifts.held_tao` (§13.2).
+        pub fn settlement_tao_basis(netuid: NetUid) -> u64 {
+            T::Pool::pool_tao(netuid)
+                .to_u64()
+                .saturating_add(Lifts::<T>::get(netuid).held_tao)
+        }
+
+        /// Return stored TAO EMA, initializing to the current settlement basis if missing.
+        pub fn ensure_tao_ema(netuid: NetUid) -> u64 {
+            if let Some(ema) = TaoEma::<T>::get(netuid) {
+                return ema;
+            }
+            let basis = Self::settlement_tao_basis(netuid);
+            TaoEma::<T>::insert(netuid, basis);
+            basis
+        }
+
+        /// One-block integer EMA update: `t_ema += (T - t_ema) / settle_ema_blocks`.
+        pub fn update_tao_ema(netuid: NetUid, params: &LiftParams) {
+            let t = Self::settlement_tao_basis(netuid);
+            let ema = Self::ensure_tao_ema(netuid);
+            let blocks = params.settle_ema_blocks.max(1);
+            let next = if t >= ema {
+                ema.saturating_add(t.saturating_sub(ema) / blocks)
+            } else {
+                ema.saturating_sub(ema.saturating_sub(t) / blocks)
+            };
+            TaoEma::<T>::insert(netuid, next);
         }
 
         pub fn recovery_account() -> T::AccountId {
@@ -2466,6 +2541,9 @@ pub mod pallet {
                 !Dissolutions::<T>::contains_key(netuid),
                 Error::<T>::AlreadyDissolving
             );
+            // Snapshot settlement basis and EMA at flag (do not update EMA here).
+            let t_flag = Self::settlement_tao_basis(netuid);
+            let t_ema_flag = Self::ensure_tao_ema(netuid);
             // No-op if lending never touched this subnet.
             if !ActiveNets::<T>::contains_key(netuid)
                 && PositionCount::<T>::get(netuid) == 0
@@ -2477,6 +2555,8 @@ pub mod pallet {
                         frozen_at: frame_system::Pallet::<T>::block_number(),
                         lifts_readded: true,
                         rate: U64F64::from_num(0),
+                        t_flag: 0,
+                        t_ema_flag: 0,
                     },
                 );
                 return Ok(());
@@ -2488,6 +2568,8 @@ pub mod pallet {
                     frozen_at,
                     lifts_readded: false,
                     rate: U64F64::from_num(0),
+                    t_flag,
+                    t_ema_flag,
                 },
             );
             DissolutionPhase::<T>::insert(netuid, 0u8);
@@ -2549,9 +2631,11 @@ pub mod pallet {
             EscrowOwner::<T>::contains_key(netuid, coldkey)
         }
 
-        /// Jacob §13 settlement (weight-metered, multi-block OK).
+        /// Jacob §13.2 settlement (weight-metered, multi-block OK).
         /// Assumes lift legs were already re-added in the dissolve call.
-        /// Phase 0: freeze rate r = pool_TAO / ALL_alpha (incl. pool α).
+        /// Phase 0: freeze rate from flag snapshots
+        ///   `T_settle = min(T_flag, t_ema_flag)`, `r = T_settle / ALL_alpha`,
+        ///   then `r = min(r, moving_alpha_price)` when moving price > 0.
         /// Phase 1: settle positions.
         /// Phase 2: convert pending long interest at r and burn.
         pub fn settle_lending(netuid: NetUid, meter: &mut WeightMeter) -> bool {
@@ -2563,17 +2647,21 @@ pub mod pallet {
                 if meter.try_consume(T::WeightInfo::settle()).is_err() {
                     return false;
                 }
-                // §13: r = pool_TAO / ALL_alpha, always including pool alpha
-                // (legacy or new). Do NOT use main's staker payout divisor.
-                let pot = T::Pool::pool_tao(netuid).to_u64();
+                // §13.2: r from flag snapshots, not live pot (pump-hardened).
+                let t_settle = dissolution.t_flag.min(dissolution.t_ema_flag);
                 let all_alpha = T::Pool::all_alpha_for_lending_settlement(netuid);
-                dissolution.rate = if all_alpha == 0 {
+                let mut r = if all_alpha == 0 {
                     U64F64::from_num(0)
                 } else {
-                    // r = pot / all_alpha in U64F64; use u128 division on Q64.64 bits.
-                    let bits = (u128::from(pot) << 64) / all_alpha;
+                    // r = T_settle / all_alpha in U64F64; use u128 division on Q64.64 bits.
+                    let bits = (u128::from(t_settle) << 64) / all_alpha;
                     U64F64::from_bits(bits)
                 };
+                let moving_price = T::Pool::moving_alpha_price(netuid);
+                if moving_price > U64F64::from_num(0) {
+                    r = r.min(moving_price);
+                }
+                dissolution.rate = r;
                 dissolution.lifts_readded = true;
                 Dissolutions::<T>::insert(netuid, dissolution.clone());
                 DissolutionPhase::<T>::insert(netuid, 1u8);
@@ -2750,6 +2838,7 @@ pub mod pallet {
             Lifts::<T>::remove(netuid);
             LongInterestPending::<T>::remove(netuid);
             ActiveNets::<T>::remove(netuid);
+            TaoEma::<T>::remove(netuid);
             Ok(())
         }
 

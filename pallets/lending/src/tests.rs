@@ -4,14 +4,14 @@
     clippy::indexing_slicing
 )]
 
-//! Focused unit tests for lift-based lending v5.1 (Jacob §13).
+//! Focused unit tests for lift-based lending v5.1 (Jacob §13 / §13.2).
 
 use super::*;
 use codec::{Decode, Encode};
 use frame_support::{
     assert_ok, construct_runtime, derive_impl, parameter_types,
-    traits::{ConstU32, ConstU64},
-    weights::WeightMeter,
+    traits::{ConstU32, ConstU64, Hooks},
+    weights::{Weight, WeightMeter},
 };
 use sp_runtime::{
     AccountId32, BuildStorage,
@@ -94,6 +94,21 @@ fn set_alpha_out(v: u64) {
 }
 fn burned() -> u64 {
     tao(&account(255))
+}
+fn moving_price() -> U64F64 {
+    read(&key(b"test/moving_price", netuid()))
+}
+fn set_moving_price(price: U64F64) {
+    write(&key(b"test/moving_price", netuid()), price);
+}
+fn tao_ema() -> Option<u64> {
+    TaoEma::<Test>::get(netuid())
+}
+fn set_tao_ema(v: u64) {
+    TaoEma::<Test>::insert(netuid(), v);
+}
+fn clear_tao_ema() {
+    TaoEma::<Test>::remove(netuid());
 }
 
 pub struct MockPool;
@@ -390,6 +405,14 @@ impl LendingPoolInterface<Account> for MockPool {
         u128::from(pool_alpha()).saturating_add(u128::from(alpha_out()))
     }
 
+    fn moving_alpha_price(_: NetUid) -> U64F64 {
+        moving_price()
+    }
+
+    fn live_subnets() -> alloc::vec::Vec<NetUid> {
+        alloc::vec![netuid()]
+    }
+
     fn pay_from_pot(
         netuid: NetUid,
         to: &Account,
@@ -454,6 +477,9 @@ fn new_test_ext() -> sp_io::TestExternalities {
             book.g_ema = pool_tao();
             book.last = 1;
         });
+        // Warm settlement EMA to current basis; moving price high so it does not bind.
+        set_tao_ema(Lending::settlement_tao_basis(netuid()));
+        set_moving_price(U64F64::from_num(1_000_000u64));
     });
     ext
 }
@@ -706,14 +732,21 @@ fn section13_legacy_dump_short_gets_positive_refund() {
             "all-alpha rate must be below legacy (r_all={r_all}, r_legacy={r_legacy}, pot={pot}, all={all_alpha}, legacy={legacy_denom})"
         );
 
-        // §13 settlement path.
+        // Align §13.2 snapshots with the post-dump spot basis so this test still
+        // exercises all-alpha r (not EMA lag).
+        let basis = Lending::settlement_tao_basis(netuid());
+        set_tao_ema(basis);
+        set_moving_price(U64F64::from_num(1_000_000u64));
+
+        // §13.2 settlement path (ema == basis → spot r = T/D).
         assert_ok!(Lending::start_dissolution(netuid()));
         assert_ok!(Lending::readd_lifts_for_dissolution(netuid()));
         let mut meter = WeightMeter::with_limit(Weight::from_parts(u64::MAX, u64::MAX));
         assert!(Lending::settle_lending(netuid(), &mut meter));
 
         // Short ends with a positive payout because r uses ALL_alpha.
-        let debt = (U64F64::from_num(principal) * r_all)
+        let r_snap = U64F64::from_num(basis) / U64F64::from_num(all_alpha);
+        let debt = (U64F64::from_num(principal) * r_snap)
             .saturating_ceil()
             .saturating_to_num::<u64>();
         let expected_refund = escrow_before.saturating_sub(debt.min(escrow_before));
@@ -724,6 +757,167 @@ fn section13_legacy_dump_short_gets_positive_refund() {
         assert!(Positions::<Test>::get(&owner, netuid()).is_none());
         assert!(tao(&owner) >= expected_refund.saturating_sub(1));
         let _ = burned();
+    });
+}
+
+#[test]
+fn section132_one_block_pump_changes_short_settlement_under_1pct() {
+    new_test_ext().execute_with(|| {
+        // Warm EMA with a few finalizes on a stable pool.
+        for b in 11u64..16 {
+            System::set_block_number(b);
+            Lending::on_finalize(b);
+        }
+        let owner = account(1);
+        let hotkey = account(2);
+        mint_tao(&owner, 80_000_000_000_000);
+        assert_ok!(Lending::open(
+            RuntimeOrigin::signed(owner.clone()),
+            netuid(),
+            Side::Short,
+            20_000_000_000_000,
+            hotkey,
+            1,
+            1,
+        ));
+        let position = Positions::<Test>::get(&owner, netuid()).unwrap();
+        let principal = position.principal;
+        let escrow_before = position.proceeds.saturating_add(position.collateral);
+
+        // Align EMA to current basis, then record pre-pump expectation.
+        let t_pre = Lending::settlement_tao_basis(netuid());
+        set_tao_ema(t_pre);
+        set_moving_price(U64F64::from_num(1_000_000u64));
+        let d = MockPool::all_alpha_for_lending_settlement(netuid());
+        assert!(d > 0);
+        let t_settle_pre = t_pre.min(t_pre);
+        let bits = (u128::from(t_settle_pre) << 64) / d;
+        let mut r_pre = U64F64::from_bits(bits);
+        let mp = MockPool::moving_alpha_price(netuid());
+        if mp > U64F64::from_num(0) {
+            r_pre = r_pre.min(mp);
+        }
+        let expected_debt = (U64F64::from_num(principal) * r_pre)
+            .saturating_ceil()
+            .saturating_to_num::<u64>();
+        let expected_refund = escrow_before.saturating_sub(expected_debt.min(escrow_before));
+
+        // One-block pump: inflate pool TAO 10× without updating EMA.
+        let pump = pool_tao().saturating_mul(10);
+        write(
+            &key(b"test/pool_tao", netuid()),
+            pool_tao().saturating_add(pump),
+        );
+        assert!(Lending::settlement_tao_basis(netuid()) > t_pre);
+
+        assert_ok!(Lending::start_dissolution(netuid()));
+        let d_flag = Dissolutions::<Test>::get(netuid()).unwrap();
+        assert_eq!(d_flag.t_ema_flag, t_pre);
+        assert!(d_flag.t_flag > t_pre);
+        assert_ok!(Lending::readd_lifts_for_dissolution(netuid()));
+        let mut meter = WeightMeter::with_limit(Weight::from_parts(u64::MAX, u64::MAX));
+        assert!(Lending::settle_lending(netuid(), &mut meter));
+
+        let rate = Dissolutions::<Test>::get(netuid()).unwrap().rate;
+        let debt = (U64F64::from_num(principal) * rate)
+            .saturating_ceil()
+            .saturating_to_num::<u64>();
+        // Pump must not confiscate: debt within 1% of pre-pump expectation.
+        let tol = expected_debt / 100 + 1;
+        assert!(
+            debt.abs_diff(expected_debt) <= tol,
+            "debt drifted >1%: debt={debt} expected={expected_debt} rate={rate} r_pre={r_pre}"
+        );
+        assert!(Positions::<Test>::get(&owner, netuid()).is_none());
+        let refund_tol = expected_refund / 100 + 1;
+        assert!(
+            tao(&owner).abs_diff(expected_refund) <= refund_tol
+                || tao(&owner) + 1 >= expected_refund.saturating_sub(refund_tol),
+            "refund drifted >1%: owner={} expected={expected_refund}",
+            tao(&owner)
+        );
+    });
+}
+
+#[test]
+fn section132_no_pump_matches_spot_when_ema_equals_basis() {
+    new_test_ext().execute_with(|| {
+        let owner = account(1);
+        let hotkey = account(2);
+        mint_tao(&owner, 50_000_000_000_000);
+        assert_ok!(Lending::open(
+            RuntimeOrigin::signed(owner.clone()),
+            netuid(),
+            Side::Short,
+            10_000_000_000_000,
+            hotkey,
+            1,
+            1,
+        ));
+        let t = Lending::settlement_tao_basis(netuid());
+        set_tao_ema(t);
+        set_moving_price(U64F64::from_num(1_000_000u64));
+        let d = MockPool::all_alpha_for_lending_settlement(netuid());
+        let bits = (u128::from(t) << 64) / d;
+        let expected_r = U64F64::from_bits(bits);
+
+        assert_ok!(Lending::start_dissolution(netuid()));
+        assert_ok!(Lending::readd_lifts_for_dissolution(netuid()));
+        let mut meter = WeightMeter::with_limit(Weight::from_parts(u64::MAX, u64::MAX));
+        assert!(Lending::settle_lending(netuid(), &mut meter));
+        let rate = Dissolutions::<Test>::get(netuid()).unwrap().rate;
+        assert_eq!(rate, expected_r);
+    });
+}
+
+#[test]
+fn section132_moving_price_cap_binds() {
+    new_test_ext().execute_with(|| {
+        let owner = account(1);
+        let hotkey = account(2);
+        mint_tao(&owner, 50_000_000_000_000);
+        assert_ok!(Lending::open(
+            RuntimeOrigin::signed(owner.clone()),
+            netuid(),
+            Side::Short,
+            10_000_000_000_000,
+            hotkey,
+            1,
+            1,
+        ));
+        let t = Lending::settlement_tao_basis(netuid());
+        set_tao_ema(t);
+        let d = MockPool::all_alpha_for_lending_settlement(netuid());
+        let bits = (u128::from(t) << 64) / d;
+        let spot_r = U64F64::from_bits(bits);
+        // Cap below T/D.
+        let cap = spot_r / U64F64::from_num(2u64);
+        assert!(cap > U64F64::from_num(0));
+        set_moving_price(cap);
+
+        assert_ok!(Lending::start_dissolution(netuid()));
+        assert_ok!(Lending::readd_lifts_for_dissolution(netuid()));
+        let mut meter = WeightMeter::with_limit(Weight::from_parts(u64::MAX, u64::MAX));
+        assert!(Lending::settle_lending(netuid(), &mut meter));
+        let rate = Dissolutions::<Test>::get(netuid()).unwrap().rate;
+        assert_eq!(rate, cap);
+    });
+}
+
+#[test]
+fn section132_tao_ema_inits_to_current_basis() {
+    new_test_ext().execute_with(|| {
+        clear_tao_ema();
+        assert!(tao_ema().is_none());
+        let basis = Lending::settlement_tao_basis(netuid());
+        // Via ensure_tao_ema (also exercised by on_finalize / on_runtime_upgrade).
+        let ema = Lending::ensure_tao_ema(netuid());
+        assert_eq!(ema, basis);
+        assert_eq!(tao_ema(), Some(basis));
+
+        clear_tao_ema();
+        let _ = <Lending as Hooks<_>>::on_runtime_upgrade();
+        assert_eq!(tao_ema(), Some(Lending::settlement_tao_basis(netuid())));
     });
 }
 

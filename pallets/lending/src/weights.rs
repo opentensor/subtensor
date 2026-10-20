@@ -41,9 +41,11 @@ impl WeightInfo for () {
         Weight::zero()
     }
     fn update_reference() -> Weight {
-        Weight::zero()
+        // Placeholder: on_finalize also walks live_subnets for TaoEma (§13.2).
+        Weight::from_parts(25_000_000, 0)
     }
     fn settle() -> Weight {
-        Weight::zero()
+        // Placeholder: phase-0 rate uses flag snapshots + moving-price cap.
+        Weight::from_parts(25_000_000, 0)
     }
 }
