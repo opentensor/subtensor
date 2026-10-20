@@ -2803,6 +2803,66 @@ fn test_announce_rejects_destination_with_active_lock_before_fee() {
 }
 
 #[test]
+fn test_announce_and_merge_purge_expired_destination_lock_rows() {
+    new_test_ext(1).execute_with(|| {
+        let who = U256::from(1);
+        let dest = U256::from(2);
+        let who_hot = U256::from(20);
+        let dest_hot = U256::from(3);
+        let netuid = add_dynamic_network(&U256::from(200), &U256::from(201));
+
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &who, &who_hot
+        ));
+        // Destination is already in use (owns a hotkey) but does not opt out of
+        // receiving locked alpha — expired rows alone must not block the merge.
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &dest, &dest_hot
+        ));
+        // Opt in: default AccountFlags reject locked alpha on used destinations.
+        SubtensorModule::set_accept_locked_alpha(&dest, true);
+        assert!(SubtensorModule::coldkey_already_in_use(&dest));
+        assert!(!SubtensorModule::account_rejects_locked_alpha(&dest));
+
+        let now = SubtensorModule::get_current_block_as_u64();
+        let active = AlphaBalance::from(2_500_000_u64);
+        // Expired / zero-mass row on dest; sorts before source hotkey.
+        Lock::<Test>::insert(
+            (dest, netuid, dest_hot),
+            LockState {
+                locked_mass: AlphaBalance::ZERO,
+                conviction: U64F64::from_num(42),
+                last_update: now,
+            },
+        );
+        Lock::<Test>::insert(
+            (who, netuid, who_hot),
+            LockState {
+                locked_mass: active,
+                conviction: U64F64::from_num(7),
+                last_update: now,
+            },
+        );
+
+        let swap_cost = SubtensorModule::get_key_swap_cost();
+        let ed = ExistentialDeposit::get();
+        add_balance_to_coldkey_account(&who, swap_cost + ed);
+
+        assert_ok!(SubtensorModule::announce_coldkey_swap_v2(
+            RuntimeOrigin::signed(who),
+            dest,
+        ));
+        // Admission purge clears the expired dest row before the fee path.
+        assert!(Lock::<Test>::get((dest, netuid, dest_hot)).is_none());
+
+        assert_ok!(SubtensorModule::do_swap_coldkey(&who, &dest));
+        assert!(Lock::<Test>::get((dest, netuid, dest_hot)).is_none());
+        assert_eq!(Lock::<Test>::iter_prefix((dest, netuid)).count(), 1);
+        assert_eq!(SubtensorModule::get_current_locked(&dest, netuid), active);
+    });
+}
+
+#[test]
 fn test_merge_swap_combined_hotkeys_too_heavy() {
     new_test_ext(1).execute_with(|| {
         let old = U256::from(1);

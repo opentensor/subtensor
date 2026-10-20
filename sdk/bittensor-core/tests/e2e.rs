@@ -688,11 +688,12 @@ fn test_coldkey_swap_announcement_flow() {
     let hash = bittensor_core::keys::public_key_from_ss58(&new_cold)
         .map(|public| sp_core::hashing::blake2_256(&public))
         .expect("new coldkey public key");
+    // Intent path uses cleartext V2; on-chain announcement still stores the hash.
     let announce = IntentCall::new(
         "announce_coldkey_swap",
         SignerRole::Coldkey,
         "SubtensorModule",
-        "announce_coldkey_swap",
+        "announce_coldkey_swap_v2",
         record([("new_coldkey", s(new_cold.clone()))]),
     );
     let result = Executor::new(&ctx.client)

@@ -394,8 +394,11 @@ impl<T: Config> Pallet<T> {
         }
         // Active locks on the destination cannot be merged safely with source locks
         // (conviction / aggregate buckets are per-coldkey). Block explicitly.
-        // Bound the walk to the announce/execute weight envelope.
-        if let Err(error) = Self::ensure_no_active_locks_for_swap(new_coldkey) {
+        // Also purge expired / zero-mass destination rows first so they cannot
+        // hide an incoming active lock after the transfer (one Lock row per
+        // subnet for `read_conviction_model`). Bound the walk to the
+        // announce/execute weight envelope.
+        if let Err(error) = Self::reconcile_and_ensure_no_active_locks_for_swap(new_coldkey) {
             // Lock walks stop at the position sentinel; charge that bound.
             let scanned = ColdkeySwapWork {
                 hotkeys: 0,

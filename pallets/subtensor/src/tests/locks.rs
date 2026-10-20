@@ -4180,15 +4180,82 @@ fn test_coldkey_swap_allows_destination_conviction_only_lock() {
                 .next()
                 .is_none()
         );
-        assert!(Lock::<Test>::get((new_coldkey, netuid, new_hotkey)).is_some());
+        // Destination zero-mass rows are purged before transfer so the
+        // one-lock-per-subnet invariant holds for `read_conviction_model`.
+        assert!(Lock::<Test>::get((new_coldkey, netuid, new_hotkey)).is_none());
 
         let swapped_lock = Lock::<Test>::get((new_coldkey, netuid, old_hotkey))
             .expect("source lock should be transferred");
         assert_eq!(swapped_lock.locked_mass, AlphaBalance::ZERO);
         assert_eq!(swapped_lock.conviction, old_conviction);
-        assert_eq!(Lock::<Test>::iter_prefix((new_coldkey, netuid)).count(), 2);
+        assert_eq!(Lock::<Test>::iter_prefix((new_coldkey, netuid)).count(), 1);
         assert!(DecayingLock::<Test>::get(old_coldkey, netuid).is_none());
         assert_eq!(DecayingLock::<Test>::get(new_coldkey, netuid), Some(false));
+    });
+}
+
+#[test]
+// Expired destination lock rows that sort before an incoming active source
+// lock must be purged on merge; otherwise get_current_locked can report zero
+// and alpha covered by the active lock becomes withdrawable.
+fn test_coldkey_swap_purges_expired_destination_lock_before_active_merge() {
+    new_test_ext(1).execute_with(|| {
+        let old_coldkey = U256::from(1);
+        let new_coldkey = U256::from(10);
+        // Destination hotkey sorts before the source hotkey under the mock
+        // AccountId encoding so the expired row would be discovered first.
+        let dest_hotkey = U256::from(2);
+        let source_hotkey = U256::from(20);
+        let netuid = subtensor_runtime_common::NetUid::from(1);
+
+        let active_locked = AlphaBalance::from(5_000_000u64);
+        let active_conviction = U64F64::from_num(55);
+        let expired_conviction = U64F64::from_num(999);
+
+        // Destination must accept locked alpha to receive the source active lock.
+        SubtensorModule::set_accept_locked_alpha(&new_coldkey, true);
+
+        SubtensorModule::insert_lock_state(
+            &old_coldkey,
+            netuid,
+            &source_hotkey,
+            LockState {
+                locked_mass: active_locked,
+                conviction: active_conviction,
+                last_update: SubtensorModule::get_current_block_as_u64(),
+            },
+        );
+        SubtensorModule::insert_lock_state(
+            &new_coldkey,
+            netuid,
+            &dest_hotkey,
+            LockState {
+                locked_mass: AlphaBalance::ZERO,
+                conviction: expired_conviction,
+                last_update: SubtensorModule::get_current_block_as_u64(),
+            },
+        );
+
+        // Precondition: expired dest row is the first discoverable lock.
+        let (first_hotkey, _) = Lock::<Test>::iter_prefix((new_coldkey, netuid))
+            .next()
+            .expect("destination expired lock present");
+        assert_eq!(first_hotkey, dest_hotkey);
+
+        assert_ok!(SubtensorModule::swap_coldkey_locks(
+            &old_coldkey,
+            &new_coldkey
+        ));
+
+        assert!(Lock::<Test>::get((new_coldkey, netuid, dest_hotkey)).is_none());
+        assert_eq!(Lock::<Test>::iter_prefix((new_coldkey, netuid)).count(), 1);
+        let merged = Lock::<Test>::get((new_coldkey, netuid, source_hotkey))
+            .expect("active source lock transferred");
+        assert_eq!(merged.locked_mass, active_locked);
+        assert_eq!(
+            SubtensorModule::get_current_locked(&new_coldkey, netuid),
+            active_locked
+        );
     });
 }
 
