@@ -505,6 +505,7 @@ fn new_test_ext() -> sp_io::TestExternalities {
             },
         );
         ActiveNets::<Test>::insert(netuid(), ());
+        ActiveNetCount::<Test>::put(1);
         Lifts::<Test>::mutate(netuid(), |book| {
             book.g_ema = pool_tao();
             // Aged past settle_ema_blocks so ensure_new_subnet_gate sees a warm G_ema.

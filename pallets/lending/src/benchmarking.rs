@@ -157,6 +157,7 @@ mod benchmarks {
         seed_enabled::<T>();
         let netuid = NetUid::from(1u16);
         ActiveNets::<T>::insert(netuid, ());
+        ActiveNetCount::<T>::put(1);
         #[block]
         {
             let _ = Pallet::<T>::ensure_tao_ema(netuid);

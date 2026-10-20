@@ -256,6 +256,8 @@ pub trait LendingInterface<AccountId> {
     fn custody_accounts(netuid: NetUid) -> Option<(AccountId, AccountId)>;
     fn has_positions(owner: &AccountId) -> bool;
     fn has_hotkey_positions(hotkey: &AccountId) -> bool;
+    /// Bound for hotkey-swap weight: number of open loans on `hotkey`.
+    fn hotkey_position_count(hotkey: &AccountId) -> u32;
     fn max_positions() -> u32;
     fn on_hotkey_swap(old: &AccountId, new: &AccountId, netuid: Option<NetUid>) -> DispatchResult;
     /// Re-key positions from `old` to `new` without moving custody funds (§14).
@@ -284,6 +286,9 @@ impl<AccountId> LendingInterface<AccountId> for () {
     }
     fn has_hotkey_positions(_: &AccountId) -> bool {
         false
+    }
+    fn hotkey_position_count(_: &AccountId) -> u32 {
+        0
     }
     fn max_positions() -> u32 {
         0
@@ -652,6 +657,9 @@ pub mod pallet {
         StorageMap<_, Twox64Concat, BlockNumberFor<T>, BlockNumberFor<T>, OptionQuery>;
     #[pallet::storage]
     pub type NextDue<T: Config> = StorageValue<_, BlockNumberFor<T>, OptionQuery>;
+    /// Latest due-bucket in the sorted schedule (for O(1) append).
+    #[pallet::storage]
+    pub type DueTail<T: Config> = StorageValue<_, BlockNumberFor<T>, OptionQuery>;
     /// Resume point inside the current due bucket: (owner, netuid).
     #[pallet::storage]
     pub type DueBucketCursor<T: Config> = StorageValue<_, (T::AccountId, NetUid), OptionQuery>;
@@ -662,6 +670,9 @@ pub mod pallet {
     /// Subnets that have ever had a lift book / reference (for EMA finalize).
     #[pallet::storage]
     pub type ActiveNets<T> = StorageMap<_, Identity, NetUid, (), OptionQuery>;
+    /// Count of `ActiveNets` entries — drives on_initialize weight.
+    #[pallet::storage]
+    pub type ActiveNetCount<T> = StorageValue<_, u32, ValueQuery>;
     /// Settlement TAO EMA per subnet (§13.2). Basis is `pool_tao + held_tao`.
     #[pallet::storage]
     pub type TaoEma<T> = StorageMap<_, Identity, NetUid, u64, OptionQuery>;
@@ -850,24 +861,26 @@ pub mod pallet {
         }
 
         fn on_initialize(_: BlockNumberFor<T>) -> Weight {
+            // Reserve only for ActiveNets that on_finalize walks. When lending is
+            // unused the count is 0 and we charge a single reference unit so the
+            // block remains usable (never MaxPositionsPerSubnet × update).
+            const MAX_ACTIVE_NET_UPDATES: u64 = 512;
+            let n = u64::from(ActiveNetCount::<T>::get())
+                .max(1)
+                .min(MAX_ACTIVE_NET_UPDATES);
             T::WeightInfo::update_reference()
-                .saturating_mul(u64::from(T::MaxPositionsPerSubnet::get()).saturating_add(1))
+                .saturating_mul(n)
                 .saturating_add(T::DbWeight::get().reads(2))
         }
 
         fn on_finalize(now: BlockNumberFor<T>) {
             let params = LiftParamsStore::<T>::get();
-            // §13.2: update settlement TAO EMA for every live non-dissolving subnet.
-            for netuid in T::Pool::live_subnets() {
-                if Dissolutions::<T>::contains_key(netuid) {
-                    continue;
-                }
-                Self::update_tao_ema(netuid, &params);
-            }
+            // Only subnets that have used lending — not every live subnet.
             for (netuid, _) in ActiveNets::<T>::iter() {
                 if Dissolutions::<T>::contains_key(netuid) {
                     continue;
                 }
+                Self::update_tao_ema(netuid, &params);
                 Self::update_g_ema(netuid, now, &params);
                 References::<T>::mutate(netuid, |reference| {
                     if let Some(reference) = reference {
@@ -898,6 +911,26 @@ pub mod pallet {
                 reads = reads.saturating_add(2);
                 TaoEma::<T>::insert(netuid, basis);
                 writes = writes.saturating_add(1);
+            }
+            // Sync ActiveNetCount after storage item introduction.
+            let active = ActiveNets::<T>::iter().count() as u32;
+            reads = reads.saturating_add(u64::from(active).saturating_add(1));
+            if ActiveNetCount::<T>::get() != active {
+                ActiveNetCount::<T>::put(active);
+                writes = writes.saturating_add(1);
+            }
+            // Rebuild DueTail from the schedule head when missing.
+            if DueTail::<T>::get().is_none() {
+                reads = reads.saturating_add(1);
+                if let Some(mut cur) = NextDue::<T>::get() {
+                    reads = reads.saturating_add(1);
+                    while let Some(n) = DueNext::<T>::get(cur) {
+                        reads = reads.saturating_add(1);
+                        cur = n;
+                    }
+                    DueTail::<T>::put(cur);
+                    writes = writes.saturating_add(1);
+                }
             }
             T::DbWeight::get().reads_writes(reads, writes)
         }
@@ -1242,7 +1275,7 @@ pub mod pallet {
                 valid_after: now.saturating_add(T::ReferenceWarmup::get()),
             };
             References::<T>::insert(netuid, reference.clone());
-            ActiveNets::<T>::insert(netuid, ());
+            Self::note_active_net(netuid);
             // First open waits for warmup unless we seed g_ema immediately.
             Lifts::<T>::mutate(netuid, |book| {
                 if book.g_ema == 0 {
@@ -1719,6 +1752,9 @@ pub mod pallet {
             if let Some(mut position) = existing.take() {
                 Self::charge_interest(&owner, netuid, &mut position, now, false)?;
                 if Positions::<T>::contains_key(&owner, netuid) {
+                    // Persist accrued collateral so aggregate `a_ahead` exclusion
+                    // matches pending interest already moved off the book.
+                    Positions::<T>::insert(&owner, netuid, &position);
                     existing = Some(position);
                 } else {
                     // Exhausted and forfeited — treat as a fresh open.
@@ -1912,7 +1948,7 @@ pub mod pallet {
                 TotalPositions::<T>::mutate(|n| *n = n.saturating_add(1));
                 Due::<T>::insert(due, (&owner, netuid), ());
                 Self::note_due_inserted(due);
-                ActiveNets::<T>::insert(netuid, ());
+                Self::note_active_net(netuid);
             }
             Positions::<T>::insert(&owner, netuid, position);
             Self::deposit_event(if increasing {
@@ -2917,6 +2953,9 @@ pub mod pallet {
                     if NextDue::<T>::get() == Some(due) {
                         NextDue::<T>::kill();
                     }
+                    if DueTail::<T>::get() == Some(due) {
+                        DueTail::<T>::kill();
+                    }
                 }
                 (None, Some(n)) => {
                     DuePrev::<T>::remove(n);
@@ -2926,6 +2965,9 @@ pub mod pallet {
                 }
                 (Some(p), None) => {
                     DueNext::<T>::remove(p);
+                    if DueTail::<T>::get() == Some(due) {
+                        DueTail::<T>::put(p);
+                    }
                 }
                 (Some(p), Some(n)) => {
                     DueNext::<T>::insert(p, n);
@@ -2951,15 +2993,26 @@ pub mod pallet {
             if !was_empty {
                 return;
             }
-            // Splice `due` into the sorted doubly-linked schedule headed by NextDue.
-            match NextDue::<T>::get() {
-                None => NextDue::<T>::put(due),
-                Some(head) if due < head => {
+            // Fast paths: empty / prepend / append. Interest reschedule and new
+            // opens almost always append (`now + InterestPeriod`), so avoid the
+            // linear mid-list walk on the hot path.
+            match (NextDue::<T>::get(), DueTail::<T>::get()) {
+                (None, _) => {
+                    NextDue::<T>::put(due);
+                    DueTail::<T>::put(due);
+                }
+                (Some(head), _) if due < head => {
                     DueNext::<T>::insert(due, head);
                     DuePrev::<T>::insert(head, due);
                     NextDue::<T>::put(due);
                 }
-                Some(head) => {
+                (_, Some(tail)) if due > tail => {
+                    DueNext::<T>::insert(tail, due);
+                    DuePrev::<T>::insert(due, tail);
+                    DueTail::<T>::put(due);
+                }
+                (Some(head), _) => {
+                    // Rare out-of-order insert (e.g. clock skew / period change).
                     let mut prev = head;
                     loop {
                         match DueNext::<T>::get(prev) {
@@ -2974,11 +3027,25 @@ pub mod pallet {
                             None => {
                                 DueNext::<T>::insert(prev, due);
                                 DuePrev::<T>::insert(due, prev);
+                                DueTail::<T>::put(due);
                                 break;
                             }
                         }
                     }
                 }
+            }
+        }
+
+        fn note_active_net(netuid: NetUid) {
+            if !ActiveNets::<T>::contains_key(netuid) {
+                ActiveNets::<T>::insert(netuid, ());
+                ActiveNetCount::<T>::mutate(|n| *n = n.saturating_add(1));
+            }
+        }
+
+        fn forget_active_net(netuid: NetUid) {
+            if ActiveNets::<T>::take(netuid).is_some() {
+                ActiveNetCount::<T>::mutate(|n| *n = n.saturating_sub(1));
             }
         }
 
@@ -3084,6 +3151,7 @@ pub mod pallet {
         fn convert_pending(now: BlockNumberFor<T>, meter: &mut WeightMeter) {
             let params = Self::lift_params();
             // Bounded, resumable walk — never materialise the full map first.
+            // Cursor is exclusive (`iter_from`); store the last fully handled key.
             let iter = if let Some(cursor) = ConversionCursor::<T>::get() {
                 LongInterestPending::<T>::iter_from(LongInterestPending::<T>::hashed_key_for(
                     cursor,
@@ -3091,17 +3159,24 @@ pub mod pallet {
             } else {
                 LongInterestPending::<T>::iter()
             };
+            let mut last_done: Option<NetUid> = None;
             for (netuid, pending) in iter {
                 // Charge the storage read before any conversion work.
                 if meter.try_consume(T::DbWeight::get().reads(1)).is_err() {
-                    ConversionCursor::<T>::put(netuid);
+                    if let Some(done) = last_done {
+                        ConversionCursor::<T>::put(done);
+                    }
+                    // else: keep the prior exclusive cursor so this key is retried.
                     return;
                 }
                 if pending == 0 || Dissolutions::<T>::contains_key(netuid) {
+                    last_done = Some(netuid);
                     continue;
                 }
                 if meter.try_consume(T::WeightInfo::collect()).is_err() {
-                    ConversionCursor::<T>::put(netuid);
+                    if let Some(done) = last_done {
+                        ConversionCursor::<T>::put(done);
+                    }
                     return;
                 }
                 let spot = T::Pool::current_alpha_price(netuid);
@@ -3120,6 +3195,7 @@ pub mod pallet {
                         && Lifts::<T>::get(netuid).last + backlog_weeks
                             < now.saturated_into::<u64>();
                     if spot < floor && !force {
+                        last_done = Some(netuid);
                         continue;
                     }
                 }
@@ -3131,14 +3207,19 @@ pub mod pallet {
                 // Skip dust below ~0.01 τ
                 if let Ok(tao_est) = T::Pool::quote_sell(netuid, slice.into()) {
                     if tao_est.to_u64() < 10_000_000 {
+                        last_done = Some(netuid);
                         continue;
                     }
                 } else {
+                    last_done = Some(netuid);
                     continue;
                 }
                 let custody = match Self::custody_hotkey() {
                     Ok(c) => c,
-                    Err(_) => continue,
+                    Err(_) => {
+                        last_done = Some(netuid);
+                        continue;
+                    }
                 };
                 let reserve = Self::reserve_account(netuid);
                 let sold = match T::Pool::forced_sell_into_escrow(
@@ -3149,7 +3230,10 @@ pub mod pallet {
                     slice.into(),
                 ) {
                     Ok(t) => t,
-                    Err(_) => continue,
+                    Err(_) => {
+                        last_done = Some(netuid);
+                        continue;
+                    }
                 };
                 let _ = T::Pool::burn_interest_tao(&reserve, sold);
                 LongInterestPending::<T>::mutate(netuid, |p| *p = p.saturating_sub(slice));
@@ -3485,7 +3569,7 @@ pub mod pallet {
             References::<T>::remove(netuid);
             Lifts::<T>::remove(netuid);
             LongInterestPending::<T>::remove(netuid);
-            ActiveNets::<T>::remove(netuid);
+            Self::forget_active_net(netuid);
             TaoEma::<T>::remove(netuid);
             Ok(())
         }
@@ -3796,6 +3880,9 @@ pub mod pallet {
         }
         fn has_hotkey_positions(hotkey: &T::AccountId) -> bool {
             LoanHotkeys::<T>::get(hotkey) > 0
+        }
+        fn hotkey_position_count(hotkey: &T::AccountId) -> u32 {
+            LoanHotkeys::<T>::get(hotkey)
         }
         fn max_positions() -> u32 {
             T::MaxTotalPositions::get()
