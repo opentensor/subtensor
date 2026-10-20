@@ -399,10 +399,16 @@ call_filter_group!(
         RuntimeCall::SubtensorModule(SubtensorCall::schedule_swap_coldkey),
         RuntimeCall::SubtensorModule(SubtensorCall::swap_coldkey),
         RuntimeCall::SubtensorModule(SubtensorCall::announce_coldkey_swap),
+        RuntimeCall::SubtensorModule(SubtensorCall::announce_coldkey_swap_v2),
         RuntimeCall::SubtensorModule(SubtensorCall::swap_coldkey_announced),
         RuntimeCall::SubtensorModule(SubtensorCall::clear_coldkey_swap_announcement),
         RuntimeCall::SubtensorModule(SubtensorCall::dispute_coldkey_swap),
         RuntimeCall::SubtensorModule(SubtensorCall::reset_coldkey_swap),
+        // Destination-authorized release of an announce reservation — same
+        // coldkey-swap surface as the rest of this group.
+        RuntimeCall::SubtensorModule(
+            SubtensorCall::release_own_coldkey_swap_destination_reservation
+        ),
     ]
 );
 

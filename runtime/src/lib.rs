@@ -239,7 +239,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 481,
+    spec_version: 482,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -626,6 +626,10 @@ impl ProxyInterface<AccountId> for Proxier {
             0,
         )
     }
+
+    fn transfer_delegator_proxies(from: &AccountId, to: &AccountId) -> DispatchResult {
+        pallet_proxy::Pallet::<Runtime>::transfer_delegator_proxies(from, to)
+    }
 }
 
 pub struct CommitmentsI;
@@ -728,6 +732,54 @@ fn lease_recovery_rolls_back_real_proxy_storage_on_a_late_failure() {
             .is_ok()
         );
         assert_eq!(SubnetLeases::<Runtime>::get(0).unwrap().beneficiary, new);
+    });
+}
+
+#[test]
+#[allow(clippy::unwrap_used)]
+fn coldkey_swap_merges_validate_proxies_keyed_by_coldkey() {
+    use frame_support::assert_ok;
+    use sp_runtime::BuildStorage;
+
+    let old = AccountId::new([91; 32]);
+    let new = AccountId::new([92; 32]);
+    let validate_delegate = AccountId::new([93; 32]);
+    let staking_delegate = AccountId::new([94; 32]);
+    let storage = RuntimeGenesisConfig {
+        balances: pallet_balances::GenesisConfig {
+            balances: vec![
+                (old.clone(), 100_000_000_000u64.into()),
+                (new.clone(), 100_000_000_000u64.into()),
+            ],
+            dev_accounts: None,
+        },
+        ..Default::default()
+    }
+    .build_storage()
+    .unwrap();
+    sp_io::TestExternalities::new(storage).execute_with(|| {
+        System::set_block_number(1);
+        assert_ok!(Proxy::add_proxy(
+            RuntimeOrigin::signed(old.clone()),
+            validate_delegate.clone().into(),
+            ProxyType::Validate,
+            0,
+        ));
+        assert_ok!(Proxy::add_proxy(
+            RuntimeOrigin::signed(new.clone()),
+            staking_delegate.clone().into(),
+            ProxyType::Staking,
+            0,
+        ));
+
+        assert_ok!(SubtensorModule::do_swap_coldkey(&old, &new));
+
+        assert!(Proxy::find_proxy(&old, &validate_delegate, Some(ProxyType::Validate)).is_err());
+        assert!(Proxy::find_proxy(&new, &validate_delegate, Some(ProxyType::Validate)).is_ok());
+        assert!(Proxy::find_proxy(&new, &staking_delegate, Some(ProxyType::Staking)).is_ok());
+        let (proxies, _) = pallet_proxy::Proxies::<Runtime>::get(&new);
+        assert_eq!(proxies.len(), 2);
+        assert!(pallet_proxy::Proxies::<Runtime>::get(&old).0.is_empty());
     });
 }
 

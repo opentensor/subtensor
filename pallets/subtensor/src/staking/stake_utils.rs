@@ -1843,6 +1843,14 @@ impl<T: Config> Pallet<T> {
             Error::<T>::CannotUseSystemAccount
         );
 
+        // A V2 coldkey-swap announcement reserves the destination so third parties
+        // cannot grow its staking associations / locks during the delay and force
+        // `ColdkeySwapTooHeavy` or dest opt-out failures at execute. Same-coldkey
+        // moves (and the destination acting on itself) are unaffected.
+        if origin_coldkey != destination_coldkey {
+            Self::ensure_account_not_reserved_as_coldkey_swap_destination(destination_coldkey)?;
+        }
+
         // Ensure stake transition is actually happening
         if origin_coldkey == destination_coldkey && origin_hotkey == destination_hotkey {
             ensure!(origin_netuid != destination_netuid, Error::<T>::SameNetuid);

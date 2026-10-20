@@ -857,6 +857,7 @@ mod address_and_selector_tests {
             "tryAssociateHotkey(bytes32)",
             "associateEvmKey(uint16,address,uint64,bytes)",
             "announceColdkeySwap(bytes32)",
+            "announceColdkeySwapV2(bytes32)",
             "executeAnnouncedColdkeySwap(bytes32)",
             "disputeColdkeySwap()",
             "clearColdkeySwapAnnouncement()",

@@ -445,6 +445,10 @@ impl ProxyInterface<U256> for FakeProxier {
         });
         Ok(())
     }
+
+    fn transfer_delegator_proxies(_from: &AccountId, _to: &AccountId) -> DispatchResult {
+        Ok(())
+    }
 }
 
 parameter_types! {

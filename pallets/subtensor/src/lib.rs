@@ -108,15 +108,29 @@ pub const MAX_STAKING_HOTKEYS: u32 = MAX_ROOT_CLAIM_WORK;
 /// (legacy and current share rows, pool value, both denominator maps, epoch) taken twice
 /// (validation and the debit path).
 pub const STAKING_HOTKEYS_WALK_READS_PER_ENTRY: u64 = 14;
-/// Most `StakingHotkeys` entries a coldkey swap moves in one call. Sized from the production
-/// distribution: the 99.9th percentile list is under 100 entries and four coldkeys exceed
-/// this value; they consolidate before swapping.
+/// Most hotkeys (source ∪ destination staking lists plus claim-only basket credits) a
+/// coldkey swap admits in one call. Sized from the production distribution: the 99.9th
+/// percentile list is under 100 entries and four coldkeys exceed this value; they
+/// consolidate before swapping. Merges into an already-used destination count both sides.
 pub const MAX_COLDKEY_SWAP_HOTKEYS: u32 = MAX_STAKING_HOTKEYS;
 /// Most stake positions `(hotkey, netuid)` a coldkey swap moves in one call. Each position is
 /// one `transfer_stake` worth of work; the declared weight reserves this many (about three
 /// quarters of the normal block budget) and refunds the rest post-dispatch. Four production
 /// coldkeys exceed it today.
 pub const MAX_COLDKEY_SWAP_POSITIONS: u32 = 1024;
+/// Most destination `Lock` rows a coldkey swap may scan/purge. Sized so the
+/// declared swap envelope still fits the normal-class `max_extrinsic` after
+/// charging the full per-row admission + re-check + purge + aggregate path
+/// (independent of source positions). See `coldkey_swap_weight`.
+pub const MAX_COLDKEY_SWAP_DEST_LOCKS: u32 = 128;
+/// Most pending network-registration queue rows one coldkey swap rewrites.
+/// Escrow is updated only via those queue `lock_id`s (no global escrow scan).
+pub const MAX_COLDKEY_SWAP_PENDING_REGISTRATIONS: u32 = 32;
+/// Most `NetworkRegistrationQueue` entries a coldkey swap may scan or rewrite.
+/// The queue is a single unbounded `Vec`; visiting beyond this fails closed so
+/// work cannot grow with unrelated accounts' registrations outside the weight
+/// envelope.
+pub const MAX_COLDKEY_SWAP_REGISTRATION_QUEUE_SCAN: u32 = 256;
 /// Most subnet legs one `unstake_all` / `unstake_all_alpha` call will validate or
 /// unstake. Each successful leg is one `remove_stake` plus a [`MAX_STAKING_HOTKEYS`]
 /// walk (~9.3e10 ref-time at RocksDbWeight). The normal-class `max_extrinsic` is
@@ -1943,6 +1957,23 @@ pub mod pallet {
     #[pallet::storage]
     pub type ColdkeySwapAnnouncements<T: Config> =
         StorageMap<_, Twox64Concat, T::AccountId, (BlockNumberFor<T>, T::Hash), OptionQuery>;
+
+    /// Destination account reserved by an in-flight coldkey-swap announcement.
+    ///
+    /// Announce takes the destination in cleartext so it can be validated before
+    /// the fee; without a reservation a third party could register that address
+    /// as their hotkey during the delay and force `NewColdKeyIsHotkey` at execute,
+    /// repeatedly delaying recovery while the source stays announcement-restricted.
+    #[pallet::storage]
+    pub type ColdkeySwapDestinationReservations<T: Config> =
+        StorageMap<_, Twox64Concat, T::AccountId, T::AccountId, OptionQuery>;
+
+    /// Reverse index of [`ColdkeySwapDestinationReservations`]: announcer → reserved
+    /// destination, so reannounce / clear / execute can free the prior reservation
+    /// without scanning.
+    #[pallet::storage]
+    pub type ColdkeySwapReservedDestination<T: Config> =
+        StorageMap<_, Twox64Concat, T::AccountId, T::AccountId, OptionQuery>;
 
     /// A map of the coldkey swap disputes from a coldkey to the
     /// block number the coldkey swap was disputed.
@@ -4024,6 +4055,9 @@ pub trait ProxyInterface<AccountId> {
     fn add_lease_beneficiary_proxy(beneficiary: &AccountId, lease: &AccountId) -> DispatchResult;
     fn remove_lease_beneficiary_proxy(beneficiary: &AccountId, lease: &AccountId)
     -> DispatchResult;
+    /// Move proxies (and real-pays-fee flags) keyed by `from` onto `to`, merging
+    /// with any proxies `to` already holds. Used by coldkey swap.
+    fn transfer_delegator_proxies(from: &AccountId, to: &AccountId) -> DispatchResult;
 }
 
 impl<T> ProxyInterface<T> for () {
@@ -4032,6 +4066,10 @@ impl<T> ProxyInterface<T> for () {
     }
 
     fn remove_lease_beneficiary_proxy(_: &T, _: &T) -> DispatchResult {
+        Ok(())
+    }
+
+    fn transfer_delegator_proxies(_: &T, _: &T) -> DispatchResult {
         Ok(())
     }
 }

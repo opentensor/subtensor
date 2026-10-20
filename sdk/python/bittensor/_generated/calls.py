@@ -222,8 +222,13 @@ class SubtensorModule:
 
     @staticmethod
     def announce_coldkey_swap(new_coldkey_hash: 'H256') -> Call:
-        'Announces a coldkey swap using BlakeTwo256 hash of the new coldkey.  This is required before the coldkey swap can be performed after the delay period.  It can be reannounced after a delay of `ColdkeySwapReannouncementDelay` following the first valid execution block of the original announcement.  The dispatch origin of this call must be the original coldkey that made the announcement.  * `new_coldkey_hash`: The hash of the new coldkey using BlakeTwo256.  The `ColdkeySwapAnnounced` event is emitted on successful announcement.'
+        'Announces a coldkey swap using the BlakeTwo256 hash of the new coldkey.  Legacy commitment path: keeps the destination secret until `swap_coldkey_announced` reveals it. Does **not** validate or reserve the destination (that requires cleartext — use [`Self::announce_coldkey_swap_v2`]). Prefer V2 for merges into already-used destinations and for pre-fee admission checks.  It can be reannounced after a delay of `ColdkeySwapReannouncementDelay` following the first valid execution block of the original announcement.  The dispatch origin of this call must be the original coldkey that made the announcement.  * `new_coldkey_hash`: BlakeTwo256 hash of the destination coldkey.  The `ColdkeySwapAnnounced` event is emitted on successful announcement.'
         return Call('SubtensorModule', 'announce_coldkey_swap', {'new_coldkey_hash': new_coldkey_hash})
+
+    @staticmethod
+    def announce_coldkey_swap_v2(new_coldkey: 'AccountId32') -> Call:
+        'Announces a coldkey swap with the cleartext destination account.  Validates the destination (and combined swap work) before charging the announcement fee, then exclusively reserves that account for the delay so a third party cannot register it as a hotkey. The on-chain announcement still stores the BlakeTwo256 hash.  Prefer this over [`Self::announce_coldkey_swap`] when merging into an already-used coldkey or when pre-fee refusal of bad destinations matters.  * `new_coldkey`: Destination coldkey (validated before any fee).'
+        return Call('SubtensorModule', 'announce_coldkey_swap_v2', {'new_coldkey': new_coldkey})
 
     @staticmethod
     def associate_evm_key(netuid: 'NetUid', evm_key: 'H160', block_number: 'u64', signature: 'Any') -> Call:
@@ -379,6 +384,11 @@ class SubtensorModule:
     def register_network_with_identity(hotkey: 'AccountId32', identity: 'Any') -> Call:
         'User register a new subnetwork'
         return Call('SubtensorModule', 'register_network_with_identity', {'hotkey': hotkey, 'identity': identity})
+
+    @staticmethod
+    def release_own_coldkey_swap_destination_reservation() -> Call:
+        "Destination-authorized release of a coldkey-swap destination reservation.  V2 announce takes the destination in cleartext and exclusively reserves it. The reserved account can free that hold so a third party cannot squat someone else's coldkey indefinitely. Reservations also expire after `when + ColdkeySwapReannouncementDelay`."
+        return Call('SubtensorModule', 'release_own_coldkey_swap_destination_reservation', {})
 
     @staticmethod
     def remove_stake(hotkey: 'AccountId32', netuid: 'NetUid', amount_unstaked: 'AlphaBalance') -> Call:

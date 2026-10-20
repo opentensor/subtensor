@@ -134,6 +134,8 @@ class SubtensorModule:
     ColdkeySwapAnnouncementDelay = Item('SubtensorModule', 'ColdkeySwapAnnouncementDelay', 'u32')
     ColdkeySwapReannouncementDelay = Item('SubtensorModule', 'ColdkeySwapReannouncementDelay', 'u32')
     ColdkeySwapAnnouncements = Item('SubtensorModule', 'ColdkeySwapAnnouncements', '(u32, H256)')
+    ColdkeySwapDestinationReservations = Item('SubtensorModule', 'ColdkeySwapDestinationReservations', 'AccountId32')
+    ColdkeySwapReservedDestination = Item('SubtensorModule', 'ColdkeySwapReservedDestination', 'AccountId32')
     ColdkeySwapDisputes = Item('SubtensorModule', 'ColdkeySwapDisputes', 'u32')
     TotalHotkeyAlpha = Item('SubtensorModule', 'TotalHotkeyAlpha', 'AlphaBalance')
     TotalAlphaStaked = Item('SubtensorModule', 'TotalAlphaStaked', 'AlphaBalance')

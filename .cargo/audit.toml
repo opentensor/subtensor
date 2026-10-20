@@ -18,4 +18,9 @@ ignore = [
     # is not compiled. Revisit if executor features or the SDK fork change.
     # https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-jqpg-j7w6-42pr
     "RUSTSEC-2026-0316",
+    # RUSTSEC-2026-0379/0380 (added 2026-10-20): Cranelift aarch64 br_table
+    # misjump and bit-packing overflow in wasmtime 8.0.1. Same sc-executor
+    # pin as above; fixes need much newer wasmtime majors.
+    "RUSTSEC-2026-0379",
+    "RUSTSEC-2026-0380",
 ]
