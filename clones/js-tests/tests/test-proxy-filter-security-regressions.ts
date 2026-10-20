@@ -12,7 +12,7 @@ const FUND_SOURCE_URI = process.env.PROXY_FILTER_FUND_SOURCE_URI ?? "//Alice";
 const FUND_AMOUNT = BigInt(process.env.PROXY_FILTER_FUND_AMOUNT ?? "5000000000000");
 const ZERO_HASH = `0x${"00".repeat(32)}`;
 
-const PROXY_TYPES = ["NonFungible", "SwapHotkey", "NonTransfer", "Owner", "Validate"];
+const PROXY_TYPES = ["NonFungible", "SwapHotkey", "NonTransfer", "Owner", "Validate", "Weights"];
 
 const keyring = new Keyring({ type: "sr25519" });
 const fundSource = keyring.addFromUri(FUND_SOURCE_URI);
@@ -76,13 +76,17 @@ async function main() {
       api.tx.adminUtils.sudoSetSnOwnerHotkey(0, replacementHotkey.address)
     );
 
+    const setWeights = api.tx.subtensorModule.setMechanismWeights(0, 0, [], [], 0);
+    const serveAxon = api.tx.subtensorModule.serveAxon(0, 1, 2130706433, 8091, 4, 0, 0, 0);
+    const setCommitment = api.tx.commitments.setCommitment(0, { fields: [] });
     const validateCalls = [
-      ["set weights", api.tx.subtensorModule.setMechanismWeights(0, 0, [], [], 0)],
-      ["serve axon", api.tx.subtensorModule.serveAxon(0, 1, 2130706433, 8091, 4, 0, 0, 0)],
+      ["set weights", setWeights],
+      ["serve axon", serveAxon],
       [
         "serve axon TLS",
         api.tx.subtensorModule.serveAxonTls(0, 1, 2130706433, 8092, 4, 0, 0, 0, "0x"),
       ],
+      ["serve prometheus", api.tx.subtensorModule.servePrometheus(0, 1, 2130706433, 9091, 4)],
       [
         "associate EVM key",
         api.tx.subtensorModule.associateEvmKey(
@@ -92,7 +96,7 @@ async function main() {
           `0x${"22".repeat(65)}`
         ),
       ],
-      ["set commitment", api.tx.commitments.setCommitment(0, { fields: [] })],
+      ["set commitment", setCommitment],
     ];
     for (const [name, call] of validateCalls) {
       await expectProxyTypeAllowed(`Validate allows ${name}`, "Validate", call);
@@ -102,6 +106,16 @@ async function main() {
       "Validate",
       balancesTransfer(dummyHotkey.address, 1n)
     );
+
+    // Weights is the weights-only subset of Validate.
+    await expectProxyTypeAllowed("Weights allows set weights", "Weights", setWeights);
+    for (const [name, call] of [
+      ["serve axon", serveAxon],
+      ["set commitment", setCommitment],
+      ["transfer", balancesTransfer(dummyHotkey.address, 1n)],
+    ]) {
+      await expectProxyTypeDenied(`Weights denies ${name}`, "Weights", call);
+    }
 
     console.log("proxy filter security regressions: ok");
   } finally {
@@ -131,6 +145,7 @@ async function assertMetadataAvailable() {
     ["SubtensorModule.setMechanismWeights", api.tx.subtensorModule?.setMechanismWeights],
     ["SubtensorModule.serveAxon", api.tx.subtensorModule?.serveAxon],
     ["SubtensorModule.serveAxonTls", api.tx.subtensorModule?.serveAxonTls],
+    ["SubtensorModule.servePrometheus", api.tx.subtensorModule?.servePrometheus],
     ["SubtensorModule.associateEvmKey", api.tx.subtensorModule?.associateEvmKey],
     ["Commitments.setCommitment", api.tx.commitments?.setCommitment],
   ].filter(([, value]) => !value);
