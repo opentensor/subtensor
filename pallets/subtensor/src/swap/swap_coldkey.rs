@@ -51,7 +51,8 @@ impl<T: Config> Pallet<T> {
     ///
     /// Admission walks stop one entry past the cap so a failing oversize scan is still
     /// covered by this envelope (`max + 1` sentinel reads per axis).
-    pub fn announce_coldkey_swap_v2_weight() -> Weight {
+    /// Admission / reservation DB envelope on top of the benchmarked V2 base.
+    pub fn announce_coldkey_swap_v2_admission_weight() -> Weight {
         let max = Self::coldkey_swap_max_work();
         let hotkey_reads = u64::from(max.hotkeys).saturating_add(1).saturating_mul(2);
         let position_reads = u64::from(max.positions).saturating_add(1);
@@ -70,8 +71,8 @@ impl<T: Config> Pallet<T> {
             .saturating_add(T::DbWeight::get().writes(4));
         // Pending-registration discovery: one queue read + sentinel owned rows.
         let pending_reads = u64::from(max.pending_registrations).saturating_add(1);
-        <T as crate::pallet::Config>::WeightInfo::announce_coldkey_swap_v2()
-            .saturating_add(T::DbWeight::get().reads(4))
+        T::DbWeight::get()
+            .reads(4)
             .saturating_add(
                 T::DbWeight::get().reads(
                     hotkey_reads
@@ -434,20 +435,19 @@ impl<T: Config> Pallet<T> {
         // (temporary accept override in execute); already-used destinations do not.
         if Self::coldkey_already_in_use(new_coldkey)
             && Self::account_rejects_locked_alpha(new_coldkey)
+            && let Err(e) = Self::ensure_no_active_locks_for_swap(old_coldkey)
         {
-            if let Err(e) = Self::ensure_no_active_locks_for_swap(old_coldkey) {
-                let error = match e {
-                    Error::<T>::ActiveLockExists => Error::<T>::AccountRejectsLockedAlpha,
-                    other => other,
-                };
-                return Err((
-                    Self::coldkey_swap_failed_weight(Some(work), true).saturating_add(
-                        T::DbWeight::get()
-                            .reads(u64::from(crate::MAX_COLDKEY_SWAP_POSITIONS).saturating_add(1)),
-                    ),
-                    error,
-                ));
-            }
+            let error = match e {
+                Error::<T>::ActiveLockExists => Error::<T>::AccountRejectsLockedAlpha,
+                other => other,
+            };
+            return Err((
+                Self::coldkey_swap_failed_weight(Some(work), true).saturating_add(
+                    T::DbWeight::get()
+                        .reads(u64::from(crate::MAX_COLDKEY_SWAP_POSITIONS).saturating_add(1)),
+                ),
+                error,
+            ));
         }
         if Self::account_rejects_staking_hotkey_growth(new_coldkey) {
             let hotkey_limit = crate::MAX_COLDKEY_SWAP_HOTKEYS.saturating_add(1) as usize;

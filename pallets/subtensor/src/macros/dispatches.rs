@@ -2446,7 +2446,10 @@ mod dispatches {
         ///
         /// * `new_coldkey`: Destination coldkey (validated before any fee).
         #[pallet::call_index(155)]
-        #[pallet::weight(Pallet::<T>::announce_coldkey_swap_v2_weight())]
+        #[pallet::weight(
+            <T as crate::pallet::Config>::WeightInfo::announce_coldkey_swap_v2()
+                .saturating_add(Pallet::<T>::announce_coldkey_swap_v2_admission_weight())
+        )]
         pub fn announce_coldkey_swap_v2(
             origin: OriginFor<T>,
             new_coldkey: T::AccountId,
@@ -2712,7 +2715,9 @@ mod dispatches {
         /// someone else's coldkey indefinitely. Reservations also expire after
         /// `when + ColdkeySwapReannouncementDelay`.
         #[pallet::call_index(154)]
-        #[pallet::weight(Pallet::<T>::release_own_coldkey_swap_destination_reservation_weight())]
+        #[pallet::weight(
+            <T as crate::pallet::Config>::WeightInfo::release_own_coldkey_swap_destination_reservation()
+        )]
         pub fn release_own_coldkey_swap_destination_reservation(
             origin: OriginFor<T>,
         ) -> DispatchResult {
