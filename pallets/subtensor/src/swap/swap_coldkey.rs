@@ -1,4 +1,5 @@
 use frame_support::storage::{TransactionOutcome, with_transaction};
+use frame_support::traits::Currency;
 use frame_support::weights::Weight;
 
 use super::*;
@@ -8,6 +9,7 @@ use crate::weights::WeightInfo;
 use sp_core::Get;
 use sp_runtime::Saturating;
 use sp_std::collections::btree_set::BTreeSet;
+use subtensor_runtime_common::TaoBalance;
 
 /// Stake work a coldkey swap moves: `StakingHotkeys` / basket-credit entries visited
 /// (combined across source and destination), positions moved from the source,
@@ -391,13 +393,26 @@ impl<T: Config> Pallet<T> {
     /// Destination already has funds, proxy grants, flags, lineage, or staking
     /// associations — so a source-only swap must not import proxies / fee
     /// consent / auto-stake without destination authorization (Skeptic
-    /// fid:93e26a58, fid:a2c90852). Blank rename targets return false.
-    fn coldkey_rejects_unsolicited_policy_import(coldkey: &T::AccountId) -> bool {
+    /// fid:93e26a58, fid:a2c90852, fid:c135ad77). Blank rename targets return
+    /// false.
+    ///
+    /// Balance uses total account funds (`Inspect::balance`), including
+    /// reserved/held deposits — not reducible/transferable only. A pending
+    /// multisig (or similar) deposit with zero free balance is still prior
+    /// presence.
+    pub(crate) fn coldkey_rejects_unsolicited_policy_import(coldkey: &T::AccountId) -> bool {
         Self::coldkey_already_in_use(coldkey)
             || Self::coldkey_has_configured_account_flags(coldkey)
             || Self::coldkey_has_established_lineage(coldkey)
-            || !Self::get_coldkey_balance(coldkey).is_zero()
+            || !Self::coldkey_total_balance(coldkey).is_zero()
             || T::ProxyInterface::has_delegator_proxies(coldkey)
+    }
+
+    /// Free + reserved TAO on `coldkey`. Distinct from
+    /// [`Self::get_coldkey_balance`] (reducible only) and from
+    /// `Inspect::balance` (free only).
+    fn coldkey_total_balance(coldkey: &T::AccountId) -> TaoBalance {
+        <T as Config>::Currency::total_balance(coldkey)
     }
 
     /// Destination has explicitly configured `AccountFlags` that must be

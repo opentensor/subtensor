@@ -2768,6 +2768,81 @@ fn test_funded_dest_without_staking_does_not_import_source_auto_stake() {
     });
 }
 
+/// Destination with only reserved funds (zero reducible) is still prior
+/// presence for the import gate (Skeptic fid:c135ad77).
+#[test]
+fn test_reserved_only_dest_rejects_unsolicited_policy_import_gate() {
+    use frame_support::traits::tokens::{Fortitude, Preservation, fungible::Inspect};
+
+    new_test_ext(1).execute_with(|| {
+        // Fresh id — avoid colliding with mock accounts that already hold refs.
+        let dest = U256::from(9_001);
+        let total = ExistentialDeposit::get() + 500.into();
+        add_balance_to_coldkey_account(&dest, total);
+        // Force free→reserved without Balances::reserve's ED consumer checks,
+        // matching a pending multisig-style deposit that leaves no transferable
+        // balance while total funds remain.
+        frame_system::Account::<Test>::mutate(dest, |a| {
+            a.data.reserved = a.data.reserved.saturating_add(a.data.free);
+            a.data.free = 0.into();
+        });
+        assert!(Balances::free_balance(dest).is_zero());
+        assert!(!Balances::reserved_balance(dest).is_zero());
+        assert!(
+            Balances::reducible_balance(&dest, Preservation::Expendable, Fortitude::Polite)
+                .is_zero(),
+            "reducible must be zero so the old gate would have missed this"
+        );
+        assert!(
+            !Balances::total_balance(&dest).is_zero(),
+            "total funds (incl. reserved) must remain"
+        );
+        // `Inspect::balance` is free-only — must not be used as the presence signal.
+        assert!(Balances::balance(&dest).is_zero());
+        assert!(!SubtensorModule::coldkey_already_in_use(&dest));
+        assert!(
+            SubtensorModule::coldkey_rejects_unsolicited_policy_import(&dest),
+            "reserved-only dest must reject policy import"
+        );
+    });
+}
+
+/// End-to-end: locked (non-reducible) funds on dest still block auto-stake
+/// import under the total-balance gate (Skeptic fid:c135ad77).
+#[test]
+fn test_locked_nonzero_total_dest_does_not_import_source_auto_stake() {
+    use frame_support::traits::tokens::{Fortitude, Preservation, fungible::Inspect};
+    use frame_support::traits::{LockableCurrency, WithdrawReasons};
+
+    new_test_ext(1).execute_with(|| {
+        let old = U256::from(1);
+        let dest = U256::from(2);
+        let old_hot = U256::from(10);
+        let auto_old = U256::from(20);
+
+        let netuid_auto = add_dynamic_network(&old_hot, &old);
+        let locked = ExistentialDeposit::get() + 500.into();
+        add_balance_to_coldkey_account(&dest, locked);
+        Balances::set_lock(*b"mskdep00", &dest, locked, WithdrawReasons::all());
+        assert!(
+            Balances::reducible_balance(&dest, Preservation::Expendable, Fortitude::Polite)
+                .is_zero(),
+            "polite reducible must be zero under a full lock"
+        );
+        assert!(!Balances::total_balance(&dest).is_zero());
+        assert!(!SubtensorModule::coldkey_already_in_use(&dest));
+
+        AutoStakeDestination::<Test>::insert(old, netuid_auto, auto_old);
+        AutoStakeDestinationColdkeys::<Test>::insert(auto_old, netuid_auto, vec![old]);
+
+        assert_ok!(SubtensorModule::do_swap_coldkey(&old, &dest));
+
+        assert!(AutoStakeDestination::<Test>::get(old, netuid_auto).is_none());
+        assert!(AutoStakeDestination::<Test>::get(dest, netuid_auto).is_none());
+        assert!(!AutoStakeDestinationColdkeys::<Test>::get(auto_old, netuid_auto).contains(&dest));
+    });
+}
+
 #[test]
 fn test_merge_swap_destination_account_flags_win() {
     new_test_ext(1).execute_with(|| {
