@@ -467,6 +467,14 @@ impl<T: Config> LendingPoolInterface<T::AccountId> for Pallet<T> {
         })?;
         Ok(())
     }
+
+    fn network_registered_at(netuid: NetUid) -> u64 {
+        NetworkRegisteredAt::<T>::get(netuid)
+    }
+
+    fn subtoken_enabled(netuid: NetUid) -> bool {
+        SubtokenEnabled::<T>::get(netuid)
+    }
 }
 
 impl<T: Config> Pallet<T> {

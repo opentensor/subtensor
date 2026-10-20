@@ -137,6 +137,7 @@ call_filter_group!(
         RuntimeCall::Lending(LendingCall::open),
         RuntimeCall::Lending(LendingCall::open_exact),
         RuntimeCall::Lending(LendingCall::close),
+        RuntimeCall::Lending(LendingCall::repay),
     ]
 );
 

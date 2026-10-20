@@ -16,6 +16,7 @@ pub trait WeightInfo {
     fn open_exact() -> Weight;
     fn open_long_and_sell() -> Weight;
     fn close() -> Weight;
+    fn repay() -> Weight;
     fn set_enabled() -> Weight;
     fn set_lift_params() -> Weight;
     fn set_min_price_impact() -> Weight;
@@ -49,6 +50,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
         Weight::from_parts(300_000_000, 36_000)
             .saturating_add(T::DbWeight::get().reads(40_u64))
             .saturating_add(T::DbWeight::get().writes(22_u64))
+    }
+    /// Partial repay shares the close path with pro-rata scaling.
+    fn repay() -> Weight {
+        Self::close()
     }
     fn set_enabled() -> Weight {
         Weight::from_parts(15_000_000, 1_500)
@@ -105,6 +110,9 @@ impl WeightInfo for () {
         Weight::from_parts(300_000_000, 36_000)
             .saturating_add(RocksDbWeight::get().reads(40_u64))
             .saturating_add(RocksDbWeight::get().writes(22_u64))
+    }
+    fn repay() -> Weight {
+        Self::close()
     }
     fn set_enabled() -> Weight {
         Weight::from_parts(15_000_000, 1_500)

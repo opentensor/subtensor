@@ -784,6 +784,7 @@ mod tests {
                 "Lending::close",
                 "Lending::open",
                 "Lending::open_exact",
+                "Lending::repay",
                 "Lending::open_long_and_sell",
                 "SubtensorModule::add_collateral",
                 "SubtensorModule::add_stake",
@@ -1172,6 +1173,8 @@ mod pow_proxy_tests {
             hotkey: hotkey.clone(),
             min_borrow: 1,
             min_proceeds: 0,
+            min_escrow_alpha: 0,
+            valid_until: 100,
         });
         let open_exact = RuntimeCall::Lending(LendingCall::open_exact {
             netuid,
@@ -1180,12 +1183,23 @@ mod pow_proxy_tests {
             hotkey: hotkey.clone(),
             principal: 1,
             min_proceeds: 0,
+            min_escrow_alpha: 0,
+            valid_until: 100,
         });
         let close = RuntimeCall::Lending(LendingCall::close {
             netuid,
             repay_from_wallet: true,
             max_payment: u64::MAX,
             min_refund: 0,
+            valid_until: 100,
+        });
+        let repay = RuntimeCall::Lending(LendingCall::repay {
+            netuid,
+            principal_part: 1,
+            repay_from_wallet: true,
+            max_payment: u64::MAX,
+            min_refund: 0,
+            valid_until: 100,
         });
         let raise = RuntimeCall::Lending(LendingCall::open_long_and_sell {
             netuid,
@@ -1196,14 +1210,16 @@ mod pow_proxy_tests {
             min_borrow_tao: 1,
             sell_alpha: None,
             min_tao_out: 0,
+            min_escrow_alpha: 0,
             valid_until: 100,
         });
 
-        // Staking / NonTransfer / Any may open, close, and raise.
+        // Staking / NonTransfer / Any may open, close, repay, and raise.
         for proxy in [ProxyType::Staking, ProxyType::NonTransfer, ProxyType::Any] {
             assert!(proxy.filter(&open), "{proxy:?} must allow open");
             assert!(proxy.filter(&open_exact), "{proxy:?} must allow open_exact");
             assert!(proxy.filter(&close), "{proxy:?} must allow close");
+            assert!(proxy.filter(&repay), "{proxy:?} must allow repay");
             assert!(proxy.filter(&raise), "{proxy:?} must allow raise");
         }
         // Transfer-only, Registration, NonFungible, and RootClaim must not touch lending.

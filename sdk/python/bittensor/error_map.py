@@ -507,8 +507,10 @@ NAME_TO_CODE: dict[str, ErrorCode] = {
     "InsufficientEscrow": _C.INSUFFICIENT_BALANCE,
     "InsufficientCollateral": _C.INSUFFICIENT_BALANCE,
     "InsufficientSellStake": _C.INSUFFICIENT_BALANCE,
-    "RaiseSlippage": _C.INSUFFICIENT_LIQUIDITY,
-    "RaiseDeadlinePassed": _C.EXPIRED,
+    "SlippageExceeded": _C.INSUFFICIENT_LIQUIDITY,
+    "DeadlinePassed": _C.EXPIRED,
+    "SubnetTooNew": _C.INVALID_ARGUMENT,
+    "CustodyHotkey": _C.INVALID_ARGUMENT,
     "ConflictingSizing": _C.INVALID_ARGUMENT,
     "InvalidLiftParams": _C.INVALID_ARGUMENT,
     "PositionSideMismatch": _C.INVALID_ARGUMENT,
@@ -517,7 +519,6 @@ NAME_TO_CODE: dict[str, ErrorCode] = {
     "Arithmetic": _C.INTERNAL,  # Lending arithmetic overflow / underrepresentation
     "CustodyUnavailable": _C.INTERNAL,
     "AlreadyDissolving": _C.EXPIRED,
-    "BelowMinimumProceeds": _C.INVALID_ARGUMENT,
 }
 
 # ── Pool-rejection custom codes ──────────────────────────────────────────

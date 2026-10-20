@@ -1,6 +1,7 @@
 use super::*;
 use frame_support::storage::{TransactionOutcome, with_transaction};
 use frame_support::weights::Weight;
+use pallet_lending::LendingInterface;
 use share_pool::SafeFloat;
 use sp_core::Get;
 use sp_std::collections::btree_map::BTreeMap;
@@ -522,6 +523,9 @@ impl<T: Config> Pallet<T> {
                 Self::queue_childkey_threshold_check(new_hotkey);
                 Self::queue_childkey_threshold_check(old_hotkey);
 
+                // §14: rewrite lending position.hotkey for the borrower's source hotkey.
+                T::Lending::on_hotkey_swap(old_hotkey, new_hotkey, None)?;
+
                 Self::deposit_event(Event::HotkeySwapped {
                     coldkey,
                     old_hotkey: old_hotkey.clone(),
@@ -825,6 +829,9 @@ impl<T: Config> Pallet<T> {
         // the threshold too.
         Self::queue_childkey_threshold_check(new_hotkey);
         Self::queue_childkey_threshold_check(old_hotkey);
+
+        // §14: rewrite lending position.hotkey for this subnet.
+        T::Lending::on_hotkey_swap(old_hotkey, new_hotkey, Some(netuid))?;
 
         // 12. Emit an event for the hotkey swap
         Self::deposit_event(Event::HotkeySwappedOnSubnet {

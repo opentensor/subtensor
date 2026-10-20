@@ -25,6 +25,7 @@ mod benchmarks {
         let caller: T::AccountId = whitelisted_caller();
         let hotkey: T::AccountId = account("hk", 0, 0);
         let netuid = NetUid::from(1u16);
+        let now = frame_system::Pallet::<T>::block_number();
         #[extrinsic_call]
         _(
             RawOrigin::Signed(caller),
@@ -34,6 +35,8 @@ mod benchmarks {
             hotkey,
             1u64,
             0u64,
+            0u64,
+            now.saturating_add(100u32.into()),
         );
     }
 
@@ -43,6 +46,7 @@ mod benchmarks {
         let caller: T::AccountId = whitelisted_caller();
         let hotkey: T::AccountId = account("hk", 0, 0);
         let netuid = NetUid::from(1u16);
+        let now = frame_system::Pallet::<T>::block_number();
         #[extrinsic_call]
         _(
             RawOrigin::Signed(caller),
@@ -52,6 +56,8 @@ mod benchmarks {
             hotkey,
             1_000_000u64,
             0u64,
+            0u64,
+            now.saturating_add(100u32.into()),
         );
     }
 
@@ -73,6 +79,7 @@ mod benchmarks {
             1u64,
             Some(1_000_000u64),
             0u64,
+            0u64,
             now.saturating_add(100u32.into()),
         );
     }
@@ -82,8 +89,34 @@ mod benchmarks {
         seed_enabled::<T>();
         let caller: T::AccountId = whitelisted_caller();
         let netuid = NetUid::from(1u16);
+        let now = frame_system::Pallet::<T>::block_number();
         #[extrinsic_call]
-        _(RawOrigin::Signed(caller), netuid, true, u64::MAX, 0u64);
+        _(
+            RawOrigin::Signed(caller),
+            netuid,
+            true,
+            u64::MAX,
+            0u64,
+            now.saturating_add(100u32.into()),
+        );
+    }
+
+    #[benchmark]
+    fn repay() {
+        seed_enabled::<T>();
+        let caller: T::AccountId = whitelisted_caller();
+        let netuid = NetUid::from(1u16);
+        let now = frame_system::Pallet::<T>::block_number();
+        #[extrinsic_call]
+        _(
+            RawOrigin::Signed(caller),
+            netuid,
+            1u64,
+            true,
+            u64::MAX,
+            0u64,
+            now.saturating_add(100u32.into()),
+        );
     }
 
     #[benchmark]
