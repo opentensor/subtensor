@@ -10,13 +10,19 @@ use sp_runtime::Saturating;
 use sp_std::collections::btree_set::BTreeSet;
 
 /// Stake work a coldkey swap moves: `StakingHotkeys` / basket-credit entries visited
-/// (combined across source and destination), positions moved from the source, and
-/// pending network-registration queue rows rewritten for the source.
+/// (combined across source and destination), positions moved from the source,
+/// destination lock rows scanned/purged, and network-registration queue work
+/// (total entries scanned plus owned rows rewritten).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct ColdkeySwapWork {
     pub hotkeys: u32,
     pub positions: u32,
     pub pending_registrations: u32,
+    /// Destination `Lock` rows scanned at admission (and purged when exhausted
+    /// during execute). Independent of source stake positions.
+    pub dest_locks: u32,
+    /// Total `NetworkRegistrationQueue` entries visited (not only owned rows).
+    pub registration_queue_scan: u32,
 }
 
 impl<T: Config> Pallet<T> {
@@ -29,8 +35,18 @@ impl<T: Config> Pallet<T> {
                 .saturating_mul(u64::from(work.positions)),
         )
         .saturating_add(T::DbWeight::get().reads(u64::from(work.hotkeys).saturating_mul(3)))
-        // One queue value read, then get+insert per owned pending registration.
-        .saturating_add(T::DbWeight::get().reads(1))
+        // Destination lock admission scan + execute purge (Lock remove,
+        // LockingColdkeys, aggregate reduce) per exhausted row.
+        .saturating_add(T::DbWeight::get().reads(u64::from(work.dest_locks)))
+        .saturating_add(T::DbWeight::get().reads_writes(
+            u64::from(work.dest_locks),
+            u64::from(work.dest_locks).saturating_mul(3),
+        ))
+        // Queue value read, per-entry visit cost, then get+insert per owned
+        // pending registration and one queue rewrite.
+        .saturating_add(
+            T::DbWeight::get().reads(u64::from(work.registration_queue_scan).saturating_add(1)),
+        )
         .saturating_add(T::DbWeight::get().reads_writes(
             u64::from(work.pending_registrations),
             u64::from(work.pending_registrations).saturating_add(1),
@@ -43,6 +59,8 @@ impl<T: Config> Pallet<T> {
             hotkeys: crate::MAX_COLDKEY_SWAP_HOTKEYS,
             positions: crate::MAX_COLDKEY_SWAP_POSITIONS,
             pending_registrations: crate::MAX_COLDKEY_SWAP_PENDING_REGISTRATIONS,
+            dest_locks: crate::MAX_COLDKEY_SWAP_POSITIONS,
+            registration_queue_scan: crate::MAX_COLDKEY_SWAP_REGISTRATION_QUEUE_SCAN,
         }
     }
 
@@ -69,8 +87,9 @@ impl<T: Config> Pallet<T> {
         let reservation = T::DbWeight::get()
             .reads(3)
             .saturating_add(T::DbWeight::get().writes(4));
-        // Pending-registration discovery: one queue read + sentinel owned rows.
-        let pending_reads = u64::from(max.pending_registrations).saturating_add(1);
+        // Pending-registration discovery: one queue read + total-scan sentinel
+        // (not only owned rows — unrelated entries are still visited).
+        let pending_reads = u64::from(max.registration_queue_scan).saturating_add(1);
         T::DbWeight::get()
             .reads(4)
             .saturating_add(
@@ -253,8 +272,7 @@ impl<T: Config> Pallet<T> {
         if old_hotkeys.len() >= hotkey_limit {
             return ColdkeySwapWork {
                 hotkeys: hotkey_limit as u32,
-                positions: 0,
-                pending_registrations: 0,
+                ..Default::default()
             };
         }
         let mut combined = old_hotkeys.clone();
@@ -263,8 +281,7 @@ impl<T: Config> Pallet<T> {
             if new_hotkeys.len() >= hotkey_limit {
                 return ColdkeySwapWork {
                     hotkeys: hotkey_limit as u32,
-                    positions: 0,
-                    pending_registrations: 0,
+                    ..Default::default()
                 };
             }
             for hotkey in new_hotkeys {
@@ -272,8 +289,7 @@ impl<T: Config> Pallet<T> {
                 if combined.len() >= hotkey_limit {
                     return ColdkeySwapWork {
                         hotkeys: hotkey_limit as u32,
-                        positions: 0,
-                        pending_registrations: 0,
+                        ..Default::default()
                     };
                 }
             }
@@ -281,8 +297,7 @@ impl<T: Config> Pallet<T> {
 
         let mut work = ColdkeySwapWork {
             hotkeys: combined.len() as u32,
-            positions: 0,
-            pending_registrations: 0,
+            ..Default::default()
         };
 
         for hotkey in &old_hotkeys {
@@ -352,24 +367,33 @@ impl<T: Config> Pallet<T> {
             || !OwnedHotkeys::<T>::get(coldkey).is_empty()
     }
 
-    /// Count pending network-registration queue rows owned by `coldkey`.
+    /// Count owned pending network-registration rows and total queue entries
+    /// visited for `coldkey`.
     ///
-    /// One storage read of the queue value; stops one past the swap admission
-    /// cap so oversized pending sets fail closed without an unbounded walk of
-    /// the escrow map.
-    fn coldkey_pending_registrations_bounded(coldkey: &T::AccountId) -> u32 {
-        let limit = crate::MAX_COLDKEY_SWAP_PENDING_REGISTRATIONS.saturating_add(1);
+    /// Stops one past the owned-row cap **or** the total-queue scan cap so
+    /// work cannot grow with unrelated accounts' registrations. Returns
+    /// `(owned, queue_entries_scanned)`.
+    fn coldkey_pending_registrations_bounded(coldkey: &T::AccountId) -> (u32, u32) {
+        let owned_limit = crate::MAX_COLDKEY_SWAP_PENDING_REGISTRATIONS.saturating_add(1);
+        let scan_limit = crate::MAX_COLDKEY_SWAP_REGISTRATION_QUEUE_SCAN.saturating_add(1);
         let mut owned = 0u32;
+        let mut scanned = 0u32;
         for info in NetworkRegistrationQueue::<T>::get() {
+            scanned = scanned.saturating_add(1);
+            if scanned >= scan_limit {
+                // Sentinel: either the queue itself is oversize, or we stopped
+                // before finishing — both fail closed at admission.
+                return (owned, scanned);
+            }
             if info.coldkey != *coldkey {
                 continue;
             }
             owned = owned.saturating_add(1);
-            if owned >= limit {
-                return owned;
+            if owned >= owned_limit {
+                return (owned, scanned);
             }
         }
-        owned
+        (owned, scanned)
     }
 
     /// Destination checks shared by cleartext announce (before the fee) and execution.
@@ -397,24 +421,27 @@ impl<T: Config> Pallet<T> {
         // admission must stay read-only w.r.t. the destination — a third party
         // can name any coldkey here. Bound the walk to the announce/execute
         // weight envelope. Fully exhausted dust rows are purged later inside
-        // `swap_coldkey_locks` only.
-        if let Err(error) = Self::ensure_no_active_locks_for_swap(new_coldkey) {
-            // Lock walks stop at the position sentinel; charge that bound.
-            let scanned = ColdkeySwapWork {
-                hotkeys: 0,
-                positions: crate::MAX_COLDKEY_SWAP_POSITIONS.saturating_add(1),
-                pending_registrations: 0,
-            };
-            return Err((
-                Self::coldkey_swap_failed_weight(Some(scanned), false),
-                error,
-            ));
-        }
+        // `swap_coldkey_locks` only. Retain the scanned count on every path so
+        // later admission failures still charge this work.
+        let dest_locks = match Self::ensure_no_active_locks_for_swap(new_coldkey) {
+            Ok(scanned) => scanned,
+            Err(error) => {
+                let scanned = ColdkeySwapWork {
+                    dest_locks: crate::MAX_COLDKEY_SWAP_POSITIONS.saturating_add(1),
+                    ..Default::default()
+                };
+                return Err((
+                    Self::coldkey_swap_failed_weight(Some(scanned), false),
+                    error,
+                ));
+            }
+        };
 
         // Bound the combined work first so opt-out walks never scan past the
         // admission envelope (even when the destination already contains every
         // source association and would not early-return).
         let mut work = Self::coldkey_swap_work(old_coldkey, new_coldkey);
+        work.dest_locks = dest_locks;
         if work.hotkeys > crate::MAX_COLDKEY_SWAP_HOTKEYS
             || work.positions > crate::MAX_COLDKEY_SWAP_POSITIONS
         {
@@ -425,8 +452,12 @@ impl<T: Config> Pallet<T> {
             ));
         }
 
-        work.pending_registrations = Self::coldkey_pending_registrations_bounded(old_coldkey);
-        if work.pending_registrations > crate::MAX_COLDKEY_SWAP_PENDING_REGISTRATIONS {
+        let (owned_regs, queue_scan) = Self::coldkey_pending_registrations_bounded(old_coldkey);
+        work.pending_registrations = owned_regs;
+        work.registration_queue_scan = queue_scan;
+        if work.pending_registrations > crate::MAX_COLDKEY_SWAP_PENDING_REGISTRATIONS
+            || work.registration_queue_scan > crate::MAX_COLDKEY_SWAP_REGISTRATION_QUEUE_SCAN
+        {
             return Err((
                 Self::coldkey_swap_failed_weight(Some(work), false),
                 Error::<T>::ColdkeySwapTooHeavy,
@@ -572,7 +603,7 @@ impl<T: Config> Pallet<T> {
                     Self::transfer_coldkey_miner_collateral(netuid, old_coldkey, new_coldkey)?;
                     Self::transfer_last_hotkey_swap_on_netuid(netuid, old_coldkey, new_coldkey);
                 }
-                Self::transfer_pending_network_registrations(old_coldkey, new_coldkey);
+                Self::transfer_pending_network_registrations(old_coldkey, new_coldkey)?;
                 Self::transfer_coldkey_rate_limits(old_coldkey, new_coldkey);
                 Self::transfer_staking_hotkeys(old_coldkey, new_coldkey);
                 Self::transfer_hotkeys_ownership(old_coldkey, new_coldkey)?;
@@ -735,14 +766,22 @@ impl<T: Config> Pallet<T> {
     /// Escrow is updated only through queue `lock_id`s (one get+insert per owned
     /// row). Never walks the global escrow map — that cost grows with unrelated
     /// accounts' registrations and sits outside the swap weight envelope.
+    ///
+    /// Fails closed when the total queue exceeds
+    /// [`crate::MAX_COLDKEY_SWAP_REGISTRATION_QUEUE_SCAN`] (admission already
+    /// enforces this; re-check so execute cannot silently under-charge).
     fn transfer_pending_network_registrations(
         old_coldkey: &T::AccountId,
         new_coldkey: &T::AccountId,
-    ) {
+    ) -> DispatchResult {
         if old_coldkey == new_coldkey {
-            return;
+            return Ok(());
         }
-        NetworkRegistrationQueue::<T>::mutate(|queue| {
+        NetworkRegistrationQueue::<T>::try_mutate(|queue| -> DispatchResult {
+            ensure!(
+                (queue.len() as u32) <= crate::MAX_COLDKEY_SWAP_REGISTRATION_QUEUE_SCAN,
+                Error::<T>::ColdkeySwapTooHeavy
+            );
             for info in queue.iter_mut() {
                 if info.coldkey != *old_coldkey {
                     continue;
@@ -755,7 +794,8 @@ impl<T: Config> Pallet<T> {
                 }
                 info.coldkey = new_coldkey.clone();
             }
-        });
+            Ok(())
+        })
     }
 
     /// Move per-coldkey rate-limit clocks to the destination, keeping the later stamp

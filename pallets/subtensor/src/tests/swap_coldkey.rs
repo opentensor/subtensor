@@ -349,6 +349,8 @@ fn test_swap_coldkey_bounded_and_priced_per_position() {
                     hotkeys: 1,
                     positions: 1,
                     pending_registrations: 0,
+                    dest_locks: 0,
+                    registration_queue_scan: 0,
                 }
             )
         );
@@ -3544,6 +3546,94 @@ fn test_coldkey_swap_destination_reservation_expires() {
         assert!(!ColdkeySwapDestinationReservations::<Test>::contains_key(
             dest
         ));
+    });
+}
+
+/// Destination dust-lock rows contribute independent weight even when the
+/// source has no stake positions (Auditor fid:7bea5c54).
+#[test]
+fn test_swap_weight_grows_with_destination_exhausted_locks() {
+    new_test_ext(1).execute_with(|| {
+        let old = U256::from(1);
+        let dest = U256::from(2);
+        let dest_hot_a = U256::from(10);
+        let dest_hot_b = U256::from(11);
+
+        // Empty source (no stake positions); destination accepts locks.
+        add_balance_to_coldkey_account(&old, ExistentialDeposit::get());
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &dest, &dest_hot_a
+        ));
+        SubtensorModule::set_accept_locked_alpha(&dest, true);
+
+        let light_work =
+            SubtensorModule::do_swap_coldkey_tracked(&old, &dest).expect("light merge");
+        assert_eq!(light_work.dest_locks, 0);
+        let light = SubtensorModule::swap_coldkey_actual_weight(light_work);
+
+        // Re-fund a fresh empty source for the heavy case.
+        let old2 = U256::from(3);
+        add_balance_to_coldkey_account(&old2, ExistentialDeposit::get());
+        // Seed exhausted dust rows on dest (insert_lock_state would drop is_zero).
+        let now = SubtensorModule::get_current_block_as_u64();
+        for (hot, i) in [(dest_hot_a, 0u64), (dest_hot_b, 1u64)] {
+            let netuid = NetUid::from(1 + i as u16);
+            Lock::<Test>::insert(
+                (dest, netuid, hot),
+                LockState {
+                    locked_mass: AlphaBalance::ZERO,
+                    conviction: U64F64::from_num(0),
+                    last_update: now,
+                },
+            );
+            LockingColdkeys::<Test>::insert((netuid, hot, dest), ());
+        }
+
+        let heavy_work =
+            SubtensorModule::do_swap_coldkey_tracked(&old2, &dest).expect("heavy merge");
+        assert_eq!(heavy_work.dest_locks, 2);
+        let heavy = SubtensorModule::swap_coldkey_actual_weight(heavy_work);
+        // Same source work shape (no positions); heavier dest lock cleanup
+        // must report strictly more weight.
+        assert!(
+            heavy.ref_time() > light.ref_time(),
+            "dest lock cleanup must be charged independently of source positions: light={}, heavy={}",
+            light.ref_time(),
+            heavy.ref_time()
+        );
+    });
+}
+
+/// Oversized global registration queue fails closed even when the source owns
+/// zero pending rows (Auditor fid:cf0fb7c5).
+#[test]
+fn test_swap_rejects_oversized_registration_queue_dominated_by_unrelated() {
+    new_test_ext(1).execute_with(|| {
+        let old = U256::from(1);
+        let dest = U256::from(2);
+        let amount = TaoBalance::from(1_000_u64);
+
+        let mut queue = Vec::new();
+        let over = MAX_COLDKEY_SWAP_REGISTRATION_QUEUE_SCAN.saturating_add(1);
+        for i in 0..over {
+            queue.push(crate::subnets::subnet::NetworkRegistrationInfo {
+                coldkey: U256::from(10_000 + u64::from(i)),
+                hotkey: U256::from(20_000 + u64::from(i)),
+                mechid: 0,
+                identity: None,
+                lock_amount: amount,
+                median_subnet_alpha_price: Default::default(),
+                registration_block: 1,
+                lock_id: i,
+            });
+        }
+        NetworkRegistrationQueue::<Test>::put(queue);
+
+        let err = SubtensorModule::do_swap_coldkey_tracked(&old, &dest).expect_err("too heavy");
+        let (done, dispatch_err) = err;
+        assert_eq!(dispatch_err, Error::<Test>::ColdkeySwapTooHeavy.into());
+        // Failure still charges the queue scan that discovered the oversize.
+        assert!(done.ref_time() > 0);
     });
 }
 

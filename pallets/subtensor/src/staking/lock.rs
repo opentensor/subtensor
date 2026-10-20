@@ -1432,13 +1432,15 @@ impl<T: Config> Pallet<T> {
     /// coldkey-swap admission until a merge can preserve conviction safely —
     /// announce validation must not mutate another account's locks.
     pub fn ensure_no_active_locks(coldkey: &T::AccountId) -> Result<(), Error<T>> {
-        Self::ensure_no_active_locks_with_limit(coldkey, u32::MAX)
+        Self::ensure_no_active_locks_with_limit(coldkey, u32::MAX).map(|_| ())
     }
 
     /// Coldkey-swap admission: same as [`Self::ensure_no_active_locks`], but stops after
     /// `limit` lock rows so announce/execute prechecks stay inside their weight envelope.
     /// Exceeding the limit without finding a blocking lock fails as `ColdkeySwapTooHeavy`.
-    pub fn ensure_no_active_locks_for_swap(coldkey: &T::AccountId) -> Result<(), Error<T>> {
+    ///
+    /// On success returns the number of lock rows scanned (for weight accounting).
+    pub fn ensure_no_active_locks_for_swap(coldkey: &T::AccountId) -> Result<u32, Error<T>> {
         Self::ensure_no_active_locks_with_limit(
             coldkey,
             crate::MAX_COLDKEY_SWAP_POSITIONS.saturating_add(1),
@@ -1448,7 +1450,7 @@ impl<T: Config> Pallet<T> {
     fn ensure_no_active_locks_with_limit(
         coldkey: &T::AccountId,
         limit: u32,
-    ) -> Result<(), Error<T>> {
+    ) -> Result<u32, Error<T>> {
         let now = Self::get_current_block_as_u64();
         let unlock_rate = UnlockRate::<T>::get();
         let maturity_rate = MaturityRate::<T>::get();
@@ -1475,7 +1477,7 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        Ok(())
+        Ok(scanned)
     }
 
     /// Remove fully exhausted (`is_zero`) destination lock rows after admission.
