@@ -3,7 +3,6 @@
 //! Extrinsic bodies are invoked so the frame-benchmarking CLI can measure them
 //! on reference hardware. Until that run lands, committed `SubstrateWeight`
 //! values are conservative R/W-derived placeholders (see `weights.rs`).
-#![cfg(feature = "runtime-benchmarks")]
 #![allow(clippy::unwrap_used)]
 
 use super::*;
