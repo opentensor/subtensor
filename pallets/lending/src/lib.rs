@@ -865,9 +865,7 @@ pub mod pallet {
             // unused the count is 0 and we charge a single reference unit so the
             // block remains usable (never MaxPositionsPerSubnet × update).
             const MAX_ACTIVE_NET_UPDATES: u64 = 512;
-            let n = u64::from(ActiveNetCount::<T>::get())
-                .max(1)
-                .min(MAX_ACTIVE_NET_UPDATES);
+            let n = u64::from(ActiveNetCount::<T>::get()).clamp(1, MAX_ACTIVE_NET_UPDATES);
             T::WeightInfo::update_reference()
                 .saturating_mul(n)
                 .saturating_add(T::DbWeight::get().reads(2))
