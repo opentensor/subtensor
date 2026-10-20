@@ -13,7 +13,7 @@ Reads are free, unsigned, and safe to call at any time. Each CLI command is `btc
 | --- | --- |
 | [`balance`](/docs/query/balance) | Free TAO balance of a coldkey address. |
 | [`balances`](/docs/query/balances) | Free TAO balance for several coldkey addresses in one batched request. |
-| [`coldkey-swap-announcement`](/docs/query/coldkey-swap-announcement) | A coldkey's pending swap announcement (execute block, new-key hash, disputed), or None. |
+| [`coldkey-swap-announcement`](/docs/query/coldkey-swap-announcement) | A coldkey's swap state (execute block, new-key hash, dispute, recovery lock), or None. |
 | [`existential-deposit`](/docs/query/existential-deposit) | Minimum balance an account must keep to stay alive. |
 | [`multisig`](/docs/query/multisig) | A pending multisig operation (opening timepoint, approvals, depositor), or None. |
 | [`proxies`](/docs/query/proxies) | Proxy delegations of an account: who may sign on its behalf, and the reserved deposit. |
