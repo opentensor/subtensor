@@ -267,12 +267,18 @@ call_filter_group!(
     ]
 );
 
+// A neuron publishing its own commitment. Deposit-free on this runtime
+// (`CommitmentInitialDeposit` / `CommitmentFieldDeposit` are zero), so it
+// neither moves nor locks value; granted to `Validate`.
 call_filter_group!(
-    CommitmentsCalls,
-    [
-        RuntimeCall::Commitments(CommitmentsCall::set_commitment),
-        RuntimeCall::Commitments(CommitmentsCall::set_max_space),
-    ]
+    CommitmentCalls,
+    [RuntimeCall::Commitments(CommitmentsCall::set_commitment),]
+);
+
+// Root-only commitment admin (inert on a proxy's signed origin).
+call_filter_group!(
+    CommitmentsAdminCalls,
+    [RuntimeCall::Commitments(CommitmentsCall::set_max_space),]
 );
 
 // Ordinary balance transfers — moving your own free balance.
@@ -477,12 +483,11 @@ call_filter_group!(
     ]
 );
 
-// Residual pallet-subtensor calls that no proxy needs to grant on their own:
-// weights, serving, delegate-take, alpha preferences, childkey admin, account
-// association, tempo control, voting power, root-claim admin, and lease
-// teardown. Nothing here moves, locks or destroys value.
+// Submitting weights from a validator hotkey: plain, commit-reveal, timelocked,
+// CRv3, per-mechanism and batched variants. Hotkey-signed; nothing here moves,
+// locks or destroys value. The whole group is `ProxyType::Weights`.
 call_filter_group!(
-    SubtensorCommonCalls,
+    WeightCalls,
     [
         RuntimeCall::SubtensorModule(SubtensorCall::set_weights),
         RuntimeCall::SubtensorModule(SubtensorCall::set_mechanism_weights),
@@ -496,16 +501,36 @@ call_filter_group!(
         RuntimeCall::SubtensorModule(SubtensorCall::reveal_weights),
         RuntimeCall::SubtensorModule(SubtensorCall::reveal_mechanism_weights),
         RuntimeCall::SubtensorModule(SubtensorCall::batch_reveal_weights),
+    ]
+);
+
+// A neuron's network presence: axon / prometheus endpoints and the EVM key it
+// answers for. Hotkey-signed, no value. These re-point where a subnet reaches
+// (and may pay) the neuron, so they stay out of `Weights` and belong to
+// `Validate` only.
+call_filter_group!(
+    NeuronServingCalls,
+    [
+        RuntimeCall::SubtensorModule(SubtensorCall::serve_axon),
+        RuntimeCall::SubtensorModule(SubtensorCall::serve_axon_tls),
+        RuntimeCall::SubtensorModule(SubtensorCall::serve_prometheus),
+        RuntimeCall::SubtensorModule(SubtensorCall::associate_evm_key),
+    ]
+);
+
+// Residual pallet-subtensor calls that no proxy needs to grant on their own:
+// delegate-take, alpha preferences, childkey admin, account association,
+// tempo control, voting power, root-claim admin, and lease teardown.
+// Nothing here moves, locks or destroys value.
+call_filter_group!(
+    SubtensorCommonCalls,
+    [
         RuntimeCall::SubtensorModule(SubtensorCall::set_reject_locked_alpha),
         RuntimeCall::SubtensorModule(SubtensorCall::set_reject_staking_hotkey_growth),
         RuntimeCall::SubtensorModule(SubtensorCall::decrease_take),
         RuntimeCall::SubtensorModule(SubtensorCall::increase_take),
-        RuntimeCall::SubtensorModule(SubtensorCall::serve_axon),
-        RuntimeCall::SubtensorModule(SubtensorCall::serve_axon_tls),
-        RuntimeCall::SubtensorModule(SubtensorCall::serve_prometheus),
         RuntimeCall::SubtensorModule(SubtensorCall::set_identity),
         RuntimeCall::SubtensorModule(SubtensorCall::try_associate_hotkey),
-        RuntimeCall::SubtensorModule(SubtensorCall::associate_evm_key),
         RuntimeCall::SubtensorModule(SubtensorCall::set_coldkey_auto_stake_hotkey),
         RuntimeCall::SubtensorModule(SubtensorCall::set_pending_childkey_cooldown),
         RuntimeCall::SubtensorModule(SubtensorCall::set_auto_parent_delegation_enabled),
@@ -677,29 +702,6 @@ call_filter_group!(SudoSetCodeCalls, [
         where nested(call) == RuntimeCall::System(SystemCall::set_code),
 ]);
 
-// `Validate`: operate a validator hotkey without granting stake or value movement.
-call_filter_group!(
-    ValidateCalls,
-    [
-        RuntimeCall::SubtensorModule(SubtensorCall::serve_axon),
-        RuntimeCall::SubtensorModule(SubtensorCall::serve_axon_tls),
-        RuntimeCall::SubtensorModule(SubtensorCall::associate_evm_key),
-        RuntimeCall::SubtensorModule(SubtensorCall::set_weights),
-        RuntimeCall::SubtensorModule(SubtensorCall::set_mechanism_weights),
-        RuntimeCall::SubtensorModule(SubtensorCall::batch_set_weights),
-        RuntimeCall::SubtensorModule(SubtensorCall::commit_weights),
-        RuntimeCall::SubtensorModule(SubtensorCall::commit_mechanism_weights),
-        RuntimeCall::SubtensorModule(SubtensorCall::batch_commit_weights),
-        RuntimeCall::SubtensorModule(SubtensorCall::commit_crv3_mechanism_weights),
-        RuntimeCall::SubtensorModule(SubtensorCall::commit_timelocked_weights),
-        RuntimeCall::SubtensorModule(SubtensorCall::commit_timelocked_mechanism_weights),
-        RuntimeCall::SubtensorModule(SubtensorCall::reveal_weights),
-        RuntimeCall::SubtensorModule(SubtensorCall::reveal_mechanism_weights),
-        RuntimeCall::SubtensorModule(SubtensorCall::batch_reveal_weights),
-        RuntimeCall::Commitments(CommitmentsCall::set_commitment),
-    ]
-);
-
 // Full inventory of every runtime call, used only by the coverage test that
 // checks it against `RuntimeCall` metadata. Nested in three blocks so the
 // flattened tuple stays within the `CallFilterMetadata` tuple-impl arity;
@@ -719,7 +721,8 @@ pub(super) type InfraCommonCalls = (
     PreimageCalls,
     SchedulerCalls,
     ProxyCalls,
-    CommitmentsCalls,
+    CommitmentCalls,
+    CommitmentsAdminCalls,
     SafeModeCalls,
     EthereumCalls,
     BaseFeeCalls,
@@ -768,6 +771,8 @@ type SubtensorSplitCalls = (
     SubnetIdentityCalls,
     SubnetActivationCalls,
     SubtensorValueCalls,
+    WeightCalls,
+    NeuronServingCalls,
     SubtensorCommonCalls,
 );
 

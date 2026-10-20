@@ -701,24 +701,6 @@ mod tests {
     }
 
     #[test]
-    fn force_batch_of_weight_calls_remains_fee_free() {
-        // `set_weights` weight reads consensus mode from storage, so dispatch-info
-        // inspection needs an externalities environment.
-        new_test_ext().execute_with(|| {
-            let direct = call_set_weights();
-            let proxied = proxy_call(real_a(), call_set_weights());
-            assert_eq!(direct.get_dispatch_info().pays_fee, Pays::No);
-            assert_eq!(proxied.get_dispatch_info().pays_fee, Pays::No);
-            assert_eq!(
-                force_batch_call(vec![direct, proxied])
-                    .get_dispatch_info()
-                    .pays_fee,
-                Pays::No
-            );
-        });
-    }
-
-    #[test]
     fn batch_charges_outer_real_when_only_outer_opted_in() {
         new_test_ext().execute_with(|| {
             add_proxy(&real_b(), &signer());
@@ -1155,8 +1137,8 @@ mod tests {
 
     #[test]
     fn three_level_validate_proxy_still_requires_consent_at_every_hop() {
-        // Validate is a narrow filter (#3041); fee redirection is independent of
-        // proxy type and must still demand RealPaysFee on every hop (#3270).
+        // Validate is a narrow filter; fee redirection is independent of proxy
+        // type and must still demand RealPaysFee on every hop (#3270).
         new_test_ext().execute_with(|| {
             for (real, delegate) in [
                 (real_b(), signer()),

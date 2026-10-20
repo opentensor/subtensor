@@ -72,7 +72,7 @@
   {
     "name": "add_proxy",
     "summary": "Authorize a delegate key to sign calls on this account's behalf.",
-    "description": "Authorize a delegate key to sign calls on this account's behalf.\n\nThe foundation of the keep-the-coldkey-offline setup: sign this once from\nthe coldkey, then let the delegate submit day-to-day calls with\n`proxy_for=<this account>`. The chain reserves a small deposit from the\nsigner per delegation (returned on removal). The delegate can act within\n`proxy_type` immediately (or after announcing, if `delay` > 0) \u2014 grant\nonly to keys you control or fully trust.",
+    "description": "Authorize a delegate key to sign calls on this account's behalf.\n\nThe foundation of the keep-the-coldkey-offline setup: sign this once from\nthe coldkey, then let the delegate submit day-to-day calls with\n`proxy_for=<this account>`. The chain reserves a small deposit from the\nsigner per delegation (returned on removal). The delegate can act within\n`proxy_type` immediately (or after announcing, if `delay` > 0) \u2014 grant\nonly to keys you control or fully trust. `Validate` and `Weights` cover\nhotkey-signed calls, so the wallet's hotkey signs those grants and must hold\nthe deposit and fee.",
     "signer": "coldkey",
     "origin": "signed",
     "verify": null,
@@ -92,7 +92,7 @@
         },
         "proxy_type": {
           "type": "string",
-          "description": "Scope of calls the delegation covers. One of: Any, Owner, NonCritical, NonTransfer, Senate, NonFungible, Triumvirate, Governance, Staking, Registration, Transfer, SmallTransfer, RootWeights, ChildKeys, SudoUncheckedSetCode, SwapHotkey, SubnetLeaseBeneficiary, RootClaim, BasketTrading, Validate. Triumvirate, Senate, Governance, and RootWeights are deprecated on the current runtime: they deny all calls, so a proxy of those types can dispatch nothing. Prefer the narrowest type that covers your use; Any can do everything the account can, including transfers."
+          "description": "Scope of calls the delegation covers. One of: Any, Owner, NonCritical, NonTransfer, Senate, NonFungible, Triumvirate, Governance, Staking, Registration, Transfer, SmallTransfer, RootWeights, ChildKeys, SudoUncheckedSetCode, SwapHotkey, SubnetLeaseBeneficiary, RootClaim, BasketTrading, Validate, Weights. Triumvirate, Senate, Governance, and RootWeights are deprecated on the current runtime: they deny all calls, so a proxy of those types can dispatch nothing. Prefer the narrowest type that covers your use; Any can do everything the account can, including transfers."
         },
         "delay": {
           "type": "integer",
@@ -875,7 +875,7 @@
       "properties": {
         "proxy_type": {
           "type": "string",
-          "description": "Scope of calls the delegation covers. One of: Any, Owner, NonCritical, NonTransfer, Senate, NonFungible, Triumvirate, Governance, Staking, Registration, Transfer, SmallTransfer, RootWeights, ChildKeys, SudoUncheckedSetCode, SwapHotkey, SubnetLeaseBeneficiary, RootClaim, BasketTrading, Validate. Triumvirate, Senate, Governance, and RootWeights are deprecated on the current runtime: they deny all calls, so a proxy of those types can dispatch nothing. Prefer the narrowest type that covers your use; Any can do everything the account can, including transfers."
+          "description": "Scope of calls the delegation covers. One of: Any, Owner, NonCritical, NonTransfer, Senate, NonFungible, Triumvirate, Governance, Staking, Registration, Transfer, SmallTransfer, RootWeights, ChildKeys, SudoUncheckedSetCode, SwapHotkey, SubnetLeaseBeneficiary, RootClaim, BasketTrading, Validate, Weights. Triumvirate, Senate, Governance, and RootWeights are deprecated on the current runtime: they deny all calls, so a proxy of those types can dispatch nothing. Prefer the narrowest type that covers your use; Any can do everything the account can, including transfers."
         },
         "delay": {
           "type": "integer",
@@ -2161,7 +2161,7 @@
   {
     "name": "remove_proxy",
     "summary": "Revoke one proxy delegation.",
-    "description": "Revoke one proxy delegation.\n\nThe (delegate, proxy_type, delay) triple must match the original\n`add_proxy` exactly \u2014 a mismatch fails with NotFound rather than removing\na different delegation. The proxy deposit reserved at add time is returned\nto the signer. Check current delegations with `btcli query proxies`.",
+    "description": "Revoke one proxy delegation.\n\nThe (delegate, proxy_type, delay) triple must match the original\n`add_proxy` exactly \u2014 a mismatch fails with NotFound rather than removing\na different delegation. The proxy deposit reserved at add time is returned\nto the signer. `Validate` and `Weights` grants are revoked by the\nhotkey that granted them. Check current delegations with\n`btcli query proxies`.",
     "signer": "coldkey",
     "origin": "signed",
     "verify": null,
@@ -4067,7 +4067,7 @@
   {
     "name": "set_weights",
     "summary": "Set validator weights, auto-selecting plaintext or commit-reveal.",
-    "description": "Set validator weights, auto-selecting plaintext or commit-reveal.\n\nThe one entry point validators need for scoring miners: it conforms the\nweights to the subnet's hyperparameters (max-weight clip, u16 quantization,\nminimum weight count) and submits via whichever path the subnet runs \u2014 a\nplain `set_weights` when commit-reveal is off, or a timelock-encrypted\ncommit (auto-revealed by the chain at the drand reveal round) when it is on.\nWhen the client has `weight_targets` configured, its exact combination of\nthe signing hotkey and zero-delay `Validate` delegations is submitted with\nper-target failure isolation; the chain verifies each proxy grant, and an\nempty list is a no-op.\nSubnet call sites do not change.\nSigned by the hotkey, which must be registered on the subnet. Before\nsigning it preflights registration and the rate limit, so those failures\nare caught fast with the same error the chain would return; the rate-limit\nerror says how many blocks to wait. The chain additionally enforces checks\nthat are not preflighted: the hotkey must hold the minimum stake to set\nweights and a validator permit. Null has one permit holder, the highest-stake\nUID; self weights and subnet ownership do not bypass that permit. Yuma retains\nits owner and self-weight exceptions. `version_key` must not be older than the subnet's\nrequired version. Prefer this over `commit_weights`/`reveal_weights`\nunless you specifically need to force one path.",
+    "description": "Set validator weights, auto-selecting plaintext or commit-reveal.\n\nThe one entry point validators need for scoring miners: it conforms the\nweights to the subnet's hyperparameters (max-weight clip, u16 quantization,\nminimum weight count) and submits via whichever path the subnet runs \u2014 a\nplain `set_weights` when commit-reveal is off, or a timelock-encrypted\ncommit (auto-revealed by the chain at the drand reveal round) when it is on.\nSigned by the hotkey, which must be registered on the subnet. Before\nsigning it preflights registration and the rate limit, so those failures\nare caught fast with the same error the chain would return; the rate-limit\nerror says how many blocks to wait. The chain additionally enforces checks\nthat are not preflighted: the hotkey must hold the minimum stake to set\nweights and a validator permit. Null has one permit holder, the highest-stake\nUID; self weights and subnet ownership do not bypass that permit. Yuma retains\nits owner and self-weight exceptions. `version_key` must not be older than the subnet's\nrequired version. Prefer this over `commit_weights`/`reveal_weights`\nunless you specifically need to force one path.",
     "signer": "hotkey",
     "origin": "signed",
     "verify": null,
