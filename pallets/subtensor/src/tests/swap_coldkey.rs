@@ -2724,6 +2724,87 @@ fn test_rename_onto_fresh_destination_moves_source_account_flags() {
     });
 }
 
+/// Destination with configured AccountFlags but no staking associations keeps
+/// those flags on merge (Auditor fid:9411d39b).
+#[test]
+fn test_merge_preserves_configured_dest_flags_without_staking_associations() {
+    new_test_ext(1).execute_with(|| {
+        let old = U256::from(1);
+        let dest = U256::from(2);
+
+        // Empty source (no staking associations) with a non-default flag that
+        // would follow on a true rename — must not overwrite dest's opt-out.
+        add_balance_to_coldkey_account(&old, ExistentialDeposit::get());
+        SubtensorModule::set_accept_locked_alpha(&old, true);
+        assert_ok!(SubtensorModule::set_reject_staking_hotkey_growth(
+            RuntimeOrigin::signed(dest),
+            true,
+        ));
+        assert!(!SubtensorModule::coldkey_already_in_use(&dest));
+        assert!(!SubtensorModule::coldkey_already_in_use(&old));
+        assert!(AccountFlags::<Test>::contains_key(dest));
+        assert!(SubtensorModule::account_rejects_staking_hotkey_growth(
+            &dest
+        ));
+
+        assert_ok!(SubtensorModule::do_swap_coldkey(&old, &dest));
+
+        assert!(SubtensorModule::account_rejects_staking_hotkey_growth(
+            &dest
+        ));
+        // Dest did not inherit source's accept-locked bit.
+        assert!(SubtensorModule::account_rejects_locked_alpha(&dest));
+    });
+}
+
+/// Exactly MAX dest exhausted locks admit; one past the cap fails closed
+/// (Auditor fid:9792420a).
+#[test]
+fn test_swap_dest_lock_cap_admits_max_rejects_sentinel() {
+    new_test_ext(1).execute_with(|| {
+        let old = U256::from(1);
+        let dest = U256::from(2);
+        let now = SubtensorModule::get_current_block_as_u64();
+        add_balance_to_coldkey_account(&old, ExistentialDeposit::get());
+
+        for i in 0..MAX_COLDKEY_SWAP_DEST_LOCKS {
+            let netuid = NetUid::from(1 + i as u16);
+            let dhot = U256::from(100 + u64::from(i));
+            Lock::<Test>::insert(
+                (dest, netuid, dhot),
+                LockState {
+                    locked_mass: AlphaBalance::ZERO,
+                    conviction: U64F64::from_num(0),
+                    last_update: now,
+                },
+            );
+        }
+
+        let work = SubtensorModule::do_swap_coldkey_tracked(&old, &dest).expect("at cap");
+        assert_eq!(work.dest_locks, MAX_COLDKEY_SWAP_DEST_LOCKS);
+
+        // Re-seed an empty source and one extra exhausted dest row.
+        let old2 = U256::from(3);
+        add_balance_to_coldkey_account(&old2, ExistentialDeposit::get());
+        // Dest still has the purged... wait, prior swap purged them. Re-insert
+        // MAX+1 exhausted rows.
+        for i in 0..MAX_COLDKEY_SWAP_DEST_LOCKS.saturating_add(1) {
+            let netuid = NetUid::from(1 + i as u16);
+            let dhot = U256::from(200 + u64::from(i));
+            Lock::<Test>::insert(
+                (dest, netuid, dhot),
+                LockState {
+                    locked_mass: AlphaBalance::ZERO,
+                    conviction: U64F64::from_num(0),
+                    last_update: now,
+                },
+            );
+        }
+        let err = SubtensorModule::do_swap_coldkey_tracked(&old2, &dest).expect_err("over cap");
+        assert_eq!(err.1, Error::<Test>::ColdkeySwapTooHeavy.into());
+    });
+}
+
 #[test]
 fn test_merge_swap_blocked_by_destination_active_lock() {
     new_test_ext(1).execute_with(|| {

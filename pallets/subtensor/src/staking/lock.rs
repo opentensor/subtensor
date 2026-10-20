@@ -1441,10 +1441,11 @@ impl<T: Config> Pallet<T> {
     ///
     /// On success returns the number of lock rows scanned (for weight accounting).
     pub fn ensure_no_active_locks_for_swap(coldkey: &T::AccountId) -> Result<u32, Error<T>> {
-        Self::ensure_no_active_locks_with_limit(
-            coldkey,
-            crate::MAX_COLDKEY_SWAP_DEST_LOCKS.saturating_add(1),
-        )
+        // Pass the declared cap (not cap+1): `ensure_no_active_locks_with_limit`
+        // rejects when `scanned > limit`, so `MAX` admits at most
+        // `MAX_COLDKEY_SWAP_DEST_LOCKS` rows and the first excess row fails
+        // closed inside the declared weight (Auditor fid:9792420a).
+        Self::ensure_no_active_locks_with_limit(coldkey, crate::MAX_COLDKEY_SWAP_DEST_LOCKS)
     }
 
     fn ensure_no_active_locks_with_limit(

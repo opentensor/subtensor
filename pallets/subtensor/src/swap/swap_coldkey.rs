@@ -361,16 +361,32 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Whether `coldkey` already holds coldkey-keyed economic associations that make
-    /// a swap into it a merge (rather than a rename onto a fresh key). Fresh keys
+    /// a swap into it a merge for staking / lock-transfer purposes. Fresh keys
     /// still get the temporary `accept_locked_alpha` override so an owner can move
-    /// their own locks onto a new unused coldkey; already-used destinations honor
-    /// their AccountFlags opt-outs instead.
+    /// their own locks onto a new unused coldkey; staking-associated destinations
+    /// honor their AccountFlags opt-outs instead.
     pub(crate) fn coldkey_already_in_use(coldkey: &T::AccountId) -> bool {
         !StakingHotkeys::<T>::get(coldkey).is_empty()
             || HotkeySwapBasketCredits::<T>::iter_key_prefix(coldkey)
                 .next()
                 .is_some()
             || !OwnedHotkeys::<T>::get(coldkey).is_empty()
+    }
+
+    /// Destination already carries a recorded swap-lineage root that an
+    /// unsolicited merge must not overwrite (Auditor fid:9411d39b).
+    ///
+    /// Only `ColdkeyRoot` counts: a prior root may still hold an outgoing
+    /// `ColdkeySuccessor` edge after rotation, and a reverse rename onto that
+    /// root must be allowed to clear/repoint the tip.
+    fn coldkey_has_established_lineage(coldkey: &T::AccountId) -> bool {
+        ColdkeyRoot::<T>::contains_key(coldkey)
+    }
+
+    /// Destination has explicitly configured `AccountFlags` that must be
+    /// preserved on merge even without staking associations.
+    fn coldkey_has_configured_account_flags(coldkey: &T::AccountId) -> bool {
+        AccountFlags::<T>::contains_key(coldkey)
     }
 
     /// Count owned pending network-registration rows and total queue entries
@@ -456,7 +472,8 @@ impl<T: Config> Pallet<T> {
         // source association and would not early-return).
         let mut work = Self::coldkey_swap_work(old_coldkey, new_coldkey);
         work.dest_locks = dest_locks;
-        if work.hotkeys > crate::MAX_COLDKEY_SWAP_HOTKEYS
+        if work.dest_locks > crate::MAX_COLDKEY_SWAP_DEST_LOCKS
+            || work.hotkeys > crate::MAX_COLDKEY_SWAP_HOTKEYS
             || work.positions > crate::MAX_COLDKEY_SWAP_POSITIONS
         {
             // Retain this scan — do not re-walk storage for the failure weight.
@@ -480,8 +497,11 @@ impl<T: Config> Pallet<T> {
 
         // Honor destination opt-outs over the admitted (bounded) associations.
         // Fresh unused destinations still allow an owner to move their own locks
-        // (temporary accept override in execute); already-used destinations do not.
-        if Self::coldkey_already_in_use(new_coldkey)
+        // (temporary accept override in execute). Destinations with staking
+        // associations *or* configured AccountFlags that reject locked alpha
+        // keep that preference (Auditor fid:9411d39b).
+        if (Self::coldkey_already_in_use(new_coldkey)
+            || Self::coldkey_has_configured_account_flags(new_coldkey))
             && Self::account_rejects_locked_alpha(new_coldkey)
             && let Err(e) = Self::ensure_no_active_locks_for_swap(old_coldkey)
         {
@@ -591,19 +611,23 @@ impl<T: Config> Pallet<T> {
                     IdentitiesV2::<T>::insert(new_coldkey.clone(), identity);
                 }
 
-                // AccountFlags: destination wins on a merge into an already-used key;
-                // on a rename onto a fresh key the source flags follow so opt-outs
-                // (e.g. reject_staking_hotkey_growth) survive key rotation.
-                // Temporarily allow a fresh destination to receive locked alpha so
-                // an owner can move their own locks onto a new key; already-used
-                // destinations that reject locked alpha keep that preference
-                // (admission already refused source active locks in that case).
+                // AccountFlags / lineage: staking associations, configured flags,
+                // and established lineage are separate predicates (Auditor
+                // fid:9411d39b). Staking-in-use still gates the temporary
+                // accept_locked_alpha override; flags and lineage are preserved
+                // whenever the destination already carries them — even with no
+                // hotkey associations (rotated/drained or identity-only keys).
                 let saved_dest_flags = AccountFlags::<T>::get(new_coldkey);
                 let saved_source_flags = AccountFlags::<T>::get(old_coldkey);
-                let dest_in_use = Self::coldkey_already_in_use(new_coldkey);
-                let dest_in_use_rejects_locked =
-                    dest_in_use && Self::account_rejects_locked_alpha(new_coldkey);
-                if !dest_in_use_rejects_locked {
+                let dest_staking_in_use = Self::coldkey_already_in_use(new_coldkey);
+                let preserve_dest_flags =
+                    dest_staking_in_use || Self::coldkey_has_configured_account_flags(new_coldkey);
+                let record_lineage =
+                    !dest_staking_in_use && !Self::coldkey_has_established_lineage(new_coldkey);
+                // Temporary accept only on a true rename onto an empty key.
+                // Destinations that already carry flags (including reject-locked)
+                // must not have those flags flipped for the lock hand-off.
+                if !preserve_dest_flags {
                     Self::set_accept_locked_alpha(new_coldkey, true);
                 }
 
@@ -632,9 +656,9 @@ impl<T: Config> Pallet<T> {
                 // above); decaying-lock flags keep the destination's value on conflict.
                 Self::swap_coldkey_locks(old_coldkey, new_coldkey)?;
 
-                // Clear source; restore the winning flags (dest if in use, else source).
+                // Clear source; restore the winning flags (dest when preserved).
                 AccountFlags::<T>::remove(old_coldkey);
-                let final_flags = if dest_in_use {
+                let final_flags = if preserve_dest_flags {
                     saved_dest_flags
                 } else {
                     saved_source_flags
@@ -649,11 +673,10 @@ impl<T: Config> Pallet<T> {
                 Self::transfer_all_tao_and_kill(old_coldkey, new_coldkey)?;
 
                 // Owner identity continuity for indexers / coldkey-keyed policy.
-                // Only on a rename onto a fresh key: recording lineage on a merge
-                // into an already-used destination would overwrite ColdkeyRoot and
-                // let an unsolicited source claim same_coldkey_lineage with the
-                // victim without destination authorization.
-                if !dest_in_use {
+                // Only on a rename onto a key with no staking associations and no
+                // established lineage: recording onto a dest that already has a
+                // root/successor would forge same_coldkey_lineage without auth.
+                if record_lineage {
                     Self::record_coldkey_swap_lineage(old_coldkey, new_coldkey);
                 }
 

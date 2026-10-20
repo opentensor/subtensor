@@ -171,6 +171,33 @@ fn test_merge_into_used_destination_preserves_destination_lineage() {
     });
 }
 
+/// A previously rotated destination with an established ColdkeyRoot but no
+/// remaining staking associations must still keep its lineage (Auditor
+/// fid:9411d39b).
+#[test]
+fn test_merge_preserves_lineage_on_rotated_destination_without_staking() {
+    new_test_ext(1).execute_with(|| {
+        let attacker = U256::from(1);
+        let victim = U256::from(2);
+        let prior_root = U256::from(3);
+
+        // Victim looks "fresh" to staking association checks, but already has
+        // a recorded swap lineage from a prior rotation.
+        ColdkeyRoot::<Test>::insert(victim, prior_root);
+        ColdkeySuccessor::<Test>::insert(prior_root, victim);
+        assert!(!SubtensorModule::coldkey_already_in_use(&victim));
+        assert_eq!(SubtensorModule::coldkey_root(&victim), prior_root);
+
+        add_balance_to_coldkey_account(&attacker, ExistentialDeposit::get());
+        assert_ok!(SubtensorModule::do_swap_coldkey(&attacker, &victim));
+
+        assert_eq!(ColdkeyRoot::<Test>::get(victim), Some(prior_root));
+        assert_eq!(SubtensorModule::coldkey_root(&victim), prior_root);
+        assert!(ColdkeySuccessor::<Test>::get(attacker).is_none());
+        assert!(!SubtensorModule::same_coldkey_lineage(&attacker, &victim));
+    });
+}
+
 #[test]
 fn test_coldkey_lineage_rolls_back_with_failed_swap() {
     new_test_ext(1).execute_with(|| {
