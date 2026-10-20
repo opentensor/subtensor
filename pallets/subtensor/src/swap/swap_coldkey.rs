@@ -35,12 +35,14 @@ impl<T: Config> Pallet<T> {
                 .saturating_mul(u64::from(work.positions)),
         )
         .saturating_add(T::DbWeight::get().reads(u64::from(work.hotkeys).saturating_mul(3)))
-        // Destination lock admission scan + execute purge (Lock remove +
-        // LockingColdkeys / aggregate touch) per exhausted row.
-        .saturating_add(T::DbWeight::get().reads(u64::from(work.dest_locks)))
+        // Destination lock path per exhausted row (Skeptic fid:bcf7b5a5):
+        // admission walk, execute re-check in `swap_coldkey_locks`, and purge
+        // scan each read Lock + SubnetOwnerHotkey + DecayingLock (3×3); cleanup
+        // then Lock+LockingColdkeys removes plus `reduce_aggregate_lock`
+        // (`read_conviction_model_for_hotkey` ≈7 reads, up to 4 aggregate writes).
         .saturating_add(T::DbWeight::get().reads_writes(
-            u64::from(work.dest_locks),
-            u64::from(work.dest_locks).saturating_mul(2),
+            u64::from(work.dest_locks).saturating_mul(16),
+            u64::from(work.dest_locks).saturating_mul(6),
         ))
         // Queue value read, per-entry visit cost, then get+insert per owned
         // pending registration and one queue rewrite.
@@ -74,10 +76,12 @@ impl<T: Config> Pallet<T> {
         let max = Self::coldkey_swap_max_work();
         let hotkey_reads = u64::from(max.hotkeys).saturating_add(1).saturating_mul(2);
         let position_reads = u64::from(max.positions).saturating_add(1);
-        // Dest lock walk at admission (dest-lock sentinel), plus source lock
-        // walk when an in-use dest rejects locked alpha (position sentinel).
+        // Dest lock walk at admission: Lock + SubnetOwnerHotkey + DecayingLock
+        // per row (sentinel past the cap), plus source lock walk when an
+        // in-use dest rejects locked alpha (position sentinel, one read/row).
         let lock_reads = u64::from(max.dest_locks)
             .saturating_add(1)
+            .saturating_mul(3)
             .saturating_add(u64::from(max.positions).saturating_add(1));
         // Opt-out growth check re-reads dest staking + up to sentinel source
         // associations (contains_key per hotkey) after the bounded work scan.
@@ -531,12 +535,13 @@ impl<T: Config> Pallet<T> {
             None => precheck,
             // Non-admitted failures still performed dest-lock and/or queue scans —
             // charge those axes so repeated announce/execute attempts cannot
-            // refund the recorded work (Skeptic fid:0ea40e68).
+            // refund the recorded work (Skeptic fid:0ea40e68). Dest admission
+            // reads Lock + SubnetOwnerHotkey + DecayingLock per row.
             Some(work) if !admitted => precheck.saturating_add(
                 T::DbWeight::get().reads(
                     u64::from(work.hotkeys)
                         .saturating_add(u64::from(work.positions))
-                        .saturating_add(u64::from(work.dest_locks))
+                        .saturating_add(u64::from(work.dest_locks).saturating_mul(3))
                         .saturating_add(u64::from(work.registration_queue_scan))
                         .saturating_add(1),
                 ),

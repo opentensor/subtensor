@@ -3601,6 +3601,14 @@ fn test_swap_weight_grows_with_destination_exhausted_locks() {
             light.ref_time(),
             heavy.ref_time()
         );
+        // Full path accounting: 16 reads + 6 writes per dest_lock (Skeptic
+        // fid:bcf7b5a5 — admission + re-check + purge + aggregate).
+        let per_row = <Test as frame_system::Config>::DbWeight::get().reads_writes(16, 6);
+        assert_eq!(
+            heavy.ref_time().saturating_sub(light.ref_time()),
+            per_row.ref_time().saturating_mul(2),
+            "dest_lock weight must charge the full cleanup path per row"
+        );
     });
 }
 
@@ -3693,6 +3701,14 @@ fn test_swap_failure_weight_grows_with_destination_lock_scan() {
             "failure weight must grow with dest lock rows scanned: light={}, heavy={}",
             light_done.ref_time(),
             heavy_done.ref_time()
+        );
+        // Opt-out fails after bound admission (`admitted=true`), so failure
+        // weight uses the full dest-lock cleanup schedule (16r/6w per row).
+        let per_row = <Test as frame_system::Config>::DbWeight::get().reads_writes(16, 6);
+        assert_eq!(
+            heavy_done.ref_time().saturating_sub(light_done.ref_time()),
+            per_row.ref_time().saturating_mul(8),
+            "admitted failure must charge full dest-lock cleanup path per row"
         );
     });
 }
@@ -3793,6 +3809,17 @@ fn test_swap_coldkey_announced_declared_weight_fits_block() {
             "declared={:?} exceeds max_extrinsic={:?}",
             declared,
             max
+        );
+        // Full dest-lock cleanup accounting (16r/6w × MAX_COLDKEY_SWAP_DEST_LOCKS)
+        // must still leave headroom under the normal-class extrinsic cap.
+        let dest_cap = crate::MAX_COLDKEY_SWAP_DEST_LOCKS;
+        let dest_charge = <Test as frame_system::Config>::DbWeight::get().reads_writes(
+            u64::from(dest_cap).saturating_mul(16),
+            u64::from(dest_cap).saturating_mul(6),
+        );
+        assert!(
+            dest_charge.ref_time() > 0 && declared.ref_time() > dest_charge.ref_time(),
+            "declared envelope must include the full dest-lock cleanup charge"
         );
     });
 }
