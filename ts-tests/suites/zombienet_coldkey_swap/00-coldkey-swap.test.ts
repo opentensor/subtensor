@@ -94,10 +94,9 @@ describeSuite({
                     new_coldkey: newColdkey.address,
                 });
                 const swapResult = await sendTransaction(swapTx, oldColdkey);
-                expect(
-                    swapResult.success,
-                    `swap should succeed: ${swapResult.errorMessage ?? "unknown error"}`
-                ).toBe(true);
+                expect(swapResult.success, `swap should succeed: ${swapResult.errorMessage ?? "unknown error"}`).toBe(
+                    true
+                );
                 log("Swap executed");
 
                 // Verify stake migrated
