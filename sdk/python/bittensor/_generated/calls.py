@@ -227,7 +227,7 @@ class SubtensorModule:
 
     @staticmethod
     def announce_coldkey_swap_v2(new_coldkey: 'AccountId32') -> Call:
-        'Announces a coldkey swap with the cleartext destination account.  Validates the destination (and combined swap work) before charging the announcement fee, then exclusively reserves that account for the delay so a third party cannot register it as a hotkey. The on-chain announcement still stores the BlakeTwo256 hash.  Prefer this over [`Self::announce_coldkey_swap`] when merging into an already-used coldkey or when pre-fee refusal of bad destinations matters.  * `new_coldkey`: Destination coldkey (validated before any fee).'
+        'Announces a coldkey swap with the cleartext destination account.  Validates the destination (and combined swap work) before charging the announcement fee, then exclusively reserves that account for the delay so a third party cannot register it as a hotkey. The on-chain announcement still stores the BlakeTwo256 hash. Every call creates or renews that reservation, so every call pays the key-swap cost, including reannouncements.  Prefer this over [`Self::announce_coldkey_swap`] when merging into an already-used coldkey or when pre-fee refusal of bad destinations matters.  * `new_coldkey`: Destination coldkey (validated before any fee).'
         return Call('SubtensorModule', 'announce_coldkey_swap_v2', {'new_coldkey': new_coldkey})
 
     @staticmethod
