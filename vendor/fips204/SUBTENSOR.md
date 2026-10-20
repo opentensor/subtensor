@@ -18,10 +18,6 @@ licenses are preserved. Review semantic changes against the pinned upstream
 commit with whitespace differences ignored. Trailing whitespace in the upstream
 README and changelog is also removed to satisfy the repository diff check.
 
-No independent security audit of this upstream release or this local patch has
-been established. This implementation must remain subject to the independent
-cryptographic review and reference-hardware measurement activation gates.
-
 Local cryptographic changes:
 
 - Verification uses bounded rejection sampling: at most 894 XOF output bytes
