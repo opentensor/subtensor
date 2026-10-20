@@ -2654,6 +2654,22 @@ mod dispatches {
             Ok(())
         }
 
+        /// Destination-authorized release of a coldkey-swap destination reservation.
+        ///
+        /// Announce takes the destination in cleartext and exclusively reserves it.
+        /// The reserved account can free that hold so a third party cannot squat
+        /// someone else's coldkey indefinitely. Reservations also expire after
+        /// `when + ColdkeySwapReannouncementDelay`.
+        #[pallet::call_index(154)]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::clear_coldkey_swap_announcement())]
+        pub fn release_own_coldkey_swap_destination_reservation(
+            origin: OriginFor<T>,
+        ) -> DispatchResult {
+            let dest = ensure_signed(origin)?;
+            Self::do_release_own_coldkey_swap_destination_reservation(&dest)?;
+            Ok(())
+        }
+
         /// User register a new subnetwork via burning token, but only if the
         /// on-chain burn price for this block is <= `limit_price`.
         ///

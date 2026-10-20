@@ -1016,7 +1016,14 @@ DESCRIPTIONS: dict[str, str] = {
     "ColdkeySwapDestinationReserved": (
         "This account is reserved as the destination of an in-flight coldkey-swap "
         "announcement, so it cannot be registered as a hotkey and another coldkey cannot "
-        "announce to it until that announcement is executed, cleared, or reset by root. "
-        "Wait for the reservation to clear, or choose a different account."
+        "announce to it until that announcement is executed, cleared, released by the "
+        "destination, reset by root, or the reservation TTL expires. Wait for the "
+        "reservation to clear, have the destination call "
+        "`release_own_coldkey_swap_destination_reservation`, or choose a different account."
+    ),
+    "ColdkeySwapDestinationReservationNotFound": (
+        "No live coldkey-swap destination reservation exists for this account, so "
+        "`release_own_coldkey_swap_destination_reservation` has nothing to free. Confirm "
+        "the account is the reserved destination of an in-flight announcement."
     ),
 }

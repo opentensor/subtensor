@@ -457,8 +457,11 @@ mod errors {
         EmissionWeightsNotSettableOnRoot,
         /// This account is reserved as the destination of an in-flight coldkey-swap
         /// announcement, so it cannot be registered as a hotkey (and another coldkey
-        /// cannot announce to it) until that announcement is executed, cleared, or
-        /// reset. Prevents recovery-delay griefing after announce reveals the dest.
+        /// cannot announce to it) until that announcement is executed, cleared,
+        /// released by the destination, reset, or the reservation TTL expires.
+        /// Prevents recovery-delay griefing after announce reveals the dest.
         ColdkeySwapDestinationReserved,
+        /// No live coldkey-swap destination reservation exists for this account.
+        ColdkeySwapDestinationReservationNotFound,
     }
 }

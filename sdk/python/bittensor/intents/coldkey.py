@@ -179,3 +179,29 @@ class DisputeColdkeySwap(Intent):
 
     async def warnings(self, substrate, signer_address: str) -> list[str]:
         return ["blocks the swap until the triumvirate resolves the dispute"]
+
+
+@register
+@dataclass
+class ReleaseOwnColdkeySwapDestinationReservation(Intent):
+    """Free a coldkey-swap destination reservation that names this account.
+
+    Announce exclusively reserves its destination so a third party cannot
+    register that address as a hotkey during the delay. If someone else
+    announced a swap into your coldkey (or you no longer want the hold), sign
+    this from the reserved destination to drop exclusivity. The announcer's
+    announcement may still exist; reservations also expire after
+    ``when + reannouncement delay``.
+    """
+
+    op = "release_own_coldkey_swap_destination_reservation"
+    signer = "coldkey"
+    wraps = (("SubtensorModule", "release_own_coldkey_swap_destination_reservation"),)
+
+    async def build(self, substrate, wallet: Any):
+        return await substrate.compose(
+            calls.SubtensorModule.release_own_coldkey_swap_destination_reservation()
+        )
+
+    def summary(self) -> str:
+        return "release this account's coldkey-swap destination reservation"

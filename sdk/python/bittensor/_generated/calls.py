@@ -381,6 +381,11 @@ class SubtensorModule:
         return Call('SubtensorModule', 'register_network_with_identity', {'hotkey': hotkey, 'identity': identity})
 
     @staticmethod
+    def release_own_coldkey_swap_destination_reservation() -> Call:
+        "Destination-authorized release of a coldkey-swap destination reservation.  Announce takes the destination in cleartext and exclusively reserves it. The reserved account can free that hold so a third party cannot squat someone else's coldkey indefinitely. Reservations also expire after `when + ColdkeySwapReannouncementDelay`."
+        return Call('SubtensorModule', 'release_own_coldkey_swap_destination_reservation', {})
+
+    @staticmethod
     def remove_stake(hotkey: 'AccountId32', netuid: 'NetUid', amount_unstaked: 'AlphaBalance') -> Call:
         "Remove stake from the staking account. The call must be made from the coldkey account attached to the neuron metadata. Only this key has permission to make staking and unstaking requests.  # Arguments * `origin`: The signature of the caller's coldkey.  * `hotkey`: The associated hotkey account.  * `netuid`: Subnetwork UID.  * `amount_unstaked`: The amount of stake to be added to the hotkey staking account.  # Events * `StakeRemoved`: On the successfully removing stake from the hotkey account.  # Errors * `NotRegistered`: Thrown if the account we are attempting to unstake from is non existent.  * `NonAssociatedColdKey`: Thrown if the coldkey does not own the hotkey we are unstaking from.  * `NotEnoughStakeToWithdraw`: Thrown if there is not enough stake on the hotkey to withdwraw this amount."
         return Call('SubtensorModule', 'remove_stake', {'hotkey': hotkey, 'netuid': netuid, 'amount_unstaked': amount_unstaked})

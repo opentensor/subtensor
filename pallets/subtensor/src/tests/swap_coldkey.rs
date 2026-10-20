@@ -3292,3 +3292,134 @@ fn test_announce_reserves_destination_against_third_party_hotkey_registration() 
         ));
     });
 }
+
+/// Hotkey-swap must not assign Owner to a reserved coldkey-swap destination
+/// (covers the path that bypasses create_account_if_non_existent).
+#[test]
+fn test_swap_hotkey_refuses_reserved_coldkey_swap_destination() {
+    new_test_ext(1).execute_with(|| {
+        let who = U256::from(1);
+        let dest = U256::from(2);
+        let attacker_cold = U256::from(4);
+        let attacker_hot = U256::from(5);
+        let ed = ExistentialDeposit::get();
+        let swap_cost = SubtensorModule::get_key_swap_cost();
+
+        add_balance_to_coldkey_account(&who, swap_cost + ed);
+        add_balance_to_coldkey_account(&attacker_cold, swap_cost * 10.into() + ed);
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &attacker_cold,
+            &attacker_hot
+        ));
+
+        assert_ok!(SubtensorModule::announce_coldkey_swap(
+            RuntimeOrigin::signed(who),
+            dest,
+        ));
+
+        assert_noop!(
+            SubtensorModule::swap_hotkey_v2(
+                RuntimeOrigin::signed(attacker_cold),
+                attacker_hot,
+                dest,
+                None,
+                false,
+            ),
+            Error::<Test>::ColdkeySwapDestinationReserved
+        );
+        assert!(!SubtensorModule::hotkey_account_exists(&dest));
+    });
+}
+
+/// Destination can free an exclusive reservation so merges into an existing
+/// coldkey cannot be squat-blocked forever by a third-party announce.
+#[test]
+fn test_destination_can_release_coldkey_swap_reservation() {
+    new_test_ext(1).execute_with(|| {
+        let attacker = U256::from(1);
+        let victim_dest = U256::from(2);
+        let ed = ExistentialDeposit::get();
+        let swap_cost = SubtensorModule::get_key_swap_cost();
+
+        add_balance_to_coldkey_account(&attacker, swap_cost + ed);
+        add_balance_to_coldkey_account(&victim_dest, ed);
+
+        assert_ok!(SubtensorModule::announce_coldkey_swap(
+            RuntimeOrigin::signed(attacker),
+            victim_dest,
+        ));
+        assert_eq!(
+            ColdkeySwapDestinationReservations::<Test>::get(victim_dest),
+            Some(attacker)
+        );
+
+        // Only the reserved destination may release.
+        assert_noop!(
+            SubtensorModule::release_own_coldkey_swap_destination_reservation(
+                RuntimeOrigin::signed(attacker)
+            ),
+            Error::<Test>::ColdkeySwapDestinationReservationNotFound
+        );
+
+        assert_ok!(
+            SubtensorModule::release_own_coldkey_swap_destination_reservation(
+                RuntimeOrigin::signed(victim_dest)
+            )
+        );
+        assert!(!ColdkeySwapDestinationReservations::<Test>::contains_key(
+            victim_dest
+        ));
+        // Announcement remains for the attacker, but exclusivity is gone so
+        // another party can announce into this destination again.
+        assert!(ColdkeySwapAnnouncements::<Test>::contains_key(attacker));
+        let other = U256::from(7);
+        add_balance_to_coldkey_account(&other, swap_cost + ed);
+        assert_ok!(SubtensorModule::announce_coldkey_swap(
+            RuntimeOrigin::signed(other),
+            victim_dest,
+        ));
+        assert_eq!(
+            ColdkeySwapDestinationReservations::<Test>::get(victim_dest),
+            Some(other)
+        );
+    });
+}
+
+/// Abandoned reservations expire after when + reannouncement delay so unused
+/// destinations cannot be squat forever.
+#[test]
+fn test_coldkey_swap_destination_reservation_expires() {
+    new_test_ext(1).execute_with(|| {
+        let who = U256::from(1);
+        let dest = U256::from(2);
+        let other = U256::from(3);
+        let ed = ExistentialDeposit::get();
+        let swap_cost = SubtensorModule::get_key_swap_cost();
+
+        add_balance_to_coldkey_account(&who, swap_cost + ed);
+        add_balance_to_coldkey_account(&other, swap_cost + ed);
+
+        assert_ok!(SubtensorModule::announce_coldkey_swap(
+            RuntimeOrigin::signed(who),
+            dest,
+        ));
+        let (when, _) = ColdkeySwapAnnouncements::<Test>::get(who).unwrap();
+        let ttl = ColdkeySwapReannouncementDelay::<Test>::get();
+
+        // Still live just at the TTL boundary.
+        run_to_block(when + ttl);
+        assert_noop!(
+            SubtensorModule::create_account_if_non_existent(&other, &dest),
+            Error::<Test>::ColdkeySwapDestinationReserved
+        );
+
+        // One block past TTL: purge on access, registration succeeds.
+        run_to_block(when + ttl + 1);
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &other, &dest
+        ));
+        assert!(!ColdkeySwapDestinationReservations::<Test>::contains_key(
+            dest
+        ));
+    });
+}

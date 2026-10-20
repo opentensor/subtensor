@@ -283,6 +283,7 @@ NAME_TO_CODE: dict[str, ErrorCode] = {
     "AccountRejectsLockedAlpha": _C.POLICY_VIOLATION,
     "AccountRejectsStakingHotkeyGrowth": _C.POLICY_VIOLATION,
     "ColdkeySwapDestinationReserved": _C.ALREADY_EXISTS,
+    "ColdkeySwapDestinationReservationNotFound": _C.NOT_FOUND,
     # ── Utility ─────────────────────────────────────────────────────────
     "TooManyCalls": _C.LIMIT_EXCEEDED,
     "InvalidDerivedAccount": _C.INVALID_ARGUMENT,

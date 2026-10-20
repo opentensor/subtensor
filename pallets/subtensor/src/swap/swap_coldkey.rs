@@ -6,6 +6,7 @@ use crate::migrations::migrate_alpha_v2::retired::Alpha;
 use crate::subnets::leasing::LeaseId;
 use crate::weights::WeightInfo;
 use sp_core::Get;
+use sp_runtime::Saturating;
 use sp_std::collections::btree_set::BTreeSet;
 
 /// Stake work a coldkey swap moves: `StakingHotkeys` / basket-credit entries visited
@@ -71,6 +72,57 @@ impl<T: Config> Pallet<T> {
             .saturating_add(reservation)
     }
 
+    /// Whether `announcer`'s reservation is still within its bounded lifetime.
+    ///
+    /// Live while the announcement exists and
+    /// `now <= when + ColdkeySwapReannouncementDelay`. Past that window the
+    /// destination can be claimed again (prevents indefinite squatting).
+    fn coldkey_swap_reservation_is_live(announcer: &T::AccountId) -> bool {
+        let Some((when, _)) = ColdkeySwapAnnouncements::<T>::get(announcer) else {
+            return false;
+        };
+        let now = <frame_system::Pallet<T>>::block_number();
+        let ttl = ColdkeySwapReannouncementDelay::<T>::get();
+        now <= when.saturating_add(ttl)
+    }
+
+    /// Drop a stale or orphaned reservation on `dest`, returning whether a live
+    /// reservation by someone other than `by` still blocks it.
+    fn purge_stale_coldkey_swap_destination_reservation(
+        dest: &T::AccountId,
+        by: Option<&T::AccountId>,
+    ) -> bool {
+        let Some(announcer) = ColdkeySwapDestinationReservations::<T>::get(dest) else {
+            return false;
+        };
+        if Self::coldkey_swap_reservation_is_live(&announcer) {
+            return match by {
+                None => true,
+                Some(who) => *who != announcer,
+            };
+        }
+        // Stale / orphaned: free both maps.
+        ColdkeySwapDestinationReservations::<T>::remove(dest);
+        if ColdkeySwapReservedDestination::<T>::get(&announcer).as_ref() == Some(dest) {
+            ColdkeySwapReservedDestination::<T>::remove(&announcer);
+        }
+        false
+    }
+
+    /// Refuse if `account` is currently reserved as a coldkey-swap destination.
+    ///
+    /// Used by hotkey registration / ownership paths so a revealed announce dest
+    /// cannot be claimed as a hotkey (via `create_account` or `swap_hotkey`)
+    /// during the delay.
+    pub fn ensure_account_not_reserved_as_coldkey_swap_destination(
+        account: &T::AccountId,
+    ) -> Result<(), Error<T>> {
+        if Self::purge_stale_coldkey_swap_destination_reservation(account, None) {
+            return Err(Error::<T>::ColdkeySwapDestinationReserved);
+        }
+        Ok(())
+    }
+
     /// Refuse if `dest` is already reserved by a different announcer.
     ///
     /// Called before the announce fee so a conflict cannot burn the swap cost.
@@ -78,11 +130,8 @@ impl<T: Config> Pallet<T> {
         announcer: &T::AccountId,
         dest: &T::AccountId,
     ) -> Result<(), Error<T>> {
-        if let Some(existing) = ColdkeySwapDestinationReservations::<T>::get(dest) {
-            ensure!(
-                existing == *announcer,
-                Error::<T>::ColdkeySwapDestinationReserved
-            );
+        if Self::purge_stale_coldkey_swap_destination_reservation(dest, Some(announcer)) {
+            return Err(Error::<T>::ColdkeySwapDestinationReserved);
         }
         Ok(())
     }
@@ -109,6 +158,23 @@ impl<T: Config> Pallet<T> {
         {
             ColdkeySwapDestinationReservations::<T>::remove(&dest);
         }
+    }
+
+    /// Destination-authorized release: the reserved account itself can free the
+    /// reservation so exclusive holds cannot squat someone else's coldkey forever.
+    pub fn do_release_own_coldkey_swap_destination_reservation(
+        dest: &T::AccountId,
+    ) -> Result<(), Error<T>> {
+        let Some(announcer) = ColdkeySwapDestinationReservations::<T>::get(dest) else {
+            return Err(Error::<T>::ColdkeySwapDestinationReservationNotFound);
+        };
+        // Only the reserved destination may authorize this release.
+        ensure!(
+            ColdkeySwapReservedDestination::<T>::get(&announcer).as_ref() == Some(dest),
+            Error::<T>::ColdkeySwapDestinationReservationNotFound
+        );
+        Self::release_coldkey_swap_destination_reservation(&announcer);
+        Ok(())
     }
 
     /// Pre-dispatch weight of `swap_coldkey`, refunded to the actual work post-dispatch.
