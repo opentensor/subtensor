@@ -1221,7 +1221,7 @@ mod tests {
                 &real_b(),
                 &dest_hot
             ));
-            assert!(!pallet_subtensor::OwnedHotkeys::<Runtime>::get(&real_b()).is_empty());
+            assert!(!pallet_subtensor::OwnedHotkeys::<Runtime>::get(real_b()).is_empty());
 
             add_proxy(&real_a(), &signer());
             enable_real_pays_fee(&real_a(), &signer());
