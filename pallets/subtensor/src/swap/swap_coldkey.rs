@@ -162,8 +162,9 @@ impl<T: Config> Pallet<T> {
     /// Refuse if `account` is currently reserved as a coldkey-swap destination.
     ///
     /// Used by hotkey registration / ownership paths so a revealed announce dest
-    /// cannot be claimed as a hotkey (via `create_account` or `swap_hotkey`)
-    /// during the delay.
+    /// cannot be claimed as a hotkey (via `create_account` or `swap_hotkey`),
+    /// and by cross-coldkey stake transitions so third parties cannot grow the
+    /// destination's associations / locks during the delay.
     pub fn ensure_account_not_reserved_as_coldkey_swap_destination(
         account: &T::AccountId,
     ) -> Result<(), Error<T>> {

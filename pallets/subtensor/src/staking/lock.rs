@@ -2031,6 +2031,12 @@ impl<T: Config> Pallet<T> {
             return Ok(());
         }
 
+        // Defense in depth: reserved swap destinations cannot receive locks from
+        // another coldkey during the announcement delay (same rule as stake
+        // transitions). Stake transitions already guard via
+        // `validate_stake_transition`; keep this path closed if called directly.
+        Self::ensure_account_not_reserved_as_coldkey_swap_destination(destination_coldkey)?;
+
         // Read total alpha of the coldkey on this netuid. Do not check if total alpha is
         // lower than amount transferred, this is responsibility of a higher level, this
         // function needs to act protectively.

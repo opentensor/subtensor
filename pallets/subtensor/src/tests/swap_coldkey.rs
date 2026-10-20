@@ -3499,6 +3499,93 @@ fn test_announce_reserves_destination_against_third_party_hotkey_registration() 
     });
 }
 
+/// Third parties must not grow a reserved destination's stake associations
+/// during the announce delay (would trip TooHeavy / dest opt-outs at execute).
+#[test]
+fn test_reserved_destination_blocks_third_party_stake_transfer() {
+    new_test_ext(1).execute_with(|| {
+        let who = U256::from(1);
+        let dest = U256::from(2);
+        let attacker = U256::from(3);
+        let attacker_hot = U256::from(4);
+        let dest_hot = U256::from(5);
+        let ed = ExistentialDeposit::get();
+        let swap_cost = SubtensorModule::get_key_swap_cost();
+        let stake_amount = DefaultMinStake::<Test>::get().to_u64() * 20;
+
+        // Attacker holds stake they could otherwise dump onto the reserved dest.
+        let netuid = add_dynamic_network(&attacker_hot, &attacker);
+        add_balance_to_coldkey_account(&attacker, (stake_amount * 2).into());
+        assert_ok!(SubtensorModule::stake_into_subnet(
+            &attacker_hot,
+            &attacker,
+            netuid,
+            stake_amount.into(),
+            <Test as crate::Config>::SwapInterface::max_price(),
+            false,
+        ));
+
+        add_balance_to_coldkey_account(&who, swap_cost + ed);
+        assert_ok!(SubtensorModule::announce_coldkey_swap_v2(
+            RuntimeOrigin::signed(who),
+            dest,
+        ));
+        assert_eq!(
+            ColdkeySwapDestinationReservations::<Test>::get(dest),
+            Some(who)
+        );
+
+        // Cross-coldkey transfer onto the reserved destination is refused.
+        assert_noop!(
+            SubtensorModule::do_transfer_stake(
+                RuntimeOrigin::signed(attacker),
+                dest,
+                attacker_hot,
+                netuid,
+                netuid,
+                stake_amount.into(),
+            ),
+            Error::<Test>::ColdkeySwapDestinationReserved
+        );
+        assert_noop!(
+            SubtensorModule::do_transfer_stake_and_hotkey(
+                RuntimeOrigin::signed(attacker),
+                dest,
+                attacker_hot,
+                dest_hot,
+                netuid,
+                netuid,
+                stake_amount.into(),
+            ),
+            Error::<Test>::ColdkeySwapDestinationReserved
+        );
+        // Stake remains with the attacker; dest was not marked in-use.
+        assert!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &attacker_hot,
+                &attacker,
+                netuid
+            ) > AlphaBalance::ZERO
+        );
+        assert!(!SubtensorModule::coldkey_already_in_use(&dest));
+
+        // Destination itself can still stake with its own funds (same-coldkey).
+        add_balance_to_coldkey_account(&dest, (stake_amount * 2).into());
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &dest, &dest_hot
+        ));
+        assert_ok!(SubtensorModule::stake_into_subnet(
+            &dest_hot,
+            &dest,
+            netuid,
+            stake_amount.into(),
+            <Test as crate::Config>::SwapInterface::max_price(),
+            false,
+        ));
+        assert!(SubtensorModule::coldkey_already_in_use(&dest));
+    });
+}
+
 /// Hotkey-swap must not assign Owner to a reserved coldkey-swap destination
 /// (covers the path that bypasses create_account_if_non_existent).
 #[test]
