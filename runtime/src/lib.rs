@@ -630,6 +630,10 @@ impl ProxyInterface<AccountId> for Proxier {
     fn transfer_delegator_proxies(from: &AccountId, to: &AccountId) -> DispatchResult {
         pallet_proxy::Pallet::<Runtime>::transfer_delegator_proxies(from, to)
     }
+
+    fn clear_delegator_proxies(delegator: &AccountId) {
+        pallet_proxy::Pallet::<Runtime>::remove_all_proxy_delegates(delegator)
+    }
 }
 
 pub struct CommitmentsI;
@@ -779,6 +783,72 @@ fn coldkey_swap_merges_validate_proxies_keyed_by_coldkey() {
         assert!(Proxy::find_proxy(&new, &staking_delegate, Some(ProxyType::Staking)).is_ok());
         let (proxies, _) = pallet_proxy::Proxies::<Runtime>::get(&new);
         assert_eq!(proxies.len(), 2);
+        assert!(pallet_proxy::Proxies::<Runtime>::get(&old).0.is_empty());
+    });
+}
+
+/// Merge into a staking-in-use destination must not install source proxies /
+/// RealPaysFee consent (Skeptic fid:03ad8f72). Source grants are cleared.
+#[test]
+#[allow(clippy::unwrap_used)]
+fn coldkey_swap_merge_into_used_dest_clears_source_proxies() {
+    use frame_support::assert_ok;
+    use sp_runtime::BuildStorage;
+
+    let old = AccountId::new([101; 32]);
+    let dest = AccountId::new([102; 32]);
+    let dest_hot = AccountId::new([103; 32]);
+    let attacker_delegate = AccountId::new([104; 32]);
+    let dest_delegate = AccountId::new([105; 32]);
+    let storage = RuntimeGenesisConfig {
+        balances: pallet_balances::GenesisConfig {
+            balances: vec![
+                (old.clone(), 100_000_000_000u64.into()),
+                (dest.clone(), 100_000_000_000u64.into()),
+            ],
+            dev_accounts: None,
+        },
+        ..Default::default()
+    }
+    .build_storage()
+    .unwrap();
+    sp_io::TestExternalities::new(storage).execute_with(|| {
+        System::set_block_number(1);
+        // Destination already owns a hotkey → staking-in-use merge target.
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &dest, &dest_hot
+        ));
+        assert!(!pallet_subtensor::OwnedHotkeys::<Runtime>::get(&dest).is_empty());
+
+        assert_ok!(Proxy::add_proxy(
+            RuntimeOrigin::signed(old.clone()),
+            attacker_delegate.clone().into(),
+            ProxyType::Any,
+            0,
+        ));
+        assert_ok!(Proxy::set_real_pays_fee(
+            RuntimeOrigin::signed(old.clone()),
+            attacker_delegate.clone().into(),
+            true,
+        ));
+        assert_ok!(Proxy::add_proxy(
+            RuntimeOrigin::signed(dest.clone()),
+            dest_delegate.clone().into(),
+            ProxyType::Staking,
+            0,
+        ));
+
+        assert_ok!(SubtensorModule::do_swap_coldkey(&old, &dest));
+
+        // Source grants dropped — not installed on the funded victim.
+        assert!(Proxy::find_proxy(&old, &attacker_delegate, Some(ProxyType::Any)).is_err());
+        assert!(Proxy::find_proxy(&dest, &attacker_delegate, Some(ProxyType::Any)).is_err());
+        assert!(!Proxy::is_real_pays_fee(&old, &attacker_delegate));
+        assert!(!Proxy::is_real_pays_fee(&dest, &attacker_delegate));
+        // Destination keeps only its own prior grant.
+        assert!(Proxy::find_proxy(&dest, &dest_delegate, Some(ProxyType::Staking)).is_ok());
+        let (proxies, _) = pallet_proxy::Proxies::<Runtime>::get(&dest);
+        assert_eq!(proxies.len(), 1);
         assert!(pallet_proxy::Proxies::<Runtime>::get(&old).0.is_empty());
     });
 }

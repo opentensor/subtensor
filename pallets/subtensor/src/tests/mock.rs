@@ -609,6 +609,8 @@ impl ProxyInterface<U256> for FakeProxier {
         // covered by runtime tests against the real proxy pallet.
         Ok(())
     }
+
+    fn clear_delegator_proxies(_delegator: &AccountId) {}
 }
 
 parameter_types! {
