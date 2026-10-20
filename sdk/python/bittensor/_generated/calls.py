@@ -1720,24 +1720,29 @@ class Lending:
     """Call builders for the Lending pallet."""
 
     @staticmethod
-    def close(netuid: 'NetUid', repay_from_wallet: 'bool', max_payment: 'u64', min_refund: 'u64') -> Call:
+    def close(netuid: 'NetUid', repay_from_wallet: 'bool', max_payment: 'u64', min_refund: 'u64', valid_until: 'u32') -> Call:
         'Close a position. Shorts buy back (or repay alpha); longs repay TAO (or sell escrow).'
-        return Call('Lending', 'close', {'netuid': netuid, 'repay_from_wallet': repay_from_wallet, 'max_payment': max_payment, 'min_refund': min_refund})
+        return Call('Lending', 'close', {'netuid': netuid, 'repay_from_wallet': repay_from_wallet, 'max_payment': max_payment, 'min_refund': min_refund, 'valid_until': valid_until})
 
     @staticmethod
-    def open(netuid: 'NetUid', side: 'Side', collateral: 'u64', hotkey: 'AccountId32', min_borrow: 'u64', min_proceeds: 'u64') -> Call:
+    def open(netuid: 'NetUid', side: 'Side', collateral: 'u64', hotkey: 'AccountId32', min_borrow: 'u64', min_proceeds: 'u64', min_escrow_alpha: 'u64', valid_until: 'u32') -> Call:
         'Open or increase a loan. Shorts force-sell; longs force-buy into escrow.'
-        return Call('Lending', 'open', {'netuid': netuid, 'side': side, 'collateral': collateral, 'hotkey': hotkey, 'min_borrow': min_borrow, 'min_proceeds': min_proceeds})
+        return Call('Lending', 'open', {'netuid': netuid, 'side': side, 'collateral': collateral, 'hotkey': hotkey, 'min_borrow': min_borrow, 'min_proceeds': min_proceeds, 'min_escrow_alpha': min_escrow_alpha, 'valid_until': valid_until})
 
     @staticmethod
-    def open_exact(netuid: 'NetUid', side: 'Side', collateral: 'u64', hotkey: 'AccountId32', principal: 'u64', min_proceeds: 'u64') -> Call:
+    def open_exact(netuid: 'NetUid', side: 'Side', collateral: 'u64', hotkey: 'AccountId32', principal: 'u64', min_proceeds: 'u64', min_escrow_alpha: 'u64', valid_until: 'u32') -> Call:
         'Open or increase with an exact additional principal.'
-        return Call('Lending', 'open_exact', {'netuid': netuid, 'side': side, 'collateral': collateral, 'hotkey': hotkey, 'principal': principal, 'min_proceeds': min_proceeds})
+        return Call('Lending', 'open_exact', {'netuid': netuid, 'side': side, 'collateral': collateral, 'hotkey': hotkey, 'principal': principal, 'min_proceeds': min_proceeds, 'min_escrow_alpha': min_escrow_alpha, 'valid_until': valid_until})
 
     @staticmethod
-    def open_long_and_sell(netuid: 'NetUid', hotkey: 'AccountId32', collateral_alpha: 'Any', borrow_tao: 'Any', max_collateral_alpha: 'u64', min_borrow_tao: 'u64', sell_alpha: 'Any', min_tao_out: 'u64', valid_until: 'u32') -> Call:
+    def open_long_and_sell(netuid: 'NetUid', hotkey: 'AccountId32', collateral_alpha: 'Any', borrow_tao: 'Any', max_collateral_alpha: 'u64', min_borrow_tao: 'u64', sell_alpha: 'Any', min_tao_out: 'u64', min_escrow_alpha: 'u64', valid_until: 'u32') -> Call:
         'Atomic raise: escrowed long + spot sale of own unlocked alpha.'
-        return Call('Lending', 'open_long_and_sell', {'netuid': netuid, 'hotkey': hotkey, 'collateral_alpha': collateral_alpha, 'borrow_tao': borrow_tao, 'max_collateral_alpha': max_collateral_alpha, 'min_borrow_tao': min_borrow_tao, 'sell_alpha': sell_alpha, 'min_tao_out': min_tao_out, 'valid_until': valid_until})
+        return Call('Lending', 'open_long_and_sell', {'netuid': netuid, 'hotkey': hotkey, 'collateral_alpha': collateral_alpha, 'borrow_tao': borrow_tao, 'max_collateral_alpha': max_collateral_alpha, 'min_borrow_tao': min_borrow_tao, 'sell_alpha': sell_alpha, 'min_tao_out': min_tao_out, 'min_escrow_alpha': min_escrow_alpha, 'valid_until': valid_until})
+
+    @staticmethod
+    def repay(netuid: 'NetUid', principal_part: 'u64', repay_from_wallet: 'bool', max_payment: 'u64', min_refund: 'u64', valid_until: 'u32') -> Call:
+        'Partial repay of `principal_part` (§4.4). `principal_part == principal` closes.'
+        return Call('Lending', 'repay', {'netuid': netuid, 'principal_part': principal_part, 'repay_from_wallet': repay_from_wallet, 'max_payment': max_payment, 'min_refund': min_refund, 'valid_until': valid_until})
 
     @staticmethod
     def set_enabled(enabled: 'bool') -> Call:

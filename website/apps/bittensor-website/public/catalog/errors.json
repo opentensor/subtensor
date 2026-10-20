@@ -777,15 +777,6 @@
         }
       ]
     },
-    "BelowMinimumProceeds": {
-      "code": "invalid_argument",
-      "description": "The additional short's opening value is below the caller's minimum. Requote the opening or increase; the failed call moves no assets.",
-      "docs_url": "/docs/errors/chain/BelowMinimumProceeds",
-      "markdown_url": "/llms.mdx/docs/errors/chain/BelowMinimumProceeds/content.md",
-      "pallets": [
-        "Lending"
-      ]
-    },
     "BelowMinimumRefund": {
       "code": "invalid_argument",
       "description": "The remaining collateral refund is below the caller's minimum. Requote after accrued interest.",
@@ -1650,6 +1641,32 @@
         "SafeMode"
       ]
     },
+    "CustodyHotkey": {
+      "code": "invalid_argument",
+      "description": "Third-party stake onto the lending custody hotkey is rejected.",
+      "docs_url": "/docs/errors/chain/CustodyHotkey",
+      "markdown_url": "/llms.mdx/docs/errors/chain/CustodyHotkey/content.md",
+      "pallets": [
+        "SubtensorModule",
+        "Lending"
+      ],
+      "sources": [
+        {
+          "pallet": "SubtensorModule",
+          "path": "pallets/subtensor/src/macros/errors.rs",
+          "line": 458,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L458",
+          "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
+        },
+        {
+          "pallet": "Lending",
+          "path": "pallets/lending/src/lib.rs",
+          "line": 820,
+          "url": "/code/pallets/lending/src/lib.rs#L820",
+          "raw_url": "/code/raw/pallets/lending/src/lib.rs"
+        }
+      ]
+    },
     "CustodyUnavailable": {
       "code": "internal",
       "description": "The lending custody hotkey is unavailable. Governance or runtime maintenance must restore it.",
@@ -1675,6 +1692,24 @@
       "markdown_url": "/llms.mdx/docs/errors/chain/DeadAccount/content.md",
       "pallets": [
         "Balances"
+      ]
+    },
+    "DeadlinePassed": {
+      "code": "expired",
+      "description": "The extrinsic's valid_until block has passed. Resubmit with a later deadline.",
+      "docs_url": "/docs/errors/chain/DeadlinePassed",
+      "markdown_url": "/llms.mdx/docs/errors/chain/DeadlinePassed/content.md",
+      "pallets": [
+        "Lending"
+      ],
+      "sources": [
+        {
+          "pallet": "Lending",
+          "path": "pallets/lending/src/lib.rs",
+          "line": 812,
+          "url": "/code/pallets/lending/src/lib.rs#L812",
+          "raw_url": "/code/raw/pallets/lending/src/lib.rs"
+        }
       ]
     },
     "DecodingFailed": {
@@ -5122,24 +5157,6 @@
         }
       ]
     },
-    "RaiseDeadlinePassed": {
-      "code": "expired",
-      "description": "The raise's valid_until block has passed. Resubmit with a later deadline.",
-      "docs_url": "/docs/errors/chain/RaiseDeadlinePassed",
-      "markdown_url": "/llms.mdx/docs/errors/chain/RaiseDeadlinePassed/content.md",
-      "pallets": [
-        "Lending"
-      ]
-    },
-    "RaiseSlippage": {
-      "code": "insufficient_liquidity",
-      "description": "The raise sale returned less free TAO than --min-tao-out. Requote lending_raise_quote and widen slippage or reduce size.",
-      "docs_url": "/docs/errors/chain/RaiseSlippage",
-      "markdown_url": "/llms.mdx/docs/errors/chain/RaiseSlippage/content.md",
-      "pallets": [
-        "Lending"
-      ]
-    },
     "RandomSubjectTooLong": {
       "code": "limit_exceeded",
       "description": "The subject buffer given to the deprecated `seal_random` API exceeds the schedule's `subject_len` limit. Shorten the randomness subject the contract passes or check the schedule's limits section.",
@@ -5635,6 +5652,24 @@
         "Multisig"
       ]
     },
+    "SlippageExceeded": {
+      "code": "insufficient_liquidity",
+      "description": "A forced trade missed the caller min-out / max-payment limit (open, raise, close, or repay). Requote and widen slippage or reduce size.",
+      "docs_url": "/docs/errors/chain/SlippageExceeded",
+      "markdown_url": "/llms.mdx/docs/errors/chain/SlippageExceeded/content.md",
+      "pallets": [
+        "Lending"
+      ],
+      "sources": [
+        {
+          "pallet": "Lending",
+          "path": "pallets/lending/src/lib.rs",
+          "line": 810,
+          "url": "/code/pallets/lending/src/lib.rs#L810",
+          "raw_url": "/code/raw/pallets/lending/src/lib.rs"
+        }
+      ]
+    },
     "SlippageTooHigh": {
       "code": "insufficient_liquidity",
       "description": "A stake, unstake, or move would move the price past the slippage-protection limit (default 5% tolerance). Retry, raise `--rate-tolerance`, or disable protection with `--no-slippage-protection`; check the current price with `btcli subnets price`.",
@@ -5884,6 +5919,24 @@
           "line": 177,
           "url": "/code/pallets/subtensor/src/macros/errors.rs#L177",
           "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
+        }
+      ]
+    },
+    "SubnetTooNew": {
+      "code": "invalid_argument",
+      "description": "The subnet has not cleared the new-subnet gate (start call, minimum age, warm refs).",
+      "docs_url": "/docs/errors/chain/SubnetTooNew",
+      "markdown_url": "/llms.mdx/docs/errors/chain/SubnetTooNew/content.md",
+      "pallets": [
+        "Lending"
+      ],
+      "sources": [
+        {
+          "pallet": "Lending",
+          "path": "pallets/lending/src/lib.rs",
+          "line": 818,
+          "url": "/code/pallets/lending/src/lib.rs#L818",
+          "raw_url": "/code/raw/pallets/lending/src/lib.rs"
         }
       ]
     },

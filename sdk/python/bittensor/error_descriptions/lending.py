@@ -68,17 +68,17 @@ DESCRIPTIONS: dict[str, str] = {
         "Unlocked alpha on the hotkey is below collateral plus the raise sale amount. Stake "
         "more alpha or reduce --sell / collateral."
     ),
-    "RaiseSlippage": (
-        "The raise sale returned less free TAO than --min-tao-out. Requote lending_raise_quote "
-        "and widen slippage or reduce size."
+    "SlippageExceeded": (
+        "A forced trade missed the caller min-out / max-payment limit (open, raise, close, or "
+        "repay). Requote and widen slippage or reduce size."
     ),
-    "RaiseDeadlinePassed": (
-        "The raise's valid_until block has passed. Resubmit with a later deadline."
+    "DeadlinePassed": (
+        "The extrinsic's valid_until block has passed. Resubmit with a later deadline."
     ),
-    "BelowMinimumProceeds": (
-        "The additional short's opening value is below the caller's minimum. Requote the "
-        "opening or increase; the failed call moves no assets."
+    "SubnetTooNew": (
+        "The subnet has not cleared the new-subnet gate (start call, minimum age, warm refs)."
     ),
+    "CustodyHotkey": ("Third-party stake onto the lending custody hotkey is rejected."),
     "ConflictingSizing": (
         "Provide exactly one of collateral or borrow amount for a raise, not both and not neither."
     ),
