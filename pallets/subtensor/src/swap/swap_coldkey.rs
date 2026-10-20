@@ -598,7 +598,13 @@ impl<T: Config> Pallet<T> {
                 Self::transfer_all_tao_and_kill(old_coldkey, new_coldkey)?;
 
                 // Owner identity continuity for indexers / coldkey-keyed policy.
-                Self::record_coldkey_swap_lineage(old_coldkey, new_coldkey);
+                // Only on a rename onto a fresh key: recording lineage on a merge
+                // into an already-used destination would overwrite ColdkeyRoot and
+                // let an unsolicited source claim same_coldkey_lineage with the
+                // victim without destination authorization.
+                if !dest_in_use {
+                    Self::record_coldkey_swap_lineage(old_coldkey, new_coldkey);
+                }
 
                 Self::deposit_event(Event::ColdkeySwapped {
                     old_coldkey: old_coldkey.clone(),
