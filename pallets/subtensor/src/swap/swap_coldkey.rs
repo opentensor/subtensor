@@ -379,9 +379,17 @@ impl<T: Config> Pallet<T> {
     /// Stops one past the owned-row cap **or** the total-queue scan cap so
     /// work cannot grow with unrelated accounts' registrations. Returns
     /// `(owned, queue_entries_scanned)`.
+    ///
+    /// Uses [`StorageValue::decode_len`] before `get()` so an oversized queue
+    /// fails closed without SCALE-decoding every entry (Auditor fid:185b04ac).
     fn coldkey_pending_registrations_bounded(coldkey: &T::AccountId) -> (u32, u32) {
         let owned_limit = crate::MAX_COLDKEY_SWAP_PENDING_REGISTRATIONS.saturating_add(1);
         let scan_limit = crate::MAX_COLDKEY_SWAP_REGISTRATION_QUEUE_SCAN.saturating_add(1);
+        // Length prefix only — do not allocate/decode the Vec when oversize.
+        let encoded_len = NetworkRegistrationQueue::<T>::decode_len().unwrap_or(0) as u32;
+        if encoded_len >= scan_limit {
+            return (0, scan_limit);
+        }
         let mut owned = 0u32;
         let mut scanned = 0u32;
         for info in NetworkRegistrationQueue::<T>::get() {
@@ -789,6 +797,13 @@ impl<T: Config> Pallet<T> {
         if old_coldkey == new_coldkey {
             return Ok(());
         }
+        // Refuse before `try_mutate` loads/decodes the Vec when the length
+        // prefix alone already exceeds the scan cap (Auditor fid:185b04ac).
+        let encoded_len = NetworkRegistrationQueue::<T>::decode_len().unwrap_or(0) as u32;
+        ensure!(
+            encoded_len <= crate::MAX_COLDKEY_SWAP_REGISTRATION_QUEUE_SCAN,
+            Error::<T>::ColdkeySwapTooHeavy
+        );
         NetworkRegistrationQueue::<T>::try_mutate(|queue| -> DispatchResult {
             ensure!(
                 (queue.len() as u32) <= crate::MAX_COLDKEY_SWAP_REGISTRATION_QUEUE_SCAN,

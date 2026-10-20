@@ -3651,6 +3651,42 @@ fn test_swap_rejects_oversized_registration_queue_dominated_by_unrelated() {
     });
 }
 
+/// Oversized queue is rejected from the length prefix alone — admission must
+/// not SCALE-decode the Vec body (Auditor fid:185b04ac).
+#[test]
+fn test_swap_rejects_oversized_registration_queue_via_decode_len_without_body() {
+    new_test_ext(1).execute_with(|| {
+        use codec::{Compact, Encode};
+        use frame_support::storage::unhashed;
+
+        let old = U256::from(1);
+        let dest = U256::from(2);
+        // Compact length ≫ cap, but no element body. `get()` would fail to
+        // decode; `decode_len` alone must drive the TooHeavy refusal.
+        let huge = MAX_COLDKEY_SWAP_REGISTRATION_QUEUE_SCAN.saturating_mul(40);
+        assert!(huge > MAX_COLDKEY_SWAP_REGISTRATION_QUEUE_SCAN.saturating_add(1));
+        unhashed::put_raw(
+            NetworkRegistrationQueue::<Test>::hashed_key().as_ref(),
+            &Compact(huge).encode(),
+        );
+        assert_eq!(
+            NetworkRegistrationQueue::<Test>::decode_len(),
+            Some(huge as usize)
+        );
+
+        let err = SubtensorModule::do_swap_coldkey_tracked(&old, &dest).expect_err("too heavy");
+        let (done, dispatch_err) = err;
+        assert_eq!(dispatch_err, Error::<Test>::ColdkeySwapTooHeavy.into());
+        let bare = <Test as frame_system::Config>::DbWeight::get().reads(4);
+        assert!(
+            done.ref_time() > bare.ref_time(),
+            "decode_len refusal must still charge the queue-scan sentinel: done={}, bare={}",
+            done.ref_time(),
+            bare.ref_time()
+        );
+    });
+}
+
 #[test]
 fn test_swap_failure_weight_grows_with_destination_lock_scan() {
     new_test_ext(1).execute_with(|| {
