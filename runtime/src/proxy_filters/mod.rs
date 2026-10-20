@@ -133,7 +133,6 @@ pub(crate) fn proxy_type_filter(proxy_type: &ProxyType, call: &RuntimeCall) -> b
         ProxyType::RootClaim => RootClaimCalls::contains(call),
         ProxyType::BasketTrading => BasketTradingCalls::contains(call),
         ProxyType::SudoUncheckedSetCode => SudoSetCodeCalls::contains(call),
-        ProxyType::Validate => ValidateCalls::contains(call),
         ProxyType::Triumvirate
         | ProxyType::Senate
         | ProxyType::Governance
@@ -168,8 +167,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 | ProxyType::ChildKeys
                 | ProxyType::SwapHotkey
                 | ProxyType::SubnetLeaseBeneficiary
-                | ProxyType::RootClaim
-                | ProxyType::Validate,
+                | ProxyType::RootClaim,
             ) => true,
             (ProxyType::Transfer, ProxyType::SmallTransfer) => true,
             _ => false,
@@ -202,7 +200,6 @@ fn proxy_filter_mode(proxy_type: ProxyType) -> FilterMode {
         ProxyType::RootClaim => FilterMode::Allow(RootClaimCalls::call_infos()),
         ProxyType::BasketTrading => FilterMode::Allow(BasketTradingCalls::call_infos()),
         ProxyType::SudoUncheckedSetCode => FilterMode::Allow(SudoSetCodeCalls::call_infos()),
-        ProxyType::Validate => FilterMode::Allow(ValidateCalls::call_infos()),
         ProxyType::Triumvirate
         | ProxyType::Senate
         | ProxyType::Governance
@@ -692,7 +689,6 @@ mod tests {
             ProxyType::SwapHotkey,
             ProxyType::SubnetLeaseBeneficiary,
             ProxyType::RootClaim,
-            ProxyType::Validate,
         ]
         .into_iter()
         .collect::<BTreeSet<_>>();
@@ -823,27 +819,6 @@ mod tests {
         assert_eq!(
             allowed_calls(ProxyType::SudoUncheckedSetCode),
             expected(&["Sudo::sudo_unchecked_weight"])
-        );
-        assert_eq!(
-            allowed_calls(ProxyType::Validate),
-            expected(&[
-                "Commitments::set_commitment",
-                "SubtensorModule::associate_evm_key",
-                "SubtensorModule::batch_commit_weights",
-                "SubtensorModule::batch_reveal_weights",
-                "SubtensorModule::batch_set_weights",
-                "SubtensorModule::commit_crv3_mechanism_weights",
-                "SubtensorModule::commit_mechanism_weights",
-                "SubtensorModule::commit_timelocked_mechanism_weights",
-                "SubtensorModule::commit_timelocked_weights",
-                "SubtensorModule::commit_weights",
-                "SubtensorModule::reveal_mechanism_weights",
-                "SubtensorModule::reveal_weights",
-                "SubtensorModule::serve_axon",
-                "SubtensorModule::serve_axon_tls",
-                "SubtensorModule::set_mechanism_weights",
-                "SubtensorModule::set_weights",
-            ])
         );
     }
 
