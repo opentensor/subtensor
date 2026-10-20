@@ -446,12 +446,6 @@ impl ProxyInterface<U256> for FakeProxier {
         Ok(())
     }
 
-    fn transfer_delegator_proxies(_from: &AccountId, _to: &AccountId) -> DispatchResult {
-        Ok(())
-    }
-
-    fn clear_delegator_proxies(_delegator: &AccountId) {}
-
     fn has_delegator_proxies(_delegator: &AccountId) -> bool {
         false
     }

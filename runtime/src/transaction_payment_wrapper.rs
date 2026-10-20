@@ -353,7 +353,7 @@ mod tests {
     use super::ChargeTransactionPaymentWrapper;
     use crate::{
         BuildStorage, NORMAL_DISPATCH_BASE_PRIORITY, OPERATIONAL_DISPATCH_PRIORITY, Proxy, Runtime,
-        RuntimeCall, RuntimeGenesisConfig, RuntimeOrigin, SubtensorModule, System, SystemCall,
+        RuntimeCall, RuntimeGenesisConfig, RuntimeOrigin, System, SystemCall,
     };
     use frame_support::{
         assert_ok,
@@ -376,8 +376,6 @@ mod tests {
     const REAL_A: [u8; 32] = [2_u8; 32];
     const REAL_B: [u8; 32] = [3_u8; 32];
     const OTHER: [u8; 32] = [4_u8; 32];
-    /// Blank rename target: never genesis-funded, so source proxies may follow.
-    const BLANK: [u8; 32] = [5_u8; 32];
     const BALANCE: TaoBalance = TaoBalance::new(1_000_000_000_000_u64);
 
     fn new_test_ext() -> sp_io::TestExternalities {
@@ -412,9 +410,6 @@ mod tests {
     }
     fn other() -> AccountId {
         AccountId::from(OTHER)
-    }
-    fn blank() -> AccountId {
-        AccountId::from(BLANK)
     }
 
     // -- Call builders --
@@ -1182,81 +1177,6 @@ mod tests {
                 declared.proof_size() >= expected_reads.proof_size(),
                 "declared={declared:?} expected at least {expected_reads:?}"
             );
-        });
-    }
-
-    #[test]
-    fn coldkey_swap_moves_real_pays_fee_consent_for_nested_proxy() {
-        // After #3267 merge + proxy transfer, RealPaysFee keyed by the source
-        // coldkey must follow onto a blank rename destination so nested fee
-        // redirection cannot charge an account that never opted in under the
-        // new key.
-        new_test_ext().execute_with(|| {
-            add_proxy(&real_a(), &signer());
-            enable_real_pays_fee(&real_a(), &signer());
-            add_proxy(&other(), &real_a());
-            enable_real_pays_fee(&other(), &real_a());
-
-            assert_ok!(SubtensorModule::do_swap_coldkey(&real_a(), &blank()));
-
-            // Consent lived on real_a; after swap it must live on blank.
-            assert!(!Proxy::is_real_pays_fee(&real_a(), &signer()));
-            assert!(Proxy::is_real_pays_fee(&blank(), &signer()));
-            // Nested hop other→real_a is unchanged (other was not swapped).
-            assert!(Proxy::is_real_pays_fee(&other(), &real_a()));
-
-            // Proxy grant also moved: signer is now a proxy of blank.
-            assert!(Proxy::find_proxy(&blank(), &signer(), Some(ProxyType::Any)).is_ok());
-            assert!(Proxy::find_proxy(&real_a(), &signer(), Some(ProxyType::Any)).is_err());
-
-            // Fee chain signer→blank stops there: the next hop still names
-            // real_a as delegate, which no longer matches the moved grant.
-            let call = proxy_call(blank(), proxy_call(other(), call_remark()));
-            let (_, val) = validate_call(RuntimeOrigin::signed(signer()), &call).unwrap();
-            assert_eq!(fee_payer(&val), blank());
-        });
-    }
-
-    #[test]
-    fn coldkey_swap_funded_dest_drops_source_fee_consent() {
-        // Skeptic fid:93e26a58 — funded destination (even without staking)
-        // must not inherit source RealPaysFee / proxies.
-        new_test_ext().execute_with(|| {
-            add_proxy(&real_a(), &signer());
-            enable_real_pays_fee(&real_a(), &signer());
-            add_proxy(&real_b(), &other());
-
-            assert_ok!(SubtensorModule::do_swap_coldkey(&real_a(), &real_b()));
-
-            assert!(!Proxy::is_real_pays_fee(&real_a(), &signer()));
-            assert!(!Proxy::is_real_pays_fee(&real_b(), &signer()));
-            assert!(Proxy::find_proxy(&real_b(), &signer(), Some(ProxyType::Any)).is_err());
-            assert!(Proxy::find_proxy(&real_b(), &other(), Some(ProxyType::Any)).is_ok());
-        });
-    }
-
-    #[test]
-    fn coldkey_swap_merge_into_used_dest_drops_source_fee_consent() {
-        // Skeptic fid:03ad8f72 — unsolicited merge into a staking-in-use
-        // destination must clear source RealPaysFee, not install it on the victim.
-        new_test_ext().execute_with(|| {
-            let dest_hot = AccountId::from([9_u8; 32]);
-            assert_ok!(SubtensorModule::create_account_if_non_existent(
-                &real_b(),
-                &dest_hot
-            ));
-            assert!(!pallet_subtensor::OwnedHotkeys::<Runtime>::get(real_b()).is_empty());
-
-            add_proxy(&real_a(), &signer());
-            enable_real_pays_fee(&real_a(), &signer());
-            add_proxy(&real_b(), &other());
-
-            assert_ok!(SubtensorModule::do_swap_coldkey(&real_a(), &real_b()));
-
-            assert!(!Proxy::is_real_pays_fee(&real_a(), &signer()));
-            assert!(!Proxy::is_real_pays_fee(&real_b(), &signer()));
-            assert!(Proxy::find_proxy(&real_b(), &signer(), Some(ProxyType::Any)).is_err());
-            assert!(Proxy::find_proxy(&real_b(), &other(), Some(ProxyType::Any)).is_ok());
         });
     }
 

@@ -391,8 +391,8 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Destination already has funds, proxy grants, flags, lineage, or staking
-    /// associations — so a source-only swap must not import proxies / fee
-    /// consent / auto-stake without destination authorization (Skeptic
+    /// associations — so a source-only swap must not import the source's
+    /// auto-stake policy without destination authorization (Skeptic
     /// fid:93e26a58, fid:a2c90852, fid:c135ad77). Blank rename targets return
     /// false.
     ///
@@ -665,10 +665,10 @@ impl<T: Config> Pallet<T> {
                 let record_lineage =
                     !dest_staking_in_use && !Self::coldkey_has_established_lineage(new_coldkey);
                 // Snapshot before any balance/stake moves: source-only swaps must
-                // not import proxies or auto-stake onto a destination that already
-                // has funds, grants, flags, lineage, or staking associations
-                // (Skeptic fid:93e26a58 / fid:a2c90852). Only a blank rename
-                // target imports those source policies.
+                // not import auto-stake onto a destination that already has funds,
+                // grants, flags, lineage, or staking associations (Skeptic
+                // fid:93e26a58 / fid:a2c90852). Only a blank rename target imports
+                // the source policy.
                 let import_source_policies =
                     !Self::coldkey_rejects_unsolicited_policy_import(new_coldkey);
                 // Temporary accept only on a true rename onto an empty key.
@@ -721,18 +721,9 @@ impl<T: Config> Pallet<T> {
                     AccountFlags::<T>::remove(new_coldkey);
                 }
 
-                // Proxies / RealPaysFee follow the coldkey only onto a blank
-                // rename target. Move free TAO first so the dest can reserve the
-                // proxy deposit without needing to be pre-funded. Otherwise clear
-                // the source grants so a funded / granted victim cannot inherit
-                // attacker-controlled proxies (Skeptic fid:93e26a58).
-                if import_source_policies {
-                    Self::transfer_all_tao_and_kill(old_coldkey, new_coldkey)?;
-                    T::ProxyInterface::transfer_delegator_proxies(old_coldkey, new_coldkey)?;
-                } else {
-                    T::ProxyInterface::clear_delegator_proxies(old_coldkey);
-                    Self::transfer_all_tao_and_kill(old_coldkey, new_coldkey)?;
-                }
+                // Proxy grants, announcements, and RealPaysFee stay keyed by the old
+                // coldkey: a source-only swap never moves delegation authority.
+                Self::transfer_all_tao_and_kill(old_coldkey, new_coldkey)?;
 
                 // Owner identity continuity for indexers / coldkey-keyed policy.
                 // Only on a rename onto a key with no staking associations and no

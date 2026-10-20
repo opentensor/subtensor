@@ -68,9 +68,9 @@
         "container": "SwapRuntimeApi",
         "name": "current_alpha_price_all",
         "path": "runtime/src/lib.rs",
-        "line": 2874,
-        "end_line": 2884,
-        "url": "/code/runtime/src/lib.rs#L2874-L2884",
+        "line": 2758,
+        "end_line": 2768,
+        "url": "/code/runtime/src/lib.rs#L2758-L2768",
         "raw_url": "/code/raw/runtime/src/lib.rs"
       }
     ]
@@ -932,9 +932,9 @@
         "container": "StakeInfoRuntimeApi",
         "name": "get_hotkey_conviction",
         "path": "runtime/src/lib.rs",
-        "line": 2729,
-        "end_line": 2731,
-        "url": "/code/runtime/src/lib.rs#L2729-L2731",
+        "line": 2613,
+        "end_line": 2615,
+        "url": "/code/runtime/src/lib.rs#L2613-L2615",
         "raw_url": "/code/raw/runtime/src/lib.rs"
       }
     ]
@@ -1394,9 +1394,9 @@
         "container": "StakeInfoRuntimeApi",
         "name": "get_most_convicted_hotkey_on_subnet",
         "path": "runtime/src/lib.rs",
-        "line": 2733,
-        "end_line": 2735,
-        "url": "/code/runtime/src/lib.rs#L2733-L2735",
+        "line": 2617,
+        "end_line": 2619,
+        "url": "/code/runtime/src/lib.rs#L2617-L2619",
         "raw_url": "/code/raw/runtime/src/lib.rs"
       }
     ]
@@ -1647,9 +1647,9 @@
         "container": "SwapRuntimeApi",
         "name": "sim_swap_tao_for_alpha",
         "path": "runtime/src/lib.rs",
-        "line": 2886,
-        "end_line": 2914,
-        "url": "/code/runtime/src/lib.rs#L2886-L2914",
+        "line": 2770,
+        "end_line": 2798,
+        "url": "/code/runtime/src/lib.rs#L2770-L2798",
         "raw_url": "/code/raw/runtime/src/lib.rs"
       }
     ]
@@ -1676,9 +1676,9 @@
         "container": "SwapRuntimeApi",
         "name": "sim_swap_alpha_for_tao",
         "path": "runtime/src/lib.rs",
-        "line": 2916,
-        "end_line": 2944,
-        "url": "/code/runtime/src/lib.rs#L2916-L2944",
+        "line": 2800,
+        "end_line": 2828,
+        "url": "/code/runtime/src/lib.rs#L2800-L2828",
         "raw_url": "/code/raw/runtime/src/lib.rs"
       }
     ]
@@ -1757,9 +1757,9 @@
         "container": "BetaBasketRuntimeApi",
         "name": "get_root_basket_owed",
         "path": "runtime/src/lib.rs",
-        "line": 2746,
-        "end_line": 2748,
-        "url": "/code/runtime/src/lib.rs#L2746-L2748",
+        "line": 2630,
+        "end_line": 2632,
+        "url": "/code/runtime/src/lib.rs#L2630-L2632",
         "raw_url": "/code/raw/runtime/src/lib.rs"
       }
     ]
@@ -1822,9 +1822,9 @@
         "container": "BetaBasketRuntimeApi",
         "name": "get_root_basket_total_nav",
         "path": "runtime/src/lib.rs",
-        "line": 2758,
-        "end_line": 2760,
-        "url": "/code/runtime/src/lib.rs#L2758-L2760",
+        "line": 2642,
+        "end_line": 2644,
+        "url": "/code/runtime/src/lib.rs#L2642-L2644",
         "raw_url": "/code/raw/runtime/src/lib.rs"
       }
     ]
@@ -2430,9 +2430,9 @@
         "container": "SubnetRegistrationRuntimeApi",
         "name": "get_network_registration_cost",
         "path": "runtime/src/lib.rs",
-        "line": 2739,
-        "end_line": 2741,
-        "url": "/code/runtime/src/lib.rs#L2739-L2741",
+        "line": 2623,
+        "end_line": 2625,
+        "url": "/code/runtime/src/lib.rs#L2623-L2625",
         "raw_url": "/code/raw/runtime/src/lib.rs"
       }
     ]
@@ -2466,8 +2466,8 @@
         "container": "SubtensorModule",
         "name": "InitialStartCallDelay",
         "path": "runtime/src/lib.rs",
-        "line": 1102,
-        "url": "/code/runtime/src/lib.rs#L1102",
+        "line": 986,
+        "url": "/code/runtime/src/lib.rs#L986",
         "raw_url": "/code/raw/runtime/src/lib.rs"
       }
     ]
@@ -2727,9 +2727,9 @@
         "container": "BetaBasketRuntimeApi",
         "name": "get_validator_basket_nav",
         "path": "runtime/src/lib.rs",
-        "line": 2752,
-        "end_line": 2754,
-        "url": "/code/runtime/src/lib.rs#L2752-L2754",
+        "line": 2636,
+        "end_line": 2638,
+        "url": "/code/runtime/src/lib.rs#L2636-L2638",
         "raw_url": "/code/raw/runtime/src/lib.rs"
       }
     ]
