@@ -507,14 +507,10 @@ NAME_TO_CODE: dict[str, ErrorCode] = {
     "InsufficientEscrow": _C.INSUFFICIENT_BALANCE,
     "InsufficientCollateral": _C.INSUFFICIENT_BALANCE,
     "InsufficientSellStake": _C.INSUFFICIENT_BALANCE,
-    # Pre-regen aliases (current committed bindings) + v5.3 names (post-regen).
+    # Match committed SDK bindings until the release-node regen lands v5.3 names.
     "RaiseSlippage": _C.INSUFFICIENT_LIQUIDITY,
     "RaiseDeadlinePassed": _C.EXPIRED,
     "BelowMinimumProceeds": _C.INVALID_ARGUMENT,
-    "SlippageExceeded": _C.INSUFFICIENT_LIQUIDITY,
-    "DeadlinePassed": _C.EXPIRED,
-    "SubnetTooNew": _C.INVALID_ARGUMENT,
-    "CustodyHotkey": _C.INVALID_ARGUMENT,
     "ConflictingSizing": _C.INVALID_ARGUMENT,
     "InvalidLiftParams": _C.INVALID_ARGUMENT,
     "PositionSideMismatch": _C.INVALID_ARGUMENT,

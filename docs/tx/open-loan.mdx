@@ -36,7 +36,7 @@ position per coldkey and subnet; closing repays its total principal.
 
 | Signer | Origin | Pallet | Wraps |
 | --- | --- | --- | --- |
-| `coldkey` | signed account (pallet role may apply) | Lending | [`Lending.open`](/code/pallets/lending/src/lib.rs#L799-L821), [`Lending.open_exact`](/code/pallets/lending/src/lib.rs#L824-L847) |
+| `coldkey` | signed account (pallet role may apply) | Lending | [`Lending.open`](/code/pallets/lending/src/lib.rs#L897-L923), [`Lending.open_exact`](/code/pallets/lending/src/lib.rs#L926-L953) |
 
 ## Parameters
 
@@ -95,7 +95,7 @@ result = sub.execute_tool("open_loan", {...}, wallet)
 
 ## On-chain implementation
 
-`Lending.open` — [`pallets/lending/src/lib.rs#L801`](/code/pallets/lending/src/lib.rs#L799-L821):
+`Lending.open` — [`pallets/lending/src/lib.rs#L899`](/code/pallets/lending/src/lib.rs#L897-L923):
 
 ```rust
 #[pallet::call_index(0)]
@@ -108,6 +108,8 @@ pub fn open(
     hotkey: T::AccountId,
     min_borrow: u64,
     min_proceeds: u64,
+    min_escrow_alpha: u64,
+    valid_until: BlockNumberFor<T>,
 ) -> DispatchResult {
     let owner = ensure_signed(origin)?;
     Self::do_open(
@@ -119,11 +121,13 @@ pub fn open(
         None,
         min_borrow,
         min_proceeds,
+        min_escrow_alpha,
+        valid_until,
     )
 }
 ```
 
-`Lending.open_exact` — [`pallets/lending/src/lib.rs#L826`](/code/pallets/lending/src/lib.rs#L824-L847):
+`Lending.open_exact` — [`pallets/lending/src/lib.rs#L928`](/code/pallets/lending/src/lib.rs#L926-L953):
 
 ```rust
 #[pallet::call_index(1)]
@@ -136,6 +140,8 @@ pub fn open_exact(
     hotkey: T::AccountId,
     principal: u64,
     min_proceeds: u64,
+    min_escrow_alpha: u64,
+    valid_until: BlockNumberFor<T>,
 ) -> DispatchResult {
     let owner = ensure_signed(origin)?;
     ensure!(principal > 0, Error::<T>::AmountTooSmall);
@@ -148,6 +154,8 @@ pub fn open_exact(
         Some(principal),
         principal,
         min_proceeds,
+        min_escrow_alpha,
+        valid_until,
     )
 }
 ```

@@ -20,7 +20,7 @@ Closing remains available when new borrowing is disabled.
 
 | Signer | Origin | Pallet | Wraps |
 | --- | --- | --- | --- |
-| `coldkey` | signed account (pallet role may apply) | Lending | [`Lending.close`](/code/pallets/lending/src/lib.rs#L850-L862) |
+| `coldkey` | signed account (pallet role may apply) | Lending | [`Lending.close`](/code/pallets/lending/src/lib.rs#L956-L976) |
 
 ## Parameters
 
@@ -74,7 +74,7 @@ result = sub.execute_tool("close_loan", {...}, wallet)
 
 ## On-chain implementation
 
-`Lending.close` — [`pallets/lending/src/lib.rs#L853`](/code/pallets/lending/src/lib.rs#L850-L862):
+`Lending.close` — [`pallets/lending/src/lib.rs#L959`](/code/pallets/lending/src/lib.rs#L956-L976):
 
 ```rust
 #[pallet::call_index(2)]
@@ -86,9 +86,17 @@ pub fn close(
     repay_from_wallet: bool,
     max_payment: u64,
     min_refund: u64,
+    valid_until: BlockNumberFor<T>,
 ) -> DispatchResult {
     let owner = ensure_signed(origin)?;
-    Self::do_close(owner, netuid, repay_from_wallet, max_payment, min_refund)
+    Self::do_close(
+        owner,
+        netuid,
+        repay_from_wallet,
+        max_payment,
+        min_refund,
+        valid_until,
+    )
 }
 ```
 
