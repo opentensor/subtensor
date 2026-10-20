@@ -36,4 +36,18 @@ ignore = [
     # 0383 webpki-root-certs: only a wasm32 / FreeBSD-dev dependency of
     #   rustls-platform-verifier; not part of the node build.
     "RUSTSEC-2026-0383",
+    # RUSTSEC-2026-0338 (added 2026-10-20): quinn-proto 0.11.15 via the fork QUIC/libp2p stack; fix needs >=0.11.17 — revisit on SDK bump.
+    "RUSTSEC-2026-0338",
+    # RUSTSEC-2026-0339 (added 2026-10-20): quinn-proto (same cluster as 0338).
+    "RUSTSEC-2026-0339",
+    # RUSTSEC-2026-0340 (added 2026-10-20): quinn-proto (same cluster as 0338).
+    "RUSTSEC-2026-0340",
+    # RUSTSEC-2026-0341 (added 2026-10-20): quinn-proto (same cluster as 0338).
+    "RUSTSEC-2026-0341",
+    # RUSTSEC-2026-0342 (added 2026-10-20): quinn-proto (same cluster as 0338).
+    "RUSTSEC-2026-0342",
+    # RUSTSEC-2026-0344 (added 2026-10-20): ruzstd 0.4/0.6 decompression bomb; fix needs >=0.9.1.
+    "RUSTSEC-2026-0344",
+    # RUSTSEC-2026-0363 (added 2026-10-20): wasmtime 8.0.1 component-model handle tables; same pin as other wasmtime exceptions.
+    "RUSTSEC-2026-0363",
 ]
