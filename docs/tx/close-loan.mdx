@@ -20,7 +20,7 @@ Closing remains available when new borrowing is disabled.
 
 | Signer | Origin | Pallet | Wraps |
 | --- | --- | --- | --- |
-| `coldkey` | signed account (pallet role may apply) | Lending | [`Lending.close`](/code/pallets/lending/src/lib.rs#L956-L976) |
+| `coldkey` | signed account (pallet role may apply) | Lending | [`Lending.close`](/code/pallets/lending/src/lib.rs#L975-L995) |
 
 ## Parameters
 
@@ -30,6 +30,7 @@ Closing remains available when new borrowing is disabled.
 | `max_payment` | number \| `"all"` | yes | Maximum repayment: TAO, or alpha for a wallet-repaid short. |
 | `min_refund` | number \| `"all"` | no | Minimum returned collateral: TAO for shorts, alpha for longs. |
 | `repay_from_wallet` | boolean | no | Repay short alpha from its saved hotkey; false buys with collateral. |
+| `valid_until` | integer | no | Latest block number that may include this close. |
 
 Address parameters (`--hotkey`, `--coldkey`, `--dest`, ...) accept a raw ss58
 address, an address-book or proxy-book name, or a local wallet/hotkey name.
@@ -74,7 +75,7 @@ result = sub.execute_tool("close_loan", {...}, wallet)
 
 ## On-chain implementation
 
-`Lending.close` — [`pallets/lending/src/lib.rs#L959`](/code/pallets/lending/src/lib.rs#L956-L976):
+`Lending.close` — [`pallets/lending/src/lib.rs#L978`](/code/pallets/lending/src/lib.rs#L975-L995):
 
 ```rust
 #[pallet::call_index(2)]

@@ -36,7 +36,7 @@ position per coldkey and subnet; closing repays its total principal.
 
 | Signer | Origin | Pallet | Wraps |
 | --- | --- | --- | --- |
-| `coldkey` | signed account (pallet role may apply) | Lending | [`Lending.open`](/code/pallets/lending/src/lib.rs#L897-L923), [`Lending.open_exact`](/code/pallets/lending/src/lib.rs#L926-L953) |
+| `coldkey` | signed account (pallet role may apply) | Lending | [`Lending.open`](/code/pallets/lending/src/lib.rs#L916-L942), [`Lending.open_exact`](/code/pallets/lending/src/lib.rs#L945-L972) |
 
 ## Parameters
 
@@ -48,6 +48,8 @@ position per coldkey and subnet; closing repays its total principal.
 | `hotkey_ss58` | string | no | Hotkey receiving short alpha or holding long collateral and repayment alpha. |
 | `min_borrow` | number \| `"all"` | no | Minimum additional principal: alpha for a short, TAO for a long. |
 | `min_proceeds` | number \| `"all"` | no | Minimum additional short opening value in TAO; unused for longs. |
+| `min_escrow_alpha` | number \| `"all"` | no | Minimum escrowed alpha after a long's forced buy; unused for shorts. |
+| `valid_until` | integer | no | Latest block number that may include this open. |
 | `amount` | number \| `"all"` | no | Exact additional amount to borrow: alpha for a short, TAO for a long. |
 
 Address parameters (`--hotkey`, `--coldkey`, `--dest`, ...) accept a raw ss58
@@ -95,7 +97,7 @@ result = sub.execute_tool("open_loan", {...}, wallet)
 
 ## On-chain implementation
 
-`Lending.open` — [`pallets/lending/src/lib.rs#L899`](/code/pallets/lending/src/lib.rs#L897-L923):
+`Lending.open` — [`pallets/lending/src/lib.rs#L918`](/code/pallets/lending/src/lib.rs#L916-L942):
 
 ```rust
 #[pallet::call_index(0)]
@@ -127,7 +129,7 @@ pub fn open(
 }
 ```
 
-`Lending.open_exact` — [`pallets/lending/src/lib.rs#L928`](/code/pallets/lending/src/lib.rs#L926-L953):
+`Lending.open_exact` — [`pallets/lending/src/lib.rs#L947`](/code/pallets/lending/src/lib.rs#L945-L972):
 
 ```rust
 #[pallet::call_index(1)]

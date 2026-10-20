@@ -680,6 +680,10 @@
         "repay_from_wallet": {
           "type": "boolean",
           "description": "Repay short alpha from its saved hotkey; false buys with collateral."
+        },
+        "valid_until": {
+          "type": "integer",
+          "description": "Latest block number that may include this close."
         }
       },
       "required": [
@@ -696,9 +700,9 @@
         "pallet": "Lending",
         "call": "close",
         "path": "pallets/lending/src/lib.rs",
-        "line": 959,
-        "end_line": 976,
-        "url": "/code/pallets/lending/src/lib.rs#L956-L976",
+        "line": 978,
+        "end_line": 995,
+        "url": "/code/pallets/lending/src/lib.rs#L975-L995",
         "raw_url": "/code/raw/pallets/lending/src/lib.rs"
       }
     ]
@@ -2025,6 +2029,23 @@
           ],
           "description": "Minimum additional short opening value in TAO; unused for longs."
         },
+        "min_escrow_alpha": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string",
+              "pattern": "^\\d+(\\.\\d+)?$",
+              "description": "decimal string, for amounts too large for an exact float"
+            }
+          ],
+          "description": "Minimum escrowed alpha after a long's forced buy; unused for shorts."
+        },
+        "valid_until": {
+          "type": "integer",
+          "description": "Latest block number that may include this open."
+        },
         "amount": {
           "anyOf": [
             {
@@ -2054,18 +2075,18 @@
         "pallet": "Lending",
         "call": "open",
         "path": "pallets/lending/src/lib.rs",
-        "line": 899,
-        "end_line": 923,
-        "url": "/code/pallets/lending/src/lib.rs#L897-L923",
+        "line": 918,
+        "end_line": 942,
+        "url": "/code/pallets/lending/src/lib.rs#L916-L942",
         "raw_url": "/code/raw/pallets/lending/src/lib.rs"
       },
       {
         "pallet": "Lending",
         "call": "open_exact",
         "path": "pallets/lending/src/lib.rs",
-        "line": 928,
-        "end_line": 953,
-        "url": "/code/pallets/lending/src/lib.rs#L926-L953",
+        "line": 947,
+        "end_line": 972,
+        "url": "/code/pallets/lending/src/lib.rs#L945-L972",
         "raw_url": "/code/raw/pallets/lending/src/lib.rs"
       }
     ]
@@ -2253,6 +2274,19 @@
           ],
           "description": "Minimum free TAO from the raise sale leg."
         },
+        "min_escrow_alpha": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string",
+              "pattern": "^\\d+(\\.\\d+)?$",
+              "description": "decimal string, for amounts too large for an exact float"
+            }
+          ],
+          "description": "Minimum escrowed alpha after the long's forced buy."
+        },
         "valid_until": {
           "type": "integer",
           "description": "Latest block number that may include this raise."
@@ -2271,9 +2305,9 @@
         "pallet": "Lending",
         "call": "open_long_and_sell",
         "path": "pallets/lending/src/lib.rs",
-        "line": 982,
-        "end_line": 1010,
-        "url": "/code/pallets/lending/src/lib.rs#L979-L1010",
+        "line": 1001,
+        "end_line": 1029,
+        "url": "/code/pallets/lending/src/lib.rs#L998-L1029",
         "raw_url": "/code/raw/pallets/lending/src/lib.rs"
       }
     ]
