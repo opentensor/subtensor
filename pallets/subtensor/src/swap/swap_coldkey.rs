@@ -386,6 +386,18 @@ impl<T: Config> Pallet<T> {
         ColdkeyRoot::<T>::contains_key(coldkey)
     }
 
+    /// Destination already has funds, proxy grants, flags, lineage, or staking
+    /// associations — so a source-only swap must not import proxies / fee
+    /// consent / auto-stake without destination authorization (Skeptic
+    /// fid:93e26a58, fid:a2c90852). Blank rename targets return false.
+    fn coldkey_rejects_unsolicited_policy_import(coldkey: &T::AccountId) -> bool {
+        Self::coldkey_already_in_use(coldkey)
+            || Self::coldkey_has_configured_account_flags(coldkey)
+            || Self::coldkey_has_established_lineage(coldkey)
+            || !Self::get_coldkey_balance(coldkey).is_zero()
+            || T::ProxyInterface::has_delegator_proxies(coldkey)
+    }
+
     /// Destination has explicitly configured `AccountFlags` that must be
     /// preserved on merge even without staking associations.
     fn coldkey_has_configured_account_flags(coldkey: &T::AccountId) -> bool {
@@ -635,6 +647,13 @@ impl<T: Config> Pallet<T> {
                     dest_staking_in_use || Self::coldkey_has_configured_account_flags(new_coldkey);
                 let record_lineage =
                     !dest_staking_in_use && !Self::coldkey_has_established_lineage(new_coldkey);
+                // Snapshot before any balance/stake moves: source-only swaps must
+                // not import proxies or auto-stake onto a destination that already
+                // has funds, grants, flags, lineage, or staking associations
+                // (Skeptic fid:93e26a58 / fid:a2c90852). Only a blank rename
+                // target imports those source policies.
+                let import_source_policies =
+                    !Self::coldkey_rejects_unsolicited_policy_import(new_coldkey);
                 // Temporary accept only on a true rename onto an empty key.
                 // Destinations that already carry flags (including reject-locked)
                 // must not have those flags flipped for the lock hand-off.
@@ -651,17 +670,13 @@ impl<T: Config> Pallet<T> {
                 // Move stake by the coldkey's actual positions (not every subnet × every
                 // hotkey), then the per-subnet ownership, auto-stake and collateral state.
                 Self::transfer_coldkey_positions(old_coldkey, new_coldkey)?;
-                // Import source auto-stake only on a true rename onto an unused
-                // destination. Merges into an already-used coldkey must preserve
-                // that coldkey's unset/default reward route (Skeptic fid:5f22d507).
-                let import_auto_stake = !dest_staking_in_use;
                 for netuid in Self::get_all_subnet_netuids() {
                     Self::transfer_subnet_ownership(netuid, old_coldkey, new_coldkey);
                     Self::transfer_auto_stake_destination(
                         netuid,
                         old_coldkey,
                         new_coldkey,
-                        import_auto_stake,
+                        import_source_policies,
                     );
                     // Stake has moved; migrate the bond so unstake guards stay attached.
                     Self::transfer_coldkey_miner_collateral(netuid, old_coldkey, new_coldkey)?;
@@ -689,18 +704,18 @@ impl<T: Config> Pallet<T> {
                     AccountFlags::<T>::remove(new_coldkey);
                 }
 
-                // Proxies / RealPaysFee follow the coldkey only on a true rename
-                // onto an unused destination. Unsolicited merges must not install
-                // attacker-controlled grants on a funded victim (Skeptic
-                // fid:03ad8f72); clear the drained source instead.
-                if dest_staking_in_use {
-                    T::ProxyInterface::clear_delegator_proxies(old_coldkey);
-                } else {
+                // Proxies / RealPaysFee follow the coldkey only onto a blank
+                // rename target. Move free TAO first so the dest can reserve the
+                // proxy deposit without needing to be pre-funded. Otherwise clear
+                // the source grants so a funded / granted victim cannot inherit
+                // attacker-controlled proxies (Skeptic fid:93e26a58).
+                if import_source_policies {
+                    Self::transfer_all_tao_and_kill(old_coldkey, new_coldkey)?;
                     T::ProxyInterface::transfer_delegator_proxies(old_coldkey, new_coldkey)?;
+                } else {
+                    T::ProxyInterface::clear_delegator_proxies(old_coldkey);
+                    Self::transfer_all_tao_and_kill(old_coldkey, new_coldkey)?;
                 }
-
-                // Transfer any remaining balance from old_coldkey to new_coldkey
-                Self::transfer_all_tao_and_kill(old_coldkey, new_coldkey)?;
 
                 // Owner identity continuity for indexers / coldkey-keyed policy.
                 // Only on a rename onto a key with no staking associations and no
@@ -790,10 +805,11 @@ impl<T: Config> Pallet<T> {
     /// Transfer the auto stake destination from the old coldkey to the new coldkey if it is set.
     ///
     /// Destination wins when it already has an explicit setting. On an unsolicited
-    /// merge into an already-used coldkey (`import_source_policy == false`), an
-    /// unset destination keeps its default reward route — the source setting is
-    /// dropped, not imported (Skeptic fid:5f22d507). Renames onto unused keys
-    /// (`import_source_policy`) still carry the source policy forward.
+    /// merge into a destination that already has prior presence
+    /// (`import_source_policy == false`), an unset destination keeps its default
+    /// reward route — the source setting is dropped, not imported (Skeptic
+    /// fid:5f22d507 / fid:a2c90852). Blank rename targets still carry the source
+    /// policy forward.
     fn transfer_auto_stake_destination(
         netuid: NetUid,
         old_coldkey: &T::AccountId,

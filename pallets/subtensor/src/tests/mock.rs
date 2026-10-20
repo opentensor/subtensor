@@ -611,6 +611,10 @@ impl ProxyInterface<U256> for FakeProxier {
     }
 
     fn clear_delegator_proxies(_delegator: &AccountId) {}
+
+    fn has_delegator_proxies(_delegator: &AccountId) -> bool {
+        false
+    }
 }
 
 parameter_types! {

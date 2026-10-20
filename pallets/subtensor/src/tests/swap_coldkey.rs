@@ -2701,6 +2701,32 @@ fn test_merge_swap_does_not_import_source_auto_stake_onto_unset_dest() {
     });
 }
 
+/// Funded destination without staking associations also keeps unset auto-stake
+/// (Skeptic fid:a2c90852) — free balance alone is prior presence.
+#[test]
+fn test_funded_dest_without_staking_does_not_import_source_auto_stake() {
+    new_test_ext(1).execute_with(|| {
+        let old = U256::from(1);
+        let dest = U256::from(2);
+        let old_hot = U256::from(10);
+        let auto_old = U256::from(20);
+
+        let netuid_auto = add_dynamic_network(&old_hot, &old);
+        add_balance_to_coldkey_account(&dest, ExistentialDeposit::get() + 1_000.into());
+        assert!(!SubtensorModule::coldkey_already_in_use(&dest));
+        assert!(!SubtensorModule::get_coldkey_balance(&dest).is_zero());
+
+        AutoStakeDestination::<Test>::insert(old, netuid_auto, auto_old);
+        AutoStakeDestinationColdkeys::<Test>::insert(auto_old, netuid_auto, vec![old]);
+
+        assert_ok!(SubtensorModule::do_swap_coldkey(&old, &dest));
+
+        assert!(AutoStakeDestination::<Test>::get(old, netuid_auto).is_none());
+        assert!(AutoStakeDestination::<Test>::get(dest, netuid_auto).is_none());
+        assert!(!AutoStakeDestinationColdkeys::<Test>::get(auto_old, netuid_auto).contains(&dest));
+    });
+}
+
 #[test]
 fn test_merge_swap_destination_account_flags_win() {
     new_test_ext(1).execute_with(|| {

@@ -4062,6 +4062,8 @@ pub trait ProxyInterface<AccountId> {
     /// Used when merging into an already-used destination so source grants cannot
     /// be installed without destination authorization (Skeptic fid:03ad8f72).
     fn clear_delegator_proxies(delegator: &AccountId);
+    /// Whether `delegator` already holds any proxy grants (including reserved deposit).
+    fn has_delegator_proxies(delegator: &AccountId) -> bool;
 }
 
 impl<T> ProxyInterface<T> for () {
@@ -4078,6 +4080,10 @@ impl<T> ProxyInterface<T> for () {
     }
 
     fn clear_delegator_proxies(_: &T) {}
+
+    fn has_delegator_proxies(_: &T) -> bool {
+        false
+    }
 }
 
 /// Interface for purging commitment state when subnets or neurons are removed.

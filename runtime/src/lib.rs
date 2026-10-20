@@ -634,6 +634,12 @@ impl ProxyInterface<AccountId> for Proxier {
     fn clear_delegator_proxies(delegator: &AccountId) {
         pallet_proxy::Pallet::<Runtime>::remove_all_proxy_delegates(delegator)
     }
+
+    fn has_delegator_proxies(delegator: &AccountId) -> bool {
+        !pallet_proxy::Proxies::<Runtime>::get(delegator)
+            .0
+            .is_empty()
+    }
 }
 
 pub struct CommitmentsI;
@@ -739,9 +745,49 @@ fn lease_recovery_rolls_back_real_proxy_storage_on_a_late_failure() {
     });
 }
 
+/// Rename onto a blank (zero-balance, no grants) destination moves source
+/// proxies after free TAO is transferred so the dest can reserve the deposit.
 #[test]
 #[allow(clippy::unwrap_used)]
-fn coldkey_swap_merges_validate_proxies_keyed_by_coldkey() {
+fn coldkey_swap_rename_onto_blank_moves_proxies() {
+    use frame_support::assert_ok;
+    use sp_runtime::BuildStorage;
+
+    let old = AccountId::new([91; 32]);
+    let new = AccountId::new([92; 32]);
+    let validate_delegate = AccountId::new([93; 32]);
+    let storage = RuntimeGenesisConfig {
+        balances: pallet_balances::GenesisConfig {
+            // Destination starts blank — no free balance and no grants.
+            balances: vec![(old.clone(), 100_000_000_000u64.into())],
+            dev_accounts: None,
+        },
+        ..Default::default()
+    }
+    .build_storage()
+    .unwrap();
+    sp_io::TestExternalities::new(storage).execute_with(|| {
+        System::set_block_number(1);
+        assert_ok!(Proxy::add_proxy(
+            RuntimeOrigin::signed(old.clone()),
+            validate_delegate.clone().into(),
+            ProxyType::Validate,
+            0,
+        ));
+
+        assert_ok!(SubtensorModule::do_swap_coldkey(&old, &new));
+
+        assert!(Proxy::find_proxy(&old, &validate_delegate, Some(ProxyType::Validate)).is_err());
+        assert!(Proxy::find_proxy(&new, &validate_delegate, Some(ProxyType::Validate)).is_ok());
+        assert!(pallet_proxy::Proxies::<Runtime>::get(&old).0.is_empty());
+    });
+}
+
+/// Funded destination without staking associations still must not inherit
+/// source proxies (Skeptic fid:93e26a58).
+#[test]
+#[allow(clippy::unwrap_used)]
+fn coldkey_swap_funded_dest_without_staking_clears_source_proxies() {
     use frame_support::assert_ok;
     use sp_runtime::BuildStorage;
 
@@ -779,10 +825,10 @@ fn coldkey_swap_merges_validate_proxies_keyed_by_coldkey() {
         assert_ok!(SubtensorModule::do_swap_coldkey(&old, &new));
 
         assert!(Proxy::find_proxy(&old, &validate_delegate, Some(ProxyType::Validate)).is_err());
-        assert!(Proxy::find_proxy(&new, &validate_delegate, Some(ProxyType::Validate)).is_ok());
+        assert!(Proxy::find_proxy(&new, &validate_delegate, Some(ProxyType::Validate)).is_err());
         assert!(Proxy::find_proxy(&new, &staking_delegate, Some(ProxyType::Staking)).is_ok());
         let (proxies, _) = pallet_proxy::Proxies::<Runtime>::get(&new);
-        assert_eq!(proxies.len(), 2);
+        assert_eq!(proxies.len(), 1);
         assert!(pallet_proxy::Proxies::<Runtime>::get(&old).0.is_empty());
     });
 }
