@@ -3499,6 +3499,79 @@ fn test_announce_reserves_destination_against_third_party_hotkey_registration() 
     });
 }
 
+/// A competing legacy hash announcement must not execute into another
+/// announcer's V2-reserved destination (Skeptic fid:fb099e4c).
+#[test]
+fn test_legacy_announced_swap_cannot_merge_into_reserved_destination() {
+    new_test_ext(1).execute_with(|| {
+        let victim = U256::from(1);
+        let dest = U256::from(2);
+        let attacker = U256::from(3);
+        let attacker_hot = U256::from(4);
+        let ed = ExistentialDeposit::get();
+        let swap_cost = SubtensorModule::get_key_swap_cost();
+        let stake_amount = DefaultMinStake::<Test>::get().to_u64() * 20;
+
+        // Attacker holds locked stake they would otherwise dump onto dest.
+        let netuid = add_dynamic_network(&attacker_hot, &attacker);
+        add_balance_to_coldkey_account(
+            &attacker,
+            TaoBalance::from(stake_amount * 2) + swap_cost + ed,
+        );
+        assert_ok!(SubtensorModule::stake_into_subnet(
+            &attacker_hot,
+            &attacker,
+            netuid,
+            stake_amount.into(),
+            <Test as crate::Config>::SwapInterface::max_price(),
+            false,
+        ));
+        let now = SubtensorModule::get_current_block_as_u64();
+        SubtensorModule::insert_lock_state(
+            &attacker,
+            netuid,
+            &attacker_hot,
+            LockState {
+                locked_mass: AlphaBalance::from(stake_amount / 2),
+                conviction: U64F64::from_num(1),
+                last_update: now,
+            },
+        );
+        SubtensorModule::set_accept_locked_alpha(&attacker, true);
+
+        add_balance_to_coldkey_account(&victim, swap_cost + ed);
+        assert_ok!(SubtensorModule::announce_coldkey_swap_v2(
+            RuntimeOrigin::signed(victim),
+            dest,
+        ));
+        assert_eq!(
+            ColdkeySwapDestinationReservations::<Test>::get(dest),
+            Some(victim)
+        );
+
+        // Attacker announces the same dest via legacy hash (no reservation).
+        let dest_hash = <Test as frame_system::Config>::Hashing::hash_of(&dest);
+        assert_ok!(SubtensorModule::announce_coldkey_swap(
+            RuntimeOrigin::signed(attacker),
+            dest_hash,
+        ));
+        let (when, _) = ColdkeySwapAnnouncements::<Test>::get(attacker).expect("announced");
+        run_to_block(when + 1);
+
+        // Competing execute must fail closed on the live reservation.
+        crate::assert_noop_ignore_postinfo!(
+            SubtensorModule::swap_coldkey_announced(RuntimeOrigin::signed(attacker), dest,),
+            Error::<Test>::ColdkeySwapDestinationReserved
+        );
+        // Dest still reserved for the victim; no attacker lock landed.
+        assert_eq!(
+            ColdkeySwapDestinationReservations::<Test>::get(dest),
+            Some(victim)
+        );
+        assert!(Lock::<Test>::get((dest, netuid, attacker_hot)).is_none());
+    });
+}
+
 /// Third parties must not grow a reserved destination's stake associations
 /// during the announce delay (would trip TooHeavy / dest opt-outs at execute).
 #[test]

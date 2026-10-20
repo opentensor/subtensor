@@ -35,6 +35,8 @@ impl<T: Config> Pallet<T> {
                 .saturating_mul(u64::from(work.positions)),
         )
         .saturating_add(T::DbWeight::get().reads(u64::from(work.hotkeys).saturating_mul(3)))
+        // Live reservation check at admission/execute (maps + TTL).
+        .saturating_add(T::DbWeight::get().reads(3))
         // Destination lock path per exhausted row (Skeptic fid:bcf7b5a5):
         // admission walk, execute re-check in `swap_coldkey_locks`, and purge
         // scan each read Lock + SubnetOwnerHotkey + DecayingLock (3×3); cleanup
@@ -443,10 +445,18 @@ impl<T: Config> Pallet<T> {
         new_coldkey: &T::AccountId,
     ) -> Result<ColdkeySwapWork, (Weight, Error<T>)> {
         let precheck = || Self::coldkey_swap_failed_weight(None, false);
+        // Reservation lookup (maps + TTL) charged on every admission path.
+        let reservation_weight = T::DbWeight::get().reads(3);
         Self::ensure_beta_basket_seed_idle().map_err(|e| (precheck(), e))?;
         if Self::hotkey_account_exists(new_coldkey) {
             return Err((precheck(), Error::<T>::NewColdKeyIsHotkey));
         }
+        // Execute (and announce) must honor a live V2 reservation: only the
+        // reserving announcer may proceed. A competing legacy hash announce
+        // must not be able to merge stake/locks into the reserved destination
+        // and grief the victim with ActiveLockExists (Skeptic fid:fb099e4c).
+        Self::ensure_coldkey_swap_destination_reservable(old_coldkey, new_coldkey)
+            .map_err(|e| (precheck().saturating_add(reservation_weight), e))?;
         // Blocking locks on the destination (locked mass or residual conviction
         // above dust) cannot be merged safely with source locks, and announce
         // admission must stay read-only w.r.t. the destination — a third party
