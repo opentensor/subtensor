@@ -49,10 +49,10 @@ export async function announceColdkeySwap(
     newColdkey: KeyringPair | string
 ): Promise<void> {
     const newAddress = typeof newColdkey === "string" ? newColdkey : newColdkey.address;
-    const tx = api.tx.SubtensorModule.announce_coldkey_swap({
+    const tx = api.tx.SubtensorModule.announce_coldkey_swap_v2({
         new_coldkey: newAddress,
     });
-    await waitForTransactionWithRetry(api, tx, signer, "announce_coldkey_swap");
+    await waitForTransactionWithRetry(api, tx, signer, "announce_coldkey_swap_v2");
 }
 
 export async function swapColdkeyAnnounced(

@@ -539,6 +539,20 @@ mod pallet_benchmarks {
     fn announce_coldkey_swap() {
         let coldkey: T::AccountId = account("old_coldkey", 0, 0);
         let new_coldkey: T::AccountId = account("new_coldkey", 0, 0);
+        let new_coldkey_hash: T::Hash = <T as frame_system::Config>::Hashing::hash_of(&new_coldkey);
+
+        let ed = <T as pallet_balances::Config>::ExistentialDeposit::get();
+        let swap_cost = Subtensor::<T>::get_key_swap_cost();
+        add_balance_to_coldkey_account::<T>(&coldkey, swap_cost + ed);
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(coldkey), new_coldkey_hash);
+    }
+
+    #[benchmark]
+    fn announce_coldkey_swap_v2() {
+        let coldkey: T::AccountId = account("old_coldkey", 0, 0);
+        let new_coldkey: T::AccountId = account("new_coldkey", 0, 0);
 
         let ed = <T as pallet_balances::Config>::ExistentialDeposit::get();
         let swap_cost = Subtensor::<T>::get_key_swap_cost();
@@ -546,6 +560,20 @@ mod pallet_benchmarks {
 
         #[extrinsic_call]
         _(RawOrigin::Signed(coldkey), new_coldkey);
+    }
+
+    #[benchmark]
+    fn release_own_coldkey_swap_destination_reservation() {
+        let coldkey: T::AccountId = account("old_coldkey", 0, 0);
+        let new_coldkey: T::AccountId = account("new_coldkey", 0, 0);
+        let now = frame_system::Pallet::<T>::block_number();
+        let new_coldkey_hash: T::Hash = <T as frame_system::Config>::Hashing::hash_of(&new_coldkey);
+        ColdkeySwapAnnouncements::<T>::insert(&coldkey, (now, new_coldkey_hash));
+        ColdkeySwapDestinationReservations::<T>::insert(&new_coldkey, coldkey.clone());
+        ColdkeySwapReservedDestination::<T>::insert(&coldkey, new_coldkey.clone());
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(new_coldkey));
     }
 
     #[benchmark]

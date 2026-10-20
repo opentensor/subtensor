@@ -17,7 +17,7 @@ right call instead.
 
 | Signer | Origin | Pallet | Wraps |
 | --- | --- | --- | --- |
-| `coldkey` | signed account (pallet role may apply) | SubtensorModule | [`SubtensorModule.clear_coldkey_swap_announcement`](/code/pallets/subtensor/src/macros/dispatches.rs#L2637-L2655) |
+| `coldkey` | signed account (pallet role may apply) | SubtensorModule | [`SubtensorModule.clear_coldkey_swap_announcement`](/code/pallets/subtensor/src/macros/dispatches.rs#L2685-L2706) |
 
 ## Parameters
 
@@ -62,11 +62,14 @@ result = sub.execute_tool("clear_coldkey_swap_announcement", {...}, wallet)
 
 ## On-chain implementation
 
-`SubtensorModule.clear_coldkey_swap_announcement` — [`pallets/subtensor/src/macros/dispatches.rs#L2639`](/code/pallets/subtensor/src/macros/dispatches.rs#L2637-L2655):
+`SubtensorModule.clear_coldkey_swap_announcement` — [`pallets/subtensor/src/macros/dispatches.rs#L2690`](/code/pallets/subtensor/src/macros/dispatches.rs#L2685-L2706):
 
 ```rust
 #[pallet::call_index(133)]
-#[pallet::weight(<T as crate::pallet::Config>::WeightInfo::clear_coldkey_swap_announcement())]
+#[pallet::weight(
+    <T as crate::pallet::Config>::WeightInfo::clear_coldkey_swap_announcement()
+        .saturating_add(Pallet::<T>::coldkey_swap_reservation_release_weight())
+)]
 pub fn clear_coldkey_swap_announcement(origin: OriginFor<T>) -> DispatchResult {
     let who = ensure_signed(origin)?;
     let now = <frame_system::Pallet<T>>::block_number();
@@ -86,6 +89,6 @@ pub fn clear_coldkey_swap_announcement(origin: OriginFor<T>) -> DispatchResult {
 }
 ```
 
-Delegates to [`release_coldkey_swap_destination_reservation`](/code/pallets/subtensor/src/swap/swap_coldkey.rs#L155).
+Delegates to [`release_coldkey_swap_destination_reservation`](/code/pallets/subtensor/src/swap/swap_coldkey.rs#L179).
 
 Every file is browsable under [/code](/code) exactly as built into the runtime, or as plain text under `/code/raw/<path>` (index: [`/code/index.json`](/code/index.json)).

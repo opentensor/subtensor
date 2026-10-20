@@ -56,7 +56,7 @@ fn test_announce_coldkey_swap_works() {
 
         assert_ok!(SubtensorModule::announce_coldkey_swap(
             RuntimeOrigin::signed(who),
-            new_coldkey,
+            new_coldkey_hash,
         ));
 
         let delay = ColdkeySwapAnnouncementDelay::<Test>::get();
@@ -92,7 +92,7 @@ fn test_announce_coldkey_swap_with_existing_announcement_past_delay_works() {
 
         assert_ok!(SubtensorModule::announce_coldkey_swap(
             RuntimeOrigin::signed(who),
-            new_coldkey,
+            new_coldkey_hash,
         ));
 
         let now = System::block_number();
@@ -105,10 +105,7 @@ fn test_announce_coldkey_swap_with_existing_announcement_past_delay_works() {
         let reannouncement_delay = ColdkeySwapReannouncementDelay::<Test>::get();
         run_to_block(now + delay + reannouncement_delay);
 
-        assert_ok!(SubtensorModule::announce_coldkey_swap(
-            RuntimeOrigin::signed(who),
-            new_coldkey_2,
-        ));
+        assert_ok!(SubtensorModule::announce_coldkey_swap(RuntimeOrigin::signed(who), new_coldkey_2_hash));
 
         let now = System::block_number();
         assert_eq!(
@@ -134,7 +131,7 @@ fn test_announce_coldkey_swap_only_pays_swap_cost_if_no_announcement_exists() {
 
         assert_ok!(SubtensorModule::announce_coldkey_swap(
             RuntimeOrigin::signed(who),
-            new_coldkey,
+            new_coldkey_hash,
         ));
         assert_eq!(SubtensorModule::get_coldkey_balance(&who), ed);
 
@@ -143,10 +140,7 @@ fn test_announce_coldkey_swap_only_pays_swap_cost_if_no_announcement_exists() {
         let reannouncement_delay = ColdkeySwapReannouncementDelay::<Test>::get();
         run_to_block(now + base_delay + reannouncement_delay);
 
-        assert_ok!(SubtensorModule::announce_coldkey_swap(
-            RuntimeOrigin::signed(who),
-            new_coldkey_2,
-        ));
+        assert_ok!(SubtensorModule::announce_coldkey_swap(RuntimeOrigin::signed(who), new_coldkey_2_hash));
         assert_eq!(SubtensorModule::get_coldkey_balance(&who), ed);
     });
 }
@@ -158,12 +152,12 @@ fn test_announce_coldkey_swap_with_bad_origin_fails() {
         let new_coldkey_hash = <Test as frame_system::Config>::Hashing::hash_of(&new_coldkey);
 
         assert_noop!(
-            SubtensorModule::announce_coldkey_swap(RuntimeOrigin::none(), new_coldkey),
+            SubtensorModule::announce_coldkey_swap(RuntimeOrigin::none(), new_coldkey_hash),
             BadOrigin
         );
 
         assert_noop!(
-            SubtensorModule::announce_coldkey_swap(RuntimeOrigin::root(), new_coldkey),
+            SubtensorModule::announce_coldkey_swap(RuntimeOrigin::root(), new_coldkey_hash),
             BadOrigin
         );
     });
@@ -186,7 +180,7 @@ fn test_announce_coldkey_swap_with_existing_announcement_not_past_delay_fails() 
 
         assert_ok!(SubtensorModule::announce_coldkey_swap(
             RuntimeOrigin::signed(who),
-            new_coldkey,
+            new_coldkey_hash,
         ));
 
         let now = System::block_number();
@@ -197,7 +191,7 @@ fn test_announce_coldkey_swap_with_existing_announcement_not_past_delay_fails() 
         );
 
         assert_noop!(
-            SubtensorModule::announce_coldkey_swap(RuntimeOrigin::signed(who), new_coldkey_2,),
+            SubtensorModule::announce_coldkey_swap(RuntimeOrigin::signed(who), new_coldkey_2_hash),
             Error::<Test>::ColdkeySwapReannouncedTooEarly
         );
     });
@@ -348,6 +342,7 @@ fn test_swap_coldkey_bounded_and_priced_per_position() {
                 crate::swap::swap_coldkey::ColdkeySwapWork {
                     hotkeys: 1,
                     positions: 1,
+                    pending_registrations: 0,
                 }
             )
         );
@@ -475,7 +470,7 @@ fn test_swap_coldkey_announced_into_already_associated_coldkey_merges() {
             &source_hotkey
         ));
 
-        assert_ok!(SubtensorModule::announce_coldkey_swap(
+        assert_ok!(SubtensorModule::announce_coldkey_swap_v2(
             RuntimeOrigin::signed(who),
             new_coldkey,
         ));
@@ -879,7 +874,7 @@ fn test_announce_coldkey_swap_with_not_enough_balance_to_pay_swap_cost_fails() {
 
         // No balance to pay swap cost
         assert_noop!(
-            SubtensorModule::announce_coldkey_swap(RuntimeOrigin::signed(who), new_coldkey),
+            SubtensorModule::announce_coldkey_swap_v2(RuntimeOrigin::signed(who), new_coldkey),
             Error::<Test>::NotEnoughBalanceToPaySwapColdKey
         );
 
@@ -887,7 +882,7 @@ fn test_announce_coldkey_swap_with_not_enough_balance_to_pay_swap_cost_fails() {
         let balance = SubtensorModule::get_key_swap_cost() + ExistentialDeposit::get() - 1.into();
         add_balance_to_coldkey_account(&who, balance);
         assert_noop!(
-            SubtensorModule::announce_coldkey_swap(RuntimeOrigin::signed(who), new_coldkey),
+            SubtensorModule::announce_coldkey_swap_v2(RuntimeOrigin::signed(who), new_coldkey),
             Error::<Test>::NotEnoughBalanceToPaySwapColdKey
         );
     });
@@ -2106,7 +2101,7 @@ fn announce_coldkey_swap(who: U256, new_coldkey: U256) {
     let swap_cost = SubtensorModule::get_key_swap_cost();
     add_balance_to_coldkey_account(&who, ed + swap_cost);
 
-    assert_ok!(SubtensorModule::announce_coldkey_swap(
+    assert_ok!(SubtensorModule::announce_coldkey_swap_v2(
         RuntimeOrigin::signed(who),
         new_coldkey,
     ));
@@ -2762,7 +2757,7 @@ fn test_announce_rejects_hotkey_destination_before_fee() {
         let before = SubtensorModule::get_coldkey_balance(&who);
 
         assert_noop!(
-            SubtensorModule::announce_coldkey_swap(RuntimeOrigin::signed(who), hotkey),
+            SubtensorModule::announce_coldkey_swap_v2(RuntimeOrigin::signed(who), hotkey),
             Error::<Test>::NewColdKeyIsHotkey
         );
         assert_eq!(SubtensorModule::get_coldkey_balance(&who), before);
@@ -2794,7 +2789,7 @@ fn test_announce_rejects_destination_with_active_lock_before_fee() {
         let before = SubtensorModule::get_coldkey_balance(&who);
 
         assert_noop!(
-            SubtensorModule::announce_coldkey_swap(RuntimeOrigin::signed(who), dest),
+            SubtensorModule::announce_coldkey_swap_v2(RuntimeOrigin::signed(who), dest),
             Error::<Test>::ActiveLockExists
         );
         assert_eq!(SubtensorModule::get_coldkey_balance(&who), before);
@@ -2987,7 +2982,7 @@ fn test_announce_rejects_dest_opt_outs_before_fee() {
         let before = SubtensorModule::get_coldkey_balance(&who);
 
         assert_noop!(
-            SubtensorModule::announce_coldkey_swap(RuntimeOrigin::signed(who), dest),
+            SubtensorModule::announce_coldkey_swap_v2(RuntimeOrigin::signed(who), dest),
             Error::<Test>::AccountRejectsStakingHotkeyGrowth
         );
         assert_eq!(SubtensorModule::get_coldkey_balance(&who), before);
@@ -3050,7 +3045,7 @@ fn test_announced_swap_preserves_announcement_when_dest_opts_out_after_announce(
         let ed = ExistentialDeposit::get();
         add_balance_to_coldkey_account(&who, swap_cost + ed);
 
-        assert_ok!(SubtensorModule::announce_coldkey_swap(
+        assert_ok!(SubtensorModule::announce_coldkey_swap_v2(
             RuntimeOrigin::signed(who),
             dest,
         ));
@@ -3243,7 +3238,7 @@ fn test_announce_reserves_destination_against_third_party_hotkey_registration() 
         add_balance_to_coldkey_account(&attacker_cold, swap_cost + ed);
         add_balance_to_coldkey_account(&attacker, swap_cost + ed);
 
-        assert_ok!(SubtensorModule::announce_coldkey_swap(
+        assert_ok!(SubtensorModule::announce_coldkey_swap_v2(
             RuntimeOrigin::signed(who),
             dest,
         ));
@@ -3264,7 +3259,7 @@ fn test_announce_reserves_destination_against_third_party_hotkey_registration() 
         // (refused before the fee, so attacker's balance is untouched).
         let attacker_before = SubtensorModule::get_coldkey_balance(&attacker);
         assert_noop!(
-            SubtensorModule::announce_coldkey_swap(RuntimeOrigin::signed(attacker), dest,),
+            SubtensorModule::announce_coldkey_swap_v2(RuntimeOrigin::signed(attacker), dest,),
             Error::<Test>::ColdkeySwapDestinationReserved
         );
         assert_eq!(
@@ -3312,7 +3307,7 @@ fn test_swap_hotkey_refuses_reserved_coldkey_swap_destination() {
             &attacker_hot
         ));
 
-        assert_ok!(SubtensorModule::announce_coldkey_swap(
+        assert_ok!(SubtensorModule::announce_coldkey_swap_v2(
             RuntimeOrigin::signed(who),
             dest,
         ));
@@ -3344,7 +3339,7 @@ fn test_destination_can_release_coldkey_swap_reservation() {
         add_balance_to_coldkey_account(&attacker, swap_cost + ed);
         add_balance_to_coldkey_account(&victim_dest, ed);
 
-        assert_ok!(SubtensorModule::announce_coldkey_swap(
+        assert_ok!(SubtensorModule::announce_coldkey_swap_v2(
             RuntimeOrigin::signed(attacker),
             victim_dest,
         ));
@@ -3374,7 +3369,7 @@ fn test_destination_can_release_coldkey_swap_reservation() {
         assert!(ColdkeySwapAnnouncements::<Test>::contains_key(attacker));
         let other = U256::from(7);
         add_balance_to_coldkey_account(&other, swap_cost + ed);
-        assert_ok!(SubtensorModule::announce_coldkey_swap(
+        assert_ok!(SubtensorModule::announce_coldkey_swap_v2(
             RuntimeOrigin::signed(other),
             victim_dest,
         ));
@@ -3399,7 +3394,7 @@ fn test_coldkey_swap_destination_reservation_expires() {
         add_balance_to_coldkey_account(&who, swap_cost + ed);
         add_balance_to_coldkey_account(&other, swap_cost + ed);
 
-        assert_ok!(SubtensorModule::announce_coldkey_swap(
+        assert_ok!(SubtensorModule::announce_coldkey_swap_v2(
             RuntimeOrigin::signed(who),
             dest,
         ));
@@ -3420,6 +3415,111 @@ fn test_coldkey_swap_destination_reservation_expires() {
         ));
         assert!(!ColdkeySwapDestinationReservations::<Test>::contains_key(
             dest
+        ));
+    });
+}
+
+/// Pending network-registration escrow follows the queue `lock_id` only —
+/// never a global escrow map scan (Auditor: unbounded registration cost).
+#[test]
+fn test_merge_swap_rewrites_pending_registration_via_queue_lock_id() {
+    new_test_ext(1).execute_with(|| {
+        let old = U256::from(1);
+        let dest = U256::from(2);
+        let hotkey = U256::from(3);
+        let lock_id = 7u32;
+        let amount = TaoBalance::from(1_000_000_u64);
+
+        NetworkRegistrationQueue::<Test>::put(vec![crate::subnets::subnet::NetworkRegistrationInfo {
+            coldkey: old,
+            hotkey,
+            mechid: 0,
+            identity: None,
+            lock_amount: amount,
+            median_subnet_alpha_price: Default::default(),
+            registration_block: 1,
+            lock_id,
+        }]);
+        NetworkRegistrationEscrow::<Test>::insert(lock_id, (old, amount));
+        // Unrelated escrow row must stay untouched (proves we do not iter-all).
+        NetworkRegistrationEscrow::<Test>::insert(99u32, (U256::from(9), amount));
+
+        assert_ok!(SubtensorModule::do_swap_coldkey(&old, &dest));
+
+        let queue = NetworkRegistrationQueue::<Test>::get();
+        assert_eq!(queue.len(), 1);
+        assert_eq!(queue[0].coldkey, dest);
+        assert_eq!(
+            NetworkRegistrationEscrow::<Test>::get(lock_id),
+            Some((dest, amount))
+        );
+        assert_eq!(
+            NetworkRegistrationEscrow::<Test>::get(99u32),
+            Some((U256::from(9), amount))
+        );
+    });
+}
+
+/// Opt-out failures after admission still charge the work already scanned
+/// (Auditor: do not refund admission on AccountRejects*).
+#[test]
+fn test_swap_failure_charges_admission_work_on_dest_opt_out() {
+    new_test_ext(1).execute_with(|| {
+        let old = U256::from(1);
+        let dest = U256::from(2);
+        let source_hot = U256::from(3);
+        let dest_hot = U256::from(4);
+
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &old, &source_hot
+        ));
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &dest, &dest_hot
+        ));
+        assert_ok!(SubtensorModule::set_reject_staking_hotkey_growth(
+            RuntimeOrigin::signed(dest),
+            true,
+        ));
+
+        let err = SubtensorModule::do_swap_coldkey_tracked(&old, &dest).expect_err("opt-out");
+        let (done, dispatch_err) = err;
+        assert_eq!(
+            dispatch_err,
+            Error::<Test>::AccountRejectsStakingHotkeyGrowth.into()
+        );
+        // Must charge more than the bare precheck (4 reads) — admission scanned
+        // both sides before the opt-out refusal.
+        let bare = frame_support::weights::Weight::from_parts(0, 0)
+            .saturating_add(<Test as frame_system::Config>::DbWeight::get().reads(4));
+        assert!(done.all_gte(bare));
+        assert!(done.ref_time() > bare.ref_time());
+    });
+}
+
+/// Legacy hash announce preserves commitment secrecy (no cleartext dest /
+/// reservation); V2 remains the validated+reserved path.
+#[test]
+fn test_legacy_hash_announce_does_not_reserve_destination() {
+    new_test_ext(1).execute_with(|| {
+        let who = U256::from(1);
+        let dest = U256::from(2);
+        let hash = <Test as frame_system::Config>::Hashing::hash_of(&dest);
+        let ed = ExistentialDeposit::get();
+        let swap_cost = SubtensorModule::get_key_swap_cost();
+        add_balance_to_coldkey_account(&who, swap_cost + ed);
+
+        assert_ok!(SubtensorModule::announce_coldkey_swap(
+            RuntimeOrigin::signed(who),
+            hash,
+        ));
+        assert!(ColdkeySwapReservedDestination::<Test>::get(who).is_none());
+        assert!(!ColdkeySwapDestinationReservations::<Test>::contains_key(
+            dest
+        ));
+        // Destination can still be claimed as a hotkey under the legacy path.
+        let other = U256::from(3);
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &other, &dest
         ));
     });
 }

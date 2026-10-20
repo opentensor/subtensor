@@ -2,10 +2,12 @@
 
 The safe, non-deprecated flow is two steps:
 
-  1. ``announce_coldkey_swap`` publishes the destination coldkey (validated
-     before the fee is charged) and records the block at which the swap
-     becomes executable (now + the chain's announcement delay). The on-chain
-     announcement stores the BlakeTwo256 hash of that key.
+  1. ``announce_coldkey_swap`` publishes the cleartext destination via
+     ``announce_coldkey_swap_v2`` (validated and reserved before the fee) and
+     records the block at which the swap becomes executable (now + the chain's
+     announcement delay). The on-chain announcement stores the BlakeTwo256
+     hash of that key. The legacy hash-only ``announce_coldkey_swap`` extrinsic
+     remains available for raw callers that must keep the destination secret.
   2. after that delay, ``swap_coldkey_announced`` reveals/confirms the new
      coldkey and performs the swap (merging into the destination if it is
      already in use).
@@ -53,18 +55,18 @@ class AnnounceColdkeySwap(Intent):
 
     op = "announce_coldkey_swap"
     signer = "coldkey"
-    wraps = (("SubtensorModule", "announce_coldkey_swap"),)
+    wraps = (("SubtensorModule", "announce_coldkey_swap_v2"),)
 
     new_coldkey_ss58: str = field(
         metadata={
             "help": "Coldkey that will take over everything this coldkey owns once the "
-            "swap executes; validated before the announcement fee is charged."
+            "swap executes; validated and reserved before the announcement fee is charged."
         }
     )
 
     async def build(self, substrate, wallet: Any):
         return await substrate.compose(
-            calls.SubtensorModule.announce_coldkey_swap(new_coldkey=self.new_coldkey_ss58)
+            calls.SubtensorModule.announce_coldkey_swap_v2(new_coldkey=self.new_coldkey_ss58)
         )
 
     def summary(self) -> str:

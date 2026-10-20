@@ -393,6 +393,7 @@ call_filter_group!(
         RuntimeCall::SubtensorModule(SubtensorCall::schedule_swap_coldkey),
         RuntimeCall::SubtensorModule(SubtensorCall::swap_coldkey),
         RuntimeCall::SubtensorModule(SubtensorCall::announce_coldkey_swap),
+        RuntimeCall::SubtensorModule(SubtensorCall::announce_coldkey_swap_v2),
         RuntimeCall::SubtensorModule(SubtensorCall::swap_coldkey_announced),
         RuntimeCall::SubtensorModule(SubtensorCall::clear_coldkey_swap_announcement),
         RuntimeCall::SubtensorModule(SubtensorCall::dispute_coldkey_swap),

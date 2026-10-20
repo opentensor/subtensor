@@ -118,6 +118,9 @@ pub const MAX_COLDKEY_SWAP_HOTKEYS: u32 = MAX_STAKING_HOTKEYS;
 /// quarters of the normal block budget) and refunds the rest post-dispatch. Four production
 /// coldkeys exceed it today.
 pub const MAX_COLDKEY_SWAP_POSITIONS: u32 = 1024;
+/// Most pending network-registration queue rows one coldkey swap rewrites.
+/// Escrow is updated only via those queue `lock_id`s (no global escrow scan).
+pub const MAX_COLDKEY_SWAP_PENDING_REGISTRATIONS: u32 = 32;
 /// Most subnet legs one `unstake_all` / `unstake_all_alpha` call will validate or
 /// unstake. Each successful leg is one `remove_stake` plus a [`MAX_STAKING_HOTKEYS`]
 /// walk (~9.3e10 ref-time at RocksDbWeight). The normal-class `max_extrinsic` is

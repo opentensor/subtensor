@@ -2384,26 +2384,70 @@ mod dispatches {
             Ok(())
         }
 
-        /// Announces a coldkey swap using BlakeTwo256 hash of the new coldkey.
+        /// Announces a coldkey swap using the BlakeTwo256 hash of the new coldkey.
         ///
-        /// This is required before the coldkey swap can be performed
-        /// after the delay period.
+        /// Legacy commitment path: keeps the destination secret until
+        /// `swap_coldkey_announced` reveals it. Does **not** validate or reserve
+        /// the destination (that requires cleartext — use
+        /// [`Self::announce_coldkey_swap_v2`]). Prefer V2 for merges into
+        /// already-used destinations and for pre-fee admission checks.
         ///
-        /// It can be reannounced after a delay of `ColdkeySwapReannouncementDelay` following
-        /// the first valid execution block of the original announcement.
+        /// It can be reannounced after a delay of `ColdkeySwapReannouncementDelay`
+        /// following the first valid execution block of the original announcement.
         ///
-        /// The dispatch origin of this call must be the original coldkey that made the announcement.
+        /// The dispatch origin of this call must be the original coldkey that made
+        /// the announcement.
         ///
-        /// * `new_coldkey`: The destination coldkey. Validated before any fee is charged
-        ///   so a destination that would fail at execution (hotkey, active locks, or
-        ///   combined work over the one-call bound) is refused without paying. The
-        ///   BlakeTwo256 hash is what is stored and emitted for the announcement.
+        /// * `new_coldkey_hash`: BlakeTwo256 hash of the destination coldkey.
         ///
         /// The `ColdkeySwapAnnounced` event is emitted on successful announcement.
-        ///
         #[pallet::call_index(125)]
-        #[pallet::weight(Pallet::<T>::announce_coldkey_swap_weight())]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::announce_coldkey_swap())]
         pub fn announce_coldkey_swap(
+            origin: OriginFor<T>,
+            new_coldkey_hash: T::Hash,
+        ) -> DispatchResult {
+            let who = ensure_signed(origin)?;
+            let now = <frame_system::Pallet<T>>::block_number();
+
+            if let Some((when, _)) = ColdkeySwapAnnouncements::<T>::get(who.clone()) {
+                let reannouncement_delay = ColdkeySwapReannouncementDelay::<T>::get();
+                let min_when = when.saturating_add(reannouncement_delay);
+                ensure!(now >= min_when, Error::<T>::ColdkeySwapReannouncedTooEarly);
+            } else {
+                // Only charge the swap cost on the first announcement
+                let swap_cost = Self::get_key_swap_cost();
+                Self::charge_swap_cost(&who, swap_cost)?;
+            }
+
+            // Hash announce cannot reserve a cleartext dest; drop any prior V2 hold.
+            Self::release_coldkey_swap_destination_reservation(&who);
+
+            let delay = ColdkeySwapAnnouncementDelay::<T>::get();
+            let when = now.saturating_add(delay);
+            ColdkeySwapAnnouncements::<T>::insert(who.clone(), (when, new_coldkey_hash.clone()));
+
+            Self::deposit_event(Event::ColdkeySwapAnnounced {
+                who,
+                new_coldkey_hash,
+            });
+            Ok(())
+        }
+
+        /// Announces a coldkey swap with the cleartext destination account.
+        ///
+        /// Validates the destination (and combined swap work) before charging the
+        /// announcement fee, then exclusively reserves that account for the delay
+        /// so a third party cannot register it as a hotkey. The on-chain
+        /// announcement still stores the BlakeTwo256 hash.
+        ///
+        /// Prefer this over [`Self::announce_coldkey_swap`] when merging into an
+        /// already-used coldkey or when pre-fee refusal of bad destinations matters.
+        ///
+        /// * `new_coldkey`: Destination coldkey (validated before any fee).
+        #[pallet::call_index(155)]
+        #[pallet::weight(Pallet::<T>::announce_coldkey_swap_v2_weight())]
+        pub fn announce_coldkey_swap_v2(
             origin: OriginFor<T>,
             new_coldkey: T::AccountId,
         ) -> DispatchResult {
@@ -2411,7 +2455,8 @@ mod dispatches {
             let now = <frame_system::Pallet<T>>::block_number();
 
             // Refuse destinations that execution would still reject, before the fee.
-            let _ = Self::ensure_coldkey_swap_destination(&who, &new_coldkey)?;
+            let _ = Self::ensure_coldkey_swap_destination(&who, &new_coldkey)
+                .map_err(|(_weight, error)| error)?;
             // Also refuse a destination another announcer already reserved —
             // before the fee, so a conflict cannot burn the swap cost.
             Self::ensure_coldkey_swap_destination_reservable(&who, &new_coldkey)?;
@@ -2531,7 +2576,10 @@ mod dispatches {
         /// * `coldkey`: The coldkey to reset the swap for.
         ///
         #[pallet::call_index(128)]
-        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::reset_coldkey_swap())]
+        #[pallet::weight(
+            <T as crate::pallet::Config>::WeightInfo::reset_coldkey_swap()
+                .saturating_add(Pallet::<T>::coldkey_swap_reservation_release_weight())
+        )]
         pub fn reset_coldkey_swap(origin: OriginFor<T>, coldkey: T::AccountId) -> DispatchResult {
             ensure_root(origin)?;
 
@@ -2635,7 +2683,10 @@ mod dispatches {
         ///
         /// The `ColdkeySwapCleared` event is emitted on successful clear.
         #[pallet::call_index(133)]
-        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::clear_coldkey_swap_announcement())]
+        #[pallet::weight(
+            <T as crate::pallet::Config>::WeightInfo::clear_coldkey_swap_announcement()
+                .saturating_add(Pallet::<T>::coldkey_swap_reservation_release_weight())
+        )]
         pub fn clear_coldkey_swap_announcement(origin: OriginFor<T>) -> DispatchResult {
             let who = ensure_signed(origin)?;
             let now = <frame_system::Pallet<T>>::block_number();
@@ -2656,12 +2707,12 @@ mod dispatches {
 
         /// Destination-authorized release of a coldkey-swap destination reservation.
         ///
-        /// Announce takes the destination in cleartext and exclusively reserves it.
+        /// V2 announce takes the destination in cleartext and exclusively reserves it.
         /// The reserved account can free that hold so a third party cannot squat
         /// someone else's coldkey indefinitely. Reservations also expire after
         /// `when + ColdkeySwapReannouncementDelay`.
         #[pallet::call_index(154)]
-        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::clear_coldkey_swap_announcement())]
+        #[pallet::weight(Pallet::<T>::release_own_coldkey_swap_destination_reservation_weight())]
         pub fn release_own_coldkey_swap_destination_reservation(
             origin: OriginFor<T>,
         ) -> DispatchResult {
