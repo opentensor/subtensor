@@ -728,16 +728,20 @@ mod tests {
 
     #[test]
     fn force_batch_of_weight_calls_remains_fee_free() {
-        let direct = call_set_weights();
-        let proxied = proxy_call(real_a(), call_set_weights());
-        assert_eq!(direct.get_dispatch_info().pays_fee, Pays::No);
-        assert_eq!(proxied.get_dispatch_info().pays_fee, Pays::No);
-        assert_eq!(
-            force_batch_call(vec![direct, proxied])
-                .get_dispatch_info()
-                .pays_fee,
-            Pays::No
-        );
+        // `set_weights` weight reads consensus mode from storage, so dispatch-info
+        // inspection needs an externalities environment.
+        new_test_ext().execute_with(|| {
+            let direct = call_set_weights();
+            let proxied = proxy_call(real_a(), call_set_weights());
+            assert_eq!(direct.get_dispatch_info().pays_fee, Pays::No);
+            assert_eq!(proxied.get_dispatch_info().pays_fee, Pays::No);
+            assert_eq!(
+                force_batch_call(vec![direct, proxied])
+                    .get_dispatch_info()
+                    .pays_fee,
+                Pays::No
+            );
+        });
     }
 
     #[test]
