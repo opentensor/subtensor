@@ -501,3 +501,4 @@ class Lending:
     ConversionCursor = Item('Lending', 'ConversionCursor', 'NetUid')
     PalletHotkey = Item('Lending', 'PalletHotkey', 'AccountId32')
     ActiveNets = Item('Lending', 'ActiveNets', '()')
+    TaoEma = Item('Lending', 'TaoEma', 'u64')
