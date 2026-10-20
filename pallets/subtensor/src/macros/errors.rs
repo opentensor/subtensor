@@ -454,5 +454,7 @@ mod errors {
         MinerEmissionBelowMinimum,
         /// `set_subnet_emission_weights`: the root subnet has no emission vector.
         EmissionWeightsNotSettableOnRoot,
+        /// An ownership change would weaken a protected account's authorization.
+        HotkeyOwnerPolicyViolation,
     }
 }

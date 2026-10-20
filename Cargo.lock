@@ -1641,6 +1641,7 @@ dependencies = [
  "getrandom 0.2.17",
  "hex",
  "hidapi",
+ "hkdf",
  "ledger-apdu",
  "libloading",
  "merkleized-metadata",
@@ -1659,6 +1660,7 @@ dependencies = [
  "sha2 0.10.9",
  "sodiumoxide",
  "sp-core",
+ "subtensor-hashed",
  "subtensor-macros",
  "tle",
  "twox-hash 2.1.2",
@@ -4568,8 +4570,6 @@ dependencies = [
 [[package]]
 name = "evm-gasometer"
 version = "0.43.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54aa0327b242bad8dd83ba524effd1d798e9102ff592910dfdded79c6bde4ff3"
 dependencies = [
  "environmental",
  "evm-core",
@@ -4968,6 +4968,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0399f9d26e5191ce32c498bebd31e7a3ceabc2745f0ac54af3f335126c3f24b3"
 
 [[package]]
+name = "fips204"
+version = "0.4.6"
+dependencies = [
+ "rand_core 0.6.4",
+ "sha2 0.10.9",
+ "sha3 0.10.8",
+ "zeroize",
+]
+
+[[package]]
 name = "fixed-hash"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5000,6 +5010,45 @@ dependencies = [
  "futures-core",
  "futures-sink",
  "spin 0.9.8",
+]
+
+[[package]]
+name = "fn-dsa-comm"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "28104bba227c79bff8ffe34dff7c5a5631fd790dfd4d4f0a84b01952ef7c6f46"
+dependencies = [
+ "cpufeatures 0.2.17",
+ "rand_core 0.6.4",
+]
+
+[[package]]
+name = "fn-dsa-kgen"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b8a04fe82799cc1550d32778b415648d1962a7b4b4860ff5f2e6ca32494fc9aa"
+dependencies = [
+ "fn-dsa-comm",
+ "zeroize",
+]
+
+[[package]]
+name = "fn-dsa-sign"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ffb7d9c94e56de7e64019849b3b6110b1495690da2e9e1decef8f1744b3bab4"
+dependencies = [
+ "fn-dsa-comm",
+ "zeroize",
+]
+
+[[package]]
+name = "fn-dsa-vrfy"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc96b904b213160c8804cc2642ccd15cb968318a64648fc5ca3edab9153cda2b"
+dependencies = [
+ "fn-dsa-comm",
 ]
 
 [[package]]
@@ -5205,7 +5254,7 @@ dependencies = [
  "polkadot-parachain-primitives",
  "polkadot-primitives",
  "rand 0.8.6",
- "rand_pcg",
+ "rand_pcg 0.3.1",
  "sc-block-builder",
  "sc-chain-spec",
  "sc-cli",
@@ -5817,11 +5866,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "26145e563e54f2cadc477553f1ec5ee650b00862f0a58bcd12cbdc5f0ea2d2f4"
 dependencies = [
  "cfg-if",
- "js-sys",
  "libc",
  "r-efi",
  "wasi 0.14.7+wasi-0.2.4",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -5831,11 +5878,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "139ef39800118c7683f2fd3c98c1b23c09ae076556b435f8e9064ae108aaeeec"
 dependencies = [
  "cfg-if",
+ "js-sys",
  "libc",
  "r-efi",
  "rand_core 0.10.0",
  "wasip2",
  "wasip3",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -8783,6 +8832,7 @@ version = "4.0.0-dev"
 dependencies = [
  "ark-serialize 0.4.2",
  "ethereum",
+ "evm",
  "fp-account",
  "fp-evm",
  "fp-rpc",
@@ -8821,10 +8871,11 @@ dependencies = [
  "pallet-evm-precompile-simple",
  "pallet-fast-unstake",
  "pallet-grandpa",
+ "pallet-hashed-accounts",
  "pallet-hotfix-sufficients",
  "pallet-insecure-randomness-collective-flip",
  "pallet-limit-orders",
- "pallet-multisig",
+ "pallet-multisig 41.0.0",
  "pallet-nomination-pools",
  "pallet-nomination-pools-runtime-api",
  "pallet-offences",
@@ -8852,6 +8903,7 @@ dependencies = [
  "rand_chacha 0.3.1",
  "safe-math",
  "scale-info",
+ "serde",
  "serde_json",
  "sha2 0.10.9",
  "smallvec",
@@ -8867,6 +8919,7 @@ dependencies = [
  "sp-inherents",
  "sp-io",
  "sp-keyring",
+ "sp-keystore",
  "sp-npos-elections",
  "sp-offchain",
  "sp-runtime",
@@ -8883,6 +8936,7 @@ dependencies = [
  "substrate-wasm-builder",
  "subtensor-chain-extensions",
  "subtensor-custom-rpc-runtime-api",
+ "subtensor-hashed",
  "subtensor-macros",
  "subtensor-precompiles",
  "subtensor-runtime-common",
@@ -9858,7 +9912,7 @@ dependencies = [
  "parity-scale-codec",
  "paste",
  "rand 0.8.6",
- "rand_pcg",
+ "rand_pcg 0.3.1",
  "scale-info",
  "serde",
  "smallvec",
@@ -10321,6 +10375,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-hashed-accounts"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-keystore",
+ "sp-runtime",
+ "subtensor-hashed",
+]
+
+[[package]]
 name = "pallet-hotfix-sufficients"
 version = "1.0.0"
 dependencies = [
@@ -10412,6 +10483,7 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "substrate-fixed",
+ "subtensor-hashed",
  "subtensor-macros",
  "subtensor-runtime-common",
  "subtensor-swap-interface",
@@ -10526,6 +10598,18 @@ dependencies = [
  "polkadot-sdk-frame",
  "scale-info",
  "sp-mmr-primitives",
+]
+
+[[package]]
+name = "pallet-multisig"
+version = "41.0.0"
+dependencies = [
+ "log",
+ "pallet-balances",
+ "parity-scale-codec",
+ "polkadot-sdk-frame",
+ "scale-info",
+ "subtensor-hashed",
 ]
 
 [[package]]
@@ -10858,7 +10942,7 @@ dependencies = [
  "polkavm 0.21.0",
  "polkavm-common 0.21.0",
  "rand 0.8.6",
- "rand_pcg",
+ "rand_pcg 0.3.1",
  "ripemd",
  "rlp 0.6.1",
  "scale-info",
@@ -11303,6 +11387,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-sdk-frame",
  "scale-info",
+ "subtensor-hashed",
  "subtensor-macros",
 ]
 
@@ -11380,6 +11465,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
+ "subtensor-hashed",
  "subtensor-macros",
 ]
 
@@ -13111,7 +13197,7 @@ dependencies = [
  "pallet-migrations",
  "pallet-mixnet",
  "pallet-mmr",
- "pallet-multisig",
+ "pallet-multisig 41.0.0 (git+https://github.com/RaoFoundation/polkadot-sdk.git?rev=cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a)",
  "pallet-nft-fractionalization",
  "pallet-nfts",
  "pallet-nis",
@@ -14136,14 +14222,15 @@ dependencies = [
 
 [[package]]
 name = "quinn-proto"
-version = "0.11.15"
+version = "0.11.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fcb935c5bec503c2f0e306bdd3e58bb9029dcb14fa8d9ac76e3a5256ac0763e"
+checksum = "a9746dbde176634f4f2f1faf2404e30a31b2bc1e9cafb5329c95d8177a18c9fc"
 dependencies = [
  "bytes",
- "getrandom 0.3.3",
+ "getrandom 0.4.1",
  "lru-slab",
- "rand 0.9.4",
+ "rand 0.10.2",
+ "rand_pcg 0.10.2",
  "ring 0.17.14",
  "rustc-hash 2.1.1",
  "rustls",
@@ -14308,6 +14395,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "59cad018caf63deb318e5a4586d99a24424a364f40f1e5778c29aca23f4fc73e"
 dependencies = [
  "rand_core 0.6.4",
+]
+
+[[package]]
+name = "rand_pcg"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "caa0f4137e1c0a72f4c651489402276c8e8e1cf081f3b0ba156d2cbeef09e86a"
+dependencies = [
+ "rand_core 0.10.0",
 ]
 
 [[package]]
@@ -14699,7 +14795,7 @@ dependencies = [
  "pallet-message-queue",
  "pallet-migrations",
  "pallet-mmr",
- "pallet-multisig",
+ "pallet-multisig 41.0.0 (git+https://github.com/RaoFoundation/polkadot-sdk.git?rev=cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a)",
  "pallet-nis",
  "pallet-offences",
  "pallet-parameters",
@@ -14989,9 +15085,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.45"
+version = "0.23.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d41d731c7d2f962d1ccc364cec258de3c0e93b38c2fb3ba97ac74513048d634"
+checksum = "48e13bd8c0e9365c43cfa5c9e8f9ad49d3c8444926c9aac819e0e4dc503c8fdf"
 dependencies = [
  "log",
  "once_cell",
@@ -16321,7 +16417,7 @@ dependencies = [
  "libc",
  "log",
  "rand 0.8.6",
- "rand_pcg",
+ "rand_pcg 0.3.1",
  "regex",
  "sc-telemetry",
  "serde",
@@ -16392,7 +16488,6 @@ dependencies = [
 [[package]]
 name = "sc-transaction-pool"
 version = "40.1.0"
-source = "git+https://github.com/RaoFoundation/polkadot-sdk.git?rev=cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a#cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a"
 dependencies = [
  "async-trait",
  "futures",
@@ -18943,6 +19038,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "subtensor-hashed"
+version = "0.1.0"
+dependencies = [
+ "curve25519-dalek",
+ "fips204",
+ "fn-dsa-comm",
+ "fn-dsa-kgen",
+ "fn-dsa-sign",
+ "fn-dsa-vrfy",
+ "hex",
+ "parity-scale-codec",
+ "scale-info",
+ "serde_json",
+ "sha3 0.10.8",
+ "sp-core",
+ "sp-io",
+ "zeroize",
+]
+
+[[package]]
 name = "subtensor-linting"
 version = "0.1.0"
 dependencies = [
@@ -21009,7 +21124,7 @@ dependencies = [
  "pallet-meta-tx",
  "pallet-migrations",
  "pallet-mmr",
- "pallet-multisig",
+ "pallet-multisig 41.0.0 (git+https://github.com/RaoFoundation/polkadot-sdk.git?rev=cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a)",
  "pallet-nomination-pools",
  "pallet-nomination-pools-benchmarking",
  "pallet-nomination-pools-runtime-api",
