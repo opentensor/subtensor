@@ -37,7 +37,7 @@ weight.
 
 | Signer | Origin | Pallet | Wraps |
 | --- | --- | --- | --- |
-| `coldkey` | signed account (pallet role may apply) | SubtensorModule | [`SubtensorModule.transfer_stake`](/code/pallets/subtensor/src/macros/dispatches.rs#L1396-L1424), [`SubtensorModule.transfer_stake_and_hotkey`](/code/pallets/subtensor/src/macros/dispatches.rs#L2974-L3004) |
+| `coldkey` | signed account (pallet role may apply) | SubtensorModule | [`SubtensorModule.transfer_stake`](/code/pallets/subtensor/src/macros/dispatches.rs#L1396-L1424), [`SubtensorModule.transfer_stake_and_hotkey`](/code/pallets/subtensor/src/macros/dispatches.rs#L2975-L3005) |
 
 ## Parameters
 
@@ -135,7 +135,7 @@ pub fn transfer_stake(
 
 Delegates to [`with_actual_weight`](/code/pallets/subtensor/src/staking/stake_utils.rs#L1572), [`do_transfer_stake`](/code/pallets/subtensor/src/staking/move_stake.rs#L202), [`staking_hotkeys_walk_actual`](/code/pallets/subtensor/src/staking/stake_utils.rs#L1512).
 
-`SubtensorModule.transfer_stake_and_hotkey` — [`pallets/subtensor/src/macros/dispatches.rs#L2981`](/code/pallets/subtensor/src/macros/dispatches.rs#L2974-L3004):
+`SubtensorModule.transfer_stake_and_hotkey` — [`pallets/subtensor/src/macros/dispatches.rs#L2982`](/code/pallets/subtensor/src/macros/dispatches.rs#L2975-L3005):
 
 ```rust
 #[pallet::call_index(143)]

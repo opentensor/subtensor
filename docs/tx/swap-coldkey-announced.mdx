@@ -16,7 +16,7 @@ future operations sign with the new coldkey.
 
 | Signer | Origin | Pallet | Wraps |
 | --- | --- | --- | --- |
-| `coldkey` | signed account (pallet role may apply) | SubtensorModule | [`SubtensorModule.swap_coldkey_announced`](/code/pallets/subtensor/src/macros/dispatches.rs#L2501-L2549) |
+| `coldkey` | signed account (pallet role may apply) | SubtensorModule | [`SubtensorModule.swap_coldkey_announced`](/code/pallets/subtensor/src/macros/dispatches.rs#L2502-L2550) |
 
 ## Parameters
 
@@ -65,7 +65,7 @@ result = sub.execute_tool("swap_coldkey_announced", {...}, wallet)
 
 ## On-chain implementation
 
-`SubtensorModule.swap_coldkey_announced` — [`pallets/subtensor/src/macros/dispatches.rs#L2503`](/code/pallets/subtensor/src/macros/dispatches.rs#L2501-L2549):
+`SubtensorModule.swap_coldkey_announced` — [`pallets/subtensor/src/macros/dispatches.rs#L2504`](/code/pallets/subtensor/src/macros/dispatches.rs#L2502-L2550):
 
 ```rust
 #[pallet::call_index(126)]

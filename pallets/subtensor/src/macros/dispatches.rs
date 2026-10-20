@@ -2439,7 +2439,9 @@ mod dispatches {
         /// Validates the destination (and combined swap work) before charging the
         /// announcement fee, then exclusively reserves that account for the delay
         /// so a third party cannot register it as a hotkey. The on-chain
-        /// announcement still stores the BlakeTwo256 hash.
+        /// announcement still stores the BlakeTwo256 hash. Every call creates or
+        /// renews that reservation, so every call pays the key-swap cost,
+        /// including reannouncements.
         ///
         /// Prefer this over [`Self::announce_coldkey_swap`] when merging into an
         /// already-used coldkey or when pre-fee refusal of bad destinations matters.
@@ -2468,11 +2470,10 @@ mod dispatches {
                 let reannouncement_delay = ColdkeySwapReannouncementDelay::<T>::get();
                 let min_when = when.saturating_add(reannouncement_delay);
                 ensure!(now >= min_when, Error::<T>::ColdkeySwapReannouncedTooEarly);
-            } else {
-                // Only charge the swap cost on the first announcement
-                let swap_cost = Self::get_key_swap_cost();
-                Self::charge_swap_cost(&who, swap_cost)?;
             }
+            // Each call creates or renews a destination reservation, so a free
+            // reannouncement would let anyone hold an account reserved forever.
+            Self::charge_swap_cost(&who, Self::get_key_swap_cost())?;
 
             // Reserve the destination for the delay so a third party cannot
             // register it as a hotkey and force NewColdKeyIsHotkey at execute.

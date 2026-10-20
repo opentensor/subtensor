@@ -12,9 +12,9 @@ starts the chain's announcement delay. After the delay, run the
 `swap_coldkey_announced` intent to move EVERYTHING this coldkey owns
 (balance, stake, subnets) to the new key, merging with any assets the
 destination already holds; check timing with the
-`coldkey_swap_announcement` read. The first announcement charges the
-key-swap cost (0.1 TAO, recycled); re-announcing after the chain's
-reannouncement delay is free. While an announcement is pending, the chain
+`coldkey_swap_announcement` read. Every announcement, including a
+re-announcement after the chain's reannouncement delay, charges the
+key-swap cost (0.1 TAO, recycled). While an announcement is pending, the chain
 blocks every other signed extrinsic from this coldkey — only the
 swap-related calls and shielded (encrypted) submission go through — so the
 account is operationally locked for the full delay. Before announcing, be
@@ -25,7 +25,7 @@ an unauthorized one with `dispute_coldkey_swap`.
 
 | Signer | Origin | Pallet | Wraps |
 | --- | --- | --- | --- |
-| `coldkey` | signed account (pallet role may apply) | SubtensorModule | [`SubtensorModule.announce_coldkey_swap_v2`](/code/pallets/subtensor/src/macros/dispatches.rs#L2448-L2491) |
+| `coldkey` | signed account (pallet role may apply) | SubtensorModule | [`SubtensorModule.announce_coldkey_swap_v2`](/code/pallets/subtensor/src/macros/dispatches.rs#L2450-L2492) |
 
 ## Parameters
 
@@ -74,7 +74,7 @@ result = sub.execute_tool("announce_coldkey_swap", {...}, wallet)
 
 ## On-chain implementation
 
-`SubtensorModule.announce_coldkey_swap_v2` — [`pallets/subtensor/src/macros/dispatches.rs#L2453`](/code/pallets/subtensor/src/macros/dispatches.rs#L2448-L2491):
+`SubtensorModule.announce_coldkey_swap_v2` — [`pallets/subtensor/src/macros/dispatches.rs#L2455`](/code/pallets/subtensor/src/macros/dispatches.rs#L2450-L2492):
 
 ```rust
 #[pallet::call_index(155)]
@@ -100,11 +100,10 @@ pub fn announce_coldkey_swap_v2(
         let reannouncement_delay = ColdkeySwapReannouncementDelay::<T>::get();
         let min_when = when.saturating_add(reannouncement_delay);
         ensure!(now >= min_when, Error::<T>::ColdkeySwapReannouncedTooEarly);
-    } else {
-        // Only charge the swap cost on the first announcement
-        let swap_cost = Self::get_key_swap_cost();
-        Self::charge_swap_cost(&who, swap_cost)?;
     }
+    // Each call creates or renews a destination reservation, so a free
+    // reannouncement would let anyone hold an account reserved forever.
+    Self::charge_swap_cost(&who, Self::get_key_swap_cost())?;
 
     // Reserve the destination for the delay so a third party cannot
     // register it as a hotkey and force NewColdKeyIsHotkey at execute.
@@ -123,6 +122,6 @@ pub fn announce_coldkey_swap_v2(
 }
 ```
 
-Delegates to [`ensure_coldkey_swap_destination`](/code/pallets/subtensor/src/swap/swap_coldkey.rs#L472), [`ensure_coldkey_swap_destination_reservable`](/code/pallets/subtensor/src/swap/swap_coldkey.rs#L184), [`get_key_swap_cost`](/code/pallets/subtensor/src/utils/misc.rs#L828).
+Delegates to [`ensure_coldkey_swap_destination`](/code/pallets/subtensor/src/swap/swap_coldkey.rs#L472), [`ensure_coldkey_swap_destination_reservable`](/code/pallets/subtensor/src/swap/swap_coldkey.rs#L184), [`charge_swap_cost`](/code/pallets/subtensor/src/swap/swap_coldkey.rs#L804).
 
 Every file is browsable under [/code](/code) exactly as built into the runtime, or as plain text under `/code/raw/<path>` (index: [`/code/index.json`](/code/index.json)).

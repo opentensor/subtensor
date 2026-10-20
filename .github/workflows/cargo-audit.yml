@@ -77,8 +77,6 @@ jobs:
           # fork; this is covered by the existing wasmtime exceptions.
           # RUSTSEC-2026-0338..0342: quinn-proto 0.11.15 via the fork's QUIC /
           #   libp2p stack; fixes need >=0.11.17/0.11.18 — revisit on SDK bump.
-          # RUSTSEC-2026-0346..0349: rustls 0.23.45 via the fork networking /
-          #   RPC stack; fixes need >=0.23.46 — revisit on SDK bump.
           # RUSTSEC-2026-0344: ruzstd 0.4/0.6 decompression bomb; both versions
           #   are pulled by the lockfile (zstd helper paths). Fix needs >=0.9.1;
           #   revisit when those consumers move.
@@ -124,8 +122,4 @@ jobs:
                       --ignore RUSTSEC-2026-0341 \
                       --ignore RUSTSEC-2026-0342 \
                       --ignore RUSTSEC-2026-0344 \
-                      --ignore RUSTSEC-2026-0346 \
-                      --ignore RUSTSEC-2026-0347 \
-                      --ignore RUSTSEC-2026-0348 \
-                      --ignore RUSTSEC-2026-0349 \
                       --ignore RUSTSEC-2026-0363

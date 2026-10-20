@@ -41,9 +41,9 @@ class AnnounceColdkeySwap(Intent):
     ``swap_coldkey_announced`` intent to move EVERYTHING this coldkey owns
     (balance, stake, subnets) to the new key, merging with any assets the
     destination already holds; check timing with the
-    ``coldkey_swap_announcement`` read. The first announcement charges the
-    key-swap cost (0.1 TAO, recycled); re-announcing after the chain's
-    reannouncement delay is free. While an announcement is pending, the chain
+    ``coldkey_swap_announcement`` read. Every announcement, including a
+    re-announcement after the chain's reannouncement delay, charges the
+    key-swap cost (0.1 TAO, recycled). While an announcement is pending, the chain
     blocks every other signed extrinsic from this coldkey — only the
     swap-related calls and shielded (encrypted) submission go through — so the
     account is operationally locked for the full delay. Before announcing, be
