@@ -23,4 +23,12 @@ ignore = [
     # pin as above; fixes need much newer wasmtime majors.
     "RUSTSEC-2026-0379",
     "RUSTSEC-2026-0380",
+    # RUSTSEC-2026-0381/0382/0383 (added 2026-10-20): webpki-roots /
+    # rustls-webpki / webpki-root-certs emSign intermediate distrust.
+    # Pulled by the polkadot-sdk fork networking / RPC stack; in-tree
+    # 0.101 / 0.25 lines have no patch, and the 0.103 / 1.0 lines need
+    # versions not yet in the lockfile. Revisit on SDK bump.
+    "RUSTSEC-2026-0381",
+    "RUSTSEC-2026-0382",
+    "RUSTSEC-2026-0383",
 ]
