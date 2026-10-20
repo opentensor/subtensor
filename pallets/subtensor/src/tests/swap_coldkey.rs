@@ -2803,7 +2803,7 @@ fn test_announce_rejects_destination_with_active_lock_before_fee() {
 }
 
 #[test]
-fn test_announce_and_merge_purge_expired_destination_lock_rows() {
+fn test_announce_and_merge_purge_exhausted_destination_lock_rows() {
     new_test_ext(1).execute_with(|| {
         let who = U256::from(1);
         let dest = U256::from(2);
@@ -2815,7 +2815,8 @@ fn test_announce_and_merge_purge_expired_destination_lock_rows() {
             &who, &who_hot
         ));
         // Destination is already in use (owns a hotkey) but does not opt out of
-        // receiving locked alpha — expired rows alone must not block the merge.
+        // receiving locked alpha — fully exhausted dust rows alone must not
+        // block the merge.
         assert_ok!(SubtensorModule::create_account_if_non_existent(
             &dest, &dest_hot
         ));
@@ -2826,15 +2827,16 @@ fn test_announce_and_merge_purge_expired_destination_lock_rows() {
 
         let now = SubtensorModule::get_current_block_as_u64();
         let active = AlphaBalance::from(2_500_000_u64);
-        // Expired / zero-mass row on dest; sorts before source hotkey.
+        // Fully exhausted dust row on dest; sorts before source hotkey.
         Lock::<Test>::insert(
             (dest, netuid, dest_hot),
             LockState {
                 locked_mass: AlphaBalance::ZERO,
-                conviction: U64F64::from_num(42),
+                conviction: U64F64::from_num(0),
                 last_update: now,
             },
         );
+        LockingColdkeys::<Test>::insert((netuid, dest_hot, dest), ());
         Lock::<Test>::insert(
             (who, netuid, who_hot),
             LockState {
@@ -2852,13 +2854,73 @@ fn test_announce_and_merge_purge_expired_destination_lock_rows() {
             RuntimeOrigin::signed(who),
             dest,
         ));
-        // Admission purge clears the expired dest row before the fee path.
-        assert!(Lock::<Test>::get((dest, netuid, dest_hot)).is_none());
+        // Announce admission is read-only: dust rows remain until execute.
+        assert!(Lock::<Test>::get((dest, netuid, dest_hot)).is_some());
 
         assert_ok!(SubtensorModule::do_swap_coldkey(&who, &dest));
         assert!(Lock::<Test>::get((dest, netuid, dest_hot)).is_none());
         assert_eq!(Lock::<Test>::iter_prefix((dest, netuid)).count(), 1);
         assert_eq!(SubtensorModule::get_current_locked(&dest, netuid), active);
+    });
+}
+
+#[test]
+fn test_third_party_announce_cannot_wipe_destination_conviction_only_lock() {
+    new_test_ext(1).execute_with(|| {
+        let attacker = U256::from(1);
+        let dest = U256::from(2);
+        let dest_hot = U256::from(3);
+        let netuid = add_dynamic_network(&U256::from(200), &U256::from(201));
+
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &dest, &dest_hot
+        ));
+
+        let now = SubtensorModule::get_current_block_as_u64();
+        let conviction = U64F64::from_num(12_345);
+        let individual = LockState {
+            locked_mass: AlphaBalance::ZERO,
+            conviction,
+            last_update: now,
+        };
+        // Seed individual + aggregate conviction used by subnet-king scoring.
+        SubtensorModule::insert_lock_state(&dest, netuid, &dest_hot, individual);
+        HotkeyLock::<Test>::insert(
+            netuid,
+            dest_hot,
+            LockState {
+                locked_mass: AlphaBalance::ZERO,
+                conviction,
+                last_update: now,
+            },
+        );
+        let aggregate_before = HotkeyLock::<Test>::get(netuid, dest_hot)
+            .expect("aggregate present")
+            .conviction;
+
+        let swap_cost = SubtensorModule::get_key_swap_cost();
+        let ed = ExistentialDeposit::get();
+        add_balance_to_coldkey_account(&attacker, swap_cost + ed);
+        let before = SubtensorModule::get_coldkey_balance(&attacker);
+
+        assert_noop!(
+            SubtensorModule::announce_coldkey_swap_v2(RuntimeOrigin::signed(attacker), dest),
+            Error::<Test>::ActiveLockExists
+        );
+        assert_eq!(SubtensorModule::get_coldkey_balance(&attacker), before);
+        assert!(ColdkeySwapAnnouncements::<Test>::get(attacker).is_none());
+
+        // Destination conviction-only lock and aggregate must be untouched.
+        let preserved = Lock::<Test>::get((dest, netuid, dest_hot))
+            .expect("conviction-only lock must survive third-party announce");
+        assert_eq!(preserved.locked_mass, AlphaBalance::ZERO);
+        assert_eq!(preserved.conviction, conviction);
+        assert_eq!(
+            HotkeyLock::<Test>::get(netuid, dest_hot)
+                .expect("aggregate must survive")
+                .conviction,
+            aggregate_before
+        );
     });
 }
 

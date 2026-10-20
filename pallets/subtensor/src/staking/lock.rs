@@ -1424,42 +1424,22 @@ impl<T: Config> Pallet<T> {
         });
     }
 
-    /// Ensure the coldkey does not have an active lock on any subnets.
+    /// Ensure the coldkey does not have a blocking lock on any subnet.
     ///
-    /// Read-only: zero-mass / expired rows are left in place. Prefer
-    /// [`Self::reconcile_and_ensure_no_active_locks`] before a coldkey-swap merge
-    /// so those rows cannot hide an incoming active lock.
+    /// Read-only. A lock blocks when rolled state is not fully exhausted
+    /// ([`LockState::is_zero`]): either locked mass or residual conviction above
+    /// the dust threshold. Zero-mass / conviction-only rows therefore reject
+    /// coldkey-swap admission until a merge can preserve conviction safely —
+    /// announce validation must not mutate another account's locks.
     pub fn ensure_no_active_locks(coldkey: &T::AccountId) -> Result<(), Error<T>> {
         Self::ensure_no_active_locks_with_limit(coldkey, u32::MAX)
     }
 
     /// Coldkey-swap admission: same as [`Self::ensure_no_active_locks`], but stops after
     /// `limit` lock rows so announce/execute prechecks stay inside their weight envelope.
-    /// Exceeding the limit without finding an active lock fails as `ColdkeySwapTooHeavy`.
+    /// Exceeding the limit without finding a blocking lock fails as `ColdkeySwapTooHeavy`.
     pub fn ensure_no_active_locks_for_swap(coldkey: &T::AccountId) -> Result<(), Error<T>> {
         Self::ensure_no_active_locks_with_limit(
-            coldkey,
-            crate::MAX_COLDKEY_SWAP_POSITIONS.saturating_add(1),
-        )
-    }
-
-    /// Destination-side coldkey-swap gate: purge zero locked-mass rows, then reject
-    /// any remaining active lock.
-    ///
-    /// `read_conviction_model` only observes the first `Lock` row per `(coldkey, netuid)`.
-    /// Leaving an expired destination row in place lets a merge insert a second row
-    /// for the same subnet; if the expired row sorts first, `get_current_locked`
-    /// reports zero and alpha covered by the active lock can be withdrawn.
-    pub fn reconcile_and_ensure_no_active_locks(coldkey: &T::AccountId) -> Result<(), Error<T>> {
-        Self::reconcile_and_ensure_no_active_locks_with_limit(coldkey, u32::MAX)
-    }
-
-    /// Bounded form of [`Self::reconcile_and_ensure_no_active_locks`] for announce /
-    /// execute admission weight envelopes.
-    pub fn reconcile_and_ensure_no_active_locks_for_swap(
-        coldkey: &T::AccountId,
-    ) -> Result<(), Error<T>> {
-        Self::reconcile_and_ensure_no_active_locks_with_limit(
             coldkey,
             crate::MAX_COLDKEY_SWAP_POSITIONS.saturating_add(1),
         )
@@ -1487,7 +1467,10 @@ impl<T: Config> Pallet<T> {
                 Self::is_subnet_owner_hotkey(netuid, &hotkey),
                 Self::is_perpetual_lock(coldkey, netuid),
             );
-            if rolled.0.locked_mass > AlphaBalance::ZERO {
+            // Reject residual conviction as well as locked mass. Announce
+            // admission is unauthenticated w.r.t. the destination, so it must
+            // stay read-only and must not treat conviction-only rows as clear.
+            if !rolled.0.is_zero() {
                 return Err(Error::<T>::ActiveLockExists);
             }
         }
@@ -1495,21 +1478,20 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn reconcile_and_ensure_no_active_locks_with_limit(
-        coldkey: &T::AccountId,
-        limit: u32,
-    ) -> Result<(), Error<T>> {
+    /// Remove fully exhausted (`is_zero`) destination lock rows after admission.
+    ///
+    /// Only safe to call once [`Self::ensure_no_active_locks`] has passed: any
+    /// remaining row is dust and cannot back subnet-king conviction. Purging
+    /// prevents a later insert from leaving two Lock rows on the same subnet
+    /// (`read_conviction_model` only sees the first). Never call this from
+    /// unauthenticated announce validation.
+    fn purge_exhausted_locks_for_swap(coldkey: &T::AccountId) {
         let now = Self::get_current_block_as_u64();
         let unlock_rate = UnlockRate::<T>::get();
         let maturity_rate = MaturityRate::<T>::get();
-        let mut scanned = 0u32;
         let mut to_purge: Vec<(NetUid, T::AccountId, LockState)> = Vec::new();
 
         for ((netuid, hotkey), lock) in Lock::<T>::iter_prefix((coldkey,)) {
-            scanned = scanned.saturating_add(1);
-            if scanned > limit {
-                return Err(Error::<T>::ColdkeySwapTooHeavy);
-            }
             let rolled = ConvictionModel::roll_forward_lock(
                 lock,
                 now,
@@ -1519,12 +1501,9 @@ impl<T: Config> Pallet<T> {
                 Self::is_perpetual_lock(coldkey, netuid),
             )
             .0;
-            if rolled.locked_mass > AlphaBalance::ZERO {
-                // Leave storage untouched on rejection so a failed announce/execute
-                // does not mutate the destination.
-                return Err(Error::<T>::ActiveLockExists);
+            if rolled.is_zero() {
+                to_purge.push((netuid, hotkey, rolled));
             }
-            to_purge.push((netuid, hotkey, rolled));
         }
 
         for (netuid, hotkey, rolled) in to_purge {
@@ -1538,8 +1517,6 @@ impl<T: Config> Pallet<T> {
                 rolled.conviction,
             );
         }
-
-        Ok(())
     }
 
     /// Transfers the lock from one coldkey to another for all subnets. This is used when a
@@ -1554,10 +1531,11 @@ impl<T: Config> Pallet<T> {
         old_coldkey: &T::AccountId,
         new_coldkey: &T::AccountId,
     ) -> DispatchResult {
-        // Purge expired / zero-mass destination rows before the transfer so a
-        // source active lock cannot co-exist with a leftover dest row on the
-        // same subnet (one-lock-per-subnet for `read_conviction_model`).
-        Self::reconcile_and_ensure_no_active_locks(new_coldkey)?;
+        // Reject residual mass/conviction on the destination (read-only), then
+        // drop fully exhausted dust rows so a source insert cannot leave two
+        // Lock rows on the same subnet for `read_conviction_model`.
+        Self::ensure_no_active_locks(new_coldkey)?;
+        Self::purge_exhausted_locks_for_swap(new_coldkey);
 
         let mut locks_to_transfer: Vec<(NetUid, T::AccountId, LockState)> = Vec::new();
         let now = Self::get_current_block_as_u64();

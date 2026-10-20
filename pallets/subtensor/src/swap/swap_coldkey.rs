@@ -392,13 +392,13 @@ impl<T: Config> Pallet<T> {
         if Self::hotkey_account_exists(new_coldkey) {
             return Err((precheck(), Error::<T>::NewColdKeyIsHotkey));
         }
-        // Active locks on the destination cannot be merged safely with source locks
-        // (conviction / aggregate buckets are per-coldkey). Block explicitly.
-        // Also purge expired / zero-mass destination rows first so they cannot
-        // hide an incoming active lock after the transfer (one Lock row per
-        // subnet for `read_conviction_model`). Bound the walk to the
-        // announce/execute weight envelope.
-        if let Err(error) = Self::reconcile_and_ensure_no_active_locks_for_swap(new_coldkey) {
+        // Blocking locks on the destination (locked mass or residual conviction
+        // above dust) cannot be merged safely with source locks, and announce
+        // admission must stay read-only w.r.t. the destination — a third party
+        // can name any coldkey here. Bound the walk to the announce/execute
+        // weight envelope. Fully exhausted dust rows are purged later inside
+        // `swap_coldkey_locks` only.
+        if let Err(error) = Self::ensure_no_active_locks_for_swap(new_coldkey) {
             // Lock walks stop at the position sentinel; charge that bound.
             let scanned = ColdkeySwapWork {
                 hotkeys: 0,
