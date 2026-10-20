@@ -15,7 +15,8 @@ use pallet_subtensor::rpc_info::{
     show_subnet::SubnetState,
     stake_info::{StakeAvailability, StakeInfo},
     subnet_info::{
-        SubnetHyperparams, SubnetHyperparamsV2, SubnetHyperparamsV3, SubnetInfo, SubnetInfov2,
+        SubnetEmissionWeightsInfo, SubnetHyperparams, SubnetHyperparamsV2, SubnetHyperparamsV3,
+        SubnetInfo, SubnetInfov2,
     },
 };
 use pallet_subtensor::staking::lock::LockState;
@@ -66,6 +67,12 @@ sp_api::decl_runtime_apis! {
         fn get_subnet_account_id(netuid: NetUid) -> Option<AccountId32>;
         fn get_next_epoch_start_block(netuid: NetUid) -> Option<u64>;
         fn get_block_emission() -> TaoBalance;
+        /// The subnet's `[burn, recycle, owner, validator, miner]` emission weight
+        /// vector plus root's baseline share and the share root is paid off the
+        /// top of the validator slot this block. `None` when the subnet does not
+        /// exist.
+        #[api_version(3)]
+        fn get_subnet_emission_weights(netuid: NetUid) -> Option<SubnetEmissionWeightsInfo>;
     }
 
     pub trait StakeInfoRuntimeApi {

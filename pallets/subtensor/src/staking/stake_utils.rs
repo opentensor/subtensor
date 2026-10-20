@@ -194,15 +194,7 @@ impl<T: Config> Pallet<T> {
     /// # Note
     /// This function uses saturating division to prevent potential overflow errors.
     pub fn get_tao_weight() -> U96F32 {
-        // Step 1: Fetch the TAO weight from storage
-        let stored_weight = TaoWeight::<T>::get();
-
-        // Step 2: Convert the u64 weight to U96F32
-        let weight_fixed = U96F32::saturating_from_num(stored_weight);
-
-        // Step 3: Normalize the weight by dividing by u64::MAX
-        // This ensures the result is always between 0 and 1
-        weight_fixed.safe_div(U96F32::saturating_from_num(u64::MAX))
+        normalize_tao_weight(TaoWeight::<T>::get())
     }
     pub fn get_ck_burn() -> U96F32 {
         let stored_weight = CKBurn::<T>::get();
@@ -242,7 +234,7 @@ impl<T: Config> Pallet<T> {
         hotkey: &T::AccountId,
         netuid: NetUid,
     ) -> (I64F64, I64F64, I64F64) {
-        // Retrieve the TAO weight.
+        // Retrieve the global tao weight.
         let tao_weight = I64F64::saturating_from_num(Self::get_tao_weight());
         log::debug!("tao_weight: {tao_weight:?}");
 
@@ -269,7 +261,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_stake_weights_for_network(
         netuid: NetUid,
     ) -> (Vec<I64F64>, Vec<I64F64>, Vec<I64F64>) {
-        // Retrieve the TAO weight.
+        // Retrieve the global tao weight.
         let tao_weight: I64F64 = I64F64::saturating_from_num(Self::get_tao_weight());
         log::debug!("tao_weight: {tao_weight:?}");
 

@@ -777,6 +777,24 @@
         }
       ]
     },
+    "BurnEmissionMustBeZero": {
+      "code": "policy_violation",
+      "description": "Slot 0 (burn) of the emission weight vector was set to a non-zero share. Burning alpha emission is reserved for a future runtime; in v1 the burn share must be 0 (or simply omitted).",
+      "docs_url": "/docs/errors/chain/BurnEmissionMustBeZero",
+      "markdown_url": "/llms.mdx/docs/errors/chain/BurnEmissionMustBeZero/content.md",
+      "pallets": [
+        "SubtensorModule"
+      ],
+      "sources": [
+        {
+          "pallet": "SubtensorModule",
+          "path": "pallets/subtensor/src/macros/errors.rs",
+          "line": 432,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L432",
+          "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
+        }
+      ]
+    },
     "CallDisabled": {
       "code": "disabled",
       "description": "The extrinsic has been switched off in the current runtime and cannot be dispatched. There is no active raise site in current code; if seen, check release notes for whether the call was re-enabled in a newer runtime version.",
@@ -1634,7 +1652,7 @@
     },
     "Deprecated": {
       "code": "disabled",
-      "description": "The extrinsic has been removed and always fails, e.g. `schedule_swap_coldkey`, the swap pallet's user-liquidity calls, or `sudo_set_total_issuance`. Migrate to the replacement call noted in the deprecation (for coldkey swaps, `btcli wallet announce-coldkey-swap` then `btcli wallet swap-coldkey`).",
+      "description": "The extrinsic has been removed and always fails, e.g. `schedule_swap_coldkey`, the swap pallet's user-liquidity calls, `sudo_set_total_issuance`, or the owner-cut setters `sudo_set_subnet_owner_cut` / `sudo_set_owner_cut_enabled` (replaced by `sudo_set_subnet_emission_weights`, `btcli subnets emission`). Migrate to the replacement call noted in the deprecation (for coldkey swaps, `btcli wallet announce-coldkey-swap` then `btcli wallet swap-coldkey`).",
       "docs_url": "/docs/errors/chain/Deprecated",
       "markdown_url": "/llms.mdx/docs/errors/chain/Deprecated/content.md",
       "pallets": [
@@ -1806,6 +1824,96 @@
           "path": "pallets/subtensor/src/macros/errors.rs",
           "line": 328,
           "url": "/code/pallets/subtensor/src/macros/errors.rs#L328",
+          "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
+        }
+      ]
+    },
+    "EmissionWeightIndexDuplicated": {
+      "code": "invalid_argument",
+      "description": "`sudo_set_subnet_emission_weights` listed the same slot index twice in `uids`. Give each slot at most once per call.",
+      "docs_url": "/docs/errors/chain/EmissionWeightIndexDuplicated",
+      "markdown_url": "/llms.mdx/docs/errors/chain/EmissionWeightIndexDuplicated/content.md",
+      "pallets": [
+        "SubtensorModule"
+      ],
+      "sources": [
+        {
+          "pallet": "SubtensorModule",
+          "path": "pallets/subtensor/src/macros/errors.rs",
+          "line": 426,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L426",
+          "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
+        }
+      ]
+    },
+    "EmissionWeightIndexOutOfRange": {
+      "code": "invalid_argument",
+      "description": "`sudo_set_subnet_emission_weights` named a slot index outside the five-slot emission weight vector. Valid indices are 0 = burn, 1 = recycle, 2 = owner, 3 = validator, 4 = miner; later slots (e.g. gamma buys) are reserved for a future runtime.",
+      "docs_url": "/docs/errors/chain/EmissionWeightIndexOutOfRange",
+      "markdown_url": "/llms.mdx/docs/errors/chain/EmissionWeightIndexOutOfRange/content.md",
+      "pallets": [
+        "SubtensorModule"
+      ],
+      "sources": [
+        {
+          "pallet": "SubtensorModule",
+          "path": "pallets/subtensor/src/macros/errors.rs",
+          "line": 424,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L424",
+          "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
+        }
+      ]
+    },
+    "EmissionWeightsDoNotSumToOne": {
+      "code": "invalid_argument",
+      "description": "After merging your update into the subnet's current emission weight vector, the five shares do not sum to exactly `u64::MAX` (1.0). Omitted slots keep their current value, so raising one slot requires lowering another in the same call. `btcli subnets emission set-value/increase/decrease` renormalise the other slots for you; with the raw call, pass a full `[0, 0, owner, validator, miner]` vector whose parts total 18446744073709551615.",
+      "docs_url": "/docs/errors/chain/EmissionWeightsDoNotSumToOne",
+      "markdown_url": "/llms.mdx/docs/errors/chain/EmissionWeightsDoNotSumToOne/content.md",
+      "pallets": [
+        "SubtensorModule"
+      ],
+      "sources": [
+        {
+          "pallet": "SubtensorModule",
+          "path": "pallets/subtensor/src/macros/errors.rs",
+          "line": 430,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L430",
+          "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
+        }
+      ]
+    },
+    "EmissionWeightsLengthMismatch": {
+      "code": "invalid_argument",
+      "description": "`sudo_set_subnet_emission_weights` was given `uids` and `values` lists of different lengths. Each slot index in `uids` needs exactly one share in `values`; pass the two lists pairwise (e.g. `uids=[2, 3, 4]`, `values=[owner, validator, miner]`).",
+      "docs_url": "/docs/errors/chain/EmissionWeightsLengthMismatch",
+      "markdown_url": "/llms.mdx/docs/errors/chain/EmissionWeightsLengthMismatch/content.md",
+      "pallets": [
+        "SubtensorModule"
+      ],
+      "sources": [
+        {
+          "pallet": "SubtensorModule",
+          "path": "pallets/subtensor/src/macros/errors.rs",
+          "line": 421,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L421",
+          "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
+        }
+      ]
+    },
+    "EmissionWeightsNotSettableOnRoot": {
+      "code": "invalid_argument",
+      "description": "`sudo_set_subnet_emission_weights` was called for netuid 0. The root network has no alpha emission to divide, so it carries no emission weight vector; pass a subnet netuid.",
+      "docs_url": "/docs/errors/chain/EmissionWeightsNotSettableOnRoot",
+      "markdown_url": "/llms.mdx/docs/errors/chain/EmissionWeightsNotSettableOnRoot/content.md",
+      "pallets": [
+        "SubtensorModule"
+      ],
+      "sources": [
+        {
+          "pallet": "SubtensorModule",
+          "path": "pallets/subtensor/src/macros/errors.rs",
+          "line": 456,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L456",
           "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
         }
       ]
@@ -3088,6 +3196,24 @@
         }
       ]
     },
+    "LeasedSubnetOwnerCutBelowMinimum": {
+      "code": "policy_violation",
+      "description": "The subnet was created through a crowdloan lease, so slot 2 (owner) of its emission weight vector may not drop below the 18% launch default that lease contributors are paid from. Keep the owner share at or above 0.18 on lease-created subnets.",
+      "docs_url": "/docs/errors/chain/LeasedSubnetOwnerCutBelowMinimum",
+      "markdown_url": "/llms.mdx/docs/errors/chain/LeasedSubnetOwnerCutBelowMinimum/content.md",
+      "pallets": [
+        "SubtensorModule"
+      ],
+      "sources": [
+        {
+          "pallet": "SubtensorModule",
+          "path": "pallets/subtensor/src/macros/errors.rs",
+          "line": 441,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L441",
+          "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
+        }
+      ]
+    },
     "LimitOrdersDisabled": {
       "code": "disabled",
       "description": "Order execution was attempted while the pallet's global switch is off. Check the `LimitOrdersEnabled` storage value; root must call `set_pallet_status` with true to enable the pallet.",
@@ -3498,6 +3624,24 @@
           "line": 210,
           "url": "/code/pallets/admin-utils/src/lib.rs#L210",
           "raw_url": "/code/raw/pallets/admin-utils/src/lib.rs"
+        }
+      ]
+    },
+    "MinerEmissionBelowMinimum": {
+      "code": "policy_violation",
+      "description": "Slot 4 (miner) of the emission weight vector is below the 33% floor. Miner incentive must receive at least 0.33 of block emission; raise the miner share (or lower the owner/validator shares that crowd it out).",
+      "docs_url": "/docs/errors/chain/MinerEmissionBelowMinimum",
+      "markdown_url": "/llms.mdx/docs/errors/chain/MinerEmissionBelowMinimum/content.md",
+      "pallets": [
+        "SubtensorModule"
+      ],
+      "sources": [
+        {
+          "pallet": "SubtensorModule",
+          "path": "pallets/subtensor/src/macros/errors.rs",
+          "line": 454,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L454",
+          "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
         }
       ]
     },
@@ -4402,6 +4546,24 @@
         }
       ]
     },
+    "OwnerEmissionAboveMaximum": {
+      "code": "policy_violation",
+      "description": "Slot 2 (owner) of the emission weight vector exceeds the 33% ceiling. The subnet owner may take at most 0.33 of block emission; lower the owner share (0 disables the owner cut entirely on subnets that were not created through a lease).",
+      "docs_url": "/docs/errors/chain/OwnerEmissionAboveMaximum",
+      "markdown_url": "/llms.mdx/docs/errors/chain/OwnerEmissionAboveMaximum/content.md",
+      "pallets": [
+        "SubtensorModule"
+      ],
+      "sources": [
+        {
+          "pallet": "SubtensorModule",
+          "path": "pallets/subtensor/src/macros/errors.rs",
+          "line": 437,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L437",
+          "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
+        }
+      ]
+    },
     "POWRegistrationDisabled": {
       "code": "disabled",
       "description": "This legacy error is retained for older runtimes that disabled PoW registration. Upgraded runtimes let the subnet owner enable network_pow_registration_allowed; general registration must also be enabled. Root does not accept PoW registration.",
@@ -4598,6 +4760,24 @@
       "markdown_url": "/llms.mdx/docs/errors/chain/RandomSubjectTooLong/content.md",
       "pallets": [
         "Contracts"
+      ]
+    },
+    "RecycleEmissionMustBeZero": {
+      "code": "policy_violation",
+      "description": "Slot 1 (recycle) of the emission weight vector was set to a non-zero share. Recycling alpha emission is reserved for a future runtime; in v1 the recycle share must be 0 (or simply omitted).",
+      "docs_url": "/docs/errors/chain/RecycleEmissionMustBeZero",
+      "markdown_url": "/llms.mdx/docs/errors/chain/RecycleEmissionMustBeZero/content.md",
+      "pallets": [
+        "SubtensorModule"
+      ],
+      "sources": [
+        {
+          "pallet": "SubtensorModule",
+          "path": "pallets/subtensor/src/macros/errors.rs",
+          "line": 434,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L434",
+          "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
+        }
       ]
     },
     "ReentranceDenied": {
@@ -6029,6 +6209,42 @@
           "line": 266,
           "url": "/code/pallets/drand/src/lib.rs#L266",
           "raw_url": "/code/raw/pallets/drand/src/lib.rs"
+        }
+      ]
+    },
+    "ValidatorEmissionAboveMaximum": {
+      "code": "policy_violation",
+      "description": "Slot 3 (validator) of the emission weight vector exceeds the 50% ceiling. Validator dividends may draw at most 0.50 of block emission; lower the validator share.",
+      "docs_url": "/docs/errors/chain/ValidatorEmissionAboveMaximum",
+      "markdown_url": "/llms.mdx/docs/errors/chain/ValidatorEmissionAboveMaximum/content.md",
+      "pallets": [
+        "SubtensorModule"
+      ],
+      "sources": [
+        {
+          "pallet": "SubtensorModule",
+          "path": "pallets/subtensor/src/macros/errors.rs",
+          "line": 444,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L444",
+          "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
+        }
+      ]
+    },
+    "ValidatorEmissionTooLowToPreserveRoot": {
+      "code": "policy_violation",
+      "description": "Slot 3 (validator) of the emission weight vector is at or below root's baseline share. Every block the chain pays root `min(V, r)` of the subnet's emission off the top of the validator slot, where `r = V0 * x / (x + A)` is what root would earn with the default validator share V0 (0.41) and the global TaoWeight (`x` = root TAO times that weight, `A` = the subnet's alpha issuance), recomputed from live state; alpha validators get `V - min(V, r)`. A set with `V <= r` would leave validators nothing, so it is rejected. `btcli subnets emission show --netuid <n>` prints the baseline and the floor for this block. Raise the validator share above it and resubmit.",
+      "docs_url": "/docs/errors/chain/ValidatorEmissionTooLowToPreserveRoot",
+      "markdown_url": "/llms.mdx/docs/errors/chain/ValidatorEmissionTooLowToPreserveRoot/content.md",
+      "pallets": [
+        "SubtensorModule"
+      ],
+      "sources": [
+        {
+          "pallet": "SubtensorModule",
+          "path": "pallets/subtensor/src/macros/errors.rs",
+          "line": 451,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L451",
+          "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
         }
       ]
     },

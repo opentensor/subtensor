@@ -61,7 +61,6 @@ OWNER_HYPERPARAMETERS: dict[str, tuple[str, bool]] = {
     "yuma3_enabled": ("sudo_set_yuma3_enabled", True),
     "bonds_reset_enabled": ("sudo_set_bonds_reset_enabled", True),
     "transfers_enabled": ("sudo_set_toggle_transfer", True),
-    "owner_cut_enabled": ("sudo_set_owner_cut_enabled", True),
     "owner_cut_auto_lock_enabled": ("sudo_set_owner_cut_auto_lock_enabled", True),
 }
 

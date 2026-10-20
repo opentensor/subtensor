@@ -287,11 +287,9 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 3. Inject ALPHA for participants.
-        let cut_percent: U96F32 = Self::get_float_subnet_owner_cut();
-
         for netuid_i in subnets_to_emit_to.iter() {
             // Get alpha_out for this block.
-            let mut alpha_out_i: U96F32 = *alpha_out.get(netuid_i).unwrap_or(&asfloat!(0));
+            let alpha_out_i: U96F32 = *alpha_out.get(netuid_i).unwrap_or(&asfloat!(0));
 
             let alpha_created: AlphaBalance = AlphaBalance::from(tou64!(alpha_out_i));
             SubnetAlphaOutEmission::<T>::insert(*netuid_i, alpha_created);
@@ -299,36 +297,57 @@ impl<T: Config> Pallet<T> {
             // Mint and resolve outstanding alpha
             Self::resolve_to_alpha_out(Self::mint_alpha(*netuid_i, alpha_created));
 
-            // Calculate the owner cut.
-            if Self::get_owner_cut_enabled(*netuid_i) {
-                let owner_cut_i: U96F32 = alpha_out_i.saturating_mul(cut_percent);
-                log::debug!("owner_cut_i: {owner_cut_i:?}");
-                // Deduct owner cut from alpha_out.
-                alpha_out_i = alpha_out_i.saturating_sub(owner_cut_i);
-                // Accumulate the owner cut in pending.
+            // Every share below is a fraction of the *total* alpha_out, read from the
+            // subnet's emission weight vector `[burn, recycle, owner, validator, miner]`.
+            // Burn and recycle are pinned to zero in v1 and evaluated here so enabling them
+            // later is a constraint change, not a coinbase change.
+            let weights = Self::get_subnet_emission_weights(*netuid_i);
+            let share = |index: EmissionIndex| -> U96F32 {
+                alpha_out_i.saturating_mul(Self::emission_weight_to_fixed(
+                    weights.get(index.position()).copied().unwrap_or(0),
+                ))
+            };
+
+            let burn_alpha = share(EmissionIndex::Burn);
+            if burn_alpha > asfloat!(0) {
+                Self::burn_subnet_alpha(*netuid_i, AlphaBalance::from(tou64!(burn_alpha)));
+            }
+            let recycle_alpha = share(EmissionIndex::Recycle);
+            if recycle_alpha > asfloat!(0) {
+                Self::recycle_subnet_alpha(*netuid_i, AlphaBalance::from(tou64!(recycle_alpha)));
+            }
+
+            // Owner cut: slot 2, zero means disabled.
+            let owner_cut_i = share(EmissionIndex::Owner);
+            log::debug!("owner_cut_i: {owner_cut_i:?}");
+            if owner_cut_i > asfloat!(0) {
+                let owner_cut_alpha: AlphaBalance = tou64!(owner_cut_i).into();
                 PendingOwnerCut::<T>::mutate(*netuid_i, |total| {
-                    *total = total.saturating_add(tou64!(owner_cut_i).into());
+                    *total = total.saturating_add(owner_cut_alpha);
+                });
+                SubnetOwnerCutAccrued::<T>::mutate(*netuid_i, |total| {
+                    *total = total.saturating_add(owner_cut_alpha);
                 });
             }
 
-            // Get root proportional dividends.
-            let root_proportion = Self::root_proportion(*netuid_i);
-            log::debug!("root_proportion: {root_proportion:?}");
-
-            // Get root alpha from root prop.
-            let root_alpha: U96F32 = root_proportion
-                .saturating_mul(alpha_out_i) // Total alpha emission per block remaining.
-                .saturating_mul(asfloat!(0.5)); // 50% to validators.
-            log::debug!("root_alpha: {root_alpha:?}");
-
-            // Get pending server alpha, which is the miner cut of the alpha out.
-            // Currently miner cut is 50% of the alpha out.
-            let pending_server_alpha = alpha_out_i.saturating_mul(asfloat!(0.5));
-            log::debug!("pending_server_alpha: {pending_server_alpha:?}");
-            // The total validator alpha is the remaining alpha out minus the server alpha.
-            let total_validator_alpha = alpha_out_i.saturating_sub(pending_server_alpha);
+            // Validator slot: exactly what validator dividends draw from, before the root
+            // carve-out. Miner slot: exactly what miner incentive draws from.
+            let total_validator_alpha = share(EmissionIndex::Validator);
+            let pending_server_alpha = share(EmissionIndex::Miner);
             log::debug!("total_validator_alpha: {total_validator_alpha:?}");
-            // The alpha validators don't get the root alpha.
+            log::debug!("pending_server_alpha: {pending_server_alpha:?}");
+
+            // Root is paid off the top of the validator slot: its baseline share of the
+            // emission (default validator share × root proportion with the global
+            // `TaoWeight`, recomputed from live state every block), capped at the whole
+            // slot. This is what a subnet on the default split pays root, independent of
+            // the validator share the owner chose.
+            let root_share = Self::get_root_emission_share(*netuid_i);
+            log::debug!("root_share: {root_share:?}");
+            let root_alpha: U96F32 = alpha_out_i
+                .saturating_mul(root_share)
+                .min(total_validator_alpha);
+            log::debug!("root_alpha: {root_alpha:?}");
             let pending_validator_alpha = total_validator_alpha.saturating_sub(root_alpha);
             log::debug!("pending_validator_alpha: {pending_validator_alpha:?}");
 
@@ -1040,7 +1059,7 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        // Get TAO weight
+        // Get the weights for root and alpha stakes in emission distribution
         let tao_weight: U96F32 = Self::get_tao_weight();
 
         // Get the hotkey's stake including weight

@@ -269,7 +269,10 @@ RAW_ONLY: dict[str, set[str]] = {
         "sudo_set_start_call_delay",
         "sudo_set_subnet_limit",
         "sudo_set_subnet_moving_alpha",
+        # owner-cut setters deprecated by the emission weight vector (both always
+        # fail with Error::Deprecated; use SetSubnetEmissionWeights)
         "sudo_set_subnet_owner_cut",
+        "sudo_set_owner_cut_enabled",
         "sudo_set_subtoken_enabled",
         "sudo_set_tao_flow_cutoff",
         "sudo_set_tao_flow_normalization_exponent",

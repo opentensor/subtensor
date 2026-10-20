@@ -10,6 +10,15 @@ from .._generated import constants
 from .._generated import runtime_apis as api
 from .._generated import storage as st
 from ..balance import Balance
+from ..emission_weights import (
+    DEFAULT_OWNER,
+    SLOT_NAMES,
+    Rules,
+    min_validator_parts,
+    normalize_weights,
+    rate_limit_status,
+    share_to_float,
+)
 from .base import read, utf8_text
 
 
@@ -165,6 +174,133 @@ async def subnet_hyperparameters(view, netuid: int) -> Optional[dict]:
     if entries is None:
         return None
     return {entry["name"]: _hyperparam_value(entry["value"]) for entry in entries}
+
+
+def emission_weights_rate_limit_key(netuid: int) -> dict:
+    """``LastRateLimitedBlock`` key for the owner's emission-weights change window."""
+    return {"OwnerHyperparamUpdate": [netuid, "EmissionWeights"]}
+
+
+async def root_preservation_inputs(query, netuid: int) -> tuple[int, int, float]:
+    """``(root_tao, alpha_issuance, global_tao_weight)``: the live values root's
+    baseline share of a subnet's emission is computed from every block — root
+    TAO and alpha issuance in rao, the global ``TaoWeight`` as a 0..1 float.
+    ``query(item, keys)`` is an async storage read."""
+    root_tao, alpha_in, alpha_out, reservoir, tao_weight = await asyncio.gather(
+        query(st.SubtensorModule.SubnetTAO, [0]),
+        query(st.SubtensorModule.SubnetAlphaIn, [netuid]),
+        query(st.SubtensorModule.SubnetAlphaOut, [netuid]),
+        query(st.Swap.BalancerAlphaReservoir, [netuid]),
+        query(st.SubtensorModule.TaoWeight, []),
+    )
+    issuance = int(alpha_in or 0) + int(alpha_out or 0) + int(reservoir or 0)
+    return int(root_tao or 0), issuance, share_to_float(int(tao_weight or 0))
+
+
+@dataclass
+class SubnetEmissionWeights:
+    """A subnet's emission weight vector and the rule inputs that bound it.
+
+    Shares are u64 parts of ``u64::MAX``; ``shares`` carries the same values as
+    0..1 floats keyed by slot name. ``baseline_root_share`` is root's baseline
+    share of this subnet's emission at ``block`` (what root earns with the
+    default validator share and the global ``TaoWeight``, from ``root_tao``,
+    ``alpha_issuance`` in rao and ``global_tao_weight``); the chain pays root
+    that off the top of the validator slot every block, capped at the slot, so
+    ``root_share = min(validator, baseline_root_share)`` and alpha validators
+    get ``validator_share_after_root``. ``root_capped`` is True when the
+    baseline has grown past the validator slot and validators get nothing.
+    ``baseline_root_parts`` is the baseline in exact u64 parts (what the
+    runtime API reports); ``min_validator`` is the lowest validator share
+    (parts) the chain accepts at this block: one part above it.
+    ``last_change_block`` is when
+    the owner last changed the vector (0 = never); :meth:`rate_limit` turns it
+    into when the owner may change it next.
+    """
+
+    netuid: int
+    weights: list[int]
+    shares: dict[str, float]
+    burn: int
+    recycle: int
+    owner: int
+    validator: int
+    miner: int
+    global_tao_weight: float
+    created_via_lease: bool
+    root_tao: int
+    alpha_issuance: int
+    root_share: float
+    baseline_root_share: float
+    baseline_root_parts: int
+    validator_share_after_root: float
+    root_capped: bool
+    min_validator: int
+    block: int
+    last_change_block: int
+
+    def rules(self) -> Rules:
+        return Rules(
+            min_validator=self.min_validator,
+            min_owner=DEFAULT_OWNER,
+            created_via_lease=self.created_via_lease,
+        )
+
+    def rate_limit(self) -> dict[str, object]:
+        """When the subnet owner may next change the vector (root is exempt)."""
+        return rate_limit_status(self.last_change_block, self.block)
+
+
+@read(
+    "subnet_emission_weights",
+    {"netuid": "integer"},
+    category="Subnets",
+    param_docs={"netuid": "Subnet whose emission weight vector to read."},
+)
+async def subnet_emission_weights(view, netuid: int) -> Optional[SubnetEmissionWeights]:
+    """The subnet's emission weight vector ``[burn, recycle, owner, validator,
+    miner]`` with the bounds that apply to it, or None if the subnet does not
+    exist (the root subnet has no vector).
+
+    Pair with the ``set_subnet_emission_weights`` intent: ``min_validator``
+    and ``created_via_lease`` are the per-subnet inputs the chain uses to
+    accept or reject a change (``min_validator`` moves with root stake, alpha
+    issuance and the global TAO weight, so it is a snapshot of this block).
+    """
+    view = await view.at()
+    info = await view.runtime(api.SubnetInfoRuntimeApi.get_subnet_emission_weights, [netuid])
+    if info is None:
+        return None
+    weights = normalize_weights(info["weights"])
+    rate_limit_key = emission_weights_rate_limit_key(netuid)
+    (root_tao, alpha_issuance, global_tao_weight), last_change = await asyncio.gather(
+        root_preservation_inputs(view.query, netuid),
+        view.query(st.SubtensorModule.LastRateLimitedBlock, [rate_limit_key]),
+    )
+    baseline_parts = int(info["root_baseline_share"])
+    root_parts = min(int(info["root_share"]), weights[3])
+    return SubnetEmissionWeights(
+        netuid=int(info["netuid"]),
+        weights=weights,
+        shares={name: share_to_float(w) for name, w in zip(SLOT_NAMES, weights)},
+        burn=int(info["burn"]),
+        recycle=int(info["recycle"]),
+        owner=int(info["owner"]),
+        validator=int(info["validator"]),
+        miner=int(info["miner"]),
+        global_tao_weight=global_tao_weight,
+        created_via_lease=bool(info["created_via_lease"]),
+        root_tao=root_tao,
+        alpha_issuance=alpha_issuance,
+        root_share=share_to_float(root_parts),
+        baseline_root_share=share_to_float(baseline_parts),
+        baseline_root_parts=baseline_parts,
+        validator_share_after_root=share_to_float(weights[3] - root_parts),
+        root_capped=baseline_parts > weights[3],
+        min_validator=min_validator_parts(baseline_parts),
+        block=view.block,
+        last_change_block=int(last_change or 0),
+    )
 
 
 @read(
