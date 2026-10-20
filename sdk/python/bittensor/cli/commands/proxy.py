@@ -163,7 +163,12 @@ def remove_proxy(
             if answer.strip().lower() != "remove all":
                 app_ctx.output.message("aborted.")
                 raise typer.Exit(1)
-        app_ctx.submit(RemoveProxies())
+        # Resolve once: when acting for another account (--proxy-for or the
+        # proxy_for config), only that account's proxies are in scope.
+        dispatch_as = app_ctx.resolve_dispatch_proxy()
+        app_ctx.submit(RemoveProxies(), proxy_for=dispatch_as or "self")
+        if dispatch_as is not None:
+            return
         # Validate/Weights grants are keyed by the hotkey, which the coldkey
         # call cannot revoke.
         hotkey_ss58 = _local_hotkey_ss58(app_ctx)
