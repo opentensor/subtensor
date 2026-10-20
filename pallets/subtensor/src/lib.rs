@@ -4055,6 +4055,9 @@ pub trait ProxyInterface<AccountId> {
     fn add_lease_beneficiary_proxy(beneficiary: &AccountId, lease: &AccountId) -> DispatchResult;
     fn remove_lease_beneficiary_proxy(beneficiary: &AccountId, lease: &AccountId)
     -> DispatchResult;
+    /// Move proxies (and real-pays-fee flags) keyed by `from` onto `to`, merging
+    /// with any proxies `to` already holds. Used by coldkey swap.
+    fn transfer_delegator_proxies(from: &AccountId, to: &AccountId) -> DispatchResult;
 }
 
 impl<T> ProxyInterface<T> for () {
@@ -4063,6 +4066,10 @@ impl<T> ProxyInterface<T> for () {
     }
 
     fn remove_lease_beneficiary_proxy(_: &T, _: &T) -> DispatchResult {
+        Ok(())
+    }
+
+    fn transfer_delegator_proxies(_: &T, _: &T) -> DispatchResult {
         Ok(())
     }
 }

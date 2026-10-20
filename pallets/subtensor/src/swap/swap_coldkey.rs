@@ -680,6 +680,12 @@ impl<T: Config> Pallet<T> {
                     AccountFlags::<T>::remove(new_coldkey);
                 }
 
+                // Proxies are keyed by the coldkey (delegator). Merge source
+                // grants into the destination before the free balance drain so
+                // deposits can be unreserved/re-reserved. Validate (and other)
+                // grants follow the key across rename and into-used merges.
+                T::ProxyInterface::transfer_delegator_proxies(old_coldkey, new_coldkey)?;
+
                 // Transfer any remaining balance from old_coldkey to new_coldkey
                 Self::transfer_all_tao_and_kill(old_coldkey, new_coldkey)?;
 

@@ -1193,4 +1193,82 @@ impl<T: Config> Pallet<T> {
     pub fn is_real_pays_fee(real: &T::AccountId, delegate: &T::AccountId) -> bool {
         RealPaysFee::<T>::contains_key(real, delegate)
     }
+
+    /// Move proxy delegations (and real-pays-fee flags) from `from` onto `to`.
+    ///
+    /// Used by coldkey swap so proxies keyed by the coldkey follow the key.
+    /// Duplicate `(delegate, proxy_type, delay)` entries are kept once. Fails with
+    /// [`Error::TooMany`] when the merged set exceeds `MaxProxies`, or when both
+    /// accounts already hold pending announcements (announcements move only onto an
+    /// empty destination announcement queue). Failures leave both accounts unchanged.
+    pub fn transfer_delegator_proxies(from: &T::AccountId, to: &T::AccountId) -> DispatchResult {
+        if from == to {
+            return Ok(());
+        }
+        frame_support::storage::with_transaction(|| {
+            let result = (|| -> DispatchResult {
+                let (from_announcements, from_ann_deposit) = Announcements::<T>::get(from);
+                if !from_announcements.is_empty() {
+                    let (to_announcements, _) = Announcements::<T>::get(to);
+                    ensure!(to_announcements.is_empty(), Error::<T>::TooMany);
+                }
+
+                let (from_proxies, from_deposit) = Proxies::<T>::get(from);
+                if !from_proxies.is_empty() {
+                    let (to_proxies, to_deposit) = Proxies::<T>::get(to);
+                    let mut merged = to_proxies;
+                    for def in from_proxies.iter() {
+                        match merged.binary_search(def) {
+                            Ok(_) => {}
+                            Err(i) => {
+                                merged
+                                    .try_insert(i, def.clone())
+                                    .map_err(|_| Error::<T>::TooMany)?;
+                            }
+                        }
+                    }
+                    let new_deposit = Self::deposit(merged.len() as u32);
+                    if new_deposit > to_deposit {
+                        T::Currency::reserve(to, new_deposit.saturating_sub(to_deposit))?;
+                    } else if new_deposit < to_deposit {
+                        T::Currency::unreserve(to, to_deposit.saturating_sub(new_deposit));
+                    }
+                    Proxies::<T>::insert(to, (merged, new_deposit));
+                    Proxies::<T>::remove(from);
+                    if !from_deposit.is_zero() {
+                        T::Currency::unreserve(from, from_deposit);
+                    }
+                }
+
+                if !from_announcements.is_empty() {
+                    Announcements::<T>::remove(from);
+                    if !from_ann_deposit.is_zero() {
+                        T::Currency::unreserve(from, from_ann_deposit);
+                    }
+                    let new_ann_deposit = Self::rejig_deposit(
+                        to,
+                        Zero::zero(),
+                        T::AnnouncementDepositBase::get(),
+                        T::AnnouncementDepositFactor::get(),
+                        from_announcements.len(),
+                    )?
+                    .ok_or(Error::<T>::AnnouncementDepositInvariantViolated)?;
+                    Announcements::<T>::insert(to, (from_announcements, new_ann_deposit));
+                }
+
+                let delegates: alloc::vec::Vec<T::AccountId> = RealPaysFee::<T>::iter_prefix(from)
+                    .map(|(delegate, _)| delegate)
+                    .collect();
+                for delegate in delegates {
+                    RealPaysFee::<T>::insert(to, &delegate, ());
+                    RealPaysFee::<T>::remove(from, &delegate);
+                }
+                Ok(())
+            })();
+            match result {
+                Ok(()) => frame_support::storage::TransactionOutcome::Commit(Ok(())),
+                Err(e) => frame_support::storage::TransactionOutcome::Rollback(Err(e)),
+            }
+        })
+    }
 }

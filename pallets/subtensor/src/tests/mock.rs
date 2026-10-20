@@ -603,6 +603,12 @@ impl ProxyInterface<U256> for FakeProxier {
         });
         Ok(())
     }
+
+    fn transfer_delegator_proxies(_from: &AccountId, _to: &AccountId) -> DispatchResult {
+        // Pallet unit tests use a lease-only fake; coldkey-keyed Proxies merge is
+        // covered by runtime tests against the real proxy pallet.
+        Ok(())
+    }
 }
 
 parameter_types! {
