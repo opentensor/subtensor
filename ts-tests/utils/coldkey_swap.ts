@@ -9,7 +9,7 @@ import { FixedSizeBinary } from "polkadot-api";
 export const ANNOUNCEMENT_DELAY = 20;
 export const REANNOUNCEMENT_DELAY = 20;
 
-/** Compute BLAKE2-256 hash of a keypair's public key as a FixedSizeBinary (used for announcements). */
+/** Compute BLAKE2-256 hash of a keypair's public key as a FixedSizeBinary (used for announcement storage / events). */
 export function coldkeyHashBinary(pair: KeyringPair): FixedSizeBinary<32> {
     return FixedSizeBinary.fromHex(blake2AsHex(pair.publicKey, 256));
 }
@@ -46,12 +46,13 @@ export async function sudoSetReannouncementDelay(api: TypedApi<typeof subtensor>
 export async function announceColdkeySwap(
     api: TypedApi<typeof subtensor>,
     signer: KeyringPair,
-    newColdkeyHash: FixedSizeBinary<32>
+    newColdkey: KeyringPair | string
 ): Promise<void> {
-    const tx = api.tx.SubtensorModule.announce_coldkey_swap({
-        new_coldkey_hash: newColdkeyHash,
+    const newAddress = typeof newColdkey === "string" ? newColdkey : newColdkey.address;
+    const tx = api.tx.SubtensorModule.announce_coldkey_swap_v2({
+        new_coldkey: newAddress,
     });
-    await waitForTransactionWithRetry(api, tx, signer, "announce_coldkey_swap");
+    await waitForTransactionWithRetry(api, tx, signer, "announce_coldkey_swap_v2");
 }
 
 export async function swapColdkeyAnnounced(

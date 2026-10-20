@@ -51,9 +51,11 @@ where
             call.is_sub_type(),
             Some(
                 Call::announce_coldkey_swap { .. }
+                    | Call::announce_coldkey_swap_v2 { .. }
                     | Call::swap_coldkey_announced { .. }
                     | Call::dispute_coldkey_swap { .. }
                     | Call::clear_coldkey_swap_announcement { .. }
+                    | Call::release_own_coldkey_swap_destination_reservation { .. }
             )
         ) || matches!(
             IsSubType::<pallet_shield::Call<T>>::is_sub_type(call),
@@ -142,6 +144,9 @@ mod tests {
         vec![
             RuntimeCall::SubtensorModule(crate::Call::announce_coldkey_swap {
                 new_coldkey_hash: HashingOf::<Test>::hash_of(&U256::from(99)),
+            }),
+            RuntimeCall::SubtensorModule(crate::Call::announce_coldkey_swap_v2 {
+                new_coldkey: U256::from(99),
             }),
             RuntimeCall::SubtensorModule(crate::Call::swap_coldkey_announced {
                 new_coldkey: U256::from(42),
