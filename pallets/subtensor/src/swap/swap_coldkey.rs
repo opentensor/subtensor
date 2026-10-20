@@ -31,12 +31,10 @@ impl<T: Config> Pallet<T> {
         .saturating_add(T::DbWeight::get().reads(u64::from(work.hotkeys).saturating_mul(3)))
         // One queue value read, then get+insert per owned pending registration.
         .saturating_add(T::DbWeight::get().reads(1))
-        .saturating_add(
-            T::DbWeight::get().reads_writes(
-                u64::from(work.pending_registrations),
-                u64::from(work.pending_registrations).saturating_add(1),
-            ),
-        )
+        .saturating_add(T::DbWeight::get().reads_writes(
+            u64::from(work.pending_registrations),
+            u64::from(work.pending_registrations).saturating_add(1),
+        ))
     }
 
     /// The largest swap one call admits, used as the pre-dispatch envelope.
@@ -93,7 +91,9 @@ impl<T: Config> Pallet<T> {
 
     /// Extra DB work clear/reset pay for releasing a destination reservation.
     pub fn coldkey_swap_reservation_release_weight() -> Weight {
-        T::DbWeight::get().reads(2).saturating_add(T::DbWeight::get().writes(2))
+        T::DbWeight::get()
+            .reads(2)
+            .saturating_add(T::DbWeight::get().writes(2))
     }
 
     /// Whether `announcer`'s reservation is still within its bounded lifetime.
@@ -465,7 +465,8 @@ impl<T: Config> Pallet<T> {
                     continue;
                 }
                 return Err((
-                    Self::coldkey_swap_failed_weight(Some(work), true).saturating_add(opt_out_reads),
+                    Self::coldkey_swap_failed_weight(Some(work), true)
+                        .saturating_add(opt_out_reads),
                     Error::<T>::AccountRejectsStakingHotkeyGrowth,
                 ));
             }

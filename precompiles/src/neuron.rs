@@ -1736,11 +1736,9 @@ mod tests {
                 pallet_subtensor::ColdkeySwapReservedDestination::<Runtime>::get(&caller_account)
                     .is_none()
             );
-            assert!(
-                !pallet_subtensor::ColdkeySwapDestinationReservations::<Runtime>::contains_key(
-                    &dest
-                )
-            );
+            assert!(!pallet_subtensor::ColdkeySwapDestinationReservations::<
+                Runtime,
+            >::contains_key(&dest));
         });
     }
 

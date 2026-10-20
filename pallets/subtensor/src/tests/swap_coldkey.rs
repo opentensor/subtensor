@@ -105,7 +105,10 @@ fn test_announce_coldkey_swap_with_existing_announcement_past_delay_works() {
         let reannouncement_delay = ColdkeySwapReannouncementDelay::<Test>::get();
         run_to_block(now + delay + reannouncement_delay);
 
-        assert_ok!(SubtensorModule::announce_coldkey_swap(RuntimeOrigin::signed(who), new_coldkey_2_hash));
+        assert_ok!(SubtensorModule::announce_coldkey_swap(
+            RuntimeOrigin::signed(who),
+            new_coldkey_2_hash
+        ));
 
         let now = System::block_number();
         assert_eq!(
@@ -140,7 +143,10 @@ fn test_announce_coldkey_swap_only_pays_swap_cost_if_no_announcement_exists() {
         let reannouncement_delay = ColdkeySwapReannouncementDelay::<Test>::get();
         run_to_block(now + base_delay + reannouncement_delay);
 
-        assert_ok!(SubtensorModule::announce_coldkey_swap(RuntimeOrigin::signed(who), new_coldkey_2_hash));
+        assert_ok!(SubtensorModule::announce_coldkey_swap(
+            RuntimeOrigin::signed(who),
+            new_coldkey_2_hash
+        ));
         assert_eq!(SubtensorModule::get_coldkey_balance(&who), ed);
     });
 }
@@ -3430,16 +3436,18 @@ fn test_merge_swap_rewrites_pending_registration_via_queue_lock_id() {
         let lock_id = 7u32;
         let amount = TaoBalance::from(1_000_000_u64);
 
-        NetworkRegistrationQueue::<Test>::put(vec![crate::subnets::subnet::NetworkRegistrationInfo {
-            coldkey: old,
-            hotkey,
-            mechid: 0,
-            identity: None,
-            lock_amount: amount,
-            median_subnet_alpha_price: Default::default(),
-            registration_block: 1,
-            lock_id,
-        }]);
+        NetworkRegistrationQueue::<Test>::put(vec![
+            crate::subnets::subnet::NetworkRegistrationInfo {
+                coldkey: old,
+                hotkey,
+                mechid: 0,
+                identity: None,
+                lock_amount: amount,
+                median_subnet_alpha_price: Default::default(),
+                registration_block: 1,
+                lock_id,
+            },
+        ]);
         NetworkRegistrationEscrow::<Test>::insert(lock_id, (old, amount));
         // Unrelated escrow row must stay untouched (proves we do not iter-all).
         NetworkRegistrationEscrow::<Test>::insert(99u32, (U256::from(9), amount));
@@ -3471,7 +3479,8 @@ fn test_swap_failure_charges_admission_work_on_dest_opt_out() {
         let dest_hot = U256::from(4);
 
         assert_ok!(SubtensorModule::create_account_if_non_existent(
-            &old, &source_hot
+            &old,
+            &source_hot
         ));
         assert_ok!(SubtensorModule::create_account_if_non_existent(
             &dest, &dest_hot
