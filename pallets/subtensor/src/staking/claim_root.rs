@@ -8,6 +8,7 @@ use sp_core::Get;
 use sp_runtime::DispatchError;
 use sp_runtime::traits::{AccountIdConversion, Zero};
 use sp_std::collections::btree_map::BTreeMap;
+use sp_std::collections::btree_set::BTreeSet;
 use substrate_fixed::types::{I96F32, U64F64};
 use subtensor_runtime_common::clear_prefix_with_meter;
 use subtensor_swap_interface::{SwapFailureKind, SwapHandler};
@@ -667,6 +668,9 @@ impl<T: Config> Pallet<T> {
         if owed_shares == 0 {
             return Ok(()); // no-op
         }
+        // A retained root-swap credit is discoverable without a staking-list entry.
+        // Redeeming it establishes root stake, so the caller's overall cap applies.
+        Self::ensure_staking_hotkeys_can_grow(coldkey, hotkey)?;
 
         let shares_total: u64 = BasketShares::<T>::get(hotkey);
         // Nothing realizable yet (fund drained); leave the watermark untouched so the claim can
@@ -910,6 +914,9 @@ impl<T: Config> Pallet<T> {
             BasketClaimed::<T>::mutate(hotkey, coldkey, |claimed| {
                 *claimed = claimed.saturating_add(i128::from(owed_shares));
             });
+            if BasketClaimed::<T>::get(hotkey, coldkey) >= 0 {
+                HotkeySwapBasketCredits::<T>::remove(coldkey, hotkey);
+            }
             BasketRedeemedTao::<T>::mutate(hotkey, |total| {
                 *total = total.saturating_add(total_tao.into())
             });
@@ -1166,14 +1173,19 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         staking_hotkeys: Vec<T::AccountId>,
     ) -> Vec<T::AccountId> {
-        staking_hotkeys
+        let credit_limit = crate::MAX_ROOT_CLAIM_WORK
+            .saturating_sub(staking_hotkeys.len() as u32)
+            .saturating_add(1) as usize;
+        let mut hotkeys: BTreeSet<_> = staking_hotkeys
             .into_iter()
             .filter(|hotkey| {
                 !Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, NetUid::ROOT)
                     .is_zero()
                     || BasketClaimed::<T>::get(hotkey, coldkey) < 0
             })
-            .collect()
+            .collect();
+        hotkeys.extend(HotkeySwapBasketCredits::<T>::iter_key_prefix(coldkey).take(credit_limit));
+        hotkeys.into_iter().collect()
     }
 
     /// True when the hotkeys plus the basket storage rows the claim will scan fit the fixed
@@ -1398,23 +1410,36 @@ impl<T: Config> Pallet<T> {
 
     /// Moves a staker's claimed watermark on `hotkey` to a new coldkey (used by coldkey swaps;
     /// hotkey swaps migrate all watermarks via `transfer_basket_for_new_hotkey`).
+    ///
+    /// Returns `ArithmeticError::Overflow` when the summed watermark does not fit in
+    /// `i128`. Callers run inside a transactional coldkey swap so the take is rolled
+    /// back with the rest of the swap.
     pub fn transfer_basket_claimed_for_new_coldkey(
         hotkey: &T::AccountId,
         old_coldkey: &T::AccountId,
         new_coldkey: &T::AccountId,
-    ) {
+    ) -> DispatchResult {
         // Sum the two already-claimed watermarks. When BOTH the source and the destination
         // hold a legitimate watermark — e.g. a coldkey swap onto a hotkey the new coldkey has
         // already staked to — the merged "already claimed" total is old + new. Taking the max
         // would drop one side, under-count what has already been claimed, and cause a future
         // over-payment / double-claim (see GHSA-2026-010 for the hotkey-swap analog, which is
         // prevented upstream by the root-swap cleanliness gate in `do_swap_hotkey`).
+        //
+        // Fail closed on i128 overflow rather than saturating: a saturated watermark
+        // under-counts already-claimed value and re-opens a double-claim window.
         let old_claimed: i128 = BasketClaimed::<T>::take(hotkey, old_coldkey);
         if old_claimed != 0 {
-            BasketClaimed::<T>::mutate(hotkey, new_coldkey, |claimed| {
-                *claimed = claimed.saturating_add(old_claimed);
-            });
+            let dest_claimed: i128 = BasketClaimed::<T>::get(hotkey, new_coldkey);
+            let sum = dest_claimed
+                .checked_add(old_claimed)
+                .ok_or(sp_runtime::ArithmeticError::Overflow)?;
+            BasketClaimed::<T>::insert(hotkey, new_coldkey, sum);
         }
+        if HotkeySwapBasketCredits::<T>::take(old_coldkey, hotkey).is_some() {
+            HotkeySwapBasketCredits::<T>::insert(new_coldkey, hotkey, ());
+        }
+        Ok(())
     }
 
     /// Migrates a validator's entire fund to a new hotkey: shares, rate, per-coldkey watermarks,
@@ -1463,6 +1488,11 @@ impl<T: Config> Pallet<T> {
             BasketClaimed::<T>::mutate(new_hotkey, &coldkey, |c| {
                 *c = c.saturating_add(claimed);
             });
+            if HotkeySwapBasketCredits::<T>::take(&coldkey, old_hotkey).is_some()
+                && !StakingHotkeys::<T>::get(&coldkey).contains(new_hotkey)
+            {
+                HotkeySwapBasketCredits::<T>::insert(&coldkey, new_hotkey, ());
+            }
         }
 
         // Queued dividend credits follow the fund. The clean-root guard doesn't inspect

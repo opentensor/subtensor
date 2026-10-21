@@ -20,6 +20,36 @@ ALICE_HOT = Keypair.create_from_uri("//Alice//hot").ss58_address
 BOB = Keypair.create_from_uri("//Bob").ss58_address
 BOB_HOT = Keypair.create_from_uri("//Bob//hot").ss58_address
 
+_U64_MAX = 2**64 - 1
+_OWNER_18 = (11796 * _U64_MAX) // 65535
+_VALIDATOR_41 = (_U64_MAX - _OWNER_18) // 2
+# Mainnet ``SubtensorInitialTaoWeight`` (~5.27%).
+TAO_WEIGHT = 971_718_665_099_567_868
+# Root TAO and the sample subnet's alpha issuance (rao) the emission fixtures
+# are seeded with; root's baseline share ``V0 * x / (x + A)`` is derived from
+# them exactly as the chain's ``get_subnet_emission_weights`` reports it.
+EMISSION_ROOT_TAO = 5_443_000 * 10**9
+EMISSION_ALPHA_ISSUANCE = 6_457_000 * 10**9
+_ROOT_X = EMISSION_ROOT_TAO * TAO_WEIGHT // _U64_MAX
+ROOT_BASELINE_SHARE = _VALIDATOR_41 * _ROOT_X // (_ROOT_X + EMISSION_ALPHA_ISSUANCE)
+
+# The chain's default emission weight vector as ``get_subnet_emission_weights``
+# decodes it (mainnet: 18% owner, 41% validator, 41% miner); root is paid its
+# baseline share off the top of the validator slot, so on the default vector
+# ``root_share == root_baseline_share``.
+EMISSION_WEIGHTS_INFO: dict = {
+    "netuid": 1,
+    "weights": [0, 0, _OWNER_18, _VALIDATOR_41, _U64_MAX - _OWNER_18 - _VALIDATOR_41],
+    "burn": 0,
+    "recycle": 0,
+    "owner": _OWNER_18,
+    "validator": _VALIDATOR_41,
+    "miner": _U64_MAX - _OWNER_18 - _VALIDATOR_41,
+    "root_baseline_share": ROOT_BASELINE_SHARE,
+    "root_share": min(ROOT_BASELINE_SHARE, _VALIDATOR_41),
+    "created_via_lease": False,
+}
+
 
 def dev_wallet(cold: str = "//Alice", hot: str = "//Alice//hot") -> SimpleNamespace:
     """A KeyedWallet-shaped object carrying dev keypairs (no keyfiles)."""
@@ -124,8 +154,15 @@ INTENT_SAMPLES: dict[str, dict] = {
     "announce_coldkey_swap": {"new_coldkey_ss58": BOB},
     "swap_coldkey_announced": {"new_coldkey_ss58": BOB},
     "clear_coldkey_swap_announcement": {},
+    "release_own_coldkey_swap_destination_reservation": {},
     "dispute_coldkey_swap": {},
     "set_hyperparameter": {"netuid": 1, "name": "immunity_period", "value": 42},
+    "set_subnet_emission_weights": {
+        "netuid": 1,
+        "slots": ["owner"],
+        "values": ["10%"],
+        "renormalize": True,
+    },
     "set_identity": {"name": "verify"},
     "set_subnet_identity": {"netuid": 1, "subnet_name": "verify"},
     "trim_subnet": {"netuid": 1, "max_n": 64},
@@ -141,6 +178,7 @@ INTENT_SAMPLES: dict[str, dict] = {
     "move_lock": {"netuid": 1, "destination_hotkey_ss58": BOB_HOT},
     "set_perpetual_lock": {"netuid": 1, "enabled": True},
     "set_reject_locked_alpha": {"enabled": True},
+    "set_reject_staking_hotkey_growth": {"enabled": True},
     "stake_into_basket": {"hotkey_ss58": BOB_HOT, "amount_tao": 1.0},
     "swap_basket": {"hotkey_ss58": BOB_HOT, "origin_netuid": 1, "dest_netuid": 0, "amount": 1.0},
     "swap_basket_many": {
@@ -285,6 +323,7 @@ READ_SAMPLES: dict[str, dict] = {
     "subnet": {"netuid": 1},
     "subnet_convictions": {"netuid": 1},
     "subnet_emission_enabled": {"netuid": 1},
+    "subnet_emission_weights": {"netuid": 1},
     "subnet_hyperparameters": {"netuid": 1},
     "subnet_identity": {"netuid": 1},
     "subnet_names": {},

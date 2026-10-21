@@ -335,7 +335,9 @@ parameter_types! {
     pub const InitialRAORecycledForRegistration: u64 = 0;
     pub const InitialNetworkImmunityPeriod: u64 = 1_296_000;
     pub const InitialNetworkMinLockCost: u64 = 100_000_000_000;
-    pub const InitialSubnetOwnerCut: u16 = 0; // 0%. 100% of rewards go to validators + miners.
+    // 0%: 100% of rewards go to validators + miners. `static` so emission-weight
+    // tests can raise it to the mainnet 18% and exercise the leased-subnet floor.
+    pub static InitialSubnetOwnerCut: u16 = 0;
     pub const InitialNetworkLockReductionInterval: u64 = 2; // 2 blocks.
     pub const InitialNetworkRateLimit: u64 = 0;
     pub const InitialKeySwapCost: u64 = 1_000_000_000;
@@ -600,6 +602,10 @@ impl ProxyInterface<U256> for FakeProxier {
             proxies.0.retain(|(b, l)| b != beneficiary || l != lease);
         });
         Ok(())
+    }
+
+    fn has_delegator_proxies(_delegator: &AccountId) -> bool {
+        false
     }
 }
 
@@ -1013,6 +1019,19 @@ pub fn add_network(netuid: NetUid, tempo: u16, _modality: u16) {
     // make interval 1 block so tests can register by stepping 1 block.
     BurnHalfLife::<Test>::insert(netuid, 1);
     BurnIncreaseMult::<Test>::insert(netuid, U64F64::from_num(1));
+}
+
+/// Set the subnet's owner emission share from a legacy `u16 / u16::MAX` cut,
+/// splitting the remainder evenly between validators and miners. Bypasses the
+/// extrinsic rules so tests can exercise extreme cuts (0% and 100%).
+#[allow(dead_code)]
+pub fn set_subnet_owner_cut_for_test(netuid: NetUid, cut: u16) {
+    SubtensorModule::set_subnet_emission_weights_unchecked(
+        netuid,
+        SubtensorModule::emission_weights_with_owner(
+            SubtensorModule::scale_u16_fraction_to_emission_weight(cut),
+        ),
+    );
 }
 
 #[allow(dead_code)]

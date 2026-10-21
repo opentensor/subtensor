@@ -3172,7 +3172,7 @@ fn test_mining_emission_distribution_validator_valiminer_miner() {
         add_balance_to_coldkey_account(&miner_coldkey, stake + ExistentialDeposit::get());
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         step_block(subnet_tempo);
-        SubnetOwnerCut::<Test>::set(0);
+        set_subnet_owner_cut_for_test(netuid, 0);
         // There are two validators and three neurons
         MaxAllowedUids::<Test>::set(netuid, 3);
         SubtensorModule::set_max_allowed_validators(netuid, 2);

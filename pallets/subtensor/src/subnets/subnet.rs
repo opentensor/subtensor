@@ -451,8 +451,14 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        // --- 10. Default emission off
-        SubnetEmissionEnabled::<T>::insert(netuid_to_register, false);
+        // --- 10. Pool-side TAO emission share starts enabled.
+        // `init_new_network` already writes `true` (and clears any leftover `false`
+        // from a prior dissolve on a reused netuid). Re-assert here so registration
+        // does not depend on that call remaining the last writer. Existing subnets
+        // that root already disabled are untouched — this path only runs for new
+        // registrations. Owner `start_call` / `StartCallDelay` still gate epoch
+        // activation and subtoken trading; root can still flip this flag off.
+        SubnetEmissionEnabled::<T>::insert(netuid_to_register, true);
         weight.saturating_accrue(db_weight.writes(1));
 
         // --- 11. Emit the NetworkAdded event.
@@ -474,6 +480,11 @@ impl<T: Config> Pallet<T> {
         // --- 3. Fill tempo memory item.
         Tempo::<T>::insert(netuid, tempo);
 
+        // --- 3.0. Seed the canonical emission weight vector; the subnet follows the global
+        // TaoWeight until its validator share changes. Owners may change the vector once
+        // registration is done.
+        Self::seed_subnet_emission_weights(netuid);
+
         // --- 3.1. Initialise `LastEpochBlock` with a per-netuid stagger
         let now = Self::get_current_block_as_u64();
         let period = (tempo as u64).max(1);
@@ -492,8 +503,10 @@ impl<T: Config> Pallet<T> {
         Self::set_yuma3_enabled(netuid, true);
         Self::set_burn(netuid, DefaultNeuronBurnCost::<T>::get());
 
-        // New subnets should never inherit a prior subnet owner's disabled state
-        // when a netuid is reused after pruning/dissolve.
+        // New / reused netuids start with pool-side TAO emission enabled so a
+        // prior dissolve cannot leave `SubnetEmissionEnabled = false` on the id.
+        // `set_new_network_state` re-asserts `true` after this; root may still
+        // disable via `sudo_set_subnet_emission_enabled`.
         SubnetEmissionEnabled::<T>::insert(netuid, true);
 
         // Make network parameters explicit.
@@ -658,22 +671,6 @@ impl<T: Config> Pallet<T> {
             Some((decoded_pallet_id, netuid)) if decoded_pallet_id == pallet_id => Some(netuid),
             _ => None,
         }
-    }
-
-    /// Returns whether the owner cut is enabled for the given subnet.
-    ///
-    /// Returns `true` if the owner cut is enabled for the subnet, otherwise `false`.
-    pub fn get_owner_cut_enabled(netuid: NetUid) -> bool {
-        OwnerCutEnabled::<T>::get(netuid)
-    }
-
-    /// Sets whether the owner cut is enabled for the given subnet.
-    ///
-    /// # Arguments
-    /// * `netuid`: The identifier of the subnet to update.
-    /// * `value`: `true` to enable the owner cut for the subnet, `false` to disable it.
-    pub fn set_owner_cut_enabled_flag(netuid: NetUid, value: bool) {
-        OwnerCutEnabled::<T>::insert(netuid, value);
     }
 
     /// Returns whether owner cut auto-locking is enabled for the given subnet.

@@ -550,6 +550,33 @@ mod pallet_benchmarks {
     }
 
     #[benchmark]
+    fn announce_coldkey_swap_v2() {
+        let coldkey: T::AccountId = account("old_coldkey", 0, 0);
+        let new_coldkey: T::AccountId = account("new_coldkey", 0, 0);
+
+        let ed = <T as pallet_balances::Config>::ExistentialDeposit::get();
+        let swap_cost = Subtensor::<T>::get_key_swap_cost();
+        add_balance_to_coldkey_account::<T>(&coldkey, swap_cost + ed);
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(coldkey), new_coldkey);
+    }
+
+    #[benchmark]
+    fn release_own_coldkey_swap_destination_reservation() {
+        let coldkey: T::AccountId = account("old_coldkey", 0, 0);
+        let new_coldkey: T::AccountId = account("new_coldkey", 0, 0);
+        let now = frame_system::Pallet::<T>::block_number();
+        let new_coldkey_hash: T::Hash = <T as frame_system::Config>::Hashing::hash_of(&new_coldkey);
+        ColdkeySwapAnnouncements::<T>::insert(&coldkey, (now, new_coldkey_hash));
+        ColdkeySwapDestinationReservations::<T>::insert(&new_coldkey, coldkey.clone());
+        ColdkeySwapReservedDestination::<T>::insert(&coldkey, new_coldkey.clone());
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(new_coldkey));
+    }
+
+    #[benchmark]
     fn swap_coldkey_announced() {
         let old_coldkey: T::AccountId = account("old_coldkey", 0, 0);
         let new_coldkey: T::AccountId = account("new_coldkey", 0, 0);
@@ -559,6 +586,7 @@ mod pallet_benchmarks {
         let now = frame_system::Pallet::<T>::block_number();
         let delay = ColdkeySwapAnnouncementDelay::<T>::get();
         ColdkeySwapAnnouncements::<T>::insert(&old_coldkey, (now, new_coldkey_hash));
+        ColdkeySwapDisputes::<T>::insert(&old_coldkey, BlockNumberFor::<T>::zero());
         frame_system::Pallet::<T>::set_block_number(now + delay + 1u32.into());
 
         let netuid = NetUid::from(1);
@@ -597,7 +625,9 @@ mod pallet_benchmarks {
         helpers::seed_coldkey_swap_leases::<T>(netuid, &old_coldkey, &new_coldkey);
 
         #[extrinsic_call]
-        _(RawOrigin::Signed(old_coldkey), new_coldkey);
+        _(RawOrigin::Signed(old_coldkey.clone()), new_coldkey);
+
+        assert!(!ColdkeySwapDisputes::<T>::contains_key(&old_coldkey));
     }
 
     #[benchmark]
@@ -606,6 +636,7 @@ mod pallet_benchmarks {
         let new_coldkey: T::AccountId = account("new_coldkey", 0, 0);
         let hotkey1: T::AccountId = account("hotkey1", 0, 0);
         let netuid = NetUid::from(1);
+        ColdkeySwapDisputes::<T>::insert(&old_coldkey, BlockNumberFor::<T>::zero());
 
         let swap_cost = Subtensor::<T>::get_key_swap_cost();
         let free_balance_old = swap_cost + TaoBalance::from(12_345_u64);
@@ -657,6 +688,8 @@ mod pallet_benchmarks {
             new_coldkey.clone(),
             swap_cost,
         );
+
+        assert!(!ColdkeySwapDisputes::<T>::contains_key(&old_coldkey));
     }
 
     #[benchmark]
@@ -666,9 +699,12 @@ mod pallet_benchmarks {
         let now = frame_system::Pallet::<T>::block_number();
 
         ColdkeySwapAnnouncements::<T>::insert(&coldkey, (now, coldkey_hash));
+        ColdkeySwapDisputes::<T>::insert(&coldkey, BlockNumberFor::<T>::zero());
 
         #[extrinsic_call]
-        _(RawOrigin::Signed(coldkey));
+        _(RawOrigin::Signed(coldkey.clone()));
+
+        assert!(ColdkeySwapDisputes::<T>::get(&coldkey).is_some_and(|when| !when.is_zero()));
     }
 
     #[benchmark]
@@ -696,7 +732,36 @@ mod pallet_benchmarks {
         ColdkeySwapDisputes::<T>::insert(&coldkey, now);
 
         #[extrinsic_call]
-        _(RawOrigin::Root, coldkey);
+        _(RawOrigin::Root, coldkey.clone());
+
+        assert!(!ColdkeySwapAnnouncements::<T>::contains_key(&coldkey));
+        assert!(!ColdkeySwapDisputes::<T>::contains_key(&coldkey));
+    }
+
+    #[benchmark]
+    fn reset_coldkey_swap_keep_locked() {
+        let coldkey: T::AccountId = account("old_coldkey", 0, 0);
+        let destination: T::AccountId = account("new_coldkey", 0, 0);
+        let coldkey_hash: T::Hash = <T as frame_system::Config>::Hashing::hash_of(&coldkey);
+        let now = frame_system::Pallet::<T>::block_number();
+
+        ColdkeySwapAnnouncements::<T>::insert(&coldkey, (now, coldkey_hash));
+        ColdkeySwapDisputes::<T>::insert(&coldkey, now.max(1u32.into()));
+        ColdkeySwapReservedDestination::<T>::insert(&coldkey, &destination);
+        ColdkeySwapDestinationReservations::<T>::insert(&destination, &coldkey);
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, coldkey.clone());
+
+        assert!(!ColdkeySwapAnnouncements::<T>::contains_key(&coldkey));
+        assert!(!ColdkeySwapReservedDestination::<T>::contains_key(&coldkey));
+        assert!(!ColdkeySwapDestinationReservations::<T>::contains_key(
+            &destination
+        ));
+        assert_eq!(
+            ColdkeySwapDisputes::<T>::get(&coldkey),
+            Some(BlockNumberFor::<T>::zero())
+        );
     }
 
     #[benchmark]
@@ -2747,14 +2812,14 @@ mod pallet_benchmarks {
         let now = frame_system::Pallet::<T>::block_number();
         let call = runtime_call::<T>(Call::<T>::register_network { hotkey });
 
+        // A reset lock allows recovery calls; exercise both reads on an ordinary announcement.
         ColdkeySwapAnnouncements::<T>::insert(&coldkey, (now, new_coldkey_hash));
-        ColdkeySwapDisputes::<T>::insert(&coldkey, now);
 
         #[block]
         {
             assert_eq!(
                 CheckColdkeySwap::<T>::check(&coldkey, &call),
-                Err(Error::<T>::ColdkeySwapDisputed)
+                Err(Error::<T>::ColdkeySwapAnnounced)
             );
         }
     }
@@ -3275,16 +3340,46 @@ mod pallet_benchmarks {
             );
         }
 
+        // A single-subnet split visits full delegator lists without allowing them
+        // to refuse the validator's rename. Exercise retained and moving positions,
+        // including opt-outs, with the same incident position count as swap_hotkey.
+        for i in 0..1_273 {
+            let staker: T::AccountId = account("split_staker", i, 9);
+            for netuid in [NetUid::from(1), NetUid::from(2)] {
+                Subtensor::<T>::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                    &old_hotkey,
+                    &staker,
+                    netuid,
+                    1_000_000u64.into(),
+                );
+            }
+            let length = if i % 3 == 0 {
+                crate::MAX_THIRD_PARTY_STAKING_HOTKEYS.saturating_sub(1)
+            } else {
+                crate::MAX_THIRD_PARTY_STAKING_HOTKEYS
+            };
+            let mut hotkeys = vec![old_hotkey.clone()];
+            hotkeys.extend((0..length.saturating_sub(1)).map(|j| account("split_list", j, 10)));
+            StakingHotkeys::<T>::insert(&staker, hotkeys);
+            if i % 3 == 2 {
+                AccountFlags::<T>::insert(
+                    &staker,
+                    crate::ACCOUNT_FLAGS_REJECT_STAKING_HOTKEY_GROWTH,
+                );
+            }
+        }
+
         Owner::<T>::insert(&old_hotkey, &coldkey);
-        let cost = Subtensor::<T>::get_key_swap_cost();
-        add_balance_to_coldkey_account::<T>(&coldkey, cost.into());
+        let cost = T::KeySwapOnSubnetCost::get();
+        let ed = <T as pallet_balances::Config>::ExistentialDeposit::get();
+        add_balance_to_coldkey_account::<T>(&coldkey, cost + ed);
 
         #[extrinsic_call]
         _(
             RawOrigin::Signed(coldkey.clone()),
             old_hotkey,
             new_hotkey,
-            None,
+            Some(NetUid::from(1)),
             false,
         );
     }
@@ -3465,6 +3560,17 @@ mod pallet_benchmarks {
 
         #[extrinsic_call]
         _(RawOrigin::Signed(coldkey.clone()), true);
+    }
+
+    #[benchmark]
+    fn set_reject_staking_hotkey_growth() {
+        let coldkey: T::AccountId = whitelisted_caller();
+        AccountFlags::<T>::insert(&coldkey, crate::ACCOUNT_FLAGS_ACCEPT_LOCKED_ALPHA);
+        #[extrinsic_call]
+        _(RawOrigin::Signed(coldkey.clone()), true);
+        assert!(Subtensor::<T>::account_rejects_staking_hotkey_growth(
+            &coldkey
+        ));
     }
 
     impl_benchmark_test_suite!(

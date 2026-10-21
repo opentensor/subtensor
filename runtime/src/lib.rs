@@ -45,7 +45,8 @@ use pallet_subtensor::rpc_info::{
     show_subnet::SubnetState,
     stake_info::{StakeAvailability, StakeInfo},
     subnet_info::{
-        SubnetHyperparams, SubnetHyperparamsV2, SubnetHyperparamsV3, SubnetInfo, SubnetInfov2,
+        SubnetEmissionWeightsInfo, SubnetHyperparams, SubnetHyperparamsV2, SubnetHyperparamsV3,
+        SubnetInfo, SubnetInfov2,
     },
 };
 use pallet_subtensor::{CommitmentsInterface, ProxyInterface};
@@ -238,7 +239,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 477,
+    spec_version: 482,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -624,6 +625,12 @@ impl ProxyInterface<AccountId> for Proxier {
             ProxyType::SubnetLeaseBeneficiary,
             0,
         )
+    }
+
+    fn has_delegator_proxies(delegator: &AccountId) -> bool {
+        !pallet_proxy::Proxies::<Runtime>::get(delegator)
+            .0
+            .is_empty()
     }
 }
 
@@ -1273,7 +1280,7 @@ impl pallet_evm::Config for Runtime {
     type Timestamp = Timestamp;
     type WeightInfo = pallet_evm::weights::SubstrateWeight<Self>;
     type BalanceConverter = SubtensorEvmBalanceConverter;
-    type AccountProvider = pallet_evm::FrameSystemAccountProvider<Self>;
+    type AccountProvider = pallet_evm::NoncePreservingAccountProvider<Self>;
     type GasLimitStorageGrowthRatio = ();
     type CreateOriginFilter = ();
     type CreateInnerOriginFilter = ();
@@ -1480,6 +1487,16 @@ fn limit_order_signers_are_blocked_during_recovery_or_dispute() {
         assert!(!LimitOrderSignerFilter::contains(&signer));
         pallet_subtensor::ColdkeySwapDisputes::<Runtime>::remove(&signer);
         assert!(LimitOrderSignerFilter::contains(&signer));
+        frame_support::assert_ok!(SubtensorModule::reset_coldkey_swap_keep_locked(
+            RuntimeOrigin::root(),
+            signer.clone()
+        ));
+        assert!(!LimitOrderSignerFilter::contains(&signer));
+        frame_support::assert_ok!(SubtensorModule::reset_coldkey_swap(
+            RuntimeOrigin::root(),
+            signer.clone()
+        ));
+        assert!(LimitOrderSignerFilter::contains(&signer));
     });
 }
 
@@ -1666,6 +1683,9 @@ pub type TxExtension = (
 type Migrations = (
     // Schedule bounded conversion; transitional staking getters read both formats.
     pallet_subtensor::migrations::migrate_alpha_v2::Migration<Runtime>,
+    // Rebuild historically missing associations in bounded idle batches, after
+    // alpha conversion and the destructive storage/index cleanups finish.
+    pallet_subtensor::migrations::migrate_restore_staking_hotkeys::Migration<Runtime>,
     // Leave this migration in the runtime, so every runtime upgrade tiny rounding errors (fractions of fractions
     // of a cent) are cleaned up. These tiny rounding errors occur due to floating point coversion.
     pallet_subtensor::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration<
@@ -1721,6 +1741,21 @@ type Migrations = (
     // resync under its own HasMigrationRun marker; try-runtime checks the sum and that
     // issuance is untouched.
     pallet_subtensor::migrations::migrate_resync_total_stake::resync_total_stake_v2::Migration<
+        Runtime,
+    >,
+    // Spec 480 (etao): seed every subnet's emission weight vector
+    // `[burn, recycle, owner, validator, miner]` and its accrued owner cut from the legacy
+    // `SubnetOwnerCut` / `OwnerCutEnabled` state so the first post-upgrade block pays
+    // what the last pre-upgrade block did. One-shot, stamped in HasMigrationRun;
+    // try-runtime checks every seeded vector.
+    pallet_subtensor::migrations::migrate_seed_subnet_emission_weights::seed_subnet_emission_weights::Migration<
+        Runtime,
+    >,
+    // Spec 481: root is paid its live baseline share off the top of the validator slot
+    // every block, so spec 480's per-subnet frozen `SubnetTaoWeight` has no reader. Clear
+    // any entries written while 480 ran (testnet). One-shot, stamped in HasMigrationRun;
+    // try-runtime checks the map is empty and reports subnets off the default split.
+    pallet_subtensor::migrations::migrate_remove_subnet_tao_weight::remove_subnet_tao_weight::Migration<
         Runtime,
     >,
 );
@@ -2455,7 +2490,7 @@ impl_runtime_apis! {
         }
     }
 
-    #[api_version(2)]
+    #[api_version(3)]
     impl subtensor_custom_rpc_runtime_api::SubnetInfoRuntimeApi<Block> for Runtime {
         fn get_subnet_info(netuid: NetUid) -> Option<SubnetInfo<AccountId32>> {
             SubtensorModule::get_subnet_info(netuid)
@@ -2543,6 +2578,10 @@ impl_runtime_apis! {
                 Ok(block_emission) => block_emission.into(),
                 Err(_) => TaoBalance::ZERO,
             }
+        }
+
+        fn get_subnet_emission_weights(netuid: NetUid) -> Option<SubnetEmissionWeightsInfo> {
+            SubtensorModule::get_subnet_emission_weights_info(netuid)
         }
     }
 

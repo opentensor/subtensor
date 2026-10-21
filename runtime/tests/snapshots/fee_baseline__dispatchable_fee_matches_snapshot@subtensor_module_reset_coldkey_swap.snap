@@ -3,4 +3,4 @@ source: runtime/tests/fee_baseline.rs
 description: subtensor_module_reset_coldkey_swap
 expression: fee
 ---
-93089
+180589

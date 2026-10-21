@@ -106,6 +106,7 @@
     "mechanism-emission-split",
     "metagraph",
     "subnet",
+    "subnet-emission-weights",
     "subnet-hyperparameters",
     "subnet-identity",
     "subnet-names",

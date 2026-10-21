@@ -18,6 +18,29 @@ use subtensor_swap_interface::SwapHandler;
 
 type AccountId = <mock::Test as frame_system::Config>::AccountId;
 
+/// The `StakingHotkeys` walk a stake exit by `coldkey` is charged right now, plus the
+/// read that sizes it.
+fn stake_exit_walk(coldkey: &AccountId) -> Weight {
+    <mock::Test as frame_system::Config>::DbWeight::get()
+        .reads(1)
+        .saturating_add(
+            pallet_subtensor::Pallet::<mock::Test>::staking_hotkeys_walk_immediate_bound(coldkey),
+        )
+}
+
+/// `declared` `unstake_all*` weight with every slot's walk sized to `coldkey`'s current list,
+/// plus the read that sizes it.
+fn unstake_all_exit_weight(declared: Weight, coldkey: &AccountId) -> Weight {
+    declared
+        .saturating_sub(
+            pallet_subtensor::Pallet::<mock::Test>::staking_hotkeys_walk_unused(
+                coldkey,
+                pallet_subtensor::Pallet::<mock::Test>::unstake_all_declared_walks(),
+            ),
+        )
+        .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(1))
+}
+
 #[derive(Clone)]
 struct MockEnv {
     func_id: u16,
@@ -107,7 +130,7 @@ fn remove_stake_full_limit_success_with_limit_price() {
         ));
 
         let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::remove_stake_full_limit()
-            .saturating_add(pallet_subtensor::Pallet::<mock::Test>::staking_hotkeys_walk_bound());
+            .saturating_add(stake_exit_walk(&coldkey));
 
         let balance_before = pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
 
@@ -182,7 +205,7 @@ fn swap_stake_limit_with_tight_price_returns_slippage_error() {
         let limit_price: TaoBalance = 100u64.into();
 
         let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::swap_stake_limit()
-            .saturating_add(pallet_subtensor::Pallet::<mock::Test>::staking_hotkeys_walk_bound());
+            .saturating_add(stake_exit_walk(&coldkey));
 
         let mut env = MockEnv::new(
             FunctionId::SwapStakeLimitV1,
@@ -254,7 +277,7 @@ fn remove_stake_limit_success_respects_price_limit() {
         let alpha_to_unstake: AlphaBalance = (alpha_before.to_u64() / 2).into();
 
         let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::remove_stake_limit()
-            .saturating_add(pallet_subtensor::Pallet::<mock::Test>::staking_hotkeys_walk_bound());
+            .saturating_add(stake_exit_walk(&coldkey));
 
         let balance_before = pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
 
@@ -390,7 +413,7 @@ fn swap_stake_success_moves_between_subnets() {
         let alpha_to_swap: AlphaBalance = (alpha_origin_before.to_u64() / 3).into();
 
         let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::swap_stake()
-            .saturating_add(pallet_subtensor::Pallet::<mock::Test>::staking_hotkeys_walk_bound());
+            .saturating_add(stake_exit_walk(&coldkey));
 
         let mut env = MockEnv::new(
             FunctionId::SwapStakeV1,
@@ -459,7 +482,7 @@ fn transfer_stake_success_moves_between_coldkeys() {
         let alpha_to_transfer: AlphaBalance = (alpha_before.to_u64() / 3).into();
 
         let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::transfer_stake()
-            .saturating_add(pallet_subtensor::Pallet::<mock::Test>::staking_hotkeys_walk_bound());
+            .saturating_add(stake_exit_walk(&origin_coldkey));
 
         let mut env = MockEnv::new(
             FunctionId::TransferStakeV1,
@@ -537,7 +560,7 @@ fn move_stake_success_moves_alpha_between_hotkeys() {
         let alpha_to_move: AlphaBalance = (alpha_before.to_u64() / 2).into();
 
         let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::move_stake()
-            .saturating_add(pallet_subtensor::Pallet::<mock::Test>::staking_hotkeys_walk_bound());
+            .saturating_add(stake_exit_walk(&coldkey));
 
         let mut env = MockEnv::new(
             FunctionId::MoveStakeV1,
@@ -610,7 +633,7 @@ fn move_stake_limit_success_moves_alpha_between_hotkeys() {
             );
         let amount: AlphaBalance = (origin_before.to_u64() / 2).into();
         let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::move_stake_limit()
-            .saturating_add(pallet_subtensor::Pallet::<mock::Test>::staking_hotkeys_walk_bound());
+            .saturating_add(stake_exit_walk(&coldkey));
         let mut env = MockEnv::new(
             FunctionId::MoveStakeLimitV1,
             coldkey,
@@ -676,8 +699,10 @@ fn unstake_all_alpha_success_moves_stake_to_root() {
             stake_amount_raw.into(),
         ));
 
-        let expected_weight =
-            pallet_subtensor::Pallet::<mock::Test>::unstake_all_alpha_declared_weight();
+        let expected_weight = unstake_all_exit_weight(
+            pallet_subtensor::Pallet::<mock::Test>::unstake_all_alpha_declared_weight(),
+            &coldkey,
+        );
 
         let mut env = MockEnv::new(FunctionId::UnstakeAllAlphaV1, coldkey, hotkey.encode())
             .with_expected_weight(expected_weight);
@@ -1615,7 +1640,7 @@ fn remove_stake_with_no_stake_returns_amount_too_low() {
         let amount: AlphaBalance = AlphaBalance::from(min_stake.to_u64());
 
         let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::remove_stake()
-            .saturating_add(pallet_subtensor::Pallet::<mock::Test>::staking_hotkeys_walk_bound());
+            .saturating_add(stake_exit_walk(&coldkey));
         let mut env = MockEnv::new(
             FunctionId::RemoveStakeV1,
             coldkey,
@@ -1665,7 +1690,10 @@ fn unstake_all_success_unstakes_balance() {
             stake_amount_raw.into(),
         ));
 
-        let expected_weight = pallet_subtensor::Pallet::<mock::Test>::unstake_all_declared_weight();
+        let expected_weight = unstake_all_exit_weight(
+            pallet_subtensor::Pallet::<mock::Test>::unstake_all_declared_weight(),
+            &coldkey,
+        );
 
         let pre_balance = pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
 
