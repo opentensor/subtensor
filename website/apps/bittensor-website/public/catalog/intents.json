@@ -62,9 +62,9 @@
         "pallet": "SubtensorModule",
         "call": "add_collateral",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 3045,
-        "end_line": 3053,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L3043-L3053",
+        "line": 3089,
+        "end_line": 3097,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L3087-L3097",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -200,9 +200,9 @@
         "pallet": "SubtensorModule",
         "call": "add_stake_limit",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 1511,
-        "end_line": 1528,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1509-L1528",
+        "line": 1512,
+        "end_line": 1529,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1510-L1529",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -276,9 +276,9 @@
         "pallet": "SubtensorModule",
         "call": "add_stake_limit",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 1511,
-        "end_line": 1528,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1509-L1528",
+        "line": 1512,
+        "end_line": 1529,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1510-L1529",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -318,9 +318,9 @@
         "pallet": "SubtensorModule",
         "call": "announce_coldkey_swap_v2",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 2455,
-        "end_line": 2492,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2450-L2492",
+        "line": 2461,
+        "end_line": 2505,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2456-L2505",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -375,9 +375,9 @@
         "pallet": "SubtensorModule",
         "call": "associate_evm_key",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 1760,
-        "end_line": 1768,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1754-L1768",
+        "line": 1761,
+        "end_line": 1769,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1755-L1769",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -415,9 +415,9 @@
         "pallet": "SubtensorModule",
         "call": "try_associate_hotkey",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 1702,
-        "end_line": 1708,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1700-L1708",
+        "line": 1703,
+        "end_line": 1709,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1701-L1709",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -546,9 +546,9 @@
         "pallet": "SubtensorModule",
         "call": "claim_root",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 2111,
-        "end_line": 2157,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2107-L2157",
+        "line": 2112,
+        "end_line": 2158,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2108-L2158",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -588,9 +588,9 @@
         "pallet": "SubtensorModule",
         "call": "claim_root_with_hotkey",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 2193,
-        "end_line": 2218,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2189-L2218",
+        "line": 2194,
+        "end_line": 2219,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2190-L2219",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -623,9 +623,9 @@
         "pallet": "SubtensorModule",
         "call": "clear_coldkey_swap_announcement",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 2728,
-        "end_line": 2744,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2723-L2744",
+        "line": 2771,
+        "end_line": 2788,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2765-L2788",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -695,9 +695,9 @@
         "pallet": "SubtensorModule",
         "call": "commit_timelocked_mechanism_weights",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 2053,
-        "end_line": 2069,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2051-L2069",
+        "line": 2054,
+        "end_line": 2070,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2052-L2070",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -982,9 +982,9 @@
         "pallet": "SubtensorModule",
         "call": "dispute_coldkey_swap",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 2561,
-        "end_line": 2579,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2559-L2579",
+        "line": 2599,
+        "end_line": 2617,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2597-L2617",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -1398,9 +1398,9 @@
         "pallet": "SubtensorModule",
         "call": "lock_stake",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 2818,
-        "end_line": 2826,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2816-L2826",
+        "line": 2862,
+        "end_line": 2870,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2860-L2870",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -1445,9 +1445,9 @@
         "pallet": "SubtensorModule",
         "call": "move_lock",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 2842,
-        "end_line": 2849,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2840-L2849",
+        "line": 2886,
+        "end_line": 2893,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2884-L2893",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -1546,27 +1546,27 @@
         "pallet": "SubtensorModule",
         "call": "move_stake",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 1347,
-        "end_line": 1368,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1340-L1368",
+        "line": 1348,
+        "end_line": 1369,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1341-L1369",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       },
       {
         "pallet": "SubtensorModule",
         "call": "move_stake_limit",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 1665,
-        "end_line": 1690,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1658-L1690",
+        "line": 1666,
+        "end_line": 1691,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1659-L1691",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       },
       {
         "pallet": "SubtensorModule",
         "call": "claim_root_with_hotkey",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 2193,
-        "end_line": 2218,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2189-L2218",
+        "line": 2194,
+        "end_line": 2219,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2190-L2219",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       },
       {
@@ -1670,27 +1670,27 @@
         "pallet": "SubtensorModule",
         "call": "move_stake",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 1347,
-        "end_line": 1368,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1340-L1368",
+        "line": 1348,
+        "end_line": 1369,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1341-L1369",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       },
       {
         "pallet": "SubtensorModule",
         "call": "swap_stake",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 1456,
-        "end_line": 1475,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1449-L1475",
+        "line": 1457,
+        "end_line": 1476,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1450-L1476",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       },
       {
         "pallet": "SubtensorModule",
         "call": "swap_stake_limit",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 1625,
-        "end_line": 1648,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1618-L1648",
+        "line": 1626,
+        "end_line": 1649,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1619-L1649",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       },
       {
@@ -2041,9 +2041,9 @@
         "pallet": "SubtensorModule",
         "call": "register_leased_network",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 1864,
-        "end_line": 1870,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1862-L1870",
+        "line": 1865,
+        "end_line": 1871,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1863-L1871",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -2081,9 +2081,9 @@
         "pallet": "SubtensorModule",
         "call": "register_network",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 1050,
-        "end_line": 1052,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1048-L1052",
+        "line": 1051,
+        "end_line": 1053,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1049-L1053",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -2116,9 +2116,9 @@
         "pallet": "SubtensorModule",
         "call": "release_own_coldkey_swap_destination_reservation",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 2756,
-        "end_line": 2762,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2752-L2762",
+        "line": 2800,
+        "end_line": 2806,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2796-L2806",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -2306,18 +2306,18 @@
         "pallet": "SubtensorModule",
         "call": "remove_stake_limit",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 1569,
-        "end_line": 1590,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1562-L1590",
+        "line": 1570,
+        "end_line": 1591,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1563-L1591",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       },
       {
         "pallet": "SubtensorModule",
         "call": "claim_root_with_hotkey",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 2193,
-        "end_line": 2218,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2189-L2218",
+        "line": 2194,
+        "end_line": 2219,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2190-L2219",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       },
       {
@@ -2416,9 +2416,9 @@
         "pallet": "SubtensorModule",
         "call": "remove_stake_limit",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 1569,
-        "end_line": 1590,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1562-L1590",
+        "line": 1570,
+        "end_line": 1591,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1563-L1591",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       },
       {
@@ -2434,9 +2434,9 @@
         "pallet": "SubtensorModule",
         "call": "claim_root_with_hotkey",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 2193,
-        "end_line": 2218,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2189-L2218",
+        "line": 2194,
+        "end_line": 2219,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2190-L2219",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       },
       {
@@ -2822,9 +2822,9 @@
         "pallet": "SubtensorModule",
         "call": "set_coldkey_auto_stake_hotkey",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 1977,
-        "end_line": 2027,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1975-L2027",
+        "line": 1978,
+        "end_line": 2028,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1976-L2028",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -2877,9 +2877,9 @@
         "pallet": "SubtensorModule",
         "call": "set_childkey_take",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 973,
-        "end_line": 983,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L971-L983",
+        "line": 974,
+        "end_line": 984,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L972-L984",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -2928,9 +2928,9 @@
         "pallet": "SubtensorModule",
         "call": "set_children",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 1126,
-        "end_line": 1134,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1124-L1134",
+        "line": 1127,
+        "end_line": 1135,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1125-L1135",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -3508,9 +3508,9 @@
         "pallet": "SubtensorModule",
         "call": "set_identity",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 1167,
-        "end_line": 1187,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1165-L1187",
+        "line": 1168,
+        "end_line": 1188,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1166-L1188",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -3615,9 +3615,9 @@
         "pallet": "SubtensorModule",
         "call": "set_min_collateral",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 3080,
-        "end_line": 3087,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L3078-L3087",
+        "line": 3124,
+        "end_line": 3131,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L3122-L3131",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -3662,9 +3662,9 @@
         "pallet": "SubtensorModule",
         "call": "set_perpetual_lock",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 2858,
-        "end_line": 2865,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2856-L2865",
+        "line": 2902,
+        "end_line": 2909,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2900-L2909",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -3704,9 +3704,9 @@
         "pallet": "SubtensorModule",
         "call": "set_reject_locked_alpha",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 2914,
-        "end_line": 2919,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2912-L2919",
+        "line": 2958,
+        "end_line": 2963,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2956-L2963",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -3746,9 +3746,9 @@
         "pallet": "SubtensorModule",
         "call": "set_reject_staking_hotkey_growth",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 2925,
-        "end_line": 2941,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2923-L2941",
+        "line": 2969,
+        "end_line": 2985,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2967-L2985",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -3801,9 +3801,9 @@
         "pallet": "SubtensorModule",
         "call": "sudo_set_root_claim_threshold",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 2366,
-        "end_line": 2385,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2364-L2385",
+        "line": 2367,
+        "end_line": 2386,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2365-L2386",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -3999,9 +3999,9 @@
         "pallet": "SubtensorModule",
         "call": "set_subnet_identity",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 1202,
-        "end_line": 1226,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1200-L1226",
+        "line": 1203,
+        "end_line": 1227,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1201-L1227",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -4143,9 +4143,9 @@
         "pallet": "SubtensorModule",
         "call": "commit_timelocked_mechanism_weights",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 2053,
-        "end_line": 2069,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2051-L2069",
+        "line": 2054,
+        "end_line": 2070,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2052-L2070",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -4211,9 +4211,9 @@
         "pallet": "SubtensorModule",
         "call": "add_stake_burn",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 2709,
-        "end_line": 2717,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2707-L2717",
+        "line": 2751,
+        "end_line": 2759,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2749-L2759",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -4273,9 +4273,9 @@
         "pallet": "SubtensorModule",
         "call": "stake_into_basket",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 2260,
-        "end_line": 2269,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2252-L2269",
+        "line": 2261,
+        "end_line": 2270,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2253-L2270",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -4315,9 +4315,9 @@
         "pallet": "SubtensorModule",
         "call": "start_call",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 1720,
-        "end_line": 1723,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1718-L1723",
+        "line": 1721,
+        "end_line": 1724,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1719-L1724",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -4400,9 +4400,9 @@
         "pallet": "SubtensorModule",
         "call": "swap_basket",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 2315,
-        "end_line": 2334,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2308-L2334",
+        "line": 2316,
+        "end_line": 2335,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2309-L2335",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -4450,9 +4450,9 @@
         "pallet": "SubtensorModule",
         "call": "swap_basket_many",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 2347,
-        "end_line": 2356,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2345-L2356",
+        "line": 2348,
+        "end_line": 2357,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2346-L2357",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -4492,9 +4492,9 @@
         "pallet": "SubtensorModule",
         "call": "swap_coldkey_announced",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 2504,
-        "end_line": 2550,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2502-L2550",
+        "line": 2517,
+        "end_line": 2588,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2515-L2588",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -4626,18 +4626,18 @@
         "pallet": "SubtensorModule",
         "call": "swap_stake",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 1456,
-        "end_line": 1475,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1449-L1475",
+        "line": 1457,
+        "end_line": 1476,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1450-L1476",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       },
       {
         "pallet": "SubtensorModule",
         "call": "swap_stake_limit",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 1625,
-        "end_line": 1648,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1618-L1648",
+        "line": 1626,
+        "end_line": 1649,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1619-L1649",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -4681,9 +4681,9 @@
         "pallet": "SubtensorModule",
         "call": "terminate_lease",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 1887,
-        "end_line": 1893,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1885-L1893",
+        "line": 1888,
+        "end_line": 1894,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1886-L1894",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -4864,18 +4864,18 @@
         "pallet": "SubtensorModule",
         "call": "transfer_stake",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 1403,
-        "end_line": 1424,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1396-L1424",
+        "line": 1404,
+        "end_line": 1425,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1397-L1425",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       },
       {
         "pallet": "SubtensorModule",
         "call": "transfer_stake_and_hotkey",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 2982,
-        "end_line": 3005,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2975-L3005",
+        "line": 3026,
+        "end_line": 3049,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L3019-L3049",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -5021,18 +5021,18 @@
         "pallet": "SubtensorModule",
         "call": "unstake_all",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 1264,
-        "end_line": 1277,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1262-L1277",
+        "line": 1265,
+        "end_line": 1278,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1263-L1278",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       },
       {
         "pallet": "SubtensorModule",
         "call": "claim_root_with_hotkey",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 2193,
-        "end_line": 2218,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2189-L2218",
+        "line": 2194,
+        "end_line": 2219,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L2190-L2219",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       },
       {
@@ -5081,9 +5081,9 @@
         "pallet": "SubtensorModule",
         "call": "unstake_all_alpha",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 1304,
-        "end_line": 1321,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1302-L1321",
+        "line": 1305,
+        "end_line": 1322,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1303-L1322",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]
@@ -5287,9 +5287,9 @@
         "pallet": "SubtensorModule",
         "call": "update_symbol",
         "path": "pallets/subtensor/src/macros/dispatches.rs",
-        "line": 1912,
-        "end_line": 1927,
-        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1910-L1927",
+        "line": 1913,
+        "end_line": 1928,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L1911-L1928",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
       }
     ]

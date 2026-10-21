@@ -7,7 +7,7 @@ use crate::migrations::migrate_alpha_v2::retired::Alpha;
 use crate::subnets::leasing::LeaseId;
 use crate::weights::WeightInfo;
 use sp_core::Get;
-use sp_runtime::Saturating;
+use sp_runtime::{Saturating, traits::Hash};
 use sp_std::collections::btree_set::BTreeSet;
 use subtensor_runtime_common::TaoBalance;
 
@@ -25,6 +25,19 @@ pub struct ColdkeySwapWork {
     pub dest_locks: u32,
     /// Total `NetworkRegistrationQueue` entries visited (not only owned rows).
     pub registration_queue_scan: u32,
+}
+
+/// How an authenticated coldkey-swap announcement decides whether the source's
+/// auto-stake policy may move to an otherwise-unconfigured destination.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum ColdkeySwapPolicyImportMode {
+    /// Apply the complete destination-presence check at execution.
+    CurrentDestination,
+    /// The destination already had presence at announcement; never import.
+    Reject,
+    /// The original blank-destination reservation is still live, so ignore only
+    /// unsolicited balance while enforcing every non-balance protection.
+    IgnoreDestinationBalance,
 }
 
 impl<T: Config> Pallet<T> {
@@ -97,6 +110,9 @@ impl<T: Config> Pallet<T> {
         let reservation = T::DbWeight::get()
             .reads(3)
             .saturating_add(T::DbWeight::get().writes(4));
+        // Snapshot whether the destination already carries state that rejects
+        // policy import: staking/basket/ownership, flags, lineage, balance, proxy.
+        let policy_snapshot = T::DbWeight::get().reads_writes(7, 1);
         // Pending-registration discovery: one queue read + total-scan sentinel
         // (not only owned rows — unrelated entries are still visited).
         let pending_reads = u64::from(max.registration_queue_scan).saturating_add(1);
@@ -112,6 +128,7 @@ impl<T: Config> Pallet<T> {
                 ),
             )
             .saturating_add(reservation)
+            .saturating_add(policy_snapshot)
     }
 
     /// Weight of destination-authorized reservation release (dual-map cleanup).
@@ -238,6 +255,7 @@ impl<T: Config> Pallet<T> {
             <T as crate::pallet::Config>::WeightInfo::swap_coldkey(),
             Self::coldkey_swap_max_work(),
         )
+        .saturating_add(T::DbWeight::get().writes(1))
     }
 
     /// Post-dispatch weight of `swap_coldkey`.
@@ -246,6 +264,7 @@ impl<T: Config> Pallet<T> {
             <T as crate::pallet::Config>::WeightInfo::swap_coldkey(),
             work,
         )
+        .saturating_add(T::DbWeight::get().writes(1))
     }
 
     /// Pre-dispatch weight of `swap_coldkey_announced`, refunded post-dispatch.
@@ -254,7 +273,10 @@ impl<T: Config> Pallet<T> {
             <T as crate::pallet::Config>::WeightInfo::swap_coldkey_announced(),
             Self::coldkey_swap_max_work(),
         )
-        .saturating_add(T::DbWeight::get().writes(1))
+        // V2 commitment recovery reads the announcement-time snapshot.
+        .saturating_add(T::DbWeight::get().reads(1))
+        // Successful execution removes the announcement and its V2 snapshot.
+        .saturating_add(T::DbWeight::get().writes(2))
     }
 
     /// Post-dispatch weight of `swap_coldkey_announced`.
@@ -263,7 +285,7 @@ impl<T: Config> Pallet<T> {
             <T as crate::pallet::Config>::WeightInfo::swap_coldkey_announced(),
             work,
         )
-        .saturating_add(T::DbWeight::get().writes(1))
+        .saturating_add(T::DbWeight::get().writes(2))
     }
 
     /// Stake positions the swap has to move, plus the combined hotkey set of source and
@@ -390,6 +412,17 @@ impl<T: Config> Pallet<T> {
         ColdkeyRoot::<T>::contains_key(coldkey)
     }
 
+    /// Destination already has non-balance state that must always protect it
+    /// from an unsolicited policy import, even if a V2 announcement originally
+    /// targeted a blank account. Balance is deliberately separate: anyone can
+    /// add dust without the destination's authorization.
+    fn coldkey_has_non_balance_policy_protection(coldkey: &T::AccountId) -> bool {
+        Self::coldkey_already_in_use(coldkey)
+            || Self::coldkey_has_configured_account_flags(coldkey)
+            || Self::coldkey_has_established_lineage(coldkey)
+            || T::ProxyInterface::has_delegator_proxies(coldkey)
+    }
+
     /// Destination already has funds, proxy grants, flags, lineage, or staking
     /// associations — so a source-only swap must not import the source's
     /// auto-stake policy without destination authorization (Skeptic
@@ -401,11 +434,62 @@ impl<T: Config> Pallet<T> {
     /// multisig (or similar) deposit with zero free balance is still prior
     /// presence.
     pub(crate) fn coldkey_rejects_unsolicited_policy_import(coldkey: &T::AccountId) -> bool {
-        Self::coldkey_already_in_use(coldkey)
-            || Self::coldkey_has_configured_account_flags(coldkey)
-            || Self::coldkey_has_established_lineage(coldkey)
+        Self::coldkey_has_non_balance_policy_protection(coldkey)
             || !Self::coldkey_total_balance(coldkey).is_zero()
-            || T::ProxyInterface::has_delegator_proxies(coldkey)
+    }
+
+    /// V2 commits to whether the destination was blank when it was announced.
+    ///
+    /// Binding the stored snapshot into the announcement hash prevents balance
+    /// transfers during the delay from changing the source auto-stake policy
+    /// outcome or a legacy caller from selecting V2 semantics.
+    pub(crate) fn coldkey_swap_v2_announcement_hash(
+        new_coldkey: &T::AccountId,
+        import_source_policies: bool,
+    ) -> T::Hash {
+        T::Hashing::hash_of(&(
+            b"coldkey-swap-v2-policy",
+            new_coldkey,
+            import_source_policies,
+        ))
+    }
+
+    /// Recover and authenticate a V2 announcement's policy snapshot. Legacy
+    /// callers may submit arbitrary hashes, so the dedicated V2 storage marker
+    /// must exist before a matching tuple hash grants snapshot semantics.
+    ///
+    /// A `true` snapshot only permits ignoring unsolicited balance added while
+    /// this exact destination reservation remains live. After release or expiry,
+    /// it falls back to the complete current destination-presence check. A
+    /// committed `false` remains a rejection even if the destination is later
+    /// cleared.
+    pub(crate) fn coldkey_swap_v2_policy_snapshot(
+        announcer: &T::AccountId,
+        new_coldkey: &T::AccountId,
+        announcement_hash: &T::Hash,
+        when: frame_system::pallet_prelude::BlockNumberFor<T>,
+    ) -> Option<ColdkeySwapPolicyImportMode> {
+        let import_source_policies = ColdkeySwapV2PolicySnapshots::<T>::get(announcer)?;
+        if Self::coldkey_swap_v2_announcement_hash(new_coldkey, import_source_policies)
+            != *announcement_hash
+        {
+            return None;
+        }
+        if !import_source_policies {
+            return Some(ColdkeySwapPolicyImportMode::Reject);
+        }
+
+        let now = <frame_system::Pallet<T>>::block_number();
+        let ttl = ColdkeySwapReannouncementDelay::<T>::get();
+        let reservation_is_live = now <= when.saturating_add(ttl)
+            && ColdkeySwapReservedDestination::<T>::get(announcer).as_ref() == Some(new_coldkey)
+            && ColdkeySwapDestinationReservations::<T>::get(new_coldkey).as_ref()
+                == Some(announcer);
+        Some(if reservation_is_live {
+            ColdkeySwapPolicyImportMode::IgnoreDestinationBalance
+        } else {
+            ColdkeySwapPolicyImportMode::CurrentDestination
+        })
     }
 
     /// Free + reserved TAO on `coldkey`. Distinct from
@@ -625,12 +709,27 @@ impl<T: Config> Pallet<T> {
         old_coldkey: &T::AccountId,
         new_coldkey: &T::AccountId,
     ) -> Result<ColdkeySwapWork, (Weight, DispatchError)> {
+        Self::do_swap_coldkey_tracked_with_policy_snapshot(
+            old_coldkey,
+            new_coldkey,
+            ColdkeySwapPolicyImportMode::CurrentDestination,
+        )
+    }
+
+    /// Announced V2 swaps pass the destination-presence snapshot recorded at
+    /// announcement. Direct and legacy swaps pass `None` and evaluate the
+    /// destination at execution as before.
+    pub(crate) fn do_swap_coldkey_tracked_with_policy_snapshot(
+        old_coldkey: &T::AccountId,
+        new_coldkey: &T::AccountId,
+        policy_import_mode: ColdkeySwapPolicyImportMode,
+    ) -> Result<ColdkeySwapWork, (Weight, DispatchError)> {
         let work = match Self::ensure_coldkey_swap_destination(old_coldkey, new_coldkey) {
             Ok(work) => work,
             Err((done, error)) => return Err((done, error.into())),
         };
 
-        Self::execute_swap_coldkey(old_coldkey, new_coldkey, work)
+        Self::execute_swap_coldkey(old_coldkey, new_coldkey, work, policy_import_mode)
             .map_err(|error| (Self::coldkey_swap_failed_weight(Some(work), true), error))
     }
 
@@ -639,6 +738,7 @@ impl<T: Config> Pallet<T> {
         old_coldkey: &T::AccountId,
         new_coldkey: &T::AccountId,
         work: ColdkeySwapWork,
+        policy_import_mode: ColdkeySwapPolicyImportMode,
     ) -> Result<ColdkeySwapWork, DispatchError> {
         // A self-swap moves nothing; running the merge body against one account
         // would drop state that the helpers take before re-checking the destination.
@@ -678,8 +778,15 @@ impl<T: Config> Pallet<T> {
                 // grants, flags, lineage, or staking associations (Skeptic
                 // fid:93e26a58 / fid:a2c90852). Only a blank rename target imports
                 // the source policy.
-                let import_source_policies =
-                    !Self::coldkey_rejects_unsolicited_policy_import(new_coldkey);
+                let import_source_policies = match policy_import_mode {
+                    ColdkeySwapPolicyImportMode::CurrentDestination => {
+                        !Self::coldkey_rejects_unsolicited_policy_import(new_coldkey)
+                    }
+                    ColdkeySwapPolicyImportMode::Reject => false,
+                    ColdkeySwapPolicyImportMode::IgnoreDestinationBalance => {
+                        !Self::coldkey_has_non_balance_policy_protection(new_coldkey)
+                    }
+                };
                 // Temporary accept only on a true rename onto an empty key.
                 // Destinations that already carry flags (including reject-locked)
                 // must not have those flags flipped for the lock hand-off.

@@ -941,6 +941,7 @@ mod dispatches {
             // We also clear any announcement, destination reservation, or dispute.
             Self::release_coldkey_swap_destination_reservation(&old_coldkey);
             ColdkeySwapAnnouncements::<T>::remove(&old_coldkey);
+            ColdkeySwapV2PolicySnapshots::<T>::remove(&old_coldkey);
             ColdkeySwapDisputes::<T>::remove(old_coldkey);
 
             Ok((Some(Self::swap_coldkey_actual_weight(work)), Pays::Yes).into())
@@ -2402,7 +2403,10 @@ mod dispatches {
         ///
         /// The `ColdkeySwapAnnounced` event is emitted on successful announcement.
         #[pallet::call_index(125)]
-        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::announce_coldkey_swap())]
+        #[pallet::weight(
+            <T as crate::pallet::Config>::WeightInfo::announce_coldkey_swap()
+                .saturating_add(T::DbWeight::get().writes(1))
+        )]
         pub fn announce_coldkey_swap(
             origin: OriginFor<T>,
             new_coldkey_hash: T::Hash,
@@ -2422,6 +2426,7 @@ mod dispatches {
 
             // Hash announce cannot reserve a cleartext dest; drop any prior V2 hold.
             Self::release_coldkey_swap_destination_reservation(&who);
+            ColdkeySwapV2PolicySnapshots::<T>::remove(&who);
 
             let delay = ColdkeySwapAnnouncementDelay::<T>::get();
             let when = now.saturating_add(delay);
@@ -2439,8 +2444,9 @@ mod dispatches {
         /// Validates the destination (and combined swap work) before charging the
         /// announcement fee, then exclusively reserves that account for the delay
         /// so a third party cannot register it as a hotkey. The on-chain
-        /// announcement still stores the BlakeTwo256 hash. Every call creates or
-        /// renews that reservation, so every call pays the key-swap cost,
+        /// announcement stores a BlakeTwo256 commitment to the destination and
+        /// its policy-import eligibility at announcement time. Every call creates
+        /// or renews that reservation, so every call pays the key-swap cost,
         /// including reannouncements.
         ///
         /// Prefer this over [`Self::announce_coldkey_swap`] when merging into an
@@ -2465,6 +2471,11 @@ mod dispatches {
             // Also refuse a destination another announcer already reserved —
             // before the fee, so a conflict cannot burn the swap cost.
             Self::ensure_coldkey_swap_destination_reservable(&who, &new_coldkey)?;
+            // Snapshot destination presence before the delay. Otherwise anyone
+            // can transfer dust to a blank destination after announce and make
+            // execution silently discard the source's auto-stake policy.
+            let import_source_policies =
+                !Self::coldkey_rejects_unsolicited_policy_import(&new_coldkey);
 
             if let Some((when, _)) = ColdkeySwapAnnouncements::<T>::get(who.clone()) {
                 let reannouncement_delay = ColdkeySwapReannouncementDelay::<T>::get();
@@ -2479,10 +2490,12 @@ mod dispatches {
             // register it as a hotkey and force NewColdKeyIsHotkey at execute.
             Self::reserve_coldkey_swap_destination(&who, &new_coldkey)?;
 
-            let new_coldkey_hash = T::Hashing::hash_of(&new_coldkey);
+            let new_coldkey_hash =
+                Self::coldkey_swap_v2_announcement_hash(&new_coldkey, import_source_policies);
             let delay = ColdkeySwapAnnouncementDelay::<T>::get();
             let when = now.saturating_add(delay);
             ColdkeySwapAnnouncements::<T>::insert(who.clone(), (when, new_coldkey_hash.clone()));
+            ColdkeySwapV2PolicySnapshots::<T>::insert(&who, import_source_policies);
 
             Self::deposit_event(Event::ColdkeySwapAnnounced {
                 who,
@@ -2495,8 +2508,8 @@ mod dispatches {
         ///
         /// The dispatch origin of this call must be the original coldkey that made the announcement.
         ///
-        /// * `new_coldkey`: The new coldkey to swap to. The BlakeTwo256 hash of the new coldkey must be
-        ///   the same as the announced coldkey hash.
+        /// * `new_coldkey`: The new coldkey to swap to. It must match the legacy
+        ///   destination hash or the V2 destination-and-policy commitment.
         ///
         /// The `ColdkeySwapped` event is emitted on successful swap.
         #[pallet::call_index(126)]
@@ -2507,22 +2520,37 @@ mod dispatches {
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
 
-            // A swap refused by the announcement checks read one row; charge that plus
-            // the benchmarked base, not the envelope of `MAX_COLDKEY_SWAP_POSITIONS`
-            // stake transfers.
+            // Announcement checks read the announcement and, for V2, its policy
+            // snapshot plus the live reservation; charge those plus the benchmarked
+            // base, not the envelope of `MAX_COLDKEY_SWAP_POSITIONS` stake transfers.
             let base = <T as crate::pallet::Config>::WeightInfo::swap_coldkey_announced();
-            let precheck = base.saturating_add(T::DbWeight::get().reads(1));
+            let announcement_read = T::DbWeight::get().reads(1);
+            let initial_precheck = base.saturating_add(announcement_read);
             // Read (do not take) until the swap commits. A failed execute — e.g.
             // destination opt-outs that appeared after announce — must leave the
             // announcement intact so the fee is not silently burned.
-            let (when, new_coldkey_hash) = ColdkeySwapAnnouncements::<T>::get(who.clone()).ok_or(
-                Self::fail_with_weight(Error::<T>::ColdkeySwapAnnouncementNotFound, precheck),
-            )?;
+            let (when, new_coldkey_hash) =
+                ColdkeySwapAnnouncements::<T>::get(who.clone()).ok_or(Self::fail_with_weight(
+                    Error::<T>::ColdkeySwapAnnouncementNotFound,
+                    initial_precheck,
+                ))?;
 
-            ensure!(
-                new_coldkey_hash == T::Hashing::hash_of(&new_coldkey),
-                Self::fail_with_weight(Error::<T>::AnnouncedColdkeyHashDoesNotMatch, precheck)
-            );
+            let legacy_hash_matches = new_coldkey_hash == T::Hashing::hash_of(&new_coldkey);
+            let snapshot_read = if legacy_hash_matches {
+                Weight::zero()
+            } else {
+                T::DbWeight::get().reads(4)
+            };
+            let precheck = initial_precheck.saturating_add(snapshot_read);
+            let policy_import_mode = if legacy_hash_matches {
+                crate::swap::swap_coldkey::ColdkeySwapPolicyImportMode::CurrentDestination
+            } else {
+                Self::coldkey_swap_v2_policy_snapshot(&who, &new_coldkey, &new_coldkey_hash, when)
+                    .ok_or(Self::fail_with_weight(
+                    Error::<T>::AnnouncedColdkeyHashDoesNotMatch,
+                    precheck,
+                ))?
+            };
 
             let now = <frame_system::Pallet<T>>::block_number();
             ensure!(
@@ -2530,20 +2558,30 @@ mod dispatches {
                 Self::fail_with_weight(Error::<T>::ColdkeySwapTooEarly, precheck)
             );
 
-            let work =
-                Self::do_swap_coldkey_tracked(&who, &new_coldkey).map_err(|(done, error)| {
-                    Self::fail_with_weight(error, base.saturating_add(done))
-                })?;
+            let work = Self::do_swap_coldkey_tracked_with_policy_snapshot(
+                &who,
+                &new_coldkey,
+                policy_import_mode,
+            )
+            .map_err(|(done, error)| {
+                Self::fail_with_weight(
+                    error,
+                    base.saturating_add(snapshot_read).saturating_add(done),
+                )
+            })?;
 
             // A self-swap must not release a root-imposed recovery lock.
             if who != new_coldkey {
                 ColdkeySwapDisputes::<T>::remove(&who);
             }
             Self::release_coldkey_swap_destination_reservation(&who);
-            ColdkeySwapAnnouncements::<T>::remove(who);
+            ColdkeySwapAnnouncements::<T>::remove(&who);
+            ColdkeySwapV2PolicySnapshots::<T>::remove(&who);
 
             Ok((
-                Some(Self::swap_coldkey_announced_actual_weight(work)),
+                Some(
+                    Self::swap_coldkey_announced_actual_weight(work).saturating_add(snapshot_read),
+                ),
                 Pays::Yes,
             )
                 .into())
@@ -2588,12 +2626,14 @@ mod dispatches {
         #[pallet::weight(
             <T as crate::pallet::Config>::WeightInfo::reset_coldkey_swap()
                 .saturating_add(Pallet::<T>::coldkey_swap_reservation_release_weight())
+                .saturating_add(T::DbWeight::get().writes(1))
         )]
         pub fn reset_coldkey_swap(origin: OriginFor<T>, coldkey: T::AccountId) -> DispatchResult {
             ensure_root(origin)?;
 
             Self::release_coldkey_swap_destination_reservation(&coldkey);
             ColdkeySwapAnnouncements::<T>::remove(&coldkey);
+            ColdkeySwapV2PolicySnapshots::<T>::remove(&coldkey);
             ColdkeySwapDisputes::<T>::remove(&coldkey);
 
             Self::deposit_event(Event::ColdkeySwapReset { who: coldkey });
@@ -2614,6 +2654,7 @@ mod dispatches {
         #[pallet::weight(
             <T as crate::pallet::Config>::WeightInfo::reset_coldkey_swap_keep_locked()
                 .saturating_add(Pallet::<T>::coldkey_swap_reservation_release_weight())
+                .saturating_add(T::DbWeight::get().writes(1))
         )]
         pub fn reset_coldkey_swap_keep_locked(
             origin: OriginFor<T>,
@@ -2623,6 +2664,7 @@ mod dispatches {
 
             Self::release_coldkey_swap_destination_reservation(&coldkey);
             ColdkeySwapAnnouncements::<T>::remove(&coldkey);
+            ColdkeySwapV2PolicySnapshots::<T>::remove(&coldkey);
             ColdkeySwapDisputes::<T>::insert(&coldkey, BlockNumberFor::<T>::zero());
 
             Self::deposit_event(Event::ColdkeySwapReset { who: coldkey });
@@ -2724,6 +2766,7 @@ mod dispatches {
         #[pallet::weight(
             <T as crate::pallet::Config>::WeightInfo::clear_coldkey_swap_announcement()
                 .saturating_add(Pallet::<T>::coldkey_swap_reservation_release_weight())
+                .saturating_add(T::DbWeight::get().writes(1))
         )]
         pub fn clear_coldkey_swap_announcement(origin: OriginFor<T>) -> DispatchResult {
             let who = ensure_signed(origin)?;
@@ -2738,6 +2781,7 @@ mod dispatches {
 
             Self::release_coldkey_swap_destination_reservation(&who);
             ColdkeySwapAnnouncements::<T>::remove(&who);
+            ColdkeySwapV2PolicySnapshots::<T>::remove(&who);
 
             Self::deposit_event(Event::ColdkeySwapCleared { who });
             Ok(())
