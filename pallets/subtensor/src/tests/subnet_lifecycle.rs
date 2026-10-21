@@ -107,6 +107,12 @@ fn reporting_cursor_hides_paid_hotkeys_and_keeps_unpaid_hotkeys() {
         let paid = &ordered[0];
         let unpaid = &ordered[1];
 
+        // The paid hotkey is the parent of the still-unpaid hotkey. Its physical alpha remains
+        // in storage until the next cleanup phase, but must stop contributing to reported
+        // inheritance as soon as the settlement cursor passes it.
+        ChildKeys::<Test>::insert(paid.1, netuid, vec![(u64::MAX, unpaid.1)]);
+        ParentKeys::<Test>::insert(unpaid.1, netuid, vec![(u64::MAX, paid.1)]);
+
         SubnetState::<Test>::insert(netuid, SubnetLifecycleState::Dissolving);
         let mut status = DissolveCleanupStatus::new(netuid);
         status.set_phase(DissolveCleanupPhase::AlphaInOutStakesSettleStakes);
@@ -134,11 +140,26 @@ fn reporting_cursor_hides_paid_hotkeys_and_keeps_unpaid_hotkeys() {
 
         // Every stake-bearing reporting family accepts the dissolving subnet, while their
         // shared reporting helper zeros the paid UID and preserves the unpaid UID.
-        let (_, alpha_stake, _) = SubtensorModule::get_reported_stake_weights_for_network(netuid);
+        let (total_stake, alpha_stake, _) =
+            SubtensorModule::get_reported_stake_weights_for_network(netuid);
         let paid_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &paid.1).unwrap();
         let unpaid_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &unpaid.1).unwrap();
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&paid.1, netuid),
+            paid.2,
+            "settled alpha remains physically stored until the cleanup phase"
+        );
         assert_eq!(alpha_stake[usize::from(paid_uid)], I64F64::from_num(0));
-        assert!(alpha_stake[usize::from(unpaid_uid)] > I64F64::from_num(0));
+        assert_eq!(
+            alpha_stake[usize::from(unpaid_uid)],
+            I64F64::saturating_from_num(unpaid.2),
+            "the unpaid child must not inherit its paid parent's settled alpha"
+        );
+        assert_eq!(
+            total_stake[usize::from(unpaid_uid)],
+            I64F64::saturating_from_num(unpaid.2),
+            "total stake must be derived from the filtered alpha component"
+        );
         assert!(SubtensorModule::get_dynamic_info(netuid).is_some());
         assert!(SubtensorModule::get_metagraph(netuid).is_some());
         assert!(SubtensorModule::get_mechagraph(netuid, 0.into()).is_some());
