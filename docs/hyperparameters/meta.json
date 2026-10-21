@@ -2,6 +2,7 @@
   "title": "Hyperparameters",
   "pages": [
     "index",
+    "epoch-consensus",
     "rho",
     "kappa",
     "immunity-period",
@@ -48,6 +49,9 @@
     "bonds-reset-enabled",
     "transfers-enabled",
     "owner-cut-enabled",
+    "owner-emission",
+    "validator-emission",
+    "miner-emission",
     "owner-cut-auto-lock-enabled"
   ]
 }

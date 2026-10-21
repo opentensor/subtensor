@@ -38,8 +38,11 @@ impl<T: Config> CheckRateLimits<T> {
         netuid_index: NetUidStorageIndex,
         error: Error<T>,
     ) -> Result<(), Error<T>> {
+        // Every rate-limited weight call requires the hotkey to hold a uid on the subnet
+        // at dispatch, so an unregistered signer is refused here rather than admitted as a
+        // free (`Pays::No`) failing extrinsic.
         let Ok(neuron_uid) = Pallet::<T>::get_uid_for_net_and_hotkey(netuid, who) else {
-            return Ok(());
+            return Err(Error::<T>::HotKeyNotRegisteredInSubNet);
         };
 
         let current_block = Pallet::<T>::get_current_block_as_u64();
@@ -177,7 +180,7 @@ mod tests {
     };
     use frame_system::Call as SystemCall;
     use sp_core::U256;
-    use sp_runtime::DispatchError;
+    use sp_runtime::{DispatchError, Saturating};
     use subtensor_runtime_common::{MechId, NetUid, TaoBalance};
 
     fn dispatch_with_ext(call: RuntimeCall, origin: RuntimeOrigin) -> DispatchResultWithPostInfo {
@@ -368,7 +371,11 @@ mod tests {
             System::set_block_number(200_u64);
             SubtensorModule::set_network_last_lock_block(100);
             let coldkey = U256::from(70);
-            fund(coldkey, SubtensorModule::get_network_lock_cost().into());
+            fund(
+                coldkey,
+                SubtensorModule::get_network_lock_cost()
+                    .saturating_add(crate::tests::mock::ExistentialDeposit::get()),
+            );
 
             assert_ok!(dispatch_with_ext(
                 register_network_call(U256::from(71)),

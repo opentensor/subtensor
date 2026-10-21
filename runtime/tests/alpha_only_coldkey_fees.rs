@@ -23,14 +23,17 @@ use frame_support::dispatch::{GetDispatchInfo, Pays};
 use frame_support::pallet_prelude::Zero;
 use frame_support::traits::Get;
 use node_subtensor_runtime::{
-    BuildStorage, Runtime, RuntimeCall, RuntimeGenesisConfig, RuntimeOrigin, SubtensorModule,
-    check_nonce, transaction_payment_wrapper::ChargeTransactionPaymentWrapper,
+    Balances, BuildStorage, Runtime, RuntimeCall, RuntimeGenesisConfig, RuntimeOrigin,
+    SubtensorModule, check_nonce, transaction_payment_wrapper::ChargeTransactionPaymentWrapper,
 };
-use sp_runtime::traits::{TransactionExtension, TxBaseImplication};
+use sp_runtime::traits::{
+    DispatchTransaction, Dispatchable, TransactionExtension, TxBaseImplication,
+};
 use sp_runtime::transaction_validity::{
     InvalidTransaction, TransactionSource, TransactionValidityError,
 };
 use subtensor_runtime_common::{AccountId, AlphaBalance, NetUid, TaoBalance, Token};
+use subtensor_swap_interface::SwapHandler;
 
 fn netuid() -> NetUid {
     NetUid::from(1)
@@ -181,6 +184,75 @@ fn alpha_only_coldkey_can_submit_remove_stake() {
 }
 
 #[test]
+fn alpha_paid_scan_fee_is_discounted_before_withdrawal() {
+    new_test_ext().execute_with(|| {
+        let received = setup_alpha_only_coldkey();
+        let call = remove_stake_call(received);
+        let info = call.get_dispatch_info();
+        let expected_fee =
+            node_subtensor_runtime::staking_fee::query_info(&call, &info, 100, false).partial_fee;
+        let full_fee = pallet_transaction_payment::Pallet::<Runtime>::compute_fee(
+            100,
+            &info,
+            TaoBalance::ZERO,
+        );
+        assert!(expected_fee < full_fee);
+        // Alpha payers are billed on the same capped fee weight as TAO payers: never
+        // more than the call's spec 459 declaration.
+        let cap = node_subtensor_runtime::staking_fee::fee_weight_cap_459(&call)
+            .expect("remove_stake is capped at its 459 weight");
+        let capped_info = frame_support::dispatch::DispatchInfo {
+            call_weight: info.call_weight.min(cap),
+            ..info
+        };
+        assert!(
+            expected_fee
+                <= pallet_transaction_payment::Pallet::<Runtime>::compute_fee(
+                    100,
+                    &capped_info,
+                    TaoBalance::ZERO,
+                )
+        );
+        let expected_alpha = pallet_subtensor_swap::Pallet::<Runtime>::get_alpha_amount_for_tao(
+            netuid(),
+            expected_fee.into(),
+        );
+
+        // Exercise charging and settlement without a stake withdrawal in the call
+        // body, so the stake delta measures only the non-refundable alpha fee.
+        let payment = ChargeTransactionPaymentWrapper::<Runtime>::new(TaoBalance::ZERO);
+        assert_ok!(payment.test_run(
+            RuntimeOrigin::signed(alpha_only_coldkey()),
+            &call,
+            &info,
+            100,
+            0,
+            |_| Ok(Default::default()),
+        ));
+        let remaining = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey(),
+            &alpha_only_coldkey(),
+            netuid(),
+        );
+        assert_eq!(received.saturating_sub(remaining), expected_alpha);
+        assert_eq!(
+            Balances::free_balance(alpha_only_coldkey()),
+            TaoBalance::ZERO
+        );
+        assert!(
+            frame_system::Pallet::<Runtime>::events()
+                .iter()
+                .any(|record| matches!(
+                    &record.event,
+                    node_subtensor_runtime::RuntimeEvent::SubtensorModule(
+                        pallet_subtensor::Event::TransactionFeePaidWithAlpha { who, alpha_fee, .. }
+                    ) if who == &alpha_only_coldkey() && alpha_fee == &expected_alpha
+                ))
+        );
+    });
+}
+
+#[test]
 fn coldkey_without_tao_or_alpha_is_still_rejected() {
     new_test_ext().execute_with(|| {
         setup_alpha_only_coldkey();
@@ -192,6 +264,95 @@ fn coldkey_without_tao_or_alpha_is_still_rejected() {
                 InvalidTransaction::Payment
             )),
             "the storage-bloat guard must still reject signers with no on-chain value"
+        );
+    });
+}
+
+fn second_netuid() -> NetUid {
+    NetUid::from(2)
+}
+
+fn destination_coldkey() -> AccountId {
+    AccountId::from([5_u8; 32])
+}
+
+fn account_state(who: &AccountId) -> (bool, u32, u32, u32) {
+    let exists = frame_system::Account::<Runtime>::contains_key(who);
+    let account = frame_system::Account::<Runtime>::get(who);
+    (
+        exists,
+        account.nonce,
+        account.providers,
+        account.sufficients,
+    )
+}
+
+fn validate_and_prepare_nonce(
+    who: &AccountId,
+    nonce: u32,
+    call: &RuntimeCall,
+) -> Result<(), TransactionValidityError> {
+    let info = call.get_dispatch_info();
+    check_nonce::CheckNonce::<Runtime>::from(nonce)
+        .validate_and_prepare(RuntimeOrigin::signed(who.clone()), call, &info, 0, 0)
+        .map(|_| ())
+}
+
+/// An alpha-only coldkey signs one cross-subnet `transfer_stake` to another coldkey. The
+/// signer's system account and nonce must survive the dispatch, so the identical signed
+/// extrinsic is rejected as stale instead of being applied again.
+#[test]
+fn alpha_only_coldkey_cross_subnet_transfer_is_not_replayable() {
+    new_test_ext().execute_with(|| {
+        let received = setup_alpha_only_coldkey();
+
+        SubtensorModule::init_new_network(second_netuid(), 0);
+        pallet_subtensor::SubnetMechanism::<Runtime>::insert(second_netuid(), 0u16);
+        pallet_subtensor::SubtokenEnabled::<Runtime>::insert(second_netuid(), true);
+        let _ = SubtensorModule::create_account_if_non_existent(&destination_coldkey(), &hotkey());
+        assert_eq!(account_state(&alpha_only_coldkey()), (false, 0, 0, 0));
+
+        let chunk: AlphaBalance = (received.to_u64() / 4).into();
+        let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::transfer_stake {
+            destination_coldkey: destination_coldkey(),
+            hotkey: hotkey(),
+            origin_netuid: netuid(),
+            destination_netuid: second_netuid(),
+            alpha_amount: chunk,
+        });
+
+        assert_ok!(validate_and_prepare_nonce(&alpha_only_coldkey(), 0, &call));
+        assert_eq!(account_state(&alpha_only_coldkey()), (true, 1, 0, 1));
+        assert_ok!(
+            call.clone()
+                .dispatch(RuntimeOrigin::signed(alpha_only_coldkey()))
+        );
+
+        assert_eq!(account_state(&alpha_only_coldkey()), (true, 1, 0, 1));
+        assert_eq!(
+            Balances::free_balance(alpha_only_coldkey()),
+            TaoBalance::ZERO
+        );
+        assert!(
+            !SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey(),
+                &destination_coldkey(),
+                second_netuid(),
+            )
+            .is_zero()
+        );
+
+        assert_eq!(
+            validate_and_prepare_nonce(&alpha_only_coldkey(), 0, &call),
+            Err(TransactionValidityError::Invalid(InvalidTransaction::Stale))
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey(),
+                &alpha_only_coldkey(),
+                netuid(),
+            ),
+            received.saturating_sub(chunk)
         );
     });
 }

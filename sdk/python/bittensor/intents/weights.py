@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass, field
 from itertools import accumulate
+from math import isfinite
 from typing import Any, Mapping, Optional, Sequence
 
 # Module import + attribute access (not `from bittensor_core import ...`):
@@ -60,10 +61,10 @@ def normalize(uids: Sequence[int], weights: Sequence[float]) -> tuple[list[int],
         raise BittensorError(
             f"uids and weights must be equal length: {len(uids)} vs {len(weights)}."
         )
-    if any(w < 0 for w in weights):
-        raise BittensorError("Weights must be non-negative.")
-    if any(u < 0 for u in uids):
-        raise BittensorError("UIDs must be non-negative.")
+    if any(not isfinite(w) or w < 0 for w in weights):
+        raise BittensorError("Weights must be finite and non-negative.")
+    if any(u < 0 or u > U16_MAX for u in uids):
+        raise BittensorError("UIDs must be in 0..65535.")
 
     top = max(weights) if weights else 0
     if top == 0:
@@ -156,20 +157,22 @@ async def _preflight(substrate, hotkey_ss58: str, netuid: int, mechid: int) -> _
     Raises a :class:`ChainError` carrying the same :class:`ErrorCode` the on-chain
     failure would map to, so callers branch identically whether the problem was
     caught client-side or on-chain. Other chain-side checks (minimum stake,
-    validator permit, version key) are not preflighted here.
+    Yuma validator permit, version key) are not preflighted here. Null's sole
+    validator permit is checked before signing.
     """
     current_block = await substrate.block_number()
     block_hash = await substrate.block_hash(current_block)
     # LastUpdate (like the weights themselves) is keyed by the mechanism storage
     # index; for mechid 0 that index equals the netuid.
     storage_index = mechid * GLOBAL_MAX_SUBNET_COUNT + netuid
-    uid_raw, cr_raw, rate_raw, last_raw, min_raw, max_raw = await asyncio.gather(
+    uid_raw, cr_raw, rate_raw, last_raw, min_raw, max_raw, mode = await asyncio.gather(
         substrate.query(*st.Uids, [netuid, hotkey_ss58], block_hash=block_hash),
         substrate.query(*st.CommitRevealWeightsEnabled, [netuid], block_hash=block_hash),
         substrate.query(*st.WeightsSetRateLimit, [netuid], block_hash=block_hash),
         substrate.query(*st.LastUpdate, [storage_index], block_hash=block_hash),
         substrate.query(*st.MinAllowedWeights, [netuid], block_hash=block_hash),
         substrate.query(*st.MaxWeightsLimit, [netuid], block_hash=block_hash),
+        substrate.query(*st.SubnetEpochConsensus, [netuid], block_hash=block_hash),
     )
 
     if uid_raw is None:
@@ -178,6 +181,13 @@ async def _preflight(substrate, hotkey_ss58: str, netuid: int, mechid: int) -> _
             code=ErrorCode.NOT_REGISTERED,
         )
     uid = int(uid_raw)
+    if mode == "Null" or mode == {"Null": None} or mode == 1:
+        permits = await substrate.query(*st.ValidatorPermit, [netuid], block_hash=block_hash)
+        if not isinstance(permits, (list, tuple)) or uid >= len(permits) or not permits[uid]:
+            raise ChainError(
+                f"Only the sole Null validator permit holder may set weights on netuid {netuid}.",
+                code=ErrorCode.NOT_AUTHORIZED,
+            )
 
     rate_limit = int(rate_raw or 0)
     if (
@@ -206,7 +216,7 @@ async def _preflight(substrate, hotkey_ss58: str, netuid: int, mechid: int) -> _
 
 
 def _conform(
-    uids: list[int], weights: list[float], preflight: _Preflight, netuid: int
+    uids: list[int], weights: list[float], preflight: _Preflight, netuid: int, raw_u16: bool = False
 ) -> tuple[list[int], list[int]]:
     """Fit the weights to the subnet's hyperparameters and quantize them.
 
@@ -215,11 +225,28 @@ def _conform(
     self-weight is exempt from both constraints, matching the chain's rules.
     """
     is_self_weight = uids == [preflight.uid]
-    floats = list(weights)
-    if not is_self_weight and preflight.max_weight_limit < U16_MAX:
-        floats = clip_to_max_weight(floats, preflight.max_weight_limit / U16_MAX)
+    if raw_u16:
+        if len(uids) != len(weights) or any(u < 0 or u > U16_MAX for u in uids):
+            raise BittensorError("Raw weights require equal-length lists and u16 UIDs.")
+        if any(not isfinite(w) or w < 0 or w > U16_MAX or int(w) != w for w in weights):
+            raise BittensorError("Raw weights must be integers in 0..65535.")
+        pairs = [(uid, int(w)) for uid, w in zip(uids, weights) if w > 0]
+        norm_uids = [uid for uid, _ in pairs]
+        norm_vals = [value for _, value in pairs]
+        if not norm_vals:
+            raise BittensorError("All weights are zero; nothing to set.")
+        if not is_self_weight and max(norm_vals) * U16_MAX > preflight.max_weight_limit * sum(
+            norm_vals
+        ):
+            raise BittensorError(
+                "Raw weights exceed max_weight_limit; change the integer ratios or subnet limit."
+            )
+    else:
+        floats = list(weights)
+        if not is_self_weight and preflight.max_weight_limit < U16_MAX:
+            floats = clip_to_max_weight(floats, preflight.max_weight_limit / U16_MAX)
 
-    norm_uids, norm_vals = normalize(uids, floats)
+        norm_uids, norm_vals = normalize(uids, floats)
     if not norm_uids:
         raise BittensorError("All weights are zero; nothing to set.")
     if not is_self_weight and len(norm_uids) < preflight.min_allowed_weights:
@@ -229,6 +256,13 @@ def _conform(
             code=ErrorCode.INVALID_ARGUMENT,
         )
     return norm_uids, norm_vals
+
+
+async def _ensure_raw_null(substrate, netuid: int) -> None:
+    """Raw integer submission is explicit and only available in Null mode."""
+    mode = await substrate.query("SubtensorModule", "SubnetEpochConsensus", [netuid])
+    if mode != "Null" and mode != {"Null": None}:
+        raise BittensorError("raw_u16 requires a subnet running Null consensus.")
 
 
 async def _build_timelocked(
@@ -327,8 +361,9 @@ class SetWeights(Intent):
     are caught fast with the same error the chain would return; the rate-limit
     error says how many blocks to wait. The chain additionally enforces checks
     that are not preflighted: the hotkey must hold the minimum stake to set
-    weights, must hold a validator permit to set non-self weights (the subnet
-    owner is exempt), and ``version_key`` must not be older than the subnet's
+    weights and a validator permit. Null has one permit holder, the highest-stake
+    UID; self weights and subnet ownership do not bypass that permit. Yuma retains
+    its owner and self-weight exceptions. ``version_key`` must not be older than the subnet's
     required version. Prefer this over ``commit_weights``/``reveal_weights``
     unless you specifically need to force one path.
     """
@@ -345,6 +380,12 @@ class SetWeights(Intent):
     weights: Optional[list[float]] = field(default=None, metadata={"help": WEIGHTS_HELP})
     mechid: int = field(default=0, metadata={"help": MECHID_HELP})
     version_key: int = field(default=0, metadata={"help": VERSION_KEY_HELP})
+    raw_u16: bool = field(
+        default=False,
+        metadata={
+            "help": "Preserve exact u16 integer ratios on Null subnets; no scaling or clipping."
+        },
+    )
 
     def __post_init__(self):
         self.uids, self.weights = _as_pairs(self.uids, self.weights)
@@ -353,7 +394,11 @@ class SetWeights(Intent):
         preflight = await _preflight(
             substrate, self.hotkey_address(wallet), self.netuid, self.mechid
         )
-        norm_uids, norm_vals = _conform(self.uids, self.weights, preflight, self.netuid)
+        if self.raw_u16:
+            await _ensure_raw_null(substrate, self.netuid)
+        norm_uids, norm_vals = _conform(
+            self.uids, self.weights, preflight, self.netuid, self.raw_u16
+        )
         if preflight.commit_reveal:
             return await _build_timelocked(
                 substrate,
@@ -385,121 +430,13 @@ class SetWeights(Intent):
         return [self.summary(), f"submission path: {mode}"]
 
     async def warnings(self, substrate, signer_address: str) -> list[str]:
+        if self.raw_u16:
+            return []
         warning = await _would_clip(substrate, self.netuid, self.weights)
         return [warning] if warning else []
 
     def summary(self) -> str:
         return f"set weights on netuid {self.netuid} for {len(self.uids)} uids"
-
-
-async def _root_weights_preflight(substrate, hotkey_ss58: str) -> None:
-    """Check root registration and the root weights rate limit before signing.
-
-    The root path has no commit-reveal and no max-weight/min-count
-    hyperparameters, so only the two checks that would reject an otherwise
-    well-formed submission are preflighted; stake and version-key checks stay
-    chain-side.
-    """
-    current_block = await substrate.block_number()
-    block_hash = await substrate.block_hash(current_block)
-    uid_raw, rate_raw, last_raw = await asyncio.gather(
-        substrate.query(*st.Uids, [0, hotkey_ss58], block_hash=block_hash),
-        substrate.query(*st.WeightsSetRateLimit, [0], block_hash=block_hash),
-        substrate.query(*st.LastUpdate, [0], block_hash=block_hash),
-    )
-    if uid_raw is None:
-        raise ChainError(
-            f"Hotkey {hotkey_ss58} is not registered on the root network (netuid 0).",
-            code=ErrorCode.NOT_REGISTERED,
-        )
-    uid = int(uid_raw)
-
-    rate_limit = int(rate_raw or 0)
-    if (
-        rate_limit
-        and isinstance(last_raw, (list, tuple))
-        and uid < len(last_raw)
-        and int(last_raw[uid]) > 0
-    ):
-        since = current_block - int(last_raw[uid])
-        if since < rate_limit:
-            remaining = rate_limit - since
-            seconds = remaining * await substrate.block_time()
-            raise ChainError(
-                f"Root weights were last set {since} blocks ago; the rate limit is "
-                f"{rate_limit} blocks. Retry in ~{remaining} blocks (~{int(seconds)}s).",
-                code=ErrorCode.RATE_LIMITED,
-            )
-
-
-@register
-@dataclass
-class SetRootWeights(Intent):
-    """Set how your root dividends are deployed across subnets (basket weights).
-
-    Declares the root validator's dividend distribution vector: each epoch
-    the chain sells the validator's root alpha dividend for TAO and splits it
-    across the listed subnets in proportion to these weights, buying each
-    subnet's alpha into the validator's basket — the escrowed
-    per-validator index fund that root stakers redeem with
-    ``claim_root_with_hotkey`` (or coldkey-wide ``claim_root``).
-    Netuid 0 is a valid destination: that share is held as TAO (root stake)
-    instead of subnet alpha, letting a validator keep part of the basket out
-    of subnet exposure. Weights are relative; they are max-upscaled and
-    quantized to u16 before submission, and zero weights are dropped. Signed
-    by the hotkey, which must be registered on the root network and hold the
-    minimum stake to set weights; the root weights rate limit applies, and
-    every destination must be netuid 0 or an existing subnet. At least 8
-    positive destinations are required (softened when fewer networks exist).
-    Validators with no stored root weights accumulate dividends in place —
-    each subnet's dividend stays in that subnet's alpha, trade-free; setting
-    this vector is what turns on the sell-and-redeploy engine.
-    Weight setting launched gated off network-wide (every call fails with
-    ``RootWeightSettingDisabled`` until governance or a later upgrade enables
-    it), so all funds start on the null accumulate strategy.
-    Read it back with the ``validator_root_weights`` read.
-    """
-
-    op = "set_root_weights"
-    signer = "hotkey"
-    wraps = (("SubtensorModule", "set_root_weights"),)
-
-    netuids: Optional[list[int]] = field(
-        default=None,
-        metadata={
-            "help": "Destination subnets, as a list parallel to weights (0 = hold as "
-            "TAO / root stake). Omit when weights is given as a netuid-to-weight mapping."
-        },
-    )
-    weights: Optional[list[float]] = field(
-        default=None,
-        metadata={
-            "help": "Relative weight per destination subnet: either a JSON object "
-            "mapping netuid to weight, or a list parallel to netuids. Values are "
-            "normalized and quantized before submission."
-        },
-    )
-
-    def __post_init__(self):
-        self.netuids, self.weights = _as_pairs(self.netuids, self.weights)
-
-    async def build(self, substrate, wallet: Any):
-        await _root_weights_preflight(substrate, self.hotkey_address(wallet))
-        dests, values = normalize(self.netuids, self.weights)
-        if not dests:
-            raise BittensorError("All weights are zero; nothing to set.")
-        return await substrate.compose(
-            calls.SubtensorModule.set_root_weights(
-                dests=dests,
-                weights=values,
-            )
-        )
-
-    def summary(self) -> str:
-        return f"set root dividend weights across {len(self.netuids)} destinations"
-
-    def touches_netuids(self) -> list[int]:
-        return list(self.netuids or [])
 
 
 @register
@@ -526,6 +463,12 @@ class CommitWeights(Intent):
     weights: Optional[list[float]] = field(default=None, metadata={"help": WEIGHTS_HELP})
     mechid: int = field(default=0, metadata={"help": MECHID_HELP})
     version_key: int = field(default=0, metadata={"help": VERSION_KEY_HELP})
+    raw_u16: bool = field(
+        default=False,
+        metadata={
+            "help": "Preserve exact u16 integer ratios on Null subnets; no scaling or clipping."
+        },
+    )
     commit_reveal_version: int = field(
         default=DEFAULT_COMMIT_REVEAL_VERSION,
         metadata={
@@ -541,7 +484,11 @@ class CommitWeights(Intent):
         preflight = await _preflight(
             substrate, self.hotkey_address(wallet), self.netuid, self.mechid
         )
-        norm_uids, norm_vals = _conform(self.uids, self.weights, preflight, self.netuid)
+        if self.raw_u16:
+            await _ensure_raw_null(substrate, self.netuid)
+        norm_uids, norm_vals = _conform(
+            self.uids, self.weights, preflight, self.netuid, self.raw_u16
+        )
         return await _build_timelocked(
             substrate,
             self.hotkey_public_key(wallet),
@@ -554,6 +501,8 @@ class CommitWeights(Intent):
         )
 
     async def warnings(self, substrate, signer_address: str) -> list[str]:
+        if self.raw_u16:
+            return []
         warning = await _would_clip(substrate, self.netuid, self.weights)
         return [warning] if warning else []
 

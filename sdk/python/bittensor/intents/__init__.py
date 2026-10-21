@@ -28,17 +28,19 @@ from .crowdloan import (
     UpdateCrowdloanMinContribution,
     WithdrawCrowdloan,
 )
+from .emission_weights import SetSubnetEmissionWeights
 from .evm import EvmWithdraw, FundEvmKey
 from .governance import (
     SetMechanismCount,
     StakeBurn,
+    TrimNullSubnetBatch,
     TrimSubnet,
     UpdateSymbol,
 )
 from .hyperparameters import OWNER_HYPERPARAMETERS, SetHyperparameter
 from .identity import SetIdentity, SetSubnetIdentity
 from .leasing import RegisterLeasedNetwork, TerminateLease
-from .lock import LockStake, MoveLock, SetPerpetualLock
+from .lock import LockStake, MoveLock, SetPerpetualLock, SetRejectLockedAlpha
 from .multisig import (
     MultisigApprove,
     MultisigCancel,
@@ -59,6 +61,7 @@ from .registration import (
     BurnedRegister,
     ClaimRoot,
     ClaimRootWithHotkey,
+    PowRegister,
     RegisterSubnet,
     RootRegister,
     StartCall,
@@ -75,13 +78,17 @@ from .staking import (
     RemoveStake,
     RemoveStakeLimit,
     SetAutoStake,
+    SetRejectStakingHotkeyGrowth,
+    StakeIntoBasket,
+    SwapBasket,
+    SwapBasketMany,
     SwapStake,
     TransferStake,
     UnstakeAll,
     UnstakeAllAlpha,
 )
 from .transfer import Transfer, TransferAll
-from .weights import CommitWeights, RevealWeights, SetRootWeights, SetWeights, normalize
+from .weights import CommitWeights, RevealWeights, SetWeights, normalize
 
 __all__ = [
     "ALL",
@@ -128,6 +135,7 @@ __all__ = [
     "MultisigThreshold1",
     "Plan",
     "Policy",
+    "PowRegister",
     "RefundCrowdloan",
     "RegisterLeasedNetwork",
     "RegisterSubnet",
@@ -150,15 +158,20 @@ __all__ = [
     "SetMechanismCount",
     "SetMinCollateral",
     "SetPerpetualLock",
+    "SetRejectLockedAlpha",
+    "SetRejectStakingHotkeyGrowth",
     "SetRootClaimThreshold",
-    "SetRootWeights",
     "SetSubnetEmissionEnabled",
+    "SetSubnetEmissionWeights",
     "SetSubnetIdentity",
     "SetTake",
     "SetWeights",
     "Spend",
     "StakeBurn",
+    "StakeIntoBasket",
     "StartCall",
+    "SwapBasket",
+    "SwapBasketMany",
     "SwapColdkeyAnnounced",
     "SwapHotkey",
     "SwapStake",
@@ -166,6 +179,7 @@ __all__ = [
     "Transfer",
     "TransferAll",
     "TransferStake",
+    "TrimNullSubnetBatch",
     "TrimSubnet",
     "UnstakeAll",
     "UnstakeAllAlpha",

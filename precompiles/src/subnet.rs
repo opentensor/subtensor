@@ -16,6 +16,7 @@ use subtensor_runtime_common::{NetUid, TaoBalance, Token};
 
 use crate::{PrecompileExt, PrecompileHandleExt};
 use pallet_subtensor::subnets::dissolution::DissolveCleanupPhase;
+use pallet_subtensor::{EMISSION_WEIGHT_SLOTS, EMISSION_WEIGHTS_VIEW_READS};
 
 pub struct SubnetPrecompile<R>(PhantomData<R>);
 
@@ -1041,6 +1042,54 @@ where
         )
     }
 
+    /// Consensus wire values are stable: 0 = Yuma, 1 = Null.
+    #[precompile::public("setEpochConsensus(uint16,uint8)")]
+    fn set_epoch_consensus(
+        handle: &mut impl PrecompileHandle,
+        netuid: u16,
+        mode: u8,
+    ) -> EvmResult<()> {
+        let mode = match mode {
+            0 => pallet_subtensor::EpochConsensus::Yuma,
+            1 => pallet_subtensor::EpochConsensus::Null,
+            _ => return Err(revert("epoch consensus must be 0 (Yuma) or 1 (Null)")),
+        };
+        dispatch_admin(
+            handle,
+            pallet_admin_utils::Call::<R>::sudo_set_epoch_consensus {
+                netuid: netuid.into(),
+                mode,
+            },
+        )
+    }
+
+    #[precompile::public("getEpochConsensus(uint16)")]
+    #[precompile::view]
+    fn get_epoch_consensus(handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u8> {
+        handle.record_db_reads::<R>(1)?;
+        Ok(
+            match pallet_subtensor::SubnetEpochConsensus::<R>::get(NetUid::from(netuid)) {
+                pallet_subtensor::EpochConsensus::Yuma => 0,
+                pallet_subtensor::EpochConsensus::Null => 1,
+            },
+        )
+    }
+
+    /// Current-runtime limits: shared UID budget, payload bytes, queued bytes,
+    /// and queued commit count per Null subnet epoch (across mechanisms).
+    #[precompile::public("getNullConsensusLimits()")]
+    #[precompile::view]
+    fn get_null_consensus_limits(
+        _handle: &mut impl PrecompileHandle,
+    ) -> EvmResult<(u16, u32, u32, u32)> {
+        Ok((
+            pallet_subtensor::subnets::mechanism::NULL_UID_BUDGET,
+            pallet_subtensor::MAX_CRV3_COMMIT_SIZE_BYTES,
+            pallet_subtensor::NULL_COMMIT_QUEUE_BYTES as u32,
+            pallet_subtensor::NULL_COMMIT_QUEUE_COUNT as u32,
+        ))
+    }
+
     #[precompile::public("setMaxAllowedUids(uint16,uint16)")]
     fn set_max_allowed_uids(
         handle: &mut impl PrecompileHandle,
@@ -1117,6 +1166,9 @@ where
         )
     }
 
+    /// Deprecated on chain: the dispatched call always fails with `Deprecated`.
+    /// Set slot 2 (owner) of the emission weight vector to zero instead via
+    /// `setSubnetEmissionWeights`.
     #[precompile::public("setOwnerCutEnabled(uint16,bool)")]
     fn set_owner_cut_enabled(
         handle: &mut impl PrecompileHandle,
@@ -1128,6 +1180,26 @@ where
             pallet_admin_utils::Call::<R>::sudo_set_owner_cut_enabled {
                 netuid: netuid.into(),
                 enabled,
+            },
+        )
+    }
+
+    /// Set entries of the subnet's `[burn, recycle, owner, validator, miner]`
+    /// emission weight vector. `uids` names the slots, `values` their new
+    /// `u64 / u64::MAX` shares; omitted slots keep their current value.
+    #[precompile::public("setSubnetEmissionWeights(uint16,uint16[],uint64[])")]
+    fn set_subnet_emission_weights(
+        handle: &mut impl PrecompileHandle,
+        netuid: u16,
+        uids: BoundedVec<u16, ConstU32<EMISSION_WEIGHT_SLOTS>>,
+        values: BoundedVec<u64, ConstU32<EMISSION_WEIGHT_SLOTS>>,
+    ) -> EvmResult<()> {
+        dispatch_admin(
+            handle,
+            pallet_admin_utils::Call::<R>::sudo_set_subnet_emission_weights {
+                netuid: netuid.into(),
+                uids: Vec::<u16>::from(uids),
+                values: Vec::<u64>::from(values),
             },
         )
     }
@@ -1173,6 +1245,56 @@ where
         )
     }
 
+    /// Execute one bounded pruning batch as the mapped subnet owner.
+    #[precompile::public("trimNullUidsBatch(uint16,uint16)")]
+    fn trim_null_uids_batch(
+        handle: &mut impl PrecompileHandle,
+        netuid: u16,
+        target: u16,
+    ) -> EvmResult<()> {
+        dispatch_admin(
+            handle,
+            pallet_admin_utils::Call::<R>::sudo_trim_null_uids_batch {
+                netuid: netuid.into(),
+                target,
+            },
+        )
+    }
+
+    /// Absence is explicit; a completed pruning operation has no target.
+    #[precompile::public("getNullPruningState(uint16)")]
+    #[precompile::view]
+    fn get_null_pruning_state(
+        handle: &mut impl PrecompileHandle,
+        netuid: u16,
+    ) -> EvmResult<(bool, u16, u16)> {
+        handle.record_db_reads::<R>(2)?;
+        let netuid = NetUid::from(netuid);
+        let target = pallet_subtensor::NullPruningTarget::<R>::get(netuid);
+        Ok((
+            target.is_some(),
+            target.unwrap_or_default(),
+            pallet_subtensor::SubnetworkN::<R>::get(netuid),
+        ))
+    }
+
+    #[precompile::public("getNullPruningBatchSize()")]
+    #[precompile::view]
+    fn get_null_pruning_batch_size(_handle: &mut impl PrecompileHandle) -> EvmResult<u16> {
+        Ok(pallet_subtensor::subnets::uids::NULL_PRUNING_BATCH)
+    }
+
+    #[precompile::public("getSavedYumaValidatorLimit(uint16)")]
+    #[precompile::view]
+    fn get_saved_yuma_validator_limit(
+        handle: &mut impl PrecompileHandle,
+        netuid: u16,
+    ) -> EvmResult<(bool, u16)> {
+        handle.record_db_reads::<R>(1)?;
+        let limit = pallet_subtensor::SavedYumaMaxAllowedValidators::<R>::get(NetUid::from(netuid));
+        Ok((limit.is_some(), limit.unwrap_or_default()))
+    }
+
     #[precompile::public("getSubnetMetadata(uint16)")]
     #[precompile::view]
     fn get_subnet_metadata(
@@ -1211,7 +1333,7 @@ where
             pallet_subtensor::MinNonImmuneUids::<R>::get(netuid),
             pallet_subtensor::ImmuneOwnerUidsLimit::<R>::get(netuid),
             pallet_subtensor::BondsPenalty::<R>::get(netuid),
-            pallet_subtensor::OwnerCutEnabled::<R>::get(netuid),
+            pallet_subtensor::Pallet::<R>::get_owner_cut_enabled(netuid),
             pallet_subtensor::TransferToggle::<R>::get(netuid),
             pallet_subtensor::MaxRegistrationsPerBlock::<R>::get(netuid),
             pallet_subtensor::MechanismCountCurrent::<R>::get(netuid).into(),
@@ -1231,6 +1353,21 @@ where
                 None => (false, Vec::new()),
             },
         )
+    }
+
+    /// The subnet's `[burn, recycle, owner, validator, miner]` emission weight
+    /// vector (`u64 / u64::MAX` shares) and whether the subnet was created via
+    /// a lease.
+    #[precompile::public("getSubnetEmissionWeights(uint16)")]
+    #[precompile::view]
+    fn get_subnet_emission_weights(
+        handle: &mut impl PrecompileHandle,
+        netuid: u16,
+    ) -> EvmResult<(Vec<u64>, bool)> {
+        handle.record_db_reads::<R>(EMISSION_WEIGHTS_VIEW_READS)?;
+        let view =
+            pallet_subtensor::Pallet::<R>::read_subnet_emission_weights_view(NetUid::from(netuid));
+        Ok((view.weights.to_vec(), view.created_via_lease))
     }
 
     #[precompile::public("getBurnConfig(uint16)")]
@@ -1535,6 +1672,95 @@ mod tests {
                     precompile_utils::prelude::RuntimeHelper::<Runtime>::db_read_gas_cost(),
                 )
                 .execute_returns(true);
+        });
+    }
+
+    #[test]
+    fn subnet_precompile_sets_and_gets_emission_weights() {
+        new_test_ext().execute_with(|| {
+            let caller = addr_from_index(0x5004);
+            let netuid = setup_owner_subnet(caller);
+            let precompiles = precompiles::<SubnetPrecompile<Runtime>>();
+            let precompile_addr = addr_from_index(SubnetPrecompile::<Runtime>::INDEX);
+            let one = pallet_subtensor::EMISSION_WEIGHT_ONE;
+
+            let default = pallet_subtensor::Pallet::<Runtime>::get_subnet_emission_weights(netuid);
+            precompiles
+                .prepare_test(
+                    caller,
+                    precompile_addr,
+                    encode_with_selector(
+                        selector_u32("getSubnetEmissionWeights(uint16)"),
+                        (TEST_NETUID_U16,),
+                    ),
+                )
+                .with_static_call(true)
+                .execute_returns((default.to_vec(), false));
+
+            // Owner sets owner 10% / validator 40% / miner 50% through the mapped account.
+            let owner = pallet_subtensor::emission_fraction(10, 100);
+            let validator = pallet_subtensor::emission_fraction(40, 100);
+            let miner = one.saturating_sub(owner).saturating_sub(validator);
+            precompiles
+                .prepare_test(
+                    caller,
+                    precompile_addr,
+                    encode_with_selector(
+                        selector_u32("setSubnetEmissionWeights(uint16,uint16[],uint64[])"),
+                        (
+                            TEST_NETUID_U16,
+                            vec![2u16, 3, 4],
+                            vec![owner, validator, miner],
+                        ),
+                    ),
+                )
+                .execute_returns(());
+            assert_eq!(
+                pallet_subtensor::Pallet::<Runtime>::get_subnet_emission_weights(netuid),
+                [0, 0, owner, validator, miner]
+            );
+
+            precompiles
+                .prepare_test(
+                    caller,
+                    precompile_addr,
+                    encode_with_selector(
+                        selector_u32("getSubnetEmissionWeights(uint16)"),
+                        (TEST_NETUID_U16,),
+                    ),
+                )
+                .with_static_call(true)
+                .execute_returns((vec![0u64, 0, owner, validator, miner], false));
+
+            // A non-owner cannot set the vector.
+            let stranger = addr_from_index(0x5005);
+            let rejected = execute_precompile(
+                &precompiles,
+                precompile_addr,
+                stranger,
+                encode_with_selector(
+                    selector_u32("setSubnetEmissionWeights(uint16,uint16[],uint64[])"),
+                    (TEST_NETUID_U16, vec![2u16], vec![0u64]),
+                ),
+                U256::zero(),
+            );
+            assert!(matches!(rejected, Some(Err(_))));
+
+            // The legacy owner-cut toggle is deprecated on chain and fails.
+            let deprecated = execute_precompile(
+                &precompiles,
+                precompile_addr,
+                caller,
+                encode_with_selector(
+                    selector_u32("setOwnerCutEnabled(uint16,bool)"),
+                    (TEST_NETUID_U16, false),
+                ),
+                U256::zero(),
+            );
+            assert!(matches!(deprecated, Some(Err(_))));
+            assert!(pallet_subtensor::Pallet::<Runtime>::get_owner_cut_enabled(
+                netuid
+            ));
         });
     }
 
@@ -2204,7 +2430,7 @@ mod tests {
                     pallet_subtensor::MinNonImmuneUids::<Runtime>::get(netuid),
                     pallet_subtensor::ImmuneOwnerUidsLimit::<Runtime>::get(netuid),
                     pallet_subtensor::BondsPenalty::<Runtime>::get(netuid),
-                    pallet_subtensor::OwnerCutEnabled::<Runtime>::get(netuid),
+                    pallet_subtensor::Pallet::<Runtime>::get_owner_cut_enabled(netuid),
                     pallet_subtensor::TransferToggle::<Runtime>::get(netuid),
                     pallet_subtensor::MaxRegistrationsPerBlock::<Runtime>::get(netuid),
                     u8::from(pallet_subtensor::MechanismCountCurrent::<Runtime>::get(
@@ -2323,6 +2549,221 @@ mod tests {
             );
             assert!(matches!(rejected, Some(Err(_))));
             assert_eq!(pallet_subtensor::BondsPenalty::<Runtime>::get(netuid), 123);
+        });
+    }
+
+    #[test]
+    fn subnet_null_consensus_owner_authorization_and_limits() {
+        new_test_ext().execute_with(|| {
+            let caller = addr_from_index(0x5010);
+            let netuid = setup_owner_subnet(caller);
+            let target = addr_from_index(SubnetPrecompile::<Runtime>::INDEX);
+            let precompiles = precompiles::<SubnetPrecompile<Runtime>>();
+            let input = encode_with_selector(
+                selector_u32("setEpochConsensus(uint16,uint8)"),
+                (TEST_NETUID_U16, 1u8),
+            );
+            let rejected = execute_precompile(
+                &precompiles,
+                target,
+                addr_from_index(0x5011),
+                input.clone(),
+                U256::zero(),
+            )
+            .unwrap();
+            assert!(rejected.is_err());
+            assert_eq!(
+                pallet_subtensor::Pallet::<Runtime>::get_epoch_consensus(netuid),
+                pallet_subtensor::EpochConsensus::Yuma
+            );
+            precompiles
+                .prepare_test(caller, target, input)
+                .execute_returns(());
+            precompiles
+                .prepare_test(
+                    caller,
+                    target,
+                    encode_with_selector(
+                        selector_u32("getEpochConsensus(uint16)"),
+                        (TEST_NETUID_U16,),
+                    ),
+                )
+                .with_static_call(true)
+                .execute_returns(1u8);
+            precompiles
+                .prepare_test(
+                    caller,
+                    target,
+                    encode_with_selector(selector_u32("getNullConsensusLimits()"), ()),
+                )
+                .with_static_call(true)
+                .execute_returns((2_500u16, 32_768u32, 65_536u32, 64u32));
+            precompiles
+                .prepare_test(
+                    caller,
+                    target,
+                    encode_with_selector(
+                        selector_u32("setMaxAllowedUids(uint16,uint16)"),
+                        (TEST_NETUID_U16, 2_500u16),
+                    ),
+                )
+                .execute_returns(());
+            assert_eq!(
+                pallet_subtensor::Pallet::<Runtime>::get_max_allowed_uids(netuid),
+                2_500
+            );
+            let invalid = execute_precompile(
+                &precompiles,
+                target,
+                caller,
+                encode_with_selector(
+                    selector_u32("setEpochConsensus(uint16,uint8)"),
+                    (TEST_NETUID_U16, 2u8),
+                ),
+                U256::zero(),
+            )
+            .unwrap();
+            assert!(invalid.is_err());
+            assert_eq!(
+                pallet_subtensor::Pallet::<Runtime>::get_epoch_consensus(netuid),
+                pallet_subtensor::EpochConsensus::Null
+            );
+        });
+    }
+
+    #[test]
+    fn null_pruning_batches_preserve_authorization_and_report_completion() {
+        new_test_ext().execute_with(|| {
+            let caller = addr_from_index(0x5010);
+            let netuid = setup_owner_subnet(caller);
+            let address = addr_from_index(SubnetPrecompile::<Runtime>::INDEX);
+            let precompiles = precompiles::<SubnetPrecompile<Runtime>>();
+            pallet_subtensor::ImmunityPeriod::<Runtime>::insert(netuid, 0);
+            let saved_limit = pallet_subtensor::MaxAllowedValidators::<Runtime>::get(netuid);
+            precompiles
+                .prepare_test(
+                    caller,
+                    address,
+                    encode_with_selector(
+                        selector_u32("getSavedYumaValidatorLimit(uint16)"),
+                        (TEST_NETUID_U16,),
+                    ),
+                )
+                .with_static_call(true)
+                .execute_returns((false, 0u16));
+            frame_system::Pallet::<Runtime>::set_block_number(10);
+            for uid in 0..192u16 {
+                let hotkey = mapped_account(addr_from_index(u64::from(uid) + 0x6000));
+                pallet_subtensor::Pallet::<Runtime>::append_neuron(netuid, &hotkey, 0);
+            }
+            precompiles
+                .prepare_test(
+                    caller,
+                    address,
+                    encode_with_selector(
+                        selector_u32("setEpochConsensus(uint16,uint8)"),
+                        (TEST_NETUID_U16, 1u8),
+                    ),
+                )
+                .execute_returns(());
+            precompiles
+                .prepare_test(
+                    caller,
+                    address,
+                    encode_with_selector(selector_u32("getNullPruningBatchSize()"), ()),
+                )
+                .with_static_call(true)
+                .execute_returns(pallet_subtensor::subnets::uids::NULL_PRUNING_BATCH);
+            precompiles
+                .prepare_test(
+                    caller,
+                    address,
+                    encode_with_selector(
+                        selector_u32("getSavedYumaValidatorLimit(uint16)"),
+                        (TEST_NETUID_U16,),
+                    ),
+                )
+                .with_static_call(true)
+                .execute_returns((true, saved_limit));
+            let input = encode_with_selector(
+                selector_u32("trimNullUidsBatch(uint16,uint16)"),
+                (TEST_NETUID_U16, 64u16),
+            );
+            // The legacy selector must remain atomic; it cannot silently settle one batch.
+            let legacy = execute_precompile(
+                &precompiles,
+                address,
+                caller,
+                encode_with_selector(
+                    selector_u32("trimToMaxAllowedUids(uint16,uint16)"),
+                    (TEST_NETUID_U16, 64u16),
+                ),
+                U256::zero(),
+            );
+            assert!(matches!(legacy, Some(Err(_))));
+            assert_eq!(pallet_subtensor::SubnetworkN::<Runtime>::get(netuid), 192);
+            precompiles
+                .prepare_test(caller, address, input.clone())
+                .execute_returns(());
+            precompiles
+                .prepare_test(
+                    caller,
+                    address,
+                    encode_with_selector(
+                        selector_u32("getNullPruningState(uint16)"),
+                        (TEST_NETUID_U16,),
+                    ),
+                )
+                .with_static_call(true)
+                .execute_returns((true, 64u16, 128u16));
+            let rejected = execute_precompile(
+                &precompiles,
+                address,
+                addr_from_index(0x5011),
+                input.clone(),
+                U256::zero(),
+            );
+            assert!(matches!(rejected, Some(Err(_))));
+            assert_eq!(pallet_subtensor::SubnetworkN::<Runtime>::get(netuid), 128);
+            precompiles
+                .prepare_test(caller, address, input)
+                .execute_returns(());
+            precompiles
+                .prepare_test(
+                    caller,
+                    address,
+                    encode_with_selector(
+                        selector_u32("getNullPruningState(uint16)"),
+                        (TEST_NETUID_U16,),
+                    ),
+                )
+                .with_static_call(true)
+                .execute_returns((false, 0u16, 64u16));
+            precompiles
+                .prepare_test(
+                    caller,
+                    address,
+                    encode_with_selector(
+                        selector_u32("setEpochConsensus(uint16,uint8)"),
+                        (TEST_NETUID_U16, 0u8),
+                    ),
+                )
+                .execute_returns(());
+            assert_eq!(
+                pallet_subtensor::MaxAllowedValidators::<Runtime>::get(netuid),
+                saved_limit.min(64)
+            );
+            precompiles
+                .prepare_test(
+                    caller,
+                    address,
+                    encode_with_selector(
+                        selector_u32("getSavedYumaValidatorLimit(uint16)"),
+                        (TEST_NETUID_U16,),
+                    ),
+                )
+                .with_static_call(true)
+                .execute_returns((false, 0u16));
         });
     }
 }

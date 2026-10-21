@@ -14,6 +14,41 @@ use frame_support::traits::{Contains, Everything, InsideBoth, InstanceFilter};
 use frame_support::weights::Weight;
 use frame_support::weights::constants::RocksDbWeight;
 use frame_support::{PalletId, derive_impl};
+
+/// The bare `DispatchError` of a failed dispatch, with or without post-dispatch info.
+pub trait BareDispatchError {
+    fn bare(self) -> sp_runtime::DispatchError;
+}
+
+impl BareDispatchError for sp_runtime::DispatchError {
+    fn bare(self) -> sp_runtime::DispatchError {
+        self
+    }
+}
+
+impl BareDispatchError for frame_support::dispatch::DispatchErrorWithPostInfo {
+    fn bare(self) -> sp_runtime::DispatchError {
+        self.error
+    }
+}
+
+/// `assert_noop!` for dispatchables that report actual weight on failure (spec 469):
+/// compares the error only, ignoring the post-dispatch info, and checks storage is
+/// untouched.
+#[macro_export]
+macro_rules! assert_noop_ignore_postinfo {
+    ($x:expr, $y:expr $(,)?) => {
+        let h = sp_io::storage::root(sp_runtime::StateVersion::V1);
+        match $x {
+            Ok(_) => panic!("expected Err({:?}), got Ok", $y),
+            Err(err) => assert_eq!(
+                $crate::tests::mock::BareDispatchError::bare(err),
+                sp_runtime::DispatchError::from($y)
+            ),
+        }
+        assert_eq!(h, sp_io::storage::root(sp_runtime::StateVersion::V1));
+    };
+}
 use frame_support::{
     assert_ok, parameter_types,
     traits::{Hooks, PrivilegeCmp},
@@ -149,7 +184,7 @@ impl pallet_balances::Config for Test {
     type WeightInfo = ();
     type MaxReserves = ();
     type ReserveIdentifier = ();
-    type RuntimeHoldReason = ();
+    type RuntimeHoldReason = RuntimeHoldReason;
     type FreezeIdentifier = ();
     type MaxFreezes = ();
 }
@@ -239,8 +274,11 @@ impl AuthorshipInfo<U256> for MockAuthorshipProvider {
 parameter_types! {
     pub const InitialMinAllowedWeights: u16 = 0;
     pub const InitialEmissionValue: u16 = 0;
+    // Same block budget as the runtime (`MAXIMUM_BLOCK_WEIGHT`, 4 s of ref time), so
+    // tests that compare declared extrinsic weights against `max_extrinsic` see the
+    // real limit.
     pub BlockWeights: limits::BlockWeights = limits::BlockWeights::with_sensible_defaults(
-        Weight::from_parts(2_000_000_000_000, u64::MAX),
+        Weight::from_parts(4_000_000_000_000, u64::MAX),
         Perbill::from_percent(75),
     );
     pub const ExistentialDeposit: Balance = TaoBalance::new(1);
@@ -297,7 +335,9 @@ parameter_types! {
     pub const InitialRAORecycledForRegistration: u64 = 0;
     pub const InitialNetworkImmunityPeriod: u64 = 1_296_000;
     pub const InitialNetworkMinLockCost: u64 = 100_000_000_000;
-    pub const InitialSubnetOwnerCut: u16 = 0; // 0%. 100% of rewards go to validators + miners.
+    // 0%: 100% of rewards go to validators + miners. `static` so emission-weight
+    // tests can raise it to the mainnet 18% and exercise the leased-subnet floor.
+    pub static InitialSubnetOwnerCut: u16 = 0;
     pub const InitialNetworkLockReductionInterval: u64 = 2; // 2 blocks.
     pub const InitialNetworkRateLimit: u64 = 0;
     pub const InitialKeySwapCost: u64 = 1_000_000_000;
@@ -559,9 +599,13 @@ impl ProxyInterface<U256> for FakeProxier {
         lease: &AccountId,
     ) -> DispatchResult {
         PROXIES.with_borrow_mut(|proxies| {
-            proxies.0.retain(|(b, l)| b != beneficiary && l != lease);
+            proxies.0.retain(|(b, l)| b != beneficiary || l != lease);
         });
         Ok(())
+    }
+
+    fn has_delegator_proxies(_delegator: &AccountId) -> bool {
+        false
     }
 }
 
@@ -739,7 +783,16 @@ pub fn new_test_ext(block_number: BlockNumber) -> sp_io::TestExternalities {
         .build_storage()
         .unwrap();
     let mut ext = sp_io::TestExternalities::new(t);
-    ext.execute_with(|| System::set_block_number(block_number));
+    ext.execute_with(|| {
+        System::set_block_number(block_number);
+        // The mock never advances `SubnetMovingPrice` (it stays at its zero default unless
+        // a test sets it), so at the guarded mark every alpha row would read as claim dust
+        // and no redemption test could sell anything. Tests start with the dust floors off;
+        // `tests::claim_root_dust` pins the chain defaults explicitly, with priced pools.
+        BasketClaimRowDustCapTao::<Test>::put(0);
+        BasketClaimRowDustBps::<Test>::put(0);
+        BasketClaimSliceDustTao::<Test>::put(0);
+    });
     ext
 }
 
@@ -929,13 +982,13 @@ pub fn register_ok_neuron(
     let result = SubtensorModule::burned_register(origin.clone(), netuid, hotkey_account_id);
 
     match result {
-        Ok(()) => {
+        Ok(_) => {
             // success
         }
         Err(e)
-            if e == Error::<Test>::TooManyRegistrationsThisInterval.into()
-                || e == Error::<Test>::NotEnoughBalanceToStake.into()
-                || e == Error::<Test>::ZeroBalanceAfterWithdrawn.into() =>
+            if e.error == Error::<Test>::TooManyRegistrationsThisInterval.into()
+                || e.error == Error::<Test>::NotEnoughBalanceToStake.into()
+                || e.error == Error::<Test>::ZeroBalanceAfterWithdrawn.into() =>
         {
             // Re-top-up and retry once (burn can be state-dependent).
             top_up_for_burn(netuid, coldkey_account_id);
@@ -968,6 +1021,19 @@ pub fn add_network(netuid: NetUid, tempo: u16, _modality: u16) {
     BurnIncreaseMult::<Test>::insert(netuid, U64F64::from_num(1));
 }
 
+/// Set the subnet's owner emission share from a legacy `u16 / u16::MAX` cut,
+/// splitting the remainder evenly between validators and miners. Bypasses the
+/// extrinsic rules so tests can exercise extreme cuts (0% and 100%).
+#[allow(dead_code)]
+pub fn set_subnet_owner_cut_for_test(netuid: NetUid, cut: u16) {
+    SubtensorModule::set_subnet_emission_weights_unchecked(
+        netuid,
+        SubtensorModule::emission_weights_with_owner(
+            SubtensorModule::scale_u16_fraction_to_emission_weight(cut),
+        ),
+    );
+}
+
 #[allow(dead_code)]
 pub fn add_network_without_emission_block(netuid: NetUid, tempo: u16, _modality: u16) {
     SubtensorModule::init_new_network(netuid, tempo);
@@ -992,7 +1058,8 @@ pub fn add_network_disable_subtoken(netuid: NetUid, tempo: u16, _modality: u16) 
 pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> NetUid {
     let netuid = SubtensorModule::get_next_netuid();
     let lock_cost = SubtensorModule::get_network_lock_cost();
-    add_balance_to_coldkey_account(coldkey, lock_cost.into());
+    // Registration now requires the full price in addition to keep-alive ED.
+    add_balance_to_coldkey_account(coldkey, lock_cost.saturating_add(ExistentialDeposit::get()));
     TotalIssuance::<Test>::mutate(|total_issuance| {
         *total_issuance = total_issuance.saturating_add(lock_cost);
     });
@@ -1016,7 +1083,7 @@ pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> NetUid {
 pub fn add_dynamic_network_without_emission_block(hotkey: &U256, coldkey: &U256) -> NetUid {
     let netuid = SubtensorModule::get_next_netuid();
     let lock_cost = SubtensorModule::get_network_lock_cost();
-    add_balance_to_coldkey_account(coldkey, lock_cost.into());
+    add_balance_to_coldkey_account(coldkey, lock_cost.saturating_add(ExistentialDeposit::get()));
     TotalIssuance::<Test>::mutate(|total_issuance| {
         *total_issuance = total_issuance.saturating_add(lock_cost);
     });
@@ -1262,6 +1329,21 @@ pub fn add_balance_to_coldkey_account(coldkey: &U256, tao: TaoBalance) {
         let credit = SubtensorModule::mint_tao(tao);
         let _ = SubtensorModule::spend_tao(coldkey, credit, tao).unwrap();
     }
+}
+
+/// Drives a coldkey's stored share `S` above the pool denominator `D` (S/D = `factor`).
+/// This is the divergent state that accumulated rounding drift can produce. It lets tests
+/// prove that the value cap and the real-debit accounting hold even when the raw quote
+/// `V * S / D` would exceed the whole pool value `V`.
+#[allow(dead_code)]
+pub fn inflate_alpha_share(hotkey: &U256, coldkey: &U256, netuid: NetUid, factor: u32) {
+    let denominator = TotalHotkeySharesV2::<Test>::get(hotkey, netuid);
+    assert!(!denominator.is_zero(), "share pool must be initialized");
+    let mut share = denominator.clone();
+    for _ in 1..factor {
+        share = share.add(&denominator).expect("share fits in SafeFloat");
+    }
+    AlphaV2::<Test>::insert((hotkey, coldkey, netuid), share);
 }
 
 #[allow(dead_code)]

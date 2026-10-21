@@ -116,9 +116,7 @@ class TestPrecompileEncoding:
 
         assert precompiles.encode_call(getter, [1]).startswith("0x")
         assert precompiles.encode_call(setter, [1, 2]).startswith("0x")
-        assert getter["outputs"] == [
-            {"internalType": "uint8", "name": "", "type": "uint8"}
-        ]
+        assert getter["outputs"] == [{"internalType": "uint8", "name": "", "type": "uint8"}]
         assert setter["stateMutability"] == "payable"
 
 

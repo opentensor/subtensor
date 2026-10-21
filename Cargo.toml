@@ -37,7 +37,7 @@ members = [
 	"support/*",
 	"chain-extensions",
 ]
-exclude = ["eco-tests", "vendor/w3f-bls", "vendor/frontier"]
+exclude = ["eco-tests", "vendor/w3f-bls", "vendor/frontier", "vendor/sc-informant"]
 resolver = "2"
 
 [workspace.package]
@@ -68,7 +68,7 @@ pallet-subtensor-swap = { path = "pallets/swap", default-features = false }
 pallet-subtensor-swap-runtime-api = { path = "pallets/swap/runtime-api", default-features = false }
 pallet-subtensor-swap-rpc = { path = "pallets/swap/rpc", default-features = false }
 procedural-fork = { path = "support/procedural-fork", default-features = false }
-safe-bigmath = { package = "safe-bigmath", default-features = false, git = "https://github.com/sam0x17/safe-bigmath", rev = "013c49984910e1c9a23289e8c85e7a856e263a02" }
+safe-bigmath = { package = "safe-bigmath", default-features = false, git = "https://github.com/sam0x17/safe-bigmath", rev = "c37eadb7bfafea2ba4d5bf23d58beb4fcd12825b" }
 safe-math = { path = "primitives/safe-math", default-features = false }
 share-pool = { path = "primitives/share-pool", default-features = false }
 subtensor-macros = { path = "support/macros", default-features = false }
@@ -94,7 +94,7 @@ hex-literal = "0.4.1"
 impl-trait-for-tuples = "0.2.3"
 jsonrpsee = { version = "0.24.9", default-features = false }
 libsecp256k1 = { version = "0.7.2", default-features = false }
-lencode = "0.1.6"
+lencode = "1.2.1"
 log = { version = "0.4.21", default-features = false }
 memmap2 = "0.9.8"
 ndarray = { version = "0.16.1", default-features = false }
@@ -108,9 +108,9 @@ serde_with = { version = "3.14.0", default-features = false }
 smallvec = "1.13.2"
 tracing = "0.1"
 tracing-log = "0.2"
-# Keep this pinned: 0.3.20 escapes ANSI sequences embedded by Substrate's
-# informant, causing color codes such as `\x1b[37m` to be printed literally.
-tracing-subscriber = { version = "=0.3.19" }
+# Keep ANSI sanitization enabled. The patched informant emits plain message fields;
+# the logger still handles timestamp and level colors.
+tracing-subscriber = { version = "=0.3.20" }
 litep2p = { git = "https://github.com/paritytech/litep2p", tag = "v0.7.0", default-features = false }
 syn = { version = "2.0.106", default-features = false }
 quote = { version = "1", default-features = false }
@@ -258,6 +258,7 @@ runtime-common = { package = "polkadot-runtime-common", git = "https://github.co
 # Frontier
 # Vendored via `git subtree` from RaoFoundation/frontier
 # (branch polkadot-stable2506-2-otf-get-call-indices-metadata, rev d553a1155).
+# BLS12-381 final EIP-2537: feat/bls12-381-eip2537, rev 65a27653.
 # Update with:
 #   git subtree pull --prefix vendor/frontier https://github.com/RaoFoundation/frontier <rev> --squash
 fp-evm = { path = "vendor/frontier/primitives/evm", default-features = false }
@@ -288,6 +289,7 @@ pallet-evm-precompile-modexp = { path = "vendor/frontier/frame/evm/precompile/mo
 pallet-evm-precompile-sha3fips = { path = "vendor/frontier/frame/evm/precompile/sha3fips", default-features = false }
 pallet-evm-precompile-simple = { path = "vendor/frontier/frame/evm/precompile/simple", default-features = false }
 pallet-evm-precompile-bn128 = { path = "vendor/frontier/frame/evm/precompile/bn128", default-features = false }
+pallet-evm-precompile-bls12381 = { path = "vendor/frontier/frame/evm/precompile/bls12381", default-features = false }
 pallet-hotfix-sufficients = { path = "vendor/frontier/frame/hotfix-sufficients", default-features = false }
 
 #DRAND
@@ -334,6 +336,9 @@ w3f-bls = { path = "vendor/w3f-bls" }
 zstd-sys = { git = "https://github.com/gztensor/zstd-sys" }
 zstd-safe = { git = "https://github.com/gztensor/zstd-safe", rev = "42cc34ef6abe5d35d982f6afefb5d7e4e69f5f18" }
 
+[patch."https://github.com/RaoFoundation/polkadot-sdk.git"]
+sc-informant = { path = "vendor/sc-informant" }
+
 # The RaoFoundation/frontier fork still pins polkadot-sdk to the
 # github.com/opentensor/polkadot-sdk remote at the same rev this workspace
 # consumes from github.com/RaoFoundation/polkadot-sdk. Cargo treats the two
@@ -373,7 +378,7 @@ sc-executor = { git = "https://github.com/RaoFoundation/polkadot-sdk.git", rev =
 sc-executor-common = { git = "https://github.com/RaoFoundation/polkadot-sdk.git", rev = "cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a" }
 sc-executor-polkavm = { git = "https://github.com/RaoFoundation/polkadot-sdk.git", rev = "cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a" }
 sc-executor-wasmtime = { git = "https://github.com/RaoFoundation/polkadot-sdk.git", rev = "cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a" }
-sc-informant = { git = "https://github.com/RaoFoundation/polkadot-sdk.git", rev = "cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a" }
+sc-informant = { path = "vendor/sc-informant" }
 sc-keystore = { git = "https://github.com/RaoFoundation/polkadot-sdk.git", rev = "cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a" }
 sc-mixnet = { git = "https://github.com/RaoFoundation/polkadot-sdk.git", rev = "cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a" }
 sc-network = { git = "https://github.com/RaoFoundation/polkadot-sdk.git", rev = "cacb4310f20c7cac83eb3ccd8ed5a5ad4212608a" }

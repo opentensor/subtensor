@@ -415,6 +415,34 @@ where
         )
     }
 
+    /// Large-row variant; the original selector retains its 4,096-entry bound.
+    #[precompile::public("setMechanismWeightsV2(uint16,uint8,uint16[],uint16[],uint64)")]
+    fn set_mechanism_weights_v2(
+        handle: &mut impl PrecompileHandle,
+        netuid: u16,
+        mecid: u8,
+        dests: SolidityBoundedVec<
+            u16,
+            ConstU32<{ pallet_subtensor::subnets::mechanism::NULL_UID_BUDGET as u32 }>,
+        >,
+        weights: SolidityBoundedVec<
+            u16,
+            ConstU32<{ pallet_subtensor::subnets::mechanism::NULL_UID_BUDGET as u32 }>,
+        >,
+        version_key: u64,
+    ) -> EvmResult<()> {
+        dispatch_neuron(
+            handle,
+            pallet_subtensor::Call::<R>::set_mechanism_weights {
+                netuid: netuid.into(),
+                mecid: mecid.into(),
+                dests: dests.into(),
+                weights: weights.into(),
+                version_key,
+            },
+        )
+    }
+
     #[precompile::public("commitMechanismWeights(uint16,uint8,bytes32)")]
     fn commit_mechanism_weights(
         handle: &mut impl PrecompileHandle,
@@ -463,9 +491,11 @@ where
         commit: BoundedBytes<ConstU32<5000>>,
         reveal_round: u64,
     ) -> EvmResult<()> {
-        let commit =
-            frame_support::BoundedVec::<u8, ConstU32<5000>>::try_from(Vec::<u8>::from(commit))
-                .map_err(|_| revert("commit exceeds runtime bound"))?;
+        let commit = frame_support::BoundedVec::<
+            u8,
+            ConstU32<{ pallet_subtensor::MAX_CRV3_COMMIT_SIZE_BYTES }>,
+        >::try_from(Vec::<u8>::from(commit))
+        .map_err(|_| revert("commit exceeds runtime bound"))?;
         dispatch_neuron(
             handle,
             pallet_subtensor::Call::<R>::commit_crv3_mechanism_weights {
@@ -473,6 +503,33 @@ where
                 mecid: mecid.into(),
                 commit,
                 reveal_round,
+            },
+        )
+    }
+
+    /// Larger ciphertexts for Null; legacy selectors keep their original bound.
+    #[precompile::public("commitTimelockedMechanismWeightsV2(uint16,uint8,bytes,uint64,uint16)")]
+    fn commit_timelocked_mechanism_weights_v2(
+        handle: &mut impl PrecompileHandle,
+        netuid: u16,
+        mecid: u8,
+        commit: BoundedBytes<ConstU32<{ pallet_subtensor::MAX_CRV3_COMMIT_SIZE_BYTES }>>,
+        reveal_round: u64,
+        commit_reveal_version: u16,
+    ) -> EvmResult<()> {
+        let commit = frame_support::BoundedVec::<
+            u8,
+            ConstU32<{ pallet_subtensor::MAX_CRV3_COMMIT_SIZE_BYTES }>,
+        >::try_from(Vec::<u8>::from(commit))
+        .map_err(|_| revert("commit exceeds runtime bound"))?;
+        dispatch_neuron(
+            handle,
+            pallet_subtensor::Call::<R>::commit_timelocked_mechanism_weights {
+                netuid: netuid.into(),
+                mecid: mecid.into(),
+                commit,
+                reveal_round,
+                commit_reveal_version,
             },
         )
     }
@@ -485,9 +542,11 @@ where
         reveal_round: u64,
         commit_reveal_version: u16,
     ) -> EvmResult<()> {
-        let commit =
-            frame_support::BoundedVec::<u8, ConstU32<5000>>::try_from(Vec::<u8>::from(commit))
-                .map_err(|_| revert("commit exceeds runtime bound"))?;
+        let commit = frame_support::BoundedVec::<
+            u8,
+            ConstU32<{ pallet_subtensor::MAX_CRV3_COMMIT_SIZE_BYTES }>,
+        >::try_from(Vec::<u8>::from(commit))
+        .map_err(|_| revert("commit exceeds runtime bound"))?;
         dispatch_neuron(
             handle,
             pallet_subtensor::Call::<R>::commit_timelocked_weights {
@@ -508,9 +567,11 @@ where
         reveal_round: u64,
         commit_reveal_version: u16,
     ) -> EvmResult<()> {
-        let commit =
-            frame_support::BoundedVec::<u8, ConstU32<5000>>::try_from(Vec::<u8>::from(commit))
-                .map_err(|_| revert("commit exceeds runtime bound"))?;
+        let commit = frame_support::BoundedVec::<
+            u8,
+            ConstU32<{ pallet_subtensor::MAX_CRV3_COMMIT_SIZE_BYTES }>,
+        >::try_from(Vec::<u8>::from(commit))
+        .map_err(|_| revert("commit exceeds runtime bound"))?;
         dispatch_neuron(
             handle,
             pallet_subtensor::Call::<R>::commit_timelocked_mechanism_weights {
@@ -787,6 +848,9 @@ where
         )
     }
 
+    /// Legacy hash commitment. `bytes32` is BlakeTwo256(`destination`), not the
+    /// account itself. Prefer [`Self::announce_coldkey_swap_v2`] for cleartext
+    /// destinations (pre-fee validation + reservation).
     #[precompile::public("announceColdkeySwap(bytes32)")]
     fn announce_coldkey_swap(
         handle: &mut impl PrecompileHandle,
@@ -797,6 +861,20 @@ where
         dispatch_neuron(
             handle,
             pallet_subtensor::Call::<R>::announce_coldkey_swap { new_coldkey_hash },
+        )
+    }
+
+    /// Cleartext destination announce: validates and reserves before the fee.
+    #[precompile::public("announceColdkeySwapV2(bytes32)")]
+    fn announce_coldkey_swap_v2(
+        handle: &mut impl PrecompileHandle,
+        new_coldkey: H256,
+    ) -> EvmResult<()> {
+        dispatch_neuron(
+            handle,
+            pallet_subtensor::Call::<R>::announce_coldkey_swap_v2 {
+                new_coldkey: R::AccountId::from(new_coldkey.0),
+            },
         )
     }
 
@@ -1271,8 +1349,10 @@ mod tests {
         AccountId, Runtime, System, addr_from_index, execute_precompile, mapped_account,
         new_test_ext, precompiles, selector_u32,
     };
+    use frame_support::dispatch::{GetDispatchInfo, Pays};
+    use pallet_evm::{Context, GasWeightMapping, PrecompileSet};
     use precompile_utils::solidity::encode_with_selector;
-    use precompile_utils::testing::PrecompileTesterExt;
+    use precompile_utils::testing::{MockHandle, PrecompileTesterExt};
     use sp_core::{H160, H256, U256};
     use sp_runtime::traits::Hash;
     use subtensor_runtime_common::{AlphaBalance, NetUid, NetUidStorageIndex, TaoBalance, Token};
@@ -1624,6 +1704,45 @@ mod tests {
     }
 
     #[test]
+    fn announce_coldkey_swap_bytes32_keeps_legacy_hash_commitment() {
+        new_test_ext().execute_with(|| {
+            let caller = addr_from_index(0xA401);
+            let (_, caller_account) = setup_registered_caller(caller);
+            let dest = AccountId::new([0x42; 32]);
+            let dest_hash = <Runtime as frame_system::Config>::Hashing::hash_of(&dest);
+            let swap_cost = pallet_subtensor::Pallet::<Runtime>::get_key_swap_cost();
+            add_balance_to_coldkey_account(&caller_account, swap_cost);
+
+            let target = addr_from_index(NeuronPrecompile::<Runtime>::INDEX);
+            let precompiles = precompiles::<NeuronPrecompile<Runtime>>();
+            precompiles
+                .prepare_test(
+                    caller,
+                    target,
+                    encode_with_selector(
+                        selector_u32("announceColdkeySwap(bytes32)"),
+                        (H256::from_slice(dest_hash.as_ref()),),
+                    ),
+                )
+                .execute_returns(());
+
+            let (_when, stored) =
+                pallet_subtensor::ColdkeySwapAnnouncements::<Runtime>::get(&caller_account)
+                    .expect("announcement stored");
+            assert_eq!(stored, dest_hash);
+            // Legacy path must not reserve the cleartext destination (or the
+            // hash-as-account reinterpretation).
+            assert!(
+                pallet_subtensor::ColdkeySwapReservedDestination::<Runtime>::get(&caller_account)
+                    .is_none()
+            );
+            assert!(!pallet_subtensor::ColdkeySwapDestinationReservations::<
+                Runtime,
+            >::contains_key(&dest));
+        });
+    }
+
+    #[test]
     fn neuron_precompile_dispatch_runs_subtensor_dispatch_extensions() {
         new_test_ext().execute_with(|| {
             let caller = addr_from_index(0x5A34);
@@ -1885,6 +2004,231 @@ mod tests {
                     0_u32
                 );
             }
+        });
+    }
+
+    // A `Pays::No` call dispatched from the EVM must still be charged gas for the weight it
+    // consumed; otherwise the block accounts none of its execution time.
+    #[test]
+    fn neuron_precompile_charges_gas_for_pays_no_dispatch() {
+        new_test_ext().execute_with(|| {
+            let caller = addr_from_index(0xE0202);
+            let (netuid, caller_account) = setup_registered_caller(caller);
+            pallet_subtensor::Pallet::<Runtime>::set_commit_reveal_weights_enabled(netuid, false);
+            pallet_subtensor::Pallet::<Runtime>::set_stake_threshold(0);
+
+            let dests = vec![REGISTERED_UID];
+            let weights = vec![u16::MAX];
+            let call = crate::mock::RuntimeCall::SubtensorModule(
+                pallet_subtensor::Call::<Runtime>::set_weights {
+                    netuid,
+                    dests: dests.clone(),
+                    weights: weights.clone(),
+                    version_key: VERSION_KEY,
+                },
+            );
+            let info = call.get_dispatch_info();
+            assert_eq!(info.pays_fee, Pays::No);
+            let declared_gas = <Runtime as pallet_evm::Config>::GasWeightMapping::weight_to_gas(
+                info.total_weight(),
+            );
+            assert!(declared_gas > 0);
+
+            let precompile_address = addr_from_index(NeuronPrecompile::<Runtime>::INDEX);
+            let mut handle = MockHandle::new(
+                precompile_address,
+                Context {
+                    address: precompile_address,
+                    caller,
+                    apparent_value: U256::zero(),
+                },
+            );
+            handle.input = encode_with_selector(
+                selector_u32("setWeights(uint16,uint16[],uint16[],uint64)"),
+                (TEST_NETUID_U16, dests, weights, VERSION_KEY),
+            );
+            handle.gas_limit = u64::MAX;
+
+            let result = precompiles::<NeuronPrecompile<Runtime>>()
+                .execute(&mut handle)
+                .expect("routed to the neuron precompile");
+            assert!(result.is_ok(), "setWeights failed: {result:?}");
+            assert_eq!(
+                pallet_subtensor::Weights::<Runtime>::get(
+                    NetUidStorageIndex::from(netuid),
+                    REGISTERED_UID
+                ),
+                vec![(REGISTERED_UID, u16::MAX)]
+            );
+            assert!(
+                handle.gas_used >= declared_gas,
+                "gas_used {} must cover the dispatched weight ({declared_gas} gas)",
+                handle.gas_used
+            );
+            let _ = caller_account;
+        });
+    }
+
+    #[test]
+    fn neuron_null_consensus_full_row_v2_and_gas() {
+        new_test_ext().execute_with(|| {
+            let caller = addr_from_index(0x3241);
+            let (netuid, _) = setup_registered_caller(caller);
+            let n = pallet_subtensor::subnets::mechanism::NULL_UID_BUDGET;
+            pallet_subtensor::Pallet::<Runtime>::set_epoch_consensus(
+                netuid,
+                pallet_subtensor::EpochConsensus::Null,
+            );
+            pallet_subtensor::Pallet::<Runtime>::set_commit_reveal_weights_enabled(netuid, false);
+            pallet_subtensor::Pallet::<Runtime>::set_stake_threshold(0);
+            pallet_subtensor::Pallet::<Runtime>::set_max_allowed_uids(netuid, n);
+            pallet_subtensor::SubnetworkN::<Runtime>::insert(netuid, n);
+            pallet_subtensor::ValidatorPermit::<Runtime>::insert(
+                netuid,
+                vec![true; usize::from(n)],
+            );
+            for uid in 1..n {
+                let hotkey = AccountId::from(sp_io::hashing::blake2_256(&uid.to_le_bytes()));
+                pallet_subtensor::Keys::<Runtime>::insert(netuid, uid, hotkey);
+            }
+            let dests = (0..n).collect::<Vec<_>>();
+            let mut weights = vec![1u16; usize::from(n)];
+            weights[1] = u16::MAX - 1;
+            let target = addr_from_index(NeuronPrecompile::<Runtime>::INDEX);
+            let precompiles = precompiles::<NeuronPrecompile<Runtime>>();
+            let legacy = encode_with_selector(
+                selector_u32("setMechanismWeights(uint16,uint8,uint16[],uint16[],uint64)"),
+                (
+                    TEST_NETUID_U16,
+                    0u8,
+                    vec![0u16; 4097],
+                    vec![1u16; 4097],
+                    VERSION_KEY,
+                ),
+            );
+            assert!(
+                execute_precompile(&precompiles, target, caller, legacy, U256::zero())
+                    .unwrap()
+                    .is_err()
+            );
+            let call = crate::mock::RuntimeCall::SubtensorModule(
+                pallet_subtensor::Call::<Runtime>::set_mechanism_weights {
+                    netuid,
+                    mecid: 0u8.into(),
+                    dests: dests.clone(),
+                    weights: weights.clone(),
+                    version_key: VERSION_KEY,
+                },
+            );
+            let declared_gas = <Runtime as pallet_evm::Config>::GasWeightMapping::weight_to_gas(
+                call.get_dispatch_info().total_weight(),
+            );
+            let mut handle = MockHandle::new(
+                target,
+                Context {
+                    address: target,
+                    caller,
+                    apparent_value: U256::zero(),
+                },
+            );
+            handle.input = encode_with_selector(
+                selector_u32("setMechanismWeightsV2(uint16,uint8,uint16[],uint16[],uint64)"),
+                (
+                    TEST_NETUID_U16,
+                    0u8,
+                    dests.clone(),
+                    weights.clone(),
+                    VERSION_KEY,
+                ),
+            );
+            handle.gas_limit = u64::MAX;
+            assert!(precompiles.execute(&mut handle).unwrap().is_ok());
+            assert!(handle.gas_used >= declared_gas);
+            assert_eq!(
+                pallet_subtensor::Weights::<Runtime>::get(
+                    NetUidStorageIndex::from(netuid),
+                    REGISTERED_UID,
+                ),
+                dests.into_iter().zip(weights).collect::<Vec<_>>()
+            );
+            // The new selector's own bound is enforced before dispatch too.
+            let oversized = encode_with_selector(
+                selector_u32("setMechanismWeightsV2(uint16,uint8,uint16[],uint16[],uint64)"),
+                (
+                    TEST_NETUID_U16,
+                    0u8,
+                    vec![0u16; usize::from(n) + 1],
+                    vec![1u16; usize::from(n) + 1],
+                    VERSION_KEY,
+                ),
+            );
+            assert!(
+                execute_precompile(&precompiles, target, caller, oversized, U256::zero())
+                    .unwrap()
+                    .is_err()
+            );
+        });
+    }
+
+    #[test]
+    fn neuron_null_consensus_large_commit_preserves_legacy_bound() {
+        new_test_ext().execute_with(|| {
+            let caller = addr_from_index(0x3240);
+            let (netuid, _) = setup_registered_caller(caller);
+            frame_support::assert_ok!(pallet_subtensor::Pallet::<Runtime>::do_set_epoch_consensus(
+                netuid,
+                pallet_subtensor::EpochConsensus::Null,
+            ));
+            let target = addr_from_index(NeuronPrecompile::<Runtime>::INDEX);
+            let precompiles = precompiles::<NeuronPrecompile<Runtime>>();
+            let payload = UnboundedBytes::from(vec![0u8; 32_768]);
+            let legacy = encode_with_selector(
+                selector_u32("commitTimelockedMechanismWeights(uint16,uint8,bytes,uint64,uint16)"),
+                (TEST_NETUID_U16, 0u8, payload.clone(), 1000u64, 4u16),
+            );
+            assert!(
+                execute_precompile(&precompiles, target, caller, legacy, U256::zero())
+                    .unwrap()
+                    .is_err()
+            );
+            precompiles
+                .prepare_test(
+                    caller,
+                    target,
+                    encode_with_selector(
+                        selector_u32(
+                            "commitTimelockedMechanismWeightsV2(uint16,uint8,bytes,uint64,uint16)",
+                        ),
+                        (TEST_NETUID_U16, 0u8, payload, 1000u64, 4u16),
+                    ),
+                )
+                .execute_returns(());
+            let epoch = pallet_subtensor::Pallet::<Runtime>::current_epoch_with_lookahead(netuid);
+            let queue = pallet_subtensor::TimelockedWeightCommits::<Runtime>::get(
+                NetUidStorageIndex::from(netuid),
+                epoch,
+            );
+            assert_eq!(queue.len(), 1);
+            assert_eq!(queue.front().unwrap().2.len(), 32_768);
+            // Exact released calldata continues to admit an ordinary 5,000-byte commit.
+            precompiles
+                .prepare_test(
+                    caller,
+                    target,
+                    encode_with_selector(
+                        selector_u32(
+                            "commitTimelockedMechanismWeights(uint16,uint8,bytes,uint64,uint16)",
+                        ),
+                        (
+                            TEST_NETUID_U16,
+                            0u8,
+                            UnboundedBytes::from(vec![0u8; 5_000]),
+                            1000u64,
+                            4u16,
+                        ),
+                    ),
+                )
+                .execute_returns(());
         });
     }
 }
