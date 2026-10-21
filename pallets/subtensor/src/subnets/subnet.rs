@@ -451,8 +451,14 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        // --- 10. Default emission off
-        SubnetEmissionEnabled::<T>::insert(netuid_to_register, false);
+        // --- 10. Pool-side TAO emission share starts enabled.
+        // `init_new_network` already writes `true` (and clears any leftover `false`
+        // from a prior dissolve on a reused netuid). Re-assert here so registration
+        // does not depend on that call remaining the last writer. Existing subnets
+        // that root already disabled are untouched — this path only runs for new
+        // registrations. Owner `start_call` / `StartCallDelay` still gate epoch
+        // activation and subtoken trading; root can still flip this flag off.
+        SubnetEmissionEnabled::<T>::insert(netuid_to_register, true);
         weight.saturating_accrue(db_weight.writes(1));
 
         // --- 11. Emit the NetworkAdded event.
@@ -497,8 +503,10 @@ impl<T: Config> Pallet<T> {
         Self::set_yuma3_enabled(netuid, true);
         Self::set_burn(netuid, DefaultNeuronBurnCost::<T>::get());
 
-        // New subnets should never inherit a prior subnet owner's disabled state
-        // when a netuid is reused after pruning/dissolve.
+        // New / reused netuids start with pool-side TAO emission enabled so a
+        // prior dissolve cannot leave `SubnetEmissionEnabled = false` on the id.
+        // `set_new_network_state` re-asserts `true` after this; root may still
+        // disable via `sudo_set_subnet_emission_enabled`.
         SubnetEmissionEnabled::<T>::insert(netuid, true);
 
         // Make network parameters explicit.

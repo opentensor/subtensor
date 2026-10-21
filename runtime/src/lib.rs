@@ -239,7 +239,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 481,
+    spec_version: 482,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -625,6 +625,12 @@ impl ProxyInterface<AccountId> for Proxier {
             ProxyType::SubnetLeaseBeneficiary,
             0,
         )
+    }
+
+    fn has_delegator_proxies(delegator: &AccountId) -> bool {
+        !pallet_proxy::Proxies::<Runtime>::get(delegator)
+            .0
+            .is_empty()
     }
 }
 
@@ -1480,6 +1486,16 @@ fn limit_order_signers_are_blocked_during_recovery_or_dispute() {
         pallet_subtensor::ColdkeySwapAnnouncements::<Runtime>::remove(&signer);
         assert!(!LimitOrderSignerFilter::contains(&signer));
         pallet_subtensor::ColdkeySwapDisputes::<Runtime>::remove(&signer);
+        assert!(LimitOrderSignerFilter::contains(&signer));
+        frame_support::assert_ok!(SubtensorModule::reset_coldkey_swap_keep_locked(
+            RuntimeOrigin::root(),
+            signer.clone()
+        ));
+        assert!(!LimitOrderSignerFilter::contains(&signer));
+        frame_support::assert_ok!(SubtensorModule::reset_coldkey_swap(
+            RuntimeOrigin::root(),
+            signer.clone()
+        ));
         assert!(LimitOrderSignerFilter::contains(&signer));
     });
 }

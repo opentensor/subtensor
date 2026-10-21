@@ -3884,7 +3884,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8d162beedaa69905488a8da94f5ac3edb4dd4788b732fadb7bd120b2625c1976"
 dependencies = [
  "data-encoding",
- "syn 2.0.106",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -5205,7 +5205,7 @@ dependencies = [
  "polkadot-parachain-primitives",
  "polkadot-primitives",
  "rand 0.8.6",
- "rand_pcg",
+ "rand_pcg 0.3.1",
  "sc-block-builder",
  "sc-chain-spec",
  "sc-cli",
@@ -5817,11 +5817,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "26145e563e54f2cadc477553f1ec5ee650b00862f0a58bcd12cbdc5f0ea2d2f4"
 dependencies = [
  "cfg-if",
- "js-sys",
  "libc",
  "r-efi",
  "wasi 0.14.7+wasi-0.2.4",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -5831,11 +5829,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "139ef39800118c7683f2fd3c98c1b23c09ae076556b435f8e9064ae108aaeeec"
 dependencies = [
  "cfg-if",
+ "js-sys",
  "libc",
  "r-efi",
  "rand_core 0.10.0",
  "wasip2",
  "wasip3",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -9858,7 +9858,7 @@ dependencies = [
  "parity-scale-codec",
  "paste",
  "rand 0.8.6",
- "rand_pcg",
+ "rand_pcg 0.3.1",
  "scale-info",
  "serde",
  "smallvec",
@@ -10858,7 +10858,7 @@ dependencies = [
  "polkavm 0.21.0",
  "polkavm-common 0.21.0",
  "rand 0.8.6",
- "rand_pcg",
+ "rand_pcg 0.3.1",
  "ripemd",
  "rlp 0.6.1",
  "scale-info",
@@ -14136,14 +14136,15 @@ dependencies = [
 
 [[package]]
 name = "quinn-proto"
-version = "0.11.15"
+version = "0.11.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fcb935c5bec503c2f0e306bdd3e58bb9029dcb14fa8d9ac76e3a5256ac0763e"
+checksum = "a9746dbde176634f4f2f1faf2404e30a31b2bc1e9cafb5329c95d8177a18c9fc"
 dependencies = [
  "bytes",
- "getrandom 0.3.3",
+ "getrandom 0.4.1",
  "lru-slab",
- "rand 0.9.4",
+ "rand 0.10.2",
+ "rand_pcg 0.10.2",
  "ring 0.17.14",
  "rustc-hash 2.1.1",
  "rustls",
@@ -14308,6 +14309,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "59cad018caf63deb318e5a4586d99a24424a364f40f1e5778c29aca23f4fc73e"
 dependencies = [
  "rand_core 0.6.4",
+]
+
+[[package]]
+name = "rand_pcg"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "caa0f4137e1c0a72f4c651489402276c8e8e1cf081f3b0ba156d2cbeef09e86a"
+dependencies = [
+ "rand_core 0.10.0",
 ]
 
 [[package]]
@@ -14989,15 +14999,15 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.45"
+version = "0.23.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d41d731c7d2f962d1ccc364cec258de3c0e93b38c2fb3ba97ac74513048d634"
+checksum = "48e13bd8c0e9365c43cfa5c9e8f9ad49d3c8444926c9aac819e0e4dc503c8fdf"
 dependencies = [
  "log",
  "once_cell",
  "ring 0.17.14",
  "rustls-pki-types",
- "rustls-webpki 0.103.15",
+ "rustls-webpki 0.103.16",
  "subtle 2.6.1",
  "zeroize",
 ]
@@ -15038,7 +15048,7 @@ dependencies = [
  "rustls",
  "rustls-native-certs",
  "rustls-platform-verifier-android",
- "rustls-webpki 0.103.15",
+ "rustls-webpki 0.103.16",
  "security-framework 3.5.1",
  "security-framework-sys",
  "webpki-root-certs 0.26.11",
@@ -15063,9 +15073,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-webpki"
-version = "0.103.15"
+version = "0.103.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3c3cf1d8b1e7d4927e2d154c3fcb02979afb9939629c62cd9048d4f07b60ac2"
+checksum = "4443b1b6d39d7c663139942cc4558262562d2c84123bb6282ef177009ca8b281"
 dependencies = [
  "ring 0.17.14",
  "rustls-pki-types",
@@ -16321,7 +16331,7 @@ dependencies = [
  "libc",
  "log",
  "rand 0.8.6",
- "rand_pcg",
+ "rand_pcg 0.3.1",
  "regex",
  "sc-telemetry",
  "serde",

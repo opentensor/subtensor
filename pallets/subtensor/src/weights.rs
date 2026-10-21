@@ -52,11 +52,24 @@ pub trait WeightInfo {
 	fn sudo_set_tx_childkey_take_rate_limit() -> Weight;
 	fn set_childkey_take() -> Weight;
 	fn announce_coldkey_swap() -> Weight;
+	/// Cleartext announce + reservation; conservative envelope until reference measurement.
+	fn announce_coldkey_swap_v2() -> Weight {
+		Self::announce_coldkey_swap()
+	}
 	fn swap_coldkey_announced() -> Weight;
 	fn swap_coldkey() -> Weight;
 	fn dispute_coldkey_swap() -> Weight;
 	fn clear_coldkey_swap_announcement() -> Weight;
+	/// Destination-authorized reservation release; conservative until reference measurement.
+	fn release_own_coldkey_swap_destination_reservation() -> Weight {
+		Self::clear_coldkey_swap_announcement()
+			.saturating_add(RocksDbWeight::get().reads(2))
+			.saturating_add(RocksDbWeight::get().writes(1))
+	}
 	fn reset_coldkey_swap() -> Weight;
+    // Both reset paths perform two storage writes and emit the same event.
+    // Reference CI replaces this alias with the new call's measurement.
+    fn reset_coldkey_swap_keep_locked() -> Weight { Self::reset_coldkey_swap() }
 	fn batch_reveal_weights() -> Weight;
 	fn recycle_alpha() -> Weight;
 	fn burn_alpha() -> Weight;
