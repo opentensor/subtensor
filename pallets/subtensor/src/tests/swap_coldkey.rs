@@ -2768,6 +2768,117 @@ fn test_funded_dest_without_staking_does_not_import_source_auto_stake() {
     });
 }
 
+/// Destination presence is decided when V2 announces, so an unrelated balance
+/// transfer during the delay cannot turn a blank rename into a policy-dropping
+/// merge.
+#[test]
+fn test_v2_announcement_snapshot_ignores_post_announce_destination_dust() {
+    new_test_ext(1).execute_with(|| {
+        let old = U256::from(1);
+        let dest = U256::from(2);
+        let old_hot = U256::from(10);
+        let auto_old = U256::from(20);
+
+        let netuid = add_dynamic_network(&old_hot, &old);
+        AutoStakeDestination::<Test>::insert(old, netuid, auto_old);
+        AutoStakeDestinationColdkeys::<Test>::insert(auto_old, netuid, vec![old]);
+
+        announce_coldkey_swap(old, dest);
+        let (when, announcement_hash) =
+            ColdkeySwapAnnouncements::<Test>::get(old).expect("announced");
+        assert_eq!(
+            announcement_hash,
+            SubtensorModule::coldkey_swap_v2_announcement_hash(&dest, true)
+        );
+        assert_eq!(ColdkeySwapV2PolicySnapshots::<Test>::get(old), Some(true));
+
+        // This balance can come from any account; the destination does not sign.
+        add_balance_to_coldkey_account(&dest, ExistentialDeposit::get());
+        assert!(SubtensorModule::coldkey_rejects_unsolicited_policy_import(
+            &dest
+        ));
+
+        run_to_block(when);
+        assert_ok!(SubtensorModule::swap_coldkey_announced(
+            RuntimeOrigin::signed(old),
+            dest,
+        ));
+
+        assert!(AutoStakeDestination::<Test>::get(old, netuid).is_none());
+        assert_eq!(
+            AutoStakeDestination::<Test>::get(dest, netuid),
+            Some(auto_old)
+        );
+        assert!(!AutoStakeDestinationColdkeys::<Test>::get(auto_old, netuid).contains(&old));
+        assert!(AutoStakeDestinationColdkeys::<Test>::get(auto_old, netuid).contains(&dest));
+        assert!(!ColdkeySwapV2PolicySnapshots::<Test>::contains_key(old));
+    });
+}
+
+/// A destination funded before V2 announces remains an intentional merge and
+/// keeps its unset/default reward route.
+#[test]
+fn test_v2_announcement_snapshot_preserves_funded_destination_default() {
+    new_test_ext(1).execute_with(|| {
+        let old = U256::from(1);
+        let dest = U256::from(2);
+        let old_hot = U256::from(10);
+        let auto_old = U256::from(20);
+
+        let netuid = add_dynamic_network(&old_hot, &old);
+        AutoStakeDestination::<Test>::insert(old, netuid, auto_old);
+        AutoStakeDestinationColdkeys::<Test>::insert(auto_old, netuid, vec![old]);
+        add_balance_to_coldkey_account(&dest, ExistentialDeposit::get());
+
+        announce_coldkey_swap(old, dest);
+        let (when, announcement_hash) =
+            ColdkeySwapAnnouncements::<Test>::get(old).expect("announced");
+        assert_eq!(
+            announcement_hash,
+            SubtensorModule::coldkey_swap_v2_announcement_hash(&dest, false)
+        );
+        assert_eq!(ColdkeySwapV2PolicySnapshots::<Test>::get(old), Some(false));
+
+        run_to_block(when);
+        assert_ok!(SubtensorModule::swap_coldkey_announced(
+            RuntimeOrigin::signed(old),
+            dest,
+        ));
+
+        assert!(AutoStakeDestination::<Test>::get(old, netuid).is_none());
+        assert!(AutoStakeDestination::<Test>::get(dest, netuid).is_none());
+        assert!(!AutoStakeDestinationColdkeys::<Test>::get(auto_old, netuid).contains(&old));
+        assert!(!AutoStakeDestinationColdkeys::<Test>::get(auto_old, netuid).contains(&dest));
+        assert!(!ColdkeySwapV2PolicySnapshots::<Test>::contains_key(old));
+    });
+}
+
+/// A legacy caller cannot opt into V2 snapshot semantics merely by submitting
+/// a correctly formed V2 commitment: the dedicated V2 marker is also required.
+#[test]
+fn test_legacy_announcement_cannot_forge_v2_policy_snapshot() {
+    new_test_ext(1).execute_with(|| {
+        let old = U256::from(1);
+        let dest = U256::from(2);
+        let swap_cost = SubtensorModule::get_key_swap_cost();
+        add_balance_to_coldkey_account(&old, swap_cost + ExistentialDeposit::get());
+
+        let forged_v2_hash = SubtensorModule::coldkey_swap_v2_announcement_hash(&dest, true);
+        assert_ok!(SubtensorModule::announce_coldkey_swap(
+            RuntimeOrigin::signed(old),
+            forged_v2_hash,
+        ));
+        assert!(!ColdkeySwapV2PolicySnapshots::<Test>::contains_key(old));
+        let (when, _) = ColdkeySwapAnnouncements::<Test>::get(old).expect("announced");
+        run_to_block(when);
+
+        crate::assert_noop_ignore_postinfo!(
+            SubtensorModule::swap_coldkey_announced(RuntimeOrigin::signed(old), dest,),
+            Error::<Test>::AnnouncedColdkeyHashDoesNotMatch
+        );
+    });
+}
+
 /// Destination with only reserved funds (zero reducible) is still prior
 /// presence for the import gate (Skeptic fid:c135ad77).
 #[test]
@@ -3905,6 +4016,17 @@ fn test_destination_can_release_coldkey_swap_reservation() {
         assert!(!ColdkeySwapDestinationReservations::<Test>::contains_key(
             victim_dest
         ));
+        let (_, announcement_hash) =
+            ColdkeySwapAnnouncements::<Test>::get(attacker).expect("announced");
+        assert_eq!(
+            SubtensorModule::coldkey_swap_v2_policy_snapshot(
+                &attacker,
+                &victim_dest,
+                &announcement_hash,
+            ),
+            Some(false),
+            "releasing the reservation must not invalidate the V2 snapshot"
+        );
         // Announcement remains for the attacker, but exclusivity is gone so
         // another party can announce into this destination again.
         assert!(ColdkeySwapAnnouncements::<Test>::contains_key(attacker));

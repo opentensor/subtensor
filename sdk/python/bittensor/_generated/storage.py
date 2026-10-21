@@ -358,6 +358,7 @@ class SubtensorModule:
     AutoParentDelegationEnabled = Item('SubtensorModule', 'AutoParentDelegationEnabled', 'bool')
     HasMigrationRun = Item('SubtensorModule', 'HasMigrationRun', 'bool')
     PendingChildKeyCooldown = Item('SubtensorModule', 'PendingChildKeyCooldown', 'u64')
+    ColdkeySwapV2PolicySnapshots = Item('SubtensorModule', 'ColdkeySwapV2PolicySnapshots', 'bool')
 
 class Sudo:
     Key = Item('Sudo', 'Key', 'AccountId32')

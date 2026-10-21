@@ -7,7 +7,7 @@ use crate::migrations::migrate_alpha_v2::retired::Alpha;
 use crate::subnets::leasing::LeaseId;
 use crate::weights::WeightInfo;
 use sp_core::Get;
-use sp_runtime::Saturating;
+use sp_runtime::{Saturating, traits::Hash};
 use sp_std::collections::btree_set::BTreeSet;
 use subtensor_runtime_common::TaoBalance;
 
@@ -97,6 +97,9 @@ impl<T: Config> Pallet<T> {
         let reservation = T::DbWeight::get()
             .reads(3)
             .saturating_add(T::DbWeight::get().writes(4));
+        // Snapshot whether the destination already carries state that rejects
+        // policy import: staking/basket/ownership, flags, lineage, balance, proxy.
+        let policy_snapshot = T::DbWeight::get().reads_writes(7, 1);
         // Pending-registration discovery: one queue read + total-scan sentinel
         // (not only owned rows — unrelated entries are still visited).
         let pending_reads = u64::from(max.registration_queue_scan).saturating_add(1);
@@ -112,6 +115,7 @@ impl<T: Config> Pallet<T> {
                 ),
             )
             .saturating_add(reservation)
+            .saturating_add(policy_snapshot)
     }
 
     /// Weight of destination-authorized reservation release (dual-map cleanup).
@@ -238,6 +242,7 @@ impl<T: Config> Pallet<T> {
             <T as crate::pallet::Config>::WeightInfo::swap_coldkey(),
             Self::coldkey_swap_max_work(),
         )
+        .saturating_add(T::DbWeight::get().writes(1))
     }
 
     /// Post-dispatch weight of `swap_coldkey`.
@@ -246,6 +251,7 @@ impl<T: Config> Pallet<T> {
             <T as crate::pallet::Config>::WeightInfo::swap_coldkey(),
             work,
         )
+        .saturating_add(T::DbWeight::get().writes(1))
     }
 
     /// Pre-dispatch weight of `swap_coldkey_announced`, refunded post-dispatch.
@@ -254,7 +260,10 @@ impl<T: Config> Pallet<T> {
             <T as crate::pallet::Config>::WeightInfo::swap_coldkey_announced(),
             Self::coldkey_swap_max_work(),
         )
-        .saturating_add(T::DbWeight::get().writes(1))
+        // V2 commitment recovery reads the announcement-time snapshot.
+        .saturating_add(T::DbWeight::get().reads(1))
+        // Successful execution removes the announcement and its V2 snapshot.
+        .saturating_add(T::DbWeight::get().writes(2))
     }
 
     /// Post-dispatch weight of `swap_coldkey_announced`.
@@ -263,7 +272,7 @@ impl<T: Config> Pallet<T> {
             <T as crate::pallet::Config>::WeightInfo::swap_coldkey_announced(),
             work,
         )
-        .saturating_add(T::DbWeight::get().writes(1))
+        .saturating_add(T::DbWeight::get().writes(2))
     }
 
     /// Stake positions the swap has to move, plus the combined hotkey set of source and
@@ -406,6 +415,36 @@ impl<T: Config> Pallet<T> {
             || Self::coldkey_has_established_lineage(coldkey)
             || !Self::coldkey_total_balance(coldkey).is_zero()
             || T::ProxyInterface::has_delegator_proxies(coldkey)
+    }
+
+    /// V2 commits to whether the destination was blank when it was announced.
+    ///
+    /// Binding the stored snapshot into the announcement hash prevents balance
+    /// transfers during the delay from changing the source auto-stake policy
+    /// outcome or a legacy caller from selecting V2 semantics.
+    pub(crate) fn coldkey_swap_v2_announcement_hash(
+        new_coldkey: &T::AccountId,
+        import_source_policies: bool,
+    ) -> T::Hash {
+        T::Hashing::hash_of(&(
+            b"coldkey-swap-v2-policy",
+            new_coldkey,
+            import_source_policies,
+        ))
+    }
+
+    /// Recover and authenticate a V2 announcement's policy snapshot. Legacy
+    /// callers may submit arbitrary hashes, so the dedicated V2 storage marker
+    /// must exist before a matching tuple hash grants snapshot semantics.
+    pub(crate) fn coldkey_swap_v2_policy_snapshot(
+        announcer: &T::AccountId,
+        new_coldkey: &T::AccountId,
+        announcement_hash: &T::Hash,
+    ) -> Option<bool> {
+        let import_source_policies = ColdkeySwapV2PolicySnapshots::<T>::get(announcer)?;
+        (Self::coldkey_swap_v2_announcement_hash(new_coldkey, import_source_policies)
+            == *announcement_hash)
+            .then_some(import_source_policies)
     }
 
     /// Free + reserved TAO on `coldkey`. Distinct from
@@ -625,12 +664,23 @@ impl<T: Config> Pallet<T> {
         old_coldkey: &T::AccountId,
         new_coldkey: &T::AccountId,
     ) -> Result<ColdkeySwapWork, (Weight, DispatchError)> {
+        Self::do_swap_coldkey_tracked_with_policy_snapshot(old_coldkey, new_coldkey, None)
+    }
+
+    /// Announced V2 swaps pass the destination-presence snapshot recorded at
+    /// announcement. Direct and legacy swaps pass `None` and evaluate the
+    /// destination at execution as before.
+    pub(crate) fn do_swap_coldkey_tracked_with_policy_snapshot(
+        old_coldkey: &T::AccountId,
+        new_coldkey: &T::AccountId,
+        import_source_policies: Option<bool>,
+    ) -> Result<ColdkeySwapWork, (Weight, DispatchError)> {
         let work = match Self::ensure_coldkey_swap_destination(old_coldkey, new_coldkey) {
             Ok(work) => work,
             Err((done, error)) => return Err((done, error.into())),
         };
 
-        Self::execute_swap_coldkey(old_coldkey, new_coldkey, work)
+        Self::execute_swap_coldkey(old_coldkey, new_coldkey, work, import_source_policies)
             .map_err(|error| (Self::coldkey_swap_failed_weight(Some(work), true), error))
     }
 
@@ -639,6 +689,7 @@ impl<T: Config> Pallet<T> {
         old_coldkey: &T::AccountId,
         new_coldkey: &T::AccountId,
         work: ColdkeySwapWork,
+        import_source_policies: Option<bool>,
     ) -> Result<ColdkeySwapWork, DispatchError> {
         // A self-swap moves nothing; running the merge body against one account
         // would drop state that the helpers take before re-checking the destination.
@@ -678,8 +729,9 @@ impl<T: Config> Pallet<T> {
                 // grants, flags, lineage, or staking associations (Skeptic
                 // fid:93e26a58 / fid:a2c90852). Only a blank rename target imports
                 // the source policy.
-                let import_source_policies =
-                    !Self::coldkey_rejects_unsolicited_policy_import(new_coldkey);
+                let import_source_policies = import_source_policies.unwrap_or_else(|| {
+                    !Self::coldkey_rejects_unsolicited_policy_import(new_coldkey)
+                });
                 // Temporary accept only on a true rename onto an empty key.
                 // Destinations that already carry flags (including reject-locked)
                 // must not have those flags flipped for the lock hand-off.

@@ -3805,6 +3805,15 @@ pub mod pallet {
     pub type PendingChildKeyCooldown<T: Config> =
         StorageValue<_, u64, ValueQuery, DefaultPendingChildKeyCooldown<T>>;
 
+    /// V2 announcement-time decision for importing the source auto-stake policy.
+    ///
+    /// Kept independently of the destination reservation because the destination
+    /// may release that reservation, or it may expire, before the announcement is
+    /// executed. Legacy hash-only announcements have no entry.
+    #[pallet::storage]
+    pub type ColdkeySwapV2PolicySnapshots<T: Config> =
+        StorageMap<_, Twox64Concat, T::AccountId, bool, OptionQuery>;
+
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         /// Stakes record in genesis.
