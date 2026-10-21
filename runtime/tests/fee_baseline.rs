@@ -66,6 +66,8 @@ impl Comparator for FeeToleranceComparator {
     }
 }
 
+// This test validates the custom snapshot comparator itself; runtime fee calculation is
+// exercised by the dispatchable and EVM snapshot tests below.
 #[rstest]
 #[case("100", "80", true)]
 #[case("100", "120", true)]
