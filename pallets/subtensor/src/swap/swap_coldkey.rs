@@ -27,6 +27,19 @@ pub struct ColdkeySwapWork {
     pub registration_queue_scan: u32,
 }
 
+/// How an authenticated coldkey-swap announcement decides whether the source's
+/// auto-stake policy may move to an otherwise-unconfigured destination.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum ColdkeySwapPolicyImportMode {
+    /// Apply the complete destination-presence check at execution.
+    CurrentDestination,
+    /// The destination already had presence at announcement; never import.
+    Reject,
+    /// The original blank-destination reservation is still live, so ignore only
+    /// unsolicited balance while enforcing every non-balance protection.
+    IgnoreDestinationBalance,
+}
+
 impl<T: Config> Pallet<T> {
     /// Weight of a coldkey swap over `base` (the benchmarked fixed part): one `transfer_stake`
     /// per position moved plus the per-hotkey bookkeeping reads (watermark, unlock age,
@@ -446,15 +459,16 @@ impl<T: Config> Pallet<T> {
     /// must exist before a matching tuple hash grants snapshot semantics.
     ///
     /// A `true` snapshot only permits ignoring unsolicited balance added while
-    /// this exact destination reservation remains live. Destination-authorized
-    /// release or reservation expiry downgrades it to `false`; execution still
-    /// remains possible as a policy-preserving merge.
+    /// this exact destination reservation remains live. After release or expiry,
+    /// it falls back to the complete current destination-presence check. A
+    /// committed `false` remains a rejection even if the destination is later
+    /// cleared.
     pub(crate) fn coldkey_swap_v2_policy_snapshot(
         announcer: &T::AccountId,
         new_coldkey: &T::AccountId,
         announcement_hash: &T::Hash,
         when: frame_system::pallet_prelude::BlockNumberFor<T>,
-    ) -> Option<bool> {
+    ) -> Option<ColdkeySwapPolicyImportMode> {
         let import_source_policies = ColdkeySwapV2PolicySnapshots::<T>::get(announcer)?;
         if Self::coldkey_swap_v2_announcement_hash(new_coldkey, import_source_policies)
             != *announcement_hash
@@ -462,7 +476,7 @@ impl<T: Config> Pallet<T> {
             return None;
         }
         if !import_source_policies {
-            return Some(false);
+            return Some(ColdkeySwapPolicyImportMode::Reject);
         }
 
         let now = <frame_system::Pallet<T>>::block_number();
@@ -471,7 +485,11 @@ impl<T: Config> Pallet<T> {
             && ColdkeySwapReservedDestination::<T>::get(announcer).as_ref() == Some(new_coldkey)
             && ColdkeySwapDestinationReservations::<T>::get(new_coldkey).as_ref()
                 == Some(announcer);
-        Some(reservation_is_live)
+        Some(if reservation_is_live {
+            ColdkeySwapPolicyImportMode::IgnoreDestinationBalance
+        } else {
+            ColdkeySwapPolicyImportMode::CurrentDestination
+        })
     }
 
     /// Free + reserved TAO on `coldkey`. Distinct from
@@ -691,7 +709,11 @@ impl<T: Config> Pallet<T> {
         old_coldkey: &T::AccountId,
         new_coldkey: &T::AccountId,
     ) -> Result<ColdkeySwapWork, (Weight, DispatchError)> {
-        Self::do_swap_coldkey_tracked_with_policy_snapshot(old_coldkey, new_coldkey, None)
+        Self::do_swap_coldkey_tracked_with_policy_snapshot(
+            old_coldkey,
+            new_coldkey,
+            ColdkeySwapPolicyImportMode::CurrentDestination,
+        )
     }
 
     /// Announced V2 swaps pass the destination-presence snapshot recorded at
@@ -700,14 +722,14 @@ impl<T: Config> Pallet<T> {
     pub(crate) fn do_swap_coldkey_tracked_with_policy_snapshot(
         old_coldkey: &T::AccountId,
         new_coldkey: &T::AccountId,
-        import_source_policies: Option<bool>,
+        policy_import_mode: ColdkeySwapPolicyImportMode,
     ) -> Result<ColdkeySwapWork, (Weight, DispatchError)> {
         let work = match Self::ensure_coldkey_swap_destination(old_coldkey, new_coldkey) {
             Ok(work) => work,
             Err((done, error)) => return Err((done, error.into())),
         };
 
-        Self::execute_swap_coldkey(old_coldkey, new_coldkey, work, import_source_policies)
+        Self::execute_swap_coldkey(old_coldkey, new_coldkey, work, policy_import_mode)
             .map_err(|error| (Self::coldkey_swap_failed_weight(Some(work), true), error))
     }
 
@@ -716,7 +738,7 @@ impl<T: Config> Pallet<T> {
         old_coldkey: &T::AccountId,
         new_coldkey: &T::AccountId,
         work: ColdkeySwapWork,
-        import_source_policies: Option<bool>,
+        policy_import_mode: ColdkeySwapPolicyImportMode,
     ) -> Result<ColdkeySwapWork, DispatchError> {
         // A self-swap moves nothing; running the merge body against one account
         // would drop state that the helpers take before re-checking the destination.
@@ -756,14 +778,15 @@ impl<T: Config> Pallet<T> {
                 // grants, flags, lineage, or staking associations (Skeptic
                 // fid:93e26a58 / fid:a2c90852). Only a blank rename target imports
                 // the source policy.
-                let import_source_policies = import_source_policies
-                    .map(|ignore_destination_balance| {
-                        ignore_destination_balance
-                            && !Self::coldkey_has_non_balance_policy_protection(new_coldkey)
-                    })
-                    .unwrap_or_else(|| {
+                let import_source_policies = match policy_import_mode {
+                    ColdkeySwapPolicyImportMode::CurrentDestination => {
                         !Self::coldkey_rejects_unsolicited_policy_import(new_coldkey)
-                    });
+                    }
+                    ColdkeySwapPolicyImportMode::Reject => false,
+                    ColdkeySwapPolicyImportMode::IgnoreDestinationBalance => {
+                        !Self::coldkey_has_non_balance_policy_protection(new_coldkey)
+                    }
+                };
                 // Temporary accept only on a true rename onto an empty key.
                 // Destinations that already carry flags (including reject-locked)
                 // must not have those flags flipped for the lock hand-off.

@@ -32,6 +32,7 @@ use super::mock;
 use super::mock::*;
 use crate::extensions::SubtensorTransactionExtension;
 use crate::staking::lock::LockState;
+use crate::swap::swap_coldkey::ColdkeySwapPolicyImportMode;
 use crate::weights::WeightInfo;
 use crate::*;
 use crate::{Call, Error};
@@ -4024,8 +4025,8 @@ fn test_destination_can_release_coldkey_swap_reservation() {
                 &announcement_hash,
                 when,
             ),
-            Some(false),
-            "releasing the reservation must revoke balance-ignore privilege"
+            Some(ColdkeySwapPolicyImportMode::CurrentDestination),
+            "release must revoke balance-ignore privilege and use current eligibility"
         );
         // Announcement remains for the attacker, but exclusivity is gone so
         // another party can announce into this destination again.
@@ -4069,7 +4070,7 @@ fn test_v2_policy_snapshot_does_not_bypass_destination_state_after_release() {
                 &announcement_hash,
                 when,
             ),
-            Some(true)
+            Some(ColdkeySwapPolicyImportMode::IgnoreDestinationBalance)
         );
 
         assert_ok!(
@@ -4089,7 +4090,7 @@ fn test_v2_policy_snapshot_does_not_bypass_destination_state_after_release() {
                 &announcement_hash,
                 when,
             ),
-            Some(false)
+            Some(ColdkeySwapPolicyImportMode::CurrentDestination)
         );
 
         run_to_block(when);
@@ -4103,6 +4104,59 @@ fn test_v2_policy_snapshot_does_not_bypass_destination_state_after_release() {
         assert!(
             !AutoStakeDestinationColdkeys::<Test>::get(source_auto_stake, netuid)
                 .contains(&victim_dest)
+        );
+    });
+}
+
+/// Releasing the reservation removes the right to ignore dust, but a destination
+/// that is still blank at execution remains a rename target and receives the
+/// source policy.
+#[test]
+fn test_v2_policy_snapshot_preserves_blank_rename_after_release() {
+    new_test_ext(1).execute_with(|| {
+        let source = U256::from(1);
+        let dest = U256::from(2);
+        let source_hotkey = U256::from(10);
+        let source_auto_stake = U256::from(20);
+
+        let netuid = add_dynamic_network(&source_hotkey, &source);
+        AutoStakeDestination::<Test>::insert(source, netuid, source_auto_stake);
+        AutoStakeDestinationColdkeys::<Test>::insert(source_auto_stake, netuid, vec![source]);
+
+        announce_coldkey_swap(source, dest);
+        let (when, announcement_hash) =
+            ColdkeySwapAnnouncements::<Test>::get(source).expect("announced");
+        assert_ok!(
+            SubtensorModule::release_own_coldkey_swap_destination_reservation(
+                RuntimeOrigin::signed(dest)
+            )
+        );
+        assert!(!SubtensorModule::coldkey_rejects_unsolicited_policy_import(
+            &dest
+        ));
+        assert_eq!(
+            SubtensorModule::coldkey_swap_v2_policy_snapshot(
+                &source,
+                &dest,
+                &announcement_hash,
+                when,
+            ),
+            Some(ColdkeySwapPolicyImportMode::CurrentDestination)
+        );
+
+        run_to_block(when);
+        assert_ok!(SubtensorModule::swap_coldkey_announced(
+            RuntimeOrigin::signed(source),
+            dest,
+        ));
+
+        assert!(AutoStakeDestination::<Test>::get(source, netuid).is_none());
+        assert_eq!(
+            AutoStakeDestination::<Test>::get(dest, netuid),
+            Some(source_auto_stake)
+        );
+        assert!(
+            AutoStakeDestinationColdkeys::<Test>::get(source_auto_stake, netuid).contains(&dest)
         );
     });
 }
@@ -4138,7 +4192,7 @@ fn test_v2_policy_snapshot_rechecks_non_balance_state_while_reserved() {
                 &announcement_hash,
                 when,
             ),
-            Some(true),
+            Some(ColdkeySwapPolicyImportMode::IgnoreDestinationBalance),
             "the reservation remains live; execution must apply the current-state gate"
         );
 
@@ -4191,7 +4245,7 @@ fn test_v2_policy_snapshot_does_not_bypass_destination_state_after_expiry() {
                 &announcement_hash,
                 when,
             ),
-            Some(false)
+            Some(ColdkeySwapPolicyImportMode::CurrentDestination)
         );
 
         assert_ok!(SubtensorModule::swap_coldkey_announced(
@@ -4204,6 +4258,54 @@ fn test_v2_policy_snapshot_does_not_bypass_destination_state_after_expiry() {
         assert!(
             !AutoStakeDestinationColdkeys::<Test>::get(source_auto_stake, netuid)
                 .contains(&victim_dest)
+        );
+    });
+}
+
+/// Expiry likewise falls back to current eligibility instead of treating the
+/// missing reservation as evidence that an otherwise blank destination is used.
+#[test]
+fn test_v2_policy_snapshot_preserves_blank_rename_after_expiry() {
+    new_test_ext(1).execute_with(|| {
+        let source = U256::from(1);
+        let dest = U256::from(2);
+        let source_hotkey = U256::from(10);
+        let source_auto_stake = U256::from(20);
+
+        let netuid = add_dynamic_network(&source_hotkey, &source);
+        AutoStakeDestination::<Test>::insert(source, netuid, source_auto_stake);
+        AutoStakeDestinationColdkeys::<Test>::insert(source_auto_stake, netuid, vec![source]);
+
+        announce_coldkey_swap(source, dest);
+        let (when, announcement_hash) =
+            ColdkeySwapAnnouncements::<Test>::get(source).expect("announced");
+        let ttl = ColdkeySwapReannouncementDelay::<Test>::get();
+        run_to_block(when + ttl + 1);
+
+        assert!(!SubtensorModule::coldkey_rejects_unsolicited_policy_import(
+            &dest
+        ));
+        assert_eq!(
+            SubtensorModule::coldkey_swap_v2_policy_snapshot(
+                &source,
+                &dest,
+                &announcement_hash,
+                when,
+            ),
+            Some(ColdkeySwapPolicyImportMode::CurrentDestination)
+        );
+        assert_ok!(SubtensorModule::swap_coldkey_announced(
+            RuntimeOrigin::signed(source),
+            dest,
+        ));
+
+        assert!(AutoStakeDestination::<Test>::get(source, netuid).is_none());
+        assert_eq!(
+            AutoStakeDestination::<Test>::get(dest, netuid),
+            Some(source_auto_stake)
+        );
+        assert!(
+            AutoStakeDestinationColdkeys::<Test>::get(source_auto_stake, netuid).contains(&dest)
         );
     });
 }

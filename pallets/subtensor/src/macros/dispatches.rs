@@ -2536,24 +2536,21 @@ mod dispatches {
                 ))?;
 
             let legacy_hash_matches = new_coldkey_hash == T::Hashing::hash_of(&new_coldkey);
-            let (import_source_policies, snapshot_read) = if legacy_hash_matches {
-                (None, Weight::zero())
+            let snapshot_read = if legacy_hash_matches {
+                Weight::zero()
             } else {
-                (
-                    Self::coldkey_swap_v2_policy_snapshot(
-                        &who,
-                        &new_coldkey,
-                        &new_coldkey_hash,
-                        when,
-                    ),
-                    T::DbWeight::get().reads(4),
-                )
+                T::DbWeight::get().reads(4)
             };
             let precheck = initial_precheck.saturating_add(snapshot_read);
-            ensure!(
-                legacy_hash_matches || import_source_policies.is_some(),
-                Self::fail_with_weight(Error::<T>::AnnouncedColdkeyHashDoesNotMatch, precheck)
-            );
+            let policy_import_mode = if legacy_hash_matches {
+                crate::swap::swap_coldkey::ColdkeySwapPolicyImportMode::CurrentDestination
+            } else {
+                Self::coldkey_swap_v2_policy_snapshot(&who, &new_coldkey, &new_coldkey_hash, when)
+                    .ok_or(Self::fail_with_weight(
+                    Error::<T>::AnnouncedColdkeyHashDoesNotMatch,
+                    precheck,
+                ))?
+            };
 
             let now = <frame_system::Pallet<T>>::block_number();
             ensure!(
@@ -2564,7 +2561,7 @@ mod dispatches {
             let work = Self::do_swap_coldkey_tracked_with_policy_snapshot(
                 &who,
                 &new_coldkey,
-                import_source_policies,
+                policy_import_mode,
             )
             .map_err(|(done, error)| {
                 Self::fail_with_weight(

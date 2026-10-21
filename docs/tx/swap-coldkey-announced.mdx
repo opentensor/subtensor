@@ -16,7 +16,7 @@ future operations sign with the new coldkey.
 
 | Signer | Origin | Pallet | Wraps |
 | --- | --- | --- | --- |
-| `coldkey` | signed account (pallet role may apply) | SubtensorModule | [`SubtensorModule.swap_coldkey_announced`](/code/pallets/subtensor/src/macros/dispatches.rs#L2515-L2591) |
+| `coldkey` | signed account (pallet role may apply) | SubtensorModule | [`SubtensorModule.swap_coldkey_announced`](/code/pallets/subtensor/src/macros/dispatches.rs#L2515-L2588) |
 
 ## Parameters
 
@@ -65,7 +65,7 @@ result = sub.execute_tool("swap_coldkey_announced", {...}, wallet)
 
 ## On-chain implementation
 
-`SubtensorModule.swap_coldkey_announced` — [`pallets/subtensor/src/macros/dispatches.rs#L2517`](/code/pallets/subtensor/src/macros/dispatches.rs#L2515-L2591):
+`SubtensorModule.swap_coldkey_announced` — [`pallets/subtensor/src/macros/dispatches.rs#L2517`](/code/pallets/subtensor/src/macros/dispatches.rs#L2515-L2588):
 
 ```rust
 #[pallet::call_index(126)]
@@ -92,24 +92,21 @@ pub fn swap_coldkey_announced(
         ))?;
 
     let legacy_hash_matches = new_coldkey_hash == T::Hashing::hash_of(&new_coldkey);
-    let (import_source_policies, snapshot_read) = if legacy_hash_matches {
-        (None, Weight::zero())
+    let snapshot_read = if legacy_hash_matches {
+        Weight::zero()
     } else {
-        (
-            Self::coldkey_swap_v2_policy_snapshot(
-                &who,
-                &new_coldkey,
-                &new_coldkey_hash,
-                when,
-            ),
-            T::DbWeight::get().reads(4),
-        )
+        T::DbWeight::get().reads(4)
     };
     let precheck = initial_precheck.saturating_add(snapshot_read);
-    ensure!(
-        legacy_hash_matches || import_source_policies.is_some(),
-        Self::fail_with_weight(Error::<T>::AnnouncedColdkeyHashDoesNotMatch, precheck)
-    );
+    let policy_import_mode = if legacy_hash_matches {
+        crate::swap::swap_coldkey::ColdkeySwapPolicyImportMode::CurrentDestination
+    } else {
+        Self::coldkey_swap_v2_policy_snapshot(&who, &new_coldkey, &new_coldkey_hash, when)
+            .ok_or(Self::fail_with_weight(
+            Error::<T>::AnnouncedColdkeyHashDoesNotMatch,
+            precheck,
+        ))?
+    };
 
     let now = <frame_system::Pallet<T>>::block_number();
     ensure!(
@@ -120,7 +117,7 @@ pub fn swap_coldkey_announced(
     let work = Self::do_swap_coldkey_tracked_with_policy_snapshot(
         &who,
         &new_coldkey,
-        import_source_policies,
+        policy_import_mode,
     )
     .map_err(|(done, error)| {
         Self::fail_with_weight(
@@ -147,6 +144,6 @@ pub fn swap_coldkey_announced(
 }
 ```
 
-Delegates to [`fail_with_weight`](/code/pallets/subtensor/src/staking/stake_utils.rs#L1584), [`coldkey_swap_v2_policy_snapshot`](/code/pallets/subtensor/src/swap/swap_coldkey.rs#L452), [`do_swap_coldkey_tracked_with_policy_snapshot`](/code/pallets/subtensor/src/swap/swap_coldkey.rs#L700).
+Delegates to [`fail_with_weight`](/code/pallets/subtensor/src/staking/stake_utils.rs#L1584), [`coldkey_swap_v2_policy_snapshot`](/code/pallets/subtensor/src/swap/swap_coldkey.rs#L466), [`do_swap_coldkey_tracked_with_policy_snapshot`](/code/pallets/subtensor/src/swap/swap_coldkey.rs#L722).
 
 Every file is browsable under [/code](/code) exactly as built into the runtime, or as plain text under `/code/raw/<path>` (index: [`/code/index.json`](/code/index.json)).
