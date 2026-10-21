@@ -1480,6 +1480,84 @@ fn test_lock_stake_topup_exceeds_total() {
 // =========================================================================
 
 #[test]
+fn test_aggregate_roll_forward_matches_members_with_staggered_updates() {
+    for owner in [false, true] {
+        for perpetual in [false, true] {
+            for (unlock_rate, maturity_rate) in [(1_000, 1_000), (1_000, 2_000)] {
+                let member = |mass: u64| LockState {
+                    locked_mass: mass.into(),
+                    conviction: U64F64::from_num(if owner { mass } else { 0 }),
+                    last_update: 0,
+                };
+                let first = member(1_000_000_000);
+                let second = member(2_000_000_000);
+                let aggregate = member(3_000_000_000);
+                let model = |individual, aggregate: LockState| {
+                    let empty = member(0);
+                    let bucket = |is_owner, is_perpetual| {
+                        if owner == is_owner && perpetual == is_perpetual {
+                            aggregate.clone()
+                        } else {
+                            empty.clone()
+                        }
+                    };
+                    ConvictionModel::new(
+                        owner,
+                        perpetual,
+                        individual,
+                        bucket(false, true),
+                        bucket(false, false),
+                        bucket(true, true),
+                        bucket(true, false),
+                    )
+                };
+                let roll = |lock| {
+                    ConvictionModel::roll_forward_lock(
+                        lock,
+                        2_000,
+                        unlock_rate,
+                        maturity_rate,
+                        owner,
+                        perpetual,
+                    )
+                    .0
+                };
+
+                // Advance the bucket while both individual records stay stale.
+                let mut first_model = model(first.clone(), aggregate);
+                first_model.roll_forward_aggregate(1_000, unlock_rate, maturity_rate);
+                first_model.roll_forward(2_000, unlock_rate, maturity_rate);
+                let expected_first = roll(first);
+                let expected_second = roll(second.clone());
+                assert_eq!(first_model.individual_lock(), &expected_first);
+                let actual = first_model.aggregate_lock().clone();
+                assert_eq!(actual.last_update, 2_000);
+                // Integer mass rounding can differ between one roll and two.
+                assert_abs_diff_eq!(
+                    actual.locked_mass.to_u64() as f64,
+                    (expected_first.locked_mass.to_u64() + expected_second.locked_mass.to_u64())
+                        as f64,
+                    epsilon = 3.0
+                );
+                assert_abs_diff_eq!(
+                    actual.conviction.to_num::<f64>(),
+                    (expected_first.conviction + expected_second.conviction).to_num::<f64>(),
+                    epsilon = 3.0
+                );
+
+                // Touching another stale member must not change an up-to-date bucket.
+                let mut second_model = model(second, actual.clone());
+                second_model.roll_forward(2_000, unlock_rate, maturity_rate);
+                assert_eq!(second_model.individual_lock(), &expected_second);
+                assert_eq!(second_model.aggregate_lock(), &actual);
+                second_model.roll_forward(2_000, unlock_rate, maturity_rate);
+                assert_eq!(second_model.aggregate_lock(), &actual);
+            }
+        }
+    }
+}
+
+#[test]
 fn test_exp_decay_zero_dt() {
     new_test_ext(1).execute_with(|| {
         let result = ConvictionModel::exp_decay(0, 216000);
@@ -2097,9 +2175,15 @@ fn test_unstake_roll_forward_collects_decaying_lock_dust_from_hotkey_aggregate()
             DecayingHotkeyLock::<Test>::get(netuid, hotkey_2)
                 .expect("decaying aggregate should remain")
                 .locked_mass,
-            rolled_large_lock
-                .locked_mass
-                .saturating_add(AlphaBalance::from(DUST_ALPHA))
+            roll_forward_decaying_hotkey_lock(
+                LockState {
+                    locked_mass: (ONE_ALPHA + DUST_ALPHA).into(),
+                    conviction: U64F64::from_num(0),
+                    last_update: lock_block,
+                },
+                now,
+            )
+            .locked_mass
         );
 
         assert_ok!(SubtensorModule::do_remove_stake(
@@ -2108,11 +2192,19 @@ fn test_unstake_roll_forward_collects_decaying_lock_dust_from_hotkey_aggregate()
             netuid,
             ONE_ALPHA.into(),
         ));
-        assert_eq!(
-            DecayingHotkeyLock::<Test>::get(netuid, hotkey_2)
-                .expect("decaying aggregate should remain")
-                .locked_mass,
-            rolled_large_lock.locked_mass
+        let aggregate = DecayingHotkeyLock::<Test>::get(netuid, hotkey_2)
+            .expect("decaying aggregate should remain");
+        // The bucket decays as a whole; removing the small member's rolled
+        // residual leaves the large member, within integer rounding.
+        assert_abs_diff_eq!(
+            aggregate.locked_mass.to_u64() as f64,
+            rolled_large_lock.locked_mass.to_u64() as f64,
+            epsilon = 1.0
+        );
+        assert_abs_diff_eq!(
+            aggregate.conviction.to_num::<f64>(),
+            rolled_large_lock.conviction.to_num::<f64>(),
+            epsilon = 1.0
         );
     });
 }
@@ -4045,7 +4137,7 @@ fn test_coldkey_swap_lock_blocks_unstake() {
 
 #[test]
 // Conviction-only destination lock state is not active, so direct coldkey lock transfer is allowed.
-fn test_coldkey_swap_allows_destination_conviction_only_lock() {
+fn test_coldkey_swap_rejects_destination_conviction_only_lock() {
     new_test_ext(1).execute_with(|| {
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(10);
@@ -4078,25 +4170,85 @@ fn test_coldkey_swap_allows_destination_conviction_only_lock() {
             },
         );
 
+        // Residual destination conviction blocks the merge until a path can
+        // preserve it; zero mass alone is not enough to clear the row.
+        assert_noop!(
+            SubtensorModule::swap_coldkey_locks(&old_coldkey, &new_coldkey),
+            Error::<Test>::ActiveLockExists
+        );
+        assert!(Lock::<Test>::get((new_coldkey, netuid, new_hotkey)).is_some());
+        assert_eq!(
+            Lock::<Test>::get((new_coldkey, netuid, new_hotkey))
+                .expect("dest conviction-only lock preserved")
+                .conviction,
+            new_conviction
+        );
+        assert!(Lock::<Test>::get((old_coldkey, netuid, old_hotkey)).is_some());
+    });
+}
+
+#[test]
+// Fully exhausted (dust) destination lock rows that sort before an incoming
+// active source lock must be purged on merge; otherwise get_current_locked can
+// report zero and alpha covered by the active lock becomes withdrawable.
+fn test_coldkey_swap_purges_exhausted_destination_lock_before_active_merge() {
+    new_test_ext(1).execute_with(|| {
+        let old_coldkey = U256::from(1);
+        let new_coldkey = U256::from(10);
+        // Destination hotkey sorts before the source hotkey under the mock
+        // AccountId encoding so the exhausted row would be discovered first.
+        let dest_hotkey = U256::from(2);
+        let source_hotkey = U256::from(20);
+        let netuid = subtensor_runtime_common::NetUid::from(1);
+
+        let active_locked = AlphaBalance::from(5_000_000u64);
+        let active_conviction = U64F64::from_num(55);
+
+        // Destination must accept locked alpha to receive the source active lock.
+        SubtensorModule::set_accept_locked_alpha(&new_coldkey, true);
+
+        SubtensorModule::insert_lock_state(
+            &old_coldkey,
+            netuid,
+            &source_hotkey,
+            LockState {
+                locked_mass: active_locked,
+                conviction: active_conviction,
+                last_update: SubtensorModule::get_current_block_as_u64(),
+            },
+        );
+        // Seed a fully exhausted dust row directly (insert_lock_state would
+        // remove is_zero state).
+        Lock::<Test>::insert(
+            (new_coldkey, netuid, dest_hotkey),
+            LockState {
+                locked_mass: AlphaBalance::ZERO,
+                conviction: U64F64::from_num(0),
+                last_update: SubtensorModule::get_current_block_as_u64(),
+            },
+        );
+        LockingColdkeys::<Test>::insert((netuid, dest_hotkey, new_coldkey), ());
+
+        // Precondition: exhausted dest row is the first discoverable lock.
+        let (first_hotkey, _) = Lock::<Test>::iter_prefix((new_coldkey, netuid))
+            .next()
+            .expect("destination exhausted lock present");
+        assert_eq!(first_hotkey, dest_hotkey);
+
         assert_ok!(SubtensorModule::swap_coldkey_locks(
             &old_coldkey,
             &new_coldkey
         ));
 
-        assert!(
-            Lock::<Test>::iter_prefix((old_coldkey, netuid))
-                .next()
-                .is_none()
+        assert!(Lock::<Test>::get((new_coldkey, netuid, dest_hotkey)).is_none());
+        assert_eq!(Lock::<Test>::iter_prefix((new_coldkey, netuid)).count(), 1);
+        let merged = Lock::<Test>::get((new_coldkey, netuid, source_hotkey))
+            .expect("active source lock transferred");
+        assert_eq!(merged.locked_mass, active_locked);
+        assert_eq!(
+            SubtensorModule::get_current_locked(&new_coldkey, netuid),
+            active_locked
         );
-        assert!(Lock::<Test>::get((new_coldkey, netuid, new_hotkey)).is_some());
-
-        let swapped_lock = Lock::<Test>::get((new_coldkey, netuid, old_hotkey))
-            .expect("source lock should be transferred");
-        assert_eq!(swapped_lock.locked_mass, AlphaBalance::ZERO);
-        assert_eq!(swapped_lock.conviction, old_conviction);
-        assert_eq!(Lock::<Test>::iter_prefix((new_coldkey, netuid)).count(), 2);
-        assert!(DecayingLock::<Test>::get(old_coldkey, netuid).is_none());
-        assert_eq!(DecayingLock::<Test>::get(new_coldkey, netuid), Some(false));
     });
 }
 
@@ -4243,7 +4395,7 @@ fn test_failed_coldkey_swap_extrinsic_rolls_back_state_changes() {
             },
         );
 
-        assert_noop!(
+        crate::assert_noop_ignore_postinfo!(
             SubtensorModule::swap_coldkey(
                 RuntimeOrigin::root(),
                 old_coldkey,
@@ -4784,7 +4936,7 @@ fn test_epoch_distribution_auto_locks_owner_cut() {
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_max_allowed_validators(netuid, 1);
         step_block(subnet_tempo);
-        SubnetOwnerCut::<Test>::set(u16::MAX / 10);
+        set_subnet_owner_cut_for_test(netuid, u16::MAX / 10);
         OwnerCutAutoLockEnabled::<Test>::insert(netuid, true);
 
         let owner_uid =

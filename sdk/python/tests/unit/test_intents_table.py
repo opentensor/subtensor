@@ -21,12 +21,23 @@ from bittensor.intents._money import UNBOUNDED, _Unbounded
 from bittensor.intents.base import BuiltCall
 from bittensor.result import BittensorError, ChainError
 from tests.harness.fake_substrate import FakeSubstrate
-from tests.harness.samples import ALICE, BOB, BOB_HOT, INTENT_SAMPLES, dev_wallet
+from tests.harness.samples import (
+    ALICE,
+    ALICE_HOT,
+    BOB,
+    BOB_HOT,
+    EMISSION_WEIGHTS_INFO,
+    INTENT_SAMPLES,
+    dev_wallet,
+)
 
 
 @pytest.fixture()
 def substrate() -> FakeSubstrate:
-    return FakeSubstrate()
+    fake = FakeSubstrate()
+    fake.seed_runtime("StakeInfoRuntimeApi", "get_stake_info_for_coldkey", [])
+    fake.seed_runtime("SubnetInfoRuntimeApi", "get_subnet_emission_weights", EMISSION_WEIGHTS_INFO)
+    return fake
 
 
 @pytest.fixture()
@@ -44,6 +55,11 @@ def _seed_root_claim_shortfall(substrate: FakeSubstrate) -> None:
     substrate.seed("SubtensorModule", "RootClaimableThreshold", [0], {"bits": 500_000 << 32})
     substrate.seed("System", "Account", [ALICE], {"data": {"free": 0}})
     substrate.seed_map("SubtensorModule", "NetworksAdded", [(0, True)])
+    substrate.seed_runtime(
+        "StakeInfoRuntimeApi",
+        "get_stake_info_for_coldkey",
+        [{"hotkey": BOB_HOT, "coldkey": ALICE, "netuid": 0, "stake": 1}],
+    )
     substrate.seed_runtime("BetaBasketRuntimeApi", "get_root_basket_owed", 1_000_000)
     substrate.seed_runtime(
         "BetaBasketRuntimeApi", "get_root_basket_positions", [(BOB_HOT, 1, 1_000_000)]
@@ -972,6 +988,17 @@ class TestRootClaimOnUnstake:
                 },
             ),
             build("unstake_all", {"hotkey_ss58": BOB_HOT, "claim": True}),
+            build(
+                "move_stake",
+                {
+                    "origin_hotkey_ss58": BOB_HOT,
+                    "origin_netuid": 0,
+                    "dest_hotkey_ss58": ALICE_HOT,
+                    "dest_netuid": 0,
+                    "amount_alpha": 1.0,
+                    "claim": True,
+                },
+            ),
         ]
 
     @pytest.mark.asyncio
@@ -992,7 +1019,7 @@ class TestRootClaimOnUnstake:
         plan = await client.plan(intent, wallet)
         assert any("257 basket holdings" in block for block in plan.violations)
 
-        with pytest.raises(PolicyError, match="256-unit admission limit"):
+        with pytest.raises(PolicyError, match="129-unit admission limit"):
             await client.submit_shielded(intent, wallet)
         assert not substrate.submissions
 
@@ -1077,6 +1104,64 @@ class TestRootClaimOnUnstake:
         assert (claim.module, claim.function) == ("SubtensorModule", "claim_root_with_hotkey")
         assert (unstake.module, unstake.function) == ("SubtensorModule", "remove_stake")
         assert unstake.params["amount_unstaked"] == (1 << 64) - 1
+
+    @pytest.mark.asyncio
+    async def test_move_claim_all_uses_runtime_capped_max_after_claim(
+        self, substrate: FakeSubstrate, wallet
+    ):
+        substrate.seed_runtime(
+            "StakeInfoRuntimeApi",
+            "get_stake_info_for_hotkey_coldkey_netuid",
+            {"stake": 123},
+        )
+        substrate.seed_runtime("BetaBasketRuntimeApi", "get_basket_payout", 0)
+        intent = build(
+            "move_stake",
+            {
+                "origin_hotkey_ss58": BOB_HOT,
+                "origin_netuid": 0,
+                "dest_hotkey_ss58": ALICE_HOT,
+                "dest_netuid": 0,
+                "amount_alpha": "all",
+                "claim": True,
+            },
+        )
+
+        built = await intent.build(substrate, wallet)
+        claim, move = built.params["calls"]
+
+        assert (claim.module, claim.function) == ("SubtensorModule", "claim_root_with_hotkey")
+        assert claim.params["hotkey"] == BOB_HOT
+        assert (move.module, move.function) == ("SubtensorModule", "move_stake")
+        assert move.params["alpha_amount"] == (1 << 64) - 1
+
+    @pytest.mark.asyncio
+    async def test_move_claim_true_is_not_dropped_when_payout_quote_is_zero(
+        self, substrate: FakeSubstrate, wallet
+    ):
+        substrate.seed_runtime(
+            "StakeInfoRuntimeApi",
+            "get_stake_info_for_hotkey_coldkey_netuid",
+            {"stake": 123},
+        )
+        substrate.seed_runtime("BetaBasketRuntimeApi", "get_basket_payout", 0)
+        intent = build(
+            "move_stake",
+            {
+                "origin_hotkey_ss58": BOB_HOT,
+                "origin_netuid": 0,
+                "dest_hotkey_ss58": ALICE_HOT,
+                "dest_netuid": 0,
+                "amount_alpha": 1.0,
+                "claim": True,
+            },
+        )
+
+        built = await intent.build(substrate, wallet)
+        claim, move = built.params["calls"]
+
+        assert (claim.module, claim.function) == ("SubtensorModule", "claim_root_with_hotkey")
+        assert (move.module, move.function) == ("SubtensorModule", "move_stake")
 
     @pytest.mark.asyncio
     async def test_limit_claim_all_uses_runtime_capped_plain_unstake(

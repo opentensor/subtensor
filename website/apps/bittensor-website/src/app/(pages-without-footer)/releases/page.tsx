@@ -23,7 +23,54 @@ type Release = {
 // Newest first. Add new releases to the top.
 const releases: Release[] = [
   {
+    tag: 'v481',
+    date: 'October 2026',
+    title: 'Etao',
+    summary:
+      'Subnets choose their emission split. A per-subnet five-slot vector sets how much of each ' +
+      'block goes to the owner (0–33%), validators (≤50%) and miners (≥33%), changeable by the ' +
+      'owner once a week. Root TAO stakers keep their baseline payout whatever the owner picks: ' +
+      'every block the chain pays root its baseline share off the top of the validator slot, ' +
+      'recomputed from live state, so neither owners nor drifting stake can move it. Payouts ' +
+      'are identical at upgrade; sudo_set_subnet_owner_cut is deprecated.',
+    href: '/releases/etao',
+  },
+  {
     tag: 'next',
+    date: 'Upcoming',
+    title: 'Null Consensus',
+    summary:
+      'An opt-in epoch mechanism with highest-stake-validator miner incentives, ' +
+      'stake-proportional dividends, exact integer payouts, and a shared 16,000-UID capacity. ' +
+      'Includes raw-u16 SDK and CLI submission and larger bounded timelock commits.',
+    href: '/releases/null-consensus',
+  },
+  {
+    tag: 'next',
+    date: 'September 2026',
+    title: 'Basket Trading',
+    summary:
+      'V461 adds swap_basket: root validators trade one basket holding for another through a ' +
+      'dedicated BasketTrading proxy, boxed in by a 2% per-leg price band, a token-bucket ' +
+      'turnover budget of 10% of NAV per day, a 10% per-pool liquidity cap, the 1/16 ' +
+      'concentration cap, and governance freeze switches. Trading becomes the only way a ' +
+      'basket changes shape: set_root_weights is removed and dividends accumulate in place. ' +
+      'Launches gated off.',
+    href: '/releases/v461-upgrade',
+  },
+  {
+    tag: 'v450',
+    date: 'August 2026',
+    title: 'Curated Beta',
+    summary:
+      'V450 enables set_root_weights. Validators curate their dividend baskets under a ' +
+      '1/16 concentration cap, and the chain now computes the basket index, display ' +
+      'prices, and staker yield itself — one canonical scoreboard for every consumer. ' +
+      'btcli root list, allocate, claim, and weights are the working surface.',
+    href: '/releases/v450-upgrade',
+  },
+  {
+    tag: 'v448',
     date: 'August 2026',
     title: 'Root Claims, Safer Staking, and Linked Orders',
     summary:

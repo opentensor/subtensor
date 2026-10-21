@@ -76,6 +76,11 @@ pub trait WeightInfo {
 	fn sudo_set_min_childkey_take_per_subnet() -> Weight;
 	fn sudo_set_liquid_alpha_enabled() -> Weight;
 	fn sudo_set_alpha_values() -> Weight;
+	fn sudo_set_liquid_alpha_consensus_mode() -> Weight;
+	/// Reuses the existing admin setter weight until reference benchmarks regenerate it.
+	fn sudo_set_epoch_consensus() -> Weight {
+		Self::sudo_set_alpha_values()
+	}
 	fn sudo_set_coldkey_swap_announcement_delay() -> Weight;
 	fn sudo_set_coldkey_swap_reannouncement_delay() -> Weight;
 	fn sudo_set_dissolve_network_schedule_duration() -> Weight;
@@ -93,6 +98,13 @@ pub trait WeightInfo {
 	fn sudo_set_owner_hparam_rate_limit() -> Weight;
 	fn sudo_set_owner_immune_neuron_limit() -> Weight;
 	fn sudo_trim_to_max_allowed_uids() -> Weight;
+    // Dedicated reference benchmark replaces this pre-release fallback before promotion.
+    fn sudo_trim_null_uids_batch() -> Weight {
+        Self::sudo_trim_to_max_allowed_uids()
+    }
+    fn sudo_trim_null_uids_batch_many_mechanisms() -> Weight {
+        Self::sudo_trim_to_max_allowed_uids()
+    }
 	fn sudo_set_min_non_immune_uids() -> Weight;
 	fn sudo_set_max_epochs_per_block() -> Weight;
 	fn sudo_set_adjustment_alpha() -> Weight;
@@ -123,6 +135,17 @@ pub trait WeightInfo {
 	fn sudo_set_owner_cut_auto_lock_enabled() -> Weight;
 	fn sudo_set_collateral_lock_share() -> Weight;
 	fn sudo_set_collateral_drain_ratio() -> Weight;
+	fn sudo_set_basket_concentration_cap() -> Weight;
+	fn sudo_set_basket_trading_enabled() -> Weight;
+	fn sudo_set_basket_trading_frozen() -> Weight;
+	fn sudo_set_basket_daily_turnover_cap() -> Weight;
+	fn sudo_set_basket_liquidity_cap() -> Weight;
+	/// Same root check, single storage write and event as the liquidity cap setter.
+	/// CI reference benchmarking replaces this shared envelope with measured weights.
+	fn sudo_set_basket_min_trade_tao() -> Weight {
+		Self::sudo_set_basket_liquidity_cap()
+	}
+	fn sudo_set_subnet_emission_weights() -> Weight;
 }
 
 /// Weights for `pallet_admin_utils` using the Substrate node and recommended hardware.
@@ -837,6 +860,25 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(5_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	/// Storage: `SubtensorModule::Tempo` (r:1 w:0)
+	/// Proof: `SubtensorModule::Tempo` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::PendingEpochAt` (r:1 w:0)
+	/// Proof: `SubtensorModule::PendingEpochAt` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::LastEpochBlock` (r:1 w:0)
+	/// Proof: `SubtensorModule::LastEpochBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::AdminFreezeWindow` (r:1 w:0)
+	/// Proof: `SubtensorModule::AdminFreezeWindow` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::LiquidAlphaConsensusMode` (r:0 w:1)
+	/// Proof: `SubtensorModule::LiquidAlphaConsensusMode` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn sudo_set_liquid_alpha_consensus_mode() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `815`
+		//  Estimated: `4280`
+		// Minimum execution time: 20_276_000 picoseconds.
+		Weight::from_parts(23_668_000, 4280)
+			.saturating_add(T::DbWeight::get().reads(4_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
 	/// Storage: `SubtensorModule::ColdkeySwapAnnouncementDelay` (r:0 w:1)
 	/// Proof: `SubtensorModule::ColdkeySwapAnnouncementDelay` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn sudo_set_coldkey_swap_announcement_delay() -> Weight {
@@ -992,15 +1034,17 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::LastRateLimitedBlock` (r:1 w:1)
 	/// Proof: `SubtensorModule::LastRateLimitedBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `SubtensorModule::SubnetOwnerHotkey` (r:0 w:1)
+	/// Storage: `SubtensorModule::SubnetOwnerHotkey` (r:1 w:1)
 	/// Proof: `SubtensorModule::SubnetOwnerHotkey` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::Keys` (r:1 w:0)
+	/// Proof: `SubtensorModule::Keys` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn sudo_set_sn_owner_hotkey() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `712`
-		//  Estimated: `4177`
-		// Minimum execution time: 24_415_000 picoseconds.
-		Weight::from_parts(25_167_000, 4177)
-			.saturating_add(T::DbWeight::get().reads(2_u64))
+		//  Measured:  `874`
+		//  Estimated: `4339`
+		// Minimum execution time: 24_332_000 picoseconds.
+		Weight::from_parts(25_704_000, 4339)
+			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
 	/// Storage: `SubtensorModule::Tempo` (r:1 w:0)
@@ -1303,6 +1347,18 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(8_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
+	/// Interim envelope until CI reference benchmarking lands. Base: the mechanism
+	/// emission split setter's measured owner-or-root rate-limit check, admin-window
+	/// read and `NetworksAdded` read. On top of that this call reads
+	/// `SubnetEmissionWeights`, `SubnetCreatedViaLease`, `TaoWeight`, `SubnetTAO(root)`,
+	/// `SubnetAlphaIn`, `SubnetAlphaOut` and the protocol alpha reservoir (r:7, counted as
+	/// 6 on top of the base's own reads) and writes `SubnetEmissionWeights`; the extra
+	/// write keeps the envelope generous.
+	fn sudo_set_subnet_emission_weights() -> Weight {
+		Self::sudo_set_mechanism_emission_split()
+			.saturating_add(T::DbWeight::get().reads(6_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
 	/// Storage: `SubtensorModule::TaoFlowCutoff` (r:0 w:1)
 	/// Proof: `SubtensorModule::TaoFlowCutoff` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn sudo_set_tao_flow_cutoff() -> Weight {
@@ -1464,6 +1520,46 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(42_884_000, 4467)
 			.saturating_add(T::DbWeight::get().reads(8_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
+	/// Storage: `SubtensorModule::BasketConcentrationCap` (r:0 w:1)
+	/// Proof: `SubtensorModule::BasketConcentrationCap` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn sudo_set_basket_concentration_cap() -> Weight {
+		// Measured on the reference Benchmarking runner (validate-benchmarks,
+		// steps 50 / repeat 20): weight 4_916_000, io r 0 w 1.
+		Weight::from_parts(4_916_000, 0)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Storage: `SubtensorModule::BasketTradingEnabled` (r:0 w:1)
+	/// Proof: `SubtensorModule::BasketTradingEnabled` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	fn sudo_set_basket_trading_enabled() -> Weight {
+		// Measured on the reference Benchmarking runner (validate-benchmarks run
+		// 34758967315, steps 50 / repeat 20): weight 3_890_000, io r 0 w 1.
+		Weight::from_parts(3_890_000, 0)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Storage: `SubtensorModule::BasketTradingFrozen` (r:0 w:1)
+	/// Proof: `SubtensorModule::BasketTradingFrozen` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn sudo_set_basket_trading_frozen() -> Weight {
+		// Measured on the reference Benchmarking runner (validate-benchmarks run
+		// 34758967315, steps 50 / repeat 20): weight 4_922_000, io r 0 w 1.
+		Weight::from_parts(4_922_000, 0)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Storage: `SubtensorModule::BasketDailyTurnoverCap` (r:0 w:1)
+	/// Proof: `SubtensorModule::BasketDailyTurnoverCap` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	fn sudo_set_basket_daily_turnover_cap() -> Weight {
+		// Measured on the reference Benchmarking runner (validate-benchmarks run
+		// 34758967315, steps 50 / repeat 20): weight 3_841_000, io r 0 w 1.
+		Weight::from_parts(3_841_000, 0)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Storage: `SubtensorModule::BasketLiquidityCap` (r:0 w:1)
+	/// Proof: `SubtensorModule::BasketLiquidityCap` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	fn sudo_set_basket_liquidity_cap() -> Weight {
+		// Measured on the reference Benchmarking runner (validate-benchmarks run
+		// 34758967315, steps 50 / repeat 20): weight 3_893_000, io r 0 w 1.
+		Weight::from_parts(3_893_000, 0)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: `SubtensorModule::SubnetOwner` (r:1 w:0)
 	/// Proof: `SubtensorModule::SubnetOwner` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -2224,6 +2320,25 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(5_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
+	/// Storage: `SubtensorModule::Tempo` (r:1 w:0)
+	/// Proof: `SubtensorModule::Tempo` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::PendingEpochAt` (r:1 w:0)
+	/// Proof: `SubtensorModule::PendingEpochAt` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::LastEpochBlock` (r:1 w:0)
+	/// Proof: `SubtensorModule::LastEpochBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::AdminFreezeWindow` (r:1 w:0)
+	/// Proof: `SubtensorModule::AdminFreezeWindow` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::LiquidAlphaConsensusMode` (r:0 w:1)
+	/// Proof: `SubtensorModule::LiquidAlphaConsensusMode` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn sudo_set_liquid_alpha_consensus_mode() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `815`
+		//  Estimated: `4280`
+		// Minimum execution time: 20_276_000 picoseconds.
+		Weight::from_parts(23_668_000, 4280)
+			.saturating_add(RocksDbWeight::get().reads(4_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
 	/// Storage: `SubtensorModule::ColdkeySwapAnnouncementDelay` (r:0 w:1)
 	/// Proof: `SubtensorModule::ColdkeySwapAnnouncementDelay` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn sudo_set_coldkey_swap_announcement_delay() -> Weight {
@@ -2379,15 +2494,17 @@ impl WeightInfo for () {
 	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::LastRateLimitedBlock` (r:1 w:1)
 	/// Proof: `SubtensorModule::LastRateLimitedBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `SubtensorModule::SubnetOwnerHotkey` (r:0 w:1)
+	/// Storage: `SubtensorModule::SubnetOwnerHotkey` (r:1 w:1)
 	/// Proof: `SubtensorModule::SubnetOwnerHotkey` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::Keys` (r:1 w:0)
+	/// Proof: `SubtensorModule::Keys` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn sudo_set_sn_owner_hotkey() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `712`
-		//  Estimated: `4177`
-		// Minimum execution time: 24_415_000 picoseconds.
-		Weight::from_parts(25_167_000, 4177)
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
+		//  Measured:  `874`
+		//  Estimated: `4339`
+		// Minimum execution time: 24_332_000 picoseconds.
+		Weight::from_parts(25_704_000, 4339)
+			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 	/// Storage: `SubtensorModule::Tempo` (r:1 w:0)
@@ -2690,6 +2807,18 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(8_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
+	/// Interim envelope until CI reference benchmarking lands. Base: the mechanism
+	/// emission split setter's measured owner-or-root rate-limit check, admin-window
+	/// read and `NetworksAdded` read. On top of that this call reads
+	/// `SubnetEmissionWeights`, `SubnetCreatedViaLease`, `TaoWeight`, `SubnetTAO(root)`,
+	/// `SubnetAlphaIn`, `SubnetAlphaOut` and the protocol alpha reservoir (r:7, counted as
+	/// 6 on top of the base's own reads) and writes `SubnetEmissionWeights`; the extra
+	/// write keeps the envelope generous.
+	fn sudo_set_subnet_emission_weights() -> Weight {
+		<() as WeightInfo>::sudo_set_mechanism_emission_split()
+			.saturating_add(RocksDbWeight::get().reads(6_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
 	/// Storage: `SubtensorModule::TaoFlowCutoff` (r:0 w:1)
 	/// Proof: `SubtensorModule::TaoFlowCutoff` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn sudo_set_tao_flow_cutoff() -> Weight {
@@ -2851,6 +2980,46 @@ impl WeightInfo for () {
 		Weight::from_parts(42_884_000, 4467)
 			.saturating_add(RocksDbWeight::get().reads(8_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
+	}
+	/// Storage: `SubtensorModule::BasketConcentrationCap` (r:0 w:1)
+	/// Proof: `SubtensorModule::BasketConcentrationCap` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn sudo_set_basket_concentration_cap() -> Weight {
+		// Measured on the reference Benchmarking runner (validate-benchmarks,
+		// steps 50 / repeat 20): weight 4_916_000, io r 0 w 1.
+		Weight::from_parts(4_916_000, 0)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `SubtensorModule::BasketTradingEnabled` (r:0 w:1)
+	/// Proof: `SubtensorModule::BasketTradingEnabled` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	fn sudo_set_basket_trading_enabled() -> Weight {
+		// Measured on the reference Benchmarking runner (validate-benchmarks run
+		// 34758967315, steps 50 / repeat 20): weight 3_890_000, io r 0 w 1.
+		Weight::from_parts(3_890_000, 0)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `SubtensorModule::BasketTradingFrozen` (r:0 w:1)
+	/// Proof: `SubtensorModule::BasketTradingFrozen` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn sudo_set_basket_trading_frozen() -> Weight {
+		// Measured on the reference Benchmarking runner (validate-benchmarks run
+		// 34758967315, steps 50 / repeat 20): weight 4_922_000, io r 0 w 1.
+		Weight::from_parts(4_922_000, 0)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `SubtensorModule::BasketDailyTurnoverCap` (r:0 w:1)
+	/// Proof: `SubtensorModule::BasketDailyTurnoverCap` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	fn sudo_set_basket_daily_turnover_cap() -> Weight {
+		// Measured on the reference Benchmarking runner (validate-benchmarks run
+		// 34758967315, steps 50 / repeat 20): weight 3_841_000, io r 0 w 1.
+		Weight::from_parts(3_841_000, 0)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `SubtensorModule::BasketLiquidityCap` (r:0 w:1)
+	/// Proof: `SubtensorModule::BasketLiquidityCap` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	fn sudo_set_basket_liquidity_cap() -> Weight {
+		// Measured on the reference Benchmarking runner (validate-benchmarks run
+		// 34758967315, steps 50 / repeat 20): weight 3_893_000, io r 0 w 1.
+		Weight::from_parts(3_893_000, 0)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `SubtensorModule::SubnetOwner` (r:1 w:0)
 	/// Proof: `SubtensorModule::SubnetOwner` (`max_values`: None, `max_size`: None, mode: `Measured`)

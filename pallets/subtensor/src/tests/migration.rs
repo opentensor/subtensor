@@ -1,5 +1,6 @@
 #![allow(
     unused,
+    clippy::arithmetic_side_effects,
     clippy::expect_used,
     clippy::indexing_slicing,
     clippy::panic,
@@ -7,19 +8,177 @@
 )]
 
 use super::mock::*;
+use crate::migrations::migrate_alpha_v2::retired::{Alpha, TotalHotkeyShares};
 use crate::staking::lock::LockState;
 use crate::*;
 use alloc::collections::BTreeMap;
 use approx::{assert_abs_diff_eq, assert_relative_eq};
 use codec::{Decode, Encode};
 use frame_support::{
-    StorageHasher, Twox64Concat, assert_ok,
+    StorageHasher, Twox64Concat, assert_err, assert_ok,
     storage::unhashed::{get, get_raw, put, put_raw},
     storage_alias,
     traits::{Currency, Hooks, StorageInstance, StoredMap, fungible::Inspect},
     weights::Weight,
 };
 use safe_math::SafeDiv;
+
+#[test]
+fn test_restore_staking_hotkeys_is_bounded_and_preserves_live_changes() {
+    use crate::migrations::migrate_restore_staking_hotkeys::{
+        MIGRATION_NAME, StakingHotkeysRestoreMigration, continue_restore, kickoff,
+    };
+
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(100);
+        let existing = U256::from(200);
+        let missing = U256::from(201);
+        let fractional = U256::from(202);
+        let watermark_only = U256::from(203);
+        let unrelated = U256::from(204);
+        let zero_watermark = U256::from(205);
+        let netuid = NetUid::from(1);
+        StakingHotkeys::<Test>::insert(coldkey, vec![existing]);
+        for subnet in [netuid, NetUid::from(2)] {
+            AlphaV2::<Test>::insert(
+                (missing, coldkey, subnet),
+                share_pool::SafeFloat::from(7_u64),
+            );
+        }
+        // Keep even stored-zero and retired rows discoverable, matching the
+        // fixed removal predicate; zero-valued quotes are not grounds to omit them.
+        AlphaV2::<Test>::insert((fractional, coldkey, netuid), share_pool::SafeFloat::zero());
+        AlphaSharePoolEpoch::<Test>::insert(fractional, netuid, 1);
+        BasketClaimed::<Test>::insert(watermark_only, coldkey, -7);
+        BasketClaimed::<Test>::insert(zero_watermark, coldkey, 0);
+        let shares_before: Vec<_> = AlphaV2::<Test>::iter().collect();
+
+        kickoff::<Test>();
+        let start = StakingHotkeysRestoreMigration::<Test>::get().unwrap();
+        assert_eq!(continue_restore::<Test>(Weight::zero()), Weight::zero());
+        assert_eq!(
+            StakingHotkeysRestoreMigration::<Test>::get().unwrap(),
+            start
+        );
+        // Enough to peek, but not rewrite a vector: no relationship is skipped.
+        let small = <Test as Config>::DbWeight::get().reads_writes(4, 2);
+        assert!(continue_restore::<Test>(small).all_lte(small));
+        assert_eq!(
+            StakingHotkeysRestoreMigration::<Test>::get().unwrap().after,
+            None
+        );
+        kickoff::<Test>();
+        assert_eq!(
+            StakingHotkeysRestoreMigration::<Test>::get().unwrap().after,
+            None
+        );
+
+        let limit = <Test as Config>::DbWeight::get().reads_writes(70, 4);
+        let mut passes = 0;
+        while !HasMigrationRun::<Test>::get(MIGRATION_NAME) {
+            assert!(continue_restore::<Test>(limit).all_lte(limit));
+            // A normal deposit/index update between batches must survive repair.
+            StakingHotkeys::<Test>::mutate(coldkey, |hotkeys| {
+                if !hotkeys.contains(&unrelated) {
+                    hotkeys.push(unrelated);
+                }
+            });
+            passes += 1;
+            assert!(passes < 20);
+        }
+        assert!(passes > 1);
+        let hotkeys = StakingHotkeys::<Test>::get(coldkey);
+        for hotkey in [existing, missing, fractional, watermark_only, unrelated] {
+            assert_eq!(hotkeys.iter().filter(|key| **key == hotkey).count(), 1);
+        }
+        assert!(!hotkeys.contains(&zero_watermark));
+        assert_eq!(AlphaV2::<Test>::iter().collect::<Vec<_>>(), shares_before);
+        assert_eq!(BasketClaimed::<Test>::get(watermark_only, coldkey), -7);
+        let finished = StakingHotkeysRestoreMigration::<Test>::get().unwrap();
+        assert_eq!(finished.phase, 2);
+        assert_eq!(finished.restored, 3);
+        kickoff::<Test>();
+        continue_restore::<Test>(Weight::MAX);
+        assert_eq!(
+            StakingHotkeysRestoreMigration::<Test>::get().unwrap(),
+            finished
+        );
+    });
+}
+
+#[test]
+fn test_restore_staking_hotkeys_repairs_positions_at_admission_cap() {
+    use crate::migrations::migrate_restore_staking_hotkeys::{
+        MIGRATION_NAME, continue_restore, kickoff,
+    };
+
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(9000);
+        let missing = U256::from(9001);
+        let full: Vec<_> = (0..MAX_STAKING_HOTKEYS).map(U256::from).collect();
+        StakingHotkeys::<Test>::insert(coldkey, full.clone());
+        AlphaV2::<Test>::insert(
+            (missing, coldkey, NetUid::from(1)),
+            share_pool::SafeFloat::from(1_u64),
+        );
+        kickoff::<Test>();
+        continue_restore::<Test>(Weight::MAX);
+        let repaired = StakingHotkeys::<Test>::get(coldkey);
+        assert_eq!(&repaired[..full.len()], full.as_slice());
+        assert_eq!(repaired.last(), Some(&missing));
+        assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME));
+    });
+}
+
+#[test]
+fn test_restore_staking_hotkeys_waits_for_destructive_cleanup() {
+    use crate::migrations::migrate_restore_staking_hotkeys::kickoff;
+
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(100);
+        let hotkey = U256::from(200);
+        AlphaV2::<Test>::insert(
+            (hotkey, coldkey, NetUid::from(1)),
+            share_pool::SafeFloat::from(1_u64),
+        );
+        kickoff::<Test>();
+        HasMigrationRun::<Test>::insert(b"migrate_storage_bloat_v3".to_vec(), true);
+        SubtensorModule::on_idle(1, Weight::MAX);
+        assert!(!StakingHotkeys::<Test>::get(coldkey).contains(&hotkey));
+        HasMigrationRun::<Test>::insert(
+            crate::migrations::migrate_cleanup_staking_hotkeys::MIGRATION_NAME,
+            true,
+        );
+        SubtensorModule::on_idle(2, Weight::MAX);
+        assert!(StakingHotkeys::<Test>::get(coldkey).contains(&hotkey));
+    });
+}
+
+#[test]
+fn test_staking_hotkeys_retains_zero_quote_that_later_receives_dividends() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(100);
+        let hotkey = U256::from(200);
+        let netuid = NetUid::from(1);
+        StakingHotkeys::<Test>::insert(coldkey, vec![hotkey]);
+        AlphaV2::<Test>::insert(
+            (hotkey, coldkey, netuid),
+            share_pool::SafeFloat::from(1_u64),
+        );
+        TotalHotkeySharesV2::<Test>::insert(hotkey, netuid, share_pool::SafeFloat::from(1_u64));
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid),
+            AlphaBalance::ZERO,
+        );
+        SubtensorModule::maybe_remove_staking_hotkey(&hotkey, &coldkey);
+        SubtensorModule::increase_stake_for_hotkey_on_subnet(&hotkey, netuid, 100_u64.into());
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid),
+            100_u64.into(),
+        );
+        assert_eq!(StakingHotkeys::<Test>::get(coldkey), vec![hotkey]);
+    });
+}
 
 use crate::migrations::migrate_coldkey_swap_scheduled_to_announcements::deprecated as coldkey_swap_deprecated;
 use crate::migrations::migrate_storage;
@@ -1695,6 +1854,291 @@ fn test_migrate_fix_root_subnet_tao() {
     });
 }
 
+// Root pot reconciliation: holdings on netuid 0 exceed SubnetTAO[0] (and the root subnet
+// account) by a legacy dividend that skipped the counters. The last root unstaker is stuck
+// until the migration mints the exact shortfall into the pot and lifts the counters.
+// SKIP_WASM_BUILD=1 cargo test --package pallet-subtensor --lib -- tests::migration::test_migrate_fix_root_pot_shortfall --exact --show-output
+#[test]
+fn test_migrate_fix_root_pot_shortfall() {
+    use crate::migrations::migrate_fix_root_pot_shortfall::{
+        MIGRATION_NAME, migrate_fix_root_pot_shortfall,
+    };
+    use crate::migrations::migrate_total_alpha_staked::{
+        TotalAlphaStakedMigration, TotalAlphaStakedProgress,
+    };
+
+    new_test_ext(1).execute_with(|| {
+        const TAO: u64 = 1_000_000_000;
+        let owner_coldkey = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let staker_a = U256::from(1003);
+        let staker_b = U256::from(1004);
+        add_network(NetUid::ROOT, 10, 0);
+        let _netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+        let root_pot = SubtensorModule::get_subnet_account_id(NetUid::ROOT).expect("root pot");
+
+        let root_holdings = || {
+            TotalHotkeyAlpha::<Test>::iter().fold(0_u64, |acc, (_, netuid, alpha)| {
+                if netuid.is_root() {
+                    acc.saturating_add(alpha.to_u64())
+                } else {
+                    acc
+                }
+            })
+        };
+        let root_stake_of = |coldkey: &U256| {
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                coldkey,
+                NetUid::ROOT,
+            )
+            .to_u64()
+        };
+
+        let stake_a = 1_000 * TAO;
+        let stake_b = 300 * TAO;
+        add_balance_to_coldkey_account(&staker_a, TaoBalance::from(stake_a + TAO));
+        add_balance_to_coldkey_account(&staker_b, TaoBalance::from(stake_b + TAO));
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(staker_a),
+            hotkey,
+            NetUid::ROOT,
+            stake_a.into()
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(staker_b),
+            hotkey,
+            NetUid::ROOT,
+            stake_b.into()
+        ));
+        assert_eq!(
+            SubnetTAO::<Test>::get(NetUid::ROOT).to_u64(),
+            root_holdings()
+        );
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&root_pot).to_u64(),
+            root_holdings()
+        );
+
+        // Inject the historical gap: holdings credited, no TAO moved, counters untouched.
+        let gap = 172 * TAO;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &staker_a,
+            NetUid::ROOT,
+            gap.into(),
+        );
+        assert_eq!(
+            root_holdings() - SubnetTAO::<Test>::get(NetUid::ROOT).to_u64(),
+            gap
+        );
+
+        // A exits first; the pot still covers it with B's TAO. B is then stuck.
+        assert_ok!(SubtensorModule::remove_stake(
+            RuntimeOrigin::signed(staker_a),
+            hotkey,
+            NetUid::ROOT,
+            root_stake_of(&staker_a).into()
+        ));
+        assert_eq!(root_holdings(), stake_b);
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&root_pot).to_u64(),
+            stake_b - gap
+        );
+        frame_support::assert_err_ignore_postinfo!(
+            SubtensorModule::remove_stake(
+                RuntimeOrigin::signed(staker_b),
+                hotkey,
+                NetUid::ROOT,
+                stake_b.into()
+            ),
+            Error::<Test>::InsufficientTaoBalance
+        );
+
+        let total_issuance_before = TotalIssuance::<Test>::get().to_u64();
+        let balances_issuance_before = <Test as crate::Config>::Currency::total_issuance().to_u64();
+        let total_stake_before = TotalStake::<Test>::get().to_u64();
+        let alpha_out_before = SubnetAlphaOut::<Test>::get(NetUid::ROOT);
+        assert!(!HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
+
+        // The migration reads the live O(1) aggregate, which tracks the per-hotkey map.
+        assert_eq!(
+            TotalAlphaStaked::<Test>::get(NetUid::ROOT).to_u64(),
+            root_holdings()
+        );
+
+        // While the aggregate backfill is still running the migration defers: nothing is
+        // minted and the marker stays unset so it retries at the next upgrade.
+        TotalAlphaStakedMigration::<Test>::put(TotalAlphaStakedProgress { cursor: Vec::new() });
+        migrate_fix_root_pot_shortfall::<Test>();
+        assert!(!HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
+        assert_eq!(TotalIssuance::<Test>::get().to_u64(), total_issuance_before);
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&root_pot).to_u64(),
+            stake_b - gap
+        );
+        TotalAlphaStakedMigration::<Test>::kill();
+
+        let weight = migrate_fix_root_pot_shortfall::<Test>();
+        assert!(!weight.is_zero());
+        assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
+
+        // Counter and pot both match holdings again; the gap was minted, not moved.
+        assert_eq!(
+            SubnetTAO::<Test>::get(NetUid::ROOT).to_u64(),
+            root_holdings()
+        );
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&root_pot).to_u64(),
+            root_holdings()
+        );
+        assert_eq!(
+            TotalIssuance::<Test>::get().to_u64(),
+            total_issuance_before + gap
+        );
+        assert_eq!(
+            <Test as crate::Config>::Currency::total_issuance().to_u64(),
+            balances_issuance_before + gap
+        );
+        assert_eq!(TotalStake::<Test>::get().to_u64(), total_stake_before + gap);
+        assert_eq!(SubnetAlphaOut::<Test>::get(NetUid::ROOT), alpha_out_before);
+
+        // Running again changes nothing.
+        let rerun_weight = migrate_fix_root_pot_shortfall::<Test>();
+        assert!(rerun_weight.all_lte(weight));
+        assert_eq!(
+            SubnetTAO::<Test>::get(NetUid::ROOT).to_u64(),
+            root_holdings()
+        );
+        assert_eq!(
+            TotalIssuance::<Test>::get().to_u64(),
+            total_issuance_before + gap
+        );
+        assert_eq!(TotalStake::<Test>::get().to_u64(), total_stake_before + gap);
+
+        // Even without the marker a second pass finds no gap and mints nothing.
+        HasMigrationRun::<Test>::remove(MIGRATION_NAME.to_vec());
+        migrate_fix_root_pot_shortfall::<Test>();
+        assert_eq!(
+            TotalIssuance::<Test>::get().to_u64(),
+            total_issuance_before + gap
+        );
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&root_pot).to_u64(),
+            root_holdings()
+        );
+
+        // The last root staker can now exit in full.
+        let b_balance_before = SubtensorModule::get_coldkey_balance(&staker_b).to_u64();
+        assert_ok!(SubtensorModule::remove_stake(
+            RuntimeOrigin::signed(staker_b),
+            hotkey,
+            NetUid::ROOT,
+            stake_b.into()
+        ));
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&staker_b).to_u64(),
+            b_balance_before + stake_b
+        );
+        assert_eq!(root_holdings(), 0);
+        assert_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), TaoBalance::ZERO);
+    });
+}
+
+// Failure path: when the issuance cap allows only part of the shortfall to be minted, the
+// migration credits what it could, leaves its marker unset and finishes on the next run.
+// SKIP_WASM_BUILD=1 cargo test --package pallet-subtensor --lib -- tests::migration::test_migrate_fix_root_pot_shortfall_partial_mint_stays_pending --exact --show-output
+#[test]
+fn test_migrate_fix_root_pot_shortfall_partial_mint_stays_pending() {
+    use crate::coinbase::tao::MAX_TAO_ISSUANCE;
+    use crate::migrations::migrate_fix_root_pot_shortfall::{
+        MIGRATION_NAME, migrate_fix_root_pot_shortfall,
+    };
+
+    new_test_ext(1).execute_with(|| {
+        const TAO: u64 = 1_000_000_000;
+        let owner_coldkey = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let staker = U256::from(1003);
+        let filler = U256::from(1005);
+        add_network(NetUid::ROOT, 10, 0);
+        let _netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+        let root_pot = SubtensorModule::get_subnet_account_id(NetUid::ROOT).expect("root pot");
+
+        let stake = 300 * TAO;
+        add_balance_to_coldkey_account(&staker, TaoBalance::from(stake + TAO));
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(staker),
+            hotkey,
+            NetUid::ROOT,
+            stake.into()
+        ));
+        let gap = 100 * TAO;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &staker,
+            NetUid::ROOT,
+            gap.into(),
+        );
+        let pot_before = SubtensorModule::get_coldkey_balance(&root_pot).to_u64();
+        let recorded_before = SubnetTAO::<Test>::get(NetUid::ROOT).to_u64();
+
+        // Leave room for only half the gap under the 21M cap.
+        let headroom = gap / 2;
+        let issuance = <Test as crate::Config>::Currency::total_issuance().to_u64();
+        assert_ok!(Balances::force_set_balance(
+            RuntimeOrigin::root(),
+            filler,
+            TaoBalance::from(MAX_TAO_ISSUANCE - issuance - headroom),
+        ));
+
+        migrate_fix_root_pot_shortfall::<Test>();
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()),
+            "a partial mint must leave the migration pending"
+        );
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&root_pot).to_u64(),
+            pot_before + headroom
+        );
+        assert_eq!(
+            SubnetTAO::<Test>::get(NetUid::ROOT).to_u64(),
+            recorded_before + headroom
+        );
+        assert_eq!(
+            <Test as crate::Config>::Currency::total_issuance().to_u64(),
+            MAX_TAO_ISSUANCE
+        );
+
+        // Free the cap; the retry mints exactly the remaining half and completes.
+        assert_ok!(Balances::force_set_balance(
+            RuntimeOrigin::root(),
+            filler,
+            TaoBalance::ZERO
+        ));
+        migrate_fix_root_pot_shortfall::<Test>();
+        assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&root_pot).to_u64(),
+            pot_before + gap
+        );
+        assert_eq!(
+            SubnetTAO::<Test>::get(NetUid::ROOT).to_u64(),
+            recorded_before + gap
+        );
+        assert_eq!(
+            SubnetTAO::<Test>::get(NetUid::ROOT),
+            TotalAlphaStaked::<Test>::get(NetUid::ROOT).to_u64().into()
+        );
+        assert_ok!(SubtensorModule::remove_stake(
+            RuntimeOrigin::signed(staker),
+            hotkey,
+            NetUid::ROOT,
+            (stake + gap).into()
+        ));
+    });
+}
+
 // cargo test --package pallet-subtensor --lib -- tests::migration::test_migrate_fix_root_tao_and_alpha_in --exact --show-output
 #[test]
 fn test_migrate_fix_root_tao_and_alpha_in() {
@@ -2871,9 +3315,10 @@ fn test_migrate_kappa_map_to_default() {
 }
 
 #[test]
-fn test_migrate_clear_root_basket_weights() {
+fn test_migrate_remove_root_weights() {
+    use crate::migrations::migrate_remove_root_weights::{migrate_remove_root_weights, retired};
     new_test_ext(1).execute_with(|| {
-        const MIG_NAME: &[u8] = b"clear_root_basket_weights_v2";
+        const MIG_NAME: &[u8] = b"remove_root_weights_v1";
         let root = NetUidStorageIndex::ROOT;
         let subnet_idx = NetUidStorageIndex::from(NetUid::from(1u16));
 
@@ -2892,38 +3337,119 @@ fn test_migrate_clear_root_basket_weights() {
         Uids::<Test>::insert(NetUid::ROOT, hotkey_b, uid_b);
         Keys::<Test>::insert(NetUid::ROOT, uid_b, hotkey_b);
 
-        // Legacy root vectors (including a superseded balanced 1/n seed) — must be wiped.
+        // Pre-upgrade state: stored root basket vectors, the open setter gate, and a
+        // governance-tuned concentration cap under the retired per-netuid map (plus an
+        // inert non-root entry).
         Weights::<Test>::insert(root, uid_a, vec![(1u16, u16::MAX), (2u16, 32768)]);
         Weights::<Test>::insert(
             root,
             uid_b,
-            vec![(u16::from(netuid_a), u16::MAX), (u16::from(netuid_b), u16::MAX)],
+            vec![
+                (u16::from(netuid_a), u16::MAX),
+                (u16::from(netuid_b), u16::MAX),
+            ],
         );
         // Non-root subnet weights must be left alone.
         Weights::<Test>::insert(subnet_idx, 0u16, vec![(1u16, 1000)]);
+        retired::RootWeightSettingEnabled::<Test>::put(true);
+        retired::RootWeightsCap::<Test>::insert(NetUid::ROOT, 21846u16);
+        retired::RootWeightsCap::<Test>::insert(netuid_a, 7u16);
+        assert_eq!(
+            crate::BasketConcentrationCap::<Test>::get(),
+            crate::DEFAULT_BASKET_CONCENTRATION_CAP
+        );
 
         assert!(!HasMigrationRun::<Test>::get(MIG_NAME.to_vec()));
 
-        let w = crate::migrations::migrate_clear_root_basket_weights::migrate_clear_root_basket_weights::<Test>();
+        let w = migrate_remove_root_weights::<Test>();
         assert!(!w.is_zero());
         assert!(HasMigrationRun::<Test>::get(MIG_NAME.to_vec()));
 
-        // Clear-only: no vector is seeded in place of the wiped ones — an empty stored
-        // vector means the fund is uncurated and dividends accumulate in place.
+        // Every root vector is gone and nothing is seeded in its place: funds have no
+        // target composition.
         assert!(Weights::<Test>::get(root, uid_a).is_empty());
         assert!(Weights::<Test>::get(root, uid_b).is_empty());
+        assert_eq!(Weights::<Test>::iter_prefix(root).count(), 0);
         assert_eq!(
             Weights::<Test>::get(subnet_idx, 0u16),
             vec![(1u16, 1000)],
             "subnet weights must be untouched"
         );
+        // The gate is killed and the cap carried over to its new home; the retired map
+        // is emptied.
+        assert!(!retired::RootWeightSettingEnabled::<Test>::exists());
+        assert_eq!(crate::BasketConcentrationCap::<Test>::get(), 21846u16);
+        assert_eq!(retired::RootWeightsCap::<Test>::iter().count(), 0);
 
-        // Idempotent: a vector set after the migration ran survives a re-run.
-        let curated = vec![(u16::from(netuid_a), u16::MAX)];
-        Weights::<Test>::insert(root, uid_a, curated.clone());
-        let w2 = crate::migrations::migrate_clear_root_basket_weights::migrate_clear_root_basket_weights::<Test>();
-        assert_eq!(Weights::<Test>::get(root, uid_a), curated);
+        // Idempotent: a re-run neither re-clears nor clobbers later governance changes.
+        crate::BasketConcentrationCap::<Test>::put(1234u16);
+        let w2 = migrate_remove_root_weights::<Test>();
+        assert_eq!(crate::BasketConcentrationCap::<Test>::get(), 1234u16);
         assert!(w2.ref_time() <= w.ref_time());
+    });
+}
+
+/// A chain that never tuned the cap keeps the default after the move.
+#[test]
+fn test_migrate_remove_root_weights_keeps_default_cap() {
+    use crate::migrations::migrate_remove_root_weights::{migrate_remove_root_weights, retired};
+    new_test_ext(1).execute_with(|| {
+        assert!(retired::RootWeightsCap::<Test>::get(NetUid::ROOT).is_none());
+        let _ = migrate_remove_root_weights::<Test>();
+        assert_eq!(
+            crate::BasketConcentrationCap::<Test>::get(),
+            crate::DEFAULT_BASKET_CONCENTRATION_CAP
+        );
+    });
+}
+
+#[test]
+fn test_migrate_tune_root_registration() {
+    new_test_ext(1).execute_with(|| {
+        use crate::migrations::migrate_tune_root_registration::{
+            MIGRATION_NAME, ROOT_IMMUNITY_PERIOD, ROOT_MAX_REGISTRATIONS_PER_BLOCK,
+            ROOT_MIN_BURN_RAO, ROOT_TARGET_REGISTRATIONS_PER_INTERVAL,
+        };
+
+        crate::ImmunityPeriod::<Test>::insert(NetUid::ROOT, 4096u16);
+        crate::MaxRegistrationsPerBlock::<Test>::insert(NetUid::ROOT, 64u16);
+        crate::TargetRegistrationsPerInterval::<Test>::insert(NetUid::ROOT, 64u16);
+        crate::MinBurn::<Test>::insert(NetUid::ROOT, TaoBalance::from(500_000u64));
+        crate::Burn::<Test>::insert(NetUid::ROOT, TaoBalance::from(500_000u64));
+        assert!(!HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
+
+        let w = crate::migrations::migrate_tune_root_registration::migrate_tune_root_registration::<
+            Test,
+        >();
+        assert!(!w.is_zero());
+        assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
+        assert_eq!(
+            crate::ImmunityPeriod::<Test>::get(NetUid::ROOT),
+            ROOT_IMMUNITY_PERIOD
+        );
+        assert_eq!(
+            crate::MaxRegistrationsPerBlock::<Test>::get(NetUid::ROOT),
+            ROOT_MAX_REGISTRATIONS_PER_BLOCK
+        );
+        assert_eq!(
+            crate::TargetRegistrationsPerInterval::<Test>::get(NetUid::ROOT),
+            ROOT_TARGET_REGISTRATIONS_PER_INTERVAL
+        );
+        assert_eq!(
+            crate::MinBurn::<Test>::get(NetUid::ROOT),
+            ROOT_MIN_BURN_RAO.into()
+        );
+        assert_eq!(
+            crate::Burn::<Test>::get(NetUid::ROOT),
+            ROOT_MIN_BURN_RAO.into()
+        );
+
+        crate::ImmunityPeriod::<Test>::insert(NetUid::ROOT, 1u16);
+        let w2 = crate::migrations::migrate_tune_root_registration::migrate_tune_root_registration::<
+            Test,
+        >();
+        assert!(w2.ref_time() <= w.ref_time());
+        assert_eq!(crate::ImmunityPeriod::<Test>::get(NetUid::ROOT), 1u16);
     });
 }
 
@@ -6101,9 +6627,9 @@ fn test_migrate_seed_beta_basket_gates_live_deposits() {
             &coldkey,
             NetUid::ROOT,
         );
-        assert_eq!(
+        frame_support::assert_err_ignore_postinfo!(
             SubtensorModule::unstake_all_alpha(RuntimeOrigin::signed(coldkey), hotkey),
-            Err(Error::<Test>::BetaBasketSeedInProgress.into())
+            Error::<Test>::BetaBasketSeedInProgress
         );
         let alpha_after =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
@@ -6979,11 +7505,12 @@ fn test_migrate_historical_alpha_burns_skips_non_mainnet() {
 #[test]
 fn test_storage_bloat_cleanup_is_bounded_and_preserves_nonzero_state() {
     use crate::migrations::migrate_storage_bloat_v2::{
-        StorageBloatCleanupMigration, continue_storage_bloat_cleanup, kickoff_storage_bloat_cleanup,
+        StorageBloatCleanupMigration, continue_storage_bloat_cleanup,
+        kickoff_storage_bloat_cleanup, storage_bloat_cleanup_complete,
     };
 
     new_test_ext(1).execute_with(|| {
-        const MIGRATION_NAME: &[u8] = b"migrate_storage_bloat_v2";
+        const MIGRATION_NAME: &[u8] = b"migrate_storage_bloat_v3";
         let netuid = NetUid::from(1);
         let hot_zero = U256::from(10);
         let hot_nonzero = U256::from(11);
@@ -7016,6 +7543,11 @@ fn test_storage_bloat_cleanup_is_bounded_and_preserves_nonzero_state() {
 
         Alpha::<Test>::insert((hot_zero, coldkey, netuid), U64F64::from_num(0));
         Alpha::<Test>::insert((hot_nonzero, coldkey, netuid), U64F64::from_num(7));
+        AlphaV2::<Test>::insert((hot_zero, coldkey, netuid), share_pool::SafeFloat::zero());
+        AlphaV2::<Test>::insert(
+            (hot_nonzero, coldkey, netuid),
+            share_pool::SafeFloat::from(8_u64),
+        );
         TotalHotkeyShares::<Test>::insert(hot_zero, netuid, U64F64::from_num(0));
         TotalHotkeyShares::<Test>::insert(hot_nonzero, netuid, U64F64::from_num(9));
         TotalHotkeyAlpha::<Test>::insert(hot_zero, netuid, AlphaBalance::ZERO);
@@ -7032,6 +7564,7 @@ fn test_storage_bloat_cleanup_is_bounded_and_preserves_nonzero_state() {
         let kickoff_weight = kickoff_storage_bloat_cleanup::<Test>();
         assert!(!kickoff_weight.is_zero());
         assert!(StorageBloatCleanupMigration::<Test>::exists());
+        assert!(!storage_bloat_cleanup_complete::<Test>());
 
         let limit = <Test as Config>::DbWeight::get().reads_writes(8, 5);
         let mut passes = 0;
@@ -7043,6 +7576,7 @@ fn test_storage_bloat_cleanup_is_bounded_and_preserves_nonzero_state() {
         }
         assert!(passes > 1, "test must exercise resumable progress");
         assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME));
+        assert!(storage_bloat_cleanup_complete::<Test>());
 
         for key in dead_keys {
             assert!(sp_io::storage::get(&key).is_none());
@@ -7051,6 +7585,11 @@ fn test_storage_bloat_cleanup_is_bounded_and_preserves_nonzero_state() {
         assert_eq!(
             Alpha::<Test>::get((hot_nonzero, coldkey, netuid)),
             U64F64::from_num(7)
+        );
+        assert!(!AlphaV2::<Test>::contains_key((hot_zero, coldkey, netuid)));
+        assert_eq!(
+            AlphaV2::<Test>::get((hot_nonzero, coldkey, netuid)),
+            share_pool::SafeFloat::from(8_u64)
         );
         assert!(!TotalHotkeyShares::<Test>::contains_key(hot_zero, netuid));
         assert_eq!(
@@ -7106,6 +7645,83 @@ fn test_storage_bloat_cleanup_preserves_root_age_when_hold_is_enabled() {
 }
 
 #[test]
+fn test_staking_hotkeys_removal_follows_last_alpha_key() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey = U256::from(200);
+        let coldkey = U256::from(100);
+        let first = NetUid::from(1);
+        let second = NetUid::from(2);
+        StakingHotkeys::<Test>::insert(coldkey, vec![hotkey]);
+        // A historical fractional position may quote zero, but its stored shares
+        // must stay discoverable until the alpha cleanup removes them.
+        Alpha::<Test>::insert((hotkey, coldkey, first), U64F64::from_num(0.01));
+        AlphaV2::<Test>::insert((hotkey, coldkey, second), share_pool::SafeFloat::zero());
+        SubtensorModule::maybe_remove_staking_hotkey(&hotkey, &coldkey);
+        assert_eq!(StakingHotkeys::<Test>::get(coldkey), vec![hotkey]);
+
+        Alpha::<Test>::remove((hotkey, coldkey, first));
+        SubtensorModule::maybe_remove_staking_hotkey(&hotkey, &coldkey);
+        assert_eq!(StakingHotkeys::<Test>::get(coldkey), vec![hotkey]);
+
+        AlphaV2::<Test>::remove((hotkey, coldkey, second));
+        for watermark in [-1_i128, 1_i128] {
+            BasketClaimed::<Test>::insert(hotkey, coldkey, watermark);
+            SubtensorModule::maybe_remove_staking_hotkey(&hotkey, &coldkey);
+            assert_eq!(StakingHotkeys::<Test>::get(coldkey), vec![hotkey]);
+        }
+        BasketClaimed::<Test>::remove(hotkey, coldkey);
+        SubtensorModule::maybe_remove_staking_hotkey(&hotkey, &coldkey);
+        assert!(!StakingHotkeys::<Test>::contains_key(coldkey));
+    });
+}
+
+#[test]
+fn test_storage_bloat_cleanup_removes_index_with_last_alpha_key() {
+    use crate::migrations::migrate_storage_bloat_v2::{
+        StorageBloatCleanupMigration, continue_storage_bloat_cleanup, kickoff_storage_bloat_cleanup,
+    };
+
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(100);
+        let empty = U256::from(200);
+        let live = U256::from(201);
+        let claimant = U256::from(202);
+        let legacy_only = U256::from(203);
+        let first = NetUid::from(1);
+        let second = NetUid::from(2);
+        StakingHotkeys::<Test>::insert(coldkey, vec![empty, live, claimant, legacy_only]);
+        Alpha::<Test>::insert((legacy_only, coldkey, first), U64F64::from_num(0));
+        for hotkey in [empty, live, claimant] {
+            Alpha::<Test>::insert((hotkey, coldkey, first), U64F64::from_num(0));
+            AlphaV2::<Test>::insert((hotkey, coldkey, first), share_pool::SafeFloat::zero());
+        }
+        // One alpha-rao on another subnet is enough: the transaction minimum is
+        // not a reason to hide a retained position.
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &live,
+            &coldkey,
+            second,
+            1_u64.into(),
+        );
+        BasketClaimed::<Test>::insert(claimant, coldkey, -1);
+        kickoff_storage_bloat_cleanup::<Test>();
+        let limit = <Test as Config>::DbWeight::get().reads_writes(8, 5);
+        for _ in 0..100 {
+            let used = continue_storage_bloat_cleanup::<Test>(limit);
+            assert!(used.all_lte(limit));
+            if !StorageBloatCleanupMigration::<Test>::exists() {
+                break;
+            }
+        }
+        assert!(!StorageBloatCleanupMigration::<Test>::exists());
+        assert!(!Alpha::<Test>::contains_key((legacy_only, coldkey, first)));
+        assert!(!AlphaV2::<Test>::contains_key((empty, coldkey, first)));
+        // No separate StakingHotkeys sweep was run: deletion updates the index itself.
+        assert_eq!(StakingHotkeys::<Test>::get(coldkey), vec![live, claimant]);
+    });
+}
+
+#[test]
 fn test_staking_hotkeys_cleanup_is_bounded_and_preserves_live_relationships() {
     use crate::migrations::migrate_cleanup_staking_hotkeys::{
         MIGRATION_NAME, StakingHotkeysCleanupMigration, continue_staking_hotkeys_cleanup,
@@ -7121,14 +7737,25 @@ fn test_staking_hotkeys_cleanup_is_bounded_and_preserves_live_relationships() {
         let v2 = U256::from(202);
         let basket = U256::from(203);
         let other_stale = U256::from(204);
+        let zero_v2 = U256::from(205);
         let netuid = NetUid::from(1);
 
-        StakingHotkeys::<Test>::insert(coldkey, vec![stale, legacy, v2, basket]);
+        // Previous cleanups must not suppress the new pass.
+        HasMigrationRun::<Test>::insert(&b"migrate_cleanup_staking_hotkeys"[..], true);
+        HasMigrationRun::<Test>::insert(&b"migrate_cleanup_staking_hotkeys_v2"[..], true);
+        StakingHotkeys::<Test>::insert(coldkey, vec![stale, legacy, v2, basket, zero_v2]);
         StakingHotkeys::<Test>::insert(all_stale_coldkey, vec![other_stale]);
         StakingHotkeys::<Test>::insert(empty_coldkey, Vec::<U256>::new());
-        Alpha::<Test>::insert((legacy, coldkey, netuid), U64F64::from_num(1));
+        Alpha::<Test>::insert((legacy, coldkey, netuid), U64F64::from_num(0.01));
         AlphaV2::<Test>::insert((v2, coldkey, netuid), share_pool::SafeFloat::from(1_u64));
+        AlphaV2::<Test>::insert((zero_v2, coldkey, netuid), share_pool::SafeFloat::zero());
         BasketClaimed::<Test>::insert(basket, coldkey, -1);
+
+        crate::migrations::migrate_storage_bloat_v2::kickoff_storage_bloat_cleanup::<Test>();
+        crate::migrations::migrate_storage_bloat_v2::continue_storage_bloat_cleanup::<Test>(
+            Weight::MAX,
+        );
+        assert!(!AlphaV2::<Test>::contains_key((zero_v2, coldkey, netuid)));
 
         let kickoff_weight = kickoff_staking_hotkeys_cleanup::<Test>();
         assert!(!kickoff_weight.is_zero());
@@ -7144,7 +7771,7 @@ fn test_staking_hotkeys_cleanup_is_bounded_and_preserves_live_relationships() {
         );
 
         // This budget admits at most one relationship plus a possible vector rewrite per pass.
-        let limit = <Test as Config>::DbWeight::get().reads_writes(6, 3);
+        let limit = <Test as Config>::DbWeight::get().reads_writes(7, 3);
         let mut passes = 0;
         while StakingHotkeysCleanupMigration::<Test>::exists() {
             let used = continue_staking_hotkeys_cleanup::<Test>(limit);
@@ -7186,7 +7813,7 @@ fn test_staking_hotkeys_cleanup_preserves_stake_added_between_passes() {
         StakingHotkeys::<Test>::insert(coldkey, vec![revived, stale_one, stale_two]);
         kickoff_staking_hotkeys_cleanup::<Test>();
 
-        let limit = <Test as Config>::DbWeight::get().reads_writes(6, 3);
+        let limit = <Test as Config>::DbWeight::get().reads_writes(7, 3);
         let first_used = continue_staking_hotkeys_cleanup::<Test>(limit);
         assert!(first_used.all_lte(limit));
         assert!(StakingHotkeysCleanupMigration::<Test>::exists());
@@ -7215,5 +7842,49 @@ fn test_staking_hotkeys_cleanup_preserves_stake_added_between_passes() {
             StakingHotkeys::<Test>::get(coldkey),
             vec![revived, added_later]
         );
+    });
+}
+
+// =============================================================================
+// Spec 468: enable basket trading (one-shot, stamped)
+// =============================================================================
+
+#[test]
+fn test_migrate_enable_basket_trading_flips_once_and_stamps() {
+    new_test_ext(1).execute_with(|| {
+        use crate::migrations::migrate_enable_basket_trading::{
+            MIGRATION_NAME, migrate_enable_basket_trading,
+        };
+        assert!(!BasketTradingEnabled::<Test>::get());
+        assert!(!HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
+
+        let first = migrate_enable_basket_trading::<Test>();
+        assert!(
+            BasketTradingEnabled::<Test>::get(),
+            "first run enables trading"
+        );
+        assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
+        assert_eq!(first, <Test as Config>::DbWeight::get().reads_writes(2, 2));
+
+        // Governance turns trading off after the upgrade: later runs must not undo that.
+        BasketTradingEnabled::<Test>::put(false);
+        let second = migrate_enable_basket_trading::<Test>();
+        assert!(!BasketTradingEnabled::<Test>::get(), "a re-run is a no-op");
+        assert_eq!(second, <Test as Config>::DbWeight::get().reads(1));
+    });
+}
+
+#[test]
+fn test_migrate_enable_basket_trading_only_stamps_when_already_on() {
+    new_test_ext(1).execute_with(|| {
+        use crate::migrations::migrate_enable_basket_trading::{
+            MIGRATION_NAME, migrate_enable_basket_trading,
+        };
+        // Devnet / testnet: trading is already on. The migration writes only the stamp.
+        BasketTradingEnabled::<Test>::put(true);
+        let weight = migrate_enable_basket_trading::<Test>();
+        assert!(BasketTradingEnabled::<Test>::get());
+        assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
+        assert_eq!(weight, <Test as Config>::DbWeight::get().reads_writes(2, 1));
     });
 }

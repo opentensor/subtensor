@@ -42,7 +42,8 @@ mod events {
         ),
         /// a caller successfully sets their weights on a subnetwork.
         WeightsSet(NetUidStorageIndex, u16),
-        /// a root validator set its beta-basket distribution vector (uid on the root subnet).
+        /// Retired (kept for SCALE index stability): emitted by the removed
+        /// `set_root_weights` extrinsic. Never emitted on current runtimes.
         RootWeightsSet(u16),
         /// a new neuron account has been registered to the chain.
         NeuronRegistered(NetUid, u16, T::AccountId),
@@ -475,23 +476,24 @@ mod events {
             tao: TaoBalance,
         },
 
-        /// A validator's beta basket (fund) received a dividend deposit: the dividend was
-        /// deployed across subnets per the validator's weight vector, adding `tao` of
-        /// realizable NAV to the fund and minting `shares` fund shares at the pre-deposit NAV.
+        /// A validator's beta basket (fund) received a dividend deposit: the dividend alpha
+        /// was credited in place to the fund's holding on the subnet it was earned on,
+        /// adding `tao` of realizable NAV to the fund and minting `shares` fund shares at
+        /// the pre-deposit NAV.
         BasketDeposited {
             /// Validator hotkey whose basket received the deposit.
             hotkey: T::AccountId,
-            /// Realizable NAV the deposit added to the fund (post-buy NAV minus the
-            /// pre-buy snapshot; the deposit bears its own buy slippage).
+            /// Realizable NAV the deposit added to the fund (the origin holding's
+            /// realizable value after the credit minus before it).
             tao: TaoBalance,
             /// Fund shares minted at the pre-deposit NAV (grows `BasketShares`).
             shares: u64,
         },
 
         /// A staker deposited TAO from their balance directly into a validator's beta
-        /// basket: the TAO was deployed across subnets per the validator's weight vector
-        /// and `shares` fund shares were credited to the staker via their claimed
-        /// watermark.
+        /// basket: the TAO was split across the fund's current holdings by value (or held
+        /// as the root cash slot of an empty fund) and `shares` fund shares were credited
+        /// to the staker via their claimed watermark.
         BasketStakedIn {
             /// Validator hotkey whose basket received the deposit.
             hotkey: T::AccountId,
@@ -595,7 +597,9 @@ mod events {
         /// Transaction fee was paid in Alpha.
         ///
         /// Emitted in addition to `TransactionFeePaid` when the fee payment path is Alpha.
-        /// `alpha_fee` is the exact Alpha amount deducted.
+        /// `alpha_fee` is the exact Alpha amount sold; `tao_amount` is the TAO the call was
+        /// finally charged. Since spec 469 the TAO the call did not use is refunded to the
+        /// payer's free balance, so `tao_amount` can be below what the sale realised.
         TransactionFeePaidWithAlpha {
             /// Account that paid the transaction fee.
             who: T::AccountId,
@@ -603,7 +607,7 @@ mod events {
             netuid: NetUid,
             /// Exact fee deducted in Alpha units.
             alpha_fee: AlphaBalance,
-            /// Resulting swapped TAO amount
+            /// TAO charged for the call, net of the post-dispatch refund.
             tao_amount: TaoBalance,
         },
         /// Burn half-life set for neuron registration.
@@ -794,5 +798,141 @@ mod events {
         /// A subnet's liquid-alpha consensus mode was updated.
         /// Appended to preserve existing SCALE event indices.
         LiquidAlphaConsensusModeSet(NetUid, ConsensusMode),
+
+        /// A fund's frozen display baseline was stamped at its first share mint: its
+        /// index-spliced display and total-return stake prices start at the current
+        /// index levels from this block on (see `BetaBaseline` storage). Appended to
+        /// preserve existing SCALE event indices.
+        BetaBaselineStamped {
+            /// Validator hotkey whose fund was stamped.
+            hotkey: T::AccountId,
+        },
+
+        /// A terminally untradeable basket alpha slice was explicitly written off. This is
+        /// distinct from a swap/transfer failure: only a pool too shallow to execute any sale
+        /// is eligible, and removing the exact slice preserves every holder's fund proportion.
+        /// Appended to preserve existing SCALE event indices.
+        BasketAlphaWrittenOff {
+            /// Validator hotkey whose basket held the alpha.
+            hotkey: T::AccountId,
+            /// Subnet whose pool was terminally too shallow.
+            netuid: NetUid,
+            /// Alpha removed from basket custody and recorded as burned.
+            alpha: AlphaBalance,
+        },
+
+        // New events are appended so existing SCALE event indices are preserved.
+        /// A contributor's lease dividends could not be transferred this interval. The amount
+        /// is recorded against that contributor and retried at the next distribution.
+        SubnetLeaseDividendSkipped {
+            /// The lease ID
+            lease_id: LeaseId,
+            /// The contributor
+            contributor: T::AccountId,
+            /// The total now owed to the contributor
+            alpha: AlphaBalance,
+        },
+
+        /// A share pool's denominator was rewritten to the sum of its live shares, so every
+        /// member is quoted exactly its fraction of the pool value.
+        SharePoolDenominatorReconciled {
+            /// The hotkey whose pool was reconciled.
+            hotkey: T::AccountId,
+            /// The subnet of the pool.
+            netuid: NetUid,
+        },
+
+        /// A validator rebalanced its beta basket: `alpha_sold` of `origin_netuid` was sold
+        /// for `tao_mid` TAO, which bought `alpha_bought` of `destination_netuid`. Fund
+        /// shares and staker entitlements are unaffected; only the fund's composition changed.
+        BasketSwapped {
+            /// Validator hotkey whose basket was rebalanced.
+            hotkey: T::AccountId,
+            /// Subnet sold out of (root = the fund's TAO slot).
+            origin_netuid: NetUid,
+            /// Subnet bought into (root = the fund's TAO slot).
+            destination_netuid: NetUid,
+            /// Alpha (or TAO when origin is root) removed from the origin holding.
+            alpha_sold: AlphaBalance,
+            /// TAO that passed through the middle of the swap; counted against the fund's
+            /// daily turnover budget.
+            tao_mid: TaoBalance,
+            /// Alpha (or TAO when destination is root) added to the destination holding.
+            alpha_bought: AlphaBalance,
+        },
+
+        /// A root claim skipped `rows` dust rows of the fund: rows whose whole holding was
+        /// worth less than `min(BasketClaimRowDustCapTao, BasketClaimRowDustBps × anchored
+        /// NAV)`, or whose slice for this claimant was worth less than
+        /// `BasketClaimSliceDustTao`, each worth at most `BasketClaimForfeitCapTao` for this
+        /// claimant, all at the anchored (fast-EMA-capped) mark. Those rows were neither sold
+        /// nor paid. The claim burned the whole entitlement, so the claimant's slices of those
+        /// rows — about `forfeited_tao_est` at the pre-sale realizable quote — stay in the fund
+        /// for the remaining holders.
+        BasketClaimDustSkipped {
+            /// Validator hotkey the basket belongs to.
+            hotkey: T::AccountId,
+            /// Staker coldkey that claimed.
+            coldkey: T::AccountId,
+            /// Fund rows the claim did not sell.
+            rows: u32,
+            /// Estimated TAO value of the claimant's slices of those rows, left in the fund.
+            forfeited_tao_est: TaoBalance,
+        },
+
+        /// A queued registration failed terminally; its escrow was refunded or
+        /// its pre-upgrade balance lock was released. No subnet was created.
+        NetworkRegistrationCancelled {
+            /// Registrant whose escrow was refunded or legacy lock released.
+            coldkey: T::AccountId,
+            /// Intended subnet owner hotkey.
+            hotkey: T::AccountId,
+            /// Identifier of the cancelled queue entry.
+            lock_id: u32,
+            /// Settlement failure that triggered cancellation.
+            error: DispatchError,
+        },
+        /// The subnet owner or root selected a new epoch reward algorithm.
+        EpochConsensusSet(NetUid, EpochConsensus),
+        /// A bounded explicit pruning step either cancelled queued weights or removed UIDs.
+        NullUidsPruningProgress {
+            /// Subnet being explicitly pruned.
+            netuid: NetUid,
+            /// Owner's final UID capacity target.
+            target: u16,
+            /// Registered UIDs after this step.
+            remaining: u16,
+            /// UIDs deregistered in this step, at most the pruning batch size.
+            removed: u16,
+            /// Pending pre-compaction commits cancelled in this step.
+            cleared_commits: u32,
+        },
+        /// The coldkey changed its third-party staking-list growth preference.
+        RejectStakingHotkeyGrowthUpdated {
+            /// Account setting the preference.
+            coldkey: T::AccountId,
+            /// Whether unsolicited growth is rejected.
+            enabled: bool,
+        },
+        /// The validator swapped, but this delegator's stake could not follow without
+        /// growing its staking list. On root, basket credits follow the new hotkey.
+        HotkeySwapStakeRetained {
+            /// Staker whose position stayed put.
+            coldkey: T::AccountId,
+            /// Hotkey still holding the position.
+            old_hotkey: T::AccountId,
+            /// Validator's new hotkey (also the root basket credit destination).
+            new_hotkey: T::AccountId,
+            /// Subnet whose stake was retained.
+            netuid: NetUid,
+        },
+        /// The subnet owner or root set the subnet's emission weight vector.
+        SubnetEmissionWeightsSet {
+            /// Subnet whose vector changed.
+            netuid: NetUid,
+            /// Full post-merge vector `[burn, recycle, owner, validator, miner]` in
+            /// `u64::MAX` parts.
+            weights: Vec<u64>,
+        },
     }
 }

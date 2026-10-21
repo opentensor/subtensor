@@ -287,11 +287,9 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 3. Inject ALPHA for participants.
-        let cut_percent: U96F32 = Self::get_float_subnet_owner_cut();
-
         for netuid_i in subnets_to_emit_to.iter() {
             // Get alpha_out for this block.
-            let mut alpha_out_i: U96F32 = *alpha_out.get(netuid_i).unwrap_or(&asfloat!(0));
+            let alpha_out_i: U96F32 = *alpha_out.get(netuid_i).unwrap_or(&asfloat!(0));
 
             let alpha_created: AlphaBalance = AlphaBalance::from(tou64!(alpha_out_i));
             SubnetAlphaOutEmission::<T>::insert(*netuid_i, alpha_created);
@@ -299,36 +297,57 @@ impl<T: Config> Pallet<T> {
             // Mint and resolve outstanding alpha
             Self::resolve_to_alpha_out(Self::mint_alpha(*netuid_i, alpha_created));
 
-            // Calculate the owner cut.
-            if Self::get_owner_cut_enabled(*netuid_i) {
-                let owner_cut_i: U96F32 = alpha_out_i.saturating_mul(cut_percent);
-                log::debug!("owner_cut_i: {owner_cut_i:?}");
-                // Deduct owner cut from alpha_out.
-                alpha_out_i = alpha_out_i.saturating_sub(owner_cut_i);
-                // Accumulate the owner cut in pending.
+            // Every share below is a fraction of the *total* alpha_out, read from the
+            // subnet's emission weight vector `[burn, recycle, owner, validator, miner]`.
+            // Burn and recycle are pinned to zero in v1 and evaluated here so enabling them
+            // later is a constraint change, not a coinbase change.
+            let weights = Self::get_subnet_emission_weights(*netuid_i);
+            let share = |index: EmissionIndex| -> U96F32 {
+                alpha_out_i.saturating_mul(Self::emission_weight_to_fixed(
+                    weights.get(index.position()).copied().unwrap_or(0),
+                ))
+            };
+
+            let burn_alpha = share(EmissionIndex::Burn);
+            if burn_alpha > asfloat!(0) {
+                Self::burn_subnet_alpha(*netuid_i, AlphaBalance::from(tou64!(burn_alpha)));
+            }
+            let recycle_alpha = share(EmissionIndex::Recycle);
+            if recycle_alpha > asfloat!(0) {
+                Self::recycle_subnet_alpha(*netuid_i, AlphaBalance::from(tou64!(recycle_alpha)));
+            }
+
+            // Owner cut: slot 2, zero means disabled.
+            let owner_cut_i = share(EmissionIndex::Owner);
+            log::debug!("owner_cut_i: {owner_cut_i:?}");
+            if owner_cut_i > asfloat!(0) {
+                let owner_cut_alpha: AlphaBalance = tou64!(owner_cut_i).into();
                 PendingOwnerCut::<T>::mutate(*netuid_i, |total| {
-                    *total = total.saturating_add(tou64!(owner_cut_i).into());
+                    *total = total.saturating_add(owner_cut_alpha);
+                });
+                SubnetOwnerCutAccrued::<T>::mutate(*netuid_i, |total| {
+                    *total = total.saturating_add(owner_cut_alpha);
                 });
             }
 
-            // Get root proportional dividends.
-            let root_proportion = Self::root_proportion(*netuid_i);
-            log::debug!("root_proportion: {root_proportion:?}");
-
-            // Get root alpha from root prop.
-            let root_alpha: U96F32 = root_proportion
-                .saturating_mul(alpha_out_i) // Total alpha emission per block remaining.
-                .saturating_mul(asfloat!(0.5)); // 50% to validators.
-            log::debug!("root_alpha: {root_alpha:?}");
-
-            // Get pending server alpha, which is the miner cut of the alpha out.
-            // Currently miner cut is 50% of the alpha out.
-            let pending_server_alpha = alpha_out_i.saturating_mul(asfloat!(0.5));
-            log::debug!("pending_server_alpha: {pending_server_alpha:?}");
-            // The total validator alpha is the remaining alpha out minus the server alpha.
-            let total_validator_alpha = alpha_out_i.saturating_sub(pending_server_alpha);
+            // Validator slot: exactly what validator dividends draw from, before the root
+            // carve-out. Miner slot: exactly what miner incentive draws from.
+            let total_validator_alpha = share(EmissionIndex::Validator);
+            let pending_server_alpha = share(EmissionIndex::Miner);
             log::debug!("total_validator_alpha: {total_validator_alpha:?}");
-            // The alpha validators don't get the root alpha.
+            log::debug!("pending_server_alpha: {pending_server_alpha:?}");
+
+            // Root is paid off the top of the validator slot: its baseline share of the
+            // emission (default validator share × root proportion with the global
+            // `TaoWeight`, recomputed from live state every block), capped at the whole
+            // slot. This is what a subnet on the default split pays root, independent of
+            // the validator share the owner chose.
+            let root_share = Self::get_root_emission_share(*netuid_i);
+            log::debug!("root_share: {root_share:?}");
+            let root_alpha: U96F32 = alpha_out_i
+                .saturating_mul(root_share)
+                .min(total_validator_alpha);
+            log::debug!("root_alpha: {root_alpha:?}");
             let pending_validator_alpha = total_validator_alpha.saturating_sub(root_alpha);
             log::debug!("pending_validator_alpha: {pending_validator_alpha:?}");
 
@@ -353,14 +372,39 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    /// Per-block epoch cap (`MaxEpochsPerBlock`) and the order in which due subnets
+    /// take its slots.
+    /// A large Null epoch settles in the same block, using one scheduler slot
+    /// for the block, so the due Null subnet that lowers the cap takes that slot
+    /// first. In `subnets` order, an earlier due subnet could take it in every block
+    /// while the Null subnet stays due and keeps the cap at 1.
+    /// Pure Yuma blocks retain the configured epoch cap and the order of `subnets`.
+    fn epoch_schedule_for_block(subnets: &[NetUid], current_block: u64) -> (u32, Vec<NetUid>) {
+        let configured = u32::from(Self::get_max_epochs_per_block());
+        let due_null = subnets.iter().copied().find(|netuid| {
+            !netuid.is_root()
+                && Self::get_epoch_consensus(*netuid) == EpochConsensus::Null
+                && Self::should_run_epoch(*netuid, current_block)
+        });
+        match due_null {
+            Some(due_null) => {
+                let mut order = Vec::with_capacity(subnets.len());
+                order.push(due_null);
+                order.extend(subnets.iter().copied().filter(|netuid| *netuid != due_null));
+                (configured.min(1), order)
+            }
+            None => (configured, subnets.to_vec()),
+        }
+    }
+
     /// Subnets whose epoch slot is due *this* block but is deferred by the per-block
-    /// cap (`MaxEpochsPerBlock`).
+    /// cap. Mirrors `drain_pending`, including its slot order.
     pub fn epochs_deferred_this_block(subnets: &[NetUid], current_block: u64) -> BTreeSet<NetUid> {
-        let cap = Self::get_max_epochs_per_block() as u32;
+        let (cap, slot_order) = Self::epoch_schedule_for_block(subnets, current_block);
         let mut deferred: BTreeSet<NetUid> = BTreeSet::new();
         let mut epochs_run_this_block: u32 = 0;
 
-        for &netuid in subnets.iter() {
+        for netuid in slot_order {
             if !Self::should_run_epoch(netuid, current_block) {
                 continue;
             }
@@ -387,9 +431,10 @@ impl<T: Config> Pallet<T> {
         > = BTreeMap::new();
         // Per-block cap on number of epochs that may run; the rest are deferred 1 block forward
         // by setting `PendingEpochAt`.
-        let max_epochs_per_block = Self::get_max_epochs_per_block() as u32;
+        let (max_epochs_per_block, slot_order) =
+            Self::epoch_schedule_for_block(subnets, current_block);
         let mut epochs_run_this_block: u32 = 0;
-        for &netuid in subnets.iter() {
+        for netuid in slot_order {
             // Keep the scheduler age bounded per subnet. `tempo + 1` is enough to
             // record that a due epoch missed its slot while avoiding an unbounded
             // public counter when the epoch is repeatedly deferred or its input
@@ -491,6 +536,9 @@ impl<T: Config> Pallet<T> {
                 pending_owner_cut,
             );
             LastMechansimStepBlock::<T>::insert(netuid, current_block);
+            if current_block > 0 && Self::get_epoch_consensus(netuid) == EpochConsensus::Yuma {
+                LastYumaStepBlock::<T>::insert(netuid, current_block);
+            }
         }
     }
 
@@ -512,6 +560,7 @@ impl<T: Config> Pallet<T> {
         BTreeMap<T::AccountId, AlphaBalance>,
         BTreeMap<T::AccountId, U96F32>,
     ) {
+        let skip_zero_dividends = Self::get_epoch_consensus(netuid) == EpochConsensus::Null;
         // Accumulate emission of dividends and incentive per hotkey.
         let mut incentives: BTreeMap<T::AccountId, AlphaBalance> = BTreeMap::new();
         let mut dividends: BTreeMap<T::AccountId, U96F32> = BTreeMap::new();
@@ -521,6 +570,11 @@ impl<T: Config> Pallet<T> {
                 .entry(hotkey.clone())
                 .and_modify(|e| *e = e.saturating_add(incentive))
                 .or_insert(incentive);
+            // Null gives most UIDs no dividend. Avoid parent/take/collateral
+            // work and stake-snapshot writes for these zero-value recipients.
+            if skip_zero_dividends && dividend.is_zero() {
+                continue;
+            }
             // Accumulate dividends to parents.
             let div_tuples: Vec<(T::AccountId, AlphaBalance)> =
                 Self::get_parent_child_dividends_distribution(&hotkey, netuid, dividend);
@@ -710,13 +764,18 @@ impl<T: Config> Pallet<T> {
                 netuid,
                 owner_cut,
             );
-            // If the subnet is leased, notify the lease logic that owner cut has been distributed.
-            if let Some(lease_id) = SubnetUidToLeaseId::<T>::get(netuid) {
+            // If the subnet is leased, notify the lease logic that owner cut has been
+            // distributed, and lock only the part of the cut the lease keeps: the
+            // contributors' share is paid out from this position and must stay unlocked.
+            let retained_cut = if let Some(lease_id) = SubnetUidToLeaseId::<T>::get(netuid) {
                 Self::distribute_leased_network_dividends(lease_id, owner_cut);
-            }
+                Self::leased_owner_cut_retained(lease_id, owner_cut)
+            } else {
+                owner_cut
+            };
 
             // Auto-lock owner's cut
-            Self::auto_lock_owner_cut(netuid, owner_cut);
+            Self::auto_lock_owner_cut(netuid, retained_cut);
         }
 
         // Distribute mining incentives.
@@ -786,12 +845,7 @@ impl<T: Config> Pallet<T> {
                 });
             }
 
-            Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
-                &destination,
-                &owner,
-                netuid,
-                liquid,
-            );
+            Self::credit_epoch_owner_emission(&destination, &owner, netuid, liquid);
         }
 
         // Record the proportion of this tempo's miner emission that was withheld from
@@ -817,17 +871,24 @@ impl<T: Config> Pallet<T> {
             let liquid_take = take.saturating_sub(captured);
             if !liquid_take.is_zero() {
                 log::debug!("hotkey: {hotkey:?} alpha_take: {liquid_take:?}");
-                Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
-                    &hotkey,
-                    &owner,
-                    netuid,
-                    liquid_take,
-                );
+                Self::credit_epoch_owner_emission(&hotkey, &owner, netuid, liquid_take);
             }
             let nominator_alpha: AlphaBalance = tou64!(nominator_divs).into();
             if !nominator_alpha.is_zero() {
                 log::debug!("hotkey: {hotkey:?} alpha_divs: {nominator_divs:?}");
-                Self::increase_stake_for_hotkey_on_subnet(&hotkey, netuid, nominator_alpha);
+                if Self::hotkey_share_pool_has_members(&hotkey, netuid) {
+                    Self::increase_stake_for_hotkey_on_subnet(&hotkey, netuid, nominator_alpha);
+                } else {
+                    // Nobody holds shares in this pool, so a pool-wide credit would sit
+                    // unowned in `TotalHotkeyAlpha` until the first later depositor is
+                    // quoted all of it. Credit the owner instead, which opens the pool.
+                    Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                        &hotkey,
+                        &owner,
+                        netuid,
+                        nominator_alpha,
+                    );
+                }
                 AlphaDividendsPerSubnet::<T>::mutate(netuid, &hotkey, |divs| {
                     *divs = divs.saturating_add(nominator_alpha);
                 });
@@ -844,28 +905,6 @@ impl<T: Config> Pallet<T> {
         // for release/earned; only validator take is capturable.
         let _ = RootAlphaDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
 
-        // Once the seed no longer owns BasketRate/Shares, release credits using the hotkeys to
-        // which their original epochs assigned them. Root stake and basket mutations stay gated
-        // until this ledger is empty, so the claimant base is unchanged while credits wait.
-        // Credits move into the pending-deposit queue rather than depositing inline, so the
-        // post-migration backlog drains one hotkey per block instead of spiking this
-        // epoch's block.
-        if !crate::migrations::migrate_seed_beta_basket::seed_beta_basket_v2_in_progress::<T>() {
-            for (hotkey, root_claimable_alpha) in
-                DeferredRootAlphaDividends::<T>::drain_prefix(netuid)
-            {
-                if root_claimable_alpha.is_zero() {
-                    continue;
-                }
-                Self::enqueue_basket_deposit(&hotkey, netuid, root_claimable_alpha);
-                RootAlphaDividendsPerSubnet::<T>::mutate(netuid, &hotkey, |divs| {
-                    *divs = divs.saturating_add(root_claimable_alpha);
-                });
-            }
-        }
-
-        let seed_in_progress =
-            crate::migrations::migrate_seed_beta_basket::seed_beta_basket_v2_in_progress::<T>();
         for (hotkey, root_alpha) in root_alpha_dividends {
             let owner: T::AccountId = Owner::<T>::get(&hotkey);
             let total: AlphaBalance = tou64!(root_alpha).into();
@@ -887,25 +926,15 @@ impl<T: Config> Pallet<T> {
 
             let root_claimable_alpha: AlphaBalance = tou64!(root_claimable).into();
             if !root_claimable_alpha.is_zero() {
-                if seed_in_progress {
-                    // Preserve this epoch's recipient while the migration owns the live basket
-                    // maps. Repeated epochs accumulate only for the same hotkey.
-                    DeferredRootAlphaDividends::<T>::mutate(netuid, &hotkey, |deferred| {
-                        *deferred = deferred.saturating_add(root_claimable_alpha);
-                    });
-                } else {
-                    // Queue the validator's root dividend for its beta basket. The deposit
-                    // itself (share mint priced against the fund's full NAV — one AMM quote
-                    // per holding) is deliberately not done here: epochs enqueue, and the
-                    // per-block flush deposits each hotkey's credits from all subnets as
-                    // one batch, so epoch blocks no longer pay
-                    // validators x holdings quotes.
-                    Self::enqueue_basket_deposit(&hotkey, netuid, root_claimable_alpha);
-                }
+                // Queue the validator's root dividend for its beta basket. The deposit
+                // itself (share mint priced against the fund's full NAV — one AMM quote
+                // per holding) is deliberately not done here: epochs enqueue, and the
+                // per-block flush deposits each hotkey's credits from all subnets as
+                // one batch, so epoch blocks no longer pay
+                // validators x holdings quotes.
+                Self::enqueue_basket_deposit(&hotkey, netuid, root_claimable_alpha);
 
-                RootAlphaDividendsPerSubnet::<T>::mutate(netuid, &hotkey, |divs| {
-                    *divs = divs.saturating_add(root_claimable_alpha);
-                });
+                RootAlphaDividendsPerSubnet::<T>::insert(netuid, &hotkey, root_claimable_alpha);
             }
         }
     }
@@ -966,13 +995,15 @@ impl<T: Config> Pallet<T> {
         );
 
         let tao_weight = Self::get_tao_weight();
-        let total_alpha_minus_owner_cut = pending_server_alpha
-            .saturating_add(pending_validator_alpha)
-            .saturating_add(pending_root_alpha);
 
         // Run the epoch, using the alpha going to both the servers and the validators.
         let hotkey_emission: Vec<(T::AccountId, AlphaBalance, AlphaBalance)> =
-            Self::epoch_with_mechanisms(netuid, total_alpha_minus_owner_cut);
+            Self::epoch_with_mechanism_budgets(
+                netuid,
+                pending_server_alpha,
+                pending_validator_alpha,
+                pending_root_alpha,
+            );
         log::debug!("hotkey_emission: {hotkey_emission:?}");
 
         // Compute the pending validator alpha.
@@ -1039,7 +1070,7 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        // Get TAO weight
+        // Get the weights for root and alpha stakes in emission distribution
         let tao_weight: U96F32 = Self::get_tao_weight();
 
         // Get the hotkey's stake including weight

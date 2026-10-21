@@ -94,18 +94,17 @@ RAW_ONLY: dict[str, set[str]] = {
         "batch_reveal_weights",
         # PoW registration — out of scope by design
         "register",
-        # Direct basket deposit — agent surface still uses claim_root / stake
-        # intents; reachable via raw compose until a dedicated intent lands
-        "stake_into_basket",
-        # coldkey swap: announce/execute/clear/dispute are wrapped by intents; these
-        # remain raw — deprecated (schedule) or root-only (reset, arbitrary swap)
+        # coldkey swap: V2 announce/execute/clear/dispute/release are wrapped by
+        # intents; these remain raw — legacy hash announce, deprecated schedule,
+        # or root-only (reset, arbitrary swap)
+        "announce_coldkey_swap",
         "reset_coldkey_swap",
+        "reset_coldkey_swap_keep_locked",
         "schedule_swap_coldkey",
         "swap_coldkey",
         "swap_hotkey_v2",
-        # locks / liquidity-adjacent (lock_stake, move_lock, set_perpetual_lock
-        # are wrapped by lock intents)
-        "set_reject_locked_alpha",
+        # locks / liquidity-adjacent (lock_stake, move_lock, set_perpetual_lock,
+        # set_reject_locked_alpha are wrapped by lock intents)
         # alpha burn/recycle + buyback variants (add_stake_burn is wrapped)
         "burn_alpha",
         "recycle_alpha",
@@ -255,19 +254,28 @@ RAW_ONLY: dict[str, set[str]] = {
         "sudo_set_network_immunity_period",
         "sudo_set_network_min_lock_cost",
         "sudo_set_network_rate_limit",
-        "sudo_set_network_registration_allowed",
         "sudo_set_nominator_min_required_stake",
         "sudo_set_owner_hparam_rate_limit",
         "sudo_set_rao_recycled",
         "sudo_set_recycle_or_burn",
-        # Root Reborn launch gate for set_root_weights — root-only governance toggle
-        "sudo_set_root_weight_setting_enabled",
+        # basket concentration cap (swap_basket guardrail) — root-only, no semantic wrapper
+        "sudo_set_basket_concentration_cap",
+        # validator basket trading gates and budget — root-only governance toggles
+        "sudo_set_basket_trading_enabled",
+        "sudo_set_basket_trading_frozen",
+        "sudo_set_basket_daily_turnover_cap",
+        "sudo_set_basket_liquidity_cap",
+        "sudo_set_basket_min_trade_tao",
+        "sudo_set_basket_claim_dust",
         "sudo_set_sn_owner_hotkey",
         "sudo_set_stake_threshold",
         "sudo_set_start_call_delay",
         "sudo_set_subnet_limit",
         "sudo_set_subnet_moving_alpha",
+        # owner-cut setters deprecated by the emission weight vector (both always
+        # fail with Error::Deprecated; use SetSubnetEmissionWeights)
         "sudo_set_subnet_owner_cut",
+        "sudo_set_owner_cut_enabled",
         "sudo_set_subtoken_enabled",
         "sudo_set_tao_flow_cutoff",
         "sudo_set_tao_flow_normalization_exponent",

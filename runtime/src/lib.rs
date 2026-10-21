@@ -12,8 +12,12 @@ use core::num::NonZeroU64;
 
 pub mod check_mortality;
 pub mod check_nonce;
+pub mod check_nonzero_sender;
+pub mod evm_origin;
 mod fee_filters;
 mod proxy_filters;
+pub mod small_order;
+pub mod staking_fee;
 pub mod sudo_wrapper;
 pub mod transaction_payment_wrapper;
 
@@ -41,7 +45,8 @@ use pallet_subtensor::rpc_info::{
     show_subnet::SubnetState,
     stake_info::{StakeAvailability, StakeInfo},
     subnet_info::{
-        SubnetHyperparams, SubnetHyperparamsV2, SubnetHyperparamsV3, SubnetInfo, SubnetInfov2,
+        SubnetEmissionWeightsInfo, SubnetHyperparams, SubnetHyperparamsV2, SubnetHyperparamsV3,
+        SubnetInfo, SubnetInfov2,
     },
 };
 use pallet_subtensor::{CommitmentsInterface, ProxyInterface};
@@ -88,8 +93,7 @@ pub use frame_support::{
         PrivilegeCmp, Randomness, StorageInfo,
     },
     weights::{
-        IdentityFee, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
-        WeightToFeePolynomial,
+        Weight, WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial,
         constants::{
             BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND,
         },
@@ -235,7 +239,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 449,
+    spec_version: 483,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -537,7 +541,7 @@ impl pallet_transaction_payment::Config for Runtime {
     // Convert dispatch weight to a chargeable fee.
     type WeightToFee = subtensor_transaction_fee::LinearWeightToFee;
     type OperationalFeeMultiplier = OperationalFeeMultiplier;
-    type LengthToFee = IdentityFee<Balance>;
+    type LengthToFee = subtensor_transaction_fee::LinearLengthToFee;
     type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
     type WeightInfo = pallet_transaction_payment::weights::SubstrateWeight<Runtime>;
 }
@@ -622,9 +626,117 @@ impl ProxyInterface<AccountId> for Proxier {
             0,
         )
     }
+
+    fn has_delegator_proxies(delegator: &AccountId) -> bool {
+        !pallet_proxy::Proxies::<Runtime>::get(delegator)
+            .0
+            .is_empty()
+    }
 }
 
 pub struct CommitmentsI;
+
+#[test]
+#[allow(clippy::unwrap_used)]
+fn lease_recovery_rolls_back_real_proxy_storage_on_a_late_failure() {
+    use frame_support::{assert_noop, assert_ok};
+    use pallet_subtensor::{
+        Lock, SubnetLeaseShares, SubnetLeases, SubnetUidToLeaseId, staking::lock::LockState,
+        subnets::leasing::SubnetLease,
+    };
+    use sp_runtime::{BuildStorage, Percent};
+    use substrate_fixed::types::U64F64;
+
+    let old = AccountId::new([81; 32]);
+    let new = AccountId::new([82; 32]);
+    let lease_coldkey = AccountId::new([83; 32]);
+    let lease_hotkey = AccountId::new([84; 32]);
+    let netuid = subtensor_runtime_common::NetUid::from(1);
+    let storage = RuntimeGenesisConfig {
+        balances: pallet_balances::GenesisConfig {
+            balances: vec![(lease_coldkey.clone(), 100_000_000_000u64.into())],
+            dev_accounts: None,
+        },
+        ..Default::default()
+    }
+    .build_storage()
+    .unwrap();
+    sp_io::TestExternalities::new(storage).execute_with(|| {
+        System::set_block_number(1);
+        SubnetLeases::<Runtime>::insert(
+            0,
+            SubnetLease {
+                beneficiary: old.clone(),
+                coldkey: lease_coldkey.clone(),
+                hotkey: lease_hotkey.clone(),
+                emissions_share: Percent::from_percent(30),
+                end_block: None,
+                netuid,
+                cost: 0u64.into(),
+            },
+        );
+        SubnetUidToLeaseId::<Runtime>::insert(netuid, 0);
+        SubnetLeaseShares::<Runtime>::insert(0, &old, U64F64::from_num(1));
+        assert_ok!(Proxier::add_lease_beneficiary_proxy(&lease_coldkey, &old));
+        SubtensorModule::insert_lock_state(
+            &new,
+            netuid,
+            &lease_hotkey,
+            LockState {
+                locked_mass: 1_000u64.into(),
+                conviction: U64F64::from_num(0),
+                last_update: 1,
+            },
+        );
+        assert_noop!(
+            SubtensorModule::do_swap_coldkey(&old, &new),
+            pallet_subtensor::Error::<Runtime>::ActiveLockExists
+        );
+        assert!(
+            Proxy::find_proxy(
+                &lease_coldkey,
+                &old,
+                Some(ProxyType::SubnetLeaseBeneficiary)
+            )
+            .is_ok()
+        );
+        assert!(
+            Proxy::find_proxy(
+                &lease_coldkey,
+                &new,
+                Some(ProxyType::SubnetLeaseBeneficiary)
+            )
+            .is_err()
+        );
+        assert_eq!(
+            SubnetLeaseShares::<Runtime>::get(0, &old),
+            U64F64::from_num(1)
+        );
+        assert!(!SubnetLeaseShares::<Runtime>::contains_key(0, &new));
+        assert_eq!(SubnetLeases::<Runtime>::get(0).unwrap().beneficiary, old);
+
+        Lock::<Runtime>::remove((&new, netuid, &lease_hotkey));
+        assert_ok!(SubtensorModule::do_swap_coldkey(&old, &new));
+        assert!(
+            Proxy::find_proxy(
+                &lease_coldkey,
+                &old,
+                Some(ProxyType::SubnetLeaseBeneficiary)
+            )
+            .is_err()
+        );
+        assert!(
+            Proxy::find_proxy(
+                &lease_coldkey,
+                &new,
+                Some(ProxyType::SubnetLeaseBeneficiary)
+            )
+            .is_ok()
+        );
+        assert_eq!(SubnetLeases::<Runtime>::get(0).unwrap().beneficiary, new);
+    });
+}
+
 impl CommitmentsInterface<AccountId> for CommitmentsI {
     fn purge_netuid(
         netuid: NetUid,
@@ -1152,8 +1264,8 @@ impl pallet_evm::Config for Runtime {
     type GasWeightMapping = pallet_evm::FixedGasWeightMapping<Self>;
     type WeightPerGas = WeightPerGas;
     type BlockHashMapping = pallet_ethereum::EthereumBlockHashMapping<Self>;
-    type CallOrigin = pallet_evm::EnsureAddressTruncated;
-    type WithdrawOrigin = pallet_evm::EnsureAddressTruncated;
+    type CallOrigin = evm_origin::EnsureAddressTruncatedNonZero;
+    type WithdrawOrigin = evm_origin::EnsureAddressTruncatedNonZero;
     type AddressMapping = pallet_evm::HashedAddressMapping<BlakeTwo256>;
     type Currency = Balances;
     type PrecompilesType = Precompiles<Self>;
@@ -1168,7 +1280,7 @@ impl pallet_evm::Config for Runtime {
     type Timestamp = Timestamp;
     type WeightInfo = pallet_evm::weights::SubstrateWeight<Self>;
     type BalanceConverter = SubtensorEvmBalanceConverter;
-    type AccountProvider = pallet_evm::FrameSystemAccountProvider<Self>;
+    type AccountProvider = pallet_evm::NoncePreservingAccountProvider<Self>;
     type GasLimitStorageGrowthRatio = ();
     type CreateOriginFilter = ();
     type CreateInnerOriginFilter = ();
@@ -1196,7 +1308,9 @@ parameter_types! {
 }
 
 parameter_types! {
-    pub DefaultBaseFeePerGas: U256 = U256::from(20_000_000_000_u128);
+    // 10 gwei = 10 rao per gas. Spec 467 halved this from 20 gwei. With the 50% ideal
+    // threshold below, quiet blocks settle at half of this value (5 gwei).
+    pub DefaultBaseFeePerGas: U256 = U256::from(10_000_000_000_u128);
     pub DefaultElasticity: Permill = Permill::from_parts(125_000);
 }
 pub struct BaseFeeThreshold;
@@ -1330,8 +1444,8 @@ impl pallet_crowdloan::Config for Runtime {
 parameter_types! {
     pub const LimitOrdersPalletId: PalletId = PalletId(*b"bt/limit");
     pub const LimitOrdersMaxOrdersPerBatch: u32 = 100;
-    /// Provider records stay drawable for 7 days.
-    pub const LimitOrdersLinkedOutputTtl: u64 = 7 * 24 * 60 * 60 * 1000;
+    /// Provider records stay drawable for 180 days.
+    pub const LimitOrdersLinkedOutputTtl: u64 = 180 * 24 * 60 * 60 * 1000;
 }
 
 pub struct LimitOrdersPalletHotkey;
@@ -1351,8 +1465,44 @@ impl frame_support::traits::UnixTime for LimitOrdersUnixTime {
     }
 }
 
+pub struct LimitOrderSignerFilter;
+impl frame_support::traits::Contains<AccountId> for LimitOrderSignerFilter {
+    fn contains(signer: &AccountId) -> bool {
+        !pallet_subtensor::ColdkeySwapAnnouncements::<Runtime>::contains_key(signer)
+            && !pallet_subtensor::ColdkeySwapDisputes::<Runtime>::contains_key(signer)
+    }
+}
+
+#[test]
+fn limit_order_signers_are_blocked_during_recovery_or_dispute() {
+    use frame_support::traits::Contains;
+    sp_io::TestExternalities::default().execute_with(|| {
+        let signer = AccountId::new([71; 32]);
+        assert!(LimitOrderSignerFilter::contains(&signer));
+        pallet_subtensor::ColdkeySwapAnnouncements::<Runtime>::insert(&signer, (0, Hash::zero()));
+        assert!(!LimitOrderSignerFilter::contains(&signer));
+        pallet_subtensor::ColdkeySwapDisputes::<Runtime>::insert(&signer, 0);
+        assert!(!LimitOrderSignerFilter::contains(&signer));
+        pallet_subtensor::ColdkeySwapAnnouncements::<Runtime>::remove(&signer);
+        assert!(!LimitOrderSignerFilter::contains(&signer));
+        pallet_subtensor::ColdkeySwapDisputes::<Runtime>::remove(&signer);
+        assert!(LimitOrderSignerFilter::contains(&signer));
+        frame_support::assert_ok!(SubtensorModule::reset_coldkey_swap_keep_locked(
+            RuntimeOrigin::root(),
+            signer.clone()
+        ));
+        assert!(!LimitOrderSignerFilter::contains(&signer));
+        frame_support::assert_ok!(SubtensorModule::reset_coldkey_swap(
+            RuntimeOrigin::root(),
+            signer.clone()
+        ));
+        assert!(LimitOrderSignerFilter::contains(&signer));
+    });
+}
+
 impl pallet_limit_orders::Config for Runtime {
     type SwapInterface = SubtensorModule;
+    type OrderSignerFilter = LimitOrderSignerFilter;
     #[cfg(feature = "runtime-benchmarks")]
     type TimeProvider = LimitOrdersUnixTime;
     #[cfg(not(feature = "runtime-benchmarks"))]
@@ -1407,6 +1557,16 @@ impl Contains<RuntimeCall> for ContractCallFilter {
     fn contains(call: &RuntimeCall) -> bool {
         match call {
             RuntimeCall::Proxy(inner) => matches!(inner, pallet_proxy::Call::proxy { .. }),
+            // Since the proxy origin-filter inheritance fix (release 453), calls
+            // dispatched *inside* Proxy::proxy must also pass this filter. A
+            // contract holding an explicit user proxy delegation could
+            // previously execute transfer_stake on the user's behalf; allow
+            // that inner call again. Security is unchanged: the transfer still
+            // requires the user to have registered the contract as a proxy,
+            // and the inherited-filter fix keeps every other call blocked.
+            RuntimeCall::SubtensorModule(inner) => {
+                matches!(inner, pallet_subtensor::Call::transfer_stake { .. })
+            }
             _ => false,
         }
     }
@@ -1499,7 +1659,7 @@ pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 // The extensions to the basic transaction logic.
 pub type SystemTxExtension = (
-    frame_system::CheckNonZeroSender<Runtime>,
+    check_nonzero_sender::CheckNonZeroSender<Runtime>,
     frame_system::CheckSpecVersion<Runtime>,
     frame_system::CheckTxVersion<Runtime>,
     frame_system::CheckGenesis<Runtime>,
@@ -1521,9 +1681,81 @@ pub type TxExtension = (
 );
 
 type Migrations = (
+    // Schedule bounded conversion; transitional staking getters read both formats.
+    pallet_subtensor::migrations::migrate_alpha_v2::Migration<Runtime>,
+    // Rebuild historically missing associations in bounded idle batches, after
+    // alpha conversion and the destructive storage/index cleanups finish.
+    pallet_subtensor::migrations::migrate_restore_staking_hotkeys::Migration<Runtime>,
     // Leave this migration in the runtime, so every runtime upgrade tiny rounding errors (fractions of fractions
     // of a cent) are cleaned up. These tiny rounding errors occur due to floating point coversion.
     pallet_subtensor::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration<
+        Runtime,
+    >,
+    // Seed frozen per-fund display baselines (index splice) from the SDK table for funds
+    // that predate on-chain stamping. Lives here rather than in the pallet hook so
+    // try-runtime validates its pre/post-upgrade invariants against real network state.
+    pallet_subtensor::migrations::migrate_stamp_beta_baselines::stamp_beta_baselines::Migration<
+        Runtime,
+    >,
+    // Mint the historical root dividend shortfall into the root subnet account and raise
+    // SubnetTAO[0] / TotalStake to match root holdings, so every root staker can exit.
+    // One-shot, guarded by HasMigrationRun; try-runtime checks the reconciliation invariants.
+    pallet_subtensor::migrations::migrate_fix_root_pot_shortfall::fix_root_pot_shortfall::Migration<
+        Runtime,
+    >,
+    // Set TotalStake to the sum of SubnetTAO over live subnets (issue #3156). One-shot,
+    // guarded by HasMigrationRun; try-runtime checks the sum and that issuance is untouched.
+    pallet_subtensor::migrations::migrate_resync_total_stake::resync_total_stake::Migration<
+        Runtime,
+    >,
+    // Rewrite the denominator of the share pools identified by the production scan to the
+    // sum of their live shares, so every member is quoted exactly its fraction. One-shot,
+    // guarded by HasMigrationRun; try-runtime checks each target pool before and after.
+    pallet_subtensor::migrations::migrate_reconcile_share_pools::reconcile_share_pools::Migration<
+        Runtime,
+    >,
+    // Retry of the 464 share-pool reconcile: same targets, but does not stamp
+    // `HasMigrationRun` when a target is oversized or undecodable, so a later
+    // spec can try again. No-op when the pool is already consistent.
+    pallet_subtensor::migrations::migrate_reconcile_share_pools::reconcile_share_pools_v2::Migration<
+        Runtime,
+    >,
+    // Remove the root weight vector design: clear Weights[ROOT], kill the
+    // set_root_weights gate, and carry the 1/16 concentration cap over to
+    // BasketConcentrationCap (now a swap_basket guardrail only). Funds have no target
+    // composition: dividends accumulate in place and deposits mirror the holdings; only
+    // swap_basket changes composition. Lives here so try-runtime checks the cleanup and
+    // the cap carry-over against real network state.
+    pallet_subtensor::migrations::migrate_remove_root_weights::remove_root_weights::Migration<
+        Runtime,
+    >,
+    // Spec 468: turn validator-directed basket trading on (`BasketTradingEnabled = true`),
+    // one-shot and stamped in HasMigrationRun so `sudo_set_basket_trading_enabled(false)`
+    // stays a durable emergency off. Already-on chains (devnet, testnet) only get the stamp.
+    pallet_subtensor::migrations::migrate_enable_basket_trading::enable_basket_trading::Migration<
+        Runtime,
+    >,
+    // Spec 468: TotalStake drifted 26.516982241 TAO below the sum of live SubnetTAO when
+    // subnet 108 dissolved on finney (block 9111229; the conversion of fund holdings
+    // subtracted it twice, fixed in `convert_basket_holding_to_root`). Second one-shot
+    // resync under its own HasMigrationRun marker; try-runtime checks the sum and that
+    // issuance is untouched.
+    pallet_subtensor::migrations::migrate_resync_total_stake::resync_total_stake_v2::Migration<
+        Runtime,
+    >,
+    // Spec 480 (etao): seed every subnet's emission weight vector
+    // `[burn, recycle, owner, validator, miner]` and its accrued owner cut from the legacy
+    // `SubnetOwnerCut` / `OwnerCutEnabled` state so the first post-upgrade block pays
+    // what the last pre-upgrade block did. One-shot, stamped in HasMigrationRun;
+    // try-runtime checks every seeded vector.
+    pallet_subtensor::migrations::migrate_seed_subnet_emission_weights::seed_subnet_emission_weights::Migration<
+        Runtime,
+    >,
+    // Spec 481: root is paid its live baseline share off the top of the validator slot
+    // every block, so spec 480's per-subnet frozen `SubnetTaoWeight` has no reader. Clear
+    // any entries written while 480 ran (testnet). One-shot, stamped in HasMigrationRun;
+    // try-runtime checks the map is empty and reports subnets off the default split.
+    pallet_subtensor::migrations::migrate_remove_subnet_tao_weight::remove_subnet_tao_weight::Migration<
         Runtime,
     >,
 );
@@ -1780,13 +2012,17 @@ impl_runtime_apis! {
             uxt: <Block as BlockT>::Extrinsic,
             len: u32,
         ) -> pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo<Balance> {
-            TransactionPayment::query_info(uxt, len)
+            use frame_support::dispatch::GetDispatchInfo;
+            use sp_runtime::traits::ExtrinsicLike;
+            staking_fee::query_info(&uxt.0.function, &uxt.get_dispatch_info(), len, uxt.is_bare())
         }
         fn query_fee_details(
             uxt: <Block as BlockT>::Extrinsic,
             len: u32,
         ) -> pallet_transaction_payment::FeeDetails<Balance> {
-            TransactionPayment::query_fee_details(uxt, len)
+            use frame_support::dispatch::GetDispatchInfo;
+            use sp_runtime::traits::ExtrinsicLike;
+            staking_fee::query_fee_details(&uxt.0.function, &uxt.get_dispatch_info(), len, uxt.is_bare())
         }
         fn query_weight_to_fee(weight: Weight) -> Balance {
             TransactionPayment::weight_to_fee(weight)
@@ -1803,13 +2039,15 @@ impl_runtime_apis! {
             call: RuntimeCall,
             len: u32,
         ) -> pallet_transaction_payment::RuntimeDispatchInfo<Balance> {
-            TransactionPayment::query_call_info(call, len)
+            use frame_support::dispatch::GetDispatchInfo;
+            staking_fee::query_info(&call, &call.get_dispatch_info(), len, false)
         }
         fn query_call_fee_details(
             call: RuntimeCall,
             len: u32,
         ) -> pallet_transaction_payment::FeeDetails<Balance> {
-            TransactionPayment::query_call_fee_details(call, len)
+            use frame_support::dispatch::GetDispatchInfo;
+            staking_fee::query_fee_details(&call, &call.get_dispatch_info(), len, false)
         }
         fn query_weight_to_fee(weight: Weight) -> Balance {
             TransactionPayment::weight_to_fee(weight)
@@ -2252,7 +2490,7 @@ impl_runtime_apis! {
         }
     }
 
-    #[api_version(2)]
+    #[api_version(3)]
     impl subtensor_custom_rpc_runtime_api::SubnetInfoRuntimeApi<Block> for Runtime {
         fn get_subnet_info(netuid: NetUid) -> Option<SubnetInfo<AccountId32>> {
             SubtensorModule::get_subnet_info(netuid)
@@ -2341,6 +2579,10 @@ impl_runtime_apis! {
                 Err(_) => TaoBalance::ZERO,
             }
         }
+
+        fn get_subnet_emission_weights(netuid: NetUid) -> Option<SubnetEmissionWeightsInfo> {
+            SubtensorModule::get_subnet_emission_weights_info(netuid)
+        }
     }
 
     impl subtensor_custom_rpc_runtime_api::StakeInfoRuntimeApi<Block> for Runtime {
@@ -2383,6 +2625,7 @@ impl_runtime_apis! {
         }
     }
 
+    #[api_version(5)]
     impl subtensor_custom_rpc_runtime_api::BetaBasketRuntimeApi<Block> for Runtime {
         fn get_root_basket_owed(coldkey: AccountId32) -> TaoBalance {
             SubtensorModule::get_root_basket_owed_tao(&coldkey)
@@ -2399,9 +2642,6 @@ impl_runtime_apis! {
         fn get_root_basket_total_nav() -> TaoBalance {
             SubtensorModule::get_root_basket_total_nav_tao()
         }
-        fn get_validator_weights(hotkey: AccountId32) -> Vec<(NetUid, u16)> {
-            SubtensorModule::get_validator_root_weights(&hotkey)
-        }
         fn get_validator_basket_summary(hotkey: AccountId32) -> pallet_subtensor::rpc_info::basket_info::BasketSummary<AccountId32> {
             SubtensorModule::get_validator_basket_summary(&hotkey)
         }
@@ -2410,6 +2650,36 @@ impl_runtime_apis! {
         }
         fn get_root_basket_positions(coldkey: AccountId32) -> Vec<(AccountId32, u64, TaoBalance)> {
             SubtensorModule::get_root_basket_positions(&coldkey)
+        }
+        fn get_basket_position(hotkey: AccountId32, coldkey: AccountId32) -> Option<pallet_subtensor::rpc_info::basket_info::BasketPosition<AccountId32>> {
+            SubtensorModule::get_basket_position(&hotkey, &coldkey)
+        }
+        fn get_root_basket_portfolio(coldkey: AccountId32) -> Vec<pallet_subtensor::rpc_info::basket_info::BasketPosition<AccountId32>> {
+            SubtensorModule::get_root_basket_portfolio(&coldkey)
+        }
+        fn get_beta_pricing(hotkey: AccountId32) -> Option<pallet_subtensor::rpc_info::basket_info::BetaPricing<AccountId32>> {
+            SubtensorModule::get_beta_pricing(&hotkey)
+        }
+        fn get_all_beta_pricing(start_after: Option<AccountId32>, limit: u32) -> pallet_subtensor::rpc_info::basket_info::BetaPricingPage<AccountId32> {
+            SubtensorModule::get_all_beta_pricing(start_after, limit)
+        }
+        fn get_beta_index() -> (U64F64, U64F64) {
+            SubtensorModule::get_beta_index_levels()
+        }
+        fn get_beta_position(hotkey: AccountId32, coldkey: AccountId32) -> Option<pallet_subtensor::rpc_info::basket_info::BetaPosition<AccountId32>> {
+            SubtensorModule::get_beta_position(&hotkey, &coldkey)
+        }
+        fn get_beta_portfolio(coldkey: AccountId32) -> Vec<pallet_subtensor::rpc_info::basket_info::BetaPosition<AccountId32>> {
+            SubtensorModule::get_beta_portfolio(&coldkey)
+        }
+        fn get_basket_trading_status(hotkey: AccountId32) -> pallet_subtensor::rpc_info::basket_info::BasketTradingStatus {
+            SubtensorModule::get_basket_trading_status(&hotkey)
+        }
+        fn get_basket_claim_preview(hotkey: AccountId32, coldkey: AccountId32) -> Option<pallet_subtensor::rpc_info::basket_info::BasketClaimPreview<AccountId32>> {
+            SubtensorModule::get_basket_claim_preview(&hotkey, &coldkey)
+        }
+        fn get_root_basket_claim_previews(coldkey: AccountId32) -> Vec<pallet_subtensor::rpc_info::basket_info::BasketClaimPreview<AccountId32>> {
+            SubtensorModule::get_root_basket_claim_previews(&coldkey)
         }
     }
 
