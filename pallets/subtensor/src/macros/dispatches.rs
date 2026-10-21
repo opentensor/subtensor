@@ -2521,8 +2521,8 @@ mod dispatches {
             let who = ensure_signed(origin)?;
 
             // Announcement checks read the announcement and, for V2, its policy
-            // snapshot; charge those plus the benchmarked base, not the envelope
-            // of `MAX_COLDKEY_SWAP_POSITIONS` stake transfers.
+            // snapshot plus the live reservation; charge those plus the benchmarked
+            // base, not the envelope of `MAX_COLDKEY_SWAP_POSITIONS` stake transfers.
             let base = <T as crate::pallet::Config>::WeightInfo::swap_coldkey_announced();
             let announcement_read = T::DbWeight::get().reads(1);
             let initial_precheck = base.saturating_add(announcement_read);
@@ -2540,8 +2540,13 @@ mod dispatches {
                 (None, Weight::zero())
             } else {
                 (
-                    Self::coldkey_swap_v2_policy_snapshot(&who, &new_coldkey, &new_coldkey_hash),
-                    T::DbWeight::get().reads(1),
+                    Self::coldkey_swap_v2_policy_snapshot(
+                        &who,
+                        &new_coldkey,
+                        &new_coldkey_hash,
+                        when,
+                    ),
+                    T::DbWeight::get().reads(4),
                 )
             };
             let precheck = initial_precheck.saturating_add(snapshot_read);

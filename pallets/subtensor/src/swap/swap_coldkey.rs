@@ -399,6 +399,17 @@ impl<T: Config> Pallet<T> {
         ColdkeyRoot::<T>::contains_key(coldkey)
     }
 
+    /// Destination already has non-balance state that must always protect it
+    /// from an unsolicited policy import, even if a V2 announcement originally
+    /// targeted a blank account. Balance is deliberately separate: anyone can
+    /// add dust without the destination's authorization.
+    fn coldkey_has_non_balance_policy_protection(coldkey: &T::AccountId) -> bool {
+        Self::coldkey_already_in_use(coldkey)
+            || Self::coldkey_has_configured_account_flags(coldkey)
+            || Self::coldkey_has_established_lineage(coldkey)
+            || T::ProxyInterface::has_delegator_proxies(coldkey)
+    }
+
     /// Destination already has funds, proxy grants, flags, lineage, or staking
     /// associations — so a source-only swap must not import the source's
     /// auto-stake policy without destination authorization (Skeptic
@@ -410,11 +421,8 @@ impl<T: Config> Pallet<T> {
     /// multisig (or similar) deposit with zero free balance is still prior
     /// presence.
     pub(crate) fn coldkey_rejects_unsolicited_policy_import(coldkey: &T::AccountId) -> bool {
-        Self::coldkey_already_in_use(coldkey)
-            || Self::coldkey_has_configured_account_flags(coldkey)
-            || Self::coldkey_has_established_lineage(coldkey)
+        Self::coldkey_has_non_balance_policy_protection(coldkey)
             || !Self::coldkey_total_balance(coldkey).is_zero()
-            || T::ProxyInterface::has_delegator_proxies(coldkey)
     }
 
     /// V2 commits to whether the destination was blank when it was announced.
@@ -436,15 +444,34 @@ impl<T: Config> Pallet<T> {
     /// Recover and authenticate a V2 announcement's policy snapshot. Legacy
     /// callers may submit arbitrary hashes, so the dedicated V2 storage marker
     /// must exist before a matching tuple hash grants snapshot semantics.
+    ///
+    /// A `true` snapshot only permits ignoring unsolicited balance added while
+    /// this exact destination reservation remains live. Destination-authorized
+    /// release or reservation expiry downgrades it to `false`; execution still
+    /// remains possible as a policy-preserving merge.
     pub(crate) fn coldkey_swap_v2_policy_snapshot(
         announcer: &T::AccountId,
         new_coldkey: &T::AccountId,
         announcement_hash: &T::Hash,
+        when: frame_system::pallet_prelude::BlockNumberFor<T>,
     ) -> Option<bool> {
         let import_source_policies = ColdkeySwapV2PolicySnapshots::<T>::get(announcer)?;
-        (Self::coldkey_swap_v2_announcement_hash(new_coldkey, import_source_policies)
-            == *announcement_hash)
-            .then_some(import_source_policies)
+        if Self::coldkey_swap_v2_announcement_hash(new_coldkey, import_source_policies)
+            != *announcement_hash
+        {
+            return None;
+        }
+        if !import_source_policies {
+            return Some(false);
+        }
+
+        let now = <frame_system::Pallet<T>>::block_number();
+        let ttl = ColdkeySwapReannouncementDelay::<T>::get();
+        let reservation_is_live = now <= when.saturating_add(ttl)
+            && ColdkeySwapReservedDestination::<T>::get(announcer).as_ref() == Some(new_coldkey)
+            && ColdkeySwapDestinationReservations::<T>::get(new_coldkey).as_ref()
+                == Some(announcer);
+        Some(reservation_is_live)
     }
 
     /// Free + reserved TAO on `coldkey`. Distinct from
@@ -729,9 +756,14 @@ impl<T: Config> Pallet<T> {
                 // grants, flags, lineage, or staking associations (Skeptic
                 // fid:93e26a58 / fid:a2c90852). Only a blank rename target imports
                 // the source policy.
-                let import_source_policies = import_source_policies.unwrap_or_else(|| {
-                    !Self::coldkey_rejects_unsolicited_policy_import(new_coldkey)
-                });
+                let import_source_policies = import_source_policies
+                    .map(|ignore_destination_balance| {
+                        ignore_destination_balance
+                            && !Self::coldkey_has_non_balance_policy_protection(new_coldkey)
+                    })
+                    .unwrap_or_else(|| {
+                        !Self::coldkey_rejects_unsolicited_policy_import(new_coldkey)
+                    });
                 // Temporary accept only on a true rename onto an empty key.
                 // Destinations that already carry flags (including reject-locked)
                 // must not have those flags flipped for the lock hand-off.
