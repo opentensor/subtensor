@@ -146,7 +146,7 @@ jobs:
         if: steps.guard.outputs.should_deploy == 'true'
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
 
       # Install without the deploy seed in scope and with install scripts
       # disabled, so a malicious transitive dependency cannot run an install
@@ -244,7 +244,7 @@ jobs:
         if: steps.guard.outputs.should_deploy == 'true'
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Install deploy deps
         if: steps.guard.outputs.should_deploy == 'true'
@@ -458,7 +458,7 @@ jobs:
         if: steps.guard.outputs.should_propose == 'true'
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Install deploy deps
         if: steps.guard.outputs.should_propose == 'true'
