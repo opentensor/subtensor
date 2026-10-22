@@ -779,7 +779,7 @@
     },
     "BurnEmissionMustBeZero": {
       "code": "policy_violation",
-      "description": "Slot 0 (burn) of the emission weight vector was set to a non-zero share. Burning alpha emission is reserved for a future runtime; in v1 the burn share must be 0 (or simply omitted).",
+      "description": "Deprecated. Slot 0 (burn) may now be non-zero; burn and recycle together may be at most 33% (`BurnRecycleEmissionAboveMaximum`).",
       "docs_url": "/docs/errors/chain/BurnEmissionMustBeZero",
       "markdown_url": "/llms.mdx/docs/errors/chain/BurnEmissionMustBeZero/content.md",
       "pallets": [
@@ -789,11 +789,18 @@
         {
           "pallet": "SubtensorModule",
           "path": "pallets/subtensor/src/macros/errors.rs",
-          "line": 433,
-          "url": "/code/pallets/subtensor/src/macros/errors.rs#L433",
+          "line": 434,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L434",
           "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
         }
       ]
+    },
+    "BurnRecycleEmissionAboveMaximum": {
+      "code": "policy_violation",
+      "description": "Slots 0 (burn) and 1 (recycle) of the emission weight vector together exceed the 33% ceiling. Burn destroys alpha but still counts toward issuance; recycle removes alpha from `SubnetAlphaOut` and `TotalAlphaIssuance`. Lower burn and/or recycle so their sum is at most 0.33.",
+      "docs_url": "/docs/errors/chain/BurnRecycleEmissionAboveMaximum",
+      "markdown_url": "/llms.mdx/docs/errors/chain/BurnRecycleEmissionAboveMaximum/content.md",
+      "pallets": []
     },
     "CallDisabled": {
       "code": "disabled",
@@ -1230,8 +1237,8 @@
         {
           "pallet": "SubtensorModule",
           "path": "pallets/subtensor/src/macros/errors.rs",
-          "line": 465,
-          "url": "/code/pallets/subtensor/src/macros/errors.rs#L465",
+          "line": 467,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L467",
           "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
         }
       ]
@@ -1248,8 +1255,8 @@
         {
           "pallet": "SubtensorModule",
           "path": "pallets/subtensor/src/macros/errors.rs",
-          "line": 463,
-          "url": "/code/pallets/subtensor/src/macros/errors.rs#L463",
+          "line": 465,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L465",
           "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
         }
       ]
@@ -1902,7 +1909,7 @@
     },
     "EmissionWeightsDoNotSumToOne": {
       "code": "invalid_argument",
-      "description": "After merging your update into the subnet's current emission weight vector, the five shares do not sum to exactly `u64::MAX` (1.0). Omitted slots keep their current value, so raising one slot requires lowering another in the same call. `btcli subnets emission set-value/increase/decrease` renormalise the other slots for you; with the raw call, pass a full `[0, 0, owner, validator, miner]` vector whose parts total 18446744073709551615.",
+      "description": "After merging your update into the subnet's current emission weight vector, the five shares do not sum to exactly `u64::MAX` (1.0). Omitted slots keep their current value, so raising one slot requires lowering another in the same call. `btcli subnets emission set-value/increase/decrease` renormalise the other slots for you; with the raw call, pass a full `[burn, recycle, owner, validator, miner]` vector whose parts total 18446744073709551615.",
       "docs_url": "/docs/errors/chain/EmissionWeightsDoNotSumToOne",
       "markdown_url": "/llms.mdx/docs/errors/chain/EmissionWeightsDoNotSumToOne/content.md",
       "pallets": [
@@ -1948,8 +1955,8 @@
         {
           "pallet": "SubtensorModule",
           "path": "pallets/subtensor/src/macros/errors.rs",
-          "line": 457,
-          "url": "/code/pallets/subtensor/src/macros/errors.rs#L457",
+          "line": 459,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L459",
           "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
         }
       ]
@@ -3244,8 +3251,8 @@
         {
           "pallet": "SubtensorModule",
           "path": "pallets/subtensor/src/macros/errors.rs",
-          "line": 442,
-          "url": "/code/pallets/subtensor/src/macros/errors.rs#L442",
+          "line": 444,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L444",
           "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
         }
       ]
@@ -3675,8 +3682,8 @@
         {
           "pallet": "SubtensorModule",
           "path": "pallets/subtensor/src/macros/errors.rs",
-          "line": 455,
-          "url": "/code/pallets/subtensor/src/macros/errors.rs#L455",
+          "line": 457,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L457",
           "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
         }
       ]
@@ -4594,8 +4601,8 @@
         {
           "pallet": "SubtensorModule",
           "path": "pallets/subtensor/src/macros/errors.rs",
-          "line": 438,
-          "url": "/code/pallets/subtensor/src/macros/errors.rs#L438",
+          "line": 440,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L440",
           "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
         }
       ]
@@ -4800,7 +4807,7 @@
     },
     "RecycleEmissionMustBeZero": {
       "code": "policy_violation",
-      "description": "Slot 1 (recycle) of the emission weight vector was set to a non-zero share. Recycling alpha emission is reserved for a future runtime; in v1 the recycle share must be 0 (or simply omitted).",
+      "description": "Deprecated. Slot 1 (recycle) may now be non-zero; burn and recycle together may be at most 33% (`BurnRecycleEmissionAboveMaximum`).",
       "docs_url": "/docs/errors/chain/RecycleEmissionMustBeZero",
       "markdown_url": "/llms.mdx/docs/errors/chain/RecycleEmissionMustBeZero/content.md",
       "pallets": [
@@ -4810,8 +4817,8 @@
         {
           "pallet": "SubtensorModule",
           "path": "pallets/subtensor/src/macros/errors.rs",
-          "line": 435,
-          "url": "/code/pallets/subtensor/src/macros/errors.rs#L435",
+          "line": 437,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L437",
           "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
         }
       ]
@@ -6260,8 +6267,8 @@
         {
           "pallet": "SubtensorModule",
           "path": "pallets/subtensor/src/macros/errors.rs",
-          "line": 445,
-          "url": "/code/pallets/subtensor/src/macros/errors.rs#L445",
+          "line": 447,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L447",
           "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
         }
       ]
@@ -6278,8 +6285,8 @@
         {
           "pallet": "SubtensorModule",
           "path": "pallets/subtensor/src/macros/errors.rs",
-          "line": 452,
-          "url": "/code/pallets/subtensor/src/macros/errors.rs#L452",
+          "line": 454,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L454",
           "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
         }
       ]
