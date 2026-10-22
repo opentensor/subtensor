@@ -2756,7 +2756,7 @@ impl_runtime_apis! {
         }
 
         fn current_alpha_price_all() -> Vec<SubnetPrice> {
-            pallet_subtensor::Pallet::<Runtime>::get_all_subnet_netuids()
+            pallet_subtensor::Pallet::<Runtime>::get_all_reportable_subnet_netuids()
                 .into_iter()
                 .map(|netuid| {
                     SubnetPrice {
