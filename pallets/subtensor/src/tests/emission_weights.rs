@@ -310,7 +310,8 @@ fn test_set_accepts_nonzero_burn_and_recycle_within_combined_cap() {
     new_test_ext(1).execute_with(|| {
         let netuid = new_subnet();
         // Burn alone at the 33% combined cap, with room for miner >= 33%.
-        let (uids, values) = full_vector_with_burn_recycle(MAX_BURN_RECYCLE_EMISSION, 0, 0, pct(34));
+        let (uids, values) =
+            full_vector_with_burn_recycle(MAX_BURN_RECYCLE_EMISSION, 0, 0, pct(34));
         assert_ok!(SubtensorModule::do_set_subnet_emission_weights(
             netuid, uids, values
         ));
@@ -321,7 +322,8 @@ fn test_set_accepts_nonzero_burn_and_recycle_within_combined_cap() {
         assert_eq!(SubtensorModule::get_subnet_recycle_emission(netuid), 0);
 
         // Recycle alone at the same inclusive bound.
-        let (uids, values) = full_vector_with_burn_recycle(0, MAX_BURN_RECYCLE_EMISSION, 0, pct(34));
+        let (uids, values) =
+            full_vector_with_burn_recycle(0, MAX_BURN_RECYCLE_EMISSION, 0, pct(34));
         assert_ok!(SubtensorModule::do_set_subnet_emission_weights(
             netuid, uids, values
         ));
@@ -337,7 +339,10 @@ fn test_set_accepts_nonzero_burn_and_recycle_within_combined_cap() {
             netuid, uids, values
         ));
         assert_eq!(SubtensorModule::get_subnet_burn_emission(netuid), pct(20));
-        assert_eq!(SubtensorModule::get_subnet_recycle_emission(netuid), pct(13));
+        assert_eq!(
+            SubtensorModule::get_subnet_recycle_emission(netuid),
+            pct(13)
+        );
     });
 }
 
@@ -1119,17 +1124,8 @@ fn test_coinbase_recycle_lowers_issuance_and_raises_alpha_recycled() {
             epsilon = 200.0
         );
         // Compared to a no-recycle run, SubnetAlphaOut and issuance are lower by ~recycle.
-        let (
-            alpha_control,
-            _,
-            _,
-            _,
-            _,
-            _,
-            recycled_control,
-            alpha_out_control,
-            issuance_control,
-        ) = emit_once_with_burn_recycle(0, 0, owner, validator);
+        let (alpha_control, _, _, _, _, _, recycled_control, alpha_out_control, issuance_control) =
+            emit_once_with_burn_recycle(0, 0, owner, validator);
         assert_eq!(alpha_emission, alpha_control);
         assert_eq!(recycled_control, 0);
         assert_abs_diff_eq!(

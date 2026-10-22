@@ -800,7 +800,18 @@
       "description": "Slots 0 (burn) and 1 (recycle) of the emission weight vector together exceed the 33% ceiling. Burn destroys alpha but still counts toward issuance; recycle removes alpha from `SubnetAlphaOut` and `TotalAlphaIssuance`. Lower burn and/or recycle so their sum is at most 0.33.",
       "docs_url": "/docs/errors/chain/BurnRecycleEmissionAboveMaximum",
       "markdown_url": "/llms.mdx/docs/errors/chain/BurnRecycleEmissionAboveMaximum/content.md",
-      "pallets": []
+      "pallets": [
+        "SubtensorModule"
+      ],
+      "sources": [
+        {
+          "pallet": "SubtensorModule",
+          "path": "pallets/subtensor/src/macros/errors.rs",
+          "line": 470,
+          "url": "/code/pallets/subtensor/src/macros/errors.rs#L470",
+          "raw_url": "/code/raw/pallets/subtensor/src/macros/errors.rs"
+        }
+      ]
     },
     "CallDisabled": {
       "code": "disabled",
