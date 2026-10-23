@@ -170,7 +170,8 @@ mod try_runtime_tests {
     type Migration = subnet_state::Migration<Test>;
 
     #[test]
-    fn post_upgrade_rejects_missing_incorrect_and_extra_lifecycle_entries() {
+    fn post_upgrade_rejects_missing_incorrect_and_extra_lifecycle_entries()
+    -> Result<(), sp_runtime::TryRuntimeError> {
         new_test_ext(1).execute_with(|| {
             let registered = NetUid::from(100);
             let queued = NetUid::from(101);
@@ -191,7 +192,7 @@ mod try_runtime_tests {
             }
             HasMigrationRun::<Test>::remove(MIGRATION_NAME.to_vec());
 
-            let pre_upgrade = Migration::pre_upgrade().expect("pre-upgrade snapshot must encode");
+            let pre_upgrade = Migration::pre_upgrade()?;
             Migration::on_runtime_upgrade();
             assert!(Migration::post_upgrade(pre_upgrade.clone()).is_ok());
             assert!(subnet_state::try_state::<Test>().is_ok());
@@ -225,6 +226,7 @@ mod try_runtime_tests {
                 Migration::post_upgrade(pre_upgrade).is_err(),
                 "a missing completion marker must fail validation"
             );
-        });
+            Ok(())
+        })
     }
 }
