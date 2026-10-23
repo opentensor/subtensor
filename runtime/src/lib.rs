@@ -1758,6 +1758,11 @@ type Migrations = (
     pallet_subtensor::migrations::migrate_remove_subnet_tao_weight::remove_subnet_tao_weight::Migration<
         Runtime,
     >,
+    // Spec 484: backfill the reporting-only lifecycle map from the active subnet set and
+    // dissolution queue before the first post-upgrade idle block can advance cleanup.
+    // try-runtime compares the complete result with a pre-upgrade snapshot and checks the
+    // one-shot marker.
+    pallet_subtensor::migrations::migrate_subnet_state::subnet_state::Migration<Runtime>,
 );
 
 // Unchecked extrinsic type as expected by this runtime.
