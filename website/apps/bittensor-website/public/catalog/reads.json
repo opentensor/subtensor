@@ -1989,7 +1989,7 @@
   {
     "name": "service_urls",
     "summary": "Every service url published on a subnet, by hotkey.",
-    "description": "Every service url published on a subnet, by hotkey.\n\nEach points to its hotkey's own document of its services and the spender\nto name on gamma deposits; the chain does not check what it says.",
+    "description": "Every service url published on a subnet, by hotkey.\n\nEach points to its hotkey's own document of its services and the spender\nto name on gamma deposits; the chain does not check what it says. `block` is\nwhen it was published; `owner` marks the subnet owner's hotkey.",
     "params": {
       "netuid": "integer"
     },
@@ -2008,6 +2008,15 @@
         "path": "pallets/subtensor/src/lib.rs",
         "line": 3179,
         "url": "/code/pallets/subtensor/src/lib.rs#L3179",
+        "raw_url": "/code/raw/pallets/subtensor/src/lib.rs"
+      },
+      {
+        "kind": "storage",
+        "container": "SubtensorModule",
+        "name": "SubnetOwnerHotkey",
+        "path": "pallets/subtensor/src/lib.rs",
+        "line": 2695,
+        "url": "/code/pallets/subtensor/src/lib.rs#L2695",
         "raw_url": "/code/raw/pallets/subtensor/src/lib.rs"
       }
     ]

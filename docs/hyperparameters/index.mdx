@@ -31,7 +31,7 @@ Read them with `btcli sudo get --netuid N` (the [`subnet_hyperparameters`](/docs
 | [`max_burn`](/docs/hyperparameters/max-burn) | TAO amount in rao | yes | burned-registration cost ceiling | [`MaxBurn`](/code/pallets/subtensor/src/lib.rs#L2847) |
 | [`bonds_moving_avg`](/docs/hyperparameters/bonds-moving-avg) | fraction (1,000,000 = 1.0) | yes | bonds EMA smoothing factor | [`BondsMovingAverage`](/code/pallets/subtensor/src/lib.rs#L2789) |
 | [`max_regs_per_block`](/docs/hyperparameters/max-regs-per-block) | integer | root only | per-block registration cap | [`MaxRegistrationsPerBlock`](/code/pallets/subtensor/src/lib.rs#L2387) |
-| [`serving_rate_limit`](/docs/hyperparameters/serving-rate-limit) | blocks (12s) | yes | cooldown between axon serve calls | [`ServingRateLimit`](/code/pallets/subtensor/src/lib.rs#L2705) |
+| [`serving_rate_limit`](/docs/hyperparameters/serving-rate-limit) | blocks (12s) | yes | cooldown between axon and url updates | [`ServingRateLimit`](/code/pallets/subtensor/src/lib.rs#L2705) |
 | [`max_validators`](/docs/hyperparameters/max-validators) | integer | root only | top-stake validator permit cap | [`MaxAllowedValidators`](/code/pallets/subtensor/src/lib.rs#L2779) |
 | [`adjustment_alpha`](/docs/hyperparameters/adjustment-alpha) | fraction (u64, u64::MAX = 1.0) | yes | historical adjustment smoothing | [`AdjustmentAlpha`](/code/pallets/subtensor/src/lib.rs#L2824) |
 | [`commit_reveal_period`](/docs/hyperparameters/commit-reveal-period) | epochs (tempos) | yes | weight commit-to-reveal delay | [`RevealPeriodEpochs`](/code/pallets/subtensor/src/lib.rs#L3304) |

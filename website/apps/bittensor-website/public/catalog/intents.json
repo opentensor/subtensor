@@ -1455,7 +1455,7 @@
   {
     "name": "mint_gamma",
     "summary": "Mint gamma with TAO into your deposit at an API-key hotkey.",
-    "description": "Mint gamma with TAO into your deposit at an API-key hotkey.\n\nBuys the subnet's alpha with `amount_tao`, burns it, and credits its value\nin gamma, one per US dollar, to the deposit at `hotkey_ss58`, opening it\nwhen absent. The alpha is valued at the lower of the subnet's gamma price\nand its spot price before the buy.\nA new deposit's spender is the subnet owner, or a leased subnet's\nbeneficiary, until you name another. Fails rather than minting less than\nthe current quote less `rate_tolerance`.",
+    "description": "Mint gamma with TAO into your deposit at an API-key hotkey.\n\nBuys the subnet's alpha with `amount_tao`, burns it, and credits its value\nin gamma, one per US dollar, to the deposit at `hotkey_ss58`, opening it\nwhen absent. The alpha is valued at the lower of the subnet's gamma price\nand its spot price before the buy.\nA new deposit's spender is the subnet owner, or a leased subnet's\nbeneficiary, unless `spender_ss58` names another in the same batch.\nFails rather than minting less than the current quote less\n`rate_tolerance`.",
     "signer": "coldkey",
     "origin": "signed",
     "verify": null,
@@ -1463,6 +1463,14 @@
       [
         "SubtensorModule",
         "mint_gamma"
+      ],
+      [
+        "SubtensorModule",
+        "set_gamma_deposit_spender"
+      ],
+      [
+        "Utility",
+        "batch_all"
       ]
     ],
     "docs_url": "/docs/tx/mint-gamma",
@@ -1493,6 +1501,10 @@
         "rate_tolerance": {
           "type": "number",
           "description": "Maximum fall of the minted gamma below the quote, as a fraction (0.05 = 5%)."
+        },
+        "spender_ss58": {
+          "type": "string",
+          "description": "The account that spends the deposit. Omit to keep its spender, the subnet owner's for a new deposit."
         }
       },
       "required": [
@@ -1514,13 +1526,31 @@
         "end_line": 3153,
         "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L3143-L3153",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
+      },
+      {
+        "pallet": "SubtensorModule",
+        "call": "set_gamma_deposit_spender",
+        "path": "pallets/subtensor/src/macros/dispatches.rs",
+        "line": 3206,
+        "end_line": 3213,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L3204-L3213",
+        "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
+      },
+      {
+        "pallet": "Utility",
+        "call": "batch_all",
+        "path": "pallets/utility/src/lib.rs",
+        "line": 314,
+        "end_line": 362,
+        "url": "/code/pallets/utility/src/lib.rs#L308-L362",
+        "raw_url": "/code/raw/pallets/utility/src/lib.rs"
       }
     ]
   },
   {
     "name": "mint_gamma_with_stake",
     "summary": "Mint gamma by burning your stake into your deposit at an API-key hotkey.",
-    "description": "Mint gamma by burning your stake into your deposit at an API-key hotkey.\n\nBurns up to `amount_alpha` of your stake on `origin_hotkey_ss58` and\ncredits its value in gamma to the deposit at `hotkey_ss58`, valued as\n`mint_gamma` values bought alpha. The stake is destroyed, not moved.\nFails rather than minting less than the current quote less\n`rate_tolerance`.",
+    "description": "Mint gamma by burning your stake into your deposit at an API-key hotkey.\n\nBurns up to `amount_alpha` (`all` for the whole stake) of your stake\non `origin_hotkey_ss58` and credits its value in gamma to the deposit at\n`hotkey_ss58`, valued as `mint_gamma` values bought alpha. The stake is\ndestroyed, not moved. `spender_ss58` names the deposit's spender as for\n`mint_gamma`. Fails rather than minting less than the current quote less\n`rate_tolerance`.",
     "signer": "coldkey",
     "origin": "signed",
     "verify": null,
@@ -1528,6 +1558,14 @@
       [
         "SubtensorModule",
         "mint_gamma_with_stake"
+      ],
+      [
+        "SubtensorModule",
+        "set_gamma_deposit_spender"
+      ],
+      [
+        "Utility",
+        "batch_all"
       ]
     ],
     "docs_url": "/docs/tx/mint-gamma-with-stake",
@@ -1551,6 +1589,12 @@
               "type": "string",
               "pattern": "^\\d+(\\.\\d+)?$",
               "description": "decimal string, for amounts too large for an exact float"
+            },
+            {
+              "type": "string",
+              "enum": [
+                "all"
+              ]
             }
           ],
           "description": "Alpha of stake burned."
@@ -1562,6 +1606,10 @@
         "rate_tolerance": {
           "type": "number",
           "description": "Maximum fall of the minted gamma below the quote, as a fraction (0.05 = 5%)."
+        },
+        "spender_ss58": {
+          "type": "string",
+          "description": "The account that spends the deposit. Omit to keep its spender, the subnet owner's for a new deposit."
         }
       },
       "required": [
@@ -1583,13 +1631,31 @@
         "end_line": 3176,
         "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L3158-L3176",
         "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
+      },
+      {
+        "pallet": "SubtensorModule",
+        "call": "set_gamma_deposit_spender",
+        "path": "pallets/subtensor/src/macros/dispatches.rs",
+        "line": 3206,
+        "end_line": 3213,
+        "url": "/code/pallets/subtensor/src/macros/dispatches.rs#L3204-L3213",
+        "raw_url": "/code/raw/pallets/subtensor/src/macros/dispatches.rs"
+      },
+      {
+        "pallet": "Utility",
+        "call": "batch_all",
+        "path": "pallets/utility/src/lib.rs",
+        "line": 314,
+        "end_line": 362,
+        "url": "/code/pallets/utility/src/lib.rs#L308-L362",
+        "raw_url": "/code/raw/pallets/utility/src/lib.rs"
       }
     ]
   },
   {
     "name": "move_gamma",
     "summary": "Move gamma between two of your deposits on a subnet.",
-    "description": "Move gamma between two of your deposits on a subnet.\n\nMoves up to `amount_gamma` (`all` for the whole balance) from the\ndeposit at `origin_hotkey_ss58` to the one at\n`destination_hotkey_ss58`. A destination with no deposit is opened with\nthe origin's spender and daily spend cap, and a move that empties the\norigin closes it. A move that opens a deposit needs at least 0.1 gamma\n(`MIN_GAMMA_AMOUNT`).",
+    "description": "Move gamma between two of your deposits on a subnet.\n\nMoves up to `amount_gamma` (`all` for the whole balance) from the\ndeposit at `origin_hotkey_ss58` to the one at\n`destination_hotkey_ss58`. A destination with no deposit is opened with\nthe origin's spender and daily spend cap, and a move that empties the\norigin closes it.",
     "signer": "coldkey",
     "origin": "signed",
     "verify": null,
@@ -4189,7 +4255,7 @@
   {
     "name": "set_service_url",
     "summary": "Publish the url where this hotkey describes its services on a subnet.",
-    "description": "Publish the url where this hotkey describes its services on a subnet.\n\nThe chain stores the url only; the document it points to (the services,\ntheir interfaces, and the spender to name on gamma deposits) is the\npublisher's. Signed by the hotkey, which must be registered on the subnet.\nAn empty url clears it.",
+    "description": "Publish the url where this hotkey describes its services on a subnet.\n\nThe chain stores the url only; the document it points to (the services,\ntheir interfaces, and the spender to name on gamma deposits) is the\npublisher's. Signed by the hotkey, which must be registered on the subnet.\nAn empty url clears it. Updates wait out the subnet's `serving_rate_limit`.",
     "signer": "hotkey",
     "origin": "signed",
     "verify": null,
