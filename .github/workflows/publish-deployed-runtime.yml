@@ -46,6 +46,7 @@ jobs:
     runs-on: [self-hosted, fireactions-turbo-8]
     timeout-minutes: 120
     outputs:
+      needed: ${{ steps.target.outputs.needed }}
       spec: ${{ steps.target.outputs.spec }}
       commit: ${{ steps.target.outputs.commit }}
       code_hash: ${{ steps.chain.outputs.code_hash }}
@@ -59,6 +60,7 @@ jobs:
       - name: Resolve spec_version and commit
         id: target
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           INPUT_SPEC: ${{ inputs.spec_version }}
           INPUT_COMMIT: ${{ inputs.commit }}
         run: |
@@ -72,6 +74,19 @@ jobs:
             echo "mainnet runs spec_version $spec"
           fi
           [[ "$spec" =~ ^[0-9]+$ ]] || { echo "spec_version must be an integer"; exit 1; }
+          echo "spec=$spec" >> "$GITHUB_OUTPUT"
+
+          # Runtimes from the release train (and anything this workflow already
+          # published) have their release; nothing to rebuild.
+          if release_json=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/v${spec}" 2>/dev/null); then
+            if [ "$(jq -r '.prerelease' <<<"$release_json")" = false ]; then
+              echo "Release v${spec} is already published; nothing to do."
+              echo "needed=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "v${spec} is a release-train pre-release; the watcher finalizes it."
+            exit 1
+          fi
 
           commit="$INPUT_COMMIT"
           if [ -z "$commit" ]; then
@@ -89,10 +104,11 @@ jobs:
             || { echo "$commit carries spec_version $(spec_of "$commit"), not $spec"; exit 1; }
 
           echo "Publishing runtime $spec from $commit"
-          { echo "spec=$spec"; echo "commit=$commit"; } >> "$GITHUB_OUTPUT"
+          { echo "commit=$commit"; echo "needed=true"; } >> "$GITHUB_OUTPUT"
 
       - name: Read the finalized runtime from mainnet
         id: chain
+        if: steps.target.outputs.needed == 'true'
         env:
           SPEC: ${{ steps.target.outputs.spec }}
         run: |
@@ -104,6 +120,7 @@ jobs:
       # makes the build reproducible. A fresh cargo home keeps runner config
       # out of the build.
       - name: Srtool build of the commit
+        if: steps.target.outputs.needed == 'true'
         env:
           SPEC: ${{ steps.target.outputs.spec }}
           COMMIT: ${{ steps.target.outputs.commit }}
@@ -132,6 +149,7 @@ jobs:
           cp -v source/runtime/subtensor-digest.json wasm/subtensor-digest.json
 
       - name: Compare with the finalized runtime
+        if: steps.target.outputs.needed == 'true'
         env:
           SPEC: ${{ steps.target.outputs.spec }}
           COMMIT: ${{ steps.target.outputs.commit }}
@@ -150,20 +168,34 @@ jobs:
               first_mainnet_block: ($block | tonumber)}' > wasm/deployment.json
           cat wasm/deployment.json
 
-      - uses: actions/upload-artifact@v4
+      - if: steps.target.outputs.needed == 'true'
+        uses: actions/upload-artifact@v4
         with:
           name: deployed-runtime-${{ steps.target.outputs.spec }}
           path: wasm/
           if-no-files-found: error
           retention-days: 90
 
+  # Tag, release, and (only while mainnet still runs this runtime) the mainnet
+  # mirror in one job, seconds apart, so the watcher never sees a published
+  # current release with a stale mirror for long. The mainnet-release
+  # environment admits only main and holds the mirror deploy key. If the
+  # mirror push fails, re-run this job: an existing tag and release at the
+  # same commit are accepted.
   publish:
     name: Publish release v${{ needs.verify.outputs.spec }}
     needs: verify
+    if: needs.verify.outputs.needed == 'true'
     runs-on: ubuntu-latest
+    environment: mainnet-release
     permissions:
       contents: write
+    env:
+      SPEC: ${{ needs.verify.outputs.spec }}
+      COMMIT: ${{ needs.verify.outputs.commit }}
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           name: deployed-runtime-${{ needs.verify.outputs.spec }}
@@ -172,8 +204,6 @@ jobs:
       - name: Tag and release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SPEC: ${{ needs.verify.outputs.spec }}
-          COMMIT: ${{ needs.verify.outputs.commit }}
           FIRST_BLOCK: ${{ needs.verify.outputs.first_block }}
           CURRENT_SPEC: ${{ needs.verify.outputs.current_spec }}
         run: |
@@ -185,25 +215,29 @@ jobs:
             tag_sha=$(jq -er '.object.sha' <<<"$tag_json")
             [ "$tag_sha" = "$COMMIT" ] || { echo "tag $tag already points at $tag_sha"; exit 1; }
           else
+            # v* tags are immutable once created (release-tags-immutable).
             gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
               -f ref="refs/tags/$tag" -f sha="$COMMIT" >/dev/null
           fi
 
           if release_json=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" 2>/dev/null); then
-            if [ "$(jq -r '.prerelease' <<<"$release_json")" = false ]; then
-              echo "release $tag is already published"
-              exit 0
-            fi
-            echo "release $tag is a pre-release owned by the release train; refusing to change it"
-            exit 1
+            [ "$(jq -r '.prerelease' <<<"$release_json")" = false ] \
+              || { echo "release $tag is a release-train pre-release; refusing to change it"; exit 1; }
+            echo "release $tag is already published"
+            exit 0
           fi
 
-          latest=false
-          [ "$CURRENT_SPEC" = "$SPEC" ] && latest=true
+          # Compare against the nearest older v<N> tag, not whatever GitHub
+          # would pick, so backfilled releases get sensible notes.
+          prev=$(gh api --paginate "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/v" --jq '.[].ref' \
+            | sed -n 's#^refs/tags/v\([0-9][0-9]*\)$#\1#p' | awk -v s="$SPEC" '$1 < s' | sort -n | tail -n 1)
           notes=$(gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
-            -f tag_name="$tag" -f target_commitish="$COMMIT" --jq '.body' || true)
+            -f tag_name="$tag" -f target_commitish="$COMMIT" \
+            ${prev:+-f previous_tag_name="v$prev"} --jq '.body' || true)
           printf 'Runtime %s, finalized on mainnet from block %s.\n\n%s\n' \
             "$SPEC" "$FIRST_BLOCK" "$notes" > notes.md
+          latest=false
+          [ "$CURRENT_SPEC" = "$SPEC" ] && latest=true
           gh release create "$tag" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$COMMIT" \
@@ -212,34 +246,25 @@ jobs:
             --latest="$latest" \
             wasm/subtensor.wasm wasm/subtensor-digest.json wasm/deployment.json
 
-  # Only while mainnet still runs this runtime: point the mainnet mirror at
-  # it, as watch-mainnet-release.yml does for train releases (this also
-  # publishes the :mainnet Docker images).
-  mirror:
-    name: Point mainnet mirror at v${{ needs.verify.outputs.spec }}
-    needs: [verify, publish]
-    if: needs.verify.outputs.current_spec == needs.verify.outputs.spec
-    runs-on: ubuntu-latest
-    environment: mainnet-release
-    steps:
-      - uses: actions/checkout@v4
-
+      # As watch-mainnet-release.yml does for train releases; this also
+      # publishes the :mainnet Docker images. Skipped for superseded runtimes.
       - name: Revalidate finalized runtime
+        if: needs.verify.outputs.current_spec == needs.verify.outputs.spec
         env:
           EXPECTED_SPEC: ${{ needs.verify.outputs.spec }}
           EXPECTED_CODE_HASH: ${{ needs.verify.outputs.code_hash }}
         run: .github/scripts/mainnet-finalized-runtime.sh
 
-      - uses: actions/checkout@v4
+      - if: needs.verify.outputs.current_spec == needs.verify.outputs.spec
+        uses: actions/checkout@v4
         with:
           ref: ${{ needs.verify.outputs.commit }}
           ssh-key: ${{ secrets.MIRROR_DEPLOY_KEY }}
           path: release-source
 
-      - name: Push mainnet mirror
+      - name: Point mainnet mirror at the release
+        if: needs.verify.outputs.current_spec == needs.verify.outputs.spec
         working-directory: release-source
-        env:
-          COMMIT: ${{ needs.verify.outputs.commit }}
         run: |
           set -euo pipefail
           git push --force origin "${COMMIT}:refs/heads/mainnet"
