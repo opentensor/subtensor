@@ -6,24 +6,27 @@ name: Publish Deployed Runtime
 # finalize.
 #
 # No approval is required because nothing is deployed: the release is only
-# published when a fresh srtool build of the given commit on main is
-# byte-identical (BLAKE2b-256) to the :code that mainnet finalized for that
-# spec_version. If the runtime is still the one mainnet runs, the mainnet
-# mirror branch (and with it the :mainnet Docker images) also moves to the
-# commit, exactly as the watcher would have done.
+# published when a fresh srtool build of the commit is byte-identical
+# (BLAKE2b-256) to the :code that mainnet finalized for that spec_version.
+# If mainnet still runs that runtime, the mainnet mirror branch (and with it
+# the :mainnet Docker images) also moves to the commit, as the watcher does
+# for train releases.
 #
-# Inputs: the spec_version and the commit on main that introduced it.
+# Both inputs are optional. By default the spec_version is the one mainnet
+# runs now, and the commit is the first commit on main that set it (the
+# release PR's merge). Later commits can change the runtime without a spec
+# bump, so the latest main is not used.
 
 on:
   workflow_dispatch:
     inputs:
       spec_version:
-        description: "spec_version finalized on mainnet (e.g. 483)"
-        required: true
+        description: "spec_version to publish (default: the one mainnet runs now)"
+        required: false
         type: string
       commit:
-        description: "Full SHA of the commit on main that carries this spec_version"
-        required: true
+        description: "Commit on main to build (default: first commit on main with that spec_version)"
+        required: false
         type: string
 
 permissions:
@@ -36,8 +39,6 @@ concurrency:
 env:
   ARCHIVE_HTTP: https://archive.chain.opentensor.ai:443
   MAINNET_HTTP: https://entrypoint-finney.opentensor.ai:443
-  SPEC: ${{ inputs.spec_version }}
-  COMMIT: ${{ inputs.commit }}
 
 jobs:
   verify:
@@ -45,32 +46,55 @@ jobs:
     runs-on: [self-hosted, fireactions-turbo-8]
     timeout-minutes: 120
     outputs:
+      spec: ${{ steps.target.outputs.spec }}
+      commit: ${{ steps.target.outputs.commit }}
       code_hash: ${{ steps.chain.outputs.code_hash }}
       first_block: ${{ steps.chain.outputs.first_block }}
       current_spec: ${{ steps.chain.outputs.current_spec }}
     steps:
-      - name: Validate inputs
-        run: |
-          set -euo pipefail
-          [ "$GITHUB_REF" = refs/heads/main ] || { echo "dispatch from main"; exit 1; }
-          [[ "$SPEC" =~ ^[0-9]+$ ]] || { echo "spec_version must be an integer"; exit 1; }
-          [[ "$COMMIT" =~ ^[0-9a-f]{40}$ ]] || { echo "commit must be a full lowercase SHA"; exit 1; }
-
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Check commit is on main and carries the spec_version
+      - name: Resolve spec_version and commit
+        id: target
+        env:
+          INPUT_SPEC: ${{ inputs.spec_version }}
+          INPUT_COMMIT: ${{ inputs.commit }}
         run: |
           set -euo pipefail
-          git merge-base --is-ancestor "$COMMIT" origin/main \
-            || { echo "$COMMIT is not on main"; exit 1; }
-          spec=$(git show "$COMMIT:runtime/src/lib.rs" \
-            | grep -Eo 'spec_version: *[0-9]+' | head -n 1 | grep -Eo '[0-9]+')
-          [ "$spec" = "$SPEC" ] || { echo "$COMMIT carries spec_version $spec, not $SPEC"; exit 1; }
+          [ "$GITHUB_REF" = refs/heads/main ] || { echo "dispatch from main"; exit 1; }
+          spec_of() { git show "$1:runtime/src/lib.rs" | grep -Eo 'spec_version: *[0-9]+' | head -n 1 | grep -Eo '[0-9]+'; }
+
+          spec="$INPUT_SPEC"
+          if [ -z "$spec" ]; then
+            spec=$(.github/scripts/mainnet-finalized-runtime.sh | sed -n 's/^spec_version=//p')
+            echo "mainnet runs spec_version $spec"
+          fi
+          [[ "$spec" =~ ^[0-9]+$ ]] || { echo "spec_version must be an integer"; exit 1; }
+
+          commit="$INPUT_COMMIT"
+          if [ -z "$commit" ]; then
+            # Oldest first-parent commit on main whose runtime declares $spec.
+            mapfile -t candidates < <(git log --first-parent --reverse --format=%H \
+              -G "spec_version: *${spec}," origin/main -- runtime/src/lib.rs)
+            for sha in "${candidates[@]}"; do
+              if [ "$(spec_of "$sha")" = "$spec" ]; then commit=$sha; break; fi
+            done
+            : "${commit:?no commit on main sets spec_version $spec}"
+          fi
+          [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || { echo "commit must be a full lowercase SHA"; exit 1; }
+          git merge-base --is-ancestor "$commit" origin/main || { echo "$commit is not on main"; exit 1; }
+          [ "$(spec_of "$commit")" = "$spec" ] \
+            || { echo "$commit carries spec_version $(spec_of "$commit"), not $spec"; exit 1; }
+
+          echo "Publishing runtime $spec from $commit"
+          { echo "spec=$spec"; echo "commit=$commit"; } >> "$GITHUB_OUTPUT"
 
       - name: Read the finalized runtime from mainnet
         id: chain
+        env:
+          SPEC: ${{ steps.target.outputs.spec }}
         run: |
           set -euo pipefail
           .github/scripts/deployed-runtime.sh "$SPEC" | tee -a "$GITHUB_OUTPUT"
@@ -80,6 +104,9 @@ jobs:
       # makes the build reproducible. A fresh cargo home keeps runner config
       # out of the build.
       - name: Srtool build of the commit
+        env:
+          SPEC: ${{ steps.target.outputs.spec }}
+          COMMIT: ${{ steps.target.outputs.commit }}
         run: |
           set -euo pipefail
           git worktree add --detach source "$COMMIT"
@@ -106,6 +133,8 @@ jobs:
 
       - name: Compare with the finalized runtime
         env:
+          SPEC: ${{ steps.target.outputs.spec }}
+          COMMIT: ${{ steps.target.outputs.commit }}
           CODE_HASH: ${{ steps.chain.outputs.code_hash }}
           FIRST_BLOCK: ${{ steps.chain.outputs.first_block }}
         run: |
@@ -123,13 +152,13 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: deployed-runtime-${{ inputs.spec_version }}
+          name: deployed-runtime-${{ steps.target.outputs.spec }}
           path: wasm/
           if-no-files-found: error
           retention-days: 90
 
   publish:
-    name: Publish release v${{ inputs.spec_version }}
+    name: Publish release v${{ needs.verify.outputs.spec }}
     needs: verify
     runs-on: ubuntu-latest
     permissions:
@@ -137,12 +166,14 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: deployed-runtime-${{ inputs.spec_version }}
+          name: deployed-runtime-${{ needs.verify.outputs.spec }}
           path: wasm
 
       - name: Tag and release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SPEC: ${{ needs.verify.outputs.spec }}
+          COMMIT: ${{ needs.verify.outputs.commit }}
           FIRST_BLOCK: ${{ needs.verify.outputs.first_block }}
           CURRENT_SPEC: ${{ needs.verify.outputs.current_spec }}
         run: |
@@ -185,9 +216,9 @@ jobs:
   # it, as watch-mainnet-release.yml does for train releases (this also
   # publishes the :mainnet Docker images).
   mirror:
-    name: Point mainnet mirror at v${{ inputs.spec_version }}
+    name: Point mainnet mirror at v${{ needs.verify.outputs.spec }}
     needs: [verify, publish]
-    if: needs.verify.outputs.current_spec == inputs.spec_version
+    if: needs.verify.outputs.current_spec == needs.verify.outputs.spec
     runs-on: ubuntu-latest
     environment: mainnet-release
     steps:
@@ -195,18 +226,20 @@ jobs:
 
       - name: Revalidate finalized runtime
         env:
-          EXPECTED_SPEC: ${{ inputs.spec_version }}
+          EXPECTED_SPEC: ${{ needs.verify.outputs.spec }}
           EXPECTED_CODE_HASH: ${{ needs.verify.outputs.code_hash }}
         run: .github/scripts/mainnet-finalized-runtime.sh
 
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.commit }}
+          ref: ${{ needs.verify.outputs.commit }}
           ssh-key: ${{ secrets.MIRROR_DEPLOY_KEY }}
           path: release-source
 
       - name: Push mainnet mirror
         working-directory: release-source
+        env:
+          COMMIT: ${{ needs.verify.outputs.commit }}
         run: |
           set -euo pipefail
           git push --force origin "${COMMIT}:refs/heads/mainnet"
